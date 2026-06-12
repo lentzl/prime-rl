@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 import verifiers as vf
 
-from prime_rl.configs.algorithm import AlgorithmConfig, FrozenModelConfig
+from prime_rl.configs.algorithm import AlgorithmConfig, DatasetConfig, FrozenModelConfig
 from prime_rl.orchestrator.algo import EchoAlgorithm, stamp_advantages, stamp_loss_routing
 from prime_rl.orchestrator.trajectories import interleave_rollout
 from prime_rl.orchestrator.types import TrainRollout
@@ -15,6 +15,8 @@ FROZEN = {"name": "org/ref-model", "base_url": ["http://ref:8001/v1"]}
 
 def _ref_kind(ref):
     """Collapse a resolved reference to a comparable marker."""
+    if isinstance(ref, DatasetConfig):
+        return "static"
     return "frozen" if isinstance(ref, FrozenModelConfig) else ref
 
 
@@ -24,13 +26,17 @@ def _ref_kind(ref):
         ("grpo", None, "policy", None, "rl"),
         ("max_rl", None, "policy", None, "rl"),
         ("opd", FROZEN, "policy", "frozen", "ref_kl"),
-        ("sft", FROZEN, "frozen", None, "ce"),
+        ("sft", None, "static", None, "ce"),
+        ("sft_distill", FROZEN, "frozen", None, "ce"),
         ("opsd", None, "policy", "policy", "ref_kl"),
         ("echo", None, "policy", None, "rl"),
     ],
 )
 def test_type_defaults_are_the_vetted_algorithms(advantage_type, model, source, advantage_model, action_loss_type):
-    algo = AlgorithmConfig(advantage={"type": advantage_type}, model=model)
+    kwargs = {"advantage": {"type": advantage_type}, "model": model}
+    if advantage_type == "sft":
+        kwargs["dataset"] = {"name": "org/static-sft"}
+    algo = AlgorithmConfig(**kwargs)
     assert _ref_kind(algo.sampling.source) == source
     assert algo.advantage.type == advantage_type
     assert _ref_kind(getattr(algo.advantage, "model", None)) == advantage_model
@@ -63,9 +69,29 @@ def test_opd_requires_teacher():
         AlgorithmConfig(advantage={"type": "opd"})
 
 
-def test_sft_requires_teacher():
-    with pytest.raises(ValueError, match="needs a teacher to sample rollouts from"):
+def test_sft_requires_dataset():
+    with pytest.raises(ValueError, match=r"needs \[orchestrator.algo.dataset\]"):
         AlgorithmConfig(advantage={"type": "sft"})
+
+
+def test_sft_distill_requires_teacher():
+    with pytest.raises(ValueError, match="needs a teacher to sample rollouts from"):
+        AlgorithmConfig(advantage={"type": "sft_distill"})
+
+
+def test_sft_distill_rejects_dataset_source():
+    with pytest.raises(ValueError, match="needs a teacher model"):
+        AlgorithmConfig(
+            sampling={"source": {"type": "dataset", "name": "org/static-sft"}},
+            advantage={"type": "sft_distill"},
+        )
+
+
+def test_dataset_folds_to_static_sft_source():
+    algo = AlgorithmConfig(advantage={"type": "sft"}, dataset={"name": "org/static-sft", "split": "train"})
+    assert algo.advantage.type == "sft"
+    assert isinstance(algo.sampling.source, DatasetConfig)
+    assert algo.sampling.source.name == "org/static-sft"
 
 
 def test_teacher_aliases_model_shorthand():

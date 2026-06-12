@@ -2,14 +2,14 @@
 
 An algorithm is a bundle of two pieces:
 
-1. **Sampling** — which model generates train rollouts. ``source`` is a model
-   reference: ``"policy"`` (the live policy) or an inline frozen hosted model.
+1. **Sampling** — how train rollouts are produced. ``source`` is ``"policy"``
+   (the live policy), an inline frozen hosted model, or a dataset.
 2. **Advantage** — credit assignment and loss routing, fused: one mapping from
    a finalized rollout to per-token ``(loss component, weight)``.
    Group-relative strategies compute scalars on the orchestrator and ship
    numbers; reference-KL strategies ship reference prefill logprobs and the
    trainer evaluates the per-token signal against the live policy. The
-   strategy determines which loss component consumes the action tokens
+strategy determines which loss component consumes the action tokens
    (``rl`` / ``ce`` / ``ref_kl``) and what happens to env-provided observation
    tokens (masked out by default; ``echo`` trains on them with weighted CE).
 
@@ -17,15 +17,14 @@ prime-rl only ever hosts the trainable policy. Every other model an algorithm
 uses is an external OpenAI-compatible endpoint, declared inline on the
 component that uses it (a :class:`FrozenModelConfig`). Model roles like
 "teacher" are algorithm-local vocabulary over these references; the pipeline
-branches on liveness alone. The advantage ``type`` names the algorithm and its
-class defaults are the vetted setting — ``type = "opd"`` with nothing else IS
-on-policy distillation; any key you set is visibly your own assembly. The
-trainer is algorithm-blind: the loss is a sum of three components (rl, ce,
-ref_kl), each normalized by its own global token count; per-token component
-weights ship on the wire and the trainer just executes them.
+branches on liveness alone. The advantage ``type`` names the algorithm. The trainer is algorithm-blind: the loss is a
+sum of three components (rl, ce, ref_kl), each normalized by its own global
+token count; per-token component weights ship on the wire and the trainer just
+executes them.
 """
 
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, ClassVar, Literal, TypeAlias
 
 from pydantic import AliasChoices, Field, model_validator
@@ -62,6 +61,51 @@ ModelReference: TypeAlias = Literal["policy"] | FrozenModelConfig
 version, sampling logprobs carried, rollouts age off-policy) or an inline
 externally-hosted frozen model."""
 
+
+class DatasetConfig(BaseConfig):
+    """A Hugging Face dataset used as precomputed supervised trajectories."""
+
+    type: Literal["dataset"] = "dataset"
+
+    name: str | None = None
+    """Dataset path accepted by ``datasets.load_dataset``. Mutually exclusive with ``data_dir``."""
+
+    data_dir: Path | None = None
+    """Local directory containing JSONL transcript files. Mutually exclusive with ``name``."""
+
+    split: str = "train"
+    """Dataset split to load."""
+
+    subset: str | None = None
+    """Optional dataset subset/config name."""
+
+    messages_column: str = "messages"
+    """Whole-chat messages column. Takes precedence when present."""
+
+    prompt_column: str = "prompt"
+    """Prompt column used with ``completion_column`` when no messages column is present."""
+
+    completion_column: str = "completion"
+    """Completion column used with ``prompt_column`` when no messages column is present."""
+
+    tools_column: str = "tools"
+    """Optional tools column; ``tool_defs`` is also accepted for rollout-shaped rows."""
+
+    max_examples: int | None = Field(None, ge=1)
+    """Optional cap on loaded examples for smoke tests and small runs."""
+
+    max_turns: int = Field(-1, ge=-1)
+    """Maximum assistant turns to replay per row. ``-1`` replays every assistant message."""
+
+    @model_validator(mode="after")
+    def require_one_source(self):
+        if (self.name is None) == (self.data_dir is None):
+            raise ValueError("dataset needs exactly one of name or data_dir.")
+        return self
+
+
+SamplingSource: TypeAlias = ModelReference | DatasetConfig
+
 ActionLossType: TypeAlias = Literal["rl", "ce", "ref_kl"]
 
 
@@ -71,11 +115,10 @@ ActionLossType: TypeAlias = Literal["rl", "ce", "ref_kl"]
 
 
 class SamplingConfig(BaseConfig):
-    source: ModelReference = "policy"
-    """Model reference for train rollout generation: ``"policy"`` (the live
-    policy — prefix caches salted per version, sampling logprobs requested,
-    rollouts age off-policy) or an inline frozen hosted model (stable prefix
-    cache, no sampling logprobs, rollouts never go stale)."""
+    source: SamplingSource = "policy"
+    """Train rollout source: ``"policy"`` (live policy), an inline frozen
+    hosted model (hard distillation), or a static Hugging Face dataset of
+    supervised messages (static SFT)."""
 
 
 # ---------------------------------------------------------------------------
@@ -261,9 +304,9 @@ class OPSDAdvantageConfig(BaseConfig):
     """Maximum concurrent prefill requests per batch."""
 
 
-class SFTAdvantageConfig(BaseConfig):
-    type: Literal["sft"] = "sft"
-    """SFT distillation: cross-entropy on the sampled tokens. The ``ce``
+class SFTDistillAdvantageConfig(BaseConfig):
+    type: Literal["sft_distill"] = "sft_distill"
+    """SFT distillation: cross-entropy on teacher-sampled tokens. The ``ce``
     loss component ignores scalar advantages, but group-relative scalars are still
     assigned so reward-based filtering keeps working (the zero-advantage
     filter drops uniform-reward groups)."""
@@ -274,6 +317,17 @@ class SFTAdvantageConfig(BaseConfig):
     """The sampling source is this algorithm's teacher — the frozen model
     whose tokens the policy trains on. Required: CE on the policy's own
     tokens is rejected at validation."""
+
+
+class SFTAdvantageConfig(BaseConfig):
+    type: Literal["sft"] = "sft"
+    """Static SFT: cross-entropy on assistant messages loaded from a dataset.
+
+    No reward or group-relative scalar is assigned; the dataset row itself is
+    the supervised target, and advantage-based filters skip it."""
+
+    action_loss_type: ClassVar[ActionLossType] = "ce"
+    group_relative: ClassVar[bool] = False
 
 
 class CustomAdvantageConfig(BaseConfig):
@@ -299,6 +353,7 @@ AdvantageConfig: TypeAlias = Annotated[
     | RewardAdvantageConfig
     | OPDAdvantageConfig
     | OPSDAdvantageConfig
+    | SFTDistillAdvantageConfig
     | SFTAdvantageConfig
     | CustomAdvantageConfig,
     Field(discriminator="type"),
@@ -313,8 +368,7 @@ AdvantageConfig: TypeAlias = Annotated[
 class AlgorithmConfig(BaseConfig):
     """The advantage ``type`` names the algorithm, and each type's class
     defaults are its vetted setting — ``advantage = { type = "opd" }`` with a
-    teacher IS on-policy distillation; any other key you set is visibly your
-    own assembly.
+    teacher IS on-policy distillation.
 
     The algorithms:
 
@@ -322,7 +376,8 @@ class AlgorithmConfig(BaseConfig):
     - ``max_rl`` — GRPO with mean-normalized advantages (maximum-likelihood RL).
     - ``opd`` — on-policy distillation: policy samples, per-token reverse KL against a reference model. Needs ``teacher``.
     - ``opsd`` — SDFT: policy samples, demo-conditioned reverse KL against the live policy by default.
-    - ``sft`` — a frozen model samples, the policy trains with CE on its tokens. Needs ``teacher``.
+    - ``sft`` — a static HF dataset provides assistant messages, the policy trains with CE. Needs ``dataset``.
+    - ``sft_distill`` — a frozen model samples, the policy trains with CE on its tokens. Needs ``teacher``.
     - ``echo`` — GRPO on action tokens + weighted CE on tool-response observation tokens.
     - ``reward`` / ``custom`` — raw-reward and user-supplied advantage functions.
     """
@@ -331,7 +386,7 @@ class AlgorithmConfig(BaseConfig):
     """Model reference shorthand: ``"policy"`` or an inline frozen hosted
     model. Folds into the slot the advantage type declares for it —
     ``advantage.model`` when the type has one (opd, opsd), ``sampling.source``
-    when the type's teacher is its sampling source (sft). A slot the user
+    when the type's teacher is its sampling source (sft_distill). A slot the user
     didn't set takes the shorthand; an explicit reference that already equals
     it is accepted, a disagreeing one is an error. ``teacher`` is an accepted
     alias — the distillation algorithms declare their reference's role as
@@ -340,6 +395,9 @@ class AlgorithmConfig(BaseConfig):
 
     sampling: SamplingConfig = SamplingConfig()
     """Sampling component."""
+
+    dataset: DatasetConfig | None = Field(None, exclude=True)
+    """Dataset input for static SFT. Folds into ``sampling.source``."""
 
     advantage: AdvantageConfig = GRPOAdvantageConfig()
     """The per-token training signal: credit assignment and loss routing,
@@ -350,6 +408,16 @@ class AlgorithmConfig(BaseConfig):
         """True when the advantage strategy assigns group-relative scalars,
         i.e. degenerate with ``group_size=1``."""
         return self.advantage.group_relative
+
+    @model_validator(mode="after")
+    def fold_dataset(self):
+        if self.dataset is None:
+            return self
+        if "source" not in self.sampling.model_fields_set:
+            self.sampling.source = self.dataset
+        elif self.sampling.source != self.dataset:
+            raise ValueError("algo.dataset conflicts with explicit algo.sampling.source. Set one.")
+        return self
 
     @model_validator(mode="after")
     def fold_model(self):
@@ -393,6 +461,11 @@ class AlgorithmConfig(BaseConfig):
                 f"CE on the policy's own tokens is not a distillation target. Set '{source_role}' on "
                 "the algorithm (an inline hosted model: name + base_url), or sampling.source explicitly."
             )
+        if source_role is not None and isinstance(self.sampling.source, DatasetConfig):
+            raise ValueError(
+                f"advantage '{self.advantage.type}' needs a {source_role} model, not a dataset. "
+                "Use advantage.type='sft' for dataset-backed SFT."
+            )
         if getattr(self.advantage, "model", "<absent>") is None:
             role = getattr(self.advantage, "model_role", "reference model")
             raise ValueError(
@@ -409,10 +482,12 @@ class AlgorithmConfig(BaseConfig):
         if self.advantage.action_loss_type in ("rl", "ref_kl") and self.sampling.source != "policy":
             raise ValueError(
                 f"advantage '{self.advantage.type}' trains with the "
-                f"{self.advantage.action_loss_type} loss type but sampling.source is a frozen model — "
+                f"{self.advantage.action_loss_type} loss type but sampling.source is not the live policy — "
                 "the importance ratio and trust region need the live policy's own sampling logprobs. "
-                "Use the 'sft' advantage to distill frozen-model tokens."
+                "Use 'sft_distill' to distill frozen-model tokens or 'sft' for dataset-backed SFT."
             )
+        if isinstance(self.advantage, SFTAdvantageConfig) and not isinstance(self.sampling.source, DatasetConfig):
+            raise ValueError("advantage.type='sft' needs [orchestrator.algo.dataset].")
         return self
 
     def warn_group_size(self, group_size: int, env_name: str) -> None:

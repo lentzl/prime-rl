@@ -30,7 +30,7 @@ This page covers the math and the configurable algorithmic components: the algor
 
 A training algorithm in `prime-rl` is a bundle of two components, configured under `[orchestrator.algo]`:
 
-1. **Sampling** (`algo.sampling`) — how train rollouts are produced: which model generates them. `source` is a [model reference](#model-references): `"policy"` (the live policy, the default) or an inline frozen hosted model. Group sizing stays on the env config (`group_size`).
+1. **Sampling** (`algo.sampling`) — how train rollouts are produced: policy, frozen teacher model, or dataset-backed replay. Group sizing stays on the env config (`group_size`).
 2. **Advantage** (`algo.advantage`) — the per-token training signal: credit assignment and loss routing, fused. One mapping from a finalized rollout to per-token *(loss component, weight)* pairs — the credit a token gets and the loss that consumes it are two coordinates of the same output. Group-relative strategies compute credit on the orchestrator and ship per-token advantage streams; reference-KL strategies query a reference model at batch-ship time (bounded concurrency) and ship its prefill logprobs for the trainer to evaluate against the live policy. The strategy determines which loss component consumes the action tokens (`rl` / `ce` / `ref_kl`) and what happens to env-provided observation tokens in multi-turn rollouts (masked out by default; `echo` trains on them with weighted CE).
 
 The trainer is algorithm-blind: the loss is a sum of three components (rl, ce, ref_kl), each normalized by its own global token count; per-token streams ship on the wire (the `rl_weights` / `ce_weights` / `ref_kl_weights` component weights plus the `advantages` stream on each training sample) and the trainer just executes them. Adding an algorithm never touches the dispatcher, packer, or trainer hot path.
@@ -50,7 +50,7 @@ base_url = ["http://localhost:8001/v1"]
 
 Model *roles* are labels the algorithm itself declares over these references — the distillation algorithms declare their reference's role as `teacher`, so `[orchestrator.algo.teacher]` parses as an alias for the `model` shorthand and validation errors speak the same language ("advantage 'opd' needs a teacher"). No role exists outside the algorithm that declares it: the dispatcher, sink, and trainer branch on liveness alone, never on what an algorithm calls a model.
 
-`algo.model` (alias: `algo.teacher`) is shorthand for the slot the advantage type declares for its reference — `advantage.model` for `opd` / `opsd`, `sampling.source` for `sft` (its teacher is the sampling source). A slot you didn't set takes the shorthand; an explicit reference that already equals it is accepted, a disagreeing one is an error. Set the component fields directly for multi-model setups.
+`algo.model` (alias: `algo.teacher`) is shorthand for the slot the algorithm declares for its reference — `advantage.model` for `opd` / `opsd`, `sampling.source` for `sft_distill` (its teacher is the sampling source). A slot you didn't set takes the shorthand; an explicit reference that already equals it is accepted, a disagreeing one is an error. Set the component fields directly for multi-model setups.
 
 Liveness is a property of the reference, not of any role: rollouts sampled from `"policy"` get version-salted prefix caches, carry sampling logprobs for importance ratios, and age off-policy as weights update; rollouts and scores from frozen models get a stable prefix cache and never go stale. Frozen models are externally hosted (`base_url` is required) — `prime-rl` never launches or updates them, and each env's algorithm builds its own client pool to the endpoints it declares.
 
@@ -68,11 +68,36 @@ type = "grpo"  # the default
 | `grpo` | policy | `rl` on actions | Standard group-relative RL. |
 | `max_rl` | policy | `rl` on actions | MaxRL ([arXiv:2602.02710](https://arxiv.org/abs/2602.02710)): GRPO's centered reward normalized by the group **mean** instead of the standard deviation — the gradient is unbiased for the order-`group_size` truncation of the maximum-likelihood objective, upweighting hard examples like `1/p`. |
 | `opd` | policy | `ref_kl` on actions | On-policy distillation ([Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)): the policy samples, per-token reverse KL against a reference model as the gradient signal. Needs a `teacher`. |
-| `sft` | *(the teacher)* | `ce` on actions | Hard distillation: a frozen model generates rollouts, the policy trains with CE on its tokens. Needs a `teacher` (folds into `sampling.source`). |
+| `sft` | dataset | `ce` on actions | Static supervised fine-tuning: dataset rows provide assistant messages, the policy trains with CE on those tokens. Needs `dataset`. |
+| `sft_distill` | *(the teacher)* | `ce` on actions | Hard distillation: a frozen model generates rollouts, the policy trains with CE on its tokens. Needs a `teacher` (folds into `sampling.source`). |
 | `opsd` | policy | `ref_kl` on actions | SDFT ([arXiv:2601.19897](https://arxiv.org/abs/2601.19897)): the model is its own reference, conditioned on an expert demonstration. Defaults to the live policy (the paper's setting, no extra deployment); set an inline `model` to score under a frozen copy instead. |
 | `echo` | policy | `rl` on actions + weighted `ce` on observations | ECHO: standard GRPO plus a cross-entropy loss on env-provided tokens already present in the rollout, selected by message role (needs the renderer's role attribution). Defaults to tool-response bodies at `alpha = 0.1` (ECHO's λ); set `roles` to train other roles, each at its own weight. |
 | `reward` | policy | `rl` on actions | REINFORCE-style: advantage = raw reward, no group baseline. |
 | `custom` | policy | `rl` on actions | Your own advantage function (`import_path`), per-token advantages per rollout — see [Custom Advantage](#custom-advantage). |
+
+Static SFT accepts either a Hugging Face dataset:
+
+```toml
+[orchestrator.algo.advantage]
+type = "sft"
+
+[orchestrator.algo.dataset]
+name = "org/my-sft-dataset"
+split = "train"
+```
+
+or local JSONL transcripts:
+
+```toml
+[orchestrator.algo.advantage]
+type = "sft"
+
+[orchestrator.algo.dataset]
+data_dir = "data/sft"
+max_turns = -1  # replay every assistant message
+```
+
+Rows must have either a `messages` list or `prompt` + `completion` fields.
 
 ### Customizing Components
 
@@ -140,7 +165,8 @@ At runtime, each env's resolved config builds two objects: a `Sampler` (`prime_r
 | `max_rl` | `MaxRLAlgorithm` | mean-normalized group credit | — |
 | `opd` | `OPDAlgorithm` | — | own-context prefill under the teacher |
 | `opsd` | `OPSDAlgorithm` | — | demo-conditioned prefill under the teacher |
-| `sft` | `SFTDistillAlgorithm` | group-norm credit (feeds filters) | — |
+| `sft` | `StaticSFTAlgorithm` | — | — |
+| `sft_distill` | `SFTDistillAlgorithm` | group-norm credit (feeds filters) | — |
 | `reward` | `RewardAlgorithm` | raw reward | — |
 | `custom` | `CustomAlgorithm` | your function | — |
 
@@ -283,7 +309,8 @@ The advantage strategy is the `advantage` component of the [algorithm](#the-algo
 | `reward` | `rl` | Advantage = raw reward, no baseline. |
 | `opd` | `ref_kl` | On-policy distillation: per-token reverse KL to a reference model (`model`, an inline frozen hosted model), evaluated in the trainer from shipped reference logprobs. No credit — rollouts keep `advantages = None` (advantage-based filters never fire) and ship no advantage stream; `group_size` only fans out sampling. |
 | `opsd` | `ref_kl` | SDFT: per-token reverse KL to a demo-conditioned reference. No credit — rollouts keep `advantages = None` (advantage-based filters never fire) and ship no advantage stream. |
-| `sft` | `ce` | Cross-entropy on the sampled tokens. The loss ignores advantages, but group-relative credit is still assigned so reward-based filtering keeps working. |
+| `sft` | `ce` | Cross-entropy on dataset-provided assistant tokens. No scalar credit is assigned. |
+| `sft_distill` | `ce` | Cross-entropy on teacher-sampled tokens. The loss ignores advantages, but group-relative credit is still assigned so reward-based filtering keeps working. |
 | `custom` | `rl` | Your function (below); per-token advantages per rollout. |
 
 ### Default Advantage

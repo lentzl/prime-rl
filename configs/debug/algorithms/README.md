@@ -8,9 +8,9 @@ Minimal end-to-end configs for the algorithms against bundled verifiers envs, us
 | `max_rl.toml` | `max_rl` | none | GRPO with mean-normalized advantages (maximum-likelihood RL) |
 | `opd.toml` | `opd` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | |
 | `opd_lora.toml` | `opd` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | trains a LoRA adapter (rank 8) |
-| `sft_distill.toml` | `sft` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | |
-| `sft_distill_lora.toml` | `sft` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | trains a LoRA adapter (rank 8) |
-| `sft_distill_external.toml` | `sft` | PI inference (`openai/gpt-5-mini`) | external OAI endpoint; no local server |
+| `sft_distill.toml` | `sft_distill` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | |
+| `sft_distill_lora.toml` | `sft_distill` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | trains a LoRA adapter (rank 8) |
+| `sft_distill_external.toml` | `sft_distill` | PI inference (`openai/gpt-5-mini`) | external OAI endpoint; no local server |
 | `self_distill.toml` | `opsd` | none (`model = "policy"`) | SDFT against the live policy; demo from reverse-text's `answer` field |
 | `echo.toml` | `echo` | none | multi-turn `alphabet-sort`; CE on observation tokens |
 | `mixed_grpo_opd.toml` | `grpo` + `opd` (per env) | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | two envs, one run; heterogeneous batches (with/without `ref_logprobs`) |

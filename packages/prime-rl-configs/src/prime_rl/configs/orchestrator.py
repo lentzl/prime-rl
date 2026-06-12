@@ -11,6 +11,7 @@ from renderers import AutoRendererConfig, RendererConfig
 from prime_rl.configs.algorithm import (
     AdvantageConfig,
     AlgorithmConfig,
+    DatasetConfig,
 )
 from prime_rl.configs.shared import (
     BaseModelConfig,
@@ -736,6 +737,14 @@ class OrchestratorConfig(BaseConfig):
         """True when at least one train env samples rollouts from the live policy."""
         return any(env.algo is not None and env.algo.sampling.source == "policy" for env in self.train.env)
 
+    @property
+    def any_static_dataset_sourced(self) -> bool:
+        """True when at least one train env loads supervised traces locally."""
+        return any(
+            env.algo is not None and isinstance(env.algo.sampling.source, DatasetConfig)
+            for env in self.train.env
+        )
+
     @model_validator(mode="after")
     def validate_renderer_for_demo_scoring(self):
         """``opsd`` rebuilds its demo-conditioned scoring prefix
@@ -870,6 +879,8 @@ class OrchestratorConfig(BaseConfig):
             if "group_size" not in env_cfg.model_fields_set:
                 env_cfg.group_size = self.group_size
             assert env_cfg.algo is not None  # materialized by inherit_env_algorithms
+            if env_cfg.algo.advantage.type == "sft" and env_cfg.group_size != 1:
+                raise ValueError("sft requires group_size=1 because dataset rows are already fixed targets")
             env_cfg.algo.warn_group_size(env_cfg.group_size, env_cfg.resolved_name)
 
         # Resolve train env num_workers from max_inflight_rollouts
