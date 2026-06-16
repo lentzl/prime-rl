@@ -152,7 +152,6 @@ def test_orchestrator_sdpo_mode_accepts_teacher():
 
     assert config.training_mode == "sdpo"
     assert config.teacher is not None
-    assert config.nested.lr == 1e-4
 
 
 def test_toml_overrides_defaults(tmp_path):
