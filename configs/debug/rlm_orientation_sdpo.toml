@@ -1,0 +1,65 @@
+# Minimal SDPO smoke for a custom Verifiers environment using Prime rlm-harness.
+# Start the teacher server separately:
+#   CUDA_VISIBLE_DEVICES=0 uv run inference \
+#     --model.name PrimeIntellect/Qwen3-0.6B \
+#     --server.port 8001 \
+#     --gpu-memory-utilization 0.30 \
+#     --model.tool-call-parser qwen3_coder \
+#     --model.enforce-eager
+# Then run:
+#   uv run rl @ configs/debug/rlm_orientation_sdpo.toml --clean-output-dir
+
+max_steps = 5
+seq_len = 4096
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B"
+
+[wandb]
+project = "rlm-orientation-debug"
+name = "rlm-orientation-sdpo-smoke"
+
+[orchestrator]
+training_mode = "sdpo"
+batch_size = 8
+group_size = 2
+max_inflight_rollouts = 8
+
+[orchestrator.renderer]
+name = "qwen3"
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 512
+
+[[orchestrator.train.env]]
+id = "rlm-orientation-v1"
+num_workers = 1
+timeout = 900
+
+[orchestrator.eval]
+interval = 1
+num_examples = 2
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 512
+
+[[orchestrator.eval.env]]
+id = "rlm-orientation-v1"
+num_workers = 1
+timeout = 900
+
+[orchestrator.teacher.model]
+name = "PrimeIntellect/Qwen3-0.6B"
+
+[orchestrator.teacher.client]
+base_url = ["http://localhost:8001/v1"]
+
+[trainer.optim]
+lr = 3e-6
+
+[inference]
+gpu_memory_utilization = 0.35
+
+[inference.model]
+tool_call_parser = "qwen3_coder"

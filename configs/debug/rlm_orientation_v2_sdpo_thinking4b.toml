@@ -1,0 +1,69 @@
+# SDPO smoke for Qwen3-4B-Thinking on the Prime-native RLM orientation v2 environment.
+# Start a teacher server separately, for example:
+#   CUDA_VISIBLE_DEVICES=1 uv run inference \
+#     --model.name Qwen/Qwen3-4B-Thinking-2507 \
+#     --server.port 8002 \
+#     --gpu-memory-utilization 0.45 \
+#     --model.max-model-len 8192 \
+#     --model.enforce-eager
+# Then run:
+#   uv run rl @ configs/debug/rlm_orientation_v2_sdpo_thinking4b.toml --clean-output-dir
+
+max_steps = 3
+seq_len = 8192
+
+[model]
+name = "Qwen/Qwen3-4B-Thinking-2507"
+
+[wandb]
+project = "rlm-orientation-debug"
+name = "rlm-orientation-v2-sdpo-thinking4b-smoke"
+
+[orchestrator]
+training_mode = "sdpo"
+batch_size = 4
+group_size = 2
+max_inflight_rollouts = 4
+
+[orchestrator.renderer]
+name = "qwen3"
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 2048
+
+[[orchestrator.train.env]]
+id = "rlm-orientation-v2"
+num_workers = 1
+timeout = 900
+
+[orchestrator.eval]
+interval = 1
+num_examples = 3
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 2048
+
+[[orchestrator.eval.env]]
+id = "rlm-orientation-v2"
+num_workers = 1
+timeout = 900
+
+[orchestrator.teacher.model]
+name = "Qwen/Qwen3-4B-Thinking-2507"
+
+[orchestrator.teacher.client]
+base_url = ["http://localhost:8002/v1"]
+
+[trainer.optim]
+lr = 3e-6
+
+[trainer.model]
+optim_cpu_offload = true
+
+[inference]
+gpu_memory_utilization = 0.25
+
+[inference.model]
+max_model_len = 8192
+enforce_eager = true
