@@ -247,6 +247,22 @@ def opd_loss_fn(inputs: LossInputs) -> LossOutputs:
     return LossOutputs(loss=loss, metrics=metrics)
 
 
+def sdpo_loss_fn(inputs: LossInputs) -> LossOutputs:
+    """Sampled-token SDPO loss over teacher-scored rollout tokens."""
+    trainer_logprobs = inputs.trainer_logprobs
+    teacher_logprobs = inputs.teacher_logprobs
+    loss_mask = inputs.loss_mask
+
+    if teacher_logprobs is None:
+        raise ValueError("sdpo_loss_fn requires teacher_logprobs - configure a teacher for sdpo mode.")
+
+    log_ratio = trainer_logprobs - teacher_logprobs
+    per_token_loss = log_ratio.detach() * trainer_logprobs
+    loss = per_token_loss[loss_mask].sum()
+
+    return LossOutputs(loss=loss, metrics={})
+
+
 def sft_loss_fn(inputs: LossInputs) -> LossOutputs:
     """SFT-style masked negative log-likelihood over trainable tokens."""
     trainer_logprobs = inputs.trainer_logprobs

@@ -2,7 +2,14 @@ import pytest
 import torch
 
 from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig
-from prime_rl.trainer.rl.loss import LossInputs, LossOutputs, compute_entropy, compute_loss, setup_loss_fns
+from prime_rl.trainer.rl.loss import (
+    LossInputs,
+    LossOutputs,
+    compute_entropy,
+    compute_loss,
+    sdpo_loss_fn,
+    setup_loss_fns,
+)
 
 pytestmark = [pytest.mark.gpu]
 
@@ -119,6 +126,37 @@ def test_sft_loss_override_uses_masked_nll_with_default_loss_config():
     assert torch.isclose(loss, torch.tensor(0.15, device=loss.device), atol=1e-6)
     assert "nll" in metrics
     assert "mismatch_kl" not in metrics
+
+
+def test_sdpo_loss_matches_sampled_token_reference():
+    """Reference: lasgroup/SDPO@c52586b compute_self_distillation_loss."""
+    loss_mask = torch.tensor([True, True, False, True, False, True], dtype=torch.bool).cuda()
+    result = sdpo_loss_fn(
+        LossInputs(
+            trainer_logprobs=torch.tensor([-0.2, -1.1, -0.7, -0.4, -0.9, -1.3], dtype=torch.float32).cuda(),
+            inference_logprobs=torch.zeros(6, dtype=torch.float32).cuda(),
+            teacher_logprobs=torch.tensor([-0.1, -1.4, -0.4, -0.6, -0.5, -1.7], dtype=torch.float32).cuda(),
+            advantages=torch.zeros(6, dtype=torch.float32).cuda(),
+            loss_mask=loss_mask,
+        )
+    )
+
+    expected = torch.tensor(-0.22750000655651093, dtype=torch.float32, device=result.loss.device)
+    assert torch.isclose(result.loss / loss_mask.sum(), expected, atol=1e-6)
+    assert result.metrics == {}
+
+
+def test_sdpo_loss_requires_teacher_logprobs():
+    with pytest.raises(ValueError, match="sdpo_loss_fn requires teacher_logprobs"):
+        sdpo_loss_fn(
+            LossInputs(
+                trainer_logprobs=torch.tensor([-0.2], dtype=torch.float32).cuda(),
+                inference_logprobs=torch.zeros(1, dtype=torch.float32).cuda(),
+                teacher_logprobs=None,
+                advantages=torch.zeros(1, dtype=torch.float32).cuda(),
+                loss_mask=torch.tensor([True], dtype=torch.bool).cuda(),
+            )
+        )
 
 
 def _dummy_custom_loss(inputs: LossInputs, multiplier: float = 1.0) -> LossOutputs:
