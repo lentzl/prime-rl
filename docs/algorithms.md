@@ -73,9 +73,10 @@ The trainer dispatches automatically based on the batch's training mode (set by 
 
 - `rl` mode → DPPO + KL with the advantage signal.
 - `opd` mode → KL distillation against the teacher's per-token logprobs. The teacher must be a vLLM server (it's the only one that exposes `prompt_logprobs`).
+- `sdpo` mode → sampled-token self-distillation against the teacher's per-token logprobs. The teacher must be a vLLM server for the same `prompt_logprobs` reason.
 - `sft` mode → standard token-level NLL on teacher-generated rollouts.
 
-Set `[trainer.loss] type = "default"` and configure via the knobs above. SFT and OPD modes ignore the policy-gradient–specific fields.
+Set `[trainer.loss] type = "default"` and configure via the knobs above. SFT, OPD, and SDPO modes ignore the policy-gradient–specific fields.
 
 ### Custom Loss
 

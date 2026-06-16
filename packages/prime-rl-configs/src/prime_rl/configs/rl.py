@@ -607,7 +607,7 @@ class RLConfig(BaseConfig):
         """Auto-configure orchestrator student client from the inference server config.
 
         For all modes, sets dp_rank_count from inference DP size. For SFT mode,
-        also sets base_url - rl/opd rely on the ClientConfig default
+        also sets base_url - rl/opd/sdpo rely on the ClientConfig default
         (``["http://localhost:8000/v1"]``) which already matches the auto-launched
         student vLLM at inference.server.port = 8000.
         """

@@ -72,6 +72,9 @@ jobs:
           - test: reverse_text_rl_opd
             runner: vm
             pytest_args: "tests/integration/test_reverse_text_rl_opd.py"
+          - test: reverse_text_rl_sdpo
+            runner: vm
+            pytest_args: "tests/integration/test_reverse_text_rl_sdpo.py"
           - test: reverse_text_rl_sft
             runner: vm
             pytest_args: "tests/integration/test_reverse_text_rl_sft.py"
