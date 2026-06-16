@@ -505,14 +505,25 @@ class RolloutModelConfig(BaseConfig):
 
 
 class OrchestratorConfig(BaseConfig):
-    training_mode: Literal["rl", "opd", "sft"] = "rl"
-    """Training mode. ``rl``: student generates rollouts, no teacher. ``opd``: student generates rollouts, teacher computes logprobs (teacher_tau > 0). ``sft``: teacher generates rollouts, student inference pool used for evals and weight sync."""
+    training_mode: Literal["rl", "opd", "sdpo", "sft"] = "rl"
+    """Training mode.
+
+    ``rl``: student generates rollouts, no teacher. ``opd``: student generates
+    rollouts, teacher computes logprobs (teacher_tau > 0). ``sdpo``: student
+    generates rollouts, teacher computes self-distillation logprobs. ``sft``:
+    teacher generates rollouts, student inference pool used for evals and weight
+    sync.
+    """
 
     student: RolloutModelConfig = Field(RolloutModelConfig(), validation_alias=AliasChoices("student", "model"))
     """Student rollout participant (model + client) — the model being trained."""
 
     teacher: RolloutModelConfig | None = Field(None, validation_alias=AliasChoices("teacher", "teacher_model"))
-    """Teacher rollout participant (model + client). Role depends on ``training_mode``: ``opd`` — teacher computes logprobs; ``sft`` — teacher generates rollouts."""
+    """Teacher rollout participant (model + client).
+
+    Role depends on ``training_mode``: ``opd``/``sdpo`` — teacher computes
+    logprobs; ``sft`` — teacher generates rollouts.
+    """
 
     train: TrainConfig = TrainConfig()
 
@@ -772,8 +783,8 @@ class OrchestratorConfig(BaseConfig):
         has_teacher = self.teacher is not None
         if self.training_mode == "rl" and has_teacher:
             raise ValueError("orchestrator.teacher must not be set when training_mode = 'rl'.")
-        if self.training_mode == "opd" and not has_teacher:
-            raise ValueError("orchestrator.teacher must be configured when training_mode = 'opd'.")
+        if self.training_mode in {"opd", "sdpo"} and not has_teacher:
+            raise ValueError("orchestrator.teacher must be configured when training_mode is 'opd' or 'sdpo'.")
         return self
 
     @model_validator(mode="after")

@@ -140,6 +140,18 @@ def test_cli_overrides_defaults():
     config = cli(DummyConfig, args=["--name", "my-run", "--seed", "7"])
     assert config.name == "my-run"
     assert config.seed == 7
+
+
+def test_orchestrator_sdpo_mode_requires_teacher():
+    with pytest.raises(ValidationError, match="training_mode is 'opd' or 'sdpo'"):
+        OrchestratorConfig(training_mode="sdpo")
+
+
+def test_orchestrator_sdpo_mode_accepts_teacher():
+    config = OrchestratorConfig(training_mode="sdpo", teacher={})
+
+    assert config.training_mode == "sdpo"
+    assert config.teacher is not None
     assert config.nested.lr == 1e-4
 
 

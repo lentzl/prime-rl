@@ -278,17 +278,18 @@ def sft_loss_fn(inputs: LossInputs) -> LossOutputs:
 def setup_loss_fns(loss_config: LossConfig) -> dict[str, LossFn]:
     """Build the per-training-mode loss fn dispatch table.
 
-    Always returns all three modes - the trainer is mode-agnostic and routes
+    Always returns all modes - the trainer is mode-agnostic and routes
     per batch from ``TrainingSample.training_mode``:
 
     - ``"sft"`` → ``sft_loss_fn`` (masked NLL on teacher tokens)
     - ``"opd"`` → ``opd_loss_fn`` (teacher KL as gradient signal, hardcoded
       DPPO + KL knobs)
+    - ``"sdpo"`` → ``sdpo_loss_fn`` (sampled-token self-distillation loss)
     - ``"rl"``  → ``default_loss_fn(loss_config)`` for ``DefaultLossConfig``,
       ``ipo_loss_fn(loss_config)`` for ``IPOLossConfig``, or the imported
       function for ``CustomLossConfig``.
 
-    ``trainer.loss`` only affects the rl path - opd and sft are independent.
+    ``trainer.loss`` only affects the rl path - opd, sdpo, and sft are independent.
     """
     if isinstance(loss_config, CustomLossConfig):
         custom_fn = import_object(loss_config.import_path)
@@ -305,7 +306,7 @@ def setup_loss_fns(loss_config: LossConfig) -> dict[str, LossFn]:
         def rl_fn(inputs: LossInputs) -> LossOutputs:
             return default_loss_fn(inputs, loss_config)
 
-    return {"sft": sft_loss_fn, "opd": opd_loss_fn, "rl": rl_fn}
+    return {"sft": sft_loss_fn, "opd": opd_loss_fn, "sdpo": sdpo_loss_fn, "rl": rl_fn}
 
 
 def compute_loss(
@@ -323,7 +324,7 @@ def compute_loss(
 
     Loss dispatch is batch-driven: ``training_mode`` selects the loss fn from
     ``loss_fns`` (built by ``setup_loss_fns``). sft → sft_loss_fn, opd →
-    opd_loss_fn, rl → the configured default/custom loss.
+    opd_loss_fn, sdpo → sdpo_loss_fn, rl → the configured default/custom loss.
 
     Args:
         trainer_logprobs: Log probabilities for each sequence

@@ -49,8 +49,7 @@ class TensorMicroBatch(TypedDict):
     # mm_token_type_ids: token type per token [batch seq], int64 (0=text, 1=image, 2=video)
     mm_token_type_ids: Int[Tensor, "batch seq"] | None
 
-    # Selects loss dispatch (rl/opd → default loss with mode-specific taus,
-    # sft → sft loss). All samples in a micro batch share the same mode.
+    # Selects loss dispatch. All samples in a micro batch share the same mode.
     training_mode: str
 
     # Packer-derived metadata used for run-local debug exports.

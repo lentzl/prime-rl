@@ -159,6 +159,47 @@ def test_sdpo_loss_requires_teacher_logprobs():
         )
 
 
+def test_sdpo_loss_dispatch_matches_sampled_token_reference():
+    """Reference: lasgroup/SDPO@c52586b compute_self_distillation_loss."""
+    trainer_logprobs = [
+        torch.tensor([-0.2, -1.1, -0.7], dtype=torch.float32).cuda(),
+        torch.tensor([-0.4, -0.9, -1.3], dtype=torch.float32).cuda(),
+    ]
+    inference_logprobs = [
+        torch.zeros(3, dtype=torch.float32).cuda(),
+        torch.zeros(3, dtype=torch.float32).cuda(),
+    ]
+    teacher_logprobs = [
+        torch.tensor([-0.1, -1.4, -0.4], dtype=torch.float32).cuda(),
+        torch.tensor([-0.6, -0.5, -1.7], dtype=torch.float32).cuda(),
+    ]
+    advantages = [
+        torch.zeros(3, dtype=torch.float32).cuda(),
+        torch.zeros(3, dtype=torch.float32).cuda(),
+    ]
+    loss_mask = [
+        torch.tensor([True, True, False], dtype=torch.bool).cuda(),
+        torch.tensor([True, False, True], dtype=torch.bool).cuda(),
+    ]
+
+    loss_fns = setup_loss_fns(DefaultLossConfig())
+    loss, metrics = compute_loss(
+        trainer_logprobs=trainer_logprobs,
+        inference_logprobs=inference_logprobs,
+        teacher_logprobs=teacher_logprobs,
+        advantages=advantages,
+        loss_mask=loss_mask,
+        loss_fns=loss_fns,
+        loss_scale=4,
+        training_mode="sdpo",
+    )
+
+    expected = torch.tensor(-0.22750000655651093, dtype=torch.float32, device=loss.device)
+    assert loss_fns["sdpo"] is sdpo_loss_fn
+    assert torch.isclose(loss, expected, atol=1e-6)
+    assert metrics == {}
+
+
 def _dummy_custom_loss(inputs: LossInputs, multiplier: float = 1.0) -> LossOutputs:
     """A simple custom loss for testing."""
     loss = (inputs.trainer_logprobs[inputs.loss_mask].sum() * multiplier).abs()
