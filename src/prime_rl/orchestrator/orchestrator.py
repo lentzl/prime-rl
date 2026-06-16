@@ -69,6 +69,7 @@ from prime_rl.orchestrator.utils import (
     compute_teacher_logprobs,
     get_weight_dir,
     intercept_vf_logging,
+    needs_teacher_logprobs,
     save_rollouts,
     set_default_executor,
     setup_student_inference_pool,
@@ -599,8 +600,8 @@ class Orchestrator:
             save_rollouts, rollout_dicts, step_path / "train_rollouts.jsonl", exclude_keys={"trajectory"}
         )
 
-        teacher_logprobs_time = 0.0  # opd only
-        if config.training_mode == "opd" and self.teacher_inference is not None:
+        teacher_logprobs_time = 0.0
+        if needs_teacher_logprobs(config.training_mode) and self.teacher_inference is not None:
             assert config.teacher is not None
             t = time.perf_counter()
             teacher_logprobs_list = await compute_teacher_logprobs(

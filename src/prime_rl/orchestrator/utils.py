@@ -21,6 +21,11 @@ from prime_rl.utils.utils import (
 )
 
 
+def needs_teacher_logprobs(training_mode: str) -> bool:
+    """Whether the mode needs teacher prefill logprobs before training."""
+    return training_mode in {"opd", "sdpo"}
+
+
 async def setup_student_inference_pool(*, config: OrchestratorConfig, tokenizer):
     """Build the student inference pool + matching renderer. Returns
     ``(renderer | None, inference_pool)``; ``renderer`` is ``None`` on the

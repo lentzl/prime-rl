@@ -160,21 +160,22 @@ def test_pad_micro_batch_preserves_explicit_sequence_lengths(make_training_examp
 
 def test_prepare_batch_does_not_pack_mixed_training_mode(make_training_example):
     rl_example = make_training_example(training_mode="rl")
+    sdpo_example = make_training_example(training_mode="sdpo")
     sft_example = make_training_example(training_mode="sft")
 
     batches_per_gpu = prepare_batch(
-        rollouts=[rl_example, sft_example],
+        rollouts=[rl_example, sdpo_example, sft_example],
         seq_len=16,
         num_train_workers=1,
-        idxs=[0, 0],
+        idxs=[0, 0, 0],
         num_loras=1,
         bin_cost=build_bin_cost(None),
     )
 
     flat_batches = _flatten_batches(batches_per_gpu)
-    assert len(flat_batches) == 2
-    assert {batch.training_mode for batch in flat_batches} == {"rl", "sft"}
-    assert [batch.sequence_lengths for batch in flat_batches] == [[4], [4]]
+    assert len(flat_batches) == 3
+    assert {batch.training_mode for batch in flat_batches} == {"rl", "sdpo", "sft"}
+    assert [batch.sequence_lengths for batch in flat_batches] == [[4], [4], [4]]
 
 
 def test_split_to_align_avoids_dummy_micro_batches():

@@ -8,6 +8,13 @@ from prime_rl.orchestrator import utils as orchestrator_utils
 from prime_rl.transport import TrainingSample
 
 
+def test_needs_teacher_logprobs():
+    assert orchestrator_utils.needs_teacher_logprobs("opd")
+    assert orchestrator_utils.needs_teacher_logprobs("sdpo")
+    assert not orchestrator_utils.needs_teacher_logprobs("rl")
+    assert not orchestrator_utils.needs_teacher_logprobs("sft")
+
+
 class _FakeOpenAIClient:
     """Stand-in for ``AsyncOpenAI`` that captures the sole ``.post()`` call and
     returns a synthesized ``httpx.Response`` so ``cast_to=httpx.Response`` is
