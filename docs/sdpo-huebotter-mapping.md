@@ -83,6 +83,24 @@ terms of what `opsd` cannot express, for example multi-turn feedback selection,
 sibling-aware context construction, or a structured feedback object instead of a
 single demonstration string.
 
+The current `opsd` implementation is explicitly single-step. That is a good fit
+for SDFT-style prompt/response tasks, but it is not enough for multi-turn agent
+rollouts such as RLM harness episodes. In a multi-turn trace, sampled assistant
+tokens are interleaved with environment observations, user feedback, tool
+outputs, and later sampled assistant turns. A feedback-conditioned SDPO scorer
+must decide which context each sampled turn is scored under and preserve that
+stepwise alignment. Simply taking all trainable tokens and scoring them after
+one rewritten prompt would lose the observations between turns.
+
+This narrows the likely SDPO gap to one of:
+
+- a single-turn `opsd` configuration pattern for environments that can emit
+  hindsight feedback as a demonstration string
+- a multi-turn `opsd` extension that scores each sampled segment under a
+  rewritten prefix while preserving intervening context
+- a new `sdpo`/feedback-distillation algorithm if the feedback object or sibling
+  context is too structured for the existing `opsd` template model
+
 ## Contribution Shape
 
 A review-friendly sequence would be:

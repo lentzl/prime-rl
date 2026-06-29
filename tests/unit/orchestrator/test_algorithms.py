@@ -404,3 +404,12 @@ def test_opsd_scores_completion_under_reference_prefix(monkeypatch):
     asyncio.run(algo.score_batch([RolloutView(rollout)]))
 
     assert rollout.samples[0].ref_logprobs == [0.0, 0.0, -0.7, -0.8]
+
+
+def test_opsd_rejects_multi_turn_rollouts():
+    algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(), _CaptureRenderer(token_ids=[101, 102]))
+    rollout = _two_turn_rollout()
+    rollout.info["demonstration"] = "Use the feedback from the first turn."
+
+    with pytest.raises(ValueError, match="single-step trajectories only"):
+        algo._ref_prefix_ids(RolloutView(rollout))
