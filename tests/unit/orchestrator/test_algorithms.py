@@ -1,4 +1,5 @@
 import asyncio
+from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pydantic
@@ -8,7 +9,7 @@ from verifiers.v1.graph import MessageNode
 from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgorithmConfig, FrozenModelConfig
-from prime_rl.orchestrator.algo import EchoAlgorithm, stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.algo import EchoAlgorithm, OPSDAlgorithm, stamp_advantages, stamp_loss_routing
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout, RolloutView
 from prime_rl.transport.types import TrainingSample
@@ -321,3 +322,85 @@ def test_echo_filter_narrows_selection():
     rollout = _two_turn_rollout()
     with pytest.raises(ValueError, match="span the branch's tokens"):
         asyncio.run(_echo_algorithm(filter_fn=lambda trace: [[True] * 6]).score_rollout(RolloutView(rollout)))
+
+
+# --------------------------------------------------------------------------
+# OPSD reference scoring. These tests characterize the generic hook that SDPO-
+# style feedback-conditioned self-teaching should build on before adding any
+# new trainer path.
+# --------------------------------------------------------------------------
+
+
+class _CaptureRenderer:
+    def __init__(self, token_ids: list[int]):
+        self.token_ids = token_ids
+        self.calls: list[dict] = []
+
+    def render_ids(self, messages, *, add_generation_prompt):
+        self.calls.append({"messages": messages, "add_generation_prompt": add_generation_prompt})
+        return self.token_ids
+
+
+def _single_turn_rollout(info: dict | None = None) -> Rollout:
+    nodes = [
+        _node(UserMessage(content="Solve the task."), parent=None, sampled=False, token_ids=[1, 2]),
+        _node(AssistantMessage(content="Attempt"), parent=0, sampled=True, token_ids=[3, 4], logprobs=[-0.3, -0.4]),
+    ]
+    rollout = Rollout(
+        task=vf.Task(idx=0, prompt=None),
+        nodes=nodes,
+        rewards={"r": 1.0},
+        info=info or {},
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    return rollout
+
+
+def test_opsd_builds_demo_conditioned_reference_prefix():
+    renderer = _CaptureRenderer(token_ids=[101, 102, 103])
+    algo = OPSDAlgorithm(
+        _build(
+            type="opsd",
+            demo_key="feedback",
+            template="{question}\n\nFeedback:\n{demonstration}\n\nTry again.",
+        ),
+        MagicMock(),
+        renderer,
+    )
+    rollout = _single_turn_rollout(info={"feedback": "The first attempt missed the invariant."})
+
+    assert algo._ref_prefix_ids(RolloutView(rollout)) == [101, 102, 103]
+    assert renderer.calls == [
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": (
+                        "Solve the task.\n\n"
+                        "Feedback:\n"
+                        "The first attempt missed the invariant.\n\n"
+                        "Try again."
+                    ),
+                }
+            ],
+            "add_generation_prompt": True,
+        }
+    ]
+
+
+def test_opsd_scores_completion_under_reference_prefix(monkeypatch):
+    async def fake_prefill_logprobs(client, model_name, token_ids):
+        assert model_name == "policy-model"
+        assert token_ids == [101, 102, 3, 4]
+        return [-0.1, -0.2, -0.7, -0.8]
+
+    monkeypatch.setattr("prime_rl.orchestrator.algo.opsd.compute_prefill_logprobs", fake_prefill_logprobs)
+    renderer = _CaptureRenderer(token_ids=[101, 102])
+    algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(), renderer)
+    algo.teacher_pool = SimpleNamespace(model_name="policy-model", train_clients=[object()])
+    rollout = _single_turn_rollout(info={"demonstration": "Use the invariant."})
+
+    asyncio.run(algo.score_batch([RolloutView(rollout)]))
+
+    assert rollout.samples[0].ref_logprobs == [0.0, 0.0, -0.7, -0.8]

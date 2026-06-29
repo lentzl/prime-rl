@@ -69,6 +69,20 @@ In Prime terms, this suggests an `opd`/`opsd`-family algorithm whose
 
 The trainer-side `ref_kl` component can probably remain unchanged.
 
+`opsd` is already close to the needed mechanism: it reads a configurable
+`demo_key`, applies a configurable template to the last user message, renders
+that reference prefix through the policy renderer, scores the sampled completion
+under the reference context, and scatters those completion logprobs back onto
+the trainable positions of the original sample.
+
+That suggests a useful first experiment before adding a new algorithm type:
+represent SDPO hindsight feedback as the `opsd` demonstration field and use a
+feedback-oriented template. If that is enough, the missing Prime contribution is
+documentation and examples. If it is not enough, the gap should be stated in
+terms of what `opsd` cannot express, for example multi-turn feedback selection,
+sibling-aware context construction, or a structured feedback object instead of a
+single demonstration string.
+
 ## Contribution Shape
 
 A review-friendly sequence would be:
