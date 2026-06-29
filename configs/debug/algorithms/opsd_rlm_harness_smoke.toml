@@ -1,0 +1,51 @@
+# RLM-shaped OPSD smoke: a tiny multi-turn verifier env with helper-use
+# instructions, execution-style feedback, recovery, and final answer
+# submission. The env fixture lives in tests/fixtures/opsd_rlm_harness_smoke.py.
+#   PYTHONPATH=tests/fixtures uv run rl @ configs/debug/algorithms/opsd_rlm_harness_smoke.toml
+
+max_steps = 1
+seq_len = 1536
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
+
+[wandb]
+project = "algorithms-debug"
+name = "debug-opsd-rlm-harness-smoke"
+
+[orchestrator]
+batch_size = 1
+group_size = 1
+
+[orchestrator.algo]
+type = "opsd"
+model = "policy"
+demo_key = "answer"
+multi_turn = true
+template_target = "first_user"
+max_concurrent = 4
+template = "{question}\n\nReference harness trajectory:\n{demonstration}\n\nContinue from the current episode state."
+
+[orchestrator.renderer]
+name = "qwen3"
+preserve_all_thinking = true
+
+[orchestrator.train.sampling]
+max_completion_tokens = 96
+
+[[orchestrator.train.env]]
+id = "opsd-rlm-harness-smoke"
+
+# OPSD trains through ref_kl, not scalar advantages. Do not drop the smoke
+# rollout just because the advantage stream is absent.
+[[orchestrator.post_batch_filters]]
+type = "zero_advantage"
+enforce = false
+
+[trainer.optim]
+lr = 1e-6
+
+[ckpt]
+
+[inference]
+gpu_memory_utilization = 0.4
