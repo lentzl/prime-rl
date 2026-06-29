@@ -353,6 +353,10 @@ class OPSDAlgorithmConfig(BaseAlgorithmConfig):
     max_concurrent: int = Field(32, ge=1)
     """Maximum concurrent prefill requests per batch."""
 
+    multi_turn: bool = False
+    """Opt in to scoring each sampled assistant turn in a multi-turn branch.
+    The default keeps OPSD in the SDFT paper's single-step setting."""
+
 
 class SFTAlgorithmConfig(BaseAlgorithmConfig):
     type: Literal["sft"] = "sft"

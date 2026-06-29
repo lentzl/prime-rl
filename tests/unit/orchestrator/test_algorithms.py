@@ -332,12 +332,14 @@ def test_echo_filter_narrows_selection():
 
 
 class _CaptureRenderer:
-    def __init__(self, token_ids: list[int]):
+    def __init__(self, token_ids: list[int] | list[list[int]]):
         self.token_ids = token_ids
         self.calls: list[dict] = []
 
     def render_ids(self, messages, *, add_generation_prompt):
         self.calls.append({"messages": messages, "add_generation_prompt": add_generation_prompt})
+        if self.token_ids and isinstance(self.token_ids[0], list):
+            return self.token_ids[len(self.calls) - 1]
         return self.token_ids
 
 
@@ -406,6 +408,11 @@ def test_opsd_scores_completion_under_reference_prefix(monkeypatch):
     assert rollout.samples[0].ref_logprobs == [0.0, 0.0, -0.7, -0.8]
 
 
+def test_opsd_multi_turn_is_opt_in():
+    algo = _build(type="opsd", multi_turn=True)
+    assert algo.multi_turn is True
+
+
 def test_opsd_rejects_multi_turn_rollouts():
     algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(), _CaptureRenderer(token_ids=[101, 102]))
     rollout = _two_turn_rollout()
@@ -413,3 +420,58 @@ def test_opsd_rejects_multi_turn_rollouts():
 
     with pytest.raises(ValueError, match="single-step trajectories only"):
         algo._ref_prefix_ids(RolloutView(rollout))
+
+
+def test_opsd_scores_multi_turn_completion_segments_when_enabled(monkeypatch):
+    calls = []
+
+    async def fake_prefill_logprobs(client, model_name, token_ids):
+        calls.append(token_ids)
+        assert model_name == "policy-model"
+        if len(calls) == 1:
+            assert token_ids == [101, 102, 3, 4]
+            return [-0.1, -0.2, -0.7, -0.8]
+        assert token_ids == [201, 202, 7, 8]
+        return [-0.1, -0.2, -0.9, -1.0]
+
+    monkeypatch.setattr("prime_rl.orchestrator.algo.opsd.compute_prefill_logprobs", fake_prefill_logprobs)
+    renderer = _CaptureRenderer(token_ids=[[101, 102], [201, 202]])
+    algo = OPSDAlgorithm(
+        _build(
+            type="opsd",
+            multi_turn=True,
+            template="{question}\n\nFeedback:\n{demonstration}",
+        ),
+        MagicMock(),
+        renderer,
+    )
+    algo.teacher_pool = SimpleNamespace(model_name="policy-model", train_clients=[object()])
+    rollout = _two_turn_rollout()
+    rollout.info["demonstration"] = "First response missed the useful state."
+
+    asyncio.run(algo.score_batch([RolloutView(rollout)]))
+
+    assert calls == [[101, 102, 3, 4], [201, 202, 7, 8]]
+    assert rollout.samples[0].ref_logprobs == [0.0, 0.0, -0.7, -0.8, 0.0, 0.0, -0.9, -1.0]
+    assert renderer.calls == [
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "U\n\nFeedback:\nFirst response missed the useful state.",
+                }
+            ],
+            "add_generation_prompt": True,
+        },
+        {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": "U\n\nFeedback:\nFirst response missed the useful state.",
+                },
+                {"role": "assistant", "content": "A"},
+                {"role": "tool", "content": "T", "tool_call_id": "t"},
+            ],
+            "add_generation_prompt": True,
+        },
+    ]
