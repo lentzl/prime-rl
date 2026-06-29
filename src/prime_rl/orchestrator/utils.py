@@ -159,18 +159,28 @@ async def compute_prefill_logprobs(
             },
         },
     )
+    http_response.raise_for_status()
     response = GenerateResponse.model_validate_json(http_response.content)
     # ``prompt_logprobs[i]`` is a ``{token_id: Logprob}`` dict for tokens
-    # the engine could score, or ``None`` for the leading token which has
-    # no preceding context. Flatten to ``list[float]`` with 0.0 in the
-    # unscored slot.
+    # the engine could score, or ``None`` for the leading token which has no
+    # preceding context. vLLM may include the target token and top-k
+    # alternatives, so select the exact token id at each position.
+    prompt_logprobs = response.prompt_logprobs or []
+    if len(prompt_logprobs) != len(token_ids):
+        raise ValueError(f"prefill logprobs length != token length ({len(prompt_logprobs)} != {len(token_ids)})")
     flat: list[float] = []
-    for entry in response.prompt_logprobs or []:
+    for i, (token_id, entry) in enumerate(zip(token_ids, prompt_logprobs)):
         if not entry:
+            if i != 0:
+                raise ValueError(f"prefill logprobs missing entry at position {i} for token id {token_id}")
             flat.append(0.0)
             continue
-        first = next(iter(entry.values()))
-        lp = first.logprob if hasattr(first, "logprob") else first.get("logprob")
+        target = entry.get(str(token_id))
+        if target is None:
+            target = entry.get(token_id)
+        if target is None:
+            raise ValueError(f"prefill logprobs missing token id {token_id}")
+        lp = target.logprob if hasattr(target, "logprob") else target.get("logprob")
         flat.append(float(lp) if lp is not None else 0.0)
     return flat
 
