@@ -12,6 +12,7 @@ Minimal end-to-end configs for the algorithms against bundled verifiers envs, us
 | `sft_distill_lora.toml` | `sft` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | trains a LoRA adapter (rank 8) |
 | `sft_distill_external.toml` | `sft` | PI inference (`openai/gpt-5-mini`) | external OAI endpoint; no local server |
 | `self_distill.toml` | `opsd` | none (`model = "policy"`) | SDFT against the live policy; demo from reverse-text's `answer` field |
+| `opsd_multi_turn_smoke.toml` | `opsd` | none (`model = "policy"`) | one-step multi-turn smoke; demo from a tiny fixture env's `answer` field |
 | `echo.toml` | `echo` | none | multi-turn `alphabet-sort`; CE on observation tokens |
 | `mixed_grpo_opd.toml` | `grpo` + `opd` (per env) | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | two envs, one run; heterogeneous batches (with/without `ref_logprobs`) |
 
@@ -54,6 +55,7 @@ uv run rl @ configs/debug/algorithms/sft_distill_external.toml
 
 # Self-distillation against the live policy (no frozen model)
 uv run rl @ configs/debug/algorithms/self_distill.toml
+PYTHONPATH=tests/fixtures uv run rl @ configs/debug/algorithms/opsd_multi_turn_smoke.toml
 
 # ECHO (no frozen model; multi-turn env)
 uv run rl @ configs/debug/algorithms/echo.toml

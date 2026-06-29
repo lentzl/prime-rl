@@ -1,0 +1,52 @@
+# Tiny end-to-end smoke for OPSD multi-turn reference scoring. The env fixture
+# lives in tests/fixtures/opsd_multi_turn_smoke.py and carries the
+# demonstration in its `answer` field.
+#   PYTHONPATH=tests/fixtures uv run rl @ configs/debug/algorithms/opsd_multi_turn_smoke.toml
+
+max_steps = 1
+seq_len = 1024
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
+
+[wandb]
+project = "algorithms-debug"
+name = "debug-opsd-multi-turn-smoke"
+
+[orchestrator]
+batch_size = 1
+group_size = 1
+
+[orchestrator.algo]
+type = "opsd"
+model = "policy"
+demo_key = "answer"
+multi_turn = true
+template_target = "first_user"
+max_concurrent = 4
+template = "{question}\n\nReference strategy:\n{demonstration}\n\nContinue the conversation."
+
+[orchestrator.renderer]
+name = "qwen3"
+preserve_all_thinking = true
+
+[orchestrator.train.sampling]
+max_completion_tokens = 64
+
+[[orchestrator.train.env]]
+id = "opsd-multi-turn-smoke"
+
+# OPSD ships ref_logprobs for the ref_kl component and intentionally assigns
+# no scalar advantages. Keep those samples even though the advantage stream is
+# absent/zero.
+[[orchestrator.post_batch_filters]]
+type = "zero_advantage"
+enforce = false
+
+[trainer.optim]
+lr = 1e-6
+
+[ckpt]
+
+[inference]
+gpu_memory_utilization = 0.4
