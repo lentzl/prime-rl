@@ -350,6 +350,11 @@ class OPSDAlgorithmConfig(BaseAlgorithmConfig):
     """Template for the demo-conditioned user message. Receives ``{question}``
     (the original user message text) and ``{demonstration}``."""
 
+    template_target: Literal["last_user", "first_user"] = "last_user"
+    """Which user message the template rewrites. ``last_user`` preserves the
+    original SDFT single-turn behavior; ``first_user`` keeps later user-role
+    feedback messages intact in multi-turn agent traces."""
+
     max_concurrent: int = Field(32, ge=1)
     """Maximum concurrent prefill requests per batch."""
 

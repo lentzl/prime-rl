@@ -34,6 +34,7 @@ class OPSDAlgorithm(Algorithm):
         assert renderer is not None, "opsd requires the renderer (validated at config time)"
         self.demo_key = config.demo_key
         self.template = config.template
+        self.template_target = config.template_target
         self.max_concurrent = config.max_concurrent
         self.multi_turn = config.multi_turn
         self.teacher = config.model
@@ -58,11 +59,12 @@ class OPSDAlgorithm(Algorithm):
         user_indices = [i for i, m in enumerate(messages) if m.get("role") == "user"]
         if not user_indices:
             raise ValueError(f"opsd found no user message to condition (env '{env_name}').")
-        last_user = messages[user_indices[-1]]
-        question = last_user.get("content")
+        user_index = user_indices[0] if self.template_target == "first_user" else user_indices[-1]
+        user_message = messages[user_index]
+        question = user_message.get("content")
         if not isinstance(question, str):
             raise ValueError("opsd supports text-only prompts (user content must be a string).")
-        last_user["content"] = self.template.format(question=question, demonstration=demonstration)
+        user_message["content"] = self.template.format(question=question, demonstration=demonstration)
 
         # Render through the policy's renderer — the same messages → token ids
         # path the policy's own prompts take, so the scoring prefix matches

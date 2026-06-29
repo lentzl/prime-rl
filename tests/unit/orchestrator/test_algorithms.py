@@ -413,6 +413,31 @@ def test_opsd_multi_turn_is_opt_in():
     assert algo.multi_turn is True
 
 
+def test_opsd_can_condition_the_first_user_message():
+    renderer = _CaptureRenderer(token_ids=[101, 102])
+    algo = OPSDAlgorithm(
+        _build(
+            type="opsd",
+            template_target="first_user",
+            template="{question}\n\nFeedback:\n{demonstration}",
+        ),
+        MagicMock(),
+        renderer,
+    )
+    messages = [
+        {"role": "user", "content": "Original task"},
+        {"role": "assistant", "content": "Attempt"},
+        {"role": "user", "content": "Runtime feedback"},
+    ]
+
+    assert algo._demo_conditioned_prefix_ids(messages, "Use the invariant.", "test-env") == [101, 102]
+    assert renderer.calls[0]["messages"] == [
+        {"role": "user", "content": "Original task\n\nFeedback:\nUse the invariant."},
+        {"role": "assistant", "content": "Attempt"},
+        {"role": "user", "content": "Runtime feedback"},
+    ]
+
+
 def test_opsd_rejects_multi_turn_rollouts():
     algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(), _CaptureRenderer(token_ids=[101, 102]))
     rollout = _two_turn_rollout()
@@ -474,4 +499,40 @@ def test_opsd_scores_multi_turn_completion_segments_when_enabled(monkeypatch):
             ],
             "add_generation_prompt": True,
         },
+    ]
+
+
+def test_opsd_multi_turn_preserves_user_feedback_when_conditioning_first_user(monkeypatch):
+    async def fake_prefill_logprobs(client, model_name, token_ids):
+        if token_ids == [101, 102, 3, 4]:
+            return [-0.1, -0.2, -0.7, -0.8]
+        assert token_ids == [201, 202, 7, 8]
+        return [-0.1, -0.2, -0.9, -1.0]
+
+    monkeypatch.setattr("prime_rl.orchestrator.algo.opsd.compute_prefill_logprobs", fake_prefill_logprobs)
+    renderer = _CaptureRenderer(token_ids=[[101, 102], [201, 202]])
+    algo = OPSDAlgorithm(
+        _build(
+            type="opsd",
+            multi_turn=True,
+            template_target="first_user",
+            template="{question}\n\nFeedback:\n{demonstration}",
+        ),
+        MagicMock(),
+        renderer,
+    )
+    algo.teacher_pool = SimpleNamespace(model_name="policy-model", train_clients=[object()])
+    rollout = _two_turn_rollout(observation_role="user")
+    rollout.info["demonstration"] = "The first attempt missed the useful state."
+
+    asyncio.run(algo.score_batch([RolloutView(rollout)]))
+
+    assert rollout.samples[0].ref_logprobs == [0.0, 0.0, -0.7, -0.8, 0.0, 0.0, -0.9, -1.0]
+    assert renderer.calls[1]["messages"] == [
+        {
+            "role": "user",
+            "content": "U\n\nFeedback:\nThe first attempt missed the useful state.",
+        },
+        {"role": "assistant", "content": "A"},
+        {"role": "user", "content": "feedback"},
     ]
