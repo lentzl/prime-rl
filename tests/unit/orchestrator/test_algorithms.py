@@ -278,6 +278,20 @@ def _two_turn_rollout(observation_role: str = "tool") -> Rollout:
     return rollout
 
 
+def _branching_rollout() -> Rollout:
+    """Two trainable branches sharing the initial user prompt."""
+    nodes = [
+        _node(UserMessage(content="U"), parent=None, sampled=False, token_ids=[1, 2]),
+        _node(AssistantMessage(content="left-1"), parent=0, sampled=True, token_ids=[3, 4], logprobs=[-0.1, -0.2]),
+        _node(ToolMessage(tool_call_id="t", content="left-tool"), parent=1, sampled=False, token_ids=[5]),
+        _node(AssistantMessage(content="left-2"), parent=2, sampled=True, token_ids=[6], logprobs=[-0.3]),
+        _node(AssistantMessage(content="right-1"), parent=0, sampled=True, token_ids=[7, 8], logprobs=[-0.4, -0.5]),
+    ]
+    rollout = Rollout(task=vf.Task(idx=0, prompt=None), nodes=nodes, rewards={"r": 1.0}, env_name="test-env")
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    return rollout
+
+
 def test_echo_weights_observations_by_role():
     # The observation node [5,6] follows the first sampled node, so it is
     # weighted; the initial prompt [1,2] precedes it and is excluded.
@@ -536,6 +550,33 @@ def test_opsd_multi_turn_preserves_user_feedback_when_conditioning_first_user(mo
         {"role": "assistant", "content": "A"},
         {"role": "user", "content": "feedback"},
     ]
+
+
+def test_opsd_scores_each_multi_turn_branch_independently(monkeypatch):
+    async def fake_prefill_logprobs(client, model_name, token_ids):
+        assert model_name == "policy-model"
+        completion = token_ids[-2:] if token_ids[-2:] in ([3, 4], [7, 8]) else token_ids[-1:]
+        if completion == [3, 4]:
+            return [0.0] * (len(token_ids) - 2) + [-0.7, -0.8]
+        if completion == [6]:
+            return [0.0] * (len(token_ids) - 1) + [-0.6]
+        assert completion == [7, 8]
+        return [0.0] * (len(token_ids) - 2) + [-0.9, -1.0]
+
+    monkeypatch.setattr("prime_rl.orchestrator.algo.opsd.compute_prefill_logprobs", fake_prefill_logprobs)
+    renderer = _CaptureRenderer(token_ids=[[101], [201], [301]])
+    algo = OPSDAlgorithm(_build(type="opsd", multi_turn=True), MagicMock(), renderer)
+    algo.teacher_pool = SimpleNamespace(model_name="policy-model", train_clients=[object()])
+    rollout = _branching_rollout()
+    rollout.info["demonstration"] = "Use branch-local feedback."
+
+    asyncio.run(algo.score_batch([RolloutView(rollout)]))
+
+    assert len(rollout.samples) == 2
+    ref_logprobs_by_tokens = {tuple(sample.token_ids): sample.ref_logprobs for sample in rollout.samples}
+    assert ref_logprobs_by_tokens[(1, 2, 3, 4, 5, 6)] == [0.0, 0.0, -0.7, -0.8, 0.0, -0.6]
+    assert ref_logprobs_by_tokens[(1, 2, 7, 8)] == [0.0, 0.0, -0.9, -1.0]
+    assert len(renderer.calls) == 3
 
 
 def test_opsd_multi_turn_rejects_branch_sample_token_misalignment():
