@@ -536,3 +536,25 @@ def test_opsd_multi_turn_preserves_user_feedback_when_conditioning_first_user(mo
         {"role": "assistant", "content": "A"},
         {"role": "user", "content": "feedback"},
     ]
+
+
+def test_opsd_multi_turn_rejects_branch_sample_token_misalignment():
+    algo = OPSDAlgorithm(_build(type="opsd", multi_turn=True), MagicMock(), _CaptureRenderer(token_ids=[101, 102]))
+    algo.teacher_pool = SimpleNamespace(model_name="policy-model", train_clients=[object()])
+    rollout = _two_turn_rollout()
+    rollout.info["demonstration"] = "Use the branch context."
+    rollout.samples[0].token_ids = [*rollout.samples[0].token_ids, 9]
+
+    with pytest.raises(ValueError, match="sample tokens to align"):
+        asyncio.run(algo.score_batch([RolloutView(rollout)]))
+
+
+def test_opsd_multi_turn_rejects_branch_sample_mask_misalignment():
+    algo = OPSDAlgorithm(_build(type="opsd", multi_turn=True), MagicMock(), _CaptureRenderer(token_ids=[101, 102]))
+    algo.teacher_pool = SimpleNamespace(model_name="policy-model", train_clients=[object()])
+    rollout = _two_turn_rollout()
+    rollout.info["demonstration"] = "Use the branch context."
+    rollout.samples[0].mask = rollout.samples[0].mask[:-1]
+
+    with pytest.raises(ValueError, match="sample mask to align"):
+        asyncio.run(algo.score_batch([RolloutView(rollout)]))

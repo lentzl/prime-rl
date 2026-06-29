@@ -87,6 +87,18 @@ class OPSDAlgorithm(Algorithm):
         messages = [node.message.model_dump(exclude_none=True) for node in branch.nodes if not node.sampled]
         return self._demo_conditioned_prefix_ids(messages, demonstration, rollout.env_name)
 
+    def _validate_branch_sample_alignment(self, branch, sample, env_name: str) -> None:
+        if list(sample.token_ids) != list(branch.token_ids):
+            raise ValueError(
+                f"opsd expected sample tokens to align with the trace branch "
+                f"(env '{env_name}', sample={len(sample.token_ids)}, branch={len(branch.token_ids)})."
+            )
+        if len(sample.mask) != len(branch.sampled_mask):
+            raise ValueError(
+                f"opsd expected sample mask to align with the trace branch "
+                f"(env '{env_name}', sample={len(sample.mask)}, branch={len(branch.sampled_mask)})."
+            )
+
     async def score_batch(self, batch: list[RolloutView]) -> None:
         pool = self.teacher_pool
         assert pool is not None, "teacher pool not connected — Algorithm.setup() must run first"
@@ -122,6 +134,7 @@ class OPSDAlgorithm(Algorithm):
                     f"for {len(trainable_branches)} branch(es) (env '{rollout.env_name}')."
                 )
             for branch, sample in zip(trainable_branches, rollout.samples):
+                self._validate_branch_sample_alignment(branch, sample, rollout.env_name)
                 ref_logprobs = [0.0] * len(sample.token_ids)
                 offset = 0
                 for node_index, node in enumerate(branch.nodes):
