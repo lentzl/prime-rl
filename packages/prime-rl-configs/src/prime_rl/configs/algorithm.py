@@ -324,9 +324,10 @@ class OPSDAlgorithmConfig(BaseAlgorithmConfig):
     an expert demonstration. The scoring prefix is rebuilt from the rollout's
     first-turn messages with the demonstration woven into the user message via
     ``template``; completion logprobs are aligned back onto the sample.
-    Requires single-step trajectories. No scalar advantage is assigned —
-    rollouts keep ``advantage=None`` (advantage-based filters never fire) and
-    samples ship a neutral 0.0."""
+    The default matches the paper's single-step setting; ``multi_turn`` opts
+    into scoring each sampled assistant turn in a branch under a rebuilt
+    prefix. No scalar advantage is assigned — rollouts keep ``advantage=None``
+    (advantage-based filters never fire) and samples ship a neutral 0.0."""
 
     action_loss_type: ClassVar[ActionLossType] = "ref_kl"
     model_role: ClassVar[str] = "teacher"

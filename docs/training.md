@@ -91,7 +91,7 @@ The RL entrypoint supports several training algorithms, switched via `[orchestra
 | `max_rl` | None | [MaxRL](https://arxiv.org/abs/2602.02710): GRPO with mean-normalized advantages (maximum-likelihood RL) |
 | `opd` | Required, must be vLLM (needs `prompt_logprobs`) | [On-policy distillation](https://thinkingmachines.ai/blog/on-policy-distillation/): the policy generates rollouts, the trainer minimizes per-token reverse KL to a reference model |
 | `sft` | Required, any OpenAI-compatible endpoint | Hard-distill: a frozen model generates rollouts, the policy trains on its tokens |
-| `opsd` | `"policy"` (the default, no deployment) or a vLLM endpoint serving a frozen copy | [SDFT](https://arxiv.org/abs/2601.19897): the model is its own reference conditioned on expert demonstrations |
+| `opsd` | `"policy"` (the default, no deployment) or a vLLM endpoint serving a frozen copy | [SDFT](https://arxiv.org/abs/2601.19897): the model is its own reference conditioned on expert demonstrations; `multi_turn = true` scores each sampled assistant segment in branch-style agent traces |
 | `echo` | None | GRPO plus cross-entropy on env-observation tokens |
 
 `reward` (raw-reward credit, no baseline) and `custom` (your own advantage function) complete the set — see [Algorithms § The Algorithms](algorithms.md#the-algorithms).

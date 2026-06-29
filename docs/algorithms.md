@@ -346,13 +346,15 @@ Each per-token list must match the rollout's completion-token count exactly — 
 `OPDAlgorithm` / `OPSDAlgorithm` have an async ship-time half (`score_batch`): at batch-ship time they query their teacher (`model`, a [model reference](#model-references)) with bounded concurrency (`max_concurrent`, default 32) and attach per-token reference logprobs to each sample:
 
 - `opd` — score each sample's own context under the reference model via prefill; fills `ref_logprobs` for the `ref_kl` loss component (on-policy distillation). `model = "policy"` is rejected (the KL would be identically zero).
-- `opsd` — SDFT: rebuild the prompt with an expert demonstration woven into the last user message (`template`, with `{question}` / `{demonstration}` placeholders), score the policy's completion under that demo-conditioned context. `model = "policy"` scores under the live policy itself — the SDFT setting, no extra deployment. The demonstration is read from the example's `info[demo_key]`, falling back to a top-level rollout field of the same name (e.g. `answer`); single-step trajectories only.
+- `opsd` — SDFT: rebuild the prompt with an expert demonstration woven into a user message (`template`, with `{question}` / `{demonstration}` placeholders), score the policy's completion under that demo-conditioned context. `model = "policy"` scores under the live policy itself — the SDFT setting, no extra deployment. The demonstration is read from the example's `info[demo_key]`, falling back to a top-level rollout field of the same name (e.g. `answer`). By default OPSD keeps the paper's single-step setting; set `multi_turn = true` to score each sampled assistant segment in each trainable branch while preserving intervening tool/user observations. `template_target` controls which user message is rewritten: `last_user` matches the single-turn default, while `first_user` keeps later user-role feedback messages intact.
 
 ```toml
 [orchestrator.algo]
 type = "opsd"
 model = "policy"
 demo_key = "demonstration"
+template_target = "last_user"
+multi_turn = false
 max_concurrent = 64
 ```
 
