@@ -2,7 +2,14 @@ import pytest
 import torch
 
 from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig
-from prime_rl.trainer.rl.loss import LossInputs, LossOutputs, compute_entropy, compute_loss, setup_rl_loss_fn
+from prime_rl.trainer.rl.loss import (
+    LossInputs,
+    LossOutputs,
+    compute_entropy,
+    compute_loss,
+    ref_kl_loss_fn,
+    setup_rl_loss_fn,
+)
 
 pytestmark = [pytest.mark.gpu]
 
@@ -208,6 +215,39 @@ def test_disjoint_components_in_one_sequence():
     assert "nll" in metrics
     assert "ref_kl" in metrics
     assert "is_masked" in metrics
+
+
+def test_ref_kl_matches_sampled_token_sdpo_gradient_on_policy():
+    """At the on-policy point, ref_kl gives the sampled-token SDPO gradient.
+
+    Sampled-token SDPO uses ``(logp_student - logp_teacher).detach() *
+    logp_student``. Prime's ref_kl component keeps the same gradient direction
+    while adding the importance-ratio and mismatch masking needed by async
+    training.
+    """
+    trainer_logprobs = torch.tensor(
+        [-0.2, -1.1, -0.7, -0.4, -0.9, -1.3],
+        dtype=torch.float32,
+        device="cuda",
+        requires_grad=True,
+    )
+    ref_logprobs = torch.tensor([-0.1, -1.4, -0.4, -0.6, -0.5, -1.7], dtype=torch.float32).cuda()
+    loss_mask = torch.tensor([True, True, False, True, False, True], dtype=torch.bool).cuda()
+
+    result = ref_kl_loss_fn(
+        LossInputs(
+            trainer_logprobs=trainer_logprobs,
+            inference_logprobs=trainer_logprobs.detach(),
+            ref_logprobs=ref_logprobs,
+            advantages=torch.zeros(6, dtype=torch.float32).cuda(),
+            loss_mask=loss_mask,
+        )
+    )
+    result.loss.backward()
+
+    expected_grad = torch.zeros_like(trainer_logprobs)
+    expected_grad[loss_mask] = trainer_logprobs.detach()[loss_mask] - ref_logprobs[loss_mask]
+    assert torch.allclose(trainer_logprobs.grad, expected_grad, atol=1e-6)
 
 
 def test_empty_components_keep_backward_valid():
