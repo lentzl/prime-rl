@@ -46,6 +46,12 @@ So the likely upstream contribution is not a new loss function unless a direct
 reference test finds a real mathematical mismatch. A better first contribution
 would be a small test/documentation patch that makes this relationship explicit.
 
+Reference-scoring correctness depends on exact token alignment. The prefill
+helper must select the logprob for the token being scored at each position, not
+an arbitrary top-k entry returned by the serving backend. This matters for
+`opd`, `opsd`, and any SDPO-style feedback scorer that reuses the same
+`ref_kl` component.
+
 ## Algorithm-Level Gap
 
 Huebotter-style SDPO is different from plain `opd` and from `opsd` mainly in how
