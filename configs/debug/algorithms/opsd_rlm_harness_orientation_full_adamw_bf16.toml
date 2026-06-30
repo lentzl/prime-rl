@@ -1,6 +1,7 @@
-# RLM-shaped OPSD orientation run over a small multi-task verifier harness.
-# The env fixture lives in tests/fixtures/opsd_rlm_harness_orientation.py.
-#   WANDB_MODE=offline PYTHONPATH=tests/fixtures uv run rl @ configs/debug/algorithms/opsd_rlm_harness_orientation.toml
+# Full-parameter AdamW variant of the RLM-shaped OPSD orientation run.
+# This keeps the successful orientation setup but removes LoRA and uses BF16
+# trainer/inference dtypes plus optimizer CPU offload to reduce GPU pressure.
+#   WANDB_MODE=offline PYTHONPATH=tests/fixtures uv run rl @ configs/debug/algorithms/opsd_rlm_harness_orientation_full_adamw_bf16.toml
 
 max_steps = 80
 seq_len = 2048
@@ -10,7 +11,7 @@ name = "Qwen/Qwen3-4B-Instruct-2507"
 
 [wandb]
 project = "algorithms-debug"
-name = "opsd-rlm-harness-orientation"
+name = "opsd-rlm-harness-orientation-full-adamw-bf16"
 
 [orchestrator]
 batch_size = 4
@@ -47,24 +48,13 @@ type = "zero_advantage"
 enforce = false
 
 [trainer.optim]
+type = "adamw"
 lr = 1e-6
 
 [trainer.model]
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
-
-[trainer.model.lora]
-rank = 8
-dropout = 0.0
-target_modules = [
-    "q_proj",
-    "k_proj",
-    "v_proj",
-    "o_proj",
-    "gate_proj",
-    "up_proj",
-    "down_proj",
-]
+optim_cpu_offload = true
 
 [ckpt]
 
