@@ -1,0 +1,55 @@
+# RLM-shaped OPSD orientation run over a small multi-task verifier harness.
+# The env fixture lives in tests/fixtures/opsd_rlm_harness_orientation.py.
+#   WANDB_MODE=offline PYTHONPATH=tests/fixtures uv run rl @ configs/debug/algorithms/opsd_rlm_harness_orientation.toml
+
+max_steps = 80
+seq_len = 2048
+
+[model]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+
+[wandb]
+project = "algorithms-debug"
+name = "opsd-rlm-harness-orientation"
+
+[orchestrator]
+batch_size = 4
+group_size = 1
+
+[orchestrator.algo]
+type = "opsd"
+model = "policy"
+demo_key = "answer"
+multi_turn = true
+template_target = "first_user"
+max_concurrent = 4
+template = "{question}\n\nReference harness demonstration:\n{demonstration}\n\nContinue from the current episode state."
+
+[orchestrator.renderer]
+name = "qwen3"
+enable_thinking = false
+preserve_all_thinking = false
+
+[orchestrator.train.sampling]
+temperature = 0.7
+max_completion_tokens = 96
+
+[orchestrator.train.sampling.extra_body]
+top_k = -1
+min_p = 0.0
+chat_template_kwargs = { enable_thinking = false }
+
+[[orchestrator.train.env]]
+id = "opsd-rlm-harness-orientation"
+
+[[orchestrator.post_batch_filters]]
+type = "zero_advantage"
+enforce = false
+
+[trainer.optim]
+lr = 1e-6
+
+[ckpt]
+
+[inference]
+gpu_memory_utilization = 0.45
