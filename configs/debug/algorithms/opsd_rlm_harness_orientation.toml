@@ -53,3 +53,6 @@ lr = 1e-6
 
 [inference]
 gpu_memory_utilization = 0.45
+
+[inference.model]
+max_model_len = 4096
