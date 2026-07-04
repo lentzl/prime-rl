@@ -5,6 +5,11 @@ working design record for the implementation: the code now has a first-class
 `sdpo` algorithm and loss component, but the contribution boundary should still
 stay close to Prime's existing per-token stream model.
 
+Contribution provenance: this SDPO stack is based on
+`PrimeIntellect-ai/prime-rl` branch `feat/algorithm-abstraction-v1` at
+`b20427b6fc11283e59c3397950fc611e31e6d093`, with SDPO-specific commits layered
+on top in the fork branch `codex/sdpo-algorithm-abstraction-v1-clean`.
+
 ## Current Prime Pieces
 
 The abstraction already has the important generic pieces for distillation-style

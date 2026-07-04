@@ -6,6 +6,12 @@ useful for development confidence, but the acceptance proof requires the real
 Prime runtime, vLLM prefill APIs, trainer preflight export, teacher rescoring,
 final SDPO training batches, rollout-IS evidence, and EMA teacher broadcasts.
 
+The contribution branch is stacked on `PrimeIntellect-ai/prime-rl`
+`feat/algorithm-abstraction-v1` at
+`b20427b6fc11283e59c3397950fc611e31e6d093`. If that upstream branch moves
+before opening a PR, re-check the merge base and re-run this acceptance proof
+after rebasing or confirming there is no integration drift.
+
 ## Fresh Box Setup
 
 Clone the contribution branch:
