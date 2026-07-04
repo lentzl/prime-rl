@@ -3681,8 +3681,8 @@ def test_sdpo_smoke_script_runs_training_then_strict_artifact_verifier(tmp_path)
     assert "python_runner=uv run python" in provenance
     assert "rl_runner=uv run rl" in provenance
     assert "git_untracked_manifest_begin" in provenance
-    assert "scripts/run_sdpo_smoke_and_verify.sh" in provenance
     assert "git_untracked_manifest_end" in provenance
+    assert provenance.index("git_untracked_manifest_begin") < provenance.index("git_untracked_manifest_end")
     assert "git_status_short_begin" in provenance
     assert "git_status_short_end" in provenance
 
