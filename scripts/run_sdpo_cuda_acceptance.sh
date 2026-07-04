@@ -402,6 +402,8 @@ write_acceptance_archive() {
   echo "Verifying SDPO CUDA acceptance archive: $archive_path"
   "${python_runner[@]}" scripts/verify_sdpo_cuda_acceptance_archive.py \
     --expected-acceptance-mode "$acceptance_mode" \
+    --expected-git-commit "$(git_commit_sha)" \
+    --expected-git-branch "$(git_branch_name)" \
     "$archive_path"
   echo "Wrote SDPO CUDA acceptance archive: $archive_path"
 }

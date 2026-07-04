@@ -571,7 +571,31 @@ def _verify_summary_archive_pointers(summary_fields: dict[str, str], regular_fil
             raise ValueError(f"summary {field} points to an empty or missing archive directory: {actual_member}")
 
 
-def verify_archive(path: Path, *, expected_acceptance_mode: str | None = None) -> AcceptanceArchiveVerification:
+def _verify_expected_git_identity(
+    summary_fields: dict[str, str],
+    *,
+    expected_git_commit: str | None,
+    expected_git_branch: str | None,
+) -> None:
+    if expected_git_commit is not None and summary_fields["git_commit"] != expected_git_commit:
+        raise ValueError(
+            "archive git_commit mismatch: "
+            f"expected {expected_git_commit!r}, got {summary_fields['git_commit']!r}"
+        )
+    if expected_git_branch is not None and summary_fields["git_branch"] != expected_git_branch:
+        raise ValueError(
+            "archive git_branch mismatch: "
+            f"expected {expected_git_branch!r}, got {summary_fields['git_branch']!r}"
+        )
+
+
+def verify_archive(
+    path: Path,
+    *,
+    expected_acceptance_mode: str | None = None,
+    expected_git_commit: str | None = None,
+    expected_git_branch: str | None = None,
+) -> AcceptanceArchiveVerification:
     if not path.is_file():
         raise ValueError(f"archive does not exist: {path}")
     if path.stat().st_size == 0:
@@ -629,6 +653,11 @@ def verify_archive(path: Path, *, expected_acceptance_mode: str | None = None) -
                 "archive acceptance_mode mismatch: "
                 f"expected {expected_acceptance_mode!r}, got {summary_fields['acceptance_mode']!r}"
             )
+        _verify_expected_git_identity(
+            summary_fields,
+            expected_git_commit=expected_git_commit,
+            expected_git_branch=expected_git_branch,
+        )
 
         for manifest_path, entry in manifest_entries.items():
             if manifest_path not in regular_files:
@@ -675,11 +704,23 @@ def main() -> None:
         default=None,
         help="Require the archive summary and manifest to prove this acceptance mode.",
     )
+    parser.add_argument(
+        "--expected-git-commit",
+        default=None,
+        help="Require the archive summary/provenance to prove this exact git commit.",
+    )
+    parser.add_argument(
+        "--expected-git-branch",
+        default=None,
+        help="Require the archive summary/provenance to prove this exact git branch.",
+    )
     args = parser.parse_args()
     try:
         verification = verify_archive(
             args.archive,
             expected_acceptance_mode=args.expected_acceptance_mode,
+            expected_git_commit=args.expected_git_commit,
+            expected_git_branch=args.expected_git_branch,
         )
     except (KeyError, OSError, tarfile.TarError, UnicodeDecodeError, ValueError) as exc:
         parser.error(f"invalid SDPO CUDA acceptance archive: {exc}")

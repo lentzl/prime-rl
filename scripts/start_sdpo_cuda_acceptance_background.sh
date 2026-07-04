@@ -130,6 +130,26 @@ read -r -a python_runner <<< "${SDPO_ACCEPTANCE_PYTHON_RUNNER:-${SDPO_SMOKE_PYTH
 read -r -a acceptance_runner <<< "${SDPO_ACCEPTANCE_RUNNER:-scripts/run_sdpo_cuda_acceptance.sh}"
 min_gpus="${SDPO_ACCEPTANCE_MIN_GPUS:-3}"
 
+git_commit_sha() {
+  git rev-parse HEAD 2>/dev/null || echo "unknown"
+}
+
+git_branch_name() {
+  local branch
+  branch="$(git branch --show-current 2>/dev/null || true)"
+  if [[ -n "$branch" ]]; then
+    echo "$branch"
+    return
+  fi
+  local short_commit
+  short_commit="$(git rev-parse --short HEAD 2>/dev/null || true)"
+  if [[ -n "$short_commit" ]]; then
+    echo "detached-$short_commit"
+    return
+  fi
+  echo "unknown"
+}
+
 run_host_preflight() {
   echo "Running SDPO CUDA acceptance host preflight..."
   for required_cmd in uv tar nvidia-smi; do
@@ -313,6 +333,8 @@ if [[ "$status_only" -eq 1 ]]; then
       echo "Archive verification: skipped while process is running"
     elif "${python_runner[@]}" scripts/verify_sdpo_cuda_acceptance_archive.py \
       --expected-acceptance-mode training \
+      --expected-git-commit "$(git_commit_sha)" \
+      --expected-git-branch "$(git_branch_name)" \
       "$archive_path"; then
       echo "Archive verification: passed"
     else
@@ -395,6 +417,10 @@ print_command \
   scripts/verify_sdpo_cuda_acceptance_archive.py \
   --expected-acceptance-mode \
   training \
+  --expected-git-commit \
+  "$(git_commit_sha)" \
+  --expected-git-branch \
+  "$(git_branch_name)" \
   "$archive_path"
 echo "  Expected verifier output includes: raw_artifacts=verified"
 
@@ -406,5 +432,9 @@ print_command \
   scripts/verify_sdpo_cuda_acceptance_archive.py \
   --expected-acceptance-mode \
   training \
+  --expected-git-commit \
+  "$(git_commit_sha)" \
+  --expected-git-branch \
+  "$(git_branch_name)" \
   "$(basename "$archive_path")"
 echo "  Expected verifier output includes: raw_artifacts=verified"

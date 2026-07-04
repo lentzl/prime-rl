@@ -28,6 +28,14 @@ commit SHA printed by `git rev-parse HEAD`; the acceptance archive verifier will
 later check that the live-policy and EMA smoke provenance agree on commit and
 branch identity.
 
+For copy-pasteable verification commands later in the runbook, capture the
+exact source identity once:
+
+```bash
+EXPECTED_SDPO_BRANCH="$(git branch --show-current)"
+EXPECTED_SDPO_COMMIT="$(git rev-parse HEAD)"
+```
+
 Initialize submodules:
 
 ```bash
@@ -113,6 +121,8 @@ remote box:
 ```bash
 uv run python scripts/verify_sdpo_cuda_acceptance_archive.py \
   --expected-acceptance-mode training \
+  --expected-git-branch "$EXPECTED_SDPO_BRANCH" \
+  --expected-git-commit "$EXPECTED_SDPO_COMMIT" \
   outputs/sdpo-cuda-acceptance-proof.tar.gz
 ```
 
@@ -139,6 +149,8 @@ From a checkout of the same branch, verify the downloaded archive:
 ```bash
 uv run python scripts/verify_sdpo_cuda_acceptance_archive.py \
   --expected-acceptance-mode training \
+  --expected-git-branch "$EXPECTED_SDPO_BRANCH" \
+  --expected-git-commit "$EXPECTED_SDPO_COMMIT" \
   sdpo-cuda-acceptance-proof.tar.gz
 ```
 

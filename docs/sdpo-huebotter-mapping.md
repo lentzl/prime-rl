@@ -245,8 +245,12 @@ and keep it with the PR evidence. For example:
 
 ```bash
 scp USER@HOST:/path/to/prime-rl/outputs/sdpo-cuda-acceptance-proof.tar.gz .
+EXPECTED_SDPO_BRANCH="$(git branch --show-current)"
+EXPECTED_SDPO_COMMIT="$(git rev-parse HEAD)"
 uv run python scripts/verify_sdpo_cuda_acceptance_archive.py \
   --expected-acceptance-mode training \
+  --expected-git-branch "$EXPECTED_SDPO_BRANCH" \
+  --expected-git-commit "$EXPECTED_SDPO_COMMIT" \
   sdpo-cuda-acceptance-proof.tar.gz
 ```
 
@@ -366,9 +370,10 @@ verifier report lines.
 The success line includes `raw_artifacts=verified` plus recomputed live/EMA
 token-export counters and EMA teacher-step evidence from the archived files.
 For PR evidence, pass
-`--expected-acceptance-mode training`; verifying without that flag is useful for
-integrity checks, but it intentionally also accepts `--no-run` archives and will
-print the recorded `acceptance_mode` in its success line.
+`--expected-acceptance-mode training`, `--expected-git-branch`, and
+`--expected-git-commit`; verifying without those flags is useful for integrity
+checks, but it intentionally accepts any coherent source identity and, without
+the mode flag, also accepts `--no-run` archives.
 
 The broad local SDPO gate used during development is wrapped by:
 

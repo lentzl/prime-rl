@@ -284,7 +284,13 @@ def test_sdpo_cuda_acceptance_background_script_status_reports_existing_artifact
     archive_path = tmp_path / "proof.tar.gz"
     log_path = tmp_path / "acceptance.log"
     pid_file = tmp_path / "acceptance.pid"
-    files = _minimal_sdpo_acceptance_archive_files(summary_mode="training")
+    expected_commit = _current_git_commit()
+    expected_branch = _current_git_branch()
+    files = _minimal_sdpo_acceptance_archive_files(
+        summary_mode="training",
+        summary_git_commit=expected_commit,
+        summary_git_branch=expected_branch,
+    )
     _write_sdpo_acceptance_tar(
         archive_path,
         _add_sdpo_acceptance_manifest(files, manifest_mode="training"),
@@ -637,6 +643,8 @@ def test_sdpo_cuda_acceptance_background_script_start_prints_status_command(tmp_
     archive_path = tmp_path / "proof.tar.gz"
     log_path = tmp_path / "acceptance.log"
     pid_file = tmp_path / "acceptance.pid"
+    expected_commit = _current_git_commit()
+    expected_branch = _current_git_branch()
 
     result = subprocess.run(
         [
@@ -672,7 +680,8 @@ def test_sdpo_cuda_acceptance_background_script_start_prints_status_command(tmp_
     assert f"USER@HOST:{REPO_ROOT}/{archive_path}" not in result.stdout
     assert (
         "uv run python scripts/verify_sdpo_cuda_acceptance_archive.py "
-        f"--expected-acceptance-mode training {archive_path.name}"
+        f"--expected-acceptance-mode training --expected-git-commit {expected_commit} "
+        f"--expected-git-branch {expected_branch} {archive_path.name}"
     ) in result.stdout
     assert "Expected verifier output includes: raw_artifacts=verified" in result.stdout
     assert pid_file.is_file()
@@ -681,6 +690,8 @@ def test_sdpo_cuda_acceptance_background_script_start_prints_status_command(tmp_
 def test_sdpo_cuda_acceptance_background_script_prints_configured_python_runner(tmp_path):
     fake_acceptance = _write_fake_sdpo_cuda_acceptance_runner(tmp_path)
     archive_path = tmp_path / "proof.tar.gz"
+    expected_commit = _current_git_commit()
+    expected_branch = _current_git_branch()
 
     result = subprocess.run(
         [
@@ -710,11 +721,13 @@ def test_sdpo_cuda_acceptance_background_script_prints_configured_python_runner(
     assert result.returncode == 0, result.stderr
     assert (
         f"custom-python --verify scripts/verify_sdpo_cuda_acceptance_archive.py "
-        f"--expected-acceptance-mode training {archive_path}"
+        f"--expected-acceptance-mode training --expected-git-commit {expected_commit} "
+        f"--expected-git-branch {expected_branch} {archive_path}"
     ) in result.stdout
     assert (
         "custom-python --verify scripts/verify_sdpo_cuda_acceptance_archive.py "
-        f"--expected-acceptance-mode training {archive_path.name}"
+        f"--expected-acceptance-mode training --expected-git-commit {expected_commit} "
+        f"--expected-git-branch {expected_branch} {archive_path.name}"
     ) in result.stdout
 
 
@@ -1778,8 +1791,14 @@ def _minimal_sdpo_acceptance_archive_files(
     summary_archive_path: str = "outputs/sdpo-cuda-acceptance-proof.tar.gz",
     summary_git_commit: str = SDPO_TEST_GIT_COMMIT,
     summary_git_branch: str = SDPO_TEST_GIT_BRANCH,
+    provenance_git_commit: str | None = None,
+    provenance_git_branch: str | None = None,
     include_live_provenance: bool = True,
 ) -> dict[str, bytes]:
+    if provenance_git_commit is None:
+        provenance_git_commit = summary_git_commit
+    if provenance_git_branch is None:
+        provenance_git_branch = summary_git_branch
     files = {
         "sdpo_cuda_acceptance_summary.txt": (
             "sdpo_cuda_acceptance_summary_version=1\n"
@@ -1806,6 +1825,8 @@ def _minimal_sdpo_acceptance_archive_files(
         "ema/sdpo_smoke_provenance.txt": _sdpo_acceptance_provenance_bytes(
             mode="ema",
             config="configs/debug/algorithms/sdpo_huebotter_reference_ema_smoke.toml",
+            git_commit=provenance_git_commit,
+            git_branch=provenance_git_branch,
         ),
         "ema/sdpo_smoke_verify_report.txt": _sdpo_acceptance_smoke_report_bytes(ema=True),
         "live/run_default/token_exports/step_1/rank_0.jsonl": _sdpo_acceptance_token_export_bytes(),
@@ -1820,6 +1841,8 @@ def _minimal_sdpo_acceptance_archive_files(
         files["live/sdpo_smoke_provenance.txt"] = _sdpo_acceptance_provenance_bytes(
             mode="live",
             config="configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml",
+            git_commit=provenance_git_commit,
+            git_branch=provenance_git_branch,
         )
     return files
 
@@ -2867,6 +2890,33 @@ def test_sdpo_cuda_acceptance_archive_verifier_rejects_unexpected_acceptance_mod
 
     assert result.returncode == 2
     assert "archive acceptance_mode mismatch: expected 'training', got 'no-run'" in result.stderr
+
+
+def test_sdpo_cuda_acceptance_archive_verifier_rejects_unexpected_git_identity(tmp_path):
+    archive_path = tmp_path / "sdpo-acceptance-git-mismatch.tar.gz"
+    files = _minimal_sdpo_acceptance_archive_files(summary_mode="training")
+    files = _add_sdpo_acceptance_manifest(files, manifest_mode="training")
+    _write_sdpo_acceptance_tar(archive_path, files)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(VERIFY_ACCEPTANCE_ARCHIVE_SCRIPT),
+            "--expected-acceptance-mode",
+            "training",
+            "--expected-git-branch",
+            "codex/not-this-branch",
+            "--expected-git-commit",
+            "f" * 40,
+            str(archive_path),
+        ],
+        cwd=REPO_ROOT,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "archive git_commit mismatch" in result.stderr
 
 
 def test_sdpo_cuda_acceptance_archive_verifier_rejects_marker_only_smoke_report(tmp_path):
