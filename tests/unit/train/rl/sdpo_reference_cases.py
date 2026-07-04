@@ -1,4 +1,10 @@
-"""Shared SDPO reference cases for trainer-side unit tests."""
+"""Shared SDPO reference cases for trainer-side unit tests.
+
+The constants are fixed from the local provenance audit against
+``lasgroup/SDPO@c52586b``. See ``docs/sdpo-huebotter-mapping.md`` for the
+reference boundary and why the author-lineage repository is not imported at
+test time.
+"""
 
 import torch
 

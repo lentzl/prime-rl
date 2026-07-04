@@ -452,19 +452,24 @@ that matter for the trainer primitive:
 - token-level and sequence-level rollout-importance batch-normalization
   semantics
 
-The copied constants are generated from the local RLM provenance fixture
-(`scripts/generate_sdpo_reference_constants.py` writing
-`docs/prime-rl-sdpo-reference-constants.json`) before being copied into
-`tests/unit/train/rl/sdpo_reference_cases.py`. The primitive loss tests and
-trainer-component aggregation tests consume that shared helper rather than
-importing constants from each other. The rollout-importance case follows the
-`verl` loss boundary by passing explicit `rollout_is_weights`; Prime tests its
-own helper for computing those weights separately, then checks that the SDPO
-loss consumes them with clipping, top-k tail mass, and JSD enabled.
-The RLM JSON fixture also keeps those direct rollout helper cases separate under
-`rollout_is_weight_cases`, so the copied constants preserve the same boundary:
-loss consumption and rollout-weight construction are related but independently
-tested.
+The copied constants live in
+`tests/unit/train/rl/sdpo_reference_cases.py`. They were generated in the local
+RLM provenance workspace from the `lasgroup/SDPO@c52586b` implementation noted
+above and then embedded directly in the Prime test fixture. The generator and
+raw JSON export are intentionally not runtime inputs to this contribution:
+Prime's unit suite should stay self-contained and should not need to import the
+author-lineage repository. If the constants are regenerated, update the fixture
+and this provenance note together.
+
+The primitive loss tests and trainer-component aggregation tests consume that
+shared helper rather than importing constants from each other. The
+rollout-importance case follows the `verl` loss boundary by passing explicit
+`rollout_is_weights`; Prime tests its own helper for computing those weights
+separately, then checks that the SDPO loss consumes them with clipping, top-k
+tail mass, and JSD enabled. The original local JSON export also kept direct
+rollout helper cases separate under `rollout_is_weight_cases`, so the copied
+constants preserve the same boundary: loss consumption and rollout-weight
+construction are related but independently tested.
 
 The constants are intentionally small tensor cases. They are not a statistical
 test of training quality and they do not prove the orchestrator's hindsight
