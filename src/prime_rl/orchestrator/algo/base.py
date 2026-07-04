@@ -1,18 +1,19 @@
 """The per-env algorithm runtime: base class and pipeline phase functions.
 
 Each named class in this package *is* one training algorithm, one module per
-algorithm: it owns the algorithm's three scoring hooks directly —
-``score_rollout`` (per arrival), ``score_group`` (per group), ``score_batch``
-(per batch) — and declares what it needs (``action_loss_type``, a
-``model_role`` like "teacher"). Reading a module top to bottom reads the
-algorithm; writing your own is subclassing :class:`Algorithm` and overriding
-the hooks its signal needs. Shared math (group normalization, prefill
-alignment) lives as plain functions in ``advantage.py``; duplication of
+algorithm: it owns the algorithm's scoring hooks directly — ``score_rollout``
+(per arrival), ``score_group`` (per group), optional ``run_batch_preflight``,
+and ``score_batch`` (per batch) — and declares what it needs
+(``action_loss_type``, a ``model_role`` like "teacher"). Reading a module top
+to bottom reads the algorithm; writing your own is subclassing
+:class:`Algorithm` and overriding the hooks its signal needs. Shared math
+(group normalization, prefill alignment) lives as plain functions in
+``advantage.py``; duplication of
 orchestration between similar algorithms (e.g. OPD and OPSD) is accepted so
 each module stays self-contained.
 
-The three hooks are one scope-and-timing ladder — each wider scope is
-unlocked by a later barrier, so the two axes coincide. All three are
+The hooks are one scope-and-timing ladder — each wider scope is
+unlocked by a later barrier, so the two axes coincide. Scoring hooks are
 ``async`` (any stage may do I/O); a hook that only does advantage math never
 awaits:
 
@@ -20,6 +21,9 @@ awaits:
   (raw reward, process rewards, echo's observation weighting). No siblings.
 - ``score_group(group)`` — the cohort, on group completion, *before* filtering
   (filters read the streams): group-relative credit (GRPO/MaxRL baselines).
+- ``run_batch_preflight(batch)`` — optional, after filtering and before
+  reference scoring: forward/export-only trainer side channels needed by later
+  scoring hooks.
 - ``score_batch(batch)`` — the batch's survivors, *after* filtering: the home
   for reference I/O (``self.teacher_pool``), where queries are batched for
   concurrency and — running after filtering — dropped rollouts cost nothing.
@@ -31,17 +35,20 @@ is pure pipeline.
 
 The pipeline (dispatcher, train sink, orchestrator) calls the module-level
 phase functions (:func:`finalize_rollout`, :func:`finalize_group`,
-:func:`finalize_batch`) and reads the class declarations; it never branches on
-algorithm config fields or model roles — liveness of a reference is the only
-runtime distinction. prime-rl hosts exactly one model — the trainable policy,
-whose pool is passed in; every frozen model reference is an external endpoint
-the algorithm *connects to* (never launches) in :meth:`Algorithm.setup`.
+:func:`finalize_batch_preflight`, :func:`finalize_batch`) and reads the class
+declarations; it never branches on algorithm config fields or model roles.
+The policy pool is the primary live model view passed into algorithms; frozen
+model references are external endpoints the algorithm *connects to* (never
+launches) in :meth:`Algorithm.setup`. Additional live-derived views, if
+configured by a future algorithm, should attach to the orchestrator's
+weight-update lifecycle rather than masquerading as frozen endpoints.
 """
 
 from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, ClassVar
 
 from prime_rl.configs.algorithm import ActionLossType, AlgorithmConfig, FrozenModelConfig, ModelReference
@@ -50,11 +57,15 @@ from prime_rl.orchestrator.types import RolloutView
 from prime_rl.utils.logger import get_logger
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from renderers import RendererConfig
     from renderers.base import Renderer
 
     from prime_rl.orchestrator.envs import TrainEnvs
     from prime_rl.orchestrator.types import Rollout
+    from prime_rl.transport import TrainingSample
+    from prime_rl.transport.base import TrainingBatchSender
     from prime_rl.utils.client import InferencePool
 
 
@@ -90,7 +101,8 @@ class Algorithm:
 
     Everything on this class is yours to override; the pipeline drives the
     compilation through the module-level phase functions below
-    (:func:`finalize_rollout` / :func:`finalize_group` / :func:`finalize_batch`)
+    (:func:`finalize_rollout` / :func:`finalize_group` /
+    :func:`finalize_batch_preflight` / :func:`finalize_batch`)
     and never calls anything else. The surface is:
 
     - declarations — which loss component the action tokens feed
@@ -98,17 +110,21 @@ class Algorithm:
       model, if it has one (``model_role``, e.g. "teacher");
     - lifecycle — :meth:`setup` connects client pools to the frozen models
       the algorithm declares, resolving each reference via :meth:`connect`;
-    - the three scoring hooks, each ``async`` and given a :class:`RolloutView`
-      (a writable handle exposing only what is valid at its stage). They are
-      async so any stage may do I/O — e.g. a process-reward model at arrival,
-      or a judge at group time whose signal a pre-batch filter then reads; a
-      hook that only does advantage math simply never awaits.
+    - the scoring hooks, each ``async`` and given a :class:`RolloutView`
+      (a writable handle exposing only what is valid at its stage), plus an
+      optional batch preflight hook for trainer-side side channels. Scoring
+      hooks are async so any stage may do I/O — e.g. a process-reward model at
+      arrival, or a judge at group time whose signal a pre-batch filter then
+      reads; a hook that only does advantage math simply never awaits.
 
       - :meth:`score_rollout` — one rollout, on arrival: rollout-local credit
         or observation ce weights. Default: nothing.
       - :meth:`score_group` — the cohort, *before* filtering (filters read the
         streams): group-relative credit. Default: nothing — rollouts keep
         ``advantages=None``, so advantage-based filters skip them.
+      - :meth:`run_batch_preflight` — optional, *after* filtering and before
+        reference scoring: forward/export-only trainer side channels needed by
+        a later scoring hook. Default: nothing.
       - :meth:`score_batch` — the batch's survivors, *after* filtering:
         query the algorithm's reference pool (e.g. ``self.teacher_pool``) and
         attach per-token results, or modulate advantages. Default: nothing.
@@ -125,11 +141,19 @@ class Algorithm:
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
     model_role: ClassVar[str | None] = None
+    batch_preflight_name: ClassVar[str | None] = None
 
-    def __init__(self, config: AlgorithmConfig, policy_pool: InferencePool, renderer: Renderer | None):
+    def __init__(
+        self,
+        config: AlgorithmConfig,
+        policy_pool: InferencePool,
+        renderer: Renderer | None,
+        live_pools: Mapping[str, InferencePool] | None = None,
+    ):
         self.config = config
         self.policy_pool = policy_pool
         self.renderer = renderer
+        self.live_pools = live_pools or {}
         self.connected_pools: list[InferencePool] = []  # client pools connected in setup(); closed at shutdown
 
     async def setup(self) -> None:
@@ -148,6 +172,13 @@ class Algorithm:
         self.connected_pools.append(pool)
         return pool
 
+    async def connect_live(self, role: str) -> InferencePool:
+        """Resolve an internal live-derived model role to its host-owned pool."""
+        try:
+            return self.live_pools[role]
+        except KeyError as exc:
+            raise NotImplementedError(f"live inference pool {role!r} is not configured") from exc
+
     async def score_rollout(self, rollout: RolloutView) -> None:
         """Arrival phase, one rollout, before its group is complete: write
         rollout-local credit (``rollout.assign_advantages``) or observation ce
@@ -161,6 +192,53 @@ class Algorithm:
         """Ship phase, survivors only, after filtering, async: query the
         algorithm's reference models and attach per-token results, or modulate
         advantages."""
+
+    def needs_batch_preflight(self, batch: list[RolloutView]) -> bool:
+        """Whether this algorithm needs a forward/export-only trainer pass
+        before batch scoring. Default: no preflight."""
+        return False
+
+    def select_batch_preflight_samples(
+        self,
+        batch: list[RolloutView],
+        *,
+        samples: list[TrainingSample],
+    ) -> list[TrainingSample]:
+        """Select this algorithm/env's samples for a shared preflight pass.
+
+        Called per env after ``needs_batch_preflight`` and before shared
+        preflight hooks are merged. Algorithms with target-dependent side
+        effects, such as SDPO hindsight pruning, should do that work here so
+        each env's own algorithm config gates its own rollouts even when the
+        eventual preflight transport is shared across envs.
+        """
+        return samples
+
+    def batch_preflight_signature(self) -> object:
+        """Compatibility key for algorithms sharing ``batch_preflight_name``.
+
+        Algorithms with a shared preflight side channel should return the
+        settings that affect the exported artifact contract. The pipeline uses
+        this to reject envs that would otherwise be merged under one hook name
+        but require incompatible trainer-side outputs.
+        """
+        return None
+
+    async def run_batch_preflight(
+        self,
+        batch: list[RolloutView],
+        *,
+        samples: list[TrainingSample],
+        output_dir: Path,
+        sender: TrainingBatchSender,
+        step: int,
+    ) -> None:
+        """Run the algorithm's optional pre-batch side channel.
+
+        Preflight runs after filtering and before ``score_batch``. Algorithms
+        use it when reference scoring needs data only the trainer can produce
+        from a live forward pass.
+        """
 
 
 async def finalize_rollout(algorithm: Algorithm, rollout: Rollout) -> None:
@@ -196,3 +274,75 @@ async def finalize_batch(train_envs: TrainEnvs, rollouts: list[Rollout]) -> None
             for env_name, env_rollouts in by_env.items()
         )
     )
+
+
+async def finalize_batch_preflight(
+    train_envs: TrainEnvs,
+    rollouts: list[Rollout],
+    *,
+    samples: list[TrainingSample],
+    output_dir: Path,
+    sender: TrainingBatchSender,
+    step: int,
+) -> None:
+    """Run algorithm-owned preflight hooks before batch reference scoring.
+
+    The pipeline stays algorithm-blind here: it groups survivor rollouts by
+    env, asks each env's algorithm whether preflight is needed, and runs one
+    hook per logical preflight name. Shared names let multiple env instances of
+    the same algorithm cooperate on one step-scoped side channel.
+    """
+    by_env: dict[str, list[Rollout]] = defaultdict(list)
+    for rollout in rollouts:
+        if not rollout.is_filtered:
+            by_env[rollout.env_name].append(rollout)
+
+    final_sample_ids = {id(sample) for sample in samples}
+    preflight_groups: dict[str, tuple[Algorithm, object, list[Rollout], list[TrainingSample]]] = {}
+    for env_name, env_rollouts in by_env.items():
+        algorithm = train_envs.get(env_name).algorithm
+        env_batch = [RolloutView(rollout) for rollout in env_rollouts]
+        if not algorithm.needs_batch_preflight(env_batch):
+            continue
+        env_samples = [
+            sample for rollout in env_rollouts for sample in rollout.samples if id(sample) in final_sample_ids
+        ]
+        selected_samples = algorithm.select_batch_preflight_samples(env_batch, samples=env_samples)
+        env_sample_ids = {id(sample) for sample in env_samples}
+        if any(id(sample) not in env_sample_ids for sample in selected_samples):
+            raise ValueError(
+                f"batch preflight selector for env '{env_name}' returned a sample outside its survivor scope"
+            )
+        selected_sample_ids = [id(sample) for sample in selected_samples]
+        if len(selected_sample_ids) != len(set(selected_sample_ids)):
+            raise ValueError(f"batch preflight selector for env '{env_name}' returned duplicate samples")
+        if not selected_samples:
+            continue
+        key = algorithm.batch_preflight_name or env_name
+        signature = algorithm.batch_preflight_signature()
+        if key in preflight_groups:
+            existing_algorithm, existing_signature, group_rollouts, group_samples = preflight_groups[key]
+            if signature != existing_signature:
+                raise ValueError(
+                    f"batch preflight hook {key!r} received incompatible algorithm configurations "
+                    f"between envs (existing={existing_signature!r}, env '{env_name}'={signature!r})."
+                )
+        else:
+            existing_algorithm = algorithm
+            group_rollouts = []
+            group_samples = []
+            preflight_groups[key] = (existing_algorithm, signature, group_rollouts, group_samples)
+        group_rollouts.extend(env_rollouts)
+        group_samples.extend(selected_samples)
+
+    if not preflight_groups:
+        return
+
+    for algorithm, _signature, group_rollouts, group_samples in preflight_groups.values():
+        await algorithm.run_batch_preflight(
+            [RolloutView(rollout) for rollout in group_rollouts],
+            samples=group_samples,
+            output_dir=output_dir,
+            sender=sender,
+            step=step,
+        )

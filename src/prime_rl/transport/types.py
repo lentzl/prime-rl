@@ -33,6 +33,13 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
     temperatures: list[float]
     env_name: str
     ref_logprobs: list[float] | None = None  # reference-model logprobs (ref_kl component)
+
+    # Optional per-token top-k support for SDPO. In final training batches,
+    # these are teacher logprobs over the transported support ids; in preflight
+    # exports, trainer-owned student support is written to the token-export
+    # artifact rather than transported here.
+    sdpo_topk_token_ids: list[list[int]] | None = None
+    sdpo_topk_logprobs: list[list[float]] | None = None
     reward: float | None = None
 
     # Generic multimodal kwargs: flat dict keyed by the kwarg names the
@@ -52,18 +59,20 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
 
     # Per-token component weight streams (full prompt+completion length),
     # stamped by the orchestrator from the env's algorithm. The training loss
-    # is a sum of three components, each normalized by its own global token
-    # count: rl (importance-weighted PG + KL), ce (masked NLL), and ref_kl
-    # (reverse KL to a reference model as the PG signal). A weight scales that
-    # component's per-token loss; 0.0 leaves the token out of the component
-    # (mask and denominator). ``None`` means absent: no ce/ref_kl component,
-    # and an rl weight of 1.0 on every trainable token — so the plain GRPO
-    # wire stays as small as before.
+    # is a sum of four components, each normalized by its own global token
+    # count: rl (importance-weighted PG + KL), ce (masked NLL), ref_kl
+    # (sampled-token reverse KL to a reference model as the PG signal), and
+    # sdpo (feedback-conditioned self-distillation over a transported top-k
+    # support). A weight scales that component's per-token loss; 0.0 leaves
+    # the token out of the component (mask and denominator). ``None`` means
+    # absent: no ce/ref_kl/sdpo component, and an rl weight of 1.0 on every
+    # trainable token — so the plain GRPO wire stays as small as before.
     rl_weights: list[float] | None = None
     ce_weights: list[float] | None = None
     ref_kl_weights: list[float] | None = None
+    sdpo_weights: list[float] | None = None
 
-    # Per-token advantages (full prompt+completion length), the fourth stream:
+    # Per-token advantages (full prompt+completion length), the credit stream:
     # the orchestrator broadcasts the rollout's scalar over the completion for
     # scalar algorithms. ``None`` means no rl credit assigned — legal only for
     # samples without live rl member tokens (the trainer raises otherwise).
@@ -78,6 +87,14 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
     # ``ce_weights`` stream directly.
     obs_spans: list[list[int]] | None = None
 
+    # Optional true rollout-importance weights for SDPO. This is deliberately
+    # separate from ``sdpo_weights``, which route and weight the SDPO component.
+    sdpo_rollout_is_weights: list[float] | None = None
+
+    # Optional sequence identity used to match exported trainer artifacts back
+    # to the originating sample without relying on rank/file ordering.
+    sample_id: str | None = None
+
 
 class TrainingBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     """A batch of training examples with metadata for transport."""
@@ -85,6 +102,10 @@ class TrainingBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tru
     examples: list[TrainingSample]
     step: int
     run_idx: int | None = None
+    # Forward/export only: the trainer must not run backward, optimizer, scheduler,
+    # weight broadcast progress, or consume the real training step. This is the
+    # transport hook needed for exact SDPO student-support preflight passes.
+    preflight_only: bool = False
 
 
 # Packer -> Trainer
@@ -100,6 +121,8 @@ class MicroBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     temperatures: list[float]  # Per-token temperatures used during generation
     env_names: list[str]
     ref_logprobs: list[float] | None = None
+    sdpo_topk_token_ids: list[list[int]] | None = None
+    sdpo_topk_logprobs: list[list[float]] | None = None
     lora_num_tokens: list[int] | None = None
     routed_experts: RoutedExperts | None = None
 
@@ -109,13 +132,22 @@ class MicroBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     mm_token_type_ids: list[int] | None = None
 
     # Per-token component weight streams (see TrainingSample). ``None`` means
-    # absent: no ce/ref_kl component, rl weight 1.0 everywhere — packing
+    # absent: no ce/ref_kl/sdpo component, rl weight 1.0 everywhere — packing
     # materializes a stream as soon as one packed sample carries it.
     rl_weights: list[float] | None = None
     ce_weights: list[float] | None = None
     ref_kl_weights: list[float] | None = None
+    sdpo_weights: list[float] | None = None
     rewards: list[float] | None = None
 
     # Packer-derived metadata used for run-local token exports.
     run_id: str | None = None
     run_step: int | None = None
+    preflight_only: bool = False
+    preflight_step_complete: bool = True
+
+    # Optional true rollout-importance weights for SDPO.
+    sdpo_rollout_is_weights: list[float] | None = None
+
+    # Optional sequence ids, one per ``sequence_lengths`` entry.
+    sample_ids: list[str | None] | None = None

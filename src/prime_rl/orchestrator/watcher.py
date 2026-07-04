@@ -6,6 +6,8 @@ from __future__ import annotations
 
 import asyncio
 import time
+from dataclasses import dataclass
+from pathlib import Path
 
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.orchestrator.types import Policy, VersionObserver
@@ -14,6 +16,22 @@ from prime_rl.utils.client import InferencePool
 from prime_rl.utils.logger import format_time, get_logger
 from prime_rl.utils.pathing import get_broadcast_dir, get_step_path, wait_for_path
 from prime_rl.utils.utils import get_latest_ckpt_step
+
+
+@dataclass(frozen=True)
+class InferenceWeightTarget:
+    """An additional live inference pool updated on policy-version changes."""
+
+    role: str
+    inference: InferencePool
+    weight_subdir: str | None = None
+    lora_name: str | None = None
+    model_name: str | None = None
+
+    def weight_path(self, step_path: Path) -> Path:
+        if self.weight_subdir is None:
+            return step_path
+        return step_path / self.weight_subdir
 
 
 class WeightWatcher:
@@ -29,6 +47,7 @@ class WeightWatcher:
         lora_name: str | None,
         ckpt_step: int = 0,
         poll_interval: float = 1.0,
+        extra_inference_targets: list[InferenceWeightTarget] | None = None,
     ) -> None:
         self.config = config
         self.policy = policy
@@ -37,6 +56,7 @@ class WeightWatcher:
         self.lora_name = lora_name
         self.ckpt_step = ckpt_step
         self.poll_interval = poll_interval
+        self.extra_inference_targets = extra_inference_targets or []
 
         self.last_update_weights_time: float = 0.0
         self.last_wait_for_ckpt_time: float = 0.0
@@ -80,6 +100,7 @@ class WeightWatcher:
             broadcast_dir = get_broadcast_dir(self.config.output_dir)
             weights_path = get_step_path(broadcast_dir, next_step)
             stable_marker = weights_path / "STABLE"
+            wait_time = 0.0
             if not stable_marker.exists():
                 get_logger().info(
                     f"Orchestrator paused: waiting for trainer to broadcast checkpoint {next_step}. "
@@ -87,10 +108,22 @@ class WeightWatcher:
                 )
                 t0 = time.perf_counter()
                 await wait_for_path(stable_marker)
-                self.last_wait_for_ckpt_time = time.perf_counter() - t0
+                wait_time += time.perf_counter() - t0
                 get_logger().info(
-                    f"Orchestrator resumed: checkpoint {next_step} ready (after {format_time(self.last_wait_for_ckpt_time)})"
+                    f"Orchestrator resumed: checkpoint {next_step} ready (after {format_time(wait_time)})"
                 )
+
+            for target in self.extra_inference_targets:
+                target_stable_marker = target.weight_path(weights_path) / "STABLE"
+                if not target_stable_marker.exists():
+                    get_logger().info(
+                        f"Orchestrator paused: waiting for {target.role} checkpoint {next_step}. "
+                        "Training is progressing normally."
+                    )
+                    t0 = time.perf_counter()
+                    await wait_for_path(target_stable_marker)
+                    wait_time += time.perf_counter() - t0
+            self.last_wait_for_ckpt_time = wait_time
 
             # Drain off-policy rollouts BEFORE pausing the inference engines.
             # Aborting a rollout triggers vLLM's KV-connector cleanup (NIXL's
@@ -112,6 +145,16 @@ class WeightWatcher:
 
             get_logger().debug(f"Updating weights to step {next_step}")
             t1 = time.perf_counter()
+            # Keep auxiliary live views, such as an SDPO EMA teacher, from
+            # lagging behind the policy endpoint while a version update is in
+            # progress. Observers only see the new version after every target
+            # below has accepted the same step.
+            for target in self.extra_inference_targets:
+                target_path = target.weight_path(weights_path)
+                get_logger().debug(f"Updating {target.role} weights to step {next_step}")
+                await target.inference.update_weights(target_path, lora_name=target.lora_name, step=next_step)
+                if target.model_name is not None:
+                    target.inference.update_model_name(target.model_name)
             await self.inference.update_weights(weights_path, lora_name=self.lora_name, step=next_step)
             self.last_update_weights_time = time.perf_counter() - t1
             self.update_count += 1

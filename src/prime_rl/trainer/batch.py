@@ -1,10 +1,13 @@
 import copy
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
 
 from prime_rl.trainer.utils import balanced_partition
+from prime_rl.transport.sdpo import has_active_sdpo_weights as has_active_sdpo_weight_stream
+from prime_rl.transport.sdpo import is_active_sdpo_weight
 from prime_rl.transport.types import EncodedTensor, MicroBatch, RoutedExperts, TrainingSample
 
 ROUTED_EXPERTS_DTYPE_ITEMSIZE = {
@@ -14,9 +17,9 @@ ROUTED_EXPERTS_DTYPE_ITEMSIZE = {
 }
 
 # Backfill value per component weight stream when a packed sample doesn't
-# carry it: absent rl means weight 1.0 on the loss mask, absent ce/ref_kl
+# carry it: absent rl means weight 1.0 on the loss mask, absent ce/ref_kl/sdpo
 # means no component (weight 0.0).
-STREAM_FILL = {"rl_weights": 1.0, "ce_weights": 0.0, "ref_kl_weights": 0.0}
+STREAM_FILL = {"rl_weights": 1.0, "ce_weights": 0.0, "ref_kl_weights": 0.0, "sdpo_weights": 0.0}
 
 
 def _copy_routed_experts(routed_experts: RoutedExperts) -> RoutedExperts:
@@ -57,6 +60,117 @@ def _slice_encoded(tensor: EncodedTensor, n_rows: int) -> EncodedTensor:
         shape=[n_rows, *tensor.shape[1:]],
         data=tensor.data[: n_rows * row * itemsize],
     )
+
+
+def _topk_width(rows: list[list[int]] | list[list[float]] | None) -> int | None:
+    if not rows:
+        return None
+    return len(rows[0])
+
+
+def _zero_topk_ints(seq_len: int, width: int) -> list[list[int]]:
+    return [[0] * width for _ in range(seq_len)]
+
+
+def _zero_topk_floats(seq_len: int, width: int) -> list[list[float]]:
+    return [[0.0] * width for _ in range(seq_len)]
+
+
+def _is_zero_token_id_row(row: Sequence[int]) -> bool:
+    return all(token_id == 0 for token_id in row)
+
+
+def _is_zero_logprob_row(row: Sequence[float]) -> bool:
+    return all(logprob == 0.0 for logprob in row)
+
+
+def _is_integer_token_id(value: object) -> bool:
+    return not isinstance(value, bool) and isinstance(value, int)
+
+
+def _is_finite_number(value: object) -> bool:
+    return not isinstance(value, bool) and isinstance(value, (int, float)) and math.isfinite(float(value))
+
+
+def _validate_sdpo_rollout_is_weight_stream(
+    rollout_is_weights: Sequence[float],
+    sdpo_weights: Sequence[float] | None,
+) -> None:
+    for idx, rollout_is_weight in enumerate(rollout_is_weights):
+        if not _is_finite_number(rollout_is_weight):
+            raise ValueError(f"sdpo_rollout_is_weights[{idx}] must be finite numeric")
+        if rollout_is_weight < 0:
+            raise ValueError(f"sdpo_rollout_is_weights[{idx}] must be non-negative")
+        if not is_active_sdpo_weight(rollout_is_weight):
+            continue
+        if not isinstance(rollout_is_weight, float):
+            raise ValueError(f"sdpo_rollout_is_weights[{idx}] must be a floating-point value")
+        if sdpo_weights is None or not is_active_sdpo_weight(sdpo_weights[idx]):
+            raise ValueError(f"sdpo_rollout_is_weights[{idx}] is nonzero outside SDPO component")
+
+
+def _validate_sdpo_topk_stream_shapes(
+    token_rows: list[list[int]],
+    logprob_rows: list[list[float]],
+    seq_len: int,
+) -> None:
+    if len(token_rows) != seq_len:
+        raise ValueError(f"sdpo_topk_token_ids length {len(token_rows)} != input_ids length {seq_len}")
+    if len(logprob_rows) != seq_len:
+        raise ValueError(f"sdpo_topk_logprobs length {len(logprob_rows)} != input_ids length {seq_len}")
+    token_width = _topk_width(token_rows)
+    logprob_width = _topk_width(logprob_rows)
+    if token_width != logprob_width:
+        raise ValueError(f"sdpo top-k width mismatch: token width {token_width} != logprob width {logprob_width}")
+    width = token_width
+    if width is None or width == 0:
+        raise ValueError("sdpo top-k rows must be non-empty")
+    for idx, (token_row, logprob_row) in enumerate(zip(token_rows, logprob_rows, strict=True)):
+        if len(token_row) != width:
+            raise ValueError(f"ragged sdpo_topk_token_ids row {idx}: {len(token_row)} != {width}")
+        if len(logprob_row) != width:
+            raise ValueError(f"sdpo_topk_logprobs row {idx} width != token row width: {len(logprob_row)} != {width}")
+        if not all(_is_integer_token_id(token_id) for token_id in token_row):
+            raise ValueError(f"sdpo_topk_token_ids row {idx} must contain integer token ids")
+        if any(token_id < 0 for token_id in token_row):
+            raise ValueError(f"sdpo_topk_token_ids row {idx} must contain non-negative token ids")
+        if not all(_is_finite_number(logprob) for logprob in logprob_row):
+            raise ValueError(f"sdpo_topk_logprobs row {idx} must contain finite numeric values")
+        if _is_zero_logprob_row(logprob_row):
+            if not _is_zero_token_id_row(token_row):
+                raise ValueError(f"sdpo_topk_token_ids row {idx} must be zero when logprobs are placeholders")
+            continue
+        if not all(isinstance(logprob, float) for logprob in logprob_row):
+            raise ValueError(f"sdpo_topk_logprobs row {idx} must contain floating-point values")
+        if len(set(token_row)) != len(token_row):
+            raise ValueError(f"sdpo_topk_token_ids row {idx} must contain distinct token ids")
+        row_mass = math.fsum(math.exp(logprob) for logprob in logprob_row)
+        if row_mass > 1.0 + 1e-5:
+            raise ValueError(f"sdpo_topk_logprobs row {idx} probability mass exceeds 1")
+
+
+def _validate_active_sdpo_topk_support(
+    token_rows: list[list[int]],
+    logprob_rows: list[list[float]],
+    sdpo_weights: Sequence[float] | None,
+) -> None:
+    if sdpo_weights is None:
+        return
+    for idx, (token_row, logprob_row, weight) in enumerate(zip(token_rows, logprob_rows, sdpo_weights, strict=True)):
+        if not is_active_sdpo_weight(weight):
+            continue
+        if _is_zero_logprob_row(logprob_row):
+            raise ValueError(f"sdpo_topk_logprobs row {idx} must not be an all-zero placeholder")
+
+
+def _neutral_sdpo_rollout_is_weights(sample: MicroBatch) -> list[float]:
+    if sample.sdpo_weights is None:
+        return [0.0] * len(sample.input_ids)
+    return [1.0 if is_active_sdpo_weight(weight) else 0.0 for weight in sample.sdpo_weights]
+
+
+def _has_active_sdpo_weights(sample: MicroBatch) -> bool:
+    return sample.sdpo_weights is not None and has_active_sdpo_weight_stream(sample.sdpo_weights)
 
 
 def _truncate_mm(
@@ -124,6 +238,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
     rl_weights = list(training_example.rl_weights) if training_example.rl_weights is not None else None
     ce_weights = list(training_example.ce_weights) if training_example.ce_weights is not None else None
     ref_kl_weights = list(training_example.ref_kl_weights) if training_example.ref_kl_weights is not None else None
+    sdpo_weights = list(training_example.sdpo_weights) if training_example.sdpo_weights is not None else None
     reward = training_example.reward if training_example.reward is not None else float("nan")
     rewards = [reward] * len(input_ids)
     position_ids = list(range(len(input_ids)))
@@ -138,6 +253,9 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
     # Ref logprobs already cover the full sequence (prompt + completion),
     # computed via prefill in the orchestrator when the algorithm scores against a reference
     ref_logprobs = training_example.ref_logprobs
+    sdpo_topk_token_ids = training_example.sdpo_topk_token_ids
+    sdpo_topk_logprobs = training_example.sdpo_topk_logprobs
+    sdpo_rollout_is_weights = training_example.sdpo_rollout_is_weights
     routed_experts = (
         _copy_routed_experts(training_example.routed_experts) if training_example.routed_experts is not None else None
     )
@@ -157,12 +275,20 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         temperatures = temperatures[:cut]
         if ref_logprobs is not None:
             ref_logprobs = ref_logprobs[:cut]
+        if sdpo_topk_token_ids is not None:
+            sdpo_topk_token_ids = sdpo_topk_token_ids[:cut]
+        if sdpo_topk_logprobs is not None:
+            sdpo_topk_logprobs = sdpo_topk_logprobs[:cut]
+        if sdpo_rollout_is_weights is not None:
+            sdpo_rollout_is_weights = sdpo_rollout_is_weights[:cut]
         if rl_weights is not None:
             rl_weights = rl_weights[:cut]
         if ce_weights is not None:
             ce_weights = ce_weights[:cut]
         if ref_kl_weights is not None:
             ref_kl_weights = ref_kl_weights[:cut]
+        if sdpo_weights is not None:
+            sdpo_weights = sdpo_weights[:cut]
         if routed_experts is not None:
             routed_experts = _slice_routed_experts(routed_experts, cut)
         if mm_token_type_ids is not None:
@@ -182,13 +308,29 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
     )
     if ref_logprobs is not None:
         assert len(ref_logprobs) == len(input_ids), f"ref_logprobs: {len(ref_logprobs)}"
+    if sdpo_topk_token_ids is not None or sdpo_topk_logprobs is not None:
+        if sdpo_topk_token_ids is None:
+            raise ValueError("sdpo_topk_token_ids missing")
+        if sdpo_topk_logprobs is None:
+            raise ValueError("sdpo_topk_logprobs missing")
+        _validate_sdpo_topk_stream_shapes(sdpo_topk_token_ids, sdpo_topk_logprobs, len(input_ids))
+    if sdpo_rollout_is_weights is not None:
+        if len(sdpo_rollout_is_weights) != len(input_ids):
+            raise ValueError(
+                f"sdpo_rollout_is_weights length {len(sdpo_rollout_is_weights)} != input_ids length {len(input_ids)}"
+            )
     for stream_name, stream in (
         ("rl_weights", rl_weights),
         ("ce_weights", ce_weights),
         ("ref_kl_weights", ref_kl_weights),
+        ("sdpo_weights", sdpo_weights),
     ):
         if stream is not None:
             assert len(stream) == len(input_ids), f"{stream_name}: {len(stream)}"
+    if sdpo_topk_token_ids is not None and sdpo_topk_logprobs is not None:
+        _validate_active_sdpo_topk_support(sdpo_topk_token_ids, sdpo_topk_logprobs, sdpo_weights)
+    if sdpo_rollout_is_weights is not None:
+        _validate_sdpo_rollout_is_weight_stream(sdpo_rollout_is_weights, sdpo_weights)
 
     if routed_experts is not None:
         assert routed_experts.shape[0] == len(input_ids), (
@@ -209,7 +351,11 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         position_ids=position_ids,
         inference_logprobs=inference_logprobs,
         sequence_lengths=[len(input_ids)],
+        sample_ids=[training_example.sample_id],
         ref_logprobs=ref_logprobs,
+        sdpo_topk_token_ids=sdpo_topk_token_ids,
+        sdpo_topk_logprobs=sdpo_topk_logprobs,
+        sdpo_rollout_is_weights=sdpo_rollout_is_weights,
         temperatures=temperatures,
         rewards=rewards,
         routed_experts=routed_experts,
@@ -219,6 +365,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         rl_weights=rl_weights,
         ce_weights=ce_weights,
         ref_kl_weights=ref_kl_weights,
+        sdpo_weights=sdpo_weights,
     )
 
 
@@ -282,6 +429,7 @@ class _MicroBatchBin:
 def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
     has_rewards = any(sample.rewards is not None for _, sample in bin_content.samples)
     has_ref_logprobs = any(sample.ref_logprobs is not None for _, sample in bin_content.samples)
+    has_sdpo_topk = any(sample.sdpo_topk_token_ids is not None for _, sample in bin_content.samples)
     has_mm_token_type_ids = any(sample.mm_token_type_ids is not None for _, sample in bin_content.samples)
     # A weight stream materializes as soon as one packed sample carries it; the
     # samples that lack it get the stream's identity fill (STREAM_FILL).
@@ -294,8 +442,17 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
     position_ids: list[int] = []
     temperatures: list[float] = []
     env_names: list[str] = []
+    sample_ids: list[str | None] = []
     rewards: list[float] | None = [] if has_rewards else None
     ref_logprobs: list[float] | None = [] if has_ref_logprobs else None
+    sdpo_topk_token_ids: list[list[int]] | None = [] if has_sdpo_topk else None
+    sdpo_topk_logprobs: list[list[float]] | None = [] if has_sdpo_topk else None
+    has_sdpo_rollout_is_weights = any(sample.sdpo_rollout_is_weights is not None for _, sample in bin_content.samples)
+    sdpo_rollout_is_weights: list[float] | None = [] if has_sdpo_rollout_is_weights else None
+    sdpo_topk_width = next(
+        (width for _, sample in bin_content.samples if (width := _topk_width(sample.sdpo_topk_token_ids)) is not None),
+        None,
+    )
     mm_token_type_ids: list[int] | None = [] if has_mm_token_type_ids else None
     streams: dict[str, list[float] | None] = {name: ([] if has_stream[name] else None) for name in STREAM_FILL}
     routed_experts: RoutedExperts | None = None
@@ -303,6 +460,13 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
 
     for lora_idx, sample in bin_content.samples:
         sample_len = len(sample.input_ids)
+        if sample.sample_ids is not None:
+            assert len(sample.sample_ids) == len(sample.sequence_lengths), (
+                f"sample_ids length {len(sample.sample_ids)} != sequence_lengths length {len(sample.sequence_lengths)}"
+            )
+            sample_ids.extend(sample.sample_ids)
+        else:
+            sample_ids.extend([None] * len(sample.sequence_lengths))
         input_ids.extend(sample.input_ids)
         loss_mask.extend(sample.loss_mask)
         advantages.extend(sample.advantages)
@@ -314,6 +478,37 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
             rewards.extend(sample.rewards if sample.rewards is not None else [float("nan")] * sample_len)
         if ref_logprobs is not None:
             ref_logprobs.extend(sample.ref_logprobs if sample.ref_logprobs is not None else [0.0] * sample_len)
+        if sdpo_topk_token_ids is not None:
+            if sdpo_topk_logprobs is None:
+                raise ValueError("sdpo_topk_logprobs missing while materializing SDPO top-k support")
+            if sdpo_topk_width is None:
+                raise ValueError("sdpo top-k support must have a non-empty width")
+            if sample.sdpo_topk_token_ids is not None:
+                token_width = _topk_width(sample.sdpo_topk_token_ids)
+                logprob_width = _topk_width(sample.sdpo_topk_logprobs)
+                if token_width != sdpo_topk_width:
+                    raise ValueError(
+                        f"sdpo_topk_token_ids width {token_width} != packed SDPO top-k width {sdpo_topk_width}"
+                    )
+                if logprob_width != sdpo_topk_width:
+                    raise ValueError(
+                        f"sdpo_topk_logprobs width {logprob_width} != packed SDPO top-k width {sdpo_topk_width}"
+                    )
+                sdpo_topk_token_ids.extend(sample.sdpo_topk_token_ids)
+                sdpo_topk_logprobs.extend(sample.sdpo_topk_logprobs)
+            else:
+                if _has_active_sdpo_weights(sample):
+                    raise ValueError(
+                        "cannot backfill missing SDPO top-k support for a sample with nonzero sdpo_weights"
+                    )
+                sdpo_topk_token_ids.extend(_zero_topk_ints(sample_len, sdpo_topk_width))
+                sdpo_topk_logprobs.extend(_zero_topk_floats(sample_len, sdpo_topk_width))
+        if sdpo_rollout_is_weights is not None:
+            sdpo_rollout_is_weights.extend(
+                sample.sdpo_rollout_is_weights
+                if sample.sdpo_rollout_is_weights is not None
+                else _neutral_sdpo_rollout_is_weights(sample)
+            )
         for name, fill in STREAM_FILL.items():
             stream = streams[name]
             if stream is not None:
@@ -344,7 +539,11 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
         position_ids=position_ids,
         inference_logprobs=inference_logprobs,
         sequence_lengths=sequence_lengths,
+        sample_ids=sample_ids,
         ref_logprobs=ref_logprobs,
+        sdpo_topk_token_ids=sdpo_topk_token_ids,
+        sdpo_topk_logprobs=sdpo_topk_logprobs,
+        sdpo_rollout_is_weights=sdpo_rollout_is_weights,
         temperatures=temperatures,
         rewards=rewards,
         lora_num_tokens=lora_num_tokens,
@@ -355,6 +554,7 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
         rl_weights=streams["rl_weights"],
         ce_weights=streams["ce_weights"],
         ref_kl_weights=streams["ref_kl_weights"],
+        sdpo_weights=streams["sdpo_weights"],
     )
 
 
@@ -458,11 +658,25 @@ def pad_micro_batch(micro_batch: MicroBatch, pad_to_multiple_of: int) -> MicroBa
     micro_batch.loss_mask.extend([False] * padding_size)
     micro_batch.position_ids.extend(list(range(padding_size)))
     micro_batch.sequence_lengths.append(padding_size)
+    if micro_batch.sample_ids is not None:
+        micro_batch.sample_ids.append(None)
     micro_batch.inference_logprobs.extend([0.0] * padding_size)
     # Use temperature 1.0 for padding tokens (doesn't matter since loss_mask is False)
     micro_batch.temperatures.extend([1.0] * padding_size)
     if micro_batch.ref_logprobs is not None:
         micro_batch.ref_logprobs.extend([0.0] * padding_size)
+    if micro_batch.sdpo_topk_token_ids is not None:
+        width = _topk_width(micro_batch.sdpo_topk_token_ids)
+        if width is None:
+            raise ValueError("sdpo_topk_token_ids must have a non-empty width before padding")
+        micro_batch.sdpo_topk_token_ids.extend(_zero_topk_ints(padding_size, width))
+    if micro_batch.sdpo_topk_logprobs is not None:
+        width = _topk_width(micro_batch.sdpo_topk_logprobs)
+        if width is None:
+            raise ValueError("sdpo_topk_logprobs must have a non-empty width before padding")
+        micro_batch.sdpo_topk_logprobs.extend(_zero_topk_floats(padding_size, width))
+    if micro_batch.sdpo_rollout_is_weights is not None:
+        micro_batch.sdpo_rollout_is_weights.extend([0.0] * padding_size)
     # Padding is loss-masked, so no component trains it; fill every stream
     # with 0.0 (not the pack-boundary defaults) so a padded pure-ce batch
     # still reads as rl-empty in token export, which keys off nonzero weights.
@@ -496,9 +710,13 @@ def _assert_token_arrays_aligned(micro_batch: MicroBatch) -> None:
         "temperatures",
         "env_names",
         "ref_logprobs",
+        "sdpo_topk_token_ids",
+        "sdpo_topk_logprobs",
+        "sdpo_rollout_is_weights",
         "rl_weights",
         "ce_weights",
         "ref_kl_weights",
+        "sdpo_weights",
         "rewards",
         "mm_token_type_ids",
     )
@@ -509,6 +727,9 @@ def _assert_token_arrays_aligned(micro_batch: MicroBatch) -> None:
         )
     assert sum(micro_batch.sequence_lengths) == num_tokens, (
         f"sequence_lengths sum {sum(micro_batch.sequence_lengths)} != {num_tokens} tokens"
+    )
+    assert micro_batch.sample_ids is None or len(micro_batch.sample_ids) == len(micro_batch.sequence_lengths), (
+        f"sample_ids length {len(micro_batch.sample_ids)} != sequence_lengths length {len(micro_batch.sequence_lengths)}"
     )
     if micro_batch.routed_experts is not None:
         assert micro_batch.routed_experts.shape[0] == num_tokens, (
@@ -521,11 +742,17 @@ def _make_dummy_batch(source: MicroBatch) -> MicroBatch:
     dummy = copy.deepcopy(source)
     dummy.advantages = [0.0] * len(dummy.input_ids)
     dummy.loss_mask = [False] * len(dummy.input_ids)
-    # ce/ref_kl membership is weight != 0 (independent of loss_mask), so the
-    # streams must go too or the dummy would still train those tokens.
+    # Component membership is independent of loss_mask, so the streams must go
+    # too or the dummy would still train those tokens.
+    dummy.sdpo_topk_token_ids = None
+    dummy.sdpo_topk_logprobs = None
+    dummy.sdpo_rollout_is_weights = None
     dummy.rl_weights = None
     dummy.ce_weights = None
     dummy.ref_kl_weights = None
+    dummy.sdpo_weights = None
+    if dummy.sample_ids is not None:
+        dummy.sample_ids = [None] * len(dummy.sequence_lengths)
     return dummy
 
 

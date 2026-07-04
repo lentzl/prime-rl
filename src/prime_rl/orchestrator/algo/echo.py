@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from functools import partial
 from typing import TYPE_CHECKING, Callable
 
@@ -23,8 +24,14 @@ class EchoAlgorithm(GRPOAlgorithm):
     mask and its denominator. An optional user filter narrows the selection
     per rollout (e.g. dropping tool-output warnings)."""
 
-    def __init__(self, config: AlgorithmConfig, policy_pool: InferencePool, renderer: Renderer | None):
-        super().__init__(config, policy_pool, renderer)
+    def __init__(
+        self,
+        config: AlgorithmConfig,
+        policy_pool: InferencePool,
+        renderer: Renderer | None,
+        live_pools: Mapping[str, InferencePool] | None = None,
+    ):
+        super().__init__(config, policy_pool, renderer, live_pools=live_pools)
         assert isinstance(config, EchoAlgorithmConfig)
         self.role_weights = {
             role: role_config.alpha

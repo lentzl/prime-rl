@@ -1,5 +1,6 @@
 import shutil
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Literal
 
@@ -7,17 +8,38 @@ import torch.nn as nn
 from torch.distributed.tensor import DTensor
 
 from prime_rl.configs.trainer import FileSystemWeightBroadcastConfig, LoRAConfig
-from prime_rl.trainer.lora import save_lora_config
-from prime_rl.trainer.models import PreTrainedModelPrimeRL
 from prime_rl.trainer.rl.broadcast.base import WeightBroadcast
 from prime_rl.trainer.runs import get_multi_run_manager
 from prime_rl.trainer.utils import maybe_clean
-from prime_rl.trainer.weights import (
-    gather_weights_on_master,
-    save_state_dict,
-)
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.utils import get_broadcast_dir, get_step_path
+
+
+def extra_model_save_dir(save_dir: Path, role: str) -> Path:
+    role_path = Path(role)
+    if role_path.is_absolute() or role_path.name != role or role in ("", ".", ".."):
+        raise ValueError(f"invalid extra model role for weight broadcast: {role!r}")
+    return save_dir / role
+
+
+def gather_hf_state_dict(model: nn.Module, *, is_master: bool):
+    from prime_rl.trainer.models import PreTrainedModelPrimeRL
+    from prime_rl.trainer.weights import gather_weights_on_master
+
+    state_dict = gather_weights_on_master(model, is_master=is_master)
+    if isinstance(model, PreTrainedModelPrimeRL) and model.is_prime_state_dict(state_dict):
+        model.convert_to_hf(state_dict)
+    else:
+        from transformers.core_model_loading import revert_weight_conversion
+
+        state_dict = revert_weight_conversion(model, state_dict)
+    return state_dict
+
+
+def save_state_dict(*args, **kwargs):
+    from prime_rl.trainer.weights import save_state_dict as save_state_dict_impl
+
+    return save_state_dict_impl(*args, **kwargs)
 
 
 class FileSystemWeightBroadcast(WeightBroadcast):
@@ -35,20 +57,27 @@ class FileSystemWeightBroadcast(WeightBroadcast):
             f"Filesystem broadcast initialized (save_format={config.save_format}, save_sharded={self.save_sharded})"
         )
 
-    def broadcast_weights(self, model: nn.Module, step: int) -> None:
+    def broadcast_weights(
+        self, model: nn.Module, step: int, extra_models: Mapping[str, nn.Module] | None = None
+    ) -> None:
         """Broadcast weights by saving a HF-compatible checkpoint to shared filesystem and notifies the orchestrator."""
         self.logger.debug("Starting broadcasting weights to inference engine via shared filesystem")
         start_time = time.perf_counter()
         adapter_only = self.lora_config is not None
+        extra_models = extra_models or {}
+        if adapter_only and extra_models:
+            raise NotImplementedError(
+                "Filesystem broadcast does not support extra live inference targets with LoRA yet."
+            )
 
         if not adapter_only:
-            state_dict = gather_weights_on_master(model, is_master=self.world.is_master)
-            if isinstance(model, PreTrainedModelPrimeRL) and model.is_prime_state_dict(state_dict):
-                model.convert_to_hf(state_dict)
-            else:
-                from transformers.core_model_loading import revert_weight_conversion
-
-                state_dict = revert_weight_conversion(model, state_dict)
+            state_dict = gather_hf_state_dict(model, is_master=self.world.is_master)
+            extra_state_dicts = {
+                role: gather_hf_state_dict(extra_model, is_master=self.world.is_master)
+                for role, extra_model in extra_models.items()
+            }
+        else:
+            extra_state_dicts = {}
 
         for idx in self.multi_run_manager.ready_to_update_idxs:
             self.logger.debug(
@@ -75,8 +104,12 @@ class FileSystemWeightBroadcast(WeightBroadcast):
                     save_dir.mkdir(parents=True, exist_ok=True)
 
                     self.logger.debug(f"Saving weights for run {idx} to {save_dir}")
-                    save_state_dict(state_dict, save_dir, self.save_format, self.save_sharded, adapter=adapter_only)
+                    save_state_dict(
+                        dict(state_dict), save_dir, self.save_format, self.save_sharded, adapter=adapter_only
+                    )
                     if adapter_only:
+                        from prime_rl.trainer.lora import save_lora_config
+
                         orch_lora = self.multi_run_manager.config[idx].model.lora
                         save_lora_config(
                             model,
@@ -85,6 +118,11 @@ class FileSystemWeightBroadcast(WeightBroadcast):
                             alpha=orch_lora.alpha,
                             dropout=self.lora_config.dropout,
                         )
+                    for role, extra_state_dict in extra_state_dicts.items():
+                        role_save_dir = extra_model_save_dir(save_dir, role)
+                        self.logger.debug(f"Saving {role} weights for run {idx} to {role_save_dir}")
+                        save_state_dict(dict(extra_state_dict), role_save_dir, self.save_format, self.save_sharded)
+                        self._notify_orchestrator(role_save_dir)
 
                     self._notify_orchestrator(save_dir)
 
@@ -105,6 +143,7 @@ class FileSystemWeightBroadcast(WeightBroadcast):
 
     def _notify_orchestrator(self, save_dir: Path):
         """Notify the orchestrator that the weights have been broadcast by writing a 'STABLE' file to a shared filesystem."""
+        save_dir.mkdir(parents=True, exist_ok=True)
         stable_file = save_dir / "STABLE"
         stable_file.touch()
 

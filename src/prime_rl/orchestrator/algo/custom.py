@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 from prime_rl.configs.algorithm import AlgorithmConfig, CustomAlgorithmConfig
@@ -20,8 +21,14 @@ class CustomAlgorithm(Algorithm):
     rollout (a scalar broadcast over its completion tokens, or a per-token
     list)."""
 
-    def __init__(self, config: AlgorithmConfig, policy_pool: InferencePool, renderer: Renderer | None):
-        super().__init__(config, policy_pool, renderer)
+    def __init__(
+        self,
+        config: AlgorithmConfig,
+        policy_pool: InferencePool,
+        renderer: Renderer | None,
+        live_pools: Mapping[str, InferencePool] | None = None,
+    ):
+        super().__init__(config, policy_pool, renderer, live_pools=live_pools)
         assert isinstance(config, CustomAlgorithmConfig)
         custom_fn = import_object(config.import_path)
         kwargs = config.kwargs

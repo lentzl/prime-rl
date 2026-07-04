@@ -4,9 +4,10 @@ from typing import Annotated, Literal
 
 import pytest
 import tomli_w
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, TypeAdapter, ValidationError
 from pydantic_config import ConfigFileError
 
+from prime_rl.configs.algorithm import SDPO_MAX_STUDENT_SUPPORT_TOPK, AlgorithmConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.configs.rl import RLConfig
@@ -186,9 +187,1176 @@ def test_env_algo_overrides_top_level():
     assert reloaded.train.env[0].algo is not None and reloaded.train.env[0].algo.type == "reward"
 
 
+def test_orchestrator_resolve_env_config_rejects_unresolved_env_algorithm():
+    config = OrchestratorConfig.model_validate({"train": {"env": [{"id": "a"}]}})
+    config.train.env[0].algo = None
+
+    with pytest.raises(ValueError, match="Each train env must have an algorithm config"):
+        config.resolve_env_config()
+
+
 def test_trainer_enable_token_export_cli_flag():
     assert not cli(TrainerConfig, args=[]).enable_token_export
     assert cli(TrainerConfig, args=["--enable-token-export"]).enable_token_export
+
+
+def test_sdpo_defaults_pin_reference_knobs_and_current_teacher_mode():
+    trainer = TrainerConfig.model_validate({})
+    assert trainer.sdpo_loss.full_logit_distillation
+    assert trainer.sdpo_loss.distillation_topk == 100
+    assert trainer.sdpo_loss.distillation_add_tail
+    assert trainer.sdpo_loss.alpha == 0.5
+    assert trainer.sdpo_loss.is_clip == 2.0
+    assert trainer.sdpo_loss.rollout_is == "token"
+    assert trainer.sdpo_loss.rollout_is_threshold == 2.0
+    assert not trainer.sdpo_loss.rollout_is_batch_normalize
+    assert trainer.sdpo_runtime.teacher_regularization == "live-policy"
+    assert trainer.sdpo_runtime.teacher_update_rate == 0.05
+
+    sdpo = TypeAdapter(AlgorithmConfig).validate_python({"type": "sdpo"})
+    assert sdpo.teacher_regularization == "live-policy"
+    assert sdpo.teacher_update_rate == 0.05
+    assert sdpo.distillation_topk == 100
+    assert sdpo.distillation_topk_support == "student"
+    assert sdpo.preflight_export_timeout_s is None
+    assert sdpo.success_reward_threshold == 0.5
+    assert sdpo.successful_demonstration_selection == "batch_order"
+    assert sdpo.dont_reprompt_on_self_success
+    assert sdpo.remove_thinking_from_demonstration
+    assert sdpo.include_environment_feedback
+    assert sdpo.environment_feedback_only_without_solution
+    assert sdpo.max_reprompt_len == 10240
+    assert sdpo.reprompt_truncation == "right"
+    assert (
+        sdpo.template
+        == "{question}{successful_solution_block}{feedback_block}\n\nCorrectly solve the original question."
+    )
+    assert sdpo.template_target == "first_user"
+    assert sdpo.solution_template == "\nCorrect solution:\n\n{successful_previous_attempt}"
+    assert (
+        sdpo.feedback_template
+        == "\nThe following is feedback from your unsuccessful earlier attempt:\n\n{feedback_raw}"
+    )
+    assert sdpo.assistant_prefix == ""
+
+
+@pytest.mark.parametrize(
+    ("config_path", "teacher_regularization", "num_sdpo_teacher_gpus"),
+    [
+        ("configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml", "live-policy", 0),
+        ("configs/debug/algorithms/sdpo_huebotter_reference_ema_smoke.toml", "ema", 1),
+    ],
+)
+def test_sdpo_reference_smoke_configs_load_through_rl_config(
+    config_path: str, teacher_regularization: str, num_sdpo_teacher_gpus: int
+):
+    config = cli(RLConfig, args=["@", config_path])
+
+    assert config.orchestrator.algo.type == "sdpo"
+    assert config.orchestrator.algo.teacher_regularization == teacher_regularization
+    assert config.deployment.num_sdpo_teacher_gpus == num_sdpo_teacher_gpus
+    assert config.uses_sdpo_student_support
+    assert config.trainer.enable_token_export
+    assert config.trainer.model.cp == 1
+    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    assert config.orchestrator.algo.distillation_topk == 100
+    assert config.trainer.sdpo_loss.distillation_topk == 100
+    assert config.trainer.sdpo_loss.rollout_is == "token"
+    assert not config.trainer.sdpo_loss.rollout_is_batch_normalize
+
+
+def test_sdpo_config_allows_reference_ablation_overrides():
+    trainer = TrainerConfig.model_validate({"sdpo_loss": {"is_clip": None, "rollout_is": None}})
+    assert trainer.sdpo_loss.is_clip is None
+    assert trainer.sdpo_loss.rollout_is is None
+
+    sdpo = TypeAdapter(AlgorithmConfig).validate_python(
+        {
+            "type": "sdpo",
+            "teacher_regularization": "ema",
+            "teacher_update_rate": 0.1,
+            "distillation_topk_support": "student",
+        }
+    )
+    assert sdpo.teacher_regularization == "ema"
+    assert sdpo.teacher_update_rate == 0.1
+    assert sdpo.distillation_topk_support == "student"
+
+
+@pytest.mark.parametrize(
+    "sdpo_loss",
+    [
+        {"distillation_topk": True},
+        {"alpha": True},
+        {"is_clip": True},
+        {"rollout_is_threshold": True},
+    ],
+)
+def test_sdpo_trainer_config_rejects_boolean_numeric_loss_knobs(sdpo_loss):
+    with pytest.raises(ValidationError):
+        TrainerConfig.model_validate({"sdpo_loss": sdpo_loss})
+
+
+@pytest.mark.parametrize(
+    "sdpo_loss",
+    [
+        {"full_logit_distillation": "yes"},
+        {"distillation_add_tail": 1},
+        {"rollout_is_batch_normalize": "yes"},
+    ],
+)
+def test_sdpo_trainer_config_rejects_non_boolean_loss_behavior_knobs(sdpo_loss):
+    with pytest.raises(ValidationError, match="must be a boolean"):
+        TrainerConfig.model_validate({"sdpo_loss": sdpo_loss})
+
+
+def test_sdpo_trainer_config_rejects_boolean_teacher_update_rate():
+    with pytest.raises(ValidationError):
+        TrainerConfig.model_validate({"sdpo_runtime": {"teacher_update_rate": True}})
+
+
+@pytest.mark.parametrize(
+    "algo",
+    [
+        {"type": "sdpo", "teacher_update_rate": True},
+        {"type": "sdpo", "success_reward_threshold": True},
+        {"type": "sdpo", "distillation_topk": True},
+        {"type": "sdpo", "preflight_export_timeout_s": True},
+        {"type": "sdpo", "max_reprompt_len": True},
+        {"type": "sdpo", "max_concurrent": True},
+    ],
+)
+def test_sdpo_algorithm_config_rejects_boolean_numeric_knobs(algo):
+    with pytest.raises(ValidationError):
+        TypeAdapter(AlgorithmConfig).validate_python(algo)
+
+
+@pytest.mark.parametrize(
+    "algo",
+    [
+        {"type": "sdpo", "dont_reprompt_on_self_success": "yes"},
+        {"type": "sdpo", "remove_thinking_from_demonstration": 1},
+        {"type": "sdpo", "include_environment_feedback": "yes"},
+        {"type": "sdpo", "environment_feedback_only_without_solution": 0},
+        {"type": "sdpo", "multi_turn": "on"},
+    ],
+)
+def test_sdpo_algorithm_config_rejects_non_boolean_behavior_knobs(algo):
+    with pytest.raises(ValidationError, match="must be a boolean"):
+        TypeAdapter(AlgorithmConfig).validate_python(algo)
+
+
+def test_sdpo_config_accepts_cli_boolean_strings_for_behavior_knobs(tmp_path):
+    config_path = tmp_path / "sdpo.toml"
+    write_toml(
+        config_path,
+        {
+            "trainer": {"model": {"fused_lm_head_token_chunk_size": "disabled"}},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "algo": {"type": "sdpo"},
+                "train": {"env": [{"id": "reverse-text"}]},
+            },
+        },
+    )
+
+    config = cli(
+        RLConfig,
+        args=[
+            "@",
+            str(config_path),
+            "--orchestrator.algo.multi_turn",
+            "true",
+            "--orchestrator.algo.include_environment_feedback",
+            "false",
+            "--trainer.sdpo_loss.distillation_add_tail",
+            "false",
+            "--trainer.sdpo_loss.rollout_is_batch_normalize",
+            "false",
+        ],
+    )
+
+    assert config.orchestrator.algo.multi_turn
+    assert not config.orchestrator.algo.include_environment_feedback
+    assert not config.trainer.sdpo_loss.distillation_add_tail
+    assert not config.trainer.sdpo_loss.rollout_is_batch_normalize
+
+
+def test_sdpo_config_rejects_template_with_unknown_field():
+    with pytest.raises(ValidationError, match="sdpo template may only use named fields"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "template": "{question}\n{unknown_feedback}",
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "template",
+    [
+        "{}",
+        "{question.upper}",
+        "{question[0]}",
+    ],
+)
+def test_sdpo_config_rejects_template_field_traversal(template):
+    with pytest.raises(ValidationError, match="sdpo template may only use named fields"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "template": template,
+            }
+        )
+
+
+def test_sdpo_config_rejects_nested_template_format_specs():
+    with pytest.raises(ValidationError, match="template fields may not use format specs"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "template": "{question:{hindsight_feedback}}",
+            }
+        )
+
+
+def test_sdpo_config_rejects_template_conversion_flags():
+    with pytest.raises(ValidationError, match="template fields may not use conversion flags"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "template": "{question!r}",
+            }
+        )
+
+
+def test_sdpo_config_rejects_template_format_specs():
+    with pytest.raises(ValidationError, match="template fields may not use format specs"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "template": "{question:>20}",
+            }
+        )
+
+
+def test_sdpo_config_rejects_template_without_question_field():
+    with pytest.raises(ValidationError, match=r"sdpo template must include the \{question\} field"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "template": "{successful_solution_block}{feedback_block}",
+            }
+        )
+
+
+def test_sdpo_config_rejects_template_without_hindsight_conditioning_field():
+    with pytest.raises(ValidationError, match="hindsight conditioning field"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "template": "{question}\n\nSolve again.",
+            }
+        )
+
+
+def test_sdpo_config_accepts_template_with_raw_hindsight_feedback_field():
+    sdpo = TypeAdapter(AlgorithmConfig).validate_python(
+        {
+            "type": "sdpo",
+            "template": "{question}\n\nFeedback:\n{hindsight_feedback}",
+        }
+    )
+
+    assert sdpo.template == "{question}\n\nFeedback:\n{hindsight_feedback}"
+
+
+def test_sdpo_config_accepts_template_with_supported_feedback_fields():
+    sdpo = TypeAdapter(AlgorithmConfig).validate_python(
+        {
+            "type": "sdpo",
+            "template": (
+                "{question}\n"
+                "{successful_previous_rollout}\n"
+                "{hindsight_feedback}\n"
+                "{successful_solution_block}\n"
+                "{feedback_block}"
+            ),
+        }
+    )
+
+    assert sdpo.template.startswith("{question}")
+
+
+@pytest.mark.parametrize(
+    ("field", "template", "message"),
+    [
+        ("solution_template", "{solution}", "solution_template may only use named fields"),
+        (
+            "solution_template",
+            "{successful_previous_attempt!r}",
+            "solution_template fields may not use conversion flags",
+        ),
+        ("solution_template", "{successful_previous_attempt:>20}", "solution_template fields may not use format specs"),
+        ("solution_template", "Correct solution.", "solution_template must include"),
+        ("feedback_template", "{feedback}", "feedback_template may only use named fields"),
+        ("feedback_template", "{feedback_raw!r}", "feedback_template fields may not use conversion flags"),
+        ("feedback_template", "{feedback_raw:>20}", "feedback_template fields may not use format specs"),
+        ("feedback_template", "Feedback.", "feedback_template must include"),
+    ],
+)
+def test_sdpo_config_validates_section_templates(field, template, message):
+    with pytest.raises(ValidationError, match=message):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                field: template,
+            }
+        )
+
+
+def test_sdpo_config_accepts_custom_section_templates():
+    sdpo = TypeAdapter(AlgorithmConfig).validate_python(
+        {
+            "type": "sdpo",
+            "solution_template": "\nDemo:\n{successful_previous_attempt}",
+            "feedback_template": "\nFeedback:\n{feedback_raw}",
+        }
+    )
+
+    assert sdpo.solution_template == "\nDemo:\n{successful_previous_attempt}"
+    assert sdpo.feedback_template == "\nFeedback:\n{feedback_raw}"
+
+
+def test_sdpo_non_live_teacher_regularization_requires_policy_model_reference():
+    with pytest.raises(ValidationError, match="internal self-distillation teacher mode"):
+        TypeAdapter(AlgorithmConfig).validate_python(
+            {
+                "type": "sdpo",
+                "model": {"name": "teacher-model", "base_url": ["http://teacher:8000/v1"]},
+                "teacher_regularization": "ema",
+            }
+        )
+
+
+def test_sdpo_live_policy_regularization_allows_external_teacher_ablation():
+    sdpo = TypeAdapter(AlgorithmConfig).validate_python(
+        {
+            "type": "sdpo",
+            "model": {"name": "teacher-model", "base_url": ["http://teacher:8000/v1"]},
+            "teacher_regularization": "live-policy",
+        }
+    )
+
+    assert sdpo.teacher_regularization == "live-policy"
+    assert sdpo.model.name == "teacher-model"
+
+
+def _rl_sdpo_student_support_config(**overrides):
+    config = {
+        "trainer": {},
+        "orchestrator": {
+            "renderer": {"name": "qwen3"},
+            "algo": {"type": "sdpo"},
+            "train": {"env": [{"id": "reverse-text"}]},
+        },
+    }
+    for key, value in overrides.items():
+        if key == "trainer":
+            config["trainer"].update(value)
+        elif key == "orchestrator":
+            config["orchestrator"].update(value)
+        else:
+            config[key] = value
+    return config
+
+
+def _assert_sdpo_reference_smoke_knobs(config, *, teacher_regularization: str):
+    algo = config.orchestrator.algo
+    assert algo.type == "sdpo"
+    assert algo.model == "policy"
+    assert algo.teacher_regularization == teacher_regularization
+    assert algo.teacher_update_rate == 0.05
+    assert algo.distillation_topk == 100
+    assert algo.distillation_topk_support == "student"
+    assert algo.preflight_export_timeout_s == 600
+    assert algo.success_reward_threshold == 0.5
+    assert algo.successful_demonstration_selection == "batch_order"
+    assert algo.dont_reprompt_on_self_success
+    assert algo.remove_thinking_from_demonstration
+    assert algo.include_environment_feedback
+    assert algo.environment_feedback_only_without_solution
+    assert algo.max_reprompt_len == 10240
+    assert algo.reprompt_truncation == "right"
+    assert algo.template_target == "first_user"
+    assert (
+        algo.template
+        == "{question}{successful_solution_block}{feedback_block}\n\nCorrectly solve the original question."
+    )
+    assert algo.solution_template == "\nCorrect solution:\n\n{successful_previous_attempt}"
+    assert (
+        algo.feedback_template
+        == "\nThe following is feedback from your unsuccessful earlier attempt:\n\n{feedback_raw}"
+    )
+    assert algo.assistant_prefix == ""
+    assert not algo.multi_turn
+
+    assert config.trainer.sdpo_loss.full_logit_distillation
+    assert config.trainer.sdpo_loss.distillation_topk == 100
+    assert config.trainer.sdpo_loss.distillation_add_tail
+    assert config.trainer.sdpo_loss.alpha == 0.5
+    assert config.trainer.sdpo_loss.is_clip == 2.0
+    assert config.trainer.sdpo_loss.rollout_is == "token"
+    assert config.trainer.sdpo_loss.rollout_is_threshold == 2.0
+    assert not config.trainer.sdpo_loss.rollout_is_batch_normalize
+    assert config.trainer.sdpo_runtime.teacher_regularization == teacher_regularization
+    assert config.trainer.sdpo_runtime.teacher_update_rate == 0.05
+    assert config.trainer.model.cp == 1
+
+
+def test_rl_config_allows_sdpo_student_support_when_preflight_requirements_are_met():
+    config = RLConfig.model_validate(_rl_sdpo_student_support_config())
+
+    assert config.uses_sdpo_student_support
+    assert config.trainer.enable_token_export
+    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+
+
+def test_sdpo_live_policy_smoke_config_resolves_reference_runtime_knobs():
+    config = cli(
+        RLConfig,
+        args=[
+            "@",
+            "configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml",
+            "--output-dir",
+            "outputs/test-sdpo-smoke",
+        ],
+    )
+
+    assert config.uses_sdpo_student_support
+    assert not config.uses_sdpo_internal_teacher_regularization
+    assert config.trainer.enable_token_export
+    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    _assert_sdpo_reference_smoke_knobs(config, teacher_regularization="live-policy")
+    assert config.orchestrator.sdpo_teacher is None
+
+
+def test_sdpo_ema_smoke_config_resolves_teacher_runtime_knobs():
+    config = cli(
+        RLConfig,
+        args=[
+            "@",
+            "configs/debug/algorithms/sdpo_huebotter_reference_ema_smoke.toml",
+            "--output-dir",
+            "outputs/test-sdpo-ema-smoke",
+        ],
+    )
+
+    assert config.uses_sdpo_student_support
+    assert config.uses_sdpo_internal_teacher_regularization
+    assert config.deployment.num_sdpo_teacher_gpus == 1
+    assert config.trainer.enable_token_export
+    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    _assert_sdpo_reference_smoke_knobs(config, teacher_regularization="ema")
+    assert config.orchestrator.sdpo_teacher is not None
+    assert config.orchestrator.sdpo_teacher.name == config.orchestrator.model.name
+    assert config.orchestrator.sdpo_teacher.client.base_url == ["http://localhost:8001/v1"]
+
+
+def test_rl_config_keeps_teacher_support_ablation_off_preflight_path():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "algo": {"type": "sdpo", "distillation_topk_support": "teacher"},
+                "train": {"env": [{"id": "reverse-text"}]},
+            },
+        }
+    )
+
+    assert not config.uses_sdpo_student_support
+    assert not config.trainer.enable_token_export
+
+
+def test_rl_config_rejects_sdpo_student_support_without_token_export():
+    with pytest.raises(ValidationError, match="enable_token_export"):
+        RLConfig.model_validate(_rl_sdpo_student_support_config(trainer={"enable_token_export": False}))
+
+
+def test_rl_config_rejects_sdpo_student_support_when_topk_exceeds_vllm_candidate_limit():
+    oversized_topk = SDPO_MAX_STUDENT_SUPPORT_TOPK + 1
+    with pytest.raises(ValidationError, match="candidate-token scoring limit"):
+        RLConfig.model_validate(
+            _rl_sdpo_student_support_config(
+                trainer={"sdpo_loss": {"distillation_topk": oversized_topk}},
+                orchestrator={"algo": {"type": "sdpo", "distillation_topk": oversized_topk}},
+            )
+        )
+
+
+def test_rl_config_allows_sdpo_teacher_support_ablation_above_student_candidate_limit():
+    oversized_topk = SDPO_MAX_STUDENT_SUPPORT_TOPK + 1
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"sdpo_loss": {"distillation_topk": oversized_topk}},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "algo": {
+                    "type": "sdpo",
+                    "distillation_topk": oversized_topk,
+                    "distillation_topk_support": "teacher",
+                },
+                "train": {"env": [{"id": "reverse-text"}]},
+            },
+        }
+    )
+
+    assert config.orchestrator.algo.distillation_topk == oversized_topk
+    assert not config.uses_sdpo_student_support
+
+
+def test_rl_config_rejects_sdpo_student_support_without_trainer_logits():
+    with pytest.raises(ValidationError, match="fused_lm_head_token_chunk_size"):
+        RLConfig.model_validate(
+            _rl_sdpo_student_support_config(
+                trainer={"model": {"fused_lm_head_token_chunk_size": "auto"}},
+            )
+        )
+
+
+def test_rl_config_rejects_sdpo_teacher_support_without_trainer_logits():
+    with pytest.raises(ValidationError, match="fused_lm_head_token_chunk_size"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"model": {"fused_lm_head_token_chunk_size": "auto"}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo", "distillation_topk_support": "teacher"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_with_context_parallelism():
+    with pytest.raises(ValidationError, match="trainer\\.model\\.cp > 1"):
+        RLConfig.model_validate(_rl_sdpo_student_support_config(trainer={"model": {"cp": 2}}))
+
+
+def test_rl_config_rejects_sdpo_rollout_is_batch_normalize_for_combined_runtime():
+    with pytest.raises(ValidationError, match="rollout_is_batch_normalize"):
+        RLConfig.model_validate(
+            _rl_sdpo_student_support_config(
+                trainer={"sdpo_loss": {"rollout_is_batch_normalize": True}},
+            )
+        )
+
+
+def test_rl_config_rejects_sdpo_student_support_when_topk_mismatches_trainer():
+    with pytest.raises(ValidationError, match="distillation_topk"):
+        RLConfig.model_validate(
+            _rl_sdpo_student_support_config(
+                orchestrator={"algo": {"type": "sdpo", "distillation_topk": 64}},
+            )
+        )
+
+
+def test_rl_config_rejects_sdpo_teacher_support_when_topk_mismatches_trainer():
+    with pytest.raises(ValidationError, match="distillation_topk"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo", "distillation_topk": 64, "distillation_topk_support": "teacher"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "sdpo_loss",
+    [
+        {"full_logit_distillation": False, "distillation_topk": 100},
+        {"full_logit_distillation": True, "distillation_topk": None},
+    ],
+)
+def test_rl_config_rejects_sdpo_when_trainer_sdpo_loss_is_not_topk_full_logit(sdpo_loss):
+    with pytest.raises(ValidationError, match="full-logit top-k"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"sdpo_loss": sdpo_loss},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo", "distillation_topk_support": "teacher"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_detects_env_level_sdpo_student_support():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "algo": {"type": "reward"},
+                "train": {
+                    "env": [
+                        {
+                            "id": "reverse-text",
+                            "algo": {"type": "sdpo"},
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    assert config.uses_sdpo_student_support
+
+
+def test_rl_config_detects_top_level_sdpo_inherited_by_explicit_train_envs():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"model": {"fused_lm_head_token_chunk_size": "disabled"}},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "algo": {"type": "sdpo"},
+                "train": {"env": [{"id": "reverse-text"}, {"id": "reverse-text", "name": "second"}]},
+            },
+        }
+    )
+
+    assert [env.algo.type for env in config.orchestrator.train.env] == ["sdpo", "sdpo"]
+    assert len(config.sdpo_algorithms) == 2
+    assert config.uses_sdpo_student_support
+    assert config.trainer.enable_token_export
+    assert config.trainer.sdpo_runtime.teacher_regularization == "live-policy"
+    assert config.trainer.sdpo_runtime.teacher_update_rate == 0.05
+
+
+def test_rl_config_rejects_top_level_sdpo_inherited_by_train_envs_when_trainer_logits_are_fused():
+    with pytest.raises(ValidationError, match="fused_lm_head_token_chunk_size"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"model": {"fused_lm_head_token_chunk_size": "auto"}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_detects_top_level_sdpo_without_train_env_for_validation():
+    with pytest.raises(ValidationError, match="fused_lm_head_token_chunk_size"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"model": {"fused_lm_head_token_chunk_size": "auto"}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo"},
+                },
+            }
+        )
+
+
+def test_rl_config_ignores_top_level_sdpo_when_all_train_envs_override_algorithm():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"model": {"fused_lm_head_token_chunk_size": "auto"}},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "algo": {"type": "sdpo"},
+                "train": {"env": [{"id": "reverse-text", "algo": {"type": "reward"}}]},
+            },
+        }
+    )
+
+    assert not config.sdpo_algorithms
+    assert not config.uses_sdpo_student_support
+
+
+def test_rl_config_rejects_env_level_sdpo_topk_mismatch_with_trainer():
+    with pytest.raises(ValidationError, match="distillation_topk"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"sdpo_loss": {"distillation_topk": 100}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "reward"},
+                    "train": {
+                        "env": [
+                            {
+                                "id": "reverse-text",
+                                "name": "sdpo-a",
+                                "algo": {"type": "sdpo", "distillation_topk": 100},
+                            },
+                            {"id": "reverse-text", "name": "sdpo-b", "algo": {"type": "sdpo", "distillation_topk": 64}},
+                        ]
+                    },
+                },
+            }
+        )
+
+
+def test_rl_config_propagates_sdpo_teacher_knobs_to_trainer_runtime():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "algo": {"type": "sdpo", "teacher_regularization": "live-policy", "teacher_update_rate": 0.2},
+                "train": {"env": [{"id": "reverse-text"}]},
+            },
+        }
+    )
+
+    assert config.trainer.sdpo_runtime.teacher_regularization == "live-policy"
+    assert config.trainer.sdpo_runtime.teacher_update_rate == 0.2
+
+
+def test_rl_config_rejects_non_live_trainer_sdpo_runtime_without_sdpo_algorithm():
+    with pytest.raises(ValidationError, match="teacher_regularization != 'live-policy' requires an SDPO algorithm"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"sdpo_runtime": {"teacher_regularization": "ema"}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "grpo"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_trainer_sdpo_runtime_update_rate_without_sdpo_algorithm():
+    with pytest.raises(ValidationError, match="teacher_update_rate requires an SDPO algorithm"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"sdpo_runtime": {"teacher_update_rate": 0.2}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "grpo"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_conflicting_trainer_sdpo_runtime_teacher_knobs():
+    with pytest.raises(ValidationError, match="trainer.sdpo_runtime.teacher_update_rate conflicts"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"sdpo_runtime": {"teacher_update_rate": 0.2}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo", "teacher_update_rate": 0.1},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_conflicting_trainer_sdpo_runtime_teacher_regularization():
+    with pytest.raises(ValidationError, match="trainer.sdpo_runtime.teacher_regularization conflicts"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"sdpo_runtime": {"teacher_regularization": "live-policy"}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_conflicting_sdpo_algorithm_teacher_knobs():
+    with pytest.raises(ValidationError, match="all sdpo algorithms.*teacher_update_rate"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "reward"},
+                    "train": {
+                        "env": [
+                            {
+                                "id": "reverse-text",
+                                "name": "reverse-text-a",
+                                "algo": {"type": "sdpo", "teacher_update_rate": 0.1},
+                            },
+                            {
+                                "id": "reverse-text",
+                                "name": "reverse-text-b",
+                                "algo": {"type": "sdpo", "teacher_update_rate": 0.2},
+                            },
+                        ]
+                    },
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_conflicting_sdpo_algorithm_teacher_regularization():
+    with pytest.raises(ValidationError, match="all sdpo algorithms.*teacher_regularization"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "reward"},
+                    "train": {
+                        "env": [
+                            {
+                                "id": "reverse-text",
+                                "name": "reverse-text-live-policy",
+                                "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
+                            },
+                            {
+                                "id": "reverse-text",
+                                "name": "reverse-text-ema",
+                                "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                            },
+                        ]
+                    },
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_conflicting_sdpo_algorithm_support_modes():
+    with pytest.raises(ValidationError, match="all sdpo algorithms.*distillation_topk_support"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "reward"},
+                    "train": {
+                        "env": [
+                            {
+                                "id": "reverse-text",
+                                "name": "reverse-text-student",
+                                "algo": {"type": "sdpo", "distillation_topk_support": "student"},
+                            },
+                            {
+                                "id": "reverse-text",
+                                "name": "reverse-text-teacher",
+                                "algo": {"type": "sdpo", "distillation_topk_support": "teacher"},
+                            },
+                        ]
+                    },
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_regularization_without_teacher_pool():
+    with pytest.raises(ValidationError, match="orchestrator.sdpo_teacher"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_allows_sdpo_ema_teacher_regularization_with_distinct_teacher_pool():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"model": {"name": "Qwen/Qwen3-4B-Instruct"}},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "model": {"name": "Qwen/Qwen3-4B-Instruct"},
+                "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                "train": {"env": [{"id": "reverse-text"}]},
+            },
+        }
+    )
+
+    assert config.uses_sdpo_internal_teacher_regularization
+    assert config.orchestrator.sdpo_teacher is not None
+    assert config.orchestrator.sdpo_teacher.name == "Qwen/Qwen3-4B-Instruct"
+    assert config.trainer.sdpo_runtime.teacher_regularization == "ema"
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_model_mismatch():
+    with pytest.raises(ValidationError, match="sdpo_teacher.name must match"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "model": {"name": "Qwen/Qwen3-4B-Instruct"},
+                    "sdpo_teacher": {
+                        "name": "Qwen/Qwen3-8B",
+                        "client": {"base_url": ["http://localhost:8001/v1"]},
+                    },
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_trust_remote_code_mismatch():
+    with pytest.raises(ValidationError, match="sdpo_teacher.trust_remote_code must match"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "model": {"name": "Qwen/Qwen3-4B-Instruct", "trust_remote_code": True},
+                    "sdpo_teacher": {
+                        "trust_remote_code": False,
+                        "client": {"base_url": ["http://localhost:8001/v1"]},
+                    },
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_auto_sets_local_sdpo_teacher_endpoint_when_teacher_gpus_are_allocated():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"model": {"name": "Qwen/Qwen3-4B-Instruct"}},
+            "inference": {"model": {"name": "Qwen/Qwen3-4B-Instruct"}, "server": {"port": 8100}},
+            "deployment": {"num_train_gpus": 1, "num_infer_gpus": 1, "num_sdpo_teacher_gpus": 1},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "model": {"name": "Qwen/Qwen3-4B-Instruct"},
+                "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                "train": {"env": [{"id": "reverse-text"}]},
+            },
+        }
+    )
+
+    assert config.orchestrator.sdpo_teacher is not None
+    assert config.orchestrator.model.client.base_url == ["http://localhost:8100/v1"]
+    assert config.orchestrator.sdpo_teacher.name == "Qwen/Qwen3-4B-Instruct"
+    assert config.orchestrator.sdpo_teacher.client.base_url == ["http://localhost:8101/v1"]
+    assert config.uses_sdpo_internal_teacher_regularization
+
+
+def test_rl_config_rejects_auto_sdpo_teacher_endpoint_port_overflow():
+    with pytest.raises(ValidationError, match="inference.server.port \\+ 1 exceeds"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"model": {"name": "Qwen/Qwen3-4B-Instruct"}},
+                "inference": {"model": {"name": "Qwen/Qwen3-4B-Instruct"}, "server": {"port": 65535}},
+                "deployment": {"num_train_gpus": 1, "num_infer_gpus": 1, "num_sdpo_teacher_gpus": 1},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "model": {"name": "Qwen/Qwen3-4B-Instruct"},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_auto_sets_local_sdpo_teacher_endpoint_for_env_level_sdpo():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"model": {"name": "Qwen/Qwen3-4B-Instruct"}},
+            "inference": {"model": {"name": "Qwen/Qwen3-4B-Instruct"}, "server": {"port": 8200}},
+            "deployment": {"num_train_gpus": 1, "num_infer_gpus": 1, "num_sdpo_teacher_gpus": 1},
+            "orchestrator": {
+                "renderer": {"name": "qwen3"},
+                "model": {"name": "Qwen/Qwen3-4B-Instruct"},
+                "algo": {"type": "reward"},
+                "train": {
+                    "env": [
+                        {
+                            "id": "reverse-text",
+                            "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    assert config.uses_sdpo_internal_teacher_regularization
+    assert config.trainer.sdpo_runtime.teacher_regularization == "ema"
+    assert config.orchestrator.model.client.base_url == ["http://localhost:8200/v1"]
+    assert config.orchestrator.sdpo_teacher is not None
+    assert config.orchestrator.sdpo_teacher.client.base_url == ["http://localhost:8201/v1"]
+
+
+def test_rl_config_rejects_sdpo_trust_region_until_reference_source_exists():
+    with pytest.raises(ValidationError, match="trust-region.*not launchable"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "trust-region"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_teacher_endpoint_matching_auto_policy_port():
+    with pytest.raises(ValidationError, match="not the policy endpoint"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "inference": {"server": {"port": 8100}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8100/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_allocated_sdpo_teacher_gpus_without_non_live_sdpo():
+    with pytest.raises(ValidationError, match="num_sdpo_teacher_gpus"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "inference": {},
+                "deployment": {"num_train_gpus": 1, "num_infer_gpus": 1, "num_sdpo_teacher_gpus": 1},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_teacher_endpoint_without_non_live_sdpo():
+    with pytest.raises(ValidationError, match="orchestrator.sdpo_teacher requires an SDPO algorithm"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_regularization_on_policy_endpoint():
+    with pytest.raises(ValidationError, match="not the policy endpoint"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8000/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_regularization_with_nccl_broadcast():
+    with pytest.raises(ValidationError, match="filesystem weight broadcast"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "weight_broadcast": {"type": "nccl"},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_regularization_with_lora():
+    with pytest.raises(ValidationError, match="not supported with LoRA"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"model": {"lora": {"rank": 8}}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_regularization_with_multi_run_trainer():
+    with pytest.raises(ValidationError, match="max_concurrent_runs"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"max_concurrent_runs": 2},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_sdpo_ema_teacher_regularization_with_weights_only_checkpoints():
+    with pytest.raises(ValidationError, match="weights_only"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"ckpt": {"weights_only": True}},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "sdpo_teacher": {"client": {"base_url": ["http://localhost:8001/v1"]}},
+                    "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+def test_rl_config_rejects_env_level_sdpo_ema_teacher_regularization_without_teacher_pool():
+    with pytest.raises(ValidationError, match="orchestrator.sdpo_teacher"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "reward"},
+                    "train": {
+                        "env": [
+                            {
+                                "id": "reverse-text",
+                                "algo": {"type": "sdpo", "teacher_regularization": "ema"},
+                            }
+                        ]
+                    },
+                },
+            }
+        )
 
 
 def test_single_node_auto_inference_client_dp_rank_count_matches_local_dp():
@@ -209,6 +1377,38 @@ def test_single_node_auto_inference_client_dp_rank_count_matches_local_dp():
     assert config.inference is not None
     assert config.inference.parallel.dp == 2
     assert config.orchestrator.model.client.dp_rank_count == 2
+
+
+def test_single_node_rejects_inference_gpu_count_not_divisible_by_tensor_parallel_size():
+    with pytest.raises(ValidationError, match="deployment.num_infer_gpus must be divisible"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {},
+                "inference": {"parallel": {"tp": 2}},
+                "deployment": {
+                    "type": "single_node",
+                    "gpus_per_node": 4,
+                    "num_train_gpus": 1,
+                    "num_infer_gpus": 3,
+                },
+            }
+        )
+
+
+def test_single_node_auto_inference_client_base_url_matches_custom_port_for_policy_sourced_env():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "inference": {"server": {"port": 8100}},
+            "orchestrator": {
+                "algo": {"type": "reward"},
+                "train": {"env": [{"id": "reverse-text"}]},
+            },
+        }
+    )
+
+    assert config.orchestrator.model.client.base_url == ["http://localhost:8100/v1"]
 
 
 def test_multi_node_auto_inference_client_dp_rank_count_uses_router_url():

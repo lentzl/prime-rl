@@ -4,16 +4,18 @@ from typing import Annotated, Any, Literal, TypeAlias
 
 from pydantic import Field, model_validator
 
+from prime_rl.configs.algorithm import SDPO_MAX_STUDENT_SUPPORT_TOPK
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.inference import WeightBroadcastConfig as InferenceWeightBroadcastConfig
 from prime_rl.configs.orchestrator import (
     FileSystemWeightBroadcastConfig as OrchestratorFileSystemWeightBroadcastConfig,
 )
 from prime_rl.configs.orchestrator import (
-    NCCLWeightBroadcastConfig as OrchestratorNCCLWeightBroadcastConfig,
+    HostedModelConfig,
+    OrchestratorConfig,
 )
 from prime_rl.configs.orchestrator import (
-    OrchestratorConfig,
+    NCCLWeightBroadcastConfig as OrchestratorNCCLWeightBroadcastConfig,
 )
 from prime_rl.configs.shared import (
     SlurmConfig,
@@ -43,6 +45,8 @@ from prime_rl.utils.validation import (
     validate_shared_wandb_config,
     validate_shared_weight_broadcast,
 )
+
+MAX_TCP_PORT = 65535
 
 
 class RLExperimentalConfig(BaseConfig):
@@ -141,12 +145,18 @@ class SingleNodeDeploymentConfig(BaseDeploymentConfig):
     num_infer_gpus: int = 1
     """GPUs allocated to inference."""
 
+    num_sdpo_teacher_gpus: int = Field(0, ge=0)
+    """Optional GPUs allocated to a separate SDPO teacher inference server for
+    non-``live-policy`` teacher regularization. When 0, any
+    ``orchestrator.sdpo_teacher`` endpoint is treated as user-managed."""
+
     @model_validator(mode="after")
     def validate_gpu_count(self):
-        total = self.num_train_gpus + self.num_infer_gpus
+        total = self.num_train_gpus + self.num_infer_gpus + self.num_sdpo_teacher_gpus
         if total > self.gpus_per_node:
             raise ValueError(
-                f"Total GPU count ({total} = {self.num_train_gpus} train + {self.num_infer_gpus} infer)"
+                f"Total GPU count ({total} = {self.num_train_gpus} train + {self.num_infer_gpus} infer + "
+                f"{self.num_sdpo_teacher_gpus} sdpo teacher)"
                 f" exceeds gpus_per_node ({self.gpus_per_node})."
             )
         return self
@@ -281,6 +291,251 @@ class RLConfig(BaseConfig):
 
         if self.trainer.model.impl != "custom":
             raise ValueError("weight_broadcast.quantize_in_weight_transfer requires trainer.model.impl = 'custom'.")
+
+        return self
+
+    @property
+    def sdpo_algorithms(self):
+        algorithms = [env.algo for env in self.orchestrator.train.env if getattr(env.algo, "type", None) == "sdpo"]
+        if algorithms or self.orchestrator.train.env:
+            return algorithms
+        if getattr(self.orchestrator.algo, "type", None) == "sdpo":
+            return [self.orchestrator.algo]
+        return []
+
+    @property
+    def uses_sdpo_student_support(self) -> bool:
+        return any(getattr(algo, "distillation_topk_support", None) == "student" for algo in self.sdpo_algorithms)
+
+    @property
+    def uses_sdpo_internal_teacher_regularization(self) -> bool:
+        return any(getattr(algo, "teacher_regularization", None) != "live-policy" for algo in self.sdpo_algorithms)
+
+    @model_validator(mode="after")
+    def auto_setup_sdpo_runtime(self):
+        algorithms = self.sdpo_algorithms
+        if not algorithms:
+            runtime = self.trainer.sdpo_runtime
+            if "teacher_regularization" in runtime.model_fields_set and runtime.teacher_regularization != "live-policy":
+                raise ValueError(
+                    "trainer.sdpo_runtime.teacher_regularization != 'live-policy' requires an SDPO algorithm."
+                )
+            if "teacher_update_rate" in runtime.model_fields_set:
+                raise ValueError("trainer.sdpo_runtime.teacher_update_rate requires an SDPO algorithm.")
+            return self
+
+        teacher_regularization = algorithms[0].teacher_regularization
+        teacher_update_rate = algorithms[0].teacher_update_rate
+        distillation_topk_support = algorithms[0].distillation_topk_support
+        for algo in algorithms[1:]:
+            if algo.teacher_regularization != teacher_regularization:
+                raise ValueError("all sdpo algorithms in one RL run must use the same teacher_regularization.")
+            if algo.teacher_update_rate != teacher_update_rate:
+                raise ValueError("all sdpo algorithms in one RL run must use the same teacher_update_rate.")
+            if algo.distillation_topk_support != distillation_topk_support:
+                raise ValueError("all sdpo algorithms in one RL run must use the same distillation_topk_support.")
+
+        runtime = self.trainer.sdpo_runtime
+        if (
+            "teacher_regularization" in runtime.model_fields_set
+            and runtime.teacher_regularization != teacher_regularization
+        ):
+            raise ValueError(
+                "trainer.sdpo_runtime.teacher_regularization conflicts with orchestrator SDPO teacher_regularization."
+            )
+        if "teacher_update_rate" in runtime.model_fields_set and runtime.teacher_update_rate != teacher_update_rate:
+            raise ValueError(
+                "trainer.sdpo_runtime.teacher_update_rate conflicts with orchestrator SDPO teacher_update_rate."
+            )
+
+        runtime.teacher_regularization = teacher_regularization
+        runtime.teacher_update_rate = teacher_update_rate
+        return self
+
+    def _auto_setup_single_node_policy_base_url(self) -> None:
+        if self.inference is None or self.deployment.type != "single_node":
+            return
+        client = self.orchestrator.model.client
+        if "base_url" in client.model_fields_set:
+            return
+        host = self.inference.server.host or "localhost"
+        if host in {"0.0.0.0", "::"}:
+            host = "localhost"
+        client.base_url = [f"http://{host}:{self.inference.server.port}/v1"]
+
+    @model_validator(mode="after")
+    def auto_setup_sdpo_teacher_endpoint(self):
+        self._auto_setup_single_node_policy_base_url()
+        if not self.uses_sdpo_internal_teacher_regularization:
+            return self
+        if self.orchestrator.sdpo_teacher is not None:
+            return self
+        if self.deployment.type != "single_node" or self.deployment.num_sdpo_teacher_gpus <= 0:
+            return self
+        if self.inference is None:
+            return self
+
+        host = self.inference.server.host or "localhost"
+        if host in {"0.0.0.0", "::"}:
+            host = "localhost"
+        teacher_port = self.inference.server.port + 1
+        if teacher_port > MAX_TCP_PORT:
+            raise ValueError(
+                "deployment.num_sdpo_teacher_gpus cannot auto-create orchestrator.sdpo_teacher because "
+                f"inference.server.port + 1 exceeds the maximum TCP port: {self.inference.server.port} -> "
+                f"{teacher_port}."
+            )
+        teacher = HostedModelConfig(
+            name=self.orchestrator.model.name,
+            trust_remote_code=self.orchestrator.model.trust_remote_code,
+            client={"base_url": [f"http://{host}:{teacher_port}/v1"]},
+        )
+        teacher.client.extra_headers_from_state.setdefault("X-Session-ID", "trajectory_id")
+        self.orchestrator.sdpo_teacher = teacher
+        return self
+
+    @model_validator(mode="after")
+    def validate_sdpo_teacher_regularization_runtime_support(self):
+        if not self.uses_sdpo_internal_teacher_regularization:
+            if self.orchestrator.sdpo_teacher is not None:
+                raise ValueError(
+                    "orchestrator.sdpo_teacher requires an SDPO algorithm with teacher_regularization != 'live-policy'."
+                )
+            if self.deployment.type == "single_node" and self.deployment.num_sdpo_teacher_gpus > 0:
+                raise ValueError(
+                    "deployment.num_sdpo_teacher_gpus requires an SDPO algorithm with "
+                    "teacher_regularization != 'live-policy'."
+                )
+            return self
+
+        if any(getattr(algo, "teacher_regularization", None) == "trust-region" for algo in self.sdpo_algorithms):
+            raise ValueError(
+                "sdpo teacher_regularization='trust-region' is not launchable yet: the trainer has the "
+                "trust-region scoring primitive, but the combined rl runtime does not define a reference "
+                "module source to mix with the live student."
+            )
+
+        if self.orchestrator.sdpo_teacher is None:
+            raise ValueError(
+                "sdpo teacher_regularization != 'live-policy' requires "
+                "orchestrator.sdpo_teacher to point at a separately updated teacher inference pool."
+            )
+
+        weight_broadcast_type = (
+            self.weight_broadcast.type if self.weight_broadcast is not None else self.orchestrator.weight_broadcast.type
+        )
+        if weight_broadcast_type != "filesystem":
+            raise ValueError(
+                "sdpo teacher_regularization != 'live-policy' currently requires filesystem weight broadcast; "
+                "NCCL extra live-inference targets are not wired yet."
+            )
+        if self.trainer.model.lora is not None:
+            raise ValueError(
+                "sdpo teacher_regularization != 'live-policy' is not supported with LoRA yet: "
+                "filesystem weight broadcast cannot publish extra live teacher targets for adapter-only updates."
+            )
+        if self.trainer.max_concurrent_runs > 1:
+            raise ValueError(
+                "sdpo teacher_regularization != 'live-policy' is not supported with max_concurrent_runs > 1 yet: "
+                "multi-run checkpointing does not persist the shared SDPO teacher extra state."
+            )
+        if self.trainer.ckpt is not None and self.trainer.ckpt.weights_only:
+            raise ValueError(
+                "sdpo teacher_regularization != 'live-policy' requires full trainer checkpoints; "
+                "trainer.ckpt.weights_only skips the SDPO teacher extra state needed for resume."
+            )
+
+        if self.orchestrator.sdpo_teacher.name != self.orchestrator.model.name:
+            raise ValueError(
+                "orchestrator.sdpo_teacher.name must match orchestrator.model.name for SDPO "
+                "teacher_regularization != 'live-policy' because the teacher endpoint receives "
+                "policy-shaped broadcast weights."
+            )
+        if self.orchestrator.sdpo_teacher.trust_remote_code != self.orchestrator.model.trust_remote_code:
+            raise ValueError(
+                "orchestrator.sdpo_teacher.trust_remote_code must match orchestrator.model.trust_remote_code "
+                "for SDPO teacher_regularization != 'live-policy' because the teacher endpoint receives "
+                "policy-shaped broadcast weights."
+            )
+
+        policy_client = self.orchestrator.model.client
+        teacher_client = self.orchestrator.sdpo_teacher.client
+        policy_admin_urls = policy_client.admin_base_url or policy_client.base_url
+        teacher_admin_urls = teacher_client.admin_base_url or teacher_client.base_url
+        if policy_client.base_url == teacher_client.base_url or policy_admin_urls == teacher_admin_urls:
+            raise ValueError(
+                "orchestrator.sdpo_teacher must use a separately hosted inference endpoint, not the policy endpoint."
+            )
+        if self.deployment.type == "single_node" and self.deployment.num_sdpo_teacher_gpus > 0:
+            if self.inference is None:
+                raise ValueError("deployment.num_sdpo_teacher_gpus requires an [inference] config to clone.")
+            if teacher_client.is_elastic:
+                raise ValueError("deployment.num_sdpo_teacher_gpus does not support elastic sdpo_teacher clients yet.")
+            if len(teacher_client.base_url) != 1:
+                raise ValueError(
+                    "deployment.num_sdpo_teacher_gpus requires exactly one orchestrator.sdpo_teacher.client.base_url."
+                )
+        return self
+
+    @model_validator(mode="after")
+    def auto_setup_sdpo_student_support_preflight(self):
+        if self.uses_sdpo_student_support and "enable_token_export" not in self.trainer.model_fields_set:
+            self.trainer.enable_token_export = True
+        return self
+
+    @model_validator(mode="after")
+    def validate_sdpo_loss_requirements(self):
+        if not self.sdpo_algorithms:
+            return self
+
+        if not self.trainer.sdpo_loss.full_logit_distillation or self.trainer.sdpo_loss.distillation_topk is None:
+            raise ValueError(
+                "sdpo algorithms require trainer.sdpo_loss full-logit top-k distillation; "
+                "sampled-token and full-vocabulary SDPO are not wired in the combined rl runtime."
+            )
+        if self.trainer.model.fused_lm_head_token_chunk_size != "disabled":
+            raise ValueError(
+                "sdpo algorithms require trainer.model.fused_lm_head_token_chunk_size='disabled' "
+                "so the trainer forward exposes logits for top-k distillation."
+            )
+        if self.trainer.model.cp > 1:
+            raise ValueError(
+                "sdpo algorithms do not support trainer.model.cp > 1 yet because top-k distillation "
+                "requires full-sequence logits and support rows."
+            )
+        if self.trainer.sdpo_loss.rollout_is_batch_normalize:
+            raise ValueError(
+                "sdpo algorithms do not support trainer.sdpo_loss.rollout_is_batch_normalize=true yet: "
+                "the combined rl trainer evaluates SDPO per packed sequence, so batch-normalized rollout-IS "
+                "would be sequence-local rather than normalized over the global SDPO component batch."
+            )
+
+        for algo in self.sdpo_algorithms:
+            if getattr(algo, "distillation_topk", None) != self.trainer.sdpo_loss.distillation_topk:
+                raise ValueError(
+                    "sdpo algorithms require orchestrator SDPO distillation_topk to match "
+                    "trainer.sdpo_loss.distillation_topk."
+                )
+
+        return self
+
+    @model_validator(mode="after")
+    def validate_sdpo_student_support_preflight_requirements(self):
+        if not self.uses_sdpo_student_support:
+            return self
+
+        if not self.trainer.enable_token_export:
+            raise ValueError(
+                "sdpo distillation_topk_support='student' requires trainer.enable_token_export=true "
+                "so the preflight trainer pass can export student-selected top-k ids."
+            )
+
+        for algo in self.sdpo_algorithms:
+            if algo.distillation_topk_support == "student" and algo.distillation_topk > SDPO_MAX_STUDENT_SUPPORT_TOPK:
+                raise ValueError(
+                    "sdpo distillation_topk_support='student' requires distillation_topk <= "
+                    f"{SDPO_MAX_STUDENT_SUPPORT_TOPK}, vLLM's current candidate-token scoring limit."
+                )
 
         return self
 
@@ -501,9 +756,11 @@ class RLConfig(BaseConfig):
             if self.inference is not None:
                 num_infer_gpus = self.deployment.num_infer_gpus
                 if num_infer_gpus != self.inference.parallel.dp * self.inference.parallel.tp:
-                    assert num_infer_gpus % self.inference.parallel.tp == 0, (
-                        "Number of inference GPUs must be divisible by the tensor parallel size"
-                    )
+                    if num_infer_gpus % self.inference.parallel.tp != 0:
+                        raise ValueError(
+                            "deployment.num_infer_gpus must be divisible by inference.parallel.tp "
+                            f"({num_infer_gpus} % {self.inference.parallel.tp} != 0)."
+                        )
                     self.inference.parallel.dp = num_infer_gpus // self.inference.parallel.tp
                 # Ensure api_server_count matches DP so all workers are created.
                 # Without this, the NCCL broadcast group expects dp*tp workers
@@ -583,10 +840,12 @@ class RLConfig(BaseConfig):
                 # factor count twice and NCCL wait for ranks that never connect. Matches
                 # the disaggregated path below.
                 total_infer_workers = self.deployment.total_infer_nodes * self.deployment.gpus_per_node
-                assert self.trainer.weight_broadcast.type == "nccl"
+                if self.trainer.weight_broadcast.type != "nccl":
+                    raise ValueError("weight_broadcast.type='nccl' requires trainer.weight_broadcast.type='nccl'.")
                 self.trainer.weight_broadcast.host = "0.0.0.0"
                 self.trainer.weight_broadcast.inference_world_size = total_infer_workers
-                assert self.orchestrator.weight_broadcast.type == "nccl"
+                if self.orchestrator.weight_broadcast.type != "nccl":
+                    raise ValueError("weight_broadcast.type='nccl' requires orchestrator.weight_broadcast.type='nccl'.")
                 self.orchestrator.weight_broadcast.inference_world_size = total_infer_workers
 
         return self
@@ -619,9 +878,11 @@ class RLConfig(BaseConfig):
             )
             self.orchestrator.inference_metrics_roles = role_order * self.deployment.num_infer_replicas
         if self.weight_broadcast is not None and self.weight_broadcast.type == "nccl":
-            assert self.trainer.weight_broadcast.type == "nccl"
+            if self.trainer.weight_broadcast.type != "nccl":
+                raise ValueError("weight_broadcast.type='nccl' requires trainer.weight_broadcast.type='nccl'.")
             self.trainer.weight_broadcast.inference_world_size = total_infer_gpus
-            assert self.orchestrator.weight_broadcast.type == "nccl"
+            if self.orchestrator.weight_broadcast.type != "nccl":
+                raise ValueError("weight_broadcast.type='nccl' requires orchestrator.weight_broadcast.type='nccl'.")
             self.orchestrator.weight_broadcast.inference_world_size = total_infer_gpus
 
         return self
@@ -634,10 +895,10 @@ class RLConfig(BaseConfig):
         so pin logical clients with ``X-data-parallel-rank``. Multi-node SLURM
         runs expose a vllm-router URL instead; the router balances across
         per-rank backend URLs and forwards request headers, so the orchestrator
-        must not inject a DP-rank header there. When no train env samples from
-        the policy (e.g. sft_distill), also set base_url — policy-sourced
-        algorithms rely on the ClientConfig default (``["http://localhost:8000/v1"]``)
-        which already matches the auto-launched policy vLLM at inference.server.port = 8000.
+        must not inject a DP-rank header there. Single-node runs always set the
+        policy base URL from the launched inference server unless the user set
+        it explicitly, so non-default local ports work for policy-sourced
+        algorithms too.
         """
         if self.inference is None:
             return self
@@ -647,7 +908,9 @@ class RLConfig(BaseConfig):
                 client.dp_rank_count = 1
             else:
                 client.dp_rank_count = self.inference.data_parallel_size_local or self.inference.parallel.dp
-        if not self.orchestrator.any_policy_sourced and "base_url" not in client.model_fields_set:
+        if self.deployment.type == "single_node":
+            self._auto_setup_single_node_policy_base_url()
+        elif not self.orchestrator.any_policy_sourced and "base_url" not in client.model_fields_set:
             host = self.inference.server.host or "localhost"
             port = self.inference.server.port
             client.base_url = [f"http://{host}:{port}/v1"]

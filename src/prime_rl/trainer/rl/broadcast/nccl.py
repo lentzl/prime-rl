@@ -1,5 +1,6 @@
 import pickle
 import time
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Callable, Generator, cast
 
@@ -138,8 +139,12 @@ class NCCLWeightBroadcastSender:
             self.logger.debug("NCCL broadcast initialized on non-master rank (no communicator)")
 
     @torch.no_grad()
-    def broadcast_weights(self, model: nn.Module, step: int) -> None:
+    def broadcast_weights(
+        self, model: nn.Module, step: int, extra_models: Mapping[str, nn.Module] | None = None
+    ) -> None:
         """Broadcast the state dict of a model into the inference pool using NCCL."""
+        if extra_models:
+            raise NotImplementedError("NCCL weight broadcast does not support extra live inference targets yet.")
         state_dict = model.state_dict()
         layer_prefix = get_layer_prefix(model.config)
         num_layers = get_max_layer_num(state_dict, layer_prefix)
@@ -194,8 +199,12 @@ class NCCLWeightBroadcast(WeightBroadcast):
         )
 
     @torch.no_grad()
-    def broadcast_weights(self, model: nn.Module, step: int) -> None:
+    def broadcast_weights(
+        self, model: nn.Module, step: int, extra_models: Mapping[str, nn.Module] | None = None
+    ) -> None:
         """Broadcast the state dict of a model into the inference pool using NCCL and notifies the orchestrator."""
+        if extra_models:
+            raise NotImplementedError("NCCL weight broadcast does not support extra live inference targets yet.")
         self.logger.debug("Starting broadcasting weights to inference engine via NCCL")
         start_time = time.perf_counter()
         # `_compute_notified_runs` is a pure function of SPMD-replicated state on

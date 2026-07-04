@@ -463,6 +463,12 @@ class OrchestratorConfig(BaseConfig):
     ``[orchestrator.model.client]``). Algorithm components reference it as
     ``"policy"``."""
 
+    sdpo_teacher: HostedModelConfig | None = None
+    """Optional live SDPO teacher deployment used by non-``live-policy``
+    teacher regularization (e.g. EMA/trust-region). This must point at a
+    separately hosted inference pool; the trainer publishes its weights under
+    the ``sdpo_teacher`` broadcast role."""
+
     train: TrainConfig = TrainConfig()
 
     tokenizer: TokenizerConfig = TokenizerConfig()
@@ -607,6 +613,18 @@ class OrchestratorConfig(BaseConfig):
     def auto_setup_session_headers(self):
         """Ensure X-Session-ID header is always set for sticky DP-aware routing at the inference router."""
         self.model.client.extra_headers_from_state.setdefault("X-Session-ID", "trajectory_id")
+        if self.sdpo_teacher is not None:
+            self.sdpo_teacher.client.extra_headers_from_state.setdefault("X-Session-ID", "trajectory_id")
+        return self
+
+    @model_validator(mode="after")
+    def auto_setup_sdpo_teacher_model(self):
+        if self.sdpo_teacher is None:
+            return self
+        if "name" not in self.sdpo_teacher.model_fields_set:
+            self.sdpo_teacher.name = self.model.name
+        if "trust_remote_code" not in self.sdpo_teacher.model_fields_set:
+            self.sdpo_teacher.trust_remote_code = self.model.trust_remote_code
         return self
 
     @model_validator(mode="after")
@@ -710,7 +728,8 @@ class OrchestratorConfig(BaseConfig):
             if self.max_inflight_rollouts is None:
                 raise ValueError("max_inflight_rollouts must be set when token_batch_size is set")
         else:
-            assert self.batch_size is not None
+            if self.batch_size is None:
+                raise ValueError("batch_size must be resolved when token_batch_size is not set")
             if self.batch_size % self.group_size != 0:
                 raise ValueError("Batch size must be divisible by the number of samples per problem")
             oversampling_factor = self.oversampling_factor if self.oversampling_factor is not None else 1.0
@@ -755,7 +774,8 @@ class OrchestratorConfig(BaseConfig):
         for env in self.train.env:
             # Policy-sourced rollouts hit our vLLM server; frozen-sourced
             # rollouts may hit external OAI endpoints that reject these knobs.
-            assert env.algo is not None
+            if env.algo is None:
+                raise ValueError("Each train env must have an algorithm config before sampling defaults are resolved")
             if env.algo.sampling.source == "policy":
                 env.sampling.extra_body.setdefault("top_k", -1)
                 env.sampling.extra_body.setdefault("min_p", 0.0)

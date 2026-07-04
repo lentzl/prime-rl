@@ -6,7 +6,9 @@ from beartype import beartype as typechecker
 from jaxtyping import Bool, Float, Int, jaxtyped
 from torch import Tensor
 
-from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig
+from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig, SDPOComponentConfig
+from prime_rl.trainer.rl.sdpo_loss import SDPOLossConfig, compute_sdpo_loss
+from prime_rl.trainer.rl.sdpo_train_support import active_sdpo_weight_mask
 from prime_rl.utils.utils import import_object
 
 
@@ -26,6 +28,9 @@ class LossInputs:
     advantages: Float[Tensor, " seq"]
     loss_mask: Bool[Tensor, " seq"]
     loss_weights: Float[Tensor, " seq"] | None = field(default=None)
+    student_topk_log_probs: Float[Tensor, "seq topk"] | None = None
+    teacher_topk_log_probs: Float[Tensor, "seq topk"] | None = None
+    rollout_is_weights: Float[Tensor, " seq"] | None = None
 
 
 @dataclass
@@ -257,6 +262,161 @@ def ref_kl_loss_fn(inputs: LossInputs) -> LossOutputs:
     return LossOutputs(loss=loss, metrics=metrics)
 
 
+def sdpo_loss_fn(inputs: LossInputs, loss_config: SDPOComponentConfig) -> LossOutputs:
+    """SDPO over the component-selected tokens."""
+    if loss_config.full_logit_distillation and loss_config.distillation_topk is None:
+        raise ValueError("SDPO full-vocabulary distillation is not wired yet; set distillation_topk.")
+    if loss_config.full_logit_distillation:
+        if inputs.student_topk_log_probs is None or inputs.teacher_topk_log_probs is None:
+            raise ValueError("SDPO top-k loss requires student and teacher top-k logprobs.")
+        if inputs.student_topk_log_probs.shape != inputs.teacher_topk_log_probs.shape:
+            raise ValueError(
+                "SDPO top-k student and teacher logprob shapes must match "
+                f"({tuple(inputs.student_topk_log_probs.shape)} != {tuple(inputs.teacher_topk_log_probs.shape)})."
+            )
+    elif inputs.ref_logprobs is None:
+        raise ValueError("sampled-token SDPO requires ref_logprobs.")
+
+    active_mask = inputs.loss_mask
+    if inputs.loss_weights is not None:
+        active_mask = active_mask & _active_sdpo_member_mask(inputs.loss_weights)
+    token_count = active_mask.sum().clamp(min=1)
+    if not bool(active_mask.any()):
+        zero = inputs.trainer_logprobs.sum() * 0.0
+        return LossOutputs(loss=zero, metrics={"sdpo": zero.detach()})
+
+    trainer_logprobs = inputs.trainer_logprobs[active_mask]
+    inference_logprobs = inputs.inference_logprobs[active_mask]
+    ref_logprobs = inputs.ref_logprobs[active_mask] if inputs.ref_logprobs is not None else None
+    student_topk_log_probs = (
+        inputs.student_topk_log_probs[active_mask] if inputs.student_topk_log_probs is not None else None
+    )
+    teacher_topk_log_probs = (
+        inputs.teacher_topk_log_probs[active_mask] if inputs.teacher_topk_log_probs is not None else None
+    )
+    loss_weights = inputs.loss_weights[active_mask] if inputs.loss_weights is not None else None
+    rollout_is_weights = inputs.rollout_is_weights[active_mask] if inputs.rollout_is_weights is not None else None
+    response_mask = torch.ones_like(trainer_logprobs, dtype=torch.bool)
+
+    core_config = SDPOLossConfig(
+        full_logit_distillation=loss_config.full_logit_distillation,
+        distillation_topk=loss_config.distillation_topk,
+        distillation_add_tail=loss_config.distillation_add_tail,
+        alpha=loss_config.alpha,
+        is_clip=loss_config.is_clip,
+        rollout_is=loss_config.rollout_is,
+        rollout_is_threshold=loss_config.rollout_is_threshold,
+        rollout_is_batch_normalize=loss_config.rollout_is_batch_normalize,
+    )
+    old_log_probs = (
+        inference_logprobs.unsqueeze(0)
+        if loss_config.is_clip is not None or (rollout_is_weights is None and loss_config.rollout_is is not None)
+        else None
+    )
+    loss = compute_sdpo_loss(
+        student_log_probs=trainer_logprobs.unsqueeze(0),
+        teacher_log_probs=(ref_logprobs if ref_logprobs is not None else trainer_logprobs).detach().unsqueeze(0),
+        response_mask=response_mask.unsqueeze(0),
+        config=core_config,
+        old_log_probs=old_log_probs,
+        student_topk_log_probs=student_topk_log_probs.unsqueeze(0) if student_topk_log_probs is not None else None,
+        teacher_topk_log_probs=teacher_topk_log_probs.detach().unsqueeze(0)
+        if teacher_topk_log_probs is not None
+        else None,
+        component_weights=loss_weights.unsqueeze(0) if loss_weights is not None else None,
+        rollout_is_weights=rollout_is_weights.unsqueeze(0) if rollout_is_weights is not None else None,
+    )
+    metrics = {"sdpo": loss.detach()}
+    return LossOutputs(loss=loss * token_count, metrics=metrics)
+
+
+def _validate_sdpo_component_weights(sdpo_weights: Tensor, loss_mask: Tensor) -> None:
+    if sdpo_weights.shape != loss_mask.shape:
+        raise ValueError(
+            f"SDPO weights shape {tuple(sdpo_weights.shape)} must match loss_mask shape {tuple(loss_mask.shape)}"
+        )
+    if torch.is_complex(sdpo_weights) or sdpo_weights.dtype == torch.bool:
+        raise ValueError("SDPO weights must contain real numeric values")
+    if not bool(torch.isfinite(sdpo_weights).all()):
+        raise ValueError("SDPO weights must contain finite values")
+    if bool((sdpo_weights < 0).any()):
+        raise ValueError("SDPO weights must be non-negative")
+    invalid_sdpo_mask = _active_sdpo_member_mask(sdpo_weights) & ~loss_mask
+    if bool(invalid_sdpo_mask.any()):
+        raise ValueError("SDPO weights may only select sampled/loss-mask tokens")
+
+
+def _validate_sdpo_rollout_is_weights(
+    rollout_is_weights: Tensor,
+    sdpo_weights: Tensor | None,
+    loss_mask: Tensor,
+) -> None:
+    if rollout_is_weights.shape != loss_mask.shape:
+        raise ValueError(
+            "SDPO rollout-IS weights shape "
+            f"{tuple(rollout_is_weights.shape)} must match loss_mask shape {tuple(loss_mask.shape)}"
+        )
+    if torch.is_complex(rollout_is_weights) or rollout_is_weights.dtype == torch.bool:
+        raise ValueError("SDPO rollout-IS weights must contain real numeric values")
+    if not bool(torch.isfinite(rollout_is_weights).all()):
+        raise ValueError("SDPO rollout-IS weights must contain finite values")
+    if bool((rollout_is_weights < 0).any()):
+        raise ValueError("SDPO rollout-IS weights must be non-negative")
+    if not torch.is_floating_point(rollout_is_weights):
+        raise ValueError("SDPO rollout-IS weights must use a floating-point dtype")
+    sdpo_member_mask = (
+        torch.zeros_like(loss_mask, dtype=torch.bool)
+        if sdpo_weights is None
+        else _active_sdpo_member_mask(sdpo_weights)
+    )
+    invalid_rollout_is_mask = _active_sdpo_member_mask(rollout_is_weights) & ~sdpo_member_mask
+    if bool(invalid_rollout_is_mask.any()):
+        raise ValueError("SDPO rollout-IS weights may only be nonzero on SDPO component tokens")
+
+
+def _validate_sdpo_topk_ownership(
+    student_topk_log_probs: Tensor | None,
+    teacher_topk_log_probs: Tensor | None,
+    sdpo_weights: Tensor | None,
+    loss_mask: Tensor,
+) -> None:
+    if student_topk_log_probs is None and teacher_topk_log_probs is None:
+        return
+    if student_topk_log_probs is None or teacher_topk_log_probs is None:
+        raise ValueError("SDPO top-k logprobs require both student and teacher streams")
+    if student_topk_log_probs.shape != teacher_topk_log_probs.shape:
+        raise ValueError(
+            "SDPO top-k student and teacher logprob shapes must match "
+            f"({tuple(student_topk_log_probs.shape)} != {tuple(teacher_topk_log_probs.shape)})."
+        )
+    if student_topk_log_probs.ndim != 2:
+        raise ValueError(
+            f"SDPO top-k logprobs must be rank 2 per sequence (seq, topk), got {tuple(student_topk_log_probs.shape)}"
+        )
+    if student_topk_log_probs.shape[0] != loss_mask.shape[0]:
+        raise ValueError(
+            "SDPO top-k logprobs sequence length "
+            f"{student_topk_log_probs.shape[0]} must match loss_mask length {loss_mask.shape[0]}"
+        )
+    if student_topk_log_probs.shape[1] <= 0:
+        raise ValueError("SDPO top-k logprobs must have a non-empty top-k dimension")
+    if sdpo_weights is None:
+        raise ValueError("SDPO top-k logprobs require active SDPO weights")
+    active_sdpo_mask = loss_mask & _active_sdpo_member_mask(sdpo_weights)
+    if not bool(active_sdpo_mask.any()):
+        raise ValueError("SDPO top-k logprobs require active SDPO weights")
+    inactive_topk_mask = ~active_sdpo_mask
+    inactive_student = student_topk_log_probs[inactive_topk_mask]
+    inactive_teacher = teacher_topk_log_probs[inactive_topk_mask]
+    invalid_inactive_rows = ~((inactive_student == 0).all(dim=-1) & (inactive_teacher == 0).all(dim=-1))
+    if bool(invalid_inactive_rows.any()):
+        raise ValueError("SDPO top-k logprobs must be placeholders outside active SDPO component")
+
+
+def _active_sdpo_member_mask(weights: Tensor) -> Tensor:
+    return active_sdpo_weight_mask(weights)
+
+
 def ce_loss_fn(inputs: LossInputs) -> LossOutputs:
     """Cross-entropy loss type: masked negative log-likelihood (SFT / ECHO
     observation prediction)."""
@@ -309,11 +469,17 @@ def compute_loss(
     rl_scale: int,
     ce_scale: int,
     ref_kl_scale: int,
+    sdpo_weights: list[Float[Tensor, " seq_i"]] | None = None,
+    sdpo_rollout_is_weights: list[Float[Tensor, " seq_i"]] | None = None,
+    student_topk_log_probs: list[Float[Tensor, "seq_i topk"]] | None = None,
+    teacher_topk_log_probs: list[Float[Tensor, "seq_i topk"]] | None = None,
+    sdpo_loss_config: SDPOComponentConfig | None = None,
+    sdpo_scale: int = 1,
 ) -> tuple[Float[Tensor, ""], dict[str, Any]]:
     """
     Compute loss for packed sequences (batch size = 1, multiple sequences packed along sequence dimension).
 
-    The loss is a sum of three components, each running over its own per-token
+    The loss is a sum of four components, each running over its own per-token
     weight stream and normalized by its own global token count:
 
     - rl → ``rl_loss_fn`` (built by ``setup_rl_loss_fn``) on
@@ -321,6 +487,7 @@ def compute_loss(
       the full loss mask (the hot path — no extra device syncs).
     - ce → ``ce_loss_fn`` (masked NLL) on ``ce_weights != 0``.
     - ref_kl → ``ref_kl_loss_fn`` on ``ref_kl_weights != 0``.
+    - sdpo → ``sdpo_loss_fn`` on the active ``sdpo_weights`` membership mask.
 
     A weight scales its component's per-token loss; 0.0 removes the token from
     the component's mask and denominator. Per-component normalization keeps the
@@ -336,17 +503,41 @@ def compute_loss(
         rl_weights: Per-token rl weights for each sequence, or None (1.0 on the loss mask)
         ce_weights: Per-token ce weights for each sequence, or None (no ce component)
         ref_kl_weights: Per-token ref_kl weights for each sequence, or None (no ref_kl component)
+        sdpo_weights: Per-token sdpo weights for each sequence, or None (no sdpo component)
+        sdpo_rollout_is_weights: Optional true rollout-importance weights for SDPO.
         rl_loss_fn: Loss fn for the rl component from setup_rl_loss_fn()
         rl_scale: Global rl-token count normalizing the rl component
         ce_scale: Global ce-token count normalizing the ce component
         ref_kl_scale: Global ref_kl-token count normalizing the ref_kl component
+        sdpo_scale: Global sdpo-token count normalizing the sdpo component
 
     Returns:
         Tuple of (scaled_loss, aggregated_metrics)
     """
     all_metrics: dict[str, list[Tensor]] = {}
+    if sdpo_loss_config is None:
+        sdpo_loss_config = SDPOComponentConfig()
 
     n = len(trainer_logprobs)
+    for name, values in (
+        ("inference_logprobs", inference_logprobs),
+        ("advantages", advantages),
+        ("loss_mask", loss_mask),
+    ):
+        if len(values) != n:
+            raise ValueError(f"{name} has {len(values)} sequence(s), expected {n}")
+    for name, values in (
+        ("ref_logprobs", ref_logprobs),
+        ("rl_weights", rl_weights),
+        ("ce_weights", ce_weights),
+        ("ref_kl_weights", ref_kl_weights),
+        ("sdpo_weights", sdpo_weights),
+        ("sdpo_rollout_is_weights", sdpo_rollout_is_weights),
+        ("student_topk_log_probs", student_topk_log_probs),
+        ("teacher_topk_log_probs", teacher_topk_log_probs),
+    ):
+        if values is not None and len(values) != n:
+            raise ValueError(f"{name} has {len(values)} sequence(s), expected {n}")
     if ref_logprobs is None:
         ref_logprobs = [None] * n
     if rl_weights is None:
@@ -355,6 +546,14 @@ def compute_loss(
         ce_weights = [None] * n
     if ref_kl_weights is None:
         ref_kl_weights = [None] * n
+    if sdpo_weights is None:
+        sdpo_weights = [None] * n
+    if sdpo_rollout_is_weights is None:
+        sdpo_rollout_is_weights = [None] * n
+    if student_topk_log_probs is None:
+        student_topk_log_probs = [None] * n
+    if teacher_topk_log_probs is None:
+        teacher_topk_log_probs = [None] * n
 
     def run_loss_fn(loss_fn: LossFn, inputs: LossInputs) -> Tensor:
         result = loss_fn(inputs)
@@ -369,15 +568,33 @@ def compute_loss(
     rl_loss = trainer_logprobs[0].sum() * 0.0
     ce_loss = 0.0
     ref_kl_loss = 0.0
-    for t_logp, i_logp, ref_logp, adv, mask, rl_w, ce_w, ref_kl_w in zip(
+    sdpo_loss = 0.0
+    for (
+        t_logp,
+        i_logp,
+        ref_logp,
+        student_topk,
+        teacher_topk,
+        adv,
+        mask,
+        rl_w,
+        ce_w,
+        ref_kl_w,
+        sdpo_w,
+        sdpo_is_w,
+    ) in zip(
         trainer_logprobs,
         inference_logprobs,
         ref_logprobs,
+        student_topk_log_probs,
+        teacher_topk_log_probs,
         advantages,
         loss_mask,
         rl_weights,
         ce_weights,
         ref_kl_weights,
+        sdpo_weights,
+        sdpo_rollout_is_weights,
     ):
 
         def make_inputs(component_mask: Bool[Tensor, " seq"], weights: Float[Tensor, " seq"] | None) -> LossInputs:
@@ -385,9 +602,12 @@ def compute_loss(
                 trainer_logprobs=t_logp,
                 inference_logprobs=i_logp,
                 ref_logprobs=ref_logp,
+                student_topk_log_probs=student_topk,
+                teacher_topk_log_probs=teacher_topk,
                 advantages=adv,
                 loss_mask=component_mask,
                 loss_weights=weights,
+                rollout_is_weights=sdpo_is_w,
             )
 
         if rl_w is None:
@@ -404,8 +624,28 @@ def compute_loss(
             ref_kl_mask = ref_kl_w != 0
             if bool(ref_kl_mask.any()):
                 ref_kl_loss = ref_kl_loss + run_loss_fn(ref_kl_loss_fn, make_inputs(ref_kl_mask, ref_kl_w))
+        if sdpo_w is not None:
+            _validate_sdpo_component_weights(sdpo_w, mask)
+        if sdpo_is_w is not None:
+            _validate_sdpo_rollout_is_weights(sdpo_is_w, sdpo_w, mask)
+        _validate_sdpo_topk_ownership(student_topk, teacher_topk, sdpo_w, mask)
+        if sdpo_w is not None:
+            sdpo_mask = mask & _active_sdpo_member_mask(sdpo_w)
+            if bool(sdpo_mask.any()):
+                if (
+                    sdpo_is_w is None
+                    and sdpo_loss_config.rollout_is is not None
+                    and sdpo_loss_config.rollout_is_batch_normalize
+                ):
+                    raise ValueError(
+                        "compute_loss cannot derive batch-normalized SDPO rollout-IS weights per packed sequence; "
+                        "provide precomputed sdpo_rollout_is_weights or disable rollout_is_batch_normalize."
+                    )
+                sdpo_loss = sdpo_loss + run_loss_fn(
+                    lambda inputs: sdpo_loss_fn(inputs, sdpo_loss_config), make_inputs(sdpo_mask, sdpo_w)
+                )
 
-    scaled_loss = rl_loss / rl_scale + ce_loss / ce_scale + ref_kl_loss / ref_kl_scale
+    scaled_loss = rl_loss / rl_scale + ce_loss / ce_scale + ref_kl_loss / ref_kl_scale + sdpo_loss / sdpo_scale
 
     aggregated: dict[str, Any] = {}
     for k, v in all_metrics.items():

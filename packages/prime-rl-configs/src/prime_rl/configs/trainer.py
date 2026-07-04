@@ -2,7 +2,7 @@ import warnings
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from prime_rl.configs.shared import (
     BaseModelConfig,
@@ -450,6 +450,76 @@ class CustomLossConfig(BaseConfig):
 LossConfig: TypeAlias = Annotated[DefaultLossConfig | IPOLossConfig | CustomLossConfig, Field(discriminator="type")]
 
 
+class SDPORuntimeConfig(BaseConfig):
+    teacher_regularization: Literal["live-policy", "ema", "trust-region"] = "live-policy"
+    """SDPO teacher update semantics requested by the orchestrator algorithm."""
+
+    teacher_update_rate: float = Field(0.05, ge=0, le=1)
+    """EMA update rate, or trust-region mixing coefficient."""
+
+    @field_validator("teacher_update_rate", mode="before")
+    @classmethod
+    def reject_bool_teacher_update_rate(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("teacher_update_rate must be numeric, not boolean")
+        return value
+
+
+class SDPOComponentConfig(BaseConfig):
+    full_logit_distillation: bool = True
+    """Use logit-level SDPO. The current Prime-native transport supports the top-k variant."""
+
+    distillation_topk: int | None = Field(100, ge=1)
+    """Shared SDPO top-k support size. The orchestrator chooses whether the
+    support ids come from the student or teacher; the trainer evaluates the
+    current student distribution on the transported support. ``None`` is
+    reserved for future full-vocabulary transport."""
+
+    distillation_add_tail: bool = True
+    """Add a tail-mass bucket after the transported top-k support."""
+
+    alpha: float = Field(0.5, ge=0, le=1)
+    """KL/JSD interpolation parameter for distribution-level SDPO."""
+
+    is_clip: float | None = Field(2.0, gt=0)
+    """One-sided importance-ratio clipping against the sampling logprobs. Set
+    to ``None`` for ablations."""
+
+    rollout_is: Literal["token", "sequence"] | None = "token"
+    """Truncated rollout importance correction level."""
+
+    rollout_is_threshold: float = Field(2.0, gt=0)
+    """Upper truncation threshold for rollout importance weights."""
+
+    rollout_is_batch_normalize: bool = False
+    """Normalize rollout importance weights to mean 1.0 over the component tokens.
+    The combined ``rl`` SDPO algorithm rejects this for now because packed
+    sequences are evaluated one at a time; keep it disabled in launch configs."""
+
+    @field_validator("distillation_topk", mode="before")
+    @classmethod
+    def reject_bool_distillation_topk(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("distillation_topk must be an integer, not boolean")
+        return value
+
+    @field_validator("full_logit_distillation", "distillation_add_tail", "rollout_is_batch_normalize", mode="before")
+    @classmethod
+    def reject_non_bool_behavior_knobs(cls, value, info):
+        if isinstance(value, str) and value.lower() in {"true", "false"}:
+            return value.lower() == "true"
+        if not isinstance(value, bool):
+            raise ValueError(f"{info.field_name} must be a boolean")
+        return value
+
+    @field_validator("alpha", "is_clip", "rollout_is_threshold", mode="before")
+    @classmethod
+    def reject_bool_numeric_knobs(cls, value, info):
+        if isinstance(value, bool):
+            raise ValueError(f"{info.field_name} must be numeric, not boolean")
+        return value
+
+
 class FakeDataLoaderConfig(BaseConfig):
     batch_size: int = Field(2, ge=1)
     """Batch size of the fake data loader."""
@@ -511,6 +581,12 @@ class TrainerConfig(BaseConfig):
 
     loss: LossConfig = DefaultLossConfig()
     """Loss config for the rl loss component (see ``setup_rl_loss_fn``). The ce / ref_kl components are fixed and do not read this."""
+
+    sdpo_loss: SDPOComponentConfig = SDPOComponentConfig()
+    """Loss config for the optional sdpo component. Algorithms that do not stamp ``sdpo_weights`` do not read this."""
+
+    sdpo_runtime: SDPORuntimeConfig = SDPORuntimeConfig()
+    """Trainer-runtime SDPO settings shared with SDPO algorithms. The loss primitive stays in ``sdpo_loss``."""
 
     optim: OptimizerConfig = AdamWConfig()
 

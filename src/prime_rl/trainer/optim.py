@@ -3,7 +3,6 @@ import time
 from typing import Callable
 
 import torch
-from dion import Muon
 from torch import nn
 from torch.distributed.tensor import DTensor
 from torch.optim import SGD, AdamW, Optimizer
@@ -14,6 +13,14 @@ from prime_rl.trainer.runs import get_multi_run_manager
 from prime_rl.trainer.sign_sgd import SignSGD
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
+
+
+def optimizer_update_succeeded(grad_norm: torch.Tensor | None) -> bool:
+    if grad_norm is None:
+        return True
+    if isinstance(grad_norm, DTensor):
+        grad_norm = grad_norm.full_tensor()
+    return bool(torch.isfinite(grad_norm).all().item())
 
 
 class CPUOffloadOptimizer:
@@ -186,6 +193,8 @@ def _create_muon_optimizer(
     parallel_dims: ParallelDims,
     lr: float | None = None,
 ) -> Optimizer:
+    from dion import Muon
+
     def muon_enabled(n, p):
         if p.ndim < 2:
             return False

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 from prime_rl.configs.algorithm import AlgorithmConfig, GRPOAlgorithmConfig
@@ -18,8 +19,14 @@ class GRPOAlgorithm(Algorithm):
     policy per example; credit = reward minus the group mean (optionally
     length-shaped); action tokens feed the ``rl`` loss."""
 
-    def __init__(self, config: AlgorithmConfig, policy_pool: InferencePool, renderer: Renderer | None):
-        super().__init__(config, policy_pool, renderer)
+    def __init__(
+        self,
+        config: AlgorithmConfig,
+        policy_pool: InferencePool,
+        renderer: Renderer | None,
+        live_pools: Mapping[str, InferencePool] | None = None,
+    ):
+        super().__init__(config, policy_pool, renderer, live_pools=live_pools)
         assert isinstance(config, GRPOAlgorithmConfig)
         self.length_penalty = config.length_penalty
 

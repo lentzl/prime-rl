@@ -23,6 +23,7 @@ from __future__ import annotations
 import asyncio
 import os
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import tomli_w
@@ -37,7 +38,8 @@ if TYPE_CHECKING:
     from prime_rl.utils.monitor.base import Monitor
 import prime_rl._compat  # noqa: F401 — patch ring_flash_attn compat before transitive imports
 from prime_rl.configs.orchestrator import OrchestratorConfig
-from prime_rl.orchestrator.algo import finalize_batch
+from prime_rl.orchestrator.algo import finalize_batch, finalize_batch_preflight
+from prime_rl.orchestrator.algo.sdpo import SDPO_TEACHER_LIVE_ROLE
 from prime_rl.orchestrator.ckpt import setup_ckpt_manager
 from prime_rl.orchestrator.dispatcher import DispatcherMetrics, DispatcherMode, RolloutDispatcher
 from prime_rl.orchestrator.envs import EvalEnvs, TrainEnvs
@@ -51,6 +53,7 @@ from prime_rl.orchestrator.patches import (
     monkey_patch_oai_iterable_types,
 )
 from prime_rl.orchestrator.periodic_logger import PeriodicLogger
+from prime_rl.orchestrator.sdpo_sample_identity import ensure_sdpo_sample_ids
 from prime_rl.orchestrator.train_sink import TrainSink
 from prime_rl.orchestrator.train_source import TrainSource
 from prime_rl.orchestrator.types import (
@@ -66,9 +69,10 @@ from prime_rl.orchestrator.utils import (
     save_rollouts,
     set_default_executor,
     setup_policy_inference_pool,
+    setup_sdpo_teacher_inference_pool,
     trim_process_memory,
 )
-from prime_rl.orchestrator.watcher import WeightWatcher
+from prime_rl.orchestrator.watcher import InferenceWeightTarget, WeightWatcher
 from prime_rl.trainer.model import setup_tokenizer
 from prime_rl.transport import TrainingBatch, setup_training_batch_sender
 from prime_rl.utils.async_utils import EventLoopLagMonitor, EventLoopLagStats, safe_cancel
@@ -76,7 +80,7 @@ from prime_rl.utils.client import init_nccl_broadcast
 from prime_rl.utils.heartbeat import Heartbeat
 from prime_rl.utils.logger import format_time, get_logger, setup_logger
 from prime_rl.utils.monitor import setup_monitor
-from prime_rl.utils.pathing import get_log_dir, get_rollout_dir, get_step_path
+from prime_rl.utils.pathing import get_broadcast_dir, get_log_dir, get_rollout_dir, get_step_path, wait_for_path
 from prime_rl.utils.usage_reporter import UsageReporter
 from prime_rl.utils.utils import (
     clean_exit,
@@ -109,6 +113,13 @@ TARGET_LAG = 1
 ROLLOUT_DUMP_EXCLUDE = {"nodes": {"__all__": {"multi_modal_data", "routed_experts"}}}
 
 
+async def wait_for_resume_weight_marker(path: Path, timeout: int | None) -> None:
+    if timeout is None:
+        await wait_for_path(path)
+    else:
+        await asyncio.wait_for(wait_for_path(path), timeout=timeout)
+
+
 class Orchestrator:
     # Set in ``__init__``
     config: OrchestratorConfig
@@ -125,6 +136,7 @@ class Orchestrator:
     # Always set by ``setup()``
     tokenizer: PreTrainedTokenizer
     policy_inference: InferencePool
+    sdpo_teacher_inference: InferencePool | None
     monitor: Monitor
     sender: TrainingBatchSender
     train_envs: TrainEnvs
@@ -186,6 +198,7 @@ class Orchestrator:
         self.eval_envs = None
         self.eval_sink = None
         self.eval_source = None
+        self.sdpo_teacher_inference = None
         self.lora_name = None
         self.resume_step = None
         self.lag_task = None
@@ -221,6 +234,7 @@ class Orchestrator:
         self.renderer, self.policy_inference = await setup_policy_inference_pool(
             config=config, tokenizer=self.tokenizer
         )
+        self.sdpo_teacher_inference = await setup_sdpo_teacher_inference_pool(config=config)
         self.mm_token_type_ids_mapping = (
             getattr(self.renderer, "mm_token_type_id_map", None) if self.renderer is not None else None
         )
@@ -250,8 +264,15 @@ class Orchestrator:
         post_filters = setup_filters(config.post_batch_filters, vocab_size=self.tokenizer.vocab_size, kind="post-batch")
 
         get_logger().info("Loading training environments")
+        live_pools = (
+            {SDPO_TEACHER_LIVE_ROLE: self.sdpo_teacher_inference} if self.sdpo_teacher_inference is not None else None
+        )
         self.train_envs = TrainEnvs(
-            config.train.env, policy_pool=self.policy_inference, renderer=self.renderer, renderer_config=config.renderer
+            config.train.env,
+            policy_pool=self.policy_inference,
+            renderer=self.renderer,
+            renderer_config=config.renderer,
+            live_pools=live_pools,
         )
         get_logger().debug(
             f"Loaded {len(self.train_envs)} training environment(s) ({', '.join(self.train_envs.names)})"
@@ -286,6 +307,14 @@ class Orchestrator:
         get_logger().info("Waiting for policy inference pool to be ready")
         await self.policy_inference.wait_for_ready(config.model.name)
         get_logger().success("Policy inference pool ready")
+        if self.sdpo_teacher_inference is not None:
+            if config.sdpo_teacher is None:
+                raise RuntimeError(
+                    "SDPO teacher inference pool is configured, but orchestrator.sdpo_teacher is missing."
+                )
+            get_logger().info("Waiting for SDPO teacher inference pool to be ready")
+            await self.sdpo_teacher_inference.wait_for_ready(config.sdpo_teacher.name)
+            get_logger().success("SDPO teacher inference pool ready")
         # Build + ready pools for each env's frozen sampling source and the
         # algorithm's frozen reference model
         await asyncio.gather(
@@ -321,10 +350,23 @@ class Orchestrator:
             get_logger().info(f"Resuming orchestrator from checkpoint step {self.resume_step}")
             check_exists = config.weight_broadcast.type != "nccl"
             wait_timeout = config.ckpt.wait_for_weights_timeout if config.ckpt else None
-            weights_path = get_weight_dir(
-                config.output_dir, self.progress.step, check_exists=check_exists, wait_timeout=wait_timeout
-            )
+            if self.sdpo_teacher_inference is not None:
+                # EMA teacher inference weights are produced as an extra filesystem
+                # broadcast target, not as part of the ordinary policy weight
+                # checkpoint. Resume policy + teacher inference from the same
+                # broadcast step so the teacher distribution matches the policy
+                # version being adopted.
+                weights_path = get_step_path(get_broadcast_dir(config.output_dir), self.progress.step)
+                await wait_for_resume_weight_marker(weights_path / "STABLE", wait_timeout)
+                await wait_for_resume_weight_marker(weights_path / SDPO_TEACHER_LIVE_ROLE / "STABLE", wait_timeout)
+            else:
+                weights_path = get_weight_dir(
+                    config.output_dir, self.progress.step, check_exists=check_exists, wait_timeout=wait_timeout
+                )
             await self.policy_inference.update_weights(weights_path, lora_name=self.lora_name, step=self.progress.step)
+            if self.sdpo_teacher_inference is not None:
+                teacher_weights_path = weights_path / SDPO_TEACHER_LIVE_ROLE
+                await self.sdpo_teacher_inference.update_weights(teacher_weights_path, step=self.progress.step)
             if self.lora_name is not None:
                 self.policy_inference.update_model_name(self.lora_name)
                 self.policy.model_name = self.lora_name
@@ -376,6 +418,17 @@ class Orchestrator:
             observers=[self.dispatcher, self],
             lora_name=self.lora_name,
             ckpt_step=self.progress.step,
+            extra_inference_targets=(
+                [
+                    InferenceWeightTarget(
+                        role=SDPO_TEACHER_LIVE_ROLE,
+                        inference=self.sdpo_teacher_inference,
+                        weight_subdir=SDPO_TEACHER_LIVE_ROLE,
+                    )
+                ]
+                if self.sdpo_teacher_inference is not None
+                else None
+            ),
         )
         # Single periodic logger for the whole pipeline. It's the only
         # consumer of ``dispatcher.metrics.drained()`` (which clears on read)
@@ -532,12 +585,22 @@ class Orchestrator:
         step_path = get_step_path(get_rollout_dir(config.output_dir), step)
         await asyncio.to_thread(save_rollouts, rollout_dicts, step_path / "train_rollouts.jsonl")
 
+        await finalize_batch_preflight(
+            self.train_envs,
+            batch.rollouts,
+            samples=batch.samples,
+            output_dir=self.config.output_dir,
+            sender=self.sender,
+            step=step,
+        )
+
         # Per-env reference scoring runs at the batch boundary; envs without a
         # reference are a no-op, so this is unconditional.
         t = time.perf_counter()
         await finalize_batch(self.train_envs, batch.rollouts)
         scoring_time = time.perf_counter() - t
 
+        ensure_sdpo_sample_ids(batch.samples, step=step, prefix="sdpo-final", phase="final")
         await self.sender.send(TrainingBatch(examples=batch.samples, step=step))
         self.update_dispatch_gate()
         trim_process_memory()
@@ -833,6 +896,8 @@ class Orchestrator:
                 await self.inference_metrics.stop()
             if getattr(self, "policy_inference", None) is not None:
                 await self.policy_inference.stop()
+            if getattr(self, "sdpo_teacher_inference", None) is not None:
+                await self.sdpo_teacher_inference.stop()
             if self.train_envs is not None:
                 for env in self.train_envs:
                     for pool in (*env.sampler.connected_pools, *env.algorithm.connected_pools):

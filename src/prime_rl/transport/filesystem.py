@@ -9,6 +9,8 @@ from prime_rl.utils.pathing import get_rollout_dir, get_step_path, sync_wait_for
 
 BATCH_FILE_TMP_NAME = "train_rollouts.bin.tmp"
 BATCH_FILE_NAME = "train_rollouts.bin"
+PREFLIGHT_BATCH_FILE_TMP_NAME = "train_rollouts_preflight.bin.tmp"
+PREFLIGHT_BATCH_FILE_NAME = "train_rollouts_preflight.bin"
 LOG_FREQ_SECONDS = 10
 
 
@@ -28,10 +30,12 @@ class FileSystemTrainingBatchSender(TrainingBatchSender):
 
     def _encode_and_write(self, batch: TrainingBatch, step_path: Path) -> None:
         buffer = self.encoder.encode(batch)
-        tmp_path = step_path / BATCH_FILE_TMP_NAME
+        tmp_name = PREFLIGHT_BATCH_FILE_TMP_NAME if batch.preflight_only else BATCH_FILE_TMP_NAME
+        final_name = PREFLIGHT_BATCH_FILE_NAME if batch.preflight_only else BATCH_FILE_NAME
+        tmp_path = step_path / tmp_name
         with open(tmp_path, "wb") as f:
             f.write(buffer)
-        tmp_path.rename(step_path / BATCH_FILE_NAME)
+        tmp_path.rename(step_path / final_name)
 
 
 class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
@@ -46,6 +50,7 @@ class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
         # Track received steps per run independently of multi_run_manager.progress[idx].step
         # This prevents duplicate reads when trainer step != orchestrator step
         self._received_steps: dict[int, int] = {}
+        self._received_preflight: set[tuple[int, int]] = set()
 
     def _get_received_step(self, idx: int) -> int:
         """Get the next step to receive for a run, initializing from progress if needed."""
@@ -54,17 +59,30 @@ class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
             self._received_steps[idx] = self.multi_run_manager.progress[idx].step
         return self._received_steps[idx]
 
-    def _get_batch_path(self, idx: int) -> Path:
+    def _get_batch_path(self, idx: int, *, preflight_only: bool = False) -> Path:
         """Get the batch file path for a specific run at its next step to receive."""
         run_dir = self.multi_run_manager.get_run_dir(idx)
         rollout_dir = get_rollout_dir(run_dir)
         step = self._get_received_step(idx)
-        return get_step_path(rollout_dir, step) / BATCH_FILE_NAME
+        filename = PREFLIGHT_BATCH_FILE_NAME if preflight_only else BATCH_FILE_NAME
+        return get_step_path(rollout_dir, step) / filename
+
+    def _available_batch_path(self, idx: int) -> tuple[Path | None, bool]:
+        step = self._get_received_step(idx)
+        preflight_key = (idx, step)
+        if preflight_key not in self._received_preflight:
+            preflight_path = self._get_batch_path(idx, preflight_only=True)
+            if preflight_path.exists():
+                return preflight_path, True
+        batch_path = self._get_batch_path(idx)
+        if batch_path.exists():
+            return batch_path, False
+        return None, False
 
     def can_receive(self) -> bool:
         """Check if any run has a batch file available."""
         for idx in self.multi_run_manager.used_idxs:
-            if not self.multi_run_manager.ready_to_update[idx] and self._get_batch_path(idx).exists():
+            if not self.multi_run_manager.ready_to_update[idx] and self._available_batch_path(idx)[0] is not None:
                 return True
         return False
 
@@ -79,7 +97,11 @@ class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
         else:
             self._waiting_since = self._waiting_since or now
 
-        current_paths = [self._get_batch_path(idx) for idx in self.multi_run_manager.used_idxs]
+        current_paths = [
+            path
+            for idx in self.multi_run_manager.used_idxs
+            for path in (self._get_batch_path(idx, preflight_only=True), self._get_batch_path(idx))
+        ]
         if current_paths != self._last_logged_paths or now - self._last_logged_time > LOG_FREQ_SECONDS:
             if len(current_paths) == 0:
                 self.logger.debug(
@@ -91,20 +113,36 @@ class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
             self.logger.debug(f"Looking for batches in {current_paths}{waiting_suffix}")
             self._last_logged_paths = current_paths
             self._last_logged_time = now
+
+        available: dict[int, tuple[Path, bool]] = {}
         for idx in self.multi_run_manager.used_idxs:
             if self.multi_run_manager.ready_to_update[idx]:
                 continue
-            batch_path = self._get_batch_path(idx)
-            if batch_path.exists():
-                try:
-                    with open(batch_path, "rb") as f:
-                        batch: TrainingBatch = self.decoder.decode(f.read())
-                    batch.run_idx = idx
-                    batches.append(batch)
+            batch_path, is_preflight = self._available_batch_path(idx)
+            if batch_path is not None:
+                available[idx] = (batch_path, is_preflight)
+
+        # Preflight is a whole trainer-step mode; never mix it with final
+        # training batches from other runs in the same receive() call.
+        prefer_preflight = any(is_preflight for _batch_path, is_preflight in available.values())
+        for idx, (batch_path, is_preflight) in available.items():
+            if prefer_preflight and not is_preflight:
+                continue
+            if not prefer_preflight and is_preflight:
+                continue
+            try:
+                with open(batch_path, "rb") as f:
+                    batch: TrainingBatch = self.decoder.decode(f.read())
+                batch.run_idx = idx
+                batches.append(batch)
+                if is_preflight:
+                    self._received_preflight.add((idx, self._get_received_step(idx)))
+                else:
+                    self._received_preflight.discard((idx, self._get_received_step(idx)))
                     # Increment received step to avoid reading the same file again
                     self._received_steps[idx] = self._get_received_step(idx) + 1
-                except Exception as e:
-                    self.logger.error(f"Error loading rollouts for run {idx}: {e}")
+            except Exception as e:
+                self.logger.error(f"Error loading rollouts for run {idx}: {e}")
         return batches
 
     def reset_run(self, idx: int) -> None:
@@ -115,6 +153,7 @@ class FileSystemTrainingBatchReceiver(TrainingBatchReceiver):
         """
         if idx in self._received_steps:
             del self._received_steps[idx]
+        self._received_preflight = {key for key in self._received_preflight if key[0] != idx}
 
 
 class FileSystemMicroBatchSender(MicroBatchSender):

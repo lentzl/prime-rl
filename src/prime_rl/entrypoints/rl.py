@@ -5,15 +5,17 @@ import subprocess
 import sys
 import time
 import uuid
+from copy import deepcopy
 from pathlib import Path
 from subprocess import Popen
 from threading import Event, Thread
+from urllib.parse import urlparse
 
 import pynvml
 import tomli_w
 
 from prime_rl.configs.algorithm import FrozenModelConfig
-from prime_rl.configs.inference import VllmRouterConfig
+from prime_rl.configs.inference import InferenceConfig, VllmRouterConfig
 from prime_rl.configs.orchestrator import EnvConfig
 from prime_rl.configs.rl import RLConfig
 from prime_rl.entrypoints.inference import vllm_overrides_fragment
@@ -35,6 +37,8 @@ RL_SBATCH = "rl.sbatch"
 TRAINER_TOML = "trainer.toml"
 ORCHESTRATOR_TOML = "orchestrator.toml"
 INFERENCE_TOML = "inference.toml"
+SDPO_TEACHER_INFERENCE_TOML = "sdpo_teacher_inference.toml"
+MAX_TCP_PORT = 65535
 
 # Gap between the train and eval env-server port blocks, so each kind has headroom
 # for many envs without the blocks overlapping (train: base+i; eval: base+stride+i).
@@ -58,6 +62,57 @@ def write_config(config: RLConfig, output_dir: Path, exclude: set[str] | None = 
         tomli_w.dump(config_dict, f)
 
 
+def auto_launches_sdpo_teacher_inference(config: RLConfig) -> bool:
+    """True when the local launcher should start the SDPO teacher server."""
+    return config.deployment.type == "single_node" and config.deployment.num_sdpo_teacher_gpus > 0
+
+
+def _client_port(base_url: str, *, field_name: str) -> int:
+    parsed = urlparse(base_url)
+    if parsed.port is None:
+        raise ValueError(f"{field_name} must include an explicit port for local auto-launch.")
+    return parsed.port
+
+
+def make_sdpo_teacher_inference_config(config: RLConfig) -> InferenceConfig:
+    """Clone policy inference config for the local SDPO teacher server."""
+    if config.inference is None:
+        raise ValueError("SDPO teacher inference auto-launch requires an [inference] config to clone.")
+    if config.orchestrator.sdpo_teacher is None:
+        raise ValueError("SDPO teacher inference auto-launch requires orchestrator.sdpo_teacher.")
+    if config.deployment.type != "single_node":
+        raise ValueError("SDPO teacher inference auto-launch is only supported for single_node deployment.")
+
+    teacher_config = deepcopy(config.inference)
+    teacher = config.orchestrator.sdpo_teacher
+    teacher_config.model.name = teacher.name
+    teacher_config.model.trust_remote_code = teacher.trust_remote_code
+    teacher_config.server.port = _client_port(
+        teacher.client.base_url[0], field_name="orchestrator.sdpo_teacher.client.base_url"
+    )
+    teacher_rpc_port = config.inference.data_parallel_rpc_port + 1000
+    if teacher_rpc_port > MAX_TCP_PORT:
+        raise ValueError(
+            "inference.data_parallel_rpc_port is too high to reserve the SDPO teacher "
+            f"RPC offset (+1000): {config.inference.data_parallel_rpc_port} -> {teacher_rpc_port}."
+        )
+    teacher_config.data_parallel_rpc_port = teacher_rpc_port
+
+    num_teacher_gpus = config.deployment.num_sdpo_teacher_gpus
+    if num_teacher_gpus != teacher_config.parallel.dp * teacher_config.parallel.tp:
+        if num_teacher_gpus % teacher_config.parallel.tp != 0:
+            raise ValueError(
+                "deployment.num_sdpo_teacher_gpus must be divisible by inference.parallel.tp "
+                "when auto-launching the SDPO teacher inference server."
+            )
+        teacher_config.parallel.dp = num_teacher_gpus // teacher_config.parallel.tp
+    if teacher_config.data_parallel_size_local is not None:
+        teacher_config.data_parallel_size_local = teacher_config.parallel.dp
+    if teacher_config.api_server_count < teacher_config.parallel.dp and not teacher_config.enable_lora:
+        teacher_config.api_server_count = teacher_config.parallel.dp
+    return teacher_config
+
+
 def write_subconfigs(config: RLConfig, output_dir: Path) -> None:
     """Write resolved subconfigs to disk as TOML files."""
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -73,6 +128,12 @@ def write_subconfigs(config: RLConfig, output_dir: Path) -> None:
         exclude_inference = {"deployment", "slurm", "output_dir", "dry_run"}
         with open(output_dir / INFERENCE_TOML, "wb") as f:
             tomli_w.dump(config.inference.model_dump(exclude=exclude_inference, exclude_none=True, mode="json"), f)
+
+    if auto_launches_sdpo_teacher_inference(config):
+        teacher_inference = make_sdpo_teacher_inference_config(config)
+        exclude_inference = {"deployment", "slurm", "output_dir", "dry_run"}
+        with open(output_dir / SDPO_TEACHER_INFERENCE_TOML, "wb") as f:
+            tomli_w.dump(teacher_inference.model_dump(exclude=exclude_inference, exclude_none=True, mode="json"), f)
 
 
 def setup_env_servers(config: RLConfig, config_dir: Path) -> list[dict]:
@@ -117,7 +178,8 @@ def setup_env_servers(config: RLConfig, config_dir: Path) -> list[dict]:
 
 
 def rl_local(config: RLConfig):
-    assert config.deployment.type == "single_node"
+    if config.deployment.type != "single_node":
+        raise ValueError("rl_local only supports deployment.type='single_node'. Use rl_slurm for multi-node runs.")
 
     logger = setup_logger(
         config.log.level or os.environ.get("PRIME_LOG_LEVEL", "info"),
@@ -140,9 +202,14 @@ def rl_local(config: RLConfig):
     num_infer_gpus = config.deployment.num_infer_gpus if config.inference is not None else 0
     infer_local_gpu_ids = list(range(gpu_offset, gpu_offset + num_infer_gpus))
     gpu_offset += num_infer_gpus
+    num_sdpo_teacher_gpus = (
+        config.deployment.num_sdpo_teacher_gpus if auto_launches_sdpo_teacher_inference(config) else 0
+    )
+    sdpo_teacher_local_gpu_ids = list(range(gpu_offset, gpu_offset + num_sdpo_teacher_gpus))
+    gpu_offset += num_sdpo_teacher_gpus
     trainer_local_gpu_ids = list(range(gpu_offset, gpu_offset + config.deployment.num_train_gpus))
 
-    total_requested_gpus = num_infer_gpus + config.deployment.num_train_gpus
+    total_requested_gpus = num_infer_gpus + num_sdpo_teacher_gpus + config.deployment.num_train_gpus
     physical_gpu_ids = get_physical_gpu_ids()
     if total_requested_gpus > len(physical_gpu_ids):
         raise ValueError(
@@ -153,6 +220,7 @@ def rl_local(config: RLConfig):
     logger.info(f"Using local->physical GPU mapping: {physical_gpu_mapping}")
 
     infer_gpu_ids = [physical_gpu_mapping[local_gpu_id] for local_gpu_id in infer_local_gpu_ids]
+    sdpo_teacher_gpu_ids = [physical_gpu_mapping[local_gpu_id] for local_gpu_id in sdpo_teacher_local_gpu_ids]
     trainer_gpu_ids = [physical_gpu_mapping[local_gpu_id] for local_gpu_id in trainer_local_gpu_ids]
 
     start_command = sys.argv
@@ -236,6 +304,39 @@ def rl_local(config: RLConfig):
                 "make sure one is running at orchestrator.model.client.base_url "
                 f"({', '.join(config.orchestrator.model.client.base_url)}), otherwise the orchestrator "
                 "will hang waiting for it."
+            )
+
+        if auto_launches_sdpo_teacher_inference(config):
+            teacher_inference_cmd = ["inference", "@", (config_dir / SDPO_TEACHER_INFERENCE_TOML).as_posix()]
+            logger.info(f"Starting SDPO teacher inference on GPU(s) {' '.join(map(str, sdpo_teacher_gpu_ids))}")
+            logger.debug(f"SDPO teacher inference start command: {' '.join(teacher_inference_cmd)}")
+            with open(log_dir / "sdpo_teacher_inference.log", "w") as log_file:
+                teacher_inference_process = Popen(
+                    teacher_inference_cmd,
+                    env={
+                        **os.environ,
+                        "CUDA_VISIBLE_DEVICES": ",".join(map(str, sdpo_teacher_gpu_ids)),
+                    },
+                    stdout=log_file,
+                    stderr=log_file,
+                )
+            processes.append(teacher_inference_process)
+
+            stop_event = Event()
+            stop_events["sdpo-teacher-inference"] = stop_event
+            monitor_thread = Thread(
+                target=monitor_process,
+                args=(teacher_inference_process, stop_event, error_queue, "sdpo-teacher-inference"),
+                daemon=True,
+            )
+            monitor_thread.start()
+            monitor_threads.append(monitor_thread)
+        elif config.orchestrator.sdpo_teacher is not None:
+            logger.info(
+                "SDPO teacher endpoint is configured but not auto-launched. "
+                "Make sure it is serving before the orchestrator starts: "
+                f"{config.orchestrator.sdpo_teacher.name} "
+                f"({', '.join(config.orchestrator.sdpo_teacher.client.base_url)})."
             )
 
         frozen_endpoints: list[str] = []
@@ -414,10 +515,12 @@ def rl_local(config: RLConfig):
 
 def write_slurm_script(config: RLConfig, config_dir: Path, script_path: Path) -> None:
     """Write the SLURM script to disk."""
-    from jinja2 import Environment, FileSystemLoader
+    if config.slurm is None:
+        raise ValueError("write_slurm_script requires config.slurm.")
+    if config.slurm.template_path is None:
+        raise ValueError("write_slurm_script requires config.slurm.template_path.")
 
-    assert config.slurm is not None
-    assert config.slurm.template_path is not None
+    from jinja2 import Environment, FileSystemLoader
 
     env = Environment(loader=FileSystemLoader(config.slurm.template_path.parent), keep_trailing_newline=True)
     template = env.get_template(config.slurm.template_path.name)
@@ -503,7 +606,8 @@ def write_slurm_script(config: RLConfig, config_dir: Path, script_path: Path) ->
 
 
 def rl_slurm(config: RLConfig):
-    assert config.slurm is not None
+    if config.slurm is None:
+        raise ValueError("rl_slurm requires config.slurm.")
 
     logger = setup_logger(
         config.log.level or os.environ.get("PRIME_LOG_LEVEL", "info"), json_logging=config.log.json_logging

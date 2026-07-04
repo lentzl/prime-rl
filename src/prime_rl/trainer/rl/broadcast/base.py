@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from pathlib import Path
 
 import torch.nn as nn
@@ -14,5 +15,5 @@ class WeightBroadcast(ABC):
         self.lora_config = lora_config
 
     @abstractmethod
-    def broadcast_weights(self, model: nn.Module, step: int):
+    def broadcast_weights(self, model: nn.Module, step: int, extra_models: Mapping[str, nn.Module] | None = None):
         pass

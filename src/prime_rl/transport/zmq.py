@@ -73,22 +73,36 @@ class ZMQTrainingBatchReceiver(TrainingBatchReceiver):
         self.poller = zmq.Poller()
         self.poller.register(self.socket, zmq.POLLIN)
 
-        # Pending batches per run_id, keyed by step -> batch.
+        # Pending batches per run_id, keyed by (step, preflight_only) -> batch.
         # We return the smallest step first; newer steps remain buffered.
-        self._pending: dict[bytes, dict[int, TrainingBatch]] = {}
+        self._pending: dict[bytes, dict[tuple[int, bool], TrainingBatch]] = {}
 
         self.logger.info(
             f"ZMQ training batch receiver initialized: endpoint=tcp://{transport.host}:{transport.port} hwm={transport.hwm}"
         )
 
     def can_receive(self) -> bool:
+        if self._has_runnable_pending():
+            return True
+        return self._socket_has_message()
+
+    def _socket_has_message(self) -> bool:
         events = dict(self.poller.poll(timeout=0))
         return self.socket in events
+
+    def _has_runnable_pending(self) -> bool:
+        for idx in self.multi_run_manager.used_idxs:
+            if self.multi_run_manager.ready_to_update[idx]:
+                continue
+            run_id = self.multi_run_manager.idx_2_id[idx].encode("utf-8")
+            if self._pending.get(run_id):
+                return True
+        return False
 
     def _drain_into_pending(self) -> None:
         """Drain all currently available ZMQ messages into the per-idx pending buffer (non-blocking)."""
         while True:
-            if not self.can_receive():
+            if not self._socket_has_message():
                 break
 
             try:
@@ -104,10 +118,11 @@ class ZMQTrainingBatchReceiver(TrainingBatchReceiver):
                 continue
 
             per_id_batches = self._pending.setdefault(sender_id, {})
-            assert batch.step not in per_id_batches, (
-                f"Step {batch.step} already in pending for {sender_id!r}, this should not happen: {per_id_batches.keys()}"
+            key = (batch.step, batch.preflight_only)
+            assert key not in per_id_batches, (
+                f"Batch {key} already in pending for {sender_id!r}, this should not happen: {per_id_batches.keys()}"
             )
-            per_id_batches[batch.step] = batch
+            per_id_batches[key] = batch
 
     def receive(self) -> list[TrainingBatch]:
         """Return at most one (oldest) pending batch per run idx; buffer newer ones for later calls."""
@@ -145,6 +160,7 @@ class ZMQTrainingBatchReceiver(TrainingBatchReceiver):
             self._last_logged_ids = current_ids
             self._last_logged_time = now
 
+        candidates: dict[int, tuple[bytes, tuple[int, bool]]] = {}
         for idx in list(self.multi_run_manager.used_idxs):
             run_id = self.multi_run_manager.idx_2_id[idx].encode("utf-8")
             if self.multi_run_manager.ready_to_update[idx]:
@@ -154,8 +170,19 @@ class ZMQTrainingBatchReceiver(TrainingBatchReceiver):
             if not per_id_batches:
                 continue
 
-            oldest_step = min(per_id_batches.keys())
-            batch = per_id_batches.pop(oldest_step)
+            oldest_key = min(per_id_batches.keys(), key=lambda item: (item[0], not item[1]))
+            candidates[idx] = (run_id, oldest_key)
+
+        # Preflight is a whole trainer-step mode; never mix it with final
+        # training batches from other runs in the same receive() call.
+        prefer_preflight = any(key[1] for _run_id, key in candidates.values())
+        for idx, (run_id, key) in candidates.items():
+            if prefer_preflight and not key[1]:
+                continue
+            if not prefer_preflight and key[1]:
+                continue
+            per_id_batches = self._pending[run_id]
+            batch = per_id_batches.pop(key)
             if not per_id_batches:
                 self._pending.pop(run_id, None)
 

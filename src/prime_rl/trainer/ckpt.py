@@ -5,7 +5,7 @@ import time
 import warnings
 from dataclasses import asdict
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import torch
 from torch import Tensor, nn
@@ -21,17 +21,14 @@ from torchdata.stateful_dataloader import StatefulDataLoader
 from transformers.tokenization_utils import PreTrainedTokenizer
 
 from prime_rl.configs.trainer import CheckpointConfig, LoRAConfig, WeightCheckpointConfig
-from prime_rl.trainer.lora import has_lora_layers, save_lora_config
-from prime_rl.trainer.models import PreTrainedModelPrimeRL
 from prime_rl.trainer.optim import CPUOffloadOptimizer
 from prime_rl.trainer.runs import Progress, get_multi_run_manager
-from prime_rl.trainer.weights import (
-    gather_weights_on_master,
-    save_state_dict,
-)
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
 from prime_rl.utils.utils import get_all_ckpt_steps, get_ckpt_dir, get_step_path, get_weights_dir
+
+if TYPE_CHECKING:
+    pass
 
 
 def _try_rmtree(path: Path, logger) -> None:
@@ -57,11 +54,13 @@ class AppState(Stateful):
         optimizers: list[Optimizer],
         scheduler: LRScheduler | None,
         progress: Progress | None,
+        extra_state: Stateful | None = None,
     ):
         self.model = model
         self.optimizers = optimizers
         self.scheduler = scheduler
         self.progress = progress
+        self.extra_state = extra_state
 
     def _get_base_optimizers(self) -> list[Optimizer]:
         """Extract base optimizers from wrappers like CPUOffloadOptimizer."""
@@ -92,6 +91,8 @@ class AppState(Stateful):
         if self.progress is not None:
             progress_state_dict = asdict(self.progress)
             state_dict["progress"] = progress_state_dict
+        if self.extra_state is not None:
+            state_dict["extra_state"] = self.extra_state.state_dict()
 
         # Offload optimizer states to CPU for every CPUOffloadOptimizer, including
         # ones that were uninitialized on entry. dcp_load calls this method to build
@@ -114,6 +115,16 @@ class AppState(Stateful):
         return state_dict
 
     def load_state_dict(self, state_dict: dict[str, Any]):
+        if (
+            self.extra_state is not None
+            and getattr(self.extra_state, "requires_checkpoint_state", False)
+            and "extra_state" not in state_dict
+        ):
+            raise ValueError(
+                f"{self.extra_state.__class__.__name__} requires checkpoint extra_state, "
+                "but the checkpoint does not contain it."
+            )
+
         base_optimizers = self._get_base_optimizers()
         has_cpu_offload = self._has_cpu_offload()
 
@@ -146,6 +157,9 @@ class AppState(Stateful):
         if self.progress is not None:
             for key, value in state_dict["progress"].items():
                 setattr(self.progress, key, value)
+        if self.extra_state is not None:
+            if "extra_state" in state_dict:
+                self.extra_state.load_state_dict(state_dict["extra_state"])
 
         # state_dict is the same dict object that dcp_load held internally; clearing
         # it drops the last references to the loaded tensor wrappers so the cuda
@@ -190,13 +204,14 @@ class CheckpointManager:
         scheduler: LRScheduler,
         progress: Progress,
         dataloader: StatefulDataLoader | None = None,
+        extra_state: Stateful | None = None,
     ):
         """Save the trainer checkpoint to a given path."""
         self.logger.debug(f"Saving training checkpoint to {path}")
         start_time = time.perf_counter()
 
         # Create checkpoint state
-        state_dict = {"app": AppState(model, optimizers, scheduler, progress)}
+        state_dict = {"app": AppState(model, optimizers, scheduler, progress, extra_state)}
 
         # Checkpoint the local dataloader
         if dataloader is not None:
@@ -222,13 +237,14 @@ class CheckpointManager:
         scheduler: LRScheduler | None,
         progress: Progress | None,
         dataloader: StatefulDataLoader | None = None,
+        extra_state: Stateful | None = None,
     ):
         """Load the trainer checkpoint from a given path (in-place)."""
         self.logger.debug(f"Loading training checkpoint from {path}")
         start_time = time.perf_counter()
 
         # Load sharded state
-        app_state = AppState(model, optimizers if not self.skip_optimizer else [], scheduler, progress)
+        app_state = AppState(model, optimizers if not self.skip_optimizer else [], scheduler, progress, extra_state)
         state_dict = {"app": app_state}
         dcp_load(state_dict=state_dict, checkpoint_id=path)
 
@@ -256,12 +272,13 @@ class CheckpointManager:
         scheduler: LRScheduler | None,
         progress: Progress | None,
         dataloader: StatefulDataLoader | None = None,
+        extra_state: Stateful | None = None,
     ) -> None:
         """Load the trainer checkpoint for a given step (in-place)."""
         ckpt_path = self.get_ckpt_path(step)
         if not ckpt_path.exists():
             raise FileNotFoundError(f"Checkpoint not found at {ckpt_path}")
-        self.load_from_path(ckpt_path, model, optimizers, scheduler, progress, dataloader)
+        self.load_from_path(ckpt_path, model, optimizers, scheduler, progress, dataloader, extra_state)
 
     def save(
         self,
@@ -271,6 +288,7 @@ class CheckpointManager:
         scheduler: LRScheduler,
         progress: Progress,
         dataloader: StatefulDataLoader | None = None,
+        extra_state: Stateful | None = None,
     ) -> None:
         """Save the full checkpoint state for a specified step."""
         ckpt_path = self.get_ckpt_path(step)
@@ -280,7 +298,8 @@ class CheckpointManager:
             ckpt_path.parent.mkdir(parents=True, exist_ok=True)
         torch.distributed.barrier()
 
-        self.save_to_path(ckpt_path, model, optimizers, scheduler, progress, dataloader)
+        self.save_to_path(ckpt_path, model, optimizers, scheduler, progress, dataloader, extra_state)
+        self.mark_stable(step)
         bisect.insort(self.ckpt_steps, step)
 
     def maybe_clean(self) -> None:
@@ -390,6 +409,8 @@ class WeightCheckpointManager:
                 warnings.filterwarnings("ignore", category=UserWarning, module="torch.distributed.*")
 
                 # Save weights
+                from prime_rl.trainer.weights import save_state_dict
+
                 save_state_dict(state_dict, path, self.config.save_format, self.config.save_sharded)
 
                 # Save model config, generation arguments and tokenizer
@@ -412,6 +433,8 @@ class WeightCheckpointManager:
                     lora_state_dict, adapter_path, self.config.save_format, save_sharded=False, adapter=True
                 )
                 if self.lora_config:
+                    from prime_rl.trainer.lora import save_lora_config
+
                     save_lora_config(
                         model,
                         adapter_path,
@@ -438,6 +461,8 @@ class WeightCheckpointManager:
         # Gather all weights on master rank
         self.logger.debug("Gathering weights on master rank for weight checkpoint")
         start_time = time.perf_counter()
+        from prime_rl.trainer.weights import gather_weights_on_master
+
         state_dict = gather_weights_on_master(model, self.world.is_master, dtype=torch.bfloat16)
         self.logger.debug(f"Gathered weights on master rank in {time.perf_counter() - start_time:.2f} seconds")
 
@@ -445,6 +470,8 @@ class WeightCheckpointManager:
         if getattr(model.config, "tie_word_embeddings", False):
             for key in getattr(model, "_tied_weights_keys", []):
                 state_dict.pop(key, None)
+
+        from prime_rl.trainer.lora import has_lora_layers
 
         if has_lora_layers(model) and self.config.save_adapter_separately:
             self.logger.debug("Getting run adapter state dict for weight checkpoint")
@@ -455,6 +482,8 @@ class WeightCheckpointManager:
             lora_state_dict = None
 
         # Convert to HF hub format if needed
+        from prime_rl.trainer.models import PreTrainedModelPrimeRL
+
         if isinstance(model, PreTrainedModelPrimeRL) and model.is_prime_state_dict(state_dict):
             self.logger.debug("Converting PrimeRL format to HF format for weight checkpoint")
             start_time = time.perf_counter()

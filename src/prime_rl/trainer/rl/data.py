@@ -1,3 +1,4 @@
+import math
 from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import TypedDict
@@ -29,10 +30,14 @@ class TensorMicroBatch(TypedDict):
     rewards: Float[Tensor, "batch seq"] | None
     inference_logprobs: Float[Tensor, "batch seq"]
     ref_logprobs: Float[Tensor, "batch seq"] | None
+    sdpo_topk_token_ids: Int[Tensor, "batch seq topk"] | None
+    sdpo_topk_logprobs: Float[Tensor, "batch seq topk"] | None
+    sdpo_rollout_is_weights: Float[Tensor, "batch seq"] | None
     loss_mask: Bool[Tensor, "batch seq"]
     temperatures: Float[Tensor, "batch seq"]  # Per-token temperatures
     env_names: list[str]
     sequence_lengths: list[int]
+    sample_ids: list[str | None] | None
 
     # Batch level
     lora_num_tokens: Int[Tensor, "n_loras"]
@@ -49,15 +54,50 @@ class TensorMicroBatch(TypedDict):
     # mm_token_type_ids: token type per token [batch seq], int64 (0=text, 1=image, 2=video)
     mm_token_type_ids: Int[Tensor, "batch seq"] | None
 
-    # Per-token component weight streams. ``None`` means absent: no ce/ref_kl
+    # Per-token component weight streams. ``None`` means absent: no ce/ref_kl/sdpo
     # component, rl weight 1.0 on every loss-masked token.
     rl_weights: Float[Tensor, "batch seq"] | None
     ce_weights: Float[Tensor, "batch seq"] | None
     ref_kl_weights: Float[Tensor, "batch seq"] | None
+    sdpo_weights: Float[Tensor, "batch seq"] | None
 
     # Packer-derived metadata used for run-local debug exports.
     run_id: str | None
     run_step: int | None
+    preflight_only: bool
+    preflight_step_complete: bool
+
+
+def _is_sdpo_logprob_placeholder_row(row: Sequence[object]) -> bool:
+    return all(not isinstance(value, bool) and value in (0, 0.0) for value in row)
+
+
+def _validate_sdpo_topk_logprobs_for_tensorization(rows: list[list[float]] | None) -> None:
+    if rows is None:
+        return
+    if not isinstance(rows, list):
+        raise ValueError("sdpo_topk_logprobs must be a list before tensorization")
+    for idx, row in enumerate(rows):
+        if not isinstance(row, list):
+            raise ValueError(f"sdpo_topk_logprobs row {idx} must be a list before tensorization")
+        if _is_sdpo_logprob_placeholder_row(row):
+            continue
+        if not all(isinstance(value, float) and math.isfinite(value) for value in row):
+            raise ValueError(f"sdpo_topk_logprobs row {idx} must contain finite floating-point values")
+
+
+def _validate_sdpo_rollout_is_weights_for_tensorization(weights: list[float] | None) -> None:
+    if weights is None:
+        return
+    if not isinstance(weights, list):
+        raise ValueError("sdpo_rollout_is_weights must be a list before tensorization")
+    for idx, weight in enumerate(weights):
+        if isinstance(weight, bool) or not isinstance(weight, (int, float)) or not math.isfinite(float(weight)):
+            raise ValueError(f"sdpo_rollout_is_weights[{idx}] must be finite numeric before tensorization")
+        if weight < 0:
+            raise ValueError(f"sdpo_rollout_is_weights[{idx}] must be non-negative before tensorization")
+        if weight not in (0, 0.0) and not isinstance(weight, float):
+            raise ValueError(f"sdpo_rollout_is_weights[{idx}] must be a floating-point value before tensorization")
 
 
 class FakeDataLoader:
@@ -127,6 +167,9 @@ class FakeDataLoader:
             "rewards": None,
             "inference_logprobs": inference_logprobs.unsqueeze(0),
             "ref_logprobs": None,
+            "sdpo_topk_token_ids": None,
+            "sdpo_topk_logprobs": None,
+            "sdpo_rollout_is_weights": None,
             "temperatures": torch.ones(input_ids.shape[0]).unsqueeze(0),
             "env_names": ["fake"] * input_ids.shape[0],
             "sequence_lengths": sequence_lengths,
@@ -138,8 +181,11 @@ class FakeDataLoader:
             "rl_weights": None,
             "ce_weights": None,
             "ref_kl_weights": None,
+            "sdpo_weights": None,
             "run_id": None,
             "run_step": None,
+            "preflight_only": False,
+            "preflight_step_complete": True,
         }
 
     def _get_micro_batch(self, generator: torch.Generator) -> TensorMicroBatch:
@@ -160,6 +206,9 @@ class FakeDataLoader:
             "rewards": None,
             "inference_logprobs": torch.randn(self.seq_len, generator=generator).unsqueeze(0),
             "ref_logprobs": None,
+            "sdpo_topk_token_ids": None,
+            "sdpo_topk_logprobs": None,
+            "sdpo_rollout_is_weights": None,
             "temperatures": torch.ones(self.seq_len).unsqueeze(0),
             "env_names": ["fake"] * self.seq_len,
             "sequence_lengths": [self.seq_len],
@@ -171,8 +220,11 @@ class FakeDataLoader:
             "rl_weights": None,
             "ce_weights": None,
             "ref_kl_weights": None,
+            "sdpo_weights": None,
             "run_id": None,
             "run_step": None,
+            "preflight_only": False,
+            "preflight_step_complete": True,
         }
 
 
@@ -228,6 +280,8 @@ class DataLoader:
         if micro_batch.lora_num_tokens is None:
             micro_batch.lora_num_tokens = [0] * self.multi_run_manager.max_runs
             micro_batch.lora_num_tokens[0] = len(micro_batch.input_ids)
+        _validate_sdpo_topk_logprobs_for_tensorization(micro_batch.sdpo_topk_logprobs)
+        _validate_sdpo_rollout_is_weights_for_tensorization(micro_batch.sdpo_rollout_is_weights)
         mm_kwargs: dict[str, Tensor] | None = None
         if micro_batch.mm_kwargs:
             # Each value is an EncodedTensor (dtype, shape, raw bytes).
@@ -260,10 +314,20 @@ class DataLoader:
             ref_logprobs=torch.tensor(micro_batch.ref_logprobs, dtype=torch.float).unsqueeze(0)
             if micro_batch.ref_logprobs is not None
             else None,
+            sdpo_topk_token_ids=torch.tensor(micro_batch.sdpo_topk_token_ids, dtype=torch.long).unsqueeze(0)
+            if micro_batch.sdpo_topk_token_ids is not None
+            else None,
+            sdpo_topk_logprobs=torch.tensor(micro_batch.sdpo_topk_logprobs, dtype=torch.float).unsqueeze(0)
+            if micro_batch.sdpo_topk_logprobs is not None
+            else None,
+            sdpo_rollout_is_weights=torch.tensor(micro_batch.sdpo_rollout_is_weights, dtype=torch.float).unsqueeze(0)
+            if micro_batch.sdpo_rollout_is_weights is not None
+            else None,
             loss_mask=torch.tensor(micro_batch.loss_mask, dtype=torch.bool).unsqueeze(0),
             temperatures=torch.tensor(micro_batch.temperatures, dtype=torch.float).unsqueeze(0),
             env_names=micro_batch.env_names,
             sequence_lengths=micro_batch.sequence_lengths,
+            sample_ids=micro_batch.sample_ids,
             lora_num_tokens=torch.tensor(micro_batch.lora_num_tokens, dtype=torch.int32),
             mm_kwargs=mm_kwargs,
             mm_token_type_ids=torch.tensor(micro_batch.mm_token_type_ids, dtype=torch.long).unsqueeze(0)
@@ -279,8 +343,13 @@ class DataLoader:
             ref_kl_weights=torch.tensor(micro_batch.ref_kl_weights, dtype=torch.float).unsqueeze(0)
             if micro_batch.ref_kl_weights is not None
             else None,
+            sdpo_weights=torch.tensor(micro_batch.sdpo_weights, dtype=torch.float).unsqueeze(0)
+            if micro_batch.sdpo_weights is not None
+            else None,
             run_id=micro_batch.run_id,
             run_step=micro_batch.run_step,
+            preflight_only=micro_batch.preflight_only,
+            preflight_step_complete=micro_batch.preflight_step_complete,
         )
 
 

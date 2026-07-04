@@ -21,10 +21,10 @@ import multiprocessing as mp
 import os
 import queue
 import sys
-from collections.abc import Iterator, Sequence
+from collections.abc import Iterator, Mapping, Sequence
 from multiprocessing.process import BaseProcess
 from pathlib import Path
-from typing import Generic, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 import verifiers.v1 as vf
 from verifiers.v1.serve import EnvClient
@@ -34,6 +34,9 @@ from prime_rl.orchestrator.algo import Algorithm, build_algorithm
 from prime_rl.orchestrator.sampler import Sampler
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.utils.logger import get_logger
+
+if TYPE_CHECKING:
+    from prime_rl.utils.client import InferencePool
 
 # Every wire trace validates into this type. WireTask (extra="allow") keeps the env's task
 # fields without importing the env package — the orchestrator never reads them typed (only
@@ -280,14 +283,22 @@ class TrainEnvs(Envs[TrainEnv]):
     :class:`Sampler` and runtime :class:`Algorithm`, built from the env's
     resolved algorithm config."""
 
-    def __init__(self, configs: Sequence[TrainEnvConfig], *, policy_pool, renderer, renderer_config=None):
+    def __init__(
+        self,
+        configs: Sequence[TrainEnvConfig],
+        *,
+        policy_pool,
+        renderer,
+        renderer_config=None,
+        live_pools: Mapping[str, InferencePool] | None = None,
+    ):
         self._envs: dict[str, TrainEnv] = {}
         for config in configs:
             assert config.algo is not None, "TrainEnvConfig.algo must be resolved before env construction"
             env = TrainEnv(
                 config,
                 Sampler(config.algo.sampling, policy_pool, renderer_config),
-                build_algorithm(config.algo, policy_pool, renderer),
+                build_algorithm(config.algo, policy_pool, renderer, live_pools=live_pools),
             )
             self._envs[env.name] = env
 

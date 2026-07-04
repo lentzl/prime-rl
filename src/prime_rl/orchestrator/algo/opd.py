@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from itertools import cycle
 from typing import TYPE_CHECKING
 
@@ -30,8 +31,14 @@ class OPDAlgorithm(Algorithm):
     action_loss_type = "ref_kl"
     model_role = "teacher"
 
-    def __init__(self, config: AlgorithmConfig, policy_pool: InferencePool, renderer: Renderer | None):
-        super().__init__(config, policy_pool, renderer)
+    def __init__(
+        self,
+        config: AlgorithmConfig,
+        policy_pool: InferencePool,
+        renderer: Renderer | None,
+        live_pools: Mapping[str, InferencePool] | None = None,
+    ):
+        super().__init__(config, policy_pool, renderer, live_pools=live_pools)
         assert isinstance(config, OPDAlgorithmConfig)
         self.max_concurrent = config.max_concurrent
         self.teacher = config.model

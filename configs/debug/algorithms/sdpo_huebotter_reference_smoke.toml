@@ -1,0 +1,107 @@
+# Hübotter-style SDPO smoke against the live policy.
+#
+# This preset mirrors the reference SDPO knobs that have Prime-native
+# equivalents:
+# - policy rollouts with multiple siblings per prompt
+# - feedback-/solution-conditioned self-distillation under the live policy
+# - trainer-forward student-selected top-k support, rescored by the teacher
+#   before the final SDPO training batch
+# - SDPO IS clipping plus token-level truncated rollout correction
+#
+# This lower-resource preset uses `teacher_regularization = "live-policy"`.
+# Use `sdpo_huebotter_reference_ema_smoke.toml` for the reference EMA teacher
+# path with a separately served teacher inference process.
+#
+# Run through the wrapper when collecting evidence; it checks the resolved
+# reference knobs, writes provenance, and verifies token-export artifacts:
+#   scripts/run_sdpo_smoke_and_verify.sh --check-config
+#   scripts/run_sdpo_smoke_and_verify.sh
+#
+# The raw local rl launcher is useful for debugging and starts the policy
+# inference server directly:
+#   uv run rl @ configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml
+#
+# Verify the completed run with:
+#   uv run python scripts/verify_sdpo_smoke_artifacts.py /path/to/sdpo-smoke-output --expected-topk 100 --require-provenance --expected-provenance-mode live --expected-provenance-config configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml
+
+max_steps = 20
+seq_len = 2048
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
+
+[wandb]
+project = "algorithms-debug"
+name = "debug-sdpo-huebotter-reference-smoke"
+
+[orchestrator]
+batch_size = 32
+group_size = 8
+
+[orchestrator.algo]
+type = "sdpo"
+model = "policy"
+teacher_regularization = "live-policy"
+teacher_update_rate = 0.05
+distillation_topk = 100
+distillation_topk_support = "student"
+preflight_export_timeout_s = 600
+success_reward_threshold = 0.5
+successful_demonstration_selection = "batch_order"
+dont_reprompt_on_self_success = true
+remove_thinking_from_demonstration = true
+include_environment_feedback = true
+environment_feedback_only_without_solution = true
+max_reprompt_len = 10240
+reprompt_truncation = "right"
+multi_turn = false
+template_target = "first_user"
+template = "{question}{successful_solution_block}{feedback_block}\n\nCorrectly solve the original question."
+solution_template = "\nCorrect solution:\n\n{successful_previous_attempt}"
+feedback_template = "\nThe following is feedback from your unsuccessful earlier attempt:\n\n{feedback_raw}"
+
+[orchestrator.renderer]
+name = "qwen3"
+
+[orchestrator.train.sampling]
+max_completion_tokens = 128
+
+[[orchestrator.train.env]]
+id = "reverse-text"
+
+[orchestrator.eval]
+interval = 1
+num_examples = 128
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 128
+
+[[orchestrator.eval.env]]
+id = "reverse-text"
+
+[trainer]
+enable_token_export = true
+
+[trainer.model]
+# SDPO top-k loss requires logits from the trainer forward; student-support
+# preflight also exports logits-derived candidate ids. Keep the vanilla LM head
+# explicit in this reference smoke.
+fused_lm_head_token_chunk_size = "disabled"
+
+[trainer.sdpo_loss]
+full_logit_distillation = true
+distillation_topk = 100
+distillation_add_tail = true
+alpha = 0.5
+is_clip = 2.0
+rollout_is = "token"
+rollout_is_threshold = 2.0
+rollout_is_batch_normalize = false
+
+[trainer.optim]
+lr = 1e-5
+
+[ckpt]
+
+[inference]
+gpu_memory_utilization = 0.5

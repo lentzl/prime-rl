@@ -15,7 +15,7 @@ import torch.distributed as dist
 from torch.profiler import profile, ProfilerActivity, record_function
 from prime_rl.trainer.ckpt import setup_ckpt_managers
 from prime_rl.trainer.multi_ckpt import setup_multi_checkpoint_manager
-from prime_rl.trainer.optim import setup_optimizer, setup_multi_optimizer
+from prime_rl.trainer.optim import optimizer_update_succeeded, setup_optimizer, setup_multi_optimizer
 from prime_rl.trainer.scheduler import setup_scheduler, setup_multi_scheduler
 from prime_rl.configs.trainer import TrainerConfig
 from prime_rl.trainer.rl.data import DataLoader, FakeDataLoader
@@ -35,7 +35,21 @@ from prime_rl.trainer.rl.loss import (
     shift_tensor_left,
     shift_tensor_right,
 )
-from prime_rl.trainer.rl.token_export import setup_token_exporter
+from prime_rl.trainer.rl.sdpo_teacher import (
+    sdpo_teacher_broadcast_models,
+    setup_sdpo_teacher_regularization_from_runtime,
+    step_sdpo_teacher_regularization_if_updated,
+)
+from prime_rl.trainer.rl.sdpo_train_support import (
+    active_sdpo_weight_mask,
+    gather_sdpo_student_topk_logprobs,
+    require_sdpo_student_support_logits,
+    require_sdpo_student_support_export_supported,
+    resolve_preflight_batch_mode,
+    select_sdpo_student_topk_support,
+    should_export_sdpo_student_support,
+)
+from prime_rl.trainer.rl.token_export import setup_token_exporter, token_export_ready_run_ids
 from prime_rl.trainer.model import (
     forward,
     setup_tokenizer,
@@ -145,6 +159,20 @@ def train(config: TrainerConfig):
     logger.info(f"Initializing model ({config.model})")
     loading_from_ckpt_later = config.ckpt and checkpoint_step is not None
     model = setup_model(config.model, parallel_dims, loading_from_ckpt_later)
+    sdpo_teacher_module_factory = None
+    if config.sdpo_runtime.teacher_regularization == "ema":
+        logger.info("Initializing SDPO EMA teacher model")
+
+        def sdpo_teacher_module_factory():
+            return setup_model(config.model, parallel_dims, loading_from_ckpt_later)
+
+    sdpo_teacher_regularization_setup = setup_sdpo_teacher_regularization_from_runtime(
+        config.sdpo_runtime.teacher_regularization,
+        student_module=model,
+        teacher_update_rate=config.sdpo_runtime.teacher_update_rate,
+        teacher_module_factory=sdpo_teacher_module_factory,
+    )
+    extra_state = sdpo_teacher_regularization_setup.extra_state
 
     logger.info(f"Initializing tokenizer ({config.tokenizer})")
     tokenizer = setup_tokenizer(config.tokenizer)
@@ -218,7 +246,7 @@ def train(config: TrainerConfig):
     # Optionally, resume training from a checkpoint
     progress = Progress()
     if checkpoint_step is not None:
-        ckpt_manager.load(checkpoint_step, model, [optimizer], scheduler, progress)
+        ckpt_manager.load(checkpoint_step, model, [optimizer], scheduler, progress, extra_state=extra_state)
         logger.info(f"Resuming training from checkpoint step {checkpoint_step}")
 
     logger.info(
@@ -247,6 +275,9 @@ def train(config: TrainerConfig):
 
     logger.info(f"Starting training loop (max_steps={config.max_steps or 'infinite'})")
     is_first_step = True
+    step_maintenance_step: int | None = None
+    step_maintenance_broadcast_weights_time = 0.0
+    step_maintenance_save_ckpt_time = 0.0
     maybe_record_function = nullcontext
     if config.trace_path:
         logger.info(f"Tracing to {config.trace_path}")
@@ -259,68 +290,80 @@ def train(config: TrainerConfig):
             gc_handler.run(progress.step)
         is_last_step = config.max_steps is not None and progress.step == config.max_steps
 
-        # Broadcast weights every step except:
-        #   - step 0: nothing has changed yet, the orchestrator has the base model.
-        #   - the final NCCL broadcast: with a 1-step async barrier the orchestrator's last step
-        #     uses the trainer's penultimate ckpt, so the trainer's last broadcast has no receiver
-        #     (the inference NCCL group has been torn down). Filesystem broadcast still writes the
-        #     final step so we can resume from the broadcast directory.
-        if weight_broadcast is None:
-            broadcast_weights_time = 0
+        if step_maintenance_step == progress.step:
+            broadcast_weights_time = step_maintenance_broadcast_weights_time
+            save_ckpt_time = step_maintenance_save_ckpt_time
         else:
-            nccl_broadcast_unused = (
-                config.weight_broadcast.type == "nccl"
-                and config.max_steps is not None
-                and progress.step >= config.max_steps - 1
-            )
-            if progress.step > 0 and not nccl_broadcast_unused:
-                broadcast_weights_start_time = time.perf_counter()
-                weight_broadcast.broadcast_weights(model, step=progress.step)
-                broadcast_weights_time = time.perf_counter() - broadcast_weights_start_time
-                # Clean up old broadcast directories (unless at ckpt interval if using filesystem weight broadcast)
-                if config.weight_broadcast.type == "filesystem":
-                    interval_to_keep = config.ckpt and config.ckpt.interval
-                    weight_broadcast.maybe_clean(interval_to_keep)
-            else:
+            # Broadcast weights every step except:
+            #   - step 0: nothing has changed yet, the orchestrator has the base model.
+            #   - the final NCCL broadcast: with a 1-step async barrier the orchestrator's last step
+            #     uses the trainer's penultimate ckpt, so the trainer's last broadcast has no receiver
+            #     (the inference NCCL group has been torn down). Filesystem broadcast still writes the
+            #     final step so we can resume from the broadcast directory.
+            if weight_broadcast is None:
                 broadcast_weights_time = 0
-                # Usually the broadcast will set this. If broadcast is skipped, we need to reset this here.
-                for idx in multi_run_manager.used_idxs:
-                    multi_run_manager.ready_to_update[idx] = False
+            else:
+                nccl_broadcast_unused = (
+                    config.weight_broadcast.type == "nccl"
+                    and config.max_steps is not None
+                    and progress.step >= config.max_steps - 1
+                )
+                if progress.step > 0 and not nccl_broadcast_unused:
+                    broadcast_weights_start_time = time.perf_counter()
+                    weight_broadcast.broadcast_weights(
+                        model,
+                        step=progress.step,
+                        extra_models=sdpo_teacher_broadcast_models(sdpo_teacher_regularization_setup),
+                    )
+                    broadcast_weights_time = time.perf_counter() - broadcast_weights_start_time
+                    # Clean up old broadcast directories (unless at ckpt interval if using filesystem weight broadcast)
+                    if config.weight_broadcast.type == "filesystem":
+                        interval_to_keep = config.ckpt and config.ckpt.interval
+                        weight_broadcast.maybe_clean(interval_to_keep)
+                else:
+                    broadcast_weights_time = 0
+                    # Usually the broadcast will set this. If broadcast is skipped, we need to reset this here.
+                    for idx in multi_run_manager.used_idxs:
+                        multi_run_manager.ready_to_update[idx] = False
 
-        if config.max_concurrent_runs > 1:
-            # Multi-run: Save per-run checkpoints using each run's orchestrator config.
-            # Trainer-level ckpt config can be set by the combined rl entrypoint,
-            # but MultiCheckpointManager has a different save signature.
-            save_ckpt_start_time = time.perf_counter()
-            ckpt_manager.save(optimizer, scheduler)
-            save_ckpt_time = time.perf_counter() - save_ckpt_start_time
-            ckpt_manager.maybe_clean()
-        elif (
-            ckpt_manager is not None
-            and (config.ckpt and config.ckpt.interval)
-            and not (is_first_step or is_last_step)
-            and progress.step % config.ckpt.interval == 0
-        ):
-            save_ckpt_time = 0
-
-            if not config.ckpt.weights_only:
-                # Single-run: Save full checkpoint
-                logger.info(f"Saving checkpoint at step {progress.step}")
+            if config.max_concurrent_runs > 1:
+                # Multi-run: Save per-run checkpoints using each run's orchestrator config.
+                # Trainer-level ckpt config can be set by the combined rl entrypoint,
+                # but MultiCheckpointManager has a different save signature.
                 save_ckpt_start_time = time.perf_counter()
-                ckpt_manager.save(progress.step, model, [optimizer], scheduler, progress)
-                save_ckpt_time += time.perf_counter() - save_ckpt_start_time
+                ckpt_manager.save(optimizer, scheduler)
+                save_ckpt_time = time.perf_counter() - save_ckpt_start_time
+                ckpt_manager.maybe_clean()
+            elif (
+                ckpt_manager is not None
+                and (config.ckpt and config.ckpt.interval)
+                and not (is_first_step or is_last_step)
+                and progress.step % config.ckpt.interval == 0
+            ):
+                save_ckpt_time = 0
 
-            ckpt_manager.maybe_clean()
+                if not config.ckpt.weights_only:
+                    # Single-run: Save full checkpoint
+                    logger.info(f"Saving checkpoint at step {progress.step}")
+                    save_ckpt_start_time = time.perf_counter()
+                    ckpt_manager.save(progress.step, model, [optimizer], scheduler, progress, extra_state=extra_state)
+                    save_ckpt_time += time.perf_counter() - save_ckpt_start_time
 
-            # Save weight checkpoint
-            if weight_ckpt_manager is not None:
-                logger.info(f"Saving weight checkpoint at step {progress.step}")
-                save_ckpt_start_time = time.perf_counter()
-                weight_ckpt_manager.save(progress.step, model, tokenizer)
-                save_ckpt_time += time.perf_counter() - save_ckpt_start_time
-                weight_ckpt_manager.maybe_clean()
-        else:
-            save_ckpt_time = 0
+                ckpt_manager.maybe_clean()
+
+                # Save weight checkpoint
+                if weight_ckpt_manager is not None:
+                    logger.info(f"Saving weight checkpoint at step {progress.step}")
+                    save_ckpt_start_time = time.perf_counter()
+                    weight_ckpt_manager.save(progress.step, model, tokenizer)
+                    save_ckpt_time += time.perf_counter() - save_ckpt_start_time
+                    weight_ckpt_manager.maybe_clean()
+            else:
+                save_ckpt_time = 0
+
+            step_maintenance_step = progress.step
+            step_maintenance_broadcast_weights_time = broadcast_weights_time
+            step_maintenance_save_ckpt_time = save_ckpt_time
 
         # Break if we have reached the maximum number of steps
         if config.max_steps is not None and progress.step >= config.max_steps:
@@ -342,6 +385,7 @@ def train(config: TrainerConfig):
         micro_batches = dataloader.get_batch()
         load_data_time = time.perf_counter() - load_data_start_time
         logger.debug(f"Loaded batch in {load_data_time:.2f} seconds")
+        preflight_only = resolve_preflight_batch_mode(micro_batches, enable_token_export=config.enable_token_export)
 
         batch_size = len(micro_batches)
         memory_profiler = None
@@ -361,6 +405,7 @@ def train(config: TrainerConfig):
         local_rl_scale = 0
         local_ce_scale = 0
         local_ref_kl_scale = 0
+        local_sdpo_scale = 0
         for micro_batch in micro_batches:
             mask = micro_batch["loss_mask"]
             rl_w = micro_batch["rl_weights"]
@@ -369,12 +414,16 @@ def train(config: TrainerConfig):
                 local_ce_scale += int((micro_batch["ce_weights"] != 0).sum())
             if micro_batch["ref_kl_weights"] is not None:
                 local_ref_kl_scale += int((micro_batch["ref_kl_weights"] != 0).sum())
+            if micro_batch["sdpo_weights"] is not None:
+                local_sdpo_scale += int((mask & active_sdpo_weight_mask(micro_batch["sdpo_weights"])).sum())
         global_scales = torch.tensor(
-            [local_rl_scale, local_ce_scale, local_ref_kl_scale], dtype=torch.int64, device="cuda"
+            [local_rl_scale, local_ce_scale, local_ref_kl_scale, local_sdpo_scale],
+            dtype=torch.int64,
+            device="cuda",
         )
         dp_cp_group = parallel_dims.get_mesh("dp_cp").get_group()
         dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
-        rl_scale, ce_scale, ref_kl_scale = (max(scale, 1) for scale in global_scales.tolist())
+        rl_scale, ce_scale, ref_kl_scale, sdpo_scale = (max(scale, 1) for scale in global_scales.tolist())
 
         logger.debug(f"Starting forward and backward pass ({batch_size=})")
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
@@ -390,11 +439,25 @@ def train(config: TrainerConfig):
             loss_mask = micro_batch["loss_mask"].to("cuda")
             inference_logprobs = micro_batch["inference_logprobs"].to("cuda")
             ref_logprobs = micro_batch["ref_logprobs"].to("cuda") if micro_batch["ref_logprobs"] is not None else None
+            sdpo_topk_token_ids = (
+                micro_batch["sdpo_topk_token_ids"].to("cuda")
+                if micro_batch["sdpo_topk_token_ids"] is not None
+                else None
+            )
+            sdpo_topk_logprobs = (
+                micro_batch["sdpo_topk_logprobs"].to("cuda") if micro_batch["sdpo_topk_logprobs"] is not None else None
+            )
+            sdpo_rollout_is_weights = (
+                micro_batch["sdpo_rollout_is_weights"].to("cuda")
+                if micro_batch["sdpo_rollout_is_weights"] is not None
+                else None
+            )
             rl_weights = micro_batch["rl_weights"].to("cuda") if micro_batch["rl_weights"] is not None else None
             ce_weights = micro_batch["ce_weights"].to("cuda") if micro_batch["ce_weights"] is not None else None
             ref_kl_weights = (
                 micro_batch["ref_kl_weights"].to("cuda") if micro_batch["ref_kl_weights"] is not None else None
             )
+            sdpo_weights = micro_batch["sdpo_weights"].to("cuda") if micro_batch["sdpo_weights"] is not None else None
             routed_experts = (
                 micro_batch["routed_experts"].to("cuda") if micro_batch["routed_experts"] is not None else None
             )
@@ -427,6 +490,8 @@ def train(config: TrainerConfig):
                 raise NotImplementedError("Context parallelism is not supported with VLM/multimodal training")
 
             if cp_enabled:
+                if sdpo_topk_token_ids is not None:
+                    raise NotImplementedError("SDPO top-k distillation is not supported with context parallelism yet")
                 input_ids, forward_position_ids = setup_cp_params(
                     input_ids, position_ids, cp_rank, cp_size, cp_group, cp_style=config.model.cp_style
                 )
@@ -467,6 +532,37 @@ def train(config: TrainerConfig):
                     routed_experts=routed_experts,
                 )
 
+            student_topk_logprobs = None
+            if sdpo_topk_token_ids is not None:
+                logits = out.get("logits")
+                if logits is None:
+                    raise ValueError(
+                        "SDPO top-k distillation requires logits in the trainer output; use a non-fused loss_impl."
+                    )
+                support_mask = (
+                    loss_mask if sdpo_weights is None else (loss_mask & active_sdpo_weight_mask(sdpo_weights))
+                )
+                student_topk_logprobs = gather_sdpo_student_topk_logprobs(
+                    logits,
+                    temperatures,
+                    sdpo_topk_token_ids,
+                    support_mask=support_mask,
+                )
+            if should_export_sdpo_student_support(
+                enable_token_export=config.enable_token_export,
+                sdpo_weights=sdpo_weights,
+                loss_mask=loss_mask,
+                full_logit_distillation=config.sdpo_loss.full_logit_distillation,
+                distillation_topk=config.sdpo_loss.distillation_topk,
+            ):
+                require_sdpo_student_support_export_supported(cp_enabled=cp_enabled)
+                logits = require_sdpo_student_support_logits(out)
+                student_topk_token_ids, exported_student_topk_logprobs = select_sdpo_student_topk_support(
+                    logits, temperatures, config.sdpo_loss.distillation_topk
+                )
+                out["sdpo_student_topk_token_ids"] = student_topk_token_ids.detach()
+                out["sdpo_student_topk_logprobs"] = exported_student_topk_logprobs.detach()
+
             if out.get("logprobs") is None:
                 # VanillaOutputLinear was used - need to compute logprobs externally with per-token temps
                 assert out.get("logits") is not None, "Logits must be provided to compute logprobs"
@@ -490,31 +586,49 @@ def train(config: TrainerConfig):
                 out["entropy"], pad_value=torch.log(torch.tensor(float(vocab_size))).item()
             )
 
-            # Compute loss
             sequence_lengths = micro_batch["sequence_lengths"]
-            loss, loss_tensors = compute_loss(
-                trainer_logprobs=out["logprobs"].squeeze().split(sequence_lengths),
-                inference_logprobs=inference_logprobs.squeeze().split(sequence_lengths),
-                ref_logprobs=ref_logprobs.squeeze().split(sequence_lengths) if ref_logprobs is not None else None,
-                advantages=advantages.squeeze().split(sequence_lengths),
-                loss_mask=loss_mask.squeeze().split(sequence_lengths),
-                rl_weights=rl_weights.squeeze().split(sequence_lengths) if rl_weights is not None else None,
-                ce_weights=ce_weights.squeeze().split(sequence_lengths) if ce_weights is not None else None,
-                ref_kl_weights=ref_kl_weights.squeeze().split(sequence_lengths) if ref_kl_weights is not None else None,
-                rl_loss_fn=rl_loss_fn,
-                rl_scale=rl_scale,
-                ce_scale=ce_scale,
-                ref_kl_scale=ref_kl_scale,
-            )
+            loss = None
+            loss_tensors = {}
+            if not preflight_only:
+                # Compute loss
+                loss, loss_tensors = compute_loss(
+                    trainer_logprobs=out["logprobs"].squeeze().split(sequence_lengths),
+                    inference_logprobs=inference_logprobs.squeeze().split(sequence_lengths),
+                    ref_logprobs=ref_logprobs.squeeze().split(sequence_lengths) if ref_logprobs is not None else None,
+                    advantages=advantages.squeeze().split(sequence_lengths),
+                    loss_mask=loss_mask.squeeze().split(sequence_lengths),
+                    rl_weights=rl_weights.squeeze().split(sequence_lengths) if rl_weights is not None else None,
+                    ce_weights=ce_weights.squeeze().split(sequence_lengths) if ce_weights is not None else None,
+                    ref_kl_weights=ref_kl_weights.squeeze().split(sequence_lengths)
+                    if ref_kl_weights is not None
+                    else None,
+                    sdpo_weights=sdpo_weights.squeeze().split(sequence_lengths) if sdpo_weights is not None else None,
+                    sdpo_rollout_is_weights=sdpo_rollout_is_weights.squeeze().split(sequence_lengths)
+                    if sdpo_rollout_is_weights is not None
+                    else None,
+                    student_topk_log_probs=student_topk_logprobs.squeeze(0).split(sequence_lengths)
+                    if student_topk_logprobs is not None
+                    else None,
+                    teacher_topk_log_probs=sdpo_topk_logprobs.squeeze(0).split(sequence_lengths)
+                    if sdpo_topk_logprobs is not None
+                    else None,
+                    rl_loss_fn=rl_loss_fn,
+                    sdpo_loss_config=config.sdpo_loss,
+                    rl_scale=rl_scale,
+                    ce_scale=ce_scale,
+                    ref_kl_scale=ref_kl_scale,
+                    sdpo_scale=sdpo_scale,
+                )
 
-            # Backward pass
-            with maybe_record_function("backward"):
-                loss.backward()
+                # Backward pass
+                with maybe_record_function("backward"):
+                    loss.backward()
 
             # Add relevant tensors to tensor dict for logging purposes
             entropy = out["entropy"][loss_mask].detach().to("cpu")
             tensors["entropy/all"].append(entropy)
-            tensors["loss"].append(loss.detach().to("cpu").unsqueeze(0))
+            if loss is not None:
+                tensors["loss"].append(loss.detach().to("cpu").unsqueeze(0))
 
             env_names = micro_batch["env_names"]
             masked_env_names = [env_name for env_name, keep in zip(env_names, loss_mask.flatten().tolist()) if keep]
@@ -528,13 +642,15 @@ def train(config: TrainerConfig):
             # Mismatch KL is only meaningful where sampling logprobs exist —
             # keep rl/ref_kl member tokens (policy-sampled), exclude tokens
             # whose action component is ce (frozen-model tokens).
-            if rl_weights is None and ref_kl_weights is None:
+            if rl_weights is None and ref_kl_weights is None and sdpo_weights is None:
                 mismatch_mask = loss_mask
                 has_mismatch_tokens = True
             else:
                 sampled_mask = (rl_weights != 0) if rl_weights is not None else loss_mask
                 if ref_kl_weights is not None:
                     sampled_mask = sampled_mask | (ref_kl_weights != 0)
+                if sdpo_weights is not None:
+                    sampled_mask = sampled_mask | active_sdpo_weight_mask(sdpo_weights)
                 mismatch_mask = loss_mask & sampled_mask
                 has_mismatch_tokens = bool(mismatch_mask.any())
             if has_mismatch_tokens:
@@ -558,6 +674,7 @@ def train(config: TrainerConfig):
                 out,
                 sequence_lengths,
                 config.loss,
+                sdpo_loss_config=config.sdpo_loss,
             )
 
             if is_tt_moe_model(model):
@@ -571,7 +688,10 @@ def train(config: TrainerConfig):
                 tensors[key].append(loss_tensor.detach().to("cpu"))
 
             # Debug log with *local, micro step* stats
-            micro_step_message = f"Micro Step {micro_step}/{len(micro_batches)} | Loss {tensors['loss'][-1].mean().item():.4f} | Entropy {tensors['entropy/all'][-1].mean().item():.4f}"
+            micro_step_message = f"Micro Step {micro_step}/{len(micro_batches)}"
+            if not preflight_only:
+                micro_step_message += f" | Loss {tensors['loss'][-1].mean().item():.4f}"
+            micro_step_message += f" | Entropy {tensors['entropy/all'][-1].mean().item():.4f}"
             if has_mismatch_tokens:
                 micro_step_message += f" | Mismatch KL {tensors['mismatch_kl/all'][-1].mean().item():.4f}"
             if "max_vio" in tensors:
@@ -582,12 +702,19 @@ def train(config: TrainerConfig):
 
         if config.enable_token_export:
             dist.barrier()
-            ready_run_ids = {
-                multi_run_manager.idx_2_id[idx]
-                for idx in multi_run_manager.ready_to_update_idxs
-                if idx in multi_run_manager.idx_2_id
-            }
+            ready_run_ids = token_export_ready_run_ids(
+                micro_batches,
+                preflight_only=preflight_only,
+                multi_run_manager=multi_run_manager,
+            )
             token_exporter.mark_stable(ready_run_ids)
+
+        if preflight_only:
+            # Forward/export-only: do not scale gradients, step optimizer or
+            # scheduler, update SDPO teacher state, mutate progress, or log
+            # train-step metrics for student-support preflight batches.
+            logger.success(f"Preflight step {progress.step} exported student support without optimizer update")
+            continue
 
         # compute_loss already divided by the global token count. Undo FSDP's per-rank averaging
         # across dp_cp so the final gradient is the true per-token mean over the global batch.
@@ -606,12 +733,20 @@ def train(config: TrainerConfig):
 
         zero_grad_ratio = get_zero_gradient_ratio(model.parameters(), parallel_dims.dp_replicate)
 
-        # Update the model parameters
-        optimizer.step()
+        # Update the model parameters when gradient clipping reports a finite norm.
+        optimizer_step_succeeded = optimizer_update_succeeded(grad_norm)
+        if optimizer_step_succeeded:
+            optimizer.step()
+        else:
+            logger.warning(f"Skipping optimizer step because grad_norm is not finite: {grad_norm}")
         optimizer.zero_grad()
 
-        # Update learning rate scheduler
-        scheduler.step()
+        # Update learning rate scheduler only when an optimizer update happened.
+        if optimizer_step_succeeded:
+            scheduler.step()
+        sdpo_teacher_step_succeeded = step_sdpo_teacher_regularization_if_updated(
+            sdpo_teacher_regularization_setup, update_succeeded=optimizer_step_succeeded
+        )
 
         if config.max_concurrent_runs == 1:
             current_lr = optimizer.param_groups[0]["lr"]
@@ -663,6 +798,8 @@ def train(config: TrainerConfig):
         # Log optimizer metrics
         optim_metrics = {
             "optim/lr": current_lr,
+            "optim/sdpo_teacher_step_succeeded": int(sdpo_teacher_step_succeeded),
+            "optim/update_succeeded": int(optimizer_step_succeeded),
             "optim/zero_grad_ratio": zero_grad_ratio,
             "step": progress.step,
         }
@@ -757,7 +894,7 @@ def train(config: TrainerConfig):
     if config.max_concurrent_runs == 1 and ckpt_manager is not None:
         if not (config.ckpt and config.ckpt.weights_only):
             logger.info("Writing final checkpoint")
-            ckpt_manager.save(progress.step, model, [optimizer], scheduler, progress)
+            ckpt_manager.save(progress.step, model, [optimizer], scheduler, progress, extra_state=extra_state)
         ckpt_manager.maybe_clean()
 
     if config.max_concurrent_runs == 1 and weight_ckpt_manager is not None:

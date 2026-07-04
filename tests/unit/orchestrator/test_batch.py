@@ -372,6 +372,342 @@ def test_prepare_batch_aligns_ref_logprobs_in_mixed_bins(make_training_example, 
         assert bin_content.ref_logprobs == [0.0] * 6 + [-1.5] * 4
 
 
+def test_prepare_batch_aligns_sdpo_topk_in_mixed_bins(make_training_example):
+    """Packing an SDPO top-k sample with a plain sample must preserve the
+    teacher support row alignment and backfill neutral rows for plain tokens."""
+    sdpo_sample = TrainingSample(
+        token_ids=[1, 2, 3, 4, 5, 6],
+        mask=[False, False, False, True, True, True],
+        logprobs=[0.0, 0.0, 0.0, -0.1, -0.1, -0.1],
+        temperatures=[1.0] * 6,
+        sdpo_topk_token_ids=[[11, 12], [21, 22], [31, 32], [41, 42], [51, 52], [61, 62]],
+        sdpo_topk_logprobs=[[-1.1, -1.2], [-2.1, -2.2], [-3.1, -3.2], [-4.1, -4.2], [-5.1, -5.2], [-6.1, -6.2]],
+        sdpo_rollout_is_weights=[0.0, 0.0, 0.0, 0.7, 0.8, 0.9],
+        sdpo_weights=[0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+        advantages=[0.0] * 6,
+        rl_weights=[0.0] * 6,
+        env_name="test-env",
+    )
+    plain_sample = make_training_example()
+
+    batches_per_gpu = prepare_batch(
+        rollouts=[sdpo_sample, plain_sample],
+        seq_len=16,
+        pad_to_multiple_of=1,
+        num_train_workers=1,
+        idxs=[0, 0],
+        num_loras=1,
+        bin_cost=build_bin_cost(None),
+    )
+    bin_content = _flatten_batches(batches_per_gpu)[0]
+
+    assert bin_content.sdpo_topk_token_ids == [
+        [11, 12],
+        [21, 22],
+        [31, 32],
+        [41, 42],
+        [51, 52],
+        [61, 62],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+        [0, 0],
+    ]
+    assert bin_content.sdpo_topk_logprobs[-4:] == [[0.0, 0.0]] * 4
+    assert bin_content.sdpo_weights == [0.0, 0.0, 0.0, 1.0, 1.0, 1.0] + [0.0] * 4
+    assert bin_content.sdpo_rollout_is_weights == [0.0, 0.0, 0.0, 0.7, 0.8, 0.9] + [0.0] * 4
+
+
+def test_prepare_batch_rejects_active_sdpo_sample_missing_topk_in_mixed_bin():
+    with_support = TrainingSample(
+        token_ids=[1, 2, 3, 4],
+        mask=[False, False, True, True],
+        logprobs=[0.0, 0.0, -0.1, -0.1],
+        temperatures=[1.0] * 4,
+        sdpo_topk_token_ids=[[0, 0], [0, 0], [31, 32], [41, 42]],
+        sdpo_topk_logprobs=[[0.0, 0.0], [0.0, 0.0], [-3.1, -3.2], [-4.1, -4.2]],
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0],
+        advantages=[0.0] * 4,
+        rl_weights=[0.0] * 4,
+        env_name="test-env",
+    )
+    missing_support = TrainingSample(
+        token_ids=[5, 6, 7, 8],
+        mask=[False, False, True, True],
+        logprobs=[0.0, 0.0, -0.2, -0.2],
+        temperatures=[1.0] * 4,
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0],
+        advantages=[0.0] * 4,
+        rl_weights=[0.0] * 4,
+        env_name="test-env",
+    )
+
+    with pytest.raises(ValueError, match="missing SDPO top-k support"):
+        prepare_batch(
+            rollouts=[with_support, missing_support],
+            seq_len=16,
+            pad_to_multiple_of=1,
+            num_train_workers=1,
+            idxs=[0, 0],
+            num_loras=1,
+            bin_cost=build_bin_cost(None),
+        )
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"sdpo_topk_token_ids": None}, "sdpo_topk_token_ids missing"),
+        ({"sdpo_topk_logprobs": None}, "sdpo_topk_logprobs missing"),
+        ({"sdpo_topk_token_ids": [[0, 0], [31, 32], [41, 42]]}, "sdpo_topk_token_ids length"),
+        ({"sdpo_topk_logprobs": [[0.0, 0.0], [-3.1, -3.2], [-4.1, -4.2]]}, "sdpo_topk_logprobs length"),
+        ({"sdpo_topk_logprobs": [[0.0], [0.0], [-3.1], [-4.1]]}, "sdpo top-k width mismatch"),
+        ({"sdpo_topk_token_ids": [[], [], [], []], "sdpo_topk_logprobs": [[], [], [], []]}, "non-empty"),
+        ({"sdpo_topk_token_ids": [[0, 0], [0], [31, 32], [41, 42]]}, "ragged sdpo_topk_token_ids"),
+        ({"sdpo_topk_logprobs": [[0.0, 0.0], [0.0], [-3.1, -3.2], [-4.1, -4.2]]}, "sdpo_topk_logprobs row"),
+        ({"sdpo_topk_token_ids": [[0, 0], [0, 0], [31, True], [41, 42]]}, "row 2 must contain integer"),
+        ({"sdpo_topk_token_ids": [[0, 0], [0, 0], [31, -32], [41, 42]]}, "row 2 must contain non-negative"),
+        (
+            {"sdpo_topk_logprobs": [[0.0, 0.0], [0.0, 0.0], [float("nan"), -3.2], [-4.1, -4.2]]},
+            "row 2 must contain finite numeric",
+        ),
+        (
+            {"sdpo_topk_logprobs": [[0.0, 0.0], [0.0, 0.0], [-3, -4], [-4.1, -4.2]]},
+            "row 2 must contain floating-point values",
+        ),
+        (
+            {
+                "sdpo_topk_token_ids": [[0, 0], [0, 0], [31, 32], [41, 42]],
+                "sdpo_topk_logprobs": [[0.0, 0.0], [0.0, 0.0], [0.0, 0.0], [-4.1, -4.2]],
+            },
+            "row 2 must be zero when logprobs are placeholders",
+        ),
+        ({"sdpo_topk_token_ids": [[0, 0], [0, 0], [31, 31], [41, 42]]}, "row 2 must contain distinct"),
+        (
+            {"sdpo_topk_logprobs": [[0.0, 0.0], [0.0, 0.0], [-0.1, -0.2], [-4.1, -4.2]]},
+            "row 2 probability mass exceeds 1",
+        ),
+        ({"sdpo_rollout_is_weights": [0.0, 0.7, 0.8]}, "sdpo_rollout_is_weights length"),
+        ({"sdpo_rollout_is_weights": [0.0, 0.0, 1, 0.8]}, r"sdpo_rollout_is_weights\[2\] must be a floating"),
+        (
+            {"sdpo_topk_token_ids": [[0], [0], [0], [41]], "sdpo_topk_logprobs": [[0.0], [0.0], [0.0], [-4.1]]},
+            "sdpo_topk_logprobs row 2 must not be an all-zero placeholder",
+        ),
+    ],
+)
+def test_prepare_batch_rejects_malformed_sdpo_topk_streams(overrides, message):
+    kwargs = {
+        "token_ids": [1, 2, 3, 4],
+        "mask": [False, False, True, True],
+        "logprobs": [0.0, 0.0, -0.1, -0.1],
+        "temperatures": [1.0] * 4,
+        "sdpo_topk_token_ids": [[0, 0], [0, 0], [31, 32], [41, 42]],
+        "sdpo_topk_logprobs": [[0.0, 0.0], [0.0, 0.0], [-3.1, -3.2], [-4.1, -4.2]],
+        "sdpo_weights": [0.0, 0.0, 1.0, 1.0],
+        "advantages": [0.0] * 4,
+        "rl_weights": [0.0] * 4,
+        "env_name": "test-env",
+    }
+    kwargs.update(overrides)
+    sample = TrainingSample(**kwargs)
+
+    with pytest.raises(ValueError, match=message):
+        prepare_batch(
+            rollouts=[sample],
+            seq_len=16,
+            pad_to_multiple_of=1,
+            num_train_workers=1,
+            idxs=[0],
+            num_loras=1,
+            bin_cost=build_bin_cost(None),
+        )
+
+
+def test_prepare_batch_sdpo_width_mismatch_error_does_not_dump_rows():
+    sample = TrainingSample(
+        token_ids=[1, 2, 3, 4],
+        mask=[False, False, True, True],
+        logprobs=[0.0, 0.0, -0.1, -0.1],
+        temperatures=[1.0] * 4,
+        sdpo_topk_token_ids=[[0, 0], [0, 0], [31, 32], [41, 42]],
+        sdpo_topk_logprobs=[[0.0], [0.0], [-3.1], [-4.1]],
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0],
+        advantages=[0.0] * 4,
+        rl_weights=[0.0] * 4,
+        env_name="test-env",
+    )
+
+    with pytest.raises(ValueError) as exc_info:
+        prepare_batch(
+            rollouts=[sample],
+            seq_len=16,
+            pad_to_multiple_of=1,
+            num_train_workers=1,
+            idxs=[0],
+            num_loras=1,
+            bin_cost=build_bin_cost(None),
+        )
+
+    message = str(exc_info.value)
+    assert message == "sdpo top-k width mismatch: token width 2 != logprob width 1"
+    assert "[[0, 0]" not in message
+
+
+def test_prepare_batch_accepts_top1_token_id_zero_with_real_logprob():
+    sample = TrainingSample(
+        token_ids=[1, 2, 3, 4],
+        mask=[False, False, True, True],
+        logprobs=[0.0, 0.0, -0.1, -0.1],
+        temperatures=[1.0] * 4,
+        sdpo_topk_token_ids=[[0], [0], [0], [41]],
+        sdpo_topk_logprobs=[[0.0], [0.0], [-3.1], [-4.1]],
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0],
+        advantages=[0.0] * 4,
+        rl_weights=[0.0] * 4,
+        env_name="test-env",
+    )
+
+    batch_grid = prepare_batch(
+        rollouts=[sample],
+        seq_len=16,
+        pad_to_multiple_of=1,
+        num_train_workers=1,
+        idxs=[0],
+        num_loras=1,
+        bin_cost=build_bin_cost(None),
+    )
+
+    assert batch_grid[0][0].sdpo_topk_token_ids[:4] == [[0], [0], [0], [41]]
+    assert batch_grid[0][0].sdpo_topk_logprobs[:4] == [[0.0], [0.0], [-3.1], [-4.1]]
+
+
+def test_prepare_batch_rejects_mixed_sdpo_topk_widths_in_one_bin():
+    def sample_with_width(token_offset: int, width: int) -> TrainingSample:
+        return TrainingSample(
+            token_ids=[token_offset + i for i in range(4)],
+            mask=[False, False, True, True],
+            logprobs=[0.0, 0.0, -0.1, -0.1],
+            temperatures=[1.0] * 4,
+            sdpo_topk_token_ids=[[0] * width, [0] * width, list(range(30, 30 + width)), list(range(40, 40 + width))],
+            sdpo_topk_logprobs=[[0.0] * width, [0.0] * width, [-3.0] * width, [-4.0] * width],
+            sdpo_weights=[0.0, 0.0, 1.0, 1.0],
+            advantages=[0.0] * 4,
+            rl_weights=[0.0] * 4,
+            env_name="test-env",
+        )
+
+    with pytest.raises(ValueError, match="packed SDPO top-k width"):
+        prepare_batch(
+            rollouts=[sample_with_width(1, 2), sample_with_width(10, 3)],
+            seq_len=16,
+            pad_to_multiple_of=1,
+            num_train_workers=1,
+            idxs=[0, 0],
+            num_loras=1,
+            bin_cost=build_bin_cost(None),
+        )
+
+
+def test_prepare_batch_backfills_missing_sdpo_rollout_is_only_on_sdpo_tokens():
+    with_rollout_is = TrainingSample(
+        token_ids=[1, 2, 3, 4, 5],
+        mask=[False, False, True, True, True],
+        logprobs=[0.0, 0.0, -0.1, -0.1, -0.1],
+        temperatures=[1.0] * 5,
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0, 1.0],
+        sdpo_rollout_is_weights=[0.0, 0.0, 0.7, 0.8, 0.9],
+        advantages=[0.0] * 5,
+        rl_weights=[0.0] * 5,
+        env_name="test-env",
+    )
+    missing_rollout_is = TrainingSample(
+        token_ids=[6, 7, 8],
+        mask=[False, True, True],
+        logprobs=[0.0, -0.2, -0.2],
+        temperatures=[1.0] * 3,
+        sdpo_weights=[0.0, 1.0, 1.0],
+        advantages=[0.0] * 3,
+        rl_weights=[0.0] * 3,
+        env_name="test-env",
+    )
+
+    batches_per_gpu = prepare_batch(
+        rollouts=[with_rollout_is, missing_rollout_is],
+        seq_len=16,
+        pad_to_multiple_of=1,
+        num_train_workers=1,
+        idxs=[0, 0],
+        num_loras=1,
+        bin_cost=build_bin_cost(None),
+    )
+    batch = _flatten_batches(batches_per_gpu)[0]
+
+    assert batch.sdpo_rollout_is_weights == [0.0, 0.0, 0.7, 0.8, 0.9, 0.0, 1.0, 1.0]
+
+
+def test_prepare_batch_pads_sdpo_streams_together():
+    sdpo_sample = TrainingSample(
+        token_ids=[1, 2, 3, 4, 5, 6],
+        mask=[False, False, False, True, True, True],
+        logprobs=[0.0, 0.0, 0.0, -0.1, -0.1, -0.1],
+        temperatures=[1.0] * 6,
+        sdpo_topk_token_ids=[[11, 12], [21, 22], [31, 32], [41, 42], [51, 52], [61, 62]],
+        sdpo_topk_logprobs=[[-1.1, -1.2], [-2.1, -2.2], [-3.1, -3.2], [-4.1, -4.2], [-5.1, -5.2], [-6.1, -6.2]],
+        sdpo_rollout_is_weights=[0.0, 0.0, 0.0, 0.7, 0.8, 0.9],
+        sdpo_weights=[0.0, 0.0, 0.0, 1.0, 1.0, 1.0],
+        advantages=[0.0] * 6,
+        rl_weights=[0.0] * 6,
+        env_name="test-env",
+    )
+
+    batches_per_gpu = prepare_batch(
+        rollouts=[sdpo_sample],
+        seq_len=16,
+        pad_to_multiple_of=8,
+        num_train_workers=1,
+        idxs=[0],
+        num_loras=1,
+        bin_cost=build_bin_cost(None),
+    )
+    batch = _flatten_batches(batches_per_gpu)[0]
+
+    assert len(batch.input_ids) == 8
+    assert batch.sequence_lengths == [6, 2]
+    assert batch.sdpo_topk_token_ids[-2:] == [[0, 0], [0, 0]]
+    assert batch.sdpo_topk_logprobs[-2:] == [[0.0, 0.0], [0.0, 0.0]]
+    assert batch.sdpo_weights[-2:] == [0.0, 0.0]
+    assert batch.sdpo_rollout_is_weights[-2:] == [0.0, 0.0]
+
+
+def test_prepare_batch_distribution_dummy_clears_sdpo_rollout_is_weights():
+    sdpo_sample = TrainingSample(
+        token_ids=[1, 2, 3, 4],
+        mask=[False, False, True, True],
+        logprobs=[0.0, 0.0, -0.1, -0.2],
+        temperatures=[1.0] * 4,
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0],
+        sdpo_rollout_is_weights=[0.0, 0.0, 0.7, 0.8],
+        advantages=[0.0] * 4,
+        rl_weights=[0.0] * 4,
+        env_name="test-env",
+    )
+
+    batches_per_gpu = prepare_batch(
+        rollouts=[sdpo_sample],
+        seq_len=16,
+        pad_to_multiple_of=1,
+        num_train_workers=2,
+        idxs=[0],
+        num_loras=1,
+        bin_cost=build_bin_cost(None),
+    )
+    flat_batches = _flatten_batches(batches_per_gpu)
+
+    assert len(flat_batches) == 2
+    dummy = next(batch for batch in flat_batches if not any(batch.loss_mask))
+    assert dummy.sdpo_rollout_is_weights is None
+
+
 def test_prepare_sample_with_routed_experts():
     """Routed experts are passed through prepare_sample and match input_ids length."""
     # 4 tokens, 2 layers, topk=2
