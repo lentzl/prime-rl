@@ -579,13 +579,11 @@ def _verify_expected_git_identity(
 ) -> None:
     if expected_git_commit is not None and summary_fields["git_commit"] != expected_git_commit:
         raise ValueError(
-            "archive git_commit mismatch: "
-            f"expected {expected_git_commit!r}, got {summary_fields['git_commit']!r}"
+            f"archive git_commit mismatch: expected {expected_git_commit!r}, got {summary_fields['git_commit']!r}"
         )
     if expected_git_branch is not None and summary_fields["git_branch"] != expected_git_branch:
         raise ValueError(
-            "archive git_branch mismatch: "
-            f"expected {expected_git_branch!r}, got {summary_fields['git_branch']!r}"
+            f"archive git_branch mismatch: expected {expected_git_branch!r}, got {summary_fields['git_branch']!r}"
         )
 
 
