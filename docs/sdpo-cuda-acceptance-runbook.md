@@ -58,10 +58,10 @@ scripts/start_sdpo_cuda_acceptance_background.sh --preflight-only
 ```
 
 The host preflight checks `uv`, `tar`, hashing support, `nvidia-smi`, visible GPU
-count, and disk space. By default it expects at least 3 visible GPUs: policy
-inference, EMA teacher inference, and trainer. To intentionally run on a
-different topology, set `SDPO_ACCEPTANCE_MIN_GPUS`, but record that deviation
-with the proof evidence.
+count, git branch/commit/status, and disk space. By default it expects at least
+3 visible GPUs: policy inference, EMA teacher inference, and trainer. To
+intentionally run on a different topology, set `SDPO_ACCEPTANCE_MIN_GPUS`, but
+record that deviation with the proof evidence.
 
 The config preflight resolves both SDPO reference presets and should print:
 

@@ -510,6 +510,9 @@ def test_sdpo_cuda_acceptance_background_script_preflight_only_checks_host(tmp_p
 
     assert result.returncode == 0, result.stderr
     assert "Running SDPO CUDA acceptance host preflight..." in result.stdout
+    assert "Git branch:" in result.stdout
+    assert "Git commit:" in result.stdout
+    assert "Git status:" in result.stdout
     assert "Visible GPUs: 3" in result.stdout
     assert "Host preflight passed." in result.stdout
     assert "Running SDPO CUDA acceptance config preflight..." in result.stdout

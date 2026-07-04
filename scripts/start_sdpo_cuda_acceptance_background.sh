@@ -156,6 +156,13 @@ run_host_preflight() {
     echo "Error: SDPO CUDA acceptance requires at least $min_gpus visible GPUs, found $gpu_count" >&2
     return 2
   fi
+  echo "Git branch: $(git branch --show-current 2>/dev/null || echo unknown)"
+  echo "Git commit: $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  if [[ -n "$(git status --short 2>/dev/null || true)" ]]; then
+    echo "Git status: dirty (provenance will record source fingerprints)"
+  else
+    echo "Git status: clean"
+  fi
   echo "Visible GPUs: $gpu_count"
   nvidia-smi --query-gpu=index,name,memory.free,memory.total --format=csv,noheader,nounits || true
   echo "Disk space at repo root:"
