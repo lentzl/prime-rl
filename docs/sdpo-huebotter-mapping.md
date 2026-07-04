@@ -204,8 +204,9 @@ tree and reference contract that produced its artifacts, even while the
 contribution is still being matured before a final commit.
 
 The remaining proof is operational rather than architectural: the SDPO smoke
-presets still need to be run on a Linux CUDA/vLLM machine. The acceptance gates
-are:
+presets still need to be run on a Linux CUDA/vLLM machine. For the exact
+fresh-box procedure, see `docs/sdpo-cuda-acceptance-runbook.md`. The acceptance
+gates are:
 
 ```bash
 scripts/run_sdpo_cuda_acceptance.sh --check-config

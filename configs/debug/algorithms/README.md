@@ -85,6 +85,8 @@ scripts/run_sdpo_cuda_acceptance.sh --no-run --output-root outputs/sdpo-cuda-acc
 scripts/run_sdpo_cuda_acceptance.sh --no-run --output-root outputs/sdpo-cuda-acceptance --archive outputs/sdpo-cuda-acceptance-proof.tar.gz
 
 # Preferred remote proof flow: train, verify, and produce one tarball to download.
+# See docs/sdpo-cuda-acceptance-runbook.md for fresh-box clone/submodule setup,
+# monitoring, download, and local re-verification commands.
 scripts/start_sdpo_cuda_acceptance_background.sh --preflight-only
 scripts/start_sdpo_cuda_acceptance_background.sh
 scripts/start_sdpo_cuda_acceptance_background.sh --status
