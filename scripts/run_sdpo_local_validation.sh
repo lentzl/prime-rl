@@ -10,7 +10,8 @@ Usage:
 
 Options:
   --skip-hygiene  Run only the broad pytest slice, skipping shell/Python syntax
-                  checks, smoke config checks, Ruff, and whitespace checks.
+                  checks, ShellCheck, smoke config checks, Ruff, and whitespace
+                  checks.
   -h, --help      Show this help.
 
 This is the local, Mac-friendly validation gate for the SDPO port. It adds the
@@ -60,9 +61,17 @@ fi
 
 read -r -a pytest_runner <<< "${SDPO_LOCAL_VALIDATION_PYTEST_RUNNER:-uvx --python 3.12 --from pytest --with pytest-asyncio --with psutil --with setproctitle --with pydantic --with loguru --with torch --with torchdata --with numpy --with pandas --with transformers --with datasets --with jaxtyping --with beartype --with tomli --with tomli-w --with rich --with orjson --with anthropic --with openai --with tenacity --with requests --with aiohttp --with wandb --with msgspec --with pyzmq pytest}"
 read -r -a python_runner <<< "${SDPO_LOCAL_VALIDATION_PYTHON_RUNNER:-uvx --python 3.12 --with pytest-asyncio --with psutil --with setproctitle --with pydantic --with loguru --with torch --with torchdata --with numpy --with pandas --with transformers --with datasets --with jaxtyping --with beartype --with tomli --with tomli-w --with rich --with orjson --with anthropic --with openai --with tenacity --with requests --with aiohttp --with wandb --with msgspec --with pyzmq python}"
+read -r -a shellcheck_runner <<< "${SDPO_LOCAL_VALIDATION_SHELLCHECK_RUNNER:-uvx --from shellcheck-py shellcheck}"
 read -r -a ruff_runner <<< "${SDPO_LOCAL_VALIDATION_RUFF_RUNNER:-uvx --from ruff==0.13.0 ruff}"
 read -r -a smoke_runner <<< "${SDPO_LOCAL_VALIDATION_SMOKE_RUNNER:-scripts/run_sdpo_smoke_and_verify.sh}"
 read -r -a acceptance_runner <<< "${SDPO_LOCAL_VALIDATION_ACCEPTANCE_RUNNER:-scripts/run_sdpo_cuda_acceptance.sh}"
+
+shell_files=(
+  scripts/run_sdpo_cuda_acceptance.sh
+  scripts/run_sdpo_local_validation.sh
+  scripts/run_sdpo_smoke_and_verify.sh
+  scripts/start_sdpo_cuda_acceptance_background.sh
+)
 
 tests=(
   tests/unit/orchestrator/test_algorithms.py
@@ -180,11 +189,9 @@ PYTHONPATH="$validation_pythonpath" "${pytest_runner[@]}" "${tests[@]}" -q
 
 if [[ "$run_hygiene" -eq 1 ]]; then
   echo "Running SDPO script syntax checks..."
-  bash -n \
-    scripts/run_sdpo_cuda_acceptance.sh \
-    scripts/run_sdpo_local_validation.sh \
-    scripts/run_sdpo_smoke_and_verify.sh \
-    scripts/start_sdpo_cuda_acceptance_background.sh
+  bash -n "${shell_files[@]}"
+  echo "Running SDPO ShellCheck checks..."
+  "${shellcheck_runner[@]}" "${shell_files[@]}"
   PYTHONPATH="$validation_pythonpath" "${python_runner[@]}" -m py_compile \
     scripts/verify_sdpo_smoke_artifacts.py \
     scripts/verify_sdpo_cuda_acceptance_archive.py \

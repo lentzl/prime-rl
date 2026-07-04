@@ -273,9 +273,10 @@ For a broader local SDPO integration gate on macOS, use
 `scripts/run_sdpo_local_validation.sh`. It adds the editable verifier environment
 package roots plus the Python packages needed by the SDPO integration tests to
 the ad hoc `uvx` runner, then runs the broad pytest slice plus shell/Python
-syntax checks, direct live/EMA smoke config checks, the combined CUDA acceptance
-config check, targeted Ruff lint/format checks, an explicit whitespace/final-newline
-scan over tracked and untracked SDPO contribution files, and `git diff --check`. Full
+syntax checks, ShellCheck over the SDPO shell wrappers, direct live/EMA smoke
+config checks, the combined CUDA acceptance config check, targeted Ruff
+lint/format checks, an explicit whitespace/final-newline scan over tracked and
+untracked SDPO contribution files, and `git diff --check`. Full
 `tests/unit` collection should be reserved for the normal Linux environment
 because unrelated model/inference/SFT tests require Linux-side packages such as
 `torchtitan` and `vllm`.

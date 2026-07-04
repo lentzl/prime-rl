@@ -2028,6 +2028,23 @@ printf '\\n'
     return fake_runner
 
 
+def _write_fake_sdpo_local_validation_shellcheck_runner(tmp_path: Path) -> Path:
+    fake_runner = tmp_path / "fake_sdpo_local_validation_shellcheck.sh"
+    fake_runner.write_text(
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf 'LOCAL_SHELLCHECK'
+for arg in "$@"; do
+  printf ' <%s>' "$arg"
+done
+printf '\\n'
+""",
+        encoding="utf-8",
+    )
+    fake_runner.chmod(0o755)
+    return fake_runner
+
+
 def _write_fake_sdpo_local_validation_smoke_runner(tmp_path: Path) -> Path:
     fake_runner = tmp_path / "fake_sdpo_local_validation_smoke.sh"
     fake_runner.write_text(
@@ -2104,6 +2121,7 @@ def test_sdpo_local_validation_script_runs_broad_gate_with_verifier_env_paths(tm
 def test_sdpo_local_validation_script_uses_configured_python_for_hygiene(tmp_path):
     fake_pytest = _write_fake_sdpo_local_validation_pytest_runner(tmp_path)
     fake_python = _write_fake_sdpo_local_validation_python_runner(tmp_path)
+    fake_shellcheck = _write_fake_sdpo_local_validation_shellcheck_runner(tmp_path)
     fake_ruff = _write_fake_sdpo_local_validation_ruff_runner(tmp_path)
     fake_smoke = _write_fake_sdpo_local_validation_smoke_runner(tmp_path)
     fake_acceptance = _write_fake_sdpo_local_validation_acceptance_runner(tmp_path)
@@ -2111,6 +2129,7 @@ def test_sdpo_local_validation_script_uses_configured_python_for_hygiene(tmp_pat
         **os.environ,
         "SDPO_LOCAL_VALIDATION_PYTEST_RUNNER": str(fake_pytest),
         "SDPO_LOCAL_VALIDATION_PYTHON_RUNNER": str(fake_python),
+        "SDPO_LOCAL_VALIDATION_SHELLCHECK_RUNNER": str(fake_shellcheck),
         "SDPO_LOCAL_VALIDATION_RUFF_RUNNER": str(fake_ruff),
         "SDPO_LOCAL_VALIDATION_SMOKE_RUNNER": str(fake_smoke),
         "SDPO_LOCAL_VALIDATION_ACCEPTANCE_RUNNER": str(fake_acceptance),
@@ -2126,6 +2145,9 @@ def test_sdpo_local_validation_script_uses_configured_python_for_hygiene(tmp_pat
 
     assert result.returncode == 0, result.stderr
     assert "Running SDPO script syntax checks..." in result.stdout
+    assert "Running SDPO ShellCheck checks..." in result.stdout
+    assert "LOCAL_SHELLCHECK <scripts/run_sdpo_cuda_acceptance.sh>" in result.stdout
+    assert "<scripts/start_sdpo_cuda_acceptance_background.sh>" in result.stdout
     assert "LOCAL_PYTHON_PYTHONPATH=<" in result.stdout
     assert "src:packages/prime-rl-configs/src:deps/pydantic-config/src" in result.stdout
     assert "LOCAL_PYTHON <-m> <py_compile>" in result.stdout
