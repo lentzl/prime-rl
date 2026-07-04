@@ -144,9 +144,12 @@ Download the archive:
 scp USER@HOST:/path/to/prime-rl/outputs/sdpo-cuda-acceptance-proof.tar.gz .
 ```
 
-From a checkout of the same branch, verify the downloaded archive:
+From a checkout of the same branch and commit, capture the expected identity
+again and verify the downloaded archive:
 
 ```bash
+EXPECTED_SDPO_BRANCH="$(git branch --show-current)"
+EXPECTED_SDPO_COMMIT="$(git rev-parse HEAD)"
 uv run python scripts/verify_sdpo_cuda_acceptance_archive.py \
   --expected-acceptance-mode training \
   --expected-git-branch "$EXPECTED_SDPO_BRANCH" \
