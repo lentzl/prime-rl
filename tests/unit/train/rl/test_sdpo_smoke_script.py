@@ -679,7 +679,7 @@ def test_sdpo_cuda_acceptance_background_script_start_prints_status_command(tmp_
     assert f"scp USER@HOST:{archive_path} ." in result.stdout
     assert f"USER@HOST:{REPO_ROOT}/{archive_path}" not in result.stdout
     assert (
-        "uv run python scripts/verify_sdpo_cuda_acceptance_archive.py "
+        "uv run --extra flash-attn --extra envs python scripts/verify_sdpo_cuda_acceptance_archive.py "
         f"--expected-acceptance-mode training --expected-git-commit {expected_commit} "
         f"--expected-git-branch {expected_branch} {archive_path.name}"
     ) in result.stdout
@@ -1135,6 +1135,11 @@ set -euo pipefail
 	  echo "unexpected uv invocation: $*" >&2
 	  exit 9
 	fi
+	shift
+	while [[ "${1:-}" == "--extra" ]]; do
+	  shift 2
+	done
+	set -- run "$@"
 	if [[ "$2" == "rl" ]]; then
 	  printf 'TRAIN'
 	  shift 2
@@ -1710,8 +1715,8 @@ def _sdpo_acceptance_provenance_bytes(
         f"git_diff_sha256={hashlib.sha256(b'diff').hexdigest()}\n"
         f"git_cached_diff_sha256={hashlib.sha256(b'cached').hexdigest()}\n"
         f"git_untracked_manifest_sha256={manifest_sha}\n"
-        "python_runner=uv run python\n"
-        "rl_runner=uv run rl\n"
+        "python_runner=uv run --extra flash-attn --extra envs python\n"
+        "rl_runner=uv run --extra flash-attn --extra envs rl\n"
         "git_untracked_manifest_begin\n"
         f"{manifest_payload}"
         "git_untracked_manifest_end\n"
@@ -1945,8 +1950,8 @@ def _minimal_sdpo_smoke_provenance(*, extra: str = "") -> str:
         f"git_diff_sha256={hashlib.sha256(b'diff').hexdigest()}\n"
         f"git_cached_diff_sha256={hashlib.sha256(b'cached').hexdigest()}\n"
         f"git_untracked_manifest_sha256={hashlib.sha256(b'').hexdigest()}\n"
-        "python_runner=uv run python\n"
-        "rl_runner=uv run rl\n"
+        "python_runner=uv run --extra flash-attn --extra envs python\n"
+        "rl_runner=uv run --extra flash-attn --extra envs rl\n"
         "git_untracked_manifest_begin\n"
         "git_untracked_manifest_end\n"
         "git_status_short_begin\n"
@@ -3753,8 +3758,8 @@ def test_sdpo_smoke_script_runs_training_then_strict_artifact_verifier(tmp_path)
     assert "git_diff_sha256=" in provenance
     assert "git_cached_diff_sha256=" in provenance
     assert "git_untracked_manifest_sha256=" in provenance
-    assert "python_runner=uv run python" in provenance
-    assert "rl_runner=uv run rl" in provenance
+    assert "python_runner=uv run --extra flash-attn --extra envs python" in provenance
+    assert "rl_runner=uv run --extra flash-attn --extra envs rl" in provenance
     assert "git_untracked_manifest_begin" in provenance
     assert "git_untracked_manifest_end" in provenance
     assert provenance.index("git_untracked_manifest_begin") < provenance.index("git_untracked_manifest_end")
