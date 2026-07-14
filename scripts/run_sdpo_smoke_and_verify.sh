@@ -72,8 +72,8 @@ done
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-read -r -a python_runner <<< "${SDPO_SMOKE_PYTHON_RUNNER:-uv run --extra flash-attn python}"
-read -r -a rl_runner <<< "${SDPO_SMOKE_RL_RUNNER:-uv run --extra flash-attn rl}"
+read -r -a python_runner <<< "${SDPO_SMOKE_PYTHON_RUNNER:-uv run --extra flash-attn --extra envs python}"
+read -r -a rl_runner <<< "${SDPO_SMOKE_RL_RUNNER:-uv run --extra flash-attn --extra envs rl}"
 config_pythonpath="src:packages/prime-rl-configs/src:deps/pydantic-config/src:deps/verifiers:deps/renderers:deps/research-environments"
 
 export WANDB_MODE="${WANDB_MODE:-offline}"
