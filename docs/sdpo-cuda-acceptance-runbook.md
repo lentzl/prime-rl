@@ -72,10 +72,14 @@ scripts/start_sdpo_cuda_acceptance_background.sh --preflight-only
 ```
 
 The host preflight checks `uv`, `tar`, hashing support, `nvidia-smi`, visible GPU
-count, git branch/commit/status, and disk space. By default it expects at least
-3 visible GPUs: policy inference, EMA teacher inference, and trainer. To
-intentionally run on a different topology, set `SDPO_ACCEPTANCE_MIN_GPUS`, but
-record that deviation with the proof evidence.
+count, `flash_attn` importability through `prime-rl[flash-attn]`, git
+branch/commit/status, and disk space. The acceptance scripts default to
+`uv run --extra flash-attn ...` because Prime's trainer imports
+`ring_flash_attn`, which requires the FlashAttention 2 package on fresh CUDA
+hosts. By default the preflight expects at least 3 visible GPUs: policy
+inference, EMA teacher inference, and trainer. To intentionally run on a
+different topology, set `SDPO_ACCEPTANCE_MIN_GPUS`, but record that deviation
+with the proof evidence.
 
 The config preflight resolves both SDPO reference presets and should print:
 

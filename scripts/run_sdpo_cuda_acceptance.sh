@@ -83,7 +83,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
 read -r -a smoke_wrapper <<< "${SDPO_ACCEPTANCE_SMOKE_WRAPPER:-scripts/run_sdpo_smoke_and_verify.sh}"
-read -r -a python_runner <<< "${SDPO_ACCEPTANCE_PYTHON_RUNNER:-${SDPO_SMOKE_PYTHON_RUNNER:-uv run python}}"
+read -r -a python_runner <<< "${SDPO_ACCEPTANCE_PYTHON_RUNNER:-${SDPO_SMOKE_PYTHON_RUNNER:-uv run --extra flash-attn python}}"
 expected_topk=100
 live_config="configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml"
 ema_config="configs/debug/algorithms/sdpo_huebotter_reference_ema_smoke.toml"

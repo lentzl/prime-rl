@@ -126,7 +126,7 @@ done
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo_root"
 
-read -r -a python_runner <<< "${SDPO_ACCEPTANCE_PYTHON_RUNNER:-${SDPO_SMOKE_PYTHON_RUNNER:-uv run python}}"
+read -r -a python_runner <<< "${SDPO_ACCEPTANCE_PYTHON_RUNNER:-${SDPO_SMOKE_PYTHON_RUNNER:-uv run --extra flash-attn python}}"
 read -r -a acceptance_runner <<< "${SDPO_ACCEPTANCE_RUNNER:-scripts/run_sdpo_cuda_acceptance.sh}"
 min_gpus="${SDPO_ACCEPTANCE_MIN_GPUS:-3}"
 
@@ -158,6 +158,10 @@ run_host_preflight() {
       return 2
     fi
   done
+  if ! "${python_runner[@]}" -c "import flash_attn" >/dev/null 2>&1; then
+    echo "Error: SDPO CUDA acceptance requires flash_attn; use the default uv runner or include prime-rl[flash-attn] in SDPO_ACCEPTANCE_PYTHON_RUNNER." >&2
+    return 2
+  fi
   if ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
     echo "Error: missing required hashing command for SDPO CUDA acceptance: sha256sum or shasum" >&2
     return 2
