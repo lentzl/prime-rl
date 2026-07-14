@@ -312,6 +312,27 @@ class RLConfig(BaseConfig):
         return any(getattr(algo, "teacher_regularization", None) != "live-policy" for algo in self.sdpo_algorithms)
 
     @model_validator(mode="after")
+    def validate_sdpo_sampling_temperature(self):
+        sdpo_envs = [env for env in self.orchestrator.train.env if getattr(env.algo, "type", None) == "sdpo"]
+        if not sdpo_envs and not self.orchestrator.train.env:
+            if getattr(self.orchestrator.algo, "type", None) != "sdpo":
+                return self
+            temperatures = [("orchestrator.train.sampling", self.orchestrator.train.sampling.temperature)]
+        else:
+            temperatures = [
+                (f"orchestrator.train.env[{env.resolved_name!r}].sampling", env.sampling.temperature)
+                for env in sdpo_envs
+            ]
+
+        for context, temperature in temperatures:
+            if temperature != 1.0:
+                raise ValueError(
+                    f"sdpo requires {context}.temperature=1.0 because vLLM teacher logprobs are returned "
+                    "before sampling-temperature transforms."
+                )
+        return self
+
+    @model_validator(mode="after")
     def auto_setup_sdpo_runtime(self):
         algorithms = self.sdpo_algorithms
         if not algorithms:

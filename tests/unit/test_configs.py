@@ -200,7 +200,7 @@ def test_trainer_enable_token_export_cli_flag():
     assert cli(TrainerConfig, args=["--enable-token-export"]).enable_token_export
 
 
-def test_sdpo_defaults_pin_reference_knobs_and_current_teacher_mode():
+def test_sdpo_defaults_pin_reference_knobs_and_ema_teacher_mode():
     trainer = TrainerConfig.model_validate({})
     assert trainer.sdpo_loss.full_logit_distillation
     assert trainer.sdpo_loss.distillation_topk == 100
@@ -214,7 +214,7 @@ def test_sdpo_defaults_pin_reference_knobs_and_current_teacher_mode():
     assert trainer.sdpo_runtime.teacher_update_rate == 0.05
 
     sdpo = TypeAdapter(AlgorithmConfig).validate_python({"type": "sdpo"})
-    assert sdpo.teacher_regularization == "live-policy"
+    assert sdpo.teacher_regularization == "ema"
     assert sdpo.teacher_update_rate == 0.05
     assert sdpo.distillation_topk == 100
     assert sdpo.distillation_topk_support == "student"
@@ -356,7 +356,7 @@ def test_sdpo_config_accepts_cli_boolean_strings_for_behavior_knobs(tmp_path):
             "trainer": {"model": {"fused_lm_head_token_chunk_size": "disabled"}},
             "orchestrator": {
                 "renderer": {"name": "qwen3"},
-                "algo": {"type": "sdpo"},
+                "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
                 "train": {"env": [{"id": "reverse-text"}]},
             },
         },
@@ -559,7 +559,7 @@ def _rl_sdpo_student_support_config(**overrides):
         "trainer": {},
         "orchestrator": {
             "renderer": {"name": "qwen3"},
-            "algo": {"type": "sdpo"},
+            "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
             "train": {"env": [{"id": "reverse-text"}]},
         },
     }
@@ -614,6 +614,47 @@ def _assert_sdpo_reference_smoke_knobs(config, *, teacher_regularization: str):
     assert config.trainer.sdpo_runtime.teacher_regularization == teacher_regularization
     assert config.trainer.sdpo_runtime.teacher_update_rate == 0.05
     assert config.trainer.model.cp == 1
+
+
+def test_rl_config_requires_provisioning_for_default_sdpo_ema_teacher():
+    with pytest.raises(ValidationError, match="requires orchestrator.sdpo_teacher"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo"},
+                    "train": {"env": [{"id": "reverse-text"}]},
+                },
+            }
+        )
+
+
+@pytest.mark.parametrize(
+    "train",
+    [
+        {
+            "sampling": {"temperature": 0.7},
+            "env": [{"id": "reverse-text"}],
+        },
+        {
+            "sampling": {"temperature": 1.0},
+            "env": [{"id": "reverse-text", "sampling": {"temperature": 0.7}}],
+        },
+    ],
+)
+def test_rl_config_rejects_non_unit_sdpo_sampling_temperature(train):
+    with pytest.raises(ValidationError, match=r"sdpo requires .*\.temperature=1\.0"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "renderer": {"name": "qwen3"},
+                    "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
+                    "train": train,
+                },
+            }
+        )
 
 
 def test_rl_config_allows_sdpo_student_support_when_preflight_requirements_are_met():
@@ -697,7 +738,11 @@ def test_rl_config_keeps_teacher_support_ablation_off_preflight_path():
             "trainer": {},
             "orchestrator": {
                 "renderer": {"name": "qwen3"},
-                "algo": {"type": "sdpo", "distillation_topk_support": "teacher"},
+                "algo": {
+                    "type": "sdpo",
+                    "teacher_regularization": "live-policy",
+                    "distillation_topk_support": "teacher",
+                },
                 "train": {"env": [{"id": "reverse-text"}]},
             },
         }
@@ -718,7 +763,13 @@ def test_rl_config_rejects_sdpo_student_support_when_topk_exceeds_vllm_candidate
         RLConfig.model_validate(
             _rl_sdpo_student_support_config(
                 trainer={"sdpo_loss": {"distillation_topk": oversized_topk}},
-                orchestrator={"algo": {"type": "sdpo", "distillation_topk": oversized_topk}},
+                orchestrator={
+                    "algo": {
+                        "type": "sdpo",
+                        "teacher_regularization": "live-policy",
+                        "distillation_topk": oversized_topk,
+                    }
+                },
             )
         )
 
@@ -732,6 +783,7 @@ def test_rl_config_allows_sdpo_teacher_support_ablation_above_student_candidate_
                 "renderer": {"name": "qwen3"},
                 "algo": {
                     "type": "sdpo",
+                    "teacher_regularization": "live-policy",
                     "distillation_topk": oversized_topk,
                     "distillation_topk_support": "teacher",
                 },
@@ -760,7 +812,11 @@ def test_rl_config_rejects_sdpo_teacher_support_without_trainer_logits():
                 "trainer": {"model": {"fused_lm_head_token_chunk_size": "auto"}},
                 "orchestrator": {
                     "renderer": {"name": "qwen3"},
-                    "algo": {"type": "sdpo", "distillation_topk_support": "teacher"},
+                    "algo": {
+                        "type": "sdpo",
+                        "teacher_regularization": "live-policy",
+                        "distillation_topk_support": "teacher",
+                    },
                     "train": {"env": [{"id": "reverse-text"}]},
                 },
             }
@@ -785,7 +841,9 @@ def test_rl_config_rejects_sdpo_student_support_when_topk_mismatches_trainer():
     with pytest.raises(ValidationError, match="distillation_topk"):
         RLConfig.model_validate(
             _rl_sdpo_student_support_config(
-                orchestrator={"algo": {"type": "sdpo", "distillation_topk": 64}},
+                orchestrator={
+                    "algo": {"type": "sdpo", "teacher_regularization": "live-policy", "distillation_topk": 64}
+                },
             )
         )
 
@@ -797,7 +855,12 @@ def test_rl_config_rejects_sdpo_teacher_support_when_topk_mismatches_trainer():
                 "trainer": {},
                 "orchestrator": {
                     "renderer": {"name": "qwen3"},
-                    "algo": {"type": "sdpo", "distillation_topk": 64, "distillation_topk_support": "teacher"},
+                    "algo": {
+                        "type": "sdpo",
+                        "teacher_regularization": "live-policy",
+                        "distillation_topk": 64,
+                        "distillation_topk_support": "teacher",
+                    },
                     "train": {"env": [{"id": "reverse-text"}]},
                 },
             }
@@ -818,7 +881,11 @@ def test_rl_config_rejects_sdpo_when_trainer_sdpo_loss_is_not_topk_full_logit(sd
                 "trainer": {"sdpo_loss": sdpo_loss},
                 "orchestrator": {
                     "renderer": {"name": "qwen3"},
-                    "algo": {"type": "sdpo", "distillation_topk_support": "teacher"},
+                    "algo": {
+                        "type": "sdpo",
+                        "teacher_regularization": "live-policy",
+                        "distillation_topk_support": "teacher",
+                    },
                     "train": {"env": [{"id": "reverse-text"}]},
                 },
             }
@@ -836,7 +903,7 @@ def test_rl_config_detects_env_level_sdpo_student_support():
                     "env": [
                         {
                             "id": "reverse-text",
-                            "algo": {"type": "sdpo"},
+                            "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
                         }
                     ]
                 },
@@ -853,7 +920,7 @@ def test_rl_config_detects_top_level_sdpo_inherited_by_explicit_train_envs():
             "trainer": {"model": {"fused_lm_head_token_chunk_size": "disabled"}},
             "orchestrator": {
                 "renderer": {"name": "qwen3"},
-                "algo": {"type": "sdpo"},
+                "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
                 "train": {"env": [{"id": "reverse-text"}, {"id": "reverse-text", "name": "second"}]},
             },
         }
@@ -874,7 +941,7 @@ def test_rl_config_rejects_top_level_sdpo_inherited_by_train_envs_when_trainer_l
                 "trainer": {"model": {"fused_lm_head_token_chunk_size": "auto"}},
                 "orchestrator": {
                     "renderer": {"name": "qwen3"},
-                    "algo": {"type": "sdpo"},
+                    "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
                     "train": {"env": [{"id": "reverse-text"}]},
                 },
             }
@@ -888,7 +955,7 @@ def test_rl_config_detects_top_level_sdpo_without_train_env_for_validation():
                 "trainer": {"model": {"fused_lm_head_token_chunk_size": "auto"}},
                 "orchestrator": {
                     "renderer": {"name": "qwen3"},
-                    "algo": {"type": "sdpo"},
+                    "algo": {"type": "sdpo", "teacher_regularization": "live-policy"},
                 },
             }
         )
@@ -923,9 +990,21 @@ def test_rl_config_rejects_env_level_sdpo_topk_mismatch_with_trainer():
                             {
                                 "id": "reverse-text",
                                 "name": "sdpo-a",
-                                "algo": {"type": "sdpo", "distillation_topk": 100},
+                                "algo": {
+                                    "type": "sdpo",
+                                    "teacher_regularization": "live-policy",
+                                    "distillation_topk": 100,
+                                },
                             },
-                            {"id": "reverse-text", "name": "sdpo-b", "algo": {"type": "sdpo", "distillation_topk": 64}},
+                            {
+                                "id": "reverse-text",
+                                "name": "sdpo-b",
+                                "algo": {
+                                    "type": "sdpo",
+                                    "teacher_regularization": "live-policy",
+                                    "distillation_topk": 64,
+                                },
+                            },
                         ]
                     },
                 },

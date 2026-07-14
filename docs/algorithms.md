@@ -70,7 +70,7 @@ type = "grpo"  # the default
 | `opd` | policy | `ref_kl` on actions | On-policy distillation ([Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)): the policy samples, per-token reverse KL against a reference model as the gradient signal. Needs a `teacher`. |
 | `sft` | *(the teacher)* | `ce` on actions | Hard distillation: a frozen model generates rollouts, the policy trains with CE on its tokens. Needs a `teacher` (folds into `sampling.source`). |
 | `opsd` | policy | `ref_kl` on actions | SDFT ([arXiv:2601.19897](https://arxiv.org/abs/2601.19897)): the model is its own reference, conditioned on an expert demonstration. Defaults to the live policy (the paper's setting, no extra deployment); set an inline `model` to score under a frozen copy instead. |
-| `sdpo` | policy | `sdpo` on actions | Feedback-conditioned self-distillation: after a sampled group finishes, rollouts with a valid hindsight target are rescored under a teacher conditioned on successful sibling demonstrations and/or environment feedback. By default, `distillation_topk_support = "student"` runs a preflight trainer forward for those hindsight-valid targets to export student-selected top-k ids before teacher rescoring, matching the Hübotter top-k path. The lightweight live-policy path remains available, and the EMA path maintains a separate self-distillation teacher endpoint. |
+| `sdpo` | policy | `sdpo` on actions | Feedback-conditioned self-distillation: after a sampled group finishes, rollouts with a valid hindsight target are rescored under a teacher conditioned on successful sibling demonstrations and/or environment feedback. By default, `distillation_topk_support = "student"` runs a preflight trainer forward for those hindsight-valid targets to export student-selected top-k ids before teacher rescoring, matching the Hübotter top-k path. The reference-default EMA path maintains a separate self-distillation teacher endpoint; the lightweight live-policy path remains available as an explicit ablation. |
 | `echo` | policy | `rl` on actions + weighted `ce` on observations | ECHO: standard GRPO plus a cross-entropy loss on env-provided tokens already present in the rollout, selected by message role (needs the renderer's role attribution). Defaults to tool-response bodies at `alpha = 0.1` (ECHO's λ); set `roles` to train other roles, each at its own weight. |
 | `reward` | policy | `rl` on actions | REINFORCE-style: advantage = raw reward, no group baseline. |
 | `custom` | policy | `rl` on actions | Your own advantage function (`import_path`), per-token advantages per rollout — see [Custom Advantage](#custom-advantage). |
@@ -382,7 +382,7 @@ max_concurrent = 64
 [orchestrator.algo]
 type = "sdpo"
 model = "policy"
-teacher_regularization = "live-policy"
+teacher_regularization = "ema"
 distillation_topk = 100
 distillation_topk_support = "student"
 success_reward_threshold = 0.5
@@ -394,6 +394,11 @@ template_target = "first_user"
 [inference.vllm_extra]
 max_logprobs = 100
 ```
+
+EMA requires a distinct teacher inference endpoint. In a single-node run,
+`deployment.num_sdpo_teacher_gpus > 0` auto-launches it; use
+`teacher_regularization = "live-policy"` explicitly for the lower-resource
+unregularized ablation.
 
 Only batch survivors get scored — rollouts that are filtered or cancelled never cost reference compute. The time shows up as `time/scoring` in the step timing.
 

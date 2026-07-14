@@ -164,7 +164,11 @@ def test_rl_loss_type_incompatible_with_frozen_sampling():
 
 def test_sdpo_policy_teacher_uses_live_policy_pool():
     policy_pool = MagicMock()
-    algo = SDPOAlgorithm(_build(type="sdpo", model="policy"), policy_pool, _CaptureRenderer(token_ids=[101, 102]))
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", model="policy", teacher_regularization="live-policy"),
+        policy_pool,
+        _CaptureRenderer(token_ids=[101, 102]),
+    )
 
     asyncio.run(algo.setup())
 
@@ -431,6 +435,13 @@ def _node(message, *, parent, sampled, token_ids, logprobs=None) -> MessageNode:
     )
 
 
+def _trace_to_unit_temperature_samples(rollout: Rollout) -> list[TrainingSample]:
+    samples = trace_to_samples(rollout, env_name="test-env")
+    for sample in samples:
+        sample.temperatures = [1.0] * len(sample.token_ids)
+    return samples
+
+
 def _two_turn_rollout(observation_role: str = "tool", *, reward: float = 1.0) -> Rollout:
     """A single linear branch: user prompt, an assistant response, an
     env-provided observation (tool output / user feedback), then a second
@@ -447,7 +458,7 @@ def _two_turn_rollout(observation_role: str = "tool", *, reward: float = 1.0) ->
         _node(AssistantMessage(content="A2"), parent=2, sampled=True, token_ids=[7, 8], logprobs=[-0.3, -0.4]),
     ]
     rollout = Rollout(task=vf.Task(idx=0, prompt=None), nodes=nodes, rewards={"r": reward}, env_name="test-env")
-    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    rollout.samples = _trace_to_unit_temperature_samples(rollout)
     return rollout
 
 
@@ -461,7 +472,7 @@ def _branching_rollout() -> Rollout:
         _node(AssistantMessage(content="right-1"), parent=0, sampled=True, token_ids=[7, 8], logprobs=[-0.4, -0.5]),
     ]
     rollout = Rollout(task=vf.Task(idx=0, prompt=None), nodes=nodes, rewards={"r": 1.0}, env_name="test-env")
-    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    rollout.samples = _trace_to_unit_temperature_samples(rollout)
     return rollout
 
 
@@ -610,7 +621,7 @@ def _single_turn_rollout(
     )
     if group_id is not None:
         rollout.group_id = group_id
-    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    rollout.samples = _trace_to_unit_temperature_samples(rollout)
     return rollout
 
 
@@ -633,7 +644,7 @@ def _single_turn_rollout_with_nontrainable_leaf_before_sampled_leaf(*, reward: f
         rewards={"r": reward},
         env_name="test-env",
     )
-    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    rollout.samples = _trace_to_unit_temperature_samples(rollout)
     return rollout
 
 

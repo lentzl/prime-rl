@@ -69,6 +69,12 @@ implementation therefore adds a narrow `sdpo` component rather than overloading
   a valid hindsight target are kept out of the `sdpo` denominator instead of
   silently training against an unconditioned teacher.
 
+`SDPOAlgorithmConfig` defaults to EMA teacher regularization, matching the
+paper's selected configurations and the executable Hübotter YAML. The
+`live-policy` mode remains available only as an explicit lower-resource
+ablation; a full Prime `rl` launch using the EMA default must provide a distinct
+teacher endpoint or request an auto-launched single-node teacher deployment.
+
 The lower-level loss primitive keeps sampled-token and full-vocabulary
 reference cases covered so the math remains tied to the Hübotter/`verl`
 lineage. The launchable Prime `rl` integration supports full-logit top-k SDPO:

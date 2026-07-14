@@ -386,11 +386,12 @@ class SDPOAlgorithmConfig(BaseAlgorithmConfig):
     the original self-distillation setup; a frozen hosted model can be used for
     ``live-policy`` teacher ablations."""
 
-    teacher_regularization: Literal["live-policy", "ema", "trust-region"] = "live-policy"
-    """Teacher update semantics. ``live-policy`` scores against the resolved
-    teacher reference without a separately maintained teacher. ``ema`` uses a
-    separately maintained self-distillation teacher. ``trust-region`` is kept in
-    the schema for the loss primitive but is not launchable until a reference
+    teacher_regularization: Literal["live-policy", "ema", "trust-region"] = "ema"
+    """Teacher update semantics. ``ema`` is the Hübotter reference default and
+    uses a separately maintained self-distillation teacher. ``live-policy`` is
+    the lower-resource ablation that scores against the resolved teacher
+    reference without a separately maintained teacher. ``trust-region`` is kept
+    in the schema for the loss primitive but is not launchable until a reference
     module source is defined."""
 
     teacher_update_rate: float = Field(0.05, ge=0, le=1)
