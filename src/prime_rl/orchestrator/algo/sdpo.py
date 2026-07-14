@@ -696,6 +696,7 @@ class SDPOAlgorithm(Algorithm):
             if not positions:
                 self._clear_sdpo_target(sample)
                 return
+            self._require_unit_teacher_temperatures(sample, positions, rollout.env_name)
             self._reject_precomputed_rollout_is_weights(sample, positions)
             target_offsets = [i - sampled_node_start for i in positions]
             completion_ids = list(sampled_node.token_ids)
@@ -750,6 +751,7 @@ class SDPOAlgorithm(Algorithm):
                             self._zero_sdpo_positions(sample, positions)
                             offset += len(node.token_ids)
                             continue
+                        self._require_unit_teacher_temperatures(sample, positions, rollout.env_name)
                         self._reject_precomputed_rollout_is_weights(sample, positions)
                         ensure_output_support_initialized()
                         prefix_ids = self._teacher_prefix_ids(
@@ -872,6 +874,31 @@ class SDPOAlgorithm(Algorithm):
                 raise ValueError(
                     f"sdpo teacher top-k row probability mass exceeds 1 "
                     f"(env '{env_name}', row={row_idx}, mass={row_mass:.6g})."
+                )
+
+    def _require_unit_teacher_temperatures(
+        self,
+        sample: TrainingSample,
+        positions: list[int],
+        env_name: str,
+    ) -> None:
+        if len(sample.temperatures) != len(sample.token_ids):
+            raise ValueError(
+                f"sdpo teacher scoring requires one temperature per token "
+                f"(env '{env_name}', temperatures={len(sample.temperatures)}, tokens={len(sample.token_ids)})."
+            )
+        for position in positions:
+            temperature = sample.temperatures[position]
+            if (
+                isinstance(temperature, bool)
+                or not isinstance(temperature, (int, float))
+                or not math.isfinite(float(temperature))
+                or not math.isclose(float(temperature), 1.0, rel_tol=0.0, abs_tol=1e-9)
+            ):
+                raise ValueError(
+                    f"sdpo vLLM teacher scoring requires temperature 1.0 because selected-token and prompt "
+                    f"logprobs are returned before sampling-temperature transforms "
+                    f"(env '{env_name}', position={position}, temperature={temperature!r})."
                 )
 
     def _validate_token_rows(

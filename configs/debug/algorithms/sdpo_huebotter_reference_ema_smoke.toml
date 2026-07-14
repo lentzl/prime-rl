@@ -68,6 +68,7 @@ feedback_template = "\nThe following is feedback from your unsuccessful earlier 
 name = "qwen3"
 
 [orchestrator.train.sampling]
+temperature = 1.0
 max_completion_tokens = 128
 
 [[orchestrator.train.env]]

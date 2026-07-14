@@ -64,6 +64,7 @@ feedback_template = "\nThe following is feedback from your unsuccessful earlier 
 name = "qwen3"
 
 [orchestrator.train.sampling]
+temperature = 1.0
 max_completion_tokens = 128
 
 [[orchestrator.train.env]]
@@ -108,5 +109,5 @@ gpu_memory_utilization = 0.5
 
 [inference.vllm_extra]
 # vLLM defaults to 20, but the reference SDPO path rescores 100 student-selected
-# candidates per token through prompt logprobs.
+# candidates per token through exact selected-token logprobs.
 max_logprobs = 100

@@ -298,7 +298,7 @@ def _make_sample(ce_weights: list[float] | None = None) -> TrainingSample:
         token_ids=[1, 2, 3, 4, 5, 6],
         mask=[False, False, True, True, False, True],
         logprobs=[0.0, 0.0, -0.1, -0.2, 0.0, -0.3],
-        temperatures=[],
+        temperatures=[1.0] * 6,
         env_name="test-env",
         ce_weights=ce_weights,
     )
@@ -1517,6 +1517,33 @@ def test_sdpo_student_support_scores_candidate_rows_in_one_exact_context(monkeyp
         [0.0, 0.0],
         [0.0, 0.0],
     ]
+
+
+@pytest.mark.parametrize("temperature", [0.7, float("nan"), True])
+def test_sdpo_teacher_scoring_rejects_unscaled_target_temperatures(temperature):
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
+        MagicMock(),
+        _CaptureRenderer(token_ids=[101, 102]),
+    )
+    sample = _make_sample()
+    sample.temperatures[2] = temperature
+
+    with pytest.raises(ValueError, match="requires temperature 1.0"):
+        algo._require_unit_teacher_temperatures(sample, [2], "test-env")
+
+
+def test_sdpo_teacher_scoring_requires_token_aligned_temperatures():
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", distillation_topk=2, distillation_topk_support="teacher"),
+        MagicMock(),
+        _CaptureRenderer(token_ids=[101, 102]),
+    )
+    sample = _make_sample()
+    sample.temperatures = [1.0]
+
+    with pytest.raises(ValueError, match="requires one temperature per token"):
+        algo._require_unit_teacher_temperatures(sample, [2], "test-env")
 
 
 def test_sdpo_student_support_requires_prepopulated_candidate_ids(monkeypatch):

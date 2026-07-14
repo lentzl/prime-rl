@@ -52,6 +52,7 @@ def _write_smoke_provenance(
                 "inference.vllm_extra.max_logprobs=2",
                 "orchestrator.algo.distillation_topk=2",
                 "orchestrator.algo.distillation_topk_support=student",
+                "orchestrator.train.sampling.temperature=1.0",
                 f"orchestrator.algo.teacher_regularization={teacher_regularization}",
                 "orchestrator.algo.teacher_update_rate=0.05",
                 "orchestrator.algo.success_reward_threshold=0.5",

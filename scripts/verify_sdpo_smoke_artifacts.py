@@ -8,6 +8,7 @@ from pathlib import Path
 from prime_rl.trainer.rl.sdpo_export_verify import verify_sdpo_smoke_artifacts
 
 REFERENCE_PROVENANCE_FIELDS = {
+    "orchestrator.train.sampling.temperature": "1.0",
     "orchestrator.algo.distillation_topk_support": "student",
     "orchestrator.algo.teacher_update_rate": "0.05",
     "orchestrator.algo.success_reward_threshold": "0.5",

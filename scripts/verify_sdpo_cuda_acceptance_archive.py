@@ -91,6 +91,7 @@ EXPECTED_PROVENANCE = {
 }
 EXPECTED_REFERENCE_PROVENANCE_FIELDS = {
     "inference.vllm_extra.max_logprobs": "100",
+    "orchestrator.train.sampling.temperature": "1.0",
     "orchestrator.algo.distillation_topk": "100",
     "orchestrator.algo.distillation_topk_support": "student",
     "orchestrator.algo.teacher_update_rate": "0.05",

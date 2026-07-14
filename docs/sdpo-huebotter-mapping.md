@@ -60,6 +60,11 @@ implementation therefore adds a narrow `sdpo` component rather than overloading
   asks the feedback-conditioned teacher to score exactly those ids.
 - `distillation_topk_support="teacher"` remains a lighter smoke/ablation path
   where the teacher chooses the support directly.
+- The vLLM-backed teacher scorer currently requires train sampling temperature
+  `1.0`. Hübotter divides both student and teacher logits by the same rollout
+  temperature, while vLLM exposes selected-token and prompt logprobs before
+  sampling-temperature transforms. Prime rejects non-unit target temperatures
+  instead of silently comparing distributions with different scaling.
 - `sdpo_weights` plays the role of the self-distillation mask: rollouts without
   a valid hindsight target are kept out of the `sdpo` denominator instead of
   silently training against an unconditioned teacher.
@@ -199,7 +204,8 @@ wrapper also writes `sdpo_smoke_provenance.txt` into the output directory. That
 file records the smoke mode, config path, expected top-k width, resolved
 reference SDPO knobs, git commit, branch, runner commands, `git status --short`,
 and SHA-256 fingerprints of the tracked diff, staged diff, and untracked-file
-content manifest. The resolved knobs include student top-k support, live/EMA
+content manifest. The resolved knobs include unit train sampling temperature,
+student top-k support, live/EMA
 teacher regularization, self-success masking, batch-order successful-sibling
 selection, feedback inclusion, `template_target = "first_user"`, and trainer
 SDPO loss settings. It also embeds the readable untracked-file manifest, with
@@ -257,7 +263,8 @@ uv run python scripts/verify_sdpo_cuda_acceptance_archive.py \
 Passing the config-check commands proves only configuration fidelity for the
 live and EMA presets. Passing the combined CUDA acceptance command, or its
 expanded live and EMA smoke commands, proves that the Prime
-orchestration, vLLM prefill APIs, trainer preflight export, teacher rescoring,
+orchestration, vLLM prompt and selected-token scoring APIs, trainer preflight
+export, teacher rescoring,
 final SDPO training batch, rollout importance evidence, and EMA teacher
 broadcasts work together in the real runtime. The semantic proof is the verifier
 output; `sdpo_smoke_provenance.txt` is the reproducibility breadcrumb for that

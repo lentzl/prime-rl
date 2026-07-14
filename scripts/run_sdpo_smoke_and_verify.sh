@@ -245,6 +245,7 @@ write_smoke_provenance() {
     echo "inference.vllm_extra.max_logprobs=$inference_max_logprobs"
     echo "orchestrator.algo.distillation_topk=$algorithm_topk"
     echo "orchestrator.algo.distillation_topk_support=$algorithm_topk_support"
+    echo "orchestrator.train.sampling.temperature=$train_temperature"
     echo "orchestrator.algo.teacher_regularization=$algorithm_teacher_regularization"
     echo "orchestrator.algo.teacher_update_rate=$algorithm_teacher_update_rate"
     echo "orchestrator.algo.success_reward_threshold=$success_reward_threshold"
@@ -304,6 +305,7 @@ print(f"deployment.num_sdpo_teacher_gpus={cfg.deployment.num_sdpo_teacher_gpus}"
 print(f"orchestrator.batch_size={cfg.orchestrator.batch_size}")
 print(f"orchestrator.group_size={cfg.orchestrator.group_size}")
 print(f"orchestrator.renderer.name={cfg.orchestrator.renderer.name}")
+print(f"orchestrator.train.sampling.temperature={cfg.orchestrator.train.sampling.temperature}")
 print(f"orchestrator.train.sampling.max_completion_tokens={cfg.orchestrator.train.sampling.max_completion_tokens}")
 print(f"orchestrator.train.env_ids={[env.env_id for env in cfg.orchestrator.train.env]}")
 print(f"orchestrator.eval.interval={None if cfg.orchestrator.eval is None else cfg.orchestrator.eval.interval}")
@@ -378,6 +380,11 @@ fi
 renderer_name="$(resolve_config_value orchestrator.renderer.name)"
 if [[ "$renderer_name" != "qwen3" ]]; then
   echo "Error: SDPO reference smoke requires orchestrator.renderer.name='qwen3' (got $renderer_name)" >&2
+  exit 2
+fi
+train_temperature="$(resolve_config_value orchestrator.train.sampling.temperature)"
+if [[ "$train_temperature" != "1.0" ]]; then
+  echo "Error: SDPO reference smoke requires orchestrator.train.sampling.temperature=1.0 for exact vLLM teacher logprobs (got $train_temperature)" >&2
   exit 2
 fi
 train_max_completion_tokens="$(resolve_config_value orchestrator.train.sampling.max_completion_tokens)"

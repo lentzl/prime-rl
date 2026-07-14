@@ -976,6 +976,7 @@ def test_sdpo_smoke_script_check_config_prints_algorithm_topk_support(tmp_path):
     assert "seq_len=2048" in result.stdout
     assert "orchestrator.algo.distillation_topk=100" in result.stdout
     assert "orchestrator.algo.distillation_topk_support=student" in result.stdout
+    assert "orchestrator.train.sampling.temperature=1.0" in result.stdout
     assert "orchestrator.algo.model=policy" in result.stdout
     assert "orchestrator.batch_size=32" in result.stdout
     assert "orchestrator.group_size=8" in result.stdout
@@ -1089,6 +1090,7 @@ def test_sdpo_smoke_script_check_config_rejects_non_reference_values(tmp_path):
         ("SDPO_FAKE_BATCH_SIZE", "8", "orchestrator.batch_size=32"),
         ("SDPO_FAKE_GROUP_SIZE", "1", "orchestrator.group_size=8"),
         ("SDPO_FAKE_RENDERER_NAME", "auto", "orchestrator.renderer.name='qwen3'"),
+        ("SDPO_FAKE_TRAIN_TEMPERATURE", "0.7", "orchestrator.train.sampling.temperature=1.0"),
         (
             "SDPO_FAKE_TRAIN_MAX_COMPLETION_TOKENS",
             "64",
@@ -1182,6 +1184,7 @@ deployment.num_sdpo_teacher_gpus=$([[ "${mode}" == "ema" ]] && echo "${SDPO_FAKE
 orchestrator.batch_size=${SDPO_FAKE_BATCH_SIZE:-32}
 orchestrator.group_size=${SDPO_FAKE_GROUP_SIZE:-8}
 orchestrator.renderer.name=${SDPO_FAKE_RENDERER_NAME:-qwen3}
+orchestrator.train.sampling.temperature=${SDPO_FAKE_TRAIN_TEMPERATURE:-1.0}
 orchestrator.train.sampling.max_completion_tokens=${SDPO_FAKE_TRAIN_MAX_COMPLETION_TOKENS:-128}
 orchestrator.train.env_ids=${SDPO_FAKE_TRAIN_ENV_IDS:-['reverse-text']}
 orchestrator.eval.interval=${SDPO_FAKE_EVAL_INTERVAL:-1}
@@ -1260,6 +1263,9 @@ EOF
       ;;
     orchestrator.eval.env_ids)
       if [[ -n "${SDPO_FAKE_EVAL_ENV_IDS:-}" ]]; then echo "${SDPO_FAKE_EVAL_ENV_IDS}"; else echo "['reverse-text']"; fi
+      ;;
+    orchestrator.train.sampling.temperature)
+      if [[ -n "${SDPO_FAKE_TRAIN_TEMPERATURE:-}" ]]; then echo "${SDPO_FAKE_TRAIN_TEMPERATURE}"; else echo "1.0"; fi
       ;;
     inference.vllm_extra.max_logprobs)
       if [[ -n "${SDPO_FAKE_INFERENCE_MAX_LOGPROBS:-}" ]]; then echo "${SDPO_FAKE_INFERENCE_MAX_LOGPROBS}"; else echo "100"; fi
@@ -1468,6 +1474,7 @@ expected_topk=100
 inference.vllm_extra.max_logprobs=100
 orchestrator.algo.distillation_topk=100
 orchestrator.algo.distillation_topk_support=student
+orchestrator.train.sampling.temperature=1.0
 orchestrator.algo.teacher_regularization=$teacher_regularization
 orchestrator.algo.teacher_update_rate=0.05
 orchestrator.algo.success_reward_threshold=0.5
@@ -1694,6 +1701,7 @@ def _sdpo_acceptance_provenance_bytes(
         f"inference.vllm_extra.max_logprobs={expected_topk}\n"
         f"orchestrator.algo.distillation_topk={expected_topk}\n"
         "orchestrator.algo.distillation_topk_support=student\n"
+        "orchestrator.train.sampling.temperature=1.0\n"
         f"orchestrator.algo.teacher_regularization={teacher_regularization}\n"
         "orchestrator.algo.teacher_update_rate=0.05\n"
         "orchestrator.algo.success_reward_threshold=0.5\n"
@@ -1930,6 +1938,7 @@ def _minimal_sdpo_smoke_provenance(*, extra: str = "") -> str:
         "inference.vllm_extra.max_logprobs=2\n"
         "orchestrator.algo.distillation_topk=2\n"
         "orchestrator.algo.distillation_topk_support=student\n"
+        "orchestrator.train.sampling.temperature=1.0\n"
         "orchestrator.algo.teacher_regularization=live-policy\n"
         "orchestrator.algo.teacher_update_rate=0.05\n"
         "orchestrator.algo.success_reward_threshold=0.5\n"
@@ -3757,6 +3766,7 @@ def test_sdpo_smoke_script_runs_training_then_strict_artifact_verifier(tmp_path)
     assert "inference.vllm_extra.max_logprobs=100" in provenance
     assert "orchestrator.algo.distillation_topk=100" in provenance
     assert "orchestrator.algo.distillation_topk_support=student" in provenance
+    assert "orchestrator.train.sampling.temperature=1.0" in provenance
     assert "orchestrator.algo.teacher_regularization=live-policy" in provenance
     assert "orchestrator.algo.successful_demonstration_selection=batch_order" in provenance
     assert "orchestrator.algo.template_target=first_user" in provenance
