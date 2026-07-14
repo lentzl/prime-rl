@@ -23,7 +23,7 @@ from prime_rl.utils.utils import (
     get_step_path,
 )
 
-MAX_PREFILL_CANDIDATE_TOKEN_IDS = SDPO_MAX_STUDENT_SUPPORT_TOPK
+MAX_NEXT_TOKEN_CANDIDATE_TOKEN_IDS = SDPO_MAX_STUDENT_SUPPORT_TOPK
 """vLLM 0.22 ``SamplingParams.logprob_token_ids`` per-request limit."""
 
 
@@ -329,19 +329,18 @@ async def compute_prefill_topk_logprobs(
     return token_rows, logprob_rows
 
 
-async def compute_prefill_candidate_logprobs(
+async def compute_next_token_candidate_logprobs(
     client_config: vf.ClientConfig,
     model_name: str,
     token_ids: list[int],
     candidate_token_ids: list[list[int]],
 ) -> list[list[float]]:
-    """Score caller-provided candidate token ids under ``model_name`` via
-    prefill.
+    """Score caller-provided candidates as next tokens of their exact prefixes.
 
-    vLLM 0.22 exposes ``SamplingParams.logprob_token_ids`` as one global
-    candidate list per request, so this helper is intentionally a single-span
-    primitive. If the per-position candidate union grows beyond vLLM's current
-    limit, callers should split the span before calling this function.
+    vLLM applies ``SamplingParams.logprob_token_ids`` to generated tokens, not
+    prompt logprobs. Issue one-token continuations so every returned value is
+    for the caller-selected support under the context immediately preceding
+    that position.
     """
     import os
 
@@ -351,32 +350,24 @@ async def compute_prefill_candidate_logprobs(
     _validate_prefill_token_ids(token_ids)
     if not isinstance(candidate_token_ids, list):
         raise ValueError(
-            f"prefill candidate token ids must be a list of rows, got {type(candidate_token_ids).__name__}"
+            f"next-token candidate token ids must be a list of rows, got {type(candidate_token_ids).__name__}"
         )
     if len(candidate_token_ids) != len(token_ids):
         raise ValueError(
             f"candidate row count must match token length ({len(candidate_token_ids)} != {len(token_ids)})"
         )
     if candidate_token_ids and candidate_token_ids[0]:
-        raise ValueError("prefill candidate logprobs cannot score candidate ids at position 0 without context")
+        raise ValueError("next-token candidate logprobs cannot score candidate ids at position 0 without context")
     for row_idx, row in enumerate(candidate_token_ids):
         if not isinstance(row, list):
             raise ValueError(
-                f"prefill candidate token ids rows must be lists (row={row_idx}, got={type(row).__name__})"
+                f"next-token candidate token ids rows must be lists (row={row_idx}, got={type(row).__name__})"
             )
         for token_id in row:
             if isinstance(token_id, bool) or not isinstance(token_id, int):
-                raise ValueError(f"prefill candidate token ids must be integers (row={row_idx})")
+                raise ValueError(f"next-token candidate token ids must be integers (row={row_idx})")
             if token_id < 0:
-                raise ValueError(f"prefill candidate token ids must be non-negative (row={row_idx})")
-
-    candidate_union = sorted({token_id for row in candidate_token_ids[1:] for token_id in row})
-    if len(candidate_union) > MAX_PREFILL_CANDIDATE_TOKEN_IDS:
-        raise ValueError(
-            f"prefill candidate logprobs received {len(candidate_union)} unique candidate token ids; "
-            f"vLLM 0.22 supports at most {MAX_PREFILL_CANDIDATE_TOKEN_IDS} per request. "
-            "Split the span before scoring."
-        )
+                raise ValueError(f"next-token candidate token ids must be non-negative (row={row_idx})")
 
     api_key = os.environ.get(client_config.api_key_var) or "EMPTY"
     client = AsyncOpenAI(
@@ -385,46 +376,57 @@ async def compute_prefill_candidate_logprobs(
         default_headers=client_config.headers or None,
     )
     base = str(client.base_url).rstrip("/").removesuffix("/v1")
-    sampling_params = {
-        "max_tokens": 1,
-        "temperature": 1.0,
-        "top_p": 1.0,
-        "prompt_logprobs": max(len(candidate_union), 1),
-    }
-    if candidate_union:
-        sampling_params["logprob_token_ids"] = candidate_union
-    http_response = await client.post(
-        f"{base}/inference/v1/generate",
-        cast_to=httpx.Response,
-        body={
-            "model": model_name,
-            "token_ids": token_ids,
-            "sampling_params": sampling_params,
-        },
-    )
-    http_response.raise_for_status()
-    response = _parse_generate_response(http_response.content)
-    prompt_logprobs = response.prompt_logprobs or []
-    if len(prompt_logprobs) != len(token_ids):
-        raise ValueError(f"prefill logprobs length != token length ({len(prompt_logprobs)} != {len(token_ids)})")
-
-    logprob_rows: list[list[float]] = []
-    for i, (candidates, entry) in enumerate(zip(candidate_token_ids, prompt_logprobs)):
+    logprob_rows: list[list[float]] = [[] for _ in token_ids]
+    for i, candidates in enumerate(candidate_token_ids):
         if not candidates:
-            logprob_rows.append([])
             continue
+        unique_candidates = list(dict.fromkeys(candidates))
+        if len(unique_candidates) > MAX_NEXT_TOKEN_CANDIDATE_TOKEN_IDS:
+            raise ValueError(
+                f"next-token candidate logprobs received {len(unique_candidates)} unique candidate token ids "
+                f"at position {i}; vLLM 0.22 supports at most {MAX_NEXT_TOKEN_CANDIDATE_TOKEN_IDS} per request."
+            )
+        prefix = token_ids[:i]
+        if not prefix:
+            raise ValueError(f"next-token candidate logprobs cannot score position {i} without context")
+        http_response = await client.post(
+            f"{base}/inference/v1/generate",
+            cast_to=httpx.Response,
+            body={
+                "model": model_name,
+                "token_ids": prefix,
+                "sampling_params": {
+                    "max_tokens": 1,
+                    "temperature": 1.0,
+                    "top_p": 1.0,
+                    "logprobs": len(unique_candidates),
+                    "logprob_token_ids": unique_candidates,
+                },
+            },
+        )
+        http_response.raise_for_status()
+        try:
+            payload = json.loads(http_response.content)
+            entry = payload["choices"][0]["requested_token_logprobs"][0]
+        except (IndexError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            raise ValueError(f"next-token candidate logprobs returned malformed entry at position {i}") from exc
         if not entry:
-            raise ValueError(f"prefill candidate logprobs missing entry at position {i}")
-        entry = _require_prefill_entry_mapping(entry, position=i, kind="prefill candidate logprobs")
+            raise ValueError(f"next-token candidate logprobs missing entry at position {i}")
+        entry = _require_prefill_entry_mapping(entry, position=i, kind="next-token candidate logprobs")
         row: list[float] = []
         for token_id in candidates:
             target = entry.get(str(token_id))
             if target is None:
                 target = entry.get(token_id)
             if target is None:
-                raise ValueError(f"prefill candidate logprobs missing token id {token_id} at position {i}")
-            row.append(_parse_prefill_logprob(target, token_id=token_id, position=i, kind="prefill candidate logprobs"))
-        logprob_rows.append(row)
+                raise ValueError(f"next-token candidate logprobs missing token id {token_id} at position {i}")
+            if isinstance(target, bool) or not isinstance(target, float) or not math.isfinite(target):
+                raise ValueError(
+                    f"next-token candidate logprobs returned non-finite or non-floating logprob "
+                    f"for token id {token_id} at position {i}"
+                )
+            row.append(target)
+        logprob_rows[i] = row
     return logprob_rows
 
 
@@ -439,12 +441,8 @@ def _validate_prefill_token_ids(token_ids: list[int]) -> None:
 
 
 def _parse_generate_response(content: bytes):
-    try:
-        from vllm.entrypoints.serve.disagg.protocol import GenerateResponse
-    except ModuleNotFoundError:
-        payload = json.loads(content)
-        return SimpleNamespace(prompt_logprobs=payload.get("prompt_logprobs"))
-    return GenerateResponse.model_validate_json(content)
+    payload = json.loads(content)
+    return SimpleNamespace(prompt_logprobs=payload.get("prompt_logprobs"))
 
 
 def get_weight_dir(output_dir: Path, step: int, check_exists: bool = True, wait_timeout: int | None = None) -> Path:

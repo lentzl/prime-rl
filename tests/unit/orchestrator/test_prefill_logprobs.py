@@ -32,8 +32,8 @@ class _FakeOpenAIClient:
         )
 
 
-def test_prefill_candidate_limit_matches_sdpo_student_support_config_limit():
-    assert orchestrator_utils.MAX_PREFILL_CANDIDATE_TOKEN_IDS == SDPO_MAX_STUDENT_SUPPORT_TOPK
+def test_next_token_candidate_limit_matches_sdpo_student_support_config_limit():
+    assert orchestrator_utils.MAX_NEXT_TOKEN_CANDIDATE_TOKEN_IDS == SDPO_MAX_STUDENT_SUPPORT_TOPK
 
 
 def test_compute_prefill_logprobs_uses_inference_generate(monkeypatch):
@@ -616,23 +616,27 @@ def test_compute_prefill_topk_logprobs_rejects_malformed_logprob_entry(monkeypat
     asyncio.run(_run())
 
 
-def test_compute_prefill_candidate_logprobs_requests_specific_token_ids(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient(
+def _candidate_response(values):
+    return {
+        "request_id": "gen-test",
+        "choices": [
             {
-                "request_id": "gen-test",
-                "choices": [],
-                "prompt_logprobs": [
-                    None,
-                    {"12": {"logprob": -0.1}, "11": {"logprob": -0.2}, "13": {"logprob": -0.4}},
-                    {"22": {"logprob": -0.3}, "21": {"logprob": -0.5}, "13": {"logprob": -0.9}},
-                ],
-                "kv_transfer_params": None,
+                "index": 0,
+                "token_ids": [3],
+                "requested_token_logprobs": [values],
             }
-        )
+        ],
+        "prompt_logprobs": None,
+        "kv_transfer_params": None,
+    }
+
+
+def test_compute_next_token_candidate_logprobs_scores_exact_next_token_support(monkeypatch):
+    async def _run():
+        fake_client = _FakeOpenAIClient(_candidate_response({"11": -0.2, "12": -0.1, "21": -0.5, "22": -0.3}))
         monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
 
-        logprobs = await orchestrator_utils.compute_prefill_candidate_logprobs(
+        logprobs = await orchestrator_utils.compute_next_token_candidate_logprobs(
             SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
             model_name="ref-model",
             token_ids=[1, 2, 3],
@@ -640,246 +644,40 @@ def test_compute_prefill_candidate_logprobs_requests_specific_token_ids(monkeypa
         )
 
         assert logprobs == [[], [-0.1, -0.2], [-0.5, -0.3]]
-        assert fake_client.calls[0]["body"]["sampling_params"] == {
-            "max_tokens": 1,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "prompt_logprobs": 4,
-            "logprob_token_ids": [11, 12, 21, 22],
-        }
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_nonfinite_logprob(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient(
+        assert [call["body"] for call in fake_client.calls] == [
             {
-                "request_id": "gen-test",
-                "choices": [],
-                "prompt_logprobs": [None, {"12": {"logprob": False}, "11": {"logprob": -0.2}}],
-                "kv_transfer_params": None,
-            }
-        )
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], [12, 11]],
-            )
-        except ValueError as exc:
-            assert "prefill candidate logprobs returned non-finite or non-floating logprob for token id 12" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_integer_logprob(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient(
+                "model": "ref-model",
+                "token_ids": [1],
+                "sampling_params": {
+                    "max_tokens": 1,
+                    "temperature": 1.0,
+                    "top_p": 1.0,
+                    "logprobs": 2,
+                    "logprob_token_ids": [12, 11],
+                },
+            },
             {
-                "request_id": "gen-test",
-                "choices": [],
-                "prompt_logprobs": [None, {"12": {"logprob": -1}, "11": {"logprob": -0.2}}],
-                "kv_transfer_params": None,
-            }
-        )
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], [12, 11]],
-            )
-        except ValueError as exc:
-            assert "prefill candidate logprobs returned non-finite or non-floating logprob for token id 12" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
+                "model": "ref-model",
+                "token_ids": [1, 2],
+                "sampling_params": {
+                    "max_tokens": 1,
+                    "temperature": 1.0,
+                    "top_p": 1.0,
+                    "logprobs": 2,
+                    "logprob_token_ids": [21, 22],
+                },
+            },
+        ]
 
     asyncio.run(_run())
 
 
-def test_compute_prefill_candidate_logprobs_rejects_malformed_response_entry(monkeypatch):
+def test_compute_next_token_candidate_logprobs_preserves_duplicate_candidates(monkeypatch):
     async def _run():
-        fake_client = _FakeOpenAIClient(
-            {
-                "request_id": "gen-test",
-                "choices": [],
-                "prompt_logprobs": [None, ["not", "a", "mapping"]],
-                "kv_transfer_params": None,
-            }
-        )
+        fake_client = _FakeOpenAIClient(_candidate_response({"11": -0.2, "12": -0.4}))
         monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
 
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], [12]],
-            )
-        except ValueError as exc:
-            assert "prefill candidate logprobs returned malformed entry at position 1" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_contextless_first_position_candidates(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient({"request_id": "unused", "choices": [], "prompt_logprobs": []})
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[11], [12]],
-            )
-        except ValueError as exc:
-            assert "cannot score candidate ids at position 0" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-        assert fake_client.calls == []
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_non_integer_candidates_before_request(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient({"request_id": "unused", "choices": [], "prompt_logprobs": []})
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], [12, True]],
-            )
-        except ValueError as exc:
-            assert "candidate token ids must be integers" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-        assert fake_client.calls == []
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_non_list_candidate_container_before_request(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient({"request_id": "unused", "choices": [], "prompt_logprobs": []})
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=([], [12]),
-            )
-        except ValueError as exc:
-            assert "prefill candidate token ids must be a list of rows" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-        assert fake_client.calls == []
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_non_list_candidate_rows_before_request(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient({"request_id": "unused", "choices": [], "prompt_logprobs": []})
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], (12, 13)],
-            )
-        except ValueError as exc:
-            assert "prefill candidate token ids rows must be lists" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-        assert fake_client.calls == []
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_negative_candidates_before_request(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient({"request_id": "unused", "choices": [], "prompt_logprobs": []})
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], [12, -1]],
-            )
-        except ValueError as exc:
-            assert "candidate token ids must be non-negative" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-        assert fake_client.calls == []
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_null_candidate_logprob(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient(
-            {
-                "request_id": "gen-test",
-                "choices": [],
-                "prompt_logprobs": [None, {"12": {"logprob": None}, "11": {"logprob": -0.2}}],
-                "kv_transfer_params": None,
-            }
-        )
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], [12, 11]],
-            )
-        except ValueError as exc:
-            assert "prefill candidate logprobs missing logprob for token id 12 at position 1" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_preserves_duplicate_candidate_rows(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient(
-            {
-                "request_id": "gen-test",
-                "choices": [],
-                "prompt_logprobs": [
-                    None,
-                    {"11": {"logprob": -0.2}, "12": {"logprob": -0.4}},
-                ],
-                "kv_transfer_params": None,
-            }
-        )
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        logprobs = await orchestrator_utils.compute_prefill_candidate_logprobs(
+        logprobs = await orchestrator_utils.compute_next_token_candidate_logprobs(
             SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
             model_name="ref-model",
             token_ids=[1, 2],
@@ -892,20 +690,79 @@ def test_compute_prefill_candidate_logprobs_preserves_duplicate_candidate_rows(m
     asyncio.run(_run())
 
 
-def test_compute_prefill_candidate_logprobs_rejects_missing_candidate(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient(
-            {
-                "request_id": "gen-test",
-                "choices": [],
-                "prompt_logprobs": [None, {"11": {"logprob": -0.2}}],
-                "kv_transfer_params": None,
-            }
-        )
+def test_compute_next_token_candidate_logprobs_rejects_bad_response_values(monkeypatch):
+    async def _run(value, expected):
+        fake_client = _FakeOpenAIClient(_candidate_response({"12": value}))
         monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
 
         try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
+            await orchestrator_utils.compute_next_token_candidate_logprobs(
+                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
+                model_name="ref-model",
+                token_ids=[1, 2],
+                candidate_token_ids=[[], [12]],
+            )
+        except ValueError as exc:
+            assert expected in str(exc)
+        else:
+            raise AssertionError("Expected ValueError")
+
+    asyncio.run(_run(None, "missing token id 12"))
+    asyncio.run(_run(-1, "non-finite or non-floating logprob"))
+    asyncio.run(_run(float("nan"), "non-finite or non-floating logprob"))
+
+
+def test_compute_next_token_candidate_logprobs_rejects_malformed_response(monkeypatch):
+    async def _run():
+        fake_client = _FakeOpenAIClient({"request_id": "gen-test", "choices": []})
+        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
+
+        try:
+            await orchestrator_utils.compute_next_token_candidate_logprobs(
+                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
+                model_name="ref-model",
+                token_ids=[1, 2],
+                candidate_token_ids=[[], [12]],
+            )
+        except ValueError as exc:
+            assert "malformed entry at position 1" in str(exc)
+        else:
+            raise AssertionError("Expected ValueError")
+
+    asyncio.run(_run())
+
+
+def test_compute_next_token_candidate_logprobs_rejects_invalid_inputs_before_request(monkeypatch):
+    async def _run(candidate_rows, expected):
+        fake_client = _FakeOpenAIClient({"request_id": "unused", "choices": []})
+        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
+
+        try:
+            await orchestrator_utils.compute_next_token_candidate_logprobs(
+                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
+                model_name="ref-model",
+                token_ids=[1, 2],
+                candidate_token_ids=candidate_rows,
+            )
+        except ValueError as exc:
+            assert expected in str(exc)
+        else:
+            raise AssertionError("Expected ValueError")
+        assert fake_client.calls == []
+
+    asyncio.run(_run([[11], [12]], "cannot score candidate ids at position 0"))
+    asyncio.run(_run([[], [12, True]], "candidate token ids must be integers"))
+    asyncio.run(_run([[], [12, -1]], "candidate token ids must be non-negative"))
+    asyncio.run(_run([[], list(range(129))], "at most 128"))
+
+
+def test_compute_next_token_candidate_logprobs_rejects_missing_candidate(monkeypatch):
+    async def _run():
+        fake_client = _FakeOpenAIClient(_candidate_response({"11": -0.2}))
+        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
+
+        try:
+            await orchestrator_utils.compute_next_token_candidate_logprobs(
                 SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
                 model_name="ref-model",
                 token_ids=[1, 2],
@@ -915,26 +772,5 @@ def test_compute_prefill_candidate_logprobs_rejects_missing_candidate(monkeypatc
             assert "missing token id 12 at position 1" in str(exc)
         else:
             raise AssertionError("Expected ValueError")
-
-    asyncio.run(_run())
-
-
-def test_compute_prefill_candidate_logprobs_rejects_too_many_unique_candidates(monkeypatch):
-    async def _run():
-        fake_client = _FakeOpenAIClient({"request_id": "unused", "choices": [], "prompt_logprobs": []})
-        monkeypatch.setattr(openai, "AsyncOpenAI", lambda **kwargs: fake_client)
-
-        try:
-            await orchestrator_utils.compute_prefill_candidate_logprobs(
-                SimpleNamespace(base_url="http://fake-host:8000/v1", api_key_var="VLLM_API_KEY", headers={}),
-                model_name="ref-model",
-                token_ids=[1, 2],
-                candidate_token_ids=[[], list(range(129))],
-            )
-        except ValueError as exc:
-            assert "at most 128" in str(exc)
-        else:
-            raise AssertionError("Expected ValueError")
-        assert fake_client.calls == []
 
     asyncio.run(_run())

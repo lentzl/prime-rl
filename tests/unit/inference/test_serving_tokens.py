@@ -11,9 +11,11 @@ deltas here:
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import numpy as np
 import pybase64
+import pytest
 from vllm.entrypoints.openai.engine.protocol import UsageInfo
 from vllm.entrypoints.serve.disagg.protocol import GenerateResponse, GenerateResponseChoice
 
@@ -26,6 +28,7 @@ from prime_rl.inference.vllm.serving_tokens import (
     _client_set_max_tokens,
     _FinalOutputCapture,
     _GenerateRoutedExpertsCapture,
+    _requested_token_logprobs,
 )
 
 
@@ -147,6 +150,47 @@ def test_prime_rl_generate_response_serializes_usage_block():
         "total_tokens": 7,
         "prompt_tokens_details": None,
     }
+
+
+def test_prime_rl_generate_response_serializes_requested_token_logprobs():
+    response = PrimeRlGenerateResponse(
+        request_id="req-1",
+        choices=[
+            PrimeRlGenerateResponseChoice(
+                index=0,
+                token_ids=[3],
+                requested_token_logprobs=[{11: -0.2, 12: -0.4}],
+            )
+        ],
+    )
+
+    assert response.model_dump(mode="json")["choices"][0]["requested_token_logprobs"] == [{"11": -0.2, "12": -0.4}]
+
+
+class _FakeLogprob:
+    def __init__(self, logprob):
+        self.logprob = logprob
+
+
+def test_requested_token_logprobs_selects_exact_ids_in_requested_order():
+    output = SimpleNamespace(
+        logprobs=[
+            {
+                3: _FakeLogprob(-0.1),
+                11: _FakeLogprob(-0.2),
+                12: _FakeLogprob(-0.4),
+            }
+        ]
+    )
+
+    assert _requested_token_logprobs(output, [12, 11]) == [{12: -0.4, 11: -0.2}]
+
+
+def test_requested_token_logprobs_rejects_missing_requested_id():
+    output = SimpleNamespace(logprobs=[{11: _FakeLogprob(-0.2)}])
+
+    with pytest.raises(ValueError, match="requested token id 12 at position 0"):
+        _requested_token_logprobs(output, [11, 12])
 
 
 def test_build_usage_sums_prompt_and_completion_tokens():

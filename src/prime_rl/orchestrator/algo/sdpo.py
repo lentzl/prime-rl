@@ -12,8 +12,7 @@ from prime_rl.configs.algorithm import AlgorithmConfig, SDPOAlgorithmConfig
 from prime_rl.orchestrator.algo.base import Algorithm
 from prime_rl.orchestrator.sdpo_preflight import run_sdpo_student_support_preflight
 from prime_rl.orchestrator.utils import (
-    MAX_PREFILL_CANDIDATE_TOKEN_IDS,
-    compute_prefill_candidate_logprobs,
+    compute_next_token_candidate_logprobs,
     compute_prefill_topk_logprobs,
 )
 from prime_rl.transport.sdpo import has_active_sdpo_weights, is_active_sdpo_weight
@@ -598,48 +597,44 @@ class SDPOAlgorithm(Algorithm):
                     f"sdpo student-support row count mismatch (expected={len(target_offsets)}, "
                     f"got={len(candidate_rows)})."
                 )
+            if not target_offsets:
+                return []
             for offset in target_offsets:
                 if offset < 0 or offset >= len(completion_ids):
                     raise ValueError(
                         f"sdpo student-support target offset {offset} outside completion length {len(completion_ids)}."
                     )
-            scored_rows: list[list[float]] = []
-            for start, end in self._student_support_chunks(candidate_rows):
-                # Keep the left context exact: for chunk [start:end), the
-                # teacher still prefills prefix plus all earlier completion
-                # tokens, but only returns candidate logprobs for this chunk.
-                context_len = target_offsets[end - 1] + 1
-                token_context = prefix_ids + completion_ids[:context_len]
-                candidates = [[] for _ in token_context]
-                for row_idx in range(start, end):
-                    candidates[len(prefix_ids) + target_offsets[row_idx]] = candidate_rows[row_idx]
-                async with semaphore:
-                    logprob_rows = await compute_prefill_candidate_logprobs(
-                        client,
-                        pool.model_name,
-                        token_context,
-                        candidates,
-                    )
-                if len(logprob_rows) != len(token_context):
-                    raise ValueError(
-                        f"sdpo student-support teacher response row count mismatch "
-                        f"(expected={len(token_context)}, got={len(logprob_rows)})."
-                    )
-                for row_idx in range(start, end):
-                    response_row = logprob_rows[len(prefix_ids) + target_offsets[row_idx]]
-                    if not isinstance(response_row, list):
-                        raise ValueError(
-                            f"sdpo student-support teacher response row must be a list "
-                            f"(row={row_idx}, got={type(response_row).__name__})."
-                        )
-                    if len(response_row) != len(candidate_rows[row_idx]):
-                        raise ValueError(
-                            f"sdpo student-support teacher response row width mismatch "
-                            f"(row={row_idx}, expected={len(candidate_rows[row_idx])}, got={len(response_row)})."
-                        )
-                scored_rows.extend(
-                    logprob_rows[len(prefix_ids) + target_offsets[row_idx]] for row_idx in range(start, end)
+            context_len = target_offsets[-1] + 1
+            token_context = prefix_ids + completion_ids[:context_len]
+            candidates = [[] for _ in token_context]
+            for row_idx, offset in enumerate(target_offsets):
+                candidates[len(prefix_ids) + offset] = candidate_rows[row_idx]
+            async with semaphore:
+                logprob_rows = await compute_next_token_candidate_logprobs(
+                    client,
+                    pool.model_name,
+                    token_context,
+                    candidates,
                 )
+            if len(logprob_rows) != len(token_context):
+                raise ValueError(
+                    f"sdpo student-support teacher response row count mismatch "
+                    f"(expected={len(token_context)}, got={len(logprob_rows)})."
+                )
+            scored_rows: list[list[float]] = []
+            for row_idx, offset in enumerate(target_offsets):
+                response_row = logprob_rows[len(prefix_ids) + offset]
+                if not isinstance(response_row, list):
+                    raise ValueError(
+                        f"sdpo student-support teacher response row must be a list "
+                        f"(row={row_idx}, got={type(response_row).__name__})."
+                    )
+                if len(response_row) != len(candidate_rows[row_idx]):
+                    raise ValueError(
+                        f"sdpo student-support teacher response row width mismatch "
+                        f"(row={row_idx}, expected={len(candidate_rows[row_idx])}, got={len(response_row)})."
+                    )
+                scored_rows.append(response_row)
             return scored_rows
 
         def candidate_rows_from_sample(
@@ -913,25 +908,3 @@ class SDPOAlgorithm(Algorithm):
                 raise ValueError(
                     f"sdpo student top-k row contains duplicate token ids (env '{env_name}', row={row_idx})."
                 )
-
-    def _student_support_chunks(self, token_rows: list[list[int]]) -> list[tuple[int, int]]:
-        chunks: list[tuple[int, int]] = []
-        start = 0
-        while start < len(token_rows):
-            candidate_union: set[int] = set()
-            end = start
-            while end < len(token_rows):
-                next_union = candidate_union | set(token_rows[end])
-                if len(next_union) > MAX_PREFILL_CANDIDATE_TOKEN_IDS:
-                    if end == start:
-                        raise ValueError(
-                            "sdpo student top-k row has "
-                            f"{len(next_union)} unique token ids, exceeding vLLM's "
-                            f"{MAX_PREFILL_CANDIDATE_TOKEN_IDS} candidate-token limit."
-                        )
-                    break
-                candidate_union = next_union
-                end += 1
-            chunks.append((start, end))
-            start = end
-        return chunks

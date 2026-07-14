@@ -3,7 +3,7 @@
 vLLM 0.20 ships a generic tokens-in / tokens-out handler at
 ``vllm.entrypoints.serve.disagg.serving.ServingTokens`` that already covers
 prefix-cache salting, lora dispatch, multimodal features, prompt logprobs and
-priority. Three prime-RL features are not in the upstream protocol though, so
+priority. Four prime-RL features are not in the upstream protocol though, so
 we subclass it to add them back:
 
 1. ``data_parallel_rank`` routing — read from the ``X-data-parallel-rank``
@@ -23,6 +23,10 @@ we subclass it to add them back:
    ``OpenAIServingChat`` at ``serving.py:284``); the disagg endpoint
    skips that path. Mirror it here so callers that omit ``max_tokens``
    don't silently truncate at 16. Drop once vLLM patches upstream.
+
+4. Exact requested-token logprobs — preserve the token-id keyed values from
+   ``SamplingParams.logprob_token_ids``. The upstream OpenAI-shaped response
+   can omit one requested id when the sampled token is outside that set.
 
 Everything else (request/response schema, sampling params, error handling)
 delegates to upstream so we track future vLLM changes for free.
@@ -56,6 +60,9 @@ from prime_rl.inference.vllm.routed_experts import RoutedExpertsCapture
 
 class PrimeRlGenerateResponseChoice(GenerateResponseChoice):
     routed_experts: dict[str, Any] | None = None
+    # One token-id keyed row per generated token, populated only when the
+    # request sets ``SamplingParams.logprob_token_ids``.
+    requested_token_logprobs: list[dict[int, float]] | None = None
 
 
 class PrimeRlGenerateResponse(GenerateResponse):
@@ -126,6 +133,24 @@ def _build_usage(final_res: RequestOutput) -> UsageInfo:
     if final_res.num_cached_tokens:
         usage.prompt_tokens_details = PromptTokenUsageInfo(cached_tokens=final_res.num_cached_tokens)
     return usage
+
+
+def _requested_token_logprobs(output: Any, token_ids: list[int]) -> list[dict[int, float]]:
+    if output.logprobs is None:
+        raise ValueError("vLLM did not return requested token logprobs")
+
+    rows: list[dict[int, float]] = []
+    for position, logprobs in enumerate(output.logprobs):
+        if logprobs is None:
+            raise ValueError(f"vLLM did not return requested token logprobs at position {position}")
+        row: dict[int, float] = {}
+        for token_id in token_ids:
+            logprob = logprobs.get(token_id)
+            if logprob is None:
+                raise ValueError(f"vLLM did not return requested token id {token_id} at position {position}")
+            row[token_id] = logprob.logprob
+        rows.append(row)
+    return rows
 
 
 async def _client_set_max_tokens(raw_request: Request | None) -> bool:
@@ -354,6 +379,16 @@ class PrimeRlServingTokens(ServingTokens):
             )
 
         if final_capture.final_res is not None:
+            requested_ids = request.sampling_params.logprob_token_ids
+            if requested_ids is not None:
+                outputs = {output.index: output for output in final_capture.final_res.outputs}
+                response.choices = [
+                    PrimeRlGenerateResponseChoice(
+                        **choice.model_dump(exclude={"requested_token_logprobs"}),
+                        requested_token_logprobs=_requested_token_logprobs(outputs[choice.index], requested_ids),
+                    )
+                    for choice in response.choices
+                ]
             response.usage = _build_usage(final_capture.final_res)
 
         return response

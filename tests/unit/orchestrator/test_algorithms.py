@@ -1340,7 +1340,9 @@ def test_sdpo_student_support_scores_teacher_on_prepopulated_candidate_ids(monke
     async def fake_prefill_topk(client, model_name, token_ids, topk):
         raise AssertionError("student-support SDPO must not request teacher-selected top-k rows")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_topk_logprobs", fake_prefill_topk)
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
@@ -1372,7 +1374,9 @@ def test_sdpo_student_support_rejects_empty_teacher_prefix_before_prefill(monkey
     async def fake_prefill_topk(client, model_name, token_ids, topk):
         raise AssertionError("student-support SDPO must not request teacher-selected top-k rows")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_topk_logprobs", fake_prefill_topk)
     renderer = _CaptureRenderer(token_ids=[])
     algo = SDPOAlgorithm(
@@ -1397,7 +1401,9 @@ def test_sdpo_student_support_scores_only_nonzero_sdpo_target_positions(monkeypa
     async def fake_prefill_topk(client, model_name, token_ids, topk):
         raise AssertionError("student-support SDPO must not request teacher-selected top-k rows")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_topk_logprobs", fake_prefill_topk)
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
@@ -1434,7 +1440,9 @@ def test_sdpo_student_support_scores_teacher_on_hydrated_export_candidate_ids(mo
     async def fake_prefill_topk(client, model_name, token_ids, topk):
         raise AssertionError("hydrated student-support SDPO must not request teacher-selected top-k rows")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_topk_logprobs", fake_prefill_topk)
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
@@ -1475,22 +1483,19 @@ def test_sdpo_student_support_scores_teacher_on_hydrated_export_candidate_ids(mo
     ]
 
 
-def test_sdpo_student_support_chunks_candidate_scoring_when_union_exceeds_vllm_limit(monkeypatch):
+def test_sdpo_student_support_scores_candidate_rows_in_one_exact_context(monkeypatch):
     calls = []
 
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         calls.append((token_ids, candidate_token_ids))
         assert model_name == "policy-model"
-        if len(calls) == 1:
-            assert token_ids == [101, 102, 3]
-            assert candidate_token_ids == [[], [], [300, 301]]
-            return [[], [], [-3.0, -13.0]]
         assert token_ids == [101, 102, 3, 4]
-        assert candidate_token_ids == [[], [], [], [400, 401]]
-        return [[], [], [], [-4.0, -14.0]]
+        assert candidate_token_ids == [[], [], [300, 301], [400, 401]]
+        return [[], [], [-3.0, -13.0], [-4.0, -14.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.MAX_PREFILL_CANDIDATE_TOKEN_IDS", 3)
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1503,7 +1508,7 @@ def test_sdpo_student_support_chunks_candidate_scoring_when_union_exceeds_vllm_l
 
     asyncio.run(algo.score_batch([RolloutView(rollout)]))
 
-    assert len(calls) == 2
+    assert len(calls) == 1
     assert rollout.samples[0].sdpo_topk_logprobs == [
         [0.0, 0.0],
         [0.0, 0.0],
@@ -1514,31 +1519,13 @@ def test_sdpo_student_support_chunks_candidate_scoring_when_union_exceeds_vllm_l
     ]
 
 
-def test_sdpo_student_support_rejects_single_row_over_candidate_limit(monkeypatch):
-    async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
-        raise AssertionError("oversized student row must fail before teacher candidate scoring")
-
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.MAX_PREFILL_CANDIDATE_TOKEN_IDS", 1)
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
-    renderer = _CaptureRenderer(token_ids=[101, 102])
-    algo = SDPOAlgorithm(
-        _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
-        MagicMock(),
-        renderer,
-    )
-    algo.teacher_pool = SimpleNamespace(model_name="policy-model", train_clients=[object()])
-    rollout = _single_turn_rollout(reward=0.0, feedback_content="Use feedback.")
-    rollout.samples[0].sdpo_topk_token_ids = [[0, 0], [0, 0], [300, 301], [400, 401], [0, 0], [0, 0]]
-
-    with pytest.raises(ValueError, match="candidate-token limit"):
-        asyncio.run(algo.score_batch([RolloutView(rollout)]))
-
-
 def test_sdpo_student_support_requires_prepopulated_candidate_ids(monkeypatch):
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("missing student support must fail before teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1563,7 +1550,9 @@ def test_sdpo_student_support_rejects_candidate_stream_length_mismatch(monkeypat
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("misaligned student support must fail before teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1582,7 +1571,9 @@ def test_sdpo_student_support_rejects_candidate_row_width_mismatch(monkeypatch):
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("malformed student support must fail before teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1601,7 +1592,9 @@ def test_sdpo_student_support_rejects_non_list_candidate_row(monkeypatch):
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("malformed student support must fail before teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1620,7 +1613,9 @@ def test_sdpo_student_support_rejects_noninteger_candidate_token_ids(monkeypatch
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("malformed student support must fail before teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1639,7 +1634,9 @@ def test_sdpo_student_support_rejects_negative_candidate_token_ids(monkeypatch):
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("malformed student support must fail before teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1658,7 +1655,9 @@ def test_sdpo_student_support_rejects_duplicate_candidate_token_ids(monkeypatch)
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("duplicate student support must fail before teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1678,7 +1677,9 @@ def test_sdpo_student_support_accepts_token_id_zero_candidate(monkeypatch):
         assert candidate_token_ids == [[], [], [0], [400]]
         return [[], [], [-3.0], [-4.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=1, distillation_topk_support="student"),
@@ -1700,7 +1701,9 @@ def test_sdpo_student_support_rejects_teacher_candidate_response_row_count_misma
         assert token_ids == [101, 102, 3, 4]
         return [[], [], [-3.0, -13.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1720,7 +1723,9 @@ def test_sdpo_student_support_rejects_teacher_candidate_response_row_width_misma
         assert token_ids == [101, 102, 3, 4]
         return [[], [], [-3.0], [-4.0, -14.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1740,7 +1745,9 @@ def test_sdpo_student_support_rejects_non_list_teacher_candidate_response_row(mo
         assert token_ids == [101, 102, 3, 4]
         return [[], [], (-3.0, -13.0), [-4.0, -14.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1759,7 +1766,9 @@ def test_sdpo_student_support_rejects_nonfinite_teacher_candidate_logprobs(monke
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         return [[], [], [-3.0, float("nan")], [-4.0, -14.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1778,7 +1787,9 @@ def test_sdpo_student_support_rejects_boolean_teacher_candidate_logprobs(monkeyp
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         return [[], [], [-3.0, True], [-4.0, -14.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1797,7 +1808,9 @@ def test_sdpo_student_support_rejects_integer_teacher_candidate_logprobs(monkeyp
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         return [[], [], [-3, -13], [-4.0, -14.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -1816,7 +1829,9 @@ def test_sdpo_student_support_rejects_teacher_candidate_logprob_mass_above_one(m
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         return [[], [], [0.0, -0.1], [-4.0, -14.0]]
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -2337,7 +2352,9 @@ def test_sdpo_no_target_clears_prepopulated_student_support(monkeypatch):
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("no-target SDPO samples must not request teacher candidate scores")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[101, 102])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student"),
@@ -2589,7 +2606,9 @@ def test_sdpo_multi_turn_student_support_scores_hydrated_preflight_targets(monke
     async def fake_prefill_topk(client, model_name, token_ids, topk):
         raise AssertionError("multi-turn student-support SDPO must not request teacher-selected top-k rows")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_topk_logprobs", fake_prefill_topk)
     renderer = _CaptureRenderer(token_ids=[[101, 102], [201, 202], [301, 302]])
     algo = SDPOAlgorithm(
@@ -3238,7 +3257,9 @@ def test_sdpo_multi_turn_student_support_clears_no_target_without_preflight_supp
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("no-target SDPO sample must not request teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[[101, 102], [201, 202]])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student", multi_turn=True),
@@ -3261,7 +3282,9 @@ def test_sdpo_multi_turn_student_support_clears_stale_no_target_payload(monkeypa
     async def fake_prefill_candidates(client, model_name, token_ids, candidate_token_ids):
         raise AssertionError("stale no-target SDPO support must not request teacher candidate scoring")
 
-    monkeypatch.setattr("prime_rl.orchestrator.algo.sdpo.compute_prefill_candidate_logprobs", fake_prefill_candidates)
+    monkeypatch.setattr(
+        "prime_rl.orchestrator.algo.sdpo.compute_next_token_candidate_logprobs", fake_prefill_candidates
+    )
     renderer = _CaptureRenderer(token_ids=[[101, 102], [201, 202]])
     algo = SDPOAlgorithm(
         _build(type="sdpo", distillation_topk=2, distillation_topk_support="student", multi_turn=True),
