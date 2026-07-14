@@ -76,6 +76,9 @@ read -r -a python_runner <<< "${SDPO_SMOKE_PYTHON_RUNNER:-uv run --extra flash-a
 read -r -a rl_runner <<< "${SDPO_SMOKE_RL_RUNNER:-uv run --extra flash-attn rl}"
 config_pythonpath="src:packages/prime-rl-configs/src:deps/pydantic-config/src:deps/verifiers:deps/renderers:deps/research-environments"
 
+export WANDB_MODE="${WANDB_MODE:-offline}"
+export WANDB_SILENT="${WANDB_SILENT:-true}"
+
 hash_stdin_sha256() {
   if command -v sha256sum >/dev/null 2>&1; then
     sha256sum | awk '{print $1}'

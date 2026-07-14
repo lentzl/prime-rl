@@ -76,10 +76,12 @@ count, `flash_attn` importability through `prime-rl[flash-attn]`, git
 branch/commit/status, and disk space. The acceptance scripts default to
 `uv run --extra flash-attn ...` because Prime's trainer imports
 `ring_flash_attn`, which requires the FlashAttention 2 package on fresh CUDA
-hosts. By default the preflight expects at least 3 visible GPUs: policy
-inference, EMA teacher inference, and trainer. To intentionally run on a
-different topology, set `SDPO_ACCEPTANCE_MIN_GPUS`, but record that deviation
-with the proof evidence.
+hosts. The smoke wrapper also defaults to `WANDB_MODE=offline` and
+`WANDB_SILENT=true` so the proof does not require a personal W&B API key; export
+different values explicitly if online logging is desired. By default the
+preflight expects at least 3 visible GPUs: policy inference, EMA teacher
+inference, and trainer. To intentionally run on a different topology, set
+`SDPO_ACCEPTANCE_MIN_GPUS`, but record that deviation with the proof evidence.
 
 The config preflight resolves both SDPO reference presets and should print:
 
