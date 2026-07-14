@@ -986,6 +986,7 @@ def test_sdpo_smoke_script_check_config_prints_algorithm_topk_support(tmp_path):
     assert "orchestrator.eval.num_examples=128" in result.stdout
     assert "orchestrator.eval.sampling.max_completion_tokens=128" in result.stdout
     assert "orchestrator.eval.env_ids=['reverse-text']" in result.stdout
+    assert "inference.vllm_extra.max_logprobs=100" in result.stdout
     assert "orchestrator.algo.preflight_export_timeout_s=600" in result.stdout
     assert "orchestrator.algo.teacher_regularization=live-policy" in result.stdout
     assert "orchestrator.algo.success_reward_threshold=0.5" in result.stdout
@@ -1187,6 +1188,7 @@ orchestrator.eval.interval=${SDPO_FAKE_EVAL_INTERVAL:-1}
 orchestrator.eval.num_examples=${SDPO_FAKE_EVAL_NUM_EXAMPLES:-128}
 orchestrator.eval.sampling.max_completion_tokens=${SDPO_FAKE_EVAL_MAX_COMPLETION_TOKENS:-128}
 orchestrator.eval.env_ids=${SDPO_FAKE_EVAL_ENV_IDS:-['reverse-text']}
+inference.vllm_extra.max_logprobs=${SDPO_FAKE_INFERENCE_MAX_LOGPROBS:-100}
 orchestrator.algo.distillation_topk=100
 orchestrator.algo.distillation_topk_support=student
 orchestrator.algo.model=policy
@@ -1258,6 +1260,9 @@ EOF
       ;;
     orchestrator.eval.env_ids)
       if [[ -n "${SDPO_FAKE_EVAL_ENV_IDS:-}" ]]; then echo "${SDPO_FAKE_EVAL_ENV_IDS}"; else echo "['reverse-text']"; fi
+      ;;
+    inference.vllm_extra.max_logprobs)
+      if [[ -n "${SDPO_FAKE_INFERENCE_MAX_LOGPROBS:-}" ]]; then echo "${SDPO_FAKE_INFERENCE_MAX_LOGPROBS}"; else echo "100"; fi
       ;;
     trainer.sdpo_loss.distillation_topk) echo "100" ;;
     orchestrator.algo.distillation_topk)
@@ -1460,6 +1465,7 @@ mode=$mode
 config=$config
 output_dir=$output_dir
 expected_topk=100
+inference.vllm_extra.max_logprobs=100
 orchestrator.algo.distillation_topk=100
 orchestrator.algo.distillation_topk_support=student
 orchestrator.algo.teacher_regularization=$teacher_regularization
@@ -1685,6 +1691,7 @@ def _sdpo_acceptance_provenance_bytes(
         f"config={config}\n"
         f"output_dir=outputs/sdpo-cuda-acceptance/{mode}\n"
         f"expected_topk={expected_topk}\n"
+        f"inference.vllm_extra.max_logprobs={expected_topk}\n"
         f"orchestrator.algo.distillation_topk={expected_topk}\n"
         "orchestrator.algo.distillation_topk_support=student\n"
         f"orchestrator.algo.teacher_regularization={teacher_regularization}\n"
@@ -1920,6 +1927,7 @@ def _minimal_sdpo_smoke_provenance(*, extra: str = "") -> str:
         "config=configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml\n"
         "output_dir=outputs/sdpo-smoke\n"
         "expected_topk=2\n"
+        "inference.vllm_extra.max_logprobs=2\n"
         "orchestrator.algo.distillation_topk=2\n"
         "orchestrator.algo.distillation_topk_support=student\n"
         "orchestrator.algo.teacher_regularization=live-policy\n"
@@ -3746,6 +3754,7 @@ def test_sdpo_smoke_script_runs_training_then_strict_artifact_verifier(tmp_path)
     assert "config=configs/debug/algorithms/sdpo_huebotter_reference_smoke.toml" in provenance
     assert f"output_dir={output_dir}" in provenance
     assert "expected_topk=100" in provenance
+    assert "inference.vllm_extra.max_logprobs=100" in provenance
     assert "orchestrator.algo.distillation_topk=100" in provenance
     assert "orchestrator.algo.distillation_topk_support=student" in provenance
     assert "orchestrator.algo.teacher_regularization=live-policy" in provenance
@@ -3909,6 +3918,28 @@ def test_sdpo_smoke_script_rejects_split_algorithm_and_trainer_topk(tmp_path):
 
     assert result.returncode == 2
     assert "orchestrator.algo.distillation_topk to match trainer.sdpo_loss.distillation_topk" in result.stderr
+    assert "VERIFY" not in result.stdout
+    assert "uv run rl" not in result.stdout
+
+
+def test_sdpo_smoke_script_rejects_inference_logprob_cap_below_reference_topk(tmp_path):
+    _write_fake_uv_for_no_run_smoke(tmp_path)
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+        "SDPO_FAKE_INFERENCE_MAX_LOGPROBS": "20",
+    }
+
+    result = subprocess.run(
+        ["bash", str(SMOKE_SCRIPT), "--no-run", "--output-dir", "outputs/undersized-logprob-cap"],
+        cwd=REPO_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 2
+    assert "inference.vllm_extra.max_logprobs to match trainer.sdpo_loss.distillation_topk" in result.stderr
     assert "VERIFY" not in result.stdout
     assert "uv run rl" not in result.stdout
 

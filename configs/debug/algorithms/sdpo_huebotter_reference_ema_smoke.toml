@@ -109,3 +109,8 @@ lr = 1e-5
 
 [inference]
 gpu_memory_utilization = 0.5
+
+[inference.vllm_extra]
+# This is inherited by the auto-launched EMA teacher server as well as policy
+# inference, allowing the reference top-k support to be rescored intact.
+max_logprobs = 100

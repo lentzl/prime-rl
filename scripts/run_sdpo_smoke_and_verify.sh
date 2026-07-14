@@ -211,6 +211,7 @@ resolve_config_value() {
     "${python_runner[@]}" - "$field" "${python_args[@]}" <<'PY'
 from prime_rl.configs.rl import RLConfig
 from prime_rl.utils.config import cli
+from collections.abc import Mapping
 import sys
 
 field = sys.argv[1]
@@ -227,7 +228,7 @@ if field == "orchestrator.eval.env_ids":
     raise SystemExit
 value = cfg
 for part in field.split("."):
-    value = getattr(value, part)
+    value = value[part] if isinstance(value, Mapping) else getattr(value, part)
 print(value)
 PY
 }
@@ -241,6 +242,7 @@ write_smoke_provenance() {
     echo "config=$config"
     echo "output_dir=$output_dir"
     echo "expected_topk=$expected_topk"
+    echo "inference.vllm_extra.max_logprobs=$inference_max_logprobs"
     echo "orchestrator.algo.distillation_topk=$algorithm_topk"
     echo "orchestrator.algo.distillation_topk_support=$algorithm_topk_support"
     echo "orchestrator.algo.teacher_regularization=$algorithm_teacher_regularization"
@@ -330,6 +332,10 @@ print(f"orchestrator.algo.template_target={cfg.orchestrator.algo.template_target
 print(f"orchestrator.algo.template={cfg.orchestrator.algo.template!r}")
 print(f"orchestrator.algo.solution_template={cfg.orchestrator.algo.solution_template!r}")
 print(f"orchestrator.algo.feedback_template={cfg.orchestrator.algo.feedback_template!r}")
+print(
+    "inference.vllm_extra.max_logprobs="
+    f"{None if cfg.inference is None else cfg.inference.vllm_extra.get('max_logprobs')}"
+)
 print(f"trainer.enable_token_export={cfg.trainer.enable_token_export}")
 print(f"trainer.model.cp={cfg.trainer.model.cp}")
 print(f"trainer.model.fused_lm_head_token_chunk_size={cfg.trainer.model.fused_lm_head_token_chunk_size}")
@@ -407,6 +413,11 @@ fi
 expected_topk="$(resolve_config_value trainer.sdpo_loss.distillation_topk)"
 if [[ -z "$expected_topk" || "$expected_topk" == "None" ]]; then
   echo "Error: SDPO smoke requires trainer.sdpo_loss.distillation_topk to be set" >&2
+  exit 2
+fi
+inference_max_logprobs="$(resolve_config_value inference.vllm_extra.max_logprobs)"
+if [[ "$inference_max_logprobs" != "$expected_topk" ]]; then
+  echo "Error: SDPO reference smoke requires inference.vllm_extra.max_logprobs to match trainer.sdpo_loss.distillation_topk (got $inference_max_logprobs vs $expected_topk)" >&2
   exit 2
 fi
 algorithm_topk="$(resolve_config_value orchestrator.algo.distillation_topk)"

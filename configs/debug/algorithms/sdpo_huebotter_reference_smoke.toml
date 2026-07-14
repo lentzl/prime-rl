@@ -105,3 +105,8 @@ lr = 1e-5
 
 [inference]
 gpu_memory_utilization = 0.5
+
+[inference.vllm_extra]
+# vLLM defaults to 20, but the reference SDPO path rescores 100 student-selected
+# candidates per token through prompt logprobs.
+max_logprobs = 100

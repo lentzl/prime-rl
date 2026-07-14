@@ -133,6 +133,9 @@ trainer-forward student support, temperatures, sample ids, and at least one pair
 row where both support streams land on the same weighted token positions.
 Pass `--expected-topk` to require the artifact row width to match the run's
 configured `trainer.sdpo_loss.distillation_topk`.
+The reference presets also pin `inference.vllm_extra.max_logprobs = 100`, so
+vLLM accepts the full student-selected support width instead of its default cap
+of 20. The EMA launcher clones this setting into the teacher inference server.
 Pass `--require-importance-ratio-evidence` when checking a Hübotter-style run
 that uses token-level rollout importance correction; this requires final
 weighted SDPO rows to export finite `log_importance_ratio`, `importance_ratio`,

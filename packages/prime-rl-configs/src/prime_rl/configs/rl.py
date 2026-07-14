@@ -395,6 +395,27 @@ class RLConfig(BaseConfig):
         return self
 
     @model_validator(mode="after")
+    def auto_setup_sdpo_inference_max_logprobs(self):
+        if not self.sdpo_algorithms or self.inference is None:
+            return self
+
+        required_max_logprobs = max(algo.distillation_topk for algo in self.sdpo_algorithms)
+        configured_max_logprobs = self.inference.vllm_extra.get("max_logprobs")
+        if configured_max_logprobs is None:
+            self.inference.vllm_extra["max_logprobs"] = required_max_logprobs
+            return self
+        if (
+            isinstance(configured_max_logprobs, bool)
+            or not isinstance(configured_max_logprobs, int)
+            or configured_max_logprobs < required_max_logprobs
+        ):
+            raise ValueError(
+                "sdpo algorithms require inference.vllm_extra.max_logprobs to be an integer at least as large "
+                f"as the largest distillation_topk ({required_max_logprobs}); got {configured_max_logprobs!r}."
+            )
+        return self
+
+    @model_validator(mode="after")
     def validate_sdpo_teacher_regularization_runtime_support(self):
         if not self.uses_sdpo_internal_teacher_regularization:
             if self.orchestrator.sdpo_teacher is not None:

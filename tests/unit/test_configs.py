@@ -263,6 +263,8 @@ def test_sdpo_reference_smoke_configs_load_through_rl_config(
     assert config.trainer.sdpo_loss.distillation_topk == 100
     assert config.trainer.sdpo_loss.rollout_is == "token"
     assert not config.trainer.sdpo_loss.rollout_is_batch_normalize
+    assert config.inference is not None
+    assert config.inference.vllm_extra["max_logprobs"] == 100
 
 
 def test_sdpo_config_allows_reference_ablation_overrides():
@@ -637,6 +639,8 @@ def test_sdpo_live_policy_smoke_config_resolves_reference_runtime_knobs():
     assert not config.uses_sdpo_internal_teacher_regularization
     assert config.trainer.enable_token_export
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    assert config.inference is not None
+    assert config.inference.vllm_extra["max_logprobs"] == 100
     _assert_sdpo_reference_smoke_knobs(config, teacher_regularization="live-policy")
     assert config.orchestrator.sdpo_teacher is None
 
@@ -657,10 +661,34 @@ def test_sdpo_ema_smoke_config_resolves_teacher_runtime_knobs():
     assert config.deployment.num_sdpo_teacher_gpus == 1
     assert config.trainer.enable_token_export
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    assert config.inference is not None
+    assert config.inference.vllm_extra["max_logprobs"] == 100
     _assert_sdpo_reference_smoke_knobs(config, teacher_regularization="ema")
     assert config.orchestrator.sdpo_teacher is not None
     assert config.orchestrator.sdpo_teacher.name == config.orchestrator.model.name
     assert config.orchestrator.sdpo_teacher.client.base_url == ["http://localhost:8001/v1"]
+
+
+def test_rl_config_auto_sets_managed_inference_max_logprobs_for_sdpo():
+    config = RLConfig.model_validate(_rl_sdpo_student_support_config(inference={}))
+
+    assert config.inference is not None
+    assert config.inference.vllm_extra["max_logprobs"] == 100
+
+
+def test_rl_config_preserves_larger_managed_inference_max_logprobs_for_sdpo():
+    config = RLConfig.model_validate(_rl_sdpo_student_support_config(inference={"vllm_extra": {"max_logprobs": 128}}))
+
+    assert config.inference is not None
+    assert config.inference.vllm_extra["max_logprobs"] == 128
+
+
+@pytest.mark.parametrize("max_logprobs", [20, True])
+def test_rl_config_rejects_invalid_managed_inference_max_logprobs_for_sdpo(max_logprobs):
+    with pytest.raises(ValidationError, match="inference\\.vllm_extra\\.max_logprobs"):
+        RLConfig.model_validate(
+            _rl_sdpo_student_support_config(inference={"vllm_extra": {"max_logprobs": max_logprobs}})
+        )
 
 
 def test_rl_config_keeps_teacher_support_ablation_off_preflight_path():

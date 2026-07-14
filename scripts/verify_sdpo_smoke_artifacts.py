@@ -163,6 +163,7 @@ def _require_reference_smoke_provenance_fields(
 ) -> None:
     expected_fields = {
         **REFERENCE_PROVENANCE_FIELDS,
+        "inference.vllm_extra.max_logprobs": str(expected_topk),
         "orchestrator.algo.distillation_topk": str(expected_topk),
         "trainer.sdpo_loss.distillation_topk": str(expected_topk),
     }
