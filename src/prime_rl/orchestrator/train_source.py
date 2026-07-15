@@ -57,13 +57,31 @@ class TrainSource:
         # per-rollout envs need 1
         self.env_costs: dict[str, int] = {}
         for env in self.envs:
+            task_indices = env.config.task_indices
+            if env.num_tasks is None and task_indices is not None:
+                raise ValueError(f"Train env {env.name} has an infinite taskset and cannot select task_indices")
+            if task_indices is not None:
+                out_of_range = [idx for idx in task_indices if idx >= env.num_tasks]
+                if out_of_range:
+                    raise ValueError(
+                        f"Train env {env.name} task_indices {out_of_range} exceed taskset size {env.num_tasks}"
+                    )
+                selected = set(task_indices)
+            else:
+                selected = None
+
             if env.tasks is None:  # legacy: sample over the index range from info()
-                rows: list[dict] | None = [{"task_idx": i, "env_name": env.name} for i in range(env.num_tasks)]
+                indices = task_indices if task_indices is not None else range(env.num_tasks)
+                rows: list[dict] | None = [{"task_idx": i, "env_name": env.name} for i in indices]
             elif env.num_tasks is None:  # infinite: pull the generator per example
                 rows = None
                 self.iters[env.name] = env.tasks
             else:
-                rows = [{"task_idx": task.data.idx, "task": task, "env_name": env.name} for task in env.tasks]
+                rows = [
+                    {"task_idx": task.data.idx, "task": task, "env_name": env.name}
+                    for task in env.tasks
+                    if selected is None or task.data.idx in selected
+                ]
             self.base_rows[env.name] = rows
             self.epochs[env.name] = 1
             self.cursors[env.name] = 0

@@ -1,0 +1,80 @@
+# Feedback-conditioned SDPO (https://arxiv.org/abs/2601.20802). The policy
+# supplies both student and EMA teacher; no external model server is required.
+# Groups provide successful sibling demonstrations for failed attempts.
+#   uv run rl @ configs/debug/algo/sdpo.toml
+
+max_steps = 20
+seq_len = 2048
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
+
+[wandb]
+project = "algorithms-debug"
+name = "debug-sdpo"
+
+[orchestrator]
+batch_size = 32
+group_size = 8
+
+[orchestrator.algo]
+type = "sdpo"
+
+[orchestrator.algo.renderer]
+name = "qwen3"
+enable_thinking = false
+
+[orchestrator.renderer]
+name = "qwen3"
+enable_thinking = false
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 128
+
+[[orchestrator.train.source]]
+name = "reverse-text"
+
+[orchestrator.train.source.env.taskset]
+id = "reverse-text-v1"
+
+[orchestrator.train.source.env.agent.harness]
+id = "null"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "subprocess"
+
+[orchestrator.eval]
+interval = 1
+num_examples = 128
+
+[orchestrator.eval.sampling]
+max_completion_tokens = 128
+
+[[orchestrator.eval.source]]
+name = "reverse-text"
+
+[orchestrator.eval.source.env.taskset]
+id = "reverse-text-v1"
+
+[orchestrator.eval.source.env.agent.harness]
+id = "null"
+
+[orchestrator.eval.source.env.agent.runtime]
+type = "subprocess"
+
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+teacher_regularization = "ema"
+teacher_update_rate = 0.01
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+max_norm = 1.0
+
+[ckpt]
+
+[inference]
+gpu_memory_utilization = 0.5

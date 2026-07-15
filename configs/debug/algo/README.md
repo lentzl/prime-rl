@@ -11,6 +11,9 @@ Minimal end-to-end configs for the algorithms against bundled verifiers envs, us
 | `sft_distill.toml` | `sft` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | |
 | `sft_distill_lora.toml` | `sft` | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | trains a LoRA adapter (rank 8) |
 | `self_distill.toml` | `opsd` | none (self-distills against the live policy) | SDFT; demo from reverse-text's `answer` field |
+| `sdpo.toml` | `sdpo` | none (EMA self-teacher in the trainer) | feedback-conditioned SDPO; successful sibling demonstrations |
+| `sdpo_multi_turn.toml` | `sdpo` | none (EMA self-teacher in the trainer) | experimental per-turn replay on 3–5-turn alphabet-sort trajectories |
+| `sdpo_ttt_smoke.toml` | `sdpo` | none (EMA self-teacher in the trainer) | Section 5 control-flow smoke; one fixed reverse-text task, 16 attempts per update |
 | `echo.toml` | `echo` | none | multi-turn `alphabet-sort`; CE on observation tokens |
 | `mixed_grpo_opd.toml` | `grpo` + `opd` (per env) | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | two envs, one run; heterogeneous batches (with/without `ref_logprobs`) |
 
@@ -51,6 +54,15 @@ uv run rl @ configs/debug/algo/sft_distill_lora.toml --output-dir outputs/sft_di
 
 # Self-distillation against the live policy (no frozen model)
 uv run rl @ configs/debug/algo/self_distill.toml --output-dir outputs/self_distill
+
+# Feedback-conditioned SDPO with an EMA self-teacher (no frozen model)
+uv run rl @ configs/debug/algo/sdpo.toml --output-dir outputs/sdpo
+
+# Experimental per-turn feedback attribution (outside the paper's scope)
+uv run rl @ configs/debug/algo/sdpo_multi_turn.toml --output-dir outputs/sdpo_multi_turn
+
+# Two updates on one fixed task, exercising the Section 5 TTT schedule
+uv run rl @ configs/debug/algo/sdpo_ttt_smoke.toml --output-dir outputs/sdpo_ttt_smoke
 
 # ECHO (no frozen model; multi-turn env)
 uv run rl @ configs/debug/algo/echo.toml --output-dir outputs/echo
