@@ -9,6 +9,7 @@ from prime_rl.transport.filesystem import (
 from prime_rl.transport.types import (
     MicroBatch,
     RoutedExperts,
+    SDPOTeacherSpan,
     TrainingSample,
 )
 from prime_rl.transport.zmq import (
@@ -49,6 +50,7 @@ __all__ = [
     "TrainingSample",
     "MicroBatch",
     "RoutedExperts",
+    "SDPOTeacherSpan",
     "setup_micro_batch_sender",
     "setup_micro_batch_receiver",
 ]

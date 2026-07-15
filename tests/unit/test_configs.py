@@ -218,6 +218,107 @@ def test_env_algo_overrides_top_level():
         )
 
 
+def test_sdpo_algorithm_enables_exact_feedback_trainer_runtime():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "sdpo"}},
+        }
+    )
+
+    assert config.trainer.sdpo_loss.enabled
+    assert config.trainer.sdpo_loss.distillation_topk == 20
+    assert config.trainer.sdpo_loss.alpha == 1.0
+    assert config.trainer.sdpo_loss.teacher_regularization == "ema"
+    assert config.trainer.sdpo_loss.teacher_update_rate == 0.01
+    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+
+
+def test_sdpo_debug_config_disables_thinking_for_student_and_teacher():
+    config = cli(RLConfig, args=["@", "configs/debug/algo/sdpo.toml"])
+
+    assert config.orchestrator.renderer.name == "qwen3"
+    assert config.orchestrator.renderer.enable_thinking is False
+    assert config.orchestrator.algo.type == "sdpo"
+    assert config.orchestrator.algo.renderer.name == "qwen3"
+    assert config.orchestrator.algo.renderer.enable_thinking is False
+
+
+def test_sdpo_ttt_smoke_config_repeats_one_attempt_group_per_update():
+    config = cli(RLConfig, args=["@", "configs/debug/algo/sdpo_ttt_smoke.toml"])
+
+    assert config.max_steps == 2
+    assert config.max_train_batch_lead == 0
+    assert config.orchestrator.batch_size == 16
+    assert config.orchestrator.group_size == 16
+    assert config.orchestrator.max_inflight_episodes == 16
+    assert config.orchestrator.max_train_batch_lead == 0
+    assert config.trainer.max_train_batch_lead == 0
+    assert config.orchestrator.eval is None
+    assert config.orchestrator.renderer.enable_thinking is False
+    assert config.orchestrator.algo.renderer.enable_thinking is False
+    assert config.trainer.sdpo_loss.distillation_topk == 20
+    assert config.trainer.sdpo_loss.alpha == 1.0
+    assert config.trainer.sdpo_loss.is_clip == 2.0
+    assert config.trainer.sdpo_loss.rollout_is == "token"
+    assert config.trainer.sdpo_loss.rollout_is_threshold == 2.0
+    assert config.trainer.sdpo_loss.teacher_update_rate == 0.01
+    assert config.trainer.optim.type == "adamw"
+    assert config.trainer.optim.lr == 1e-6
+    assert config.trainer.optim.weight_decay == 0.01
+    assert config.trainer.optim.max_norm == 1.0
+    assert config.trainer.scheduler.type == "constant"
+
+
+def test_zero_train_batch_lead_rejects_token_batching():
+    with pytest.raises(ValidationError, match="requires rollout-based batch_size"):
+        OrchestratorConfig.model_validate(
+            {
+                "token_batch_size": 1024,
+                "max_inflight_episodes": 16,
+                "max_train_batch_lead": 0,
+            }
+        )
+
+
+def test_per_env_sdpo_algorithm_enables_trainer_runtime():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {
+                "algo": {"type": "grpo"},
+                "train": {
+                    "source": [
+                        {
+                            "name": "sdpo-env",
+                            "env": {
+                                "taskset": {"id": "reverse-text-v1"},
+                                "agent": {
+                                    "harness": {"id": "null"},
+                                    "runtime": {"type": "subprocess"},
+                                },
+                            },
+                            "algo": {"type": "sdpo"},
+                        }
+                    ]
+                },
+            },
+        }
+    )
+
+    assert config.trainer.sdpo_loss.enabled
+
+
+def test_sdpo_rejects_explicit_fused_lm_head():
+    with pytest.raises(ValidationError, match="fused_lm_head_token_chunk_size='disabled'"):
+        RLConfig.model_validate(
+            {
+                "trainer": {"model": {"fused_lm_head_token_chunk_size": 128}},
+                "orchestrator": {"algo": {"type": "sdpo"}},
+            }
+        )
+
+
 def test_trainer_enable_token_export_cli_flag():
     assert not cli(TrainerConfig, args=[]).enable_token_export
     assert cli(TrainerConfig, args=["--enable-token-export"]).enable_token_export

@@ -8,13 +8,13 @@ from datetime import timedelta
 # ruff: noqa: I001
 
 from prime_rl.trainer.models.layers.attn import substitute_ring_attn
-from prime_rl.trainer.rl.broadcast import setup_weight_broadcast
+from prime_rl.trainer.rl.broadcast import nccl_broadcast_is_unused, setup_weight_broadcast
 from prime_rl.utils.act_offloading import maybe_activation_offloading
 import torch
 import torch.distributed as dist
 from torch.profiler import profile, ProfilerActivity, record_function
 from prime_rl.trainer.ckpt import Progress, setup_ckpt_managers
-from prime_rl.trainer.optim import setup_optimizer
+from prime_rl.trainer.optim import optimizer_update_succeeded, setup_optimizer
 from prime_rl.trainer.scheduler import setup_scheduler
 from prime_rl.configs.trainer import TrainerConfig
 from prime_rl.trainer.rl.data import DataLoader, FakeDataLoader
@@ -35,6 +35,14 @@ from prime_rl.trainer.rl.loss import (
     shift_tensor_right,
 )
 from prime_rl.trainer.rl.token_export import setup_token_exporter
+from prime_rl.trainer.rl.sdpo_support import (
+    active_sdpo_weight_mask,
+    gather_sdpo_student_topk_logprobs,
+    gather_sdpo_teacher_topk_logprobs,
+    pack_sdpo_teacher_span_batches,
+    select_sdpo_student_topk_support,
+)
+from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
 from prime_rl.trainer.model import (
     forward,
     setup_tokenizer,
@@ -134,6 +142,16 @@ def train(config: TrainerConfig):
     logger.info(f"Initializing model ({config.model})")
     loading_from_ckpt_later = checkpoint_step is not None
     model = setup_model(config.model, parallel_dims, loading_from_ckpt_later)
+    sdpo_teacher_model = model
+    sdpo_teacher_state = None
+    if config.sdpo_loss.enabled and config.sdpo_loss.teacher_regularization == "ema":
+        logger.info("Initializing SDPO EMA teacher model")
+        sdpo_teacher_model = setup_model(config.model, parallel_dims, loading_from_checkpoint_later=True)
+        sdpo_teacher_state = SDPOEMATeacher(
+            sdpo_teacher_model,
+            model,
+            update_rate=config.sdpo_loss.teacher_update_rate,
+        )
 
     logger.info(f"Initializing tokenizer ({config.tokenizer})")
     tokenizer = setup_tokenizer(config.tokenizer)
@@ -215,10 +233,13 @@ def train(config: TrainerConfig):
             scheduler,
             progress,
             path=resume_dir / "trainer" if resume_dir is not None else None,
+            extra_state=sdpo_teacher_state,
         )
         # The checkpoint finished step ``checkpoint_step``; resume training at the next step.
         progress.step += 1
         logger.info(f"Resuming training from checkpoint step {checkpoint_step}")
+    elif sdpo_teacher_state is not None:
+        sdpo_teacher_state.sync_from_student()
 
     logger.info(
         f"Starting from step {progress.step} (total_tokens={progress.total_tokens}, total_samples={progress.total_samples})"
@@ -297,6 +318,7 @@ def train(config: TrainerConfig):
         local_rl_scale = 0
         local_ce_scale = 0
         local_ref_kl_scale = 0
+        local_sdpo_scale = 0
         for micro_batch in micro_batches:
             mask = micro_batch["loss_mask"]
             rl_w = micro_batch["rl_weights"]
@@ -305,12 +327,19 @@ def train(config: TrainerConfig):
                 local_ce_scale += int((micro_batch["ce_weights"] != 0).sum())
             if micro_batch["ref_kl_weights"] is not None:
                 local_ref_kl_scale += int((micro_batch["ref_kl_weights"] != 0).sum())
+            if micro_batch["sdpo_weights"] is not None:
+                local_sdpo_scale += int((mask & active_sdpo_weight_mask(micro_batch["sdpo_weights"])).sum())
         global_scales = torch.tensor(
-            [local_rl_scale, local_ce_scale, local_ref_kl_scale], dtype=torch.int64, device="cuda"
+            [local_rl_scale, local_ce_scale, local_ref_kl_scale, local_sdpo_scale],
+            dtype=torch.int64,
+            device="cuda",
         )
         dp_cp_group = parallel_dims.get_mesh("dp_cp").get_group()
         dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
-        rl_scale, ce_scale, ref_kl_scale = (max(scale, 1) for scale in global_scales.tolist())
+        has_global_sdpo = bool(global_scales[3] > 0)
+        if has_global_sdpo and not config.sdpo_loss.enabled:
+            raise ValueError("Received SDPO samples but trainer.sdpo_loss.enabled is false")
+        rl_scale, ce_scale, ref_kl_scale, sdpo_scale = (max(scale, 1) for scale in global_scales.tolist())
 
         logger.debug(f"Starting forward and backward pass ({batch_size=})")
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
@@ -326,11 +355,18 @@ def train(config: TrainerConfig):
             loss_mask = micro_batch["loss_mask"].to("cuda")
             inference_logprobs = micro_batch["inference_logprobs"].to("cuda")
             ref_logprobs = micro_batch["ref_logprobs"].to("cuda") if micro_batch["ref_logprobs"] is not None else None
+            sdpo_teacher_spans = micro_batch["sdpo_teacher_spans"]
+            sdpo_rollout_is_weights = (
+                micro_batch["sdpo_rollout_is_weights"].to("cuda")
+                if micro_batch["sdpo_rollout_is_weights"] is not None
+                else None
+            )
             rl_weights = micro_batch["rl_weights"].to("cuda") if micro_batch["rl_weights"] is not None else None
             ce_weights = micro_batch["ce_weights"].to("cuda") if micro_batch["ce_weights"] is not None else None
             ref_kl_weights = (
                 micro_batch["ref_kl_weights"].to("cuda") if micro_batch["ref_kl_weights"] is not None else None
             )
+            sdpo_weights = micro_batch["sdpo_weights"].to("cuda") if micro_batch["sdpo_weights"] is not None else None
             routed_experts = (
                 micro_batch["routed_experts"].to("cuda") if micro_batch["routed_experts"] is not None else None
             )
@@ -368,6 +404,8 @@ def train(config: TrainerConfig):
             seq_lens_are_pre_shard = False
 
             if cp_enabled:
+                if has_global_sdpo:
+                    raise NotImplementedError("SDPO top-k distillation is not supported with context parallelism")
                 # MRoPE batches must merge image embeddings before sharding.
                 defer_vlm_cp_to_model = mm_kwargs is not None and "image_grid_thw" in mm_kwargs
                 if not defer_vlm_cp_to_model:
@@ -403,6 +441,90 @@ def train(config: TrainerConfig):
             if cp_enabled:
                 temperatures = shard_for_cp(temperatures, cp_rank=cp_rank, cp_world_size=cp_size)
 
+            sdpo_topk_token_ids = None
+            sdpo_topk_logprobs = None
+            if has_global_sdpo:
+                if mm_kwargs is not None:
+                    raise NotImplementedError(
+                        "SDPO feedback-conditioned teacher replay does not support multimodal batches"
+                    )
+                topk = config.sdpo_loss.distillation_topk
+                if not config.sdpo_loss.full_logit_distillation or topk is None:
+                    raise NotImplementedError("The Prime SDPO path currently requires top-k distribution distillation")
+
+                with torch.no_grad(), maybe_record_function("sdpo_student_support"):
+                    support_out = forward(
+                        model,
+                        input_ids,
+                        position_ids,
+                        labels=labels,
+                        temperature=temperatures,
+                        mm_kwargs=None,
+                        mm_token_type_ids=None,
+                        routed_experts=routed_experts,
+                    )
+                    support_logits = support_out.get("logits")
+                    if support_logits is None:
+                        raise ValueError(
+                            "SDPO top-k distillation requires trainer logits; "
+                            "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
+                        )
+                    sdpo_topk_token_ids = select_sdpo_student_topk_support(support_logits, temperatures, topk)
+                    del support_out, support_logits
+
+                if config.model.lora:
+                    active_loras = torch.nonzero(lora_num_tokens, as_tuple=False).flatten()
+                    if len(active_loras) != 1:
+                        raise ValueError("SDPO teacher replay requires one active LoRA per micro batch")
+
+                teacher_batches = pack_sdpo_teacher_span_batches(sdpo_teacher_spans, config.model.seq_len)
+                for teacher_ids, teacher_position_ids_list, teacher_targets, student_targets in teacher_batches:
+                    teacher_input_ids = torch.tensor(teacher_ids, dtype=torch.long, device="cuda").unsqueeze(0)
+                    teacher_position_ids = torch.tensor(
+                        teacher_position_ids_list, dtype=torch.long, device="cuda"
+                    ).unsqueeze(0)
+                    teacher_temperatures = torch.ones_like(teacher_input_ids, dtype=torch.float)
+                    teacher_labels = shift_tensor_left(teacher_input_ids)
+
+                    if config.model.lora:
+                        teacher_lora_num_tokens = torch.zeros_like(lora_num_tokens)
+                        teacher_lora_num_tokens[active_loras[0]] = teacher_input_ids.shape[1]
+                        set_lora_num_tokens(teacher_lora_num_tokens)
+
+                    with torch.no_grad(), maybe_record_function("sdpo_teacher"):
+                        teacher_out = forward(
+                            sdpo_teacher_model,
+                            teacher_input_ids,
+                            teacher_position_ids,
+                            labels=teacher_labels,
+                            temperature=teacher_temperatures,
+                            mm_kwargs=None,
+                            mm_token_type_ids=None,
+                            routed_experts=None,
+                        )
+                        teacher_logits = teacher_out.get("logits")
+                        if teacher_logits is None:
+                            raise ValueError(
+                                "SDPO teacher replay requires trainer logits; "
+                                "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
+                            )
+                        if sdpo_topk_logprobs is None:
+                            sdpo_topk_logprobs = torch.zeros_like(sdpo_topk_token_ids, dtype=teacher_logits.dtype)
+                        if student_targets:
+                            student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
+                            teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
+                            support_ids = sdpo_topk_token_ids[0, student_target_tensor]
+                            teacher_scores = gather_sdpo_teacher_topk_logprobs(
+                                teacher_logits,
+                                teacher_target_tensor,
+                                support_ids,
+                            )
+                            sdpo_topk_logprobs[0, student_target_tensor] = teacher_scores
+                        del teacher_out, teacher_logits
+
+                if config.model.lora:
+                    set_lora_num_tokens(lora_num_tokens)
+
             # Forward pass with per-token temperatures
             with maybe_record_function("forward"), maybe_activation_offloading(config.model.ac_offloading):
                 out = forward(
@@ -416,6 +538,22 @@ def train(config: TrainerConfig):
                     seq_lens=seq_lens,
                     seq_lens_are_pre_shard=seq_lens_are_pre_shard,
                     routed_experts=routed_experts,
+                )
+
+            student_topk_logprobs = None
+            if sdpo_topk_token_ids is not None:
+                logits = out.get("logits")
+                if logits is None:
+                    raise ValueError(
+                        "SDPO top-k distillation requires trainer logits; "
+                        "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
+                    )
+                support_mask = loss_mask if sdpo_weights is None else loss_mask & active_sdpo_weight_mask(sdpo_weights)
+                student_topk_logprobs = gather_sdpo_student_topk_logprobs(
+                    logits,
+                    temperatures,
+                    sdpo_topk_token_ids,
+                    support_mask=support_mask,
                 )
 
             if out.get("logprobs") is None:
@@ -452,10 +590,22 @@ def train(config: TrainerConfig):
                 rl_weights=rl_weights.squeeze().split(sequence_lengths) if rl_weights is not None else None,
                 ce_weights=ce_weights.squeeze().split(sequence_lengths) if ce_weights is not None else None,
                 ref_kl_weights=ref_kl_weights.squeeze().split(sequence_lengths) if ref_kl_weights is not None else None,
+                sdpo_weights=sdpo_weights.squeeze(0).split(sequence_lengths) if sdpo_weights is not None else None,
+                sdpo_rollout_is_weights=sdpo_rollout_is_weights.squeeze(0).split(sequence_lengths)
+                if sdpo_rollout_is_weights is not None
+                else None,
+                student_topk_logprobs=student_topk_logprobs.squeeze(0).split(sequence_lengths)
+                if student_topk_logprobs is not None
+                else None,
+                teacher_topk_logprobs=sdpo_topk_logprobs.squeeze(0).split(sequence_lengths)
+                if sdpo_topk_logprobs is not None
+                else None,
+                sdpo_loss_config=config.sdpo_loss,
                 rl_loss_fn=rl_loss_fn,
                 rl_scale=rl_scale,
                 ce_scale=ce_scale,
                 ref_kl_scale=ref_kl_scale,
+                sdpo_scale=sdpo_scale,
             )
 
             # Backward pass
@@ -479,13 +629,15 @@ def train(config: TrainerConfig):
             # Mismatch KL is only meaningful where sampling logprobs exist —
             # keep rl/ref_kl member tokens (policy-sampled), exclude tokens
             # whose action component is ce (frozen-model tokens).
-            if rl_weights is None and ref_kl_weights is None:
+            if rl_weights is None and ref_kl_weights is None and sdpo_weights is None:
                 mismatch_mask = loss_mask
                 has_mismatch_tokens = True
             else:
                 sampled_mask = (rl_weights != 0) if rl_weights is not None else loss_mask
                 if ref_kl_weights is not None:
                     sampled_mask = sampled_mask | (ref_kl_weights != 0)
+                if sdpo_weights is not None:
+                    sampled_mask = sampled_mask | active_sdpo_weight_mask(sdpo_weights)
                 mismatch_mask = loss_mask & sampled_mask
                 has_mismatch_tokens = bool(mismatch_mask.any())
             if has_mismatch_tokens:
@@ -550,26 +702,33 @@ def train(config: TrainerConfig):
             if grad_norm.device.type == "cpu":
                 grad_norm = grad_norm.to(torch.device("cuda"))
 
-        # Update the model parameters
-        optimizer.step()
+        update_succeeded = optimizer_update_succeeded(grad_norm)
+        if update_succeeded:
+            optimizer.step()
+            if sdpo_teacher_state is not None:
+                sdpo_teacher_state.step()
+            scheduler.step()
+        else:
+            logger.warning(f"Skipping optimizer update because gradient norm is not finite: {grad_norm}")
         optimizer.zero_grad()
-
-        # Update learning rate scheduler
-        scheduler.step()
 
         current_lr = optimizer.param_groups[0]["lr"]
         forward_backward_time = time.perf_counter() - forward_backward_start_time
 
         # Broadcast the model just produced (policy v{progress.step}) so the orchestrator can
-        # sample its next step from it. In-memory transports retain their two-step shutdown
-        # window; filesystem broadcast still writes every version for resume.
+        # sample its next step from it. Skip NCCL policies beyond the configured batch lead because
+        # no future rollout can consume them (the inference NCCL group is torn down after the final
+        # batch). Filesystem broadcast still writes them so we can resume from the broadcast directory.
         if weight_broadcast is None:
             broadcast_weights_time = 0
         else:
-            broadcast_unused = (
-                config.weight_broadcast.type in ("nccl", "nixl")
-                and config.max_steps is not None
-                and progress.step >= config.max_steps - 1
+            broadcast_unused = config.weight_broadcast.type in (
+                "nccl",
+                "nixl",
+            ) and nccl_broadcast_is_unused(
+                progress_step=progress.step,
+                max_steps=config.max_steps,
+                max_train_batch_lead=config.max_train_batch_lead,
             )
             if not broadcast_unused:
                 broadcast_weights_start_time = time.perf_counter()
@@ -594,7 +753,14 @@ def train(config: TrainerConfig):
             if not config.ckpt.weights_only:
                 logger.info(f"Saving checkpoint at step {progress.step}")
                 save_ckpt_start_time = time.perf_counter()
-                ckpt_manager.save(progress.step, model, [optimizer], scheduler, progress)
+                ckpt_manager.save(
+                    progress.step,
+                    model,
+                    [optimizer],
+                    scheduler,
+                    progress,
+                    extra_state=sdpo_teacher_state,
+                )
                 save_ckpt_time += time.perf_counter() - save_ckpt_start_time
 
             ckpt_manager.maybe_clean()
@@ -654,6 +820,7 @@ def train(config: TrainerConfig):
         # Log optimizer metrics
         optim_metrics = {
             "optim/lr": current_lr,
+            "optim/update_succeeded": float(update_succeeded),
             "step": progress.step,
         }
         if grad_norm is not None:
@@ -722,7 +889,14 @@ def train(config: TrainerConfig):
     if config.ckpt is not None:
         if not config.ckpt.weights_only:
             logger.info("Writing final checkpoint")
-            ckpt_manager.save(progress.step, model, [optimizer], scheduler, progress)
+            ckpt_manager.save(
+                progress.step,
+                model,
+                [optimizer],
+                scheduler,
+                progress,
+                extra_state=sdpo_teacher_state,
+            )
         ckpt_manager.maybe_clean()
 
     if weight_ckpt_manager is not None:

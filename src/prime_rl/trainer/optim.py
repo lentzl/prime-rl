@@ -12,6 +12,14 @@ from prime_rl.trainer.sign_sgd import SignSGD
 from prime_rl.utils.logger import get_logger
 
 
+def optimizer_update_succeeded(grad_norm: torch.Tensor | None) -> bool:
+    if grad_norm is None:
+        return True
+    if isinstance(grad_norm, DTensor):
+        grad_norm = grad_norm.full_tensor()
+    return bool(torch.isfinite(grad_norm).all())
+
+
 class CPUOffloadOptimizer:
     """Wraps an optimizer to keep states on CPU, moving to GPU only for step().
 

@@ -19,7 +19,7 @@ Each algorithm fixes two things:
    ship numbers; reference-KL algorithms ship reference prefill logprobs and the
    trainer evaluates the per-token signal against the live policy. The algorithm
    determines which loss component consumes the action tokens (``rl`` / ``ce`` /
-   ``ref_kl``, via the ``action_loss_type`` class declaration) and what happens
+   ``ref_kl`` / ``sdpo``, via the ``action_loss_type`` class declaration) and what happens
    to env-provided observation tokens (masked out by default; ``echo`` trains on
    them with weighted CE).
 
@@ -28,7 +28,7 @@ uses is an external OpenAI-compatible endpoint, declared inline on the
 algorithm that uses it (a :class:`FrozenModelConfig`). Model roles like
 "teacher" are algorithm-local vocabulary over these references; the pipeline
 branches on liveness alone. The trainer is algorithm-blind: the loss is a sum
-of three components (rl, ce, ref_kl), each normalized by its own global token
+of four components (rl, ce, ref_kl, sdpo), each normalized by its own global token
 count; per-token component weights ship on the wire and the trainer just
 executes them.
 """
@@ -71,7 +71,7 @@ ModelReference: TypeAlias = Literal["policy"] | FrozenModelConfig
 version, sampling logprobs carried, rollouts age off-policy) or an inline
 externally-hosted frozen model."""
 
-ActionLossType: TypeAlias = Literal["rl", "ce", "ref_kl"]
+ActionLossType: TypeAlias = Literal["rl", "ce", "ref_kl", "sdpo"]
 
 
 # ---------------------------------------------------------------------------
@@ -177,10 +177,10 @@ class BaseAlgoConfig(BaseConfig):
 
     @model_validator(mode="after")
     def validate_sampling_source(self):
-        """The on-policy loss types (rl, ref_kl) need the live policy's own
+        """The on-policy loss types (rl, ref_kl, sdpo) need the live policy's own
         sampling logprobs, so they must sample from ``"policy"``; only sft (ce)
         may sample from a frozen model."""
-        if self.action_loss_type in ("rl", "ref_kl") and self.sampling.source != "policy":
+        if self.action_loss_type in ("rl", "ref_kl", "sdpo") and self.sampling.source != "policy":
             raise ValueError(
                 f"algorithm '{self.type}' trains with the "
                 f"{self.action_loss_type} loss type but sampling.source is a frozen model — "
@@ -343,6 +343,51 @@ class OPSDAlgoConfig(BaseAlgoConfig):
     to match a non-auto policy renderer."""
 
 
+class SDPOAlgoConfig(BaseAlgoConfig):
+    type: Literal["sdpo"] = "sdpo"
+    """Feedback-conditioned self-distillation policy optimization (arXiv:2601.20802)."""
+
+    action_loss_type: ClassVar[ActionLossType] = "sdpo"
+
+    success_reward_threshold: float = 0.5
+    """Minimum reward for a sibling rollout to serve as a correct solution."""
+
+    dont_reprompt_on_self_success: bool = True
+    """Skip a successful rollout unless another successful sibling can supervise it."""
+
+    remove_thinking_from_demonstration: bool = True
+    """Remove ``<think>`` spans from successful sibling demonstrations."""
+
+    include_environment_feedback: bool = True
+    """Use natural environment feedback when no successful sibling is available."""
+
+    environment_feedback_only_without_solution: bool = True
+    """Prefer a successful sibling over environment feedback when both exist."""
+
+    multi_turn_replay: bool = False
+    """Construct one teacher replay per sampled assistant turn.
+
+    This is an opt-in extension beyond the paper's complete-response setting.
+    Each turn is supervised only by feedback observed before the next sampled
+    turn; rollout-level feedback is reserved for the final turn.
+    """
+
+    max_reprompt_len: int = Field(10240, ge=1)
+    """Maximum rendered teacher-prefix length before appending the original response."""
+
+    template: str = "{question}{successful_solution_block}{feedback_block}\n\nCorrectly solve the original question."
+    """Feedback-conditioned user-message template."""
+
+    solution_template: str = "\nCorrect solution:\n\n{successful_previous_attempt}"
+    """Successful-sibling section inserted into ``template``."""
+
+    feedback_template: str = "\nThe following is feedback from your unsuccessful earlier attempt:\n\n{feedback_raw}"
+    """Environment-feedback section inserted into ``template``."""
+
+    renderer: RendererConfig = AutoRendererConfig()
+    """Renderer used to construct the feedback-conditioned teacher prefix."""
+
+
 class SFTAlgoConfig(BaseAlgoConfig):
     type: Literal["sft"] = "sft"
     """SFT distillation: cross-entropy on the sampled tokens. The ``ce`` loss
@@ -374,6 +419,7 @@ AlgoConfig: TypeAlias = Annotated[
     | HierarchicalGRPOAlgoConfig
     | OPDAlgoConfig
     | OPSDAlgoConfig
+    | SDPOAlgoConfig
     | SFTAlgoConfig,
     Field(discriminator="type"),
 ]
@@ -387,6 +433,7 @@ its class defaults are the vetted setting.
 - ``hierarchical_grpo`` — GRPO for proposer-solver envs: solvers are compared within one proposed problem and proposers across proposals. Needs ``episode_agents``.
 - ``opd`` — on-policy distillation: policy samples, per-token reverse KL against a reference model. Needs ``teacher``.
 - ``opsd`` — SDFT: policy samples, demo-conditioned reverse KL against the live policy (the teacher is the policy itself).
+- ``sdpo`` — feedback-conditioned logit self-distillation over the policy's own attempts.
 - ``sft`` — a frozen model samples, the policy trains with CE on its tokens. Needs a frozen ``sampling.source``.
 - ``echo`` — GRPO on action tokens + weighted CE on tool-response observation tokens.
 

@@ -1,0 +1,70 @@
+# Section 5 test-time-training control-flow smoke. This deliberately uses the
+# small reverse-text debug task instead of the paper's Qwen3-8B/LCBv6 setup; it
+# validates one fixed question -> 16 attempts -> update -> fresh attempts.
+#   uv run rl @ configs/debug/algo/sdpo_ttt_smoke.toml
+
+max_steps = 2
+seq_len = 2048
+max_train_batch_lead = 0
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
+
+[wandb]
+project = "algorithms-debug"
+name = "debug-sdpo-ttt-smoke"
+
+[orchestrator]
+batch_size = 16
+group_size = 16
+max_inflight_episodes = 16
+
+[orchestrator.algo]
+type = "sdpo"
+
+[orchestrator.algo.renderer]
+name = "qwen3"
+enable_thinking = false
+
+[orchestrator.renderer]
+name = "qwen3"
+enable_thinking = false
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 128
+
+[[orchestrator.train.source]]
+name = "reverse-text"
+
+[orchestrator.train.source.env.taskset]
+id = "reverse-text-v1"
+
+[orchestrator.train.source.env.agent.harness]
+id = "null"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "subprocess"
+
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+is_clip = 2.0
+rollout_is = "token"
+rollout_is_threshold = 2.0
+teacher_regularization = "ema"
+teacher_update_rate = 0.01
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+weight_decay = 0.01
+max_norm = 1.0
+
+[trainer.scheduler]
+type = "constant"
+
+[ckpt]
+
+[inference]
+gpu_memory_utilization = 0.5

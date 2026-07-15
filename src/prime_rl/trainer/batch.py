@@ -1,17 +1,77 @@
 import copy
 import heapq
+import math
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
 import numpy as np
 
-from prime_rl.transport.types import EncodedTensor, MicroBatch, RoutedExperts, TrainingSample
+from prime_rl.transport.types import EncodedTensor, MicroBatch, RoutedExperts, SDPOTeacherSpan, TrainingSample
 
 # Backfill value per component weight stream when a packed sample doesn't
 # carry it: absent rl means weight 1.0 on the loss mask, absent ce/ref_kl
 # means no component (weight 0.0).
-STREAM_FILL = {"rl_weights": 1.0, "ce_weights": 0.0, "ref_kl_weights": 0.0}
+STREAM_FILL = {"rl_weights": 1.0, "ce_weights": 0.0, "ref_kl_weights": 0.0, "sdpo_weights": 0.0}
+
+
+def _prepare_sdpo_teacher_spans(
+    spans: list[SDPOTeacherSpan] | None,
+    weights: list[float] | None,
+    token_ids: list[int],
+) -> list[SDPOTeacherSpan] | None:
+    if spans is None:
+        if weights is not None and any(weight != 0 for weight in weights):
+            raise ValueError("active sdpo_weights require feedback-conditioned teacher spans")
+        return None
+
+    prepared: list[SDPOTeacherSpan] = []
+    covered: set[int] = set()
+    for span in spans:
+        if not span.prefix_ids or not span.completion_ids:
+            raise ValueError("SDPO teacher spans require non-empty prefix and completion token ids")
+        if len(span.student_positions) != len(span.target_offsets) or not span.student_positions:
+            raise ValueError("SDPO teacher span positions and offsets must have the same non-zero length")
+        kept = [
+            (position, offset)
+            for position, offset in zip(span.student_positions, span.target_offsets, strict=True)
+            if position < len(token_ids)
+        ]
+        if not kept:
+            continue
+        positions, offsets = map(list, zip(*kept, strict=True))
+        if len(set(positions)) != len(positions) or any(position < 0 for position in positions):
+            raise ValueError("SDPO teacher student positions must be unique and non-negative")
+        if len(set(offsets)) != len(offsets) or any(
+            offset < 0 or offset >= len(span.completion_ids) for offset in offsets
+        ):
+            raise ValueError("SDPO teacher target offsets must be unique and within the completion")
+        for position, offset in zip(positions, offsets, strict=True):
+            if token_ids[position] != span.completion_ids[offset]:
+                raise ValueError("SDPO teacher targets must align with the original sample tokens")
+            if weights is None or weights[position] == 0:
+                raise ValueError("SDPO teacher spans may only target active SDPO component tokens")
+            if position in covered:
+                raise ValueError("SDPO teacher spans must not target a student position more than once")
+            covered.add(position)
+        prepared.append(
+            SDPOTeacherSpan(
+                prefix_ids=list(span.prefix_ids),
+                completion_ids=list(span.completion_ids),
+                student_positions=positions,
+                target_offsets=offsets,
+            )
+        )
+    active = {index for index, weight in enumerate(weights or []) if weight != 0}
+    if covered != active:
+        raise ValueError("every active SDPO component token must have exactly one teacher target")
+    return prepared or None
+
+
+def _neutral_sdpo_rollout_is_weights(sample: MicroBatch) -> list[float]:
+    if sample.sdpo_weights is None:
+        return [0.0] * len(sample.input_ids)
+    return [1.0 if weight != 0 else 0.0 for weight in sample.sdpo_weights]
 
 
 def _text_config(model_config: Any) -> Any:
@@ -364,10 +424,14 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
             )
         advantages = [0.0] * len(input_ids)
     # Component weight streams: keep absent streams None (rl weight 1.0 on the
-    # loss mask, no ce/ref_kl component) so the packed batch stays as small as before.
+    # loss mask, no ce/ref_kl/sdpo component) so the packed batch stays as small as before.
     rl_weights = list(training_example.rl_weights) if training_example.rl_weights is not None else None
     ce_weights = list(training_example.ce_weights) if training_example.ce_weights is not None else None
     ref_kl_weights = list(training_example.ref_kl_weights) if training_example.ref_kl_weights is not None else None
+    sdpo_weights = list(training_example.sdpo_weights) if training_example.sdpo_weights is not None else None
+    sdpo_rollout_is_weights = (
+        list(training_example.sdpo_rollout_is_weights) if training_example.sdpo_rollout_is_weights is not None else None
+    )
     position_ids = list(range(len(input_ids)))
     mm_token_type_ids = training_example.mm_token_type_ids
     mm_kwargs = training_example.mm_kwargs
@@ -376,10 +440,17 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
 
     # Per-token sampling temperatures (context tokens are masked out, so theirs are don't-care).
     temperatures = training_example.temperatures
+    if sdpo_weights is not None:
+        if len(temperatures) != len(input_ids):
+            raise ValueError("SDPO temperatures must align with input_ids")
+        for index, weight in enumerate(sdpo_weights):
+            if weight != 0 and not math.isclose(temperatures[index], 1.0, rel_tol=0.0, abs_tol=1e-9):
+                raise ValueError("SDPO requires sampling temperature 1.0 on every distilled token")
 
     # Ref logprobs already cover the full sequence (prompt + completion),
     # computed via prefill in the orchestrator when the algorithm scores against a reference
     ref_logprobs = training_example.ref_logprobs
+    sdpo_teacher_spans = training_example.sdpo_teacher_spans
     routed_experts = (
         _copy_routed_experts(training_example.routed_experts) if training_example.routed_experts is not None else None
     )
@@ -404,6 +475,10 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
             ce_weights = ce_weights[:cut]
         if ref_kl_weights is not None:
             ref_kl_weights = ref_kl_weights[:cut]
+        if sdpo_weights is not None:
+            sdpo_weights = sdpo_weights[:cut]
+        if sdpo_rollout_is_weights is not None:
+            sdpo_rollout_is_weights = sdpo_rollout_is_weights[:cut]
         if routed_experts is not None:
             routed_experts = _slice_routed_experts(routed_experts, cut)
         if mm_token_type_ids is not None:
@@ -426,9 +501,20 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         ("rl_weights", rl_weights),
         ("ce_weights", ce_weights),
         ("ref_kl_weights", ref_kl_weights),
+        ("sdpo_weights", sdpo_weights),
+        ("sdpo_rollout_is_weights", sdpo_rollout_is_weights),
     ):
         if stream is not None:
             assert len(stream) == len(input_ids), f"{stream_name}: {len(stream)}"
+    sdpo_teacher_spans = _prepare_sdpo_teacher_spans(sdpo_teacher_spans, sdpo_weights, input_ids)
+    if sdpo_rollout_is_weights is not None:
+        if any(not math.isfinite(weight) or weight < 0 for weight in sdpo_rollout_is_weights):
+            raise ValueError("sdpo_rollout_is_weights must be finite and non-negative")
+        if sdpo_weights is None or any(
+            is_weight != 0 and component_weight == 0
+            for is_weight, component_weight in zip(sdpo_rollout_is_weights, sdpo_weights, strict=True)
+        ):
+            raise ValueError("sdpo_rollout_is_weights may only select SDPO component tokens")
 
     if routed_experts is not None:
         assert routed_experts.shape[0] == len(input_ids), (
@@ -446,6 +532,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         inference_logprobs=inference_logprobs,
         sequence_lengths=[len(input_ids)],
         ref_logprobs=ref_logprobs,
+        sdpo_teacher_spans=sdpo_teacher_spans,
         temperatures=temperatures,
         routed_experts=routed_experts,
         mm_token_type_ids=mm_token_type_ids,
@@ -455,6 +542,8 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         ce_weights=ce_weights,
         ref_kl_weights=ref_kl_weights,
         seq_lens=[len(input_ids)],
+        sdpo_weights=sdpo_weights,
+        sdpo_rollout_is_weights=sdpo_rollout_is_weights,
     )
 
 
@@ -491,6 +580,8 @@ class _MicroBatchBin:
         if self.length + len(sample.input_ids) > max_seq_len:
             return False
         if (first_sample.routed_experts is None) != (sample.routed_experts is None):
+            return False
+        if first_sample.sdpo_teacher_spans or sample.sdpo_teacher_spans:
             return False
 
         sample_is_mm = _is_multimodal_sample(sample)
@@ -537,6 +628,7 @@ class _MicroBatchBin:
 
 def _materialize_bin(bin_content: _MicroBatchBin) -> MicroBatch:
     has_ref_logprobs = any(sample.ref_logprobs is not None for sample in bin_content.samples)
+    has_sdpo_rollout_is = any(sample.sdpo_rollout_is_weights is not None for sample in bin_content.samples)
     has_mm_token_type_ids = any(sample.mm_token_type_ids is not None for sample in bin_content.samples)
     # A weight stream materializes as soon as one packed sample carries it; the
     # samples that lack it get the stream's identity fill (STREAM_FILL).
@@ -550,6 +642,8 @@ def _materialize_bin(bin_content: _MicroBatchBin) -> MicroBatch:
     temperatures: list[float] = []
     env_names: list[str] = []
     ref_logprobs: list[float] | None = [] if has_ref_logprobs else None
+    sdpo_teacher_spans: list[SDPOTeacherSpan] = []
+    sdpo_rollout_is_weights: list[float] | None = [] if has_sdpo_rollout_is else None
     mm_token_type_ids: list[int] | None = [] if has_mm_token_type_ids else None
     mm_kwargs: dict[str, EncodedTensor] | None = None
     streams: dict[str, list[float] | None] = {name: ([] if has_stream[name] else None) for name in STREAM_FILL}
@@ -558,6 +652,7 @@ def _materialize_bin(bin_content: _MicroBatchBin) -> MicroBatch:
 
     for sample in bin_content.samples:
         sample_len = len(sample.input_ids)
+        sample_offset = len(input_ids)
         input_ids.extend(sample.input_ids)
         loss_mask.extend(sample.loss_mask)
         advantages.extend(sample.advantages)
@@ -567,6 +662,21 @@ def _materialize_bin(bin_content: _MicroBatchBin) -> MicroBatch:
         env_names.extend(sample.env_names)
         if ref_logprobs is not None:
             ref_logprobs.extend(sample.ref_logprobs if sample.ref_logprobs is not None else [0.0] * sample_len)
+        for span in sample.sdpo_teacher_spans or []:
+            sdpo_teacher_spans.append(
+                SDPOTeacherSpan(
+                    prefix_ids=list(span.prefix_ids),
+                    completion_ids=list(span.completion_ids),
+                    student_positions=[sample_offset + position for position in span.student_positions],
+                    target_offsets=list(span.target_offsets),
+                )
+            )
+        if sdpo_rollout_is_weights is not None:
+            sdpo_rollout_is_weights.extend(
+                sample.sdpo_rollout_is_weights
+                if sample.sdpo_rollout_is_weights is not None
+                else _neutral_sdpo_rollout_is_weights(sample)
+            )
         for name, fill in STREAM_FILL.items():
             stream = streams[name]
             if stream is not None:
@@ -605,6 +715,7 @@ def _materialize_bin(bin_content: _MicroBatchBin) -> MicroBatch:
         inference_logprobs=inference_logprobs,
         sequence_lengths=sequence_lengths,
         ref_logprobs=ref_logprobs,
+        sdpo_teacher_spans=sdpo_teacher_spans or None,
         temperatures=temperatures,
         routed_experts=routed_experts,
         mm_token_type_ids=mm_token_type_ids,
@@ -614,6 +725,8 @@ def _materialize_bin(bin_content: _MicroBatchBin) -> MicroBatch:
         ce_weights=streams["ce_weights"],
         ref_kl_weights=streams["ref_kl_weights"],
         seq_lens=seq_lens,
+        sdpo_weights=streams["sdpo_weights"],
+        sdpo_rollout_is_weights=sdpo_rollout_is_weights,
     )
 
 
@@ -722,6 +835,8 @@ def pad_micro_batch(micro_batch: MicroBatch, pad_to_multiple_of: int) -> MicroBa
     micro_batch.temperatures.extend([1.0] * padding_size)
     if micro_batch.ref_logprobs is not None:
         micro_batch.ref_logprobs.extend([0.0] * padding_size)
+    if micro_batch.sdpo_rollout_is_weights is not None:
+        micro_batch.sdpo_rollout_is_weights.extend([0.0] * padding_size)
     # Padding is loss-masked, so no component trains it; fill every stream
     # with 0.0 (not the pack-boundary defaults) so a padded pure-ce batch
     # still reads as rl-empty in token export, which keys off nonzero weights.
@@ -754,6 +869,8 @@ def _assert_token_arrays_aligned(micro_batch: MicroBatch) -> None:
         "rl_weights",
         "ce_weights",
         "ref_kl_weights",
+        "sdpo_weights",
+        "sdpo_rollout_is_weights",
         "mm_token_type_ids",
     )
     for name in per_token_fields:
@@ -781,6 +898,9 @@ def _make_dummy_batch(source: MicroBatch) -> MicroBatch:
     dummy.rl_weights = None
     dummy.ce_weights = None
     dummy.ref_kl_weights = None
+    dummy.sdpo_weights = None
+    dummy.sdpo_rollout_is_weights = None
+    dummy.sdpo_teacher_spans = None
     return dummy
 
 

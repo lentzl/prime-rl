@@ -101,11 +101,6 @@ SHUTDOWN_TIMEOUT_S = 300
 # dataset; fail loudly instead of spinning
 MAX_CONSECUTIVE_EMPTY_BATCHES = 10
 
-# Maximum batches the orchestrator may run ahead of the trainer. The
-# dispatcher is paused via ``update_dispatch_gate`` once this is exceeded;
-# resumed when the watcher advances ``policy.version``.
-TARGET_LAG = 1
-
 # Default wait for the trainer's startup weight broadcast when no ckpt block
 # configures ``wait_for_weights_timeout`` (e.g. a from-scratch run). The
 # broadcast is always coming, so wait rather than fail immediately.
@@ -408,6 +403,7 @@ class Orchestrator:
             policy_pool=self.policy_inference,
             policy=self.policy,
             max_inflight_episodes=config.max_inflight_episodes,
+            train_rollouts_per_policy=config.batch_size if config.max_train_batch_lead == 0 else None,
             tasks_per_minute=config.tasks_per_minute,
             max_off_policy_steps=config.max_off_policy_steps,
         )
@@ -584,13 +580,7 @@ class Orchestrator:
         self.last_batch_at = now
 
         if config.max_steps is not None and step > config.max_steps:
-            self.draining = True
-            self.dispatcher.disable_train_scheduling()
-            n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
-            get_logger().info(
-                f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); "
-                f"any in-flight evals will complete)"
-            )
+            await self.begin_draining()
             return
 
         if not batch.samples:
@@ -615,13 +605,14 @@ class Orchestrator:
                 f"({n_trainable / len(effective):.1%}) — consider reviewing task difficulty / filter config"
             )
 
-        # Ship batch ``step`` only once the trainer has published v{step-1-TARGET_LAG}.
+        # Ship batch ``step`` only once the trainer has published the version
+        # permitted by ``max_train_batch_lead``.
         # Without this, fast envs fill batches from buffered rollouts, the
         # orchestrator finishes early, and its teardown strands the trainer inside
         # an in-memory broadcast handshake that needs the live weight watcher.
-        # Always satisfiable: the trainer skips only the final TARGET_LAG+1
+        # Always satisfiable: the trainer skips only the final lead+1
         # in-memory broadcasts.
-        required_version = step - 1 - TARGET_LAG
+        required_version = step - 1 - config.max_train_batch_lead
         if self.policy.version < required_version:
             get_logger().info(
                 f"Holding batch {step} until the trainer publishes policy v{required_version} "
@@ -731,7 +722,19 @@ class Orchestrator:
 
         self.train_sink.reset_pre_filter_stats()
         self.maybe_trigger_eval(self.progress.step)
+        if config.max_steps is not None and step >= config.max_steps:
+            await self.begin_draining()
         trim_process_memory()
+
+    async def begin_draining(self) -> None:
+        if self.draining:
+            return
+        self.draining = True
+        self.dispatcher.disable_train_scheduling()
+        n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
+        get_logger().info(
+            f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); any in-flight evals will complete)"
+        )
 
     def maybe_trigger_eval(self, step: int) -> None:
         """Fire eligible eval epochs and flip to ``PREFER_EVAL`` if anything
@@ -927,16 +930,9 @@ class Orchestrator:
         are 1-indexed while policy versions stay 0-indexed, so the shipped-batch
         count is ``progress.step - 1``."""
         lead = (self.progress.step - 1) - self.policy.version
-        # The trainer skips the final in-memory weight broadcasts, so policy.version never
-        # reaches the last step. Let the final batch through instead of waiting for it.
-        building_final_batch_without_update = (
-            self.config.weight_broadcast.type in ("nccl", "nixl")
-            and self.config.max_steps is not None
-            and self.progress.step >= self.config.max_steps - 1
-        )
         gate = self.dispatcher.dispatch_allowed
         was_set = gate.is_set()
-        if lead > TARGET_LAG and not building_final_batch_without_update:
+        if lead > self.config.max_train_batch_lead:
             if was_set:
                 get_logger().info(
                     "Pausing dispatcher to prevent orchestrator from racing from trainer. Waiting for new policy..."

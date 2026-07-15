@@ -6,7 +6,9 @@ from beartype import beartype as typechecker
 from jaxtyping import Bool, Float, Int, jaxtyped
 from torch import Tensor
 
-from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig
+from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig, IPOLossConfig, LossConfig, SDPOComponentConfig
+from prime_rl.trainer.rl.sdpo_loss import SDPOLossConfig, compute_sdpo_loss
+from prime_rl.trainer.rl.sdpo_support import active_sdpo_weight_mask
 from prime_rl.utils.utils import import_object
 
 
@@ -26,6 +28,9 @@ class LossInputs:
     advantages: Float[Tensor, " seq"]
     loss_mask: Bool[Tensor, " seq"]
     loss_weights: Float[Tensor, " seq"] | None = field(default=None)
+    student_topk_logprobs: Float[Tensor, "seq topk"] | None = None
+    teacher_topk_logprobs: Float[Tensor, "seq topk"] | None = None
+    rollout_is_weights: Float[Tensor, " seq"] | None = None
 
 
 @dataclass
@@ -259,6 +264,57 @@ def ce_loss_fn(inputs: LossInputs) -> LossOutputs:
     return LossOutputs(loss=loss, metrics=metrics)
 
 
+def sdpo_loss_fn(inputs: LossInputs, config: SDPOComponentConfig) -> LossOutputs:
+    if not config.full_logit_distillation or config.distillation_topk is None:
+        raise NotImplementedError("The Prime SDPO component currently requires top-k distribution distillation")
+    if inputs.student_topk_logprobs is None or inputs.teacher_topk_logprobs is None:
+        raise ValueError("SDPO requires student and teacher top-k logprobs")
+
+    active_mask = inputs.loss_mask
+    if inputs.loss_weights is not None:
+        active_mask = active_mask & active_sdpo_weight_mask(inputs.loss_weights)
+    token_count = active_mask.sum().clamp(min=1)
+    if not bool(active_mask.any()):
+        zero = inputs.trainer_logprobs.sum() * 0.0
+        return LossOutputs(loss=zero, metrics={"sdpo": zero.detach()})
+
+    rollout_is_weights = inputs.rollout_is_weights[active_mask] if inputs.rollout_is_weights is not None else None
+    if rollout_is_weights is None and config.rollout_is_batch_normalize:
+        raise ValueError("batch-normalized SDPO rollout IS weights must be prepared before sequence packing")
+
+    student_logprobs = inputs.trainer_logprobs[active_mask]
+    old_logprobs = inputs.inference_logprobs[active_mask]
+    teacher_logprobs = (
+        inputs.ref_logprobs[active_mask] if inputs.ref_logprobs is not None else student_logprobs.detach()
+    )
+    component_weights = inputs.loss_weights[active_mask] if inputs.loss_weights is not None else None
+    response_mask = torch.ones_like(student_logprobs, dtype=torch.bool)
+    core_config = SDPOLossConfig(
+        full_logit_distillation=config.full_logit_distillation,
+        distillation_topk=config.distillation_topk,
+        distillation_add_tail=config.distillation_add_tail,
+        alpha=config.alpha,
+        is_clip=config.is_clip,
+        rollout_is=config.rollout_is,
+        rollout_is_threshold=config.rollout_is_threshold,
+        rollout_is_batch_normalize=config.rollout_is_batch_normalize,
+    )
+    loss = compute_sdpo_loss(
+        student_log_probs=student_logprobs.unsqueeze(0),
+        teacher_log_probs=teacher_logprobs.detach().unsqueeze(0),
+        response_mask=response_mask.unsqueeze(0),
+        config=core_config,
+        old_log_probs=old_logprobs.unsqueeze(0)
+        if config.is_clip is not None or (rollout_is_weights is None and config.rollout_is is not None)
+        else None,
+        student_topk_log_probs=inputs.student_topk_logprobs[active_mask].unsqueeze(0),
+        teacher_topk_log_probs=inputs.teacher_topk_logprobs[active_mask].detach().unsqueeze(0),
+        component_weights=component_weights.unsqueeze(0) if component_weights is not None else None,
+        rollout_is_weights=rollout_is_weights.unsqueeze(0) if rollout_is_weights is not None else None,
+    )
+    return LossOutputs(loss=loss * token_count, metrics={"sdpo": loss.detach()})
+
+
 def setup_rl_loss_fn(loss_config: LossConfig) -> LossFn:
     """Build the loss fn for the rl component from ``trainer.loss``:
     ``default_loss_fn`` (``DefaultLossConfig``), ``ipo_loss_fn``
@@ -295,11 +351,17 @@ def compute_loss(
     rl_scale: int,
     ce_scale: int,
     ref_kl_scale: int,
+    sdpo_weights: list[Float[Tensor, " seq_i"]] | None = None,
+    sdpo_rollout_is_weights: list[Float[Tensor, " seq_i"]] | None = None,
+    student_topk_logprobs: list[Float[Tensor, "seq_i topk"]] | None = None,
+    teacher_topk_logprobs: list[Float[Tensor, "seq_i topk"]] | None = None,
+    sdpo_loss_config: SDPOComponentConfig | None = None,
+    sdpo_scale: int = 1,
 ) -> tuple[Float[Tensor, ""], dict[str, Any]]:
     """
     Compute loss for packed sequences (batch size = 1, multiple sequences packed along sequence dimension).
 
-    The loss is a sum of three components, each running over its own per-token
+    The loss is a sum of four components, each running over its own per-token
     weight stream and normalized by its own global token count:
 
     - rl → ``rl_loss_fn`` (built by ``setup_rl_loss_fn``) on
@@ -307,6 +369,7 @@ def compute_loss(
       the full loss mask (the hot path — no extra device syncs).
     - ce → ``ce_loss_fn`` (masked NLL) on ``ce_weights != 0``.
     - ref_kl → ``ref_kl_loss_fn`` on ``ref_kl_weights != 0``.
+    - sdpo → ``sdpo_loss_fn`` on ``sdpo_weights != 0``.
 
     A weight scales its component's per-token loss; 0.0 removes the token from
     the component's mask and denominator. Per-component normalization keeps the
@@ -341,6 +404,16 @@ def compute_loss(
         ce_weights = [None] * n
     if ref_kl_weights is None:
         ref_kl_weights = [None] * n
+    if sdpo_weights is None:
+        sdpo_weights = [None] * n
+    if sdpo_rollout_is_weights is None:
+        sdpo_rollout_is_weights = [None] * n
+    if student_topk_logprobs is None:
+        student_topk_logprobs = [None] * n
+    if teacher_topk_logprobs is None:
+        teacher_topk_logprobs = [None] * n
+    if sdpo_loss_config is None:
+        sdpo_loss_config = SDPOComponentConfig()
 
     def run_loss_fn(loss_fn: LossFn, inputs: LossInputs) -> Tensor:
         result = loss_fn(inputs)
@@ -355,7 +428,8 @@ def compute_loss(
     rl_loss = trainer_logprobs[0].sum() * 0.0
     ce_loss = 0.0
     ref_kl_loss = 0.0
-    for t_logp, i_logp, ref_logp, adv, mask, rl_w, ce_w, ref_kl_w in zip(
+    sdpo_loss = 0.0
+    for t_logp, i_logp, ref_logp, adv, mask, rl_w, ce_w, ref_kl_w, sdpo_w, sdpo_is_w, student_topk, teacher_topk in zip(
         trainer_logprobs,
         inference_logprobs,
         ref_logprobs,
@@ -364,6 +438,11 @@ def compute_loss(
         rl_weights,
         ce_weights,
         ref_kl_weights,
+        sdpo_weights,
+        sdpo_rollout_is_weights,
+        student_topk_logprobs,
+        teacher_topk_logprobs,
+        strict=True,
     ):
 
         def make_inputs(component_mask: Bool[Tensor, " seq"], weights: Float[Tensor, " seq"] | None) -> LossInputs:
@@ -374,6 +453,9 @@ def compute_loss(
                 advantages=adv,
                 loss_mask=component_mask,
                 loss_weights=weights,
+                student_topk_logprobs=student_topk,
+                teacher_topk_logprobs=teacher_topk,
+                rollout_is_weights=sdpo_is_w,
             )
 
         if rl_w is None:
@@ -390,8 +472,15 @@ def compute_loss(
             ref_kl_mask = ref_kl_w != 0
             if bool(ref_kl_mask.any()):
                 ref_kl_loss = ref_kl_loss + run_loss_fn(ref_kl_loss_fn, make_inputs(ref_kl_mask, ref_kl_w))
+        if sdpo_w is not None:
+            sdpo_mask = mask & active_sdpo_weight_mask(sdpo_w)
+            if bool(sdpo_mask.any()):
+                sdpo_loss = sdpo_loss + run_loss_fn(
+                    lambda inputs: sdpo_loss_fn(inputs, sdpo_loss_config),
+                    make_inputs(sdpo_mask, sdpo_w),
+                )
 
-    scaled_loss = rl_loss / rl_scale + ce_loss / ce_scale + ref_kl_loss / ref_kl_scale
+    scaled_loss = rl_loss / rl_scale + ce_loss / ce_scale + ref_kl_loss / ref_kl_scale + sdpo_loss / sdpo_scale
 
     aggregated: dict[str, Any] = {}
     for k, v in all_metrics.items():

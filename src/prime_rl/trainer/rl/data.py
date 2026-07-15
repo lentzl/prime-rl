@@ -10,6 +10,7 @@ from prime_rl.trainer.world import get_world
 from prime_rl.transport import (
     MicroBatch,
     MicroBatchReceiver,
+    SDPOTeacherSpan,
     TransportConfig,
     setup_micro_batch_receiver,
 )
@@ -24,6 +25,7 @@ class TensorMicroBatch(TypedDict):
     advantages: Float[Tensor, "batch seq"]
     inference_logprobs: Float[Tensor, "batch seq"]
     ref_logprobs: Float[Tensor, "batch seq"] | None
+    sdpo_teacher_spans: list[SDPOTeacherSpan] | None
     loss_mask: Bool[Tensor, "batch seq"]
     temperatures: Float[Tensor, "batch seq"]  # Per-token temperatures
     env_names: list[str]
@@ -45,11 +47,13 @@ class TensorMicroBatch(TypedDict):
     # mm_token_type_ids: token type per token [batch seq], int64 (0=text, 1=image, 2=video)
     mm_token_type_ids: Int[Tensor, "batch seq"] | None
 
-    # Per-token component weight streams. ``None`` means absent: no ce/ref_kl
+    # Per-token component weight streams. ``None`` means absent: no ce/ref_kl/sdpo
     # component, rl weight 1.0 on every loss-masked token.
     rl_weights: Float[Tensor, "batch seq"] | None
     ce_weights: Float[Tensor, "batch seq"] | None
     ref_kl_weights: Float[Tensor, "batch seq"] | None
+    sdpo_weights: Float[Tensor, "batch seq"] | None
+    sdpo_rollout_is_weights: Float[Tensor, "batch seq"] | None
 
 
 class FakeDataLoader:
@@ -115,6 +119,7 @@ class FakeDataLoader:
             "advantages": advantages.unsqueeze(0),
             "inference_logprobs": inference_logprobs.unsqueeze(0),
             "ref_logprobs": None,
+            "sdpo_teacher_spans": None,
             "temperatures": torch.ones(input_ids.shape[0]).unsqueeze(0),
             "env_names": ["fake"] * input_ids.shape[0],
             "sequence_lengths": sequence_lengths,
@@ -127,6 +132,8 @@ class FakeDataLoader:
             "rl_weights": None,
             "ce_weights": None,
             "ref_kl_weights": None,
+            "sdpo_weights": None,
+            "sdpo_rollout_is_weights": None,
         }
 
     def _get_micro_batch(self, generator: torch.Generator) -> TensorMicroBatch:
@@ -144,6 +151,7 @@ class FakeDataLoader:
             "advantages": torch.randn(self.seq_len, generator=generator).unsqueeze(0),
             "inference_logprobs": torch.randn(self.seq_len, generator=generator).unsqueeze(0),
             "ref_logprobs": None,
+            "sdpo_teacher_spans": None,
             "temperatures": torch.ones(self.seq_len).unsqueeze(0),
             "env_names": ["fake"] * self.seq_len,
             "sequence_lengths": [self.seq_len],
@@ -156,6 +164,8 @@ class FakeDataLoader:
             "rl_weights": None,
             "ce_weights": None,
             "ref_kl_weights": None,
+            "sdpo_weights": None,
+            "sdpo_rollout_is_weights": None,
         }
 
 
@@ -214,6 +224,7 @@ class DataLoader:
             ref_logprobs=torch.tensor(micro_batch.ref_logprobs, dtype=torch.float).unsqueeze(0)
             if micro_batch.ref_logprobs is not None
             else None,
+            sdpo_teacher_spans=micro_batch.sdpo_teacher_spans,
             loss_mask=torch.tensor(micro_batch.loss_mask, dtype=torch.bool).unsqueeze(0),
             temperatures=torch.tensor(micro_batch.temperatures, dtype=torch.float).unsqueeze(0),
             env_names=micro_batch.env_names,
@@ -234,6 +245,12 @@ class DataLoader:
             else None,
             ref_kl_weights=torch.tensor(micro_batch.ref_kl_weights, dtype=torch.float).unsqueeze(0)
             if micro_batch.ref_kl_weights is not None
+            else None,
+            sdpo_weights=torch.tensor(micro_batch.sdpo_weights, dtype=torch.float).unsqueeze(0)
+            if micro_batch.sdpo_weights is not None
+            else None,
+            sdpo_rollout_is_weights=torch.tensor(micro_batch.sdpo_rollout_is_weights, dtype=torch.float).unsqueeze(0)
+            if micro_batch.sdpo_rollout_is_weights is not None
             else None,
         )
 
