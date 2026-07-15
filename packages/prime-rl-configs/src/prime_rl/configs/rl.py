@@ -45,6 +45,7 @@ from prime_rl.utils.validation import (
     propagate_shared_fields,
     validate_shared_ckpt_config,
     validate_shared_max_steps,
+    validate_shared_max_train_batch_lead,
     validate_shared_model_name,
     validate_shared_output_dir,
     validate_shared_seq_len,
@@ -259,6 +260,9 @@ class RLConfig(BaseConfig):
     max_steps: int | None = None
     """Shared maximum training steps. If None, falls back to the sub-config ``max_steps``."""
 
+    max_train_batch_lead: int | None = Field(None, ge=0)
+    """Maximum shipped training batches ahead of the live policy. ``0`` makes rollout-update cycles synchronous."""
+
     seq_len: int | None = None
     """Shared sequence length. Propagates to ``trainer.model.seq_len`` and ``orchestrator.seq_len`` only when those values were not explicitly set; explicit per-component values always win."""
 
@@ -372,9 +376,40 @@ class RLConfig(BaseConfig):
         validate_shared_model_name(self.trainer, self.orchestrator, self.inference)
         validate_shared_tokenizer(self.trainer, self.orchestrator, self.inference)
         validate_shared_max_steps(self.trainer, self.orchestrator)
+        validate_shared_max_train_batch_lead(self.trainer, self.orchestrator)
         validate_shared_seq_len(self.trainer, self.orchestrator)
         validate_shared_ckpt_config(self.trainer, self.orchestrator)
         validate_shared_wandb_config(self.trainer, self.orchestrator)
+        return self
+
+    @model_validator(mode="after")
+    def auto_setup_sdpo(self):
+        algorithms = [self.orchestrator.algo]
+        algorithms.extend(source.algo for source in self.orchestrator.train.source if source.algo is not None)
+        if not any(algo.type == "sdpo" for algo in algorithms):
+            if self.trainer.sdpo_loss.enabled:
+                raise ValueError("trainer.sdpo_loss.enabled requires an SDPO algorithm.")
+            return self
+
+        self.trainer.sdpo_loss.enabled = True
+        if not self.trainer.sdpo_loss.full_logit_distillation or self.trainer.sdpo_loss.distillation_topk is None:
+            raise ValueError("SDPO currently requires top-k distribution distillation.")
+        if self.trainer.sdpo_loss.rollout_is_batch_normalize:
+            raise ValueError("SDPO does not support batch-normalized rollout importance weights yet.")
+        if self.trainer.model.cp != 1:
+            raise ValueError("SDPO does not support context parallelism yet.")
+        if self.trainer.model.vlm is not None:
+            raise ValueError("SDPO does not support multimodal models yet.")
+        if self.trainer.model.quantization is not None:
+            raise ValueError("SDPO EMA teacher training does not support FP8 quantization yet.")
+        if self.trainer.model.lora is not None and self.trainer.sdpo_loss.teacher_regularization == "ema":
+            raise ValueError("SDPO EMA teacher training does not support LoRA yet.")
+        if self.trainer.model.fused_lm_head_token_chunk_size != "disabled":
+            if "fused_lm_head_token_chunk_size" in self.trainer.model.model_fields_set:
+                raise ValueError(
+                    "SDPO requires trainer.model.fused_lm_head_token_chunk_size='disabled' to expose logits."
+                )
+            self.trainer.model.fused_lm_head_token_chunk_size = "disabled"
         return self
 
     @model_validator(mode="after")

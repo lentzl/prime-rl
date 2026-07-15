@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 
 from prime_rl.trainer.batch import _is_multimodal_sample, build_bin_cost, pad_micro_batch, prepare_batch, prepare_sample
-from prime_rl.transport.types import EncodedTensor, MicroBatch, RoutedExperts, TrainingSample
+from prime_rl.transport.types import EncodedTensor, MicroBatch, RoutedExperts, SDPOTeacherSpan, TrainingSample
 
 
 def _routed_experts(data, dtype=np.uint8):
@@ -267,6 +267,88 @@ def test_prepare_sample_propagates_weight_streams(make_training_example):
 
     assert micro_batch.ce_weights == [0.0, 0.0, 1.0, 1.0]
     assert micro_batch.rl_weights == [0.0, 0.0, 0.0, 0.0]
+
+
+def _make_sdpo_example() -> TrainingSample:
+    return TrainingSample(
+        token_ids=[1, 2, 3, 4],
+        mask=[False, False, True, True],
+        logprobs=[0.0, 0.0, -0.1, -0.2],
+        temperatures=[1.0] * 4,
+        advantages=[0.0] * 4,
+        env_name="sdpo-env",
+        rl_weights=[0.0] * 4,
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0],
+        sdpo_teacher_spans=[
+            SDPOTeacherSpan(
+                prefix_ids=[8, 9],
+                completion_ids=[3, 4],
+                student_positions=[2, 3],
+                target_offsets=[0, 1],
+            )
+        ],
+    )
+
+
+def test_prepare_sample_propagates_and_truncates_sdpo_streams():
+    micro_batch = prepare_sample(_make_sdpo_example(), seq_len=3)
+
+    assert micro_batch.sdpo_weights == [0.0, 0.0, 1.0]
+    assert micro_batch.sdpo_teacher_spans == [
+        SDPOTeacherSpan(prefix_ids=[8, 9], completion_ids=[3, 4], student_positions=[2], target_offsets=[0])
+    ]
+
+
+def test_prepare_sample_preserves_independent_multi_turn_teacher_spans():
+    example = TrainingSample(
+        token_ids=[1, 2, 3, 4, 5, 6, 7, 8],
+        mask=[False, False, True, True, False, False, True, True],
+        logprobs=[0.0, 0.0, -0.1, -0.2, 0.0, 0.0, -0.3, -0.4],
+        temperatures=[1.0] * 8,
+        advantages=[0.0] * 8,
+        env_name="sdpo-env",
+        rl_weights=[0.0] * 8,
+        sdpo_weights=[0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0],
+        sdpo_teacher_spans=[
+            SDPOTeacherSpan(
+                prefix_ids=[10],
+                completion_ids=[3, 4],
+                student_positions=[2, 3],
+                target_offsets=[0, 1],
+            ),
+            SDPOTeacherSpan(
+                prefix_ids=[20],
+                completion_ids=[7, 8],
+                student_positions=[6, 7],
+                target_offsets=[0, 1],
+            ),
+        ],
+    )
+
+    micro_batch = prepare_sample(example, seq_len=8)
+
+    assert micro_batch.sdpo_teacher_spans == example.sdpo_teacher_spans
+
+
+def test_prepare_batch_keeps_teacher_replays_isolated(make_training_example):
+    batches = prepare_batch(
+        rollouts=[_make_sdpo_example(), make_training_example()],
+        seq_len=8,
+        num_train_workers=1,
+        bin_cost=build_bin_cost(None),
+    )
+
+    assert len(batches[0]) == 2
+    sdpo_batch = next(batch for batch in batches[0] if batch.sdpo_teacher_spans is not None)
+    assert sdpo_batch.sdpo_teacher_spans[0].student_positions == [2, 3]
+
+
+def test_prepare_sample_rejects_active_sdpo_without_support():
+    example = _make_sdpo_example()
+    example.sdpo_teacher_spans = None
+
+    with pytest.raises(ValueError, match="active sdpo_weights require feedback-conditioned teacher spans"):
+        prepare_sample(example, seq_len=4)
 
 
 def test_prepare_sample_uniform_rl_keeps_streams_none(make_training_example):

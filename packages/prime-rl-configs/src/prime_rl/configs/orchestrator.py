@@ -500,6 +500,9 @@ class OrchestratorConfig(BaseConfig):
     max_off_policy_steps: int = Field(8, ge=0)
     """Maximum policies allowed to generate a single rollout. Rollouts generated more than ``max_off_policy_steps`` ahead of training are discarded. Higher values yield better throughput at the cost of off-policy noise."""
 
+    max_train_batch_lead: int = Field(1, ge=0)
+    """Maximum number of shipped training batches allowed ahead of the live inference policy. Set to ``0`` for synchronous rollout-update cycles."""
+
     bench: bool = False
     """Benchmark mode. Sets ``max_steps`` to 5 and disables W&B."""
 
@@ -610,6 +613,8 @@ class OrchestratorConfig(BaseConfig):
             self.batch_size = 128
 
         if has_token_batch:
+            if self.max_train_batch_lead == 0:
+                raise ValueError("max_train_batch_lead=0 requires rollout-based batch_size")
             if self.oversampling_factor is not None:
                 raise ValueError("oversampling_factor can only be set when batch_size is set")
             if self.max_inflight_episodes is None:

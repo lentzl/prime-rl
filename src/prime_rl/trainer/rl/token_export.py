@@ -149,10 +149,11 @@ def _export_columns(
         "is_masked_high": _optional_tensor_to_bools(export_tensors["is_masked_high"], seq_len),
         "is_masked_low": _optional_tensor_to_bools(export_tensors["is_masked_low"], seq_len),
         # Component weight streams; ``None`` columns mean the defaults (rl 1.0
-        # on the loss mask, no ce/ref_kl component).
+        # on the loss mask, no ce/ref_kl/sdpo component).
         "rl_weights": _optional_tensor_to_floats(micro_batch.get("rl_weights"), seq_len),
         "ce_weights": _optional_tensor_to_floats(micro_batch.get("ce_weights"), seq_len),
         "ref_kl_weights": _optional_tensor_to_floats(micro_batch.get("ref_kl_weights"), seq_len),
+        "sdpo_weights": _optional_tensor_to_floats(micro_batch.get("sdpo_weights"), seq_len),
         "env_names": list(micro_batch["env_names"]),
     }
 
@@ -174,9 +175,11 @@ def _compute_export_tensors(
     # (stream present but all-zero) and no ref_kl member.
     rl_weights = micro_batch.get("rl_weights")
     ref_kl_weights = micro_batch.get("ref_kl_weights")
+    sdpo_weights = micro_batch.get("sdpo_weights")
     no_rl = rl_weights is not None and not bool((rl_weights != 0).any())
     no_ref_kl = ref_kl_weights is None or not bool((ref_kl_weights != 0).any())
-    if no_rl and no_ref_kl:
+    no_sdpo = sdpo_weights is None or not bool((sdpo_weights != 0).any())
+    if no_rl and no_ref_kl and no_sdpo:
         return fields
 
     inference_logprobs = micro_batch["inference_logprobs"].to(trainer_logprobs.device)
