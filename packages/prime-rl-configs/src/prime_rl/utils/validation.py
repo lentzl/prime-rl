@@ -131,6 +131,11 @@ def propagate_shared_fields(data: Any) -> Any:
 
     # Top-level scalars.
     propagate("max_steps", "trainer.max_steps", "orchestrator.max_steps")
+    propagate(
+        "max_train_batch_lead",
+        "trainer.max_train_batch_lead",
+        "orchestrator.max_train_batch_lead",
+    )
     propagate("seq_len", "trainer.model.seq_len", "orchestrator.seq_len")
 
     # [slurm] → inference: a multi-node RL run drives its inference deployment under
@@ -215,6 +220,18 @@ def validate_shared_ckpt_config(
     if trainer.ckpt and orchestrator.ckpt and trainer.ckpt.resume_step != orchestrator.ckpt.resume_step:
         raise ValueError(
             f"Trainer checkpoint resume step ({trainer.ckpt.resume_step}) and orchestrator checkpoint resume step ({orchestrator.ckpt.resume_step}) are not the same. Please specify the same checkpoint resume step for both."
+        )
+
+
+def validate_shared_max_train_batch_lead(
+    trainer: TrainerConfig,
+    orchestrator: OrchestratorConfig,
+) -> None:
+    if trainer.max_train_batch_lead != orchestrator.max_train_batch_lead:
+        raise ValueError(
+            f"Trainer max_train_batch_lead ({trainer.max_train_batch_lead}) and orchestrator "
+            f"max_train_batch_lead ({orchestrator.max_train_batch_lead}) are not the same. "
+            "Set max_train_batch_lead at the shared RL config level."
         )
 
 

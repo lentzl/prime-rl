@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
 import verifiers.v1 as vf
-from pydantic import Field, SerializeAsAny, model_validator
+from pydantic import Field, SerializeAsAny, field_validator, model_validator
 from renderers import AutoRendererConfig, RendererConfig
 
 from prime_rl.configs.algorithm import (
@@ -225,11 +225,20 @@ class TrainSourceConfig(EnvConfig):
     """Rollouts generated per example for GRPO group-relative advantages.
     Inherits from ``orchestrator.group_size`` when unset."""
 
+    task_indices: list[Annotated[int, Field(strict=True, ge=0)]] | None = Field(None, min_length=1)
+    """Finite task indices to sample. ``None`` samples the full taskset."""
+
     algo: AlgoConfig | None = None
     """Training algorithm for this env. Inherits from the top-level
     ``orchestrator.algo`` when unset; set ``type`` (and its params) to give
     this env its own algorithm."""
 
+    @field_validator("task_indices")
+    @classmethod
+    def validate_unique_task_indices(cls, value):
+        if value is not None and len(value) != len(set(value)):
+            raise ValueError("task_indices must not contain duplicates")
+        return value
 
 class EvalSourceConfig(EnvConfig):
     sampling: EvalSamplingConfig = EvalSamplingConfig()
@@ -552,6 +561,9 @@ class OrchestratorConfig(BaseConfig):
     max_off_policy_steps: int = Field(8, ge=0)
     """Maximum policies allowed to generate a single rollout. Rollouts generated more than ``max_off_policy_steps`` ahead of training are discarded. Higher values yield better throughput at the cost of off-policy noise."""
 
+    max_train_batch_lead: int = Field(1, ge=0)
+    """Maximum number of shipped training batches allowed ahead of the live inference policy. Set to ``0`` for synchronous rollout-update cycles."""
+
     bench: bool = False
     """Benchmark mode. Sets ``max_steps`` to 5 and disables W&B."""
 
@@ -660,6 +672,8 @@ class OrchestratorConfig(BaseConfig):
             self.batch_size = 128
 
         if has_token_batch:
+            if self.max_train_batch_lead == 0:
+                raise ValueError("max_train_batch_lead=0 requires rollout-based batch_size")
             if self.oversampling_factor is not None:
                 raise ValueError("oversampling_factor can only be set when batch_size is set")
             if self.max_inflight_episodes is None:

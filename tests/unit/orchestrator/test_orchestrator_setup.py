@@ -1,9 +1,10 @@
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from renderers import Qwen3VLRendererConfig
 
+from prime_rl.orchestrator.orchestrator import Orchestrator
 from prime_rl.orchestrator.utils import setup_policy_inference_pool
 
 
@@ -90,5 +91,48 @@ def test_setup_policy_inference_pool_keeps_renderer_without_policy_sampling():
             eval_client_type="openai_chat_completions",
             renderer_config=renderer_settings,
         )
+
+    asyncio.run(run())
+
+
+def test_zero_train_batch_lead_waits_for_updated_final_batch_policy():
+    orchestrator = Orchestrator.__new__(Orchestrator)
+    orchestrator.config = SimpleNamespace(
+        max_train_batch_lead=0,
+        max_steps=2,
+        weight_broadcast=SimpleNamespace(type="nccl"),
+    )
+    orchestrator.progress = SimpleNamespace(step=2)
+    orchestrator.policy = SimpleNamespace(version=0)
+    orchestrator.dispatcher = SimpleNamespace(dispatch_allowed=asyncio.Event())
+    orchestrator.dispatcher.dispatch_allowed.set()
+    orchestrator.gate_closed_at = None
+    orchestrator.wait_for_policy_time = 0.0
+
+    orchestrator.update_dispatch_gate()
+
+    assert not orchestrator.dispatcher.dispatch_allowed.is_set()
+
+    orchestrator.policy.version = 1
+    orchestrator.update_dispatch_gate()
+
+    assert orchestrator.dispatcher.dispatch_allowed.is_set()
+
+
+def test_begin_draining_immediately_disables_train_scheduling():
+    async def run() -> None:
+        dispatcher = SimpleNamespace(
+            disable_train_scheduling=Mock(),
+            cancel_inflight_train_rollouts=AsyncMock(return_value=3),
+        )
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.draining = False
+        orchestrator.dispatcher = dispatcher
+
+        await orchestrator.begin_draining()
+
+        assert orchestrator.draining
+        dispatcher.disable_train_scheduling.assert_called_once_with()
+        dispatcher.cancel_inflight_train_rollouts.assert_awaited_once_with()
 
     asyncio.run(run())

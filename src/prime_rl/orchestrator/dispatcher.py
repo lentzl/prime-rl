@@ -132,6 +132,7 @@ class RolloutDispatcher:
         policy_pool: InferencePool,
         policy: Policy,
         max_inflight_episodes: int,
+        train_rollouts_per_policy: int | None,
         tasks_per_minute: float | None,
         max_off_policy_steps: int,
     ) -> None:
@@ -144,6 +145,8 @@ class RolloutDispatcher:
         self.train_source = train_source
         self.eval_source = eval_source
         self.max_off_policy_steps = max_off_policy_steps
+        self.train_rollouts_per_policy = train_rollouts_per_policy
+        self.train_rollouts_scheduled = 0
 
         self.max_inflight = max_inflight_episodes
         self.inflight_permits = 0
@@ -192,6 +195,13 @@ class RolloutDispatcher:
     @property
     def available_permits(self) -> int:
         return self.max_inflight - self.inflight_permits
+
+    @property
+    def available_train_permits(self) -> int:
+        if self.train_rollouts_per_policy is None:
+            return self.available_permits
+        remaining = self.train_rollouts_per_policy - self.train_rollouts_scheduled
+        return max(0, min(self.available_permits, remaining))
 
     @property
     def inflight_by_env(self) -> dict[tuple[RolloutKind, str], int]:
@@ -303,7 +313,8 @@ class RolloutDispatcher:
             )
 
     async def on_new_version(self, step: int) -> None:
-        """No-op: the dispatcher drains in ``on_version_pending`` (pre-pause)."""
+        """Reset a synchronous cohort after the new policy is live."""
+        self.train_rollouts_scheduled = 0
 
     async def fill_inflight(self) -> None:
         """Schedule new rollouts up to ``max_inflight``, honoring
@@ -331,6 +342,8 @@ class RolloutDispatcher:
             else:  # PREFER_TRAIN — respects the orchestrator's dispatch gate
                 if not self.dispatch_allowed.is_set():
                     return
+                if self.available_train_permits <= 0:
+                    return
                 scheduled = await self.try_schedule("train")
                 if not scheduled:
                     return
@@ -353,22 +366,23 @@ class RolloutDispatcher:
         if envs is None:
             return False
 
+        available_permits = self.available_train_permits if kind == "train" else self.available_permits
         for gid, group in list(self.groups.items()):
             if group.kind != kind or group.rollouts_to_schedule <= 0:
                 continue
             env = envs.get(group.env_name)
             cost = group.rollouts_to_schedule if env.requires_group_scoring else 1
-            if cost <= self.available_permits:
+            if cost <= available_permits:
                 return await self.schedule_group_rollout(gid, group)
 
-        fresh = self.next_fresh_group(kind, envs)
+        fresh = self.next_fresh_group(kind, envs, available_permits)
         if fresh is None:
             return False
         gid = uuid.uuid4()
         self.groups[gid] = fresh
         return await self.schedule_group_rollout(gid, fresh)
 
-    def next_fresh_group(self, kind: RolloutKind, envs) -> GroupState | None:
+    def next_fresh_group(self, kind: RolloutKind, envs, available_permits: int) -> GroupState | None:
         """Pop the next example from the corresponding source and wrap it in
         a ``GroupState``. Returns ``None`` if the source is empty or the
         picked env's permit cost doesn't fit."""
@@ -377,7 +391,7 @@ class RolloutDispatcher:
         else:
             assert self.eval_source is not None
             source = self.eval_source
-        example = source.next_example(self.available_permits)
+        example = source.next_example(available_permits)
         if example is None:
             return None
 
@@ -481,6 +495,8 @@ class RolloutDispatcher:
             client_config=client,
             eval_step=group.eval_step,
         )
+        if group.kind == "train" and self.train_rollouts_per_policy is not None:
+            self.train_rollouts_scheduled += permits
         return True
 
     async def acquire(self, n: int) -> None:

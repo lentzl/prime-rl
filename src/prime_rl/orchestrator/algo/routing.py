@@ -1,9 +1,9 @@
 """Wire-field stamping for the per-token streams.
 
-The training loss is a sum of three components — ``rl`` (importance-weighted
-PG + KL), ``ce`` (masked NLL), and ``ref_kl`` (reverse KL to a reference model
-as the PG signal) — each normalized by its own global token count in the
-trainer. The algorithm decides which component the action tokens feed
+The training loss is a sum of four components — ``rl`` (importance-weighted
+PG + KL), ``ce`` (masked NLL), ``ref_kl`` (reverse KL to a reference model
+as the PG signal), and ``sdpo`` (feedback-conditioned self-distillation) —
+each normalized by its own global token count in the trainer. The algorithm decides which component the action tokens feed
 and the per-token advantages the rl component consumes; these helpers write
 the component weight streams and the advantage stream onto the
 ``TrainingSample`` wire fields at group finalization.
@@ -38,17 +38,22 @@ def stamp_loss_routing(sample: TrainingSample, action_loss_type: ActionLossType)
 
     seq_len = len(sample.token_ids)
     sample.rl_weights = [0.0] * seq_len
-    action_weights = (
-        sample.ce_weights if action_loss_type == "ce" and sample.ce_weights is not None else [0.0] * seq_len
-    )
-    for i, trains in enumerate(sample.mask):
-        if trains:
-            action_weights[i] = 1.0
+    if action_loss_type == "sdpo" and sample.sdpo_weights is not None:
+        action_weights = sample.sdpo_weights
+    else:
+        action_weights = (
+            sample.ce_weights if action_loss_type == "ce" and sample.ce_weights is not None else [0.0] * seq_len
+        )
+        for i, trains in enumerate(sample.mask):
+            if trains:
+                action_weights[i] = 1.0
     if action_loss_type == "ce":
         sample.ce_weights = action_weights
-    else:
-        assert action_loss_type == "ref_kl"
+    elif action_loss_type == "ref_kl":
         sample.ref_kl_weights = action_weights
+    else:
+        assert action_loss_type == "sdpo"
+        sample.sdpo_weights = action_weights
 
 
 def stamp_advantages(rollout: Rollout) -> None:
