@@ -99,6 +99,7 @@ members = [
     "prolog-v1",
     "r2e-gym-v1",
     "reasoning-gym-env",
+    "reasoning-offload-orientation-v1",
     "redsearcher-v1",
     "reverse-text",
     "reverse-text-v1",
@@ -5752,6 +5753,17 @@ requires-dist = [
     { name = "reasoning-gym" },
     { name = "verifiers", specifier = ">=0.1.8.post0" },
 ]
+
+[[package]]
+name = "reasoning-offload-orientation-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/reasoning_offload_orientation_v1" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
 
 [[package]]
 name = "redis"
