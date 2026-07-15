@@ -1,0 +1,17 @@
+# Local inference server for the matched reasoning-offload capability gates.
+# Override model.name with the private HF snapshot for the continuation arm.
+#   uv run inference @ configs/debug/v1/reasoning_offload_orientation_inference.toml
+#   uv run inference @ configs/debug/v1/reasoning_offload_orientation_inference.toml \
+#     --model.name lentzl/rlm-prime-orientation-full-adamw-bf16-20260630a
+
+gpu_memory_utilization = 0.8
+enable_prefix_caching = true
+
+[server]
+port = 8000
+
+[model]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+dtype = "bfloat16"
+max_model_len = 8192
+tool_call_parser = "hermes"
