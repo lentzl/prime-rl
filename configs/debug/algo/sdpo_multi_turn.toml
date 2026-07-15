@@ -1,0 +1,54 @@
+# Experimental per-turn SDPO replay on the multi-turn alphabet-sort env.
+# This validates Prime's agentic extension, not a setting evaluated in the
+# SDPO paper.
+#   uv run rl @ configs/debug/algorithms/sdpo_multi_turn.toml
+
+max_steps = 2
+seq_len = 4096
+
+[model]
+name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
+
+[wandb]
+project = "algorithms-debug"
+name = "debug-sdpo-multi-turn"
+
+[orchestrator]
+batch_size = 8
+group_size = 4
+
+[orchestrator.algo]
+type = "sdpo"
+multi_turn_replay = true
+
+[orchestrator.algo.renderer]
+name = "qwen3"
+thinking_retention = "all"
+
+[orchestrator.renderer]
+name = "qwen3"
+thinking_retention = "all"
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 512
+
+[[orchestrator.train.env]]
+id = "alphabet-sort"
+args = { min_turns = 3, max_turns = 5, power_per_turn = false }
+
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+teacher_regularization = "ema"
+teacher_update_rate = 0.01
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+max_norm = 1.0
+
+[ckpt]
+
+[inference]
+gpu_memory_utilization = 0.5

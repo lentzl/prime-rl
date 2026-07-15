@@ -6,7 +6,7 @@ turns the signal half into runtime objects (the sampling half is the env's
 :class:`~prime_rl.orchestrator.sampler.Sampler`):
 
 - one module per algorithm (``grpo``, ``echo``, ``max_rl``, ``rae``, ``opd``,
-  ``opsd``, ``sft``) — each named class owns its scoring hooks
+  ``opsd``, ``sdpo``, ``sft``) — each named class owns its scoring hooks
   (``score_rollout`` / ``score_group``) and declares what it needs (loss
   component, a "teacher", ...). One instance per env, built by
   :func:`build_algorithm`. A new credit-assignment scheme is a new named class:
@@ -21,7 +21,7 @@ turns the signal half into runtime objects (the sampling half is the env's
   full-length-N per-token list aligned to the concatenated sample token_ids
   (0.0 off-mask).
 - ``routing`` — wire-field stamping: per-token component weight streams
-  (rl / ce / ref_kl) and the per-token advantage stream.
+  (rl / ce / ref_kl / sdpo) and the per-token advantage stream.
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from prime_rl.orchestrator.algo.opd import OPDAlgorithm
 from prime_rl.orchestrator.algo.opsd import OPSDAlgorithm
 from prime_rl.orchestrator.algo.rae import RAEAlgorithm
 from prime_rl.orchestrator.algo.routing import stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.algo.sdpo import SDPOAlgorithm
 from prime_rl.orchestrator.algo.sft import SFTDistillAlgorithm
 from prime_rl.orchestrator.types import Rollout
 
@@ -53,6 +54,7 @@ ALGORITHM_CLASSES: dict[str, type[Algorithm]] = {
     "opd": OPDAlgorithm,
     "opsd": OPSDAlgorithm,
     "sft": SFTDistillAlgorithm,
+    "sdpo": SDPOAlgorithm,
 }
 
 
@@ -77,6 +79,7 @@ __all__ = [
     "RAEAlgorithm",
     "Rollout",
     "SFTDistillAlgorithm",
+    "SDPOAlgorithm",
     "build_algorithm",
     "connect_frozen_pool",
     "stamp_advantages",

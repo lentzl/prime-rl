@@ -11,6 +11,7 @@ from prime_rl.transport.filesystem import (
 from prime_rl.transport.types import (
     MicroBatch,
     RoutedExperts,
+    SDPOTeacherSpan,
     TrainingBatch,
     TrainingSample,
 )
@@ -73,6 +74,7 @@ __all__ = [
     "TrainingBatch",
     "MicroBatch",
     "RoutedExperts",
+    "SDPOTeacherSpan",
     "setup_training_batch_sender",
     "setup_training_batch_receiver",
     "setup_micro_batch_sender",

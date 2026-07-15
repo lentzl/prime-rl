@@ -135,9 +135,16 @@ class Rollout(vf.Trace[DataT], Generic[DataT]):
 
     @property
     def is_trainable(self) -> bool:
-        """Whether the rollout carries a training signal — a nonzero advantage on some token. A
-        uniform-reward GRPO group (all-zero advantages) or an unscored rollout has no gradient."""
-        return bool(self.advantages) and any(a != 0.0 for a in self.advantages)
+        """Whether the rollout carries a nonzero loss-component signal."""
+        if self.advantages and any(advantage != 0.0 for advantage in self.advantages):
+            return True
+        component_streams = ("ce_weights", "ref_kl_weights", "sdpo_weights")
+        return any(
+            weights and any(weight != 0.0 for weight in weights)
+            for sample in self.samples
+            for name in component_streams
+            if (weights := getattr(sample, name)) is not None
+        )
 
 
 @dataclass
