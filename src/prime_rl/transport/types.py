@@ -18,6 +18,20 @@ class RoutedExperts(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tru
     dtype: str
 
 
+class SDPOTeacherSpan(msgspec.Struct, array_like=True, gc=False):
+    """One feedback-conditioned replay of a sampled assistant span.
+
+    ``prefix_ids + completion_ids`` is the teacher input. ``target_offsets``
+    select completion positions whose teacher distributions supervise the
+    corresponding ``student_positions`` in the original training sample.
+    """
+
+    prefix_ids: list[int]
+    completion_ids: list[int]
+    student_positions: list[int]
+    target_offsets: list[int]
+
+
 # Orchestrator -> Packer
 class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     """A single training example — one branch of a rollout as a flat token sequence.
@@ -33,6 +47,7 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
     temperatures: list[float]
     env_name: str
     ref_logprobs: list[float] | None = None  # reference-model logprobs (ref_kl component)
+    sdpo_teacher_spans: list[SDPOTeacherSpan] | None = None
 
     # Generic multimodal kwargs: flat dict keyed by the kwarg names the
     # model's forward expects (e.g. {"pixel_values": ..., "image_grid_thw":
@@ -51,16 +66,19 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
 
     # Per-token component weight streams (full prompt+completion length),
     # stamped by the orchestrator from the env's algorithm. The training loss
-    # is a sum of three components, each normalized by its own global token
-    # count: rl (importance-weighted PG + KL), ce (masked NLL), and ref_kl
-    # (reverse KL to a reference model as the PG signal). A weight scales that
+    # is a sum of four components, each normalized by its own global token
+    # count: rl (importance-weighted PG + KL), ce (masked NLL), ref_kl
+    # (reverse KL to a reference model as the PG signal), and sdpo
+    # (feedback-conditioned self-distillation). A weight scales that
     # component's per-token loss; 0.0 leaves the token out of the component
-    # (mask and denominator). ``None`` means absent: no ce/ref_kl component,
+    # (mask and denominator). ``None`` means absent: no ce/ref_kl/sdpo component,
     # and an rl weight of 1.0 on every trainable token — so the plain GRPO
     # wire stays as small as before.
     rl_weights: list[float] | None = None
     ce_weights: list[float] | None = None
     ref_kl_weights: list[float] | None = None
+    sdpo_weights: list[float] | None = None
+    sdpo_rollout_is_weights: list[float] | None = None
 
     # Per-token advantages (full prompt+completion length), the fourth stream:
     # the orchestrator broadcasts the rollout's scalar over the completion for
@@ -90,6 +108,7 @@ class MicroBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     temperatures: list[float]  # Per-token temperatures used during generation
     env_names: list[str]
     ref_logprobs: list[float] | None = None
+    sdpo_teacher_spans: list[SDPOTeacherSpan] | None = None
     lora_num_tokens: list[int] | None = None
     routed_experts: RoutedExperts | None = None
 
@@ -99,11 +118,13 @@ class MicroBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     mm_token_type_ids: list[int] | None = None
 
     # Per-token component weight streams (see TrainingSample). ``None`` means
-    # absent: no ce/ref_kl component, rl weight 1.0 everywhere — packing
+    # absent: no ce/ref_kl/sdpo component, rl weight 1.0 everywhere — packing
     # materializes a stream as soon as one packed sample carries it.
     rl_weights: list[float] | None = None
     ce_weights: list[float] | None = None
     ref_kl_weights: list[float] | None = None
+    sdpo_weights: list[float] | None = None
+    sdpo_rollout_is_weights: list[float] | None = None
 
     # Packer-derived metadata used for run-local token exports.
     run_id: str | None = None

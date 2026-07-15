@@ -33,7 +33,7 @@ A training algorithm in `prime-rl` is configured under `[orchestrator.algo]`, wh
 1. **Sampling** (`algo.sampling`) — how train rollouts are produced: which model generates them. `source` is a [model reference](#model-references): `"policy"` (the live policy, the default) or an inline frozen hosted model. Group sizing stays on the env config (`group_size`).
 2. **The per-token training signal** — credit assignment and loss routing, fused; the algorithm's own parameters sit directly on `algo`. One mapping from a finalized rollout to per-token *(loss component, weight)* pairs — the credit a token gets and the loss that consumes it are two coordinates of the same output. Group-relative algorithms compute credit on the orchestrator and ship per-token advantage streams; reference-KL algorithms query a reference model at batch-ship time (bounded concurrency) and ship its prefill logprobs for the trainer to evaluate against the live policy. The `type` determines which loss component consumes the action tokens (`rl` / `ce` / `ref_kl`) and what happens to env-provided observation tokens in multi-turn rollouts (masked out by default; `echo` trains on them with weighted CE).
 
-The trainer is algorithm-blind: the loss is a sum of three components (rl, ce, ref_kl), each normalized by its own global token count; per-token streams ship on the wire (the `rl_weights` / `ce_weights` / `ref_kl_weights` component weights plus the `advantages` stream on each training sample) and the trainer just executes them. Adding an algorithm never touches the dispatcher, packer, or trainer hot path.
+The trainer is algorithm-blind: the loss is a sum of four components (rl, ce, ref_kl, sdpo), each normalized by its own global token count; per-token streams ship on the wire and the trainer executes the selected components. Most algorithms only add scoring and routing. A new loss shape, such as SDPO's feedback-conditioned logit distillation, also adds a shared trainer component rather than a separate training loop.
 
 ### Model References
 
@@ -70,6 +70,7 @@ type = "grpo"  # the default
 | `opd` | policy | `ref_kl` on actions | On-policy distillation ([Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)): the policy samples, per-token reverse KL against a reference model as the gradient signal. Needs a `teacher`. |
 | `sft` | *(the teacher)* | `ce` on actions | Hard distillation: a frozen model generates rollouts, the policy trains with CE on its tokens. Needs a frozen `sampling.source` (the teacher it samples from). |
 | `opsd` | policy | `ref_kl` on actions | SDFT ([arXiv:2601.19897](https://arxiv.org/abs/2601.19897)): the model is its own reference, conditioned on an expert demonstration. The teacher *is* the live policy (the paper's setting, no extra deployment) — no model to configure. |
+| `sdpo` | policy | `sdpo` on actions | Feedback-conditioned SDPO ([arXiv:2601.20802](https://arxiv.org/abs/2601.20802)): failed attempts are distilled against an EMA self-teacher conditioned on a successful sibling or natural environment feedback. |
 | `echo` | policy | `rl` on actions + weighted `ce` on observations | ECHO: standard GRPO plus a cross-entropy loss on env-provided tokens already present in the rollout, selected by message role (needs the renderer's role attribution). Defaults to tool-response bodies at `alpha = 0.1` (ECHO's λ); set `roles` to train other roles, each at its own weight. |
 
 ### Customizing Components
@@ -135,6 +136,7 @@ At runtime, each env's resolved config builds two objects: a `Sampler` (`prime_r
 | `max_rl` | `MaxRLAlgorithm` | `score_group`: mean-normalized group credit |
 | `opd` | `OPDAlgorithm` | `score_rollout`: own-context prefill under the teacher |
 | `opsd` | `OPSDAlgorithm` | `score_rollout`: demo-conditioned prefill under the live policy |
+| `sdpo` | `SDPOAlgorithm` | `score_group`: construct feedback-conditioned teacher replay from sibling outcomes and environment feedback |
 | `sft` | `SFTDistillAlgorithm` | `score_group`: group-norm credit (feeds filters) |
 
 Each class owns its hooks outright — reading one top to bottom reads the algorithm, and everything on the class is an override point. The two hooks are one scope-and-timing ladder — the wider scope is unlocked by a later barrier, so the two axes coincide. Each is handed the `Rollout` directly — the env's typed trace (`reward`, `nodes`, `num_turns`, ...) with `samples` attached, plus `assign_advantages` to write credit:
@@ -163,17 +165,32 @@ Step indices are 1-indexed; policy versions are 0-indexed, with $\pi_0$ the base
 
 ### Loss Components
 
-The training loss is a **sum of three components**, each with its own per-token weight stream and its own normalization:
+The training loss is a **sum of four components**, each with its own per-token weight stream and its own normalization:
 
 $$
-\mathcal{L} = \frac{\sum \mathcal{L}_{rl}}{N_{rl}} + \frac{\sum \mathcal{L}_{ce}}{N_{ce}} + \frac{\sum \mathcal{L}_{ref\_kl}}{N_{ref\_kl}}
+\mathcal{L} = \frac{\sum \mathcal{L}_{rl}}{N_{rl}} + \frac{\sum \mathcal{L}_{ce}}{N_{ce}} + \frac{\sum \mathcal{L}_{ref\_kl}}{N_{ref\_kl}} + \frac{\sum \mathcal{L}_{sdpo}}{N_{sdpo}}
 $$
 
 - `rl` — the configured RL loss (`[trainer.loss]`): DPPO + KL by default, or a [custom loss](#custom-loss). Fed by the group-relative algorithms (`grpo`, `max_rl`, and `echo`'s action tokens).
 - `ce` — masked NLL. Used for frozen-model tokens (`sft`) and env-observation tokens (`echo`).
 - `ref_kl` — the per-token reverse KL to a reference model ($\log \pi_{\text{ref}} - \log \pi$) as the policy-gradient signal, importance-ratio corrected with a one-sided trust region (`opd`, `opsd`). Requires `ref_logprobs` from a [reference scoring](#reference-scoring); the scoring model must be a vLLM server (it's the only one that exposes `prompt_logprobs`).
+- `sdpo` — feedback-conditioned logit self-distillation. The trainer selects the student's top-K support, scores the same token IDs with an EMA teacher over the hindsight-conditioned context, adds a tail bucket, and applies rollout importance correction. The feedback setting defaults to top-K 20, reverse KL, and EMA rate 0.01.
 
-The orchestrator stamps each sample's component membership as per-token weight streams (`rl_weights` / `ce_weights` / `ref_kl_weights` on the wire): a weight scales that component's per-token loss, `0.0` leaves the token out of the component entirely (mask *and* denominator), and components may overlap on the same token — their gradients sum. Each $N$ is the global (all-reduced) count of that component's member tokens, so the components don't dilute each other: adding echo observation tokens never changes the rl term's effective per-token learning rate, and an sft env packed next to a GRPO env doesn't soften its gradient. Tokens of different components pack freely into the same micro batch, and a plain GRPO run ships no weight streams at all (absent streams mean rl weight 1.0 on every trainable token — the unchanged hot path). Advantages always ship per token (`advantages` on the wire), assigned as per-token streams from the start — uniform group credit is broadcast over completion tokens at assignment; algorithms with no rl credit (opd, opsd) ship none.
+SDPO follows the paper's complete-response setup by default and rejects rollouts
+with more than one sampled assistant turn. Set
+`orchestrator.algo.multi_turn_replay = true` to enable the experimental agentic
+extension: every sampled assistant turn becomes an independent teacher replay,
+supervised by the environment messages before the next sampled turn. A
+rollout-level `info.feedback` value applies only to the final turn, and a turn
+without attributable feedback or a successful sibling is excluded from SDPO.
+The original sampled tokens and their positions remain unchanged in every
+teacher span. When the spans together exceed `model.seq_len`, the trainer
+greedily evaluates them in multiple bounded teacher forwards and scatters the
+scores back to the original student positions. One individual replay must
+still fit `model.seq_len` because its prefix is the conditioning context for
+its sampled completion.
+
+The orchestrator stamps each sample's component membership as per-token weight streams (`rl_weights` / `ce_weights` / `ref_kl_weights` / `sdpo_weights` on the wire): a weight scales that component's per-token loss, `0.0` leaves the token out of the component entirely (mask *and* denominator), and components may overlap on the same token — their gradients sum. Each $N$ is the global (all-reduced) count of that component's member tokens, so the components don't dilute each other. Tokens of different components normally pack freely into the same micro batch; SDPO samples are isolated while their feedback-conditioned replay context is evaluated. A plain GRPO run ships no weight streams at all (absent streams mean rl weight 1.0 on every trainable token — the unchanged hot path).
 
 ### Default RL Loss
 
@@ -209,7 +226,7 @@ The knobs (under `[trainer.loss]` with `type = "default"`):
 | `adv_tau` | 1.0 | Temperature on the advantage term. Set to 0 to drop the policy-gradient term, leaving only the KL regularizer. |
 | `kl_tau` | 1e-3 | Temperature on the KL regularizer. Set to 0 to disable. |
 
-Set `[trainer.loss] type = "default"` and configure via the knobs above. The `ce` and `ref_kl` components are fixed and unaffected by `[trainer.loss]`.
+Set `[trainer.loss] type = "default"` and configure via the knobs above. The `ce`, `ref_kl`, and `sdpo` components are fixed and unaffected by `[trainer.loss]`.
 
 ### Custom Loss
 

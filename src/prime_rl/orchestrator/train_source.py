@@ -1,10 +1,11 @@
 """TrainSource: weighted round-robin across train envs, infinite pull.
 
 Weights are each env's configured ``ratio`` (default 1, i.e. equal weight
-per env). A finite env serves a shuffled task-index table, reshuffled on
-cursor exhaustion; an infinite env (``num_tasks is None``) streams a
-monotonic ``task_idx`` — the server generates tasks on demand, so every
-pull is a fresh task and there are no epochs to shuffle."""
+per env). A finite env serves a shuffled task-index table (optionally a
+configured subset), reshuffled on cursor exhaustion; an infinite env
+(``num_tasks is None``) streams a monotonic ``task_idx`` — the server
+generates tasks on demand, so every pull is a fresh task and there are no
+epochs to shuffle."""
 
 from __future__ import annotations
 
@@ -35,10 +36,20 @@ class TrainSource:
         for env in self.envs:
             # The orchestrator never loads the env: sample over the task-index
             # range the server reported via info() (num_tasks; None = infinite).
+            task_indices = env.config.task_indices
             if env.num_tasks is None:
+                if task_indices is not None:
+                    raise ValueError(f"Train env {env.name} has an infinite taskset and cannot select task_indices")
                 self.examples[env.name] = None
             else:
-                rows: list[dict] = [{"task_idx": i, "env_name": env.name} for i in range(env.num_tasks)]
+                if task_indices is None:
+                    task_indices = list(range(env.num_tasks))
+                out_of_range = [idx for idx in task_indices if idx >= env.num_tasks]
+                if out_of_range:
+                    raise ValueError(
+                        f"Train env {env.name} task_indices {out_of_range} exceed taskset size {env.num_tasks}"
+                    )
+                rows: list[dict] = [{"task_idx": i, "env_name": env.name} for i in task_indices]
                 self.rng.shuffle(rows)
                 self.examples[env.name] = rows
             self.cursors[env.name] = 0

@@ -2,7 +2,7 @@ import warnings
 from pathlib import Path
 from typing import Annotated, Any, Literal, TypeAlias
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from prime_rl.configs.shared import (
     BaseModelConfig,
@@ -457,6 +457,55 @@ class CustomLossConfig(BaseConfig):
 LossConfig: TypeAlias = Annotated[DefaultLossConfig | IPOLossConfig | CustomLossConfig, Field(discriminator="type")]
 
 
+class SDPOComponentConfig(BaseConfig):
+    enabled: bool = False
+    """Enable trainer-side SDPO runtime state. Combined RL configs set this automatically when SDPO is selected."""
+
+    teacher_regularization: Literal["live-policy", "ema"] = "ema"
+    """Teacher parameterization. EMA matches the feedback-conditioned paper setting."""
+
+    teacher_update_rate: float = Field(0.01, ge=0, le=1)
+    """EMA interpolation rate for the feedback-conditioned teacher."""
+
+    full_logit_distillation: bool = True
+    """Use distribution-level rather than sampled-token self-distillation."""
+
+    distillation_topk: int | None = Field(20, ge=1)
+    """Student-selected support size. ``None`` denotes full-vocabulary distillation."""
+
+    distillation_add_tail: bool = True
+    """Add the probability mass outside the transported support as a tail bucket."""
+
+    alpha: float = Field(1.0, ge=0, le=1)
+    """KL/JSD interpolation parameter."""
+
+    is_clip: float | None = Field(2.0, gt=0)
+    """One-sided sampled-token importance-ratio clipping threshold."""
+
+    rollout_is: Literal["token", "sequence"] | None = "token"
+    """Truncated rollout importance-correction level."""
+
+    rollout_is_threshold: float = Field(2.0, gt=0)
+    """Upper truncation threshold for rollout importance weights."""
+
+    rollout_is_batch_normalize: bool = False
+    """Normalize rollout importance weights over the batch before applying the loss."""
+
+    @field_validator("distillation_topk", mode="before")
+    @classmethod
+    def reject_bool_distillation_topk(cls, value):
+        if isinstance(value, bool):
+            raise ValueError("distillation_topk must be an integer, not boolean")
+        return value
+
+    @field_validator("teacher_update_rate", "alpha", "is_clip", "rollout_is_threshold", mode="before")
+    @classmethod
+    def reject_bool_numeric_knobs(cls, value, info):
+        if isinstance(value, bool):
+            raise ValueError(f"{info.field_name} must be numeric, not boolean")
+        return value
+
+
 class FakeDataLoaderConfig(BaseConfig):
     batch_size: int = Field(2, ge=1)
     """Batch size of the fake data loader."""
@@ -519,6 +568,9 @@ class TrainerConfig(BaseConfig):
     loss: LossConfig = DefaultLossConfig()
     """Loss config for the rl loss component (see ``setup_rl_loss_fn``). The ce / ref_kl components are fixed and do not read this."""
 
+    sdpo_loss: SDPOComponentConfig = SDPOComponentConfig()
+    """Loss config for the optional sdpo component."""
+
     optim: OptimizerConfig = AdamWConfig()
 
     scheduler: SchedulerConfig = ConstantSchedulerConfig()
@@ -544,6 +596,9 @@ class TrainerConfig(BaseConfig):
 
     max_steps: int | None = None
     """Maximum number of training steps. If None, runs indefinitely."""
+
+    max_train_batch_lead: int = Field(1, ge=0)
+    """Orchestrator batch lead used to determine which final policy versions still need broadcasting."""
 
     enable_router_replay: bool = False
     """Return routed experts in the batch so the trainer can replay routing. Requires ``enable_return_routed_experts=true`` on the vLLM server (or ``--enable-return-routed-experts``) and is only supported for custom models."""

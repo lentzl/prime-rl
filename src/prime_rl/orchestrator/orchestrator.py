@@ -96,11 +96,6 @@ SHUTDOWN_TIMEOUT_S = 300
 # dataset; fail loudly instead of spinning
 MAX_CONSECUTIVE_EMPTY_BATCHES = 10
 
-# Maximum batches the orchestrator may run ahead of the trainer. The
-# dispatcher is paused via ``update_dispatch_gate`` once this is exceeded;
-# resumed when the watcher advances ``policy.version``.
-TARGET_LAG = 1
-
 # Default wait for the trainer's startup weight broadcast when no ckpt block
 # configures ``wait_for_weights_timeout`` (e.g. a from-scratch run). The
 # broadcast is always coming, so wait rather than fail immediately.
@@ -365,6 +360,7 @@ class Orchestrator:
             policy_pool=self.policy_inference,
             policy=self.policy,
             max_inflight_rollouts=config.max_inflight_rollouts,
+            train_rollouts_per_policy=config.batch_size if config.max_train_batch_lead == 0 else None,
             tasks_per_minute=config.tasks_per_minute,
             max_off_policy_steps=config.max_off_policy_steps,
         )
@@ -522,13 +518,7 @@ class Orchestrator:
         self.last_batch_at = now
 
         if config.max_steps is not None and step > config.max_steps:
-            self.draining = True
-            self.dispatcher.disable_train_scheduling()
-            n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
-            get_logger().info(
-                f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); "
-                f"any in-flight evals will complete)"
-            )
+            await self.begin_draining()
             return
 
         if not batch.samples:
@@ -636,7 +626,19 @@ class Orchestrator:
 
         self.train_sink.reset_pre_filter_stats()
         self.maybe_trigger_eval(self.progress.step)
+        if config.max_steps is not None and step >= config.max_steps:
+            await self.begin_draining()
         trim_process_memory()
+
+    async def begin_draining(self) -> None:
+        if self.draining:
+            return
+        self.draining = True
+        self.dispatcher.disable_train_scheduling()
+        n_cancelled = await self.dispatcher.cancel_inflight_train_rollouts()
+        get_logger().info(
+            f"Draining pipeline (cancelled {n_cancelled} in-flight train rollout(s); any in-flight evals will complete)"
+        )
 
     def maybe_trigger_eval(self, step: int) -> None:
         """Fire eligible eval epochs and flip to ``PREFER_EVAL`` if anything
@@ -834,14 +836,15 @@ class Orchestrator:
         # torn down), so policy.version never reaches the last step. Without this
         # the gate deadlocks waiting for a version that will never be published.
         # The last batch uses the penultimate policy anyway, so let it through.
-        building_final_batch_nccl = (
+        final_batch_policy_ready = (
             self.config.weight_broadcast.type == "nccl"
             and self.config.max_steps is not None
-            and self.progress.step >= self.config.max_steps - 1
+            and self.progress.step == self.config.max_steps
+            and self.policy.version == self.config.max_steps - 1
         )
         gate = self.dispatcher.dispatch_allowed
         was_set = gate.is_set()
-        if lead > TARGET_LAG and not building_final_batch_nccl:
+        if lead > self.config.max_train_batch_lead and not final_batch_policy_ready:
             if was_set:
                 get_logger().info(
                     "Pausing dispatcher to prevent orchestrator from racing from trainer. Waiting for new policy..."
