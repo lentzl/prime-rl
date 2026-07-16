@@ -25,7 +25,7 @@ project = "reasoning-offload"
 name = "qwen3-4b-instruct-orientation-sdpo-state-verification-ramp"
 
 [ckpt]
-interval = 16
+interval = 8
 keep_last = 2
 
 [orchestrator.ckpt]
@@ -63,7 +63,7 @@ timeout = { setup = 300, rollout = 900, finalize = 60, scoring = 60 }
 retries = { rollout = { max_retries = 2 } }
 
 [orchestrator.eval]
-interval = 16
+interval = 8
 num_examples = -1
 group_size = 1
 
@@ -98,8 +98,8 @@ type = "constant"
 [trainer.model]
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
-fsdp_cpu_offload = true
-optim_cpu_offload = false
+fsdp_cpu_offload = false
+optim_cpu_offload = true
 
 [inference]
 gpu_memory_utilization = 0.8

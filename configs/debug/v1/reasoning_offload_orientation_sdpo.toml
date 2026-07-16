@@ -95,8 +95,8 @@ type = "constant"
 [trainer.model]
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
-fsdp_cpu_offload = true
-optim_cpu_offload = false
+fsdp_cpu_offload = false
+optim_cpu_offload = true
 
 [inference]
 gpu_memory_utilization = 0.8
