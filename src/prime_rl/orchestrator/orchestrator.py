@@ -307,9 +307,10 @@ class Orchestrator:
         self.sender = setup_training_batch_sender(config.output_dir, config.rollout_transport)
 
         self.lora_name = config.model.lora.name if config.model.lora else None
+        self.train_source = TrainSource(self.train_envs, seed=42)
 
         if self.resume_step is not None and self.ckpt_manager is not None:
-            self.ckpt_manager.load(self.progress, step=self.resume_step)
+            self.ckpt_manager.load(self.progress, step=self.resume_step, train_source=self.train_source)
             # The checkpoint finished step ``resume_step``; resume at the next step. Derive the step
             # from ``resume_step`` (not the loaded progress.step) so it stays coordinated with the
             # trainer even when ``ckpt.skip_progress`` left the counter unrestored.
@@ -338,7 +339,6 @@ class Orchestrator:
             self.policy.model_name = self.lora_name
         self.policy.version = sync_version
 
-        self.train_source = TrainSource(self.train_envs, seed=42)
         self.eval_source: EvalSource | None = (
             EvalSource(
                 self.eval_envs,
@@ -454,7 +454,7 @@ class Orchestrator:
             if self.ckpt_manager is not None and self.progress.step > 1:
                 self.progress.step -= 1
                 get_logger().info("Writing final checkpoint")
-                self.ckpt_manager.save(self.progress, step=self.progress.step)
+                self.ckpt_manager.save(self.progress, step=self.progress.step, train_source=self.train_source)
             await self.stop()
             if clean_exit:
                 get_logger().success("Orchestrator finished.")
@@ -821,7 +821,7 @@ class Orchestrator:
             return 0.0
         get_logger().info(f"Saving checkpoint at step {step}")
         t = time.perf_counter()
-        await asyncio.to_thread(self.ckpt_manager.save, self.progress, step)
+        await asyncio.to_thread(self.ckpt_manager.save, self.progress, step, self.train_source)
         return time.perf_counter() - t
 
     def update_dispatch_gate(self) -> None:

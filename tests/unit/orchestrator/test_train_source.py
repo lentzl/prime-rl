@@ -2,8 +2,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from prime_rl.configs.orchestrator import TrainEnvConfig
+from prime_rl.configs.orchestrator import CheckpointConfig, TrainEnvConfig
+from prime_rl.orchestrator.ckpt import CheckpointManager
 from prime_rl.orchestrator.train_source import TrainSource
+from prime_rl.orchestrator.types import Progress
 
 
 def _env(*, num_tasks: int | None, task_indices: list[int] | None = None):
@@ -50,3 +52,45 @@ def test_finite_taskset_defaults_to_all_indices():
     examples = [source.next_example(available_permits=1) for _ in range(3)]
 
     assert {example["task_idx"] for example in examples if example is not None} == {0, 1, 2}
+
+
+def test_state_dict_restores_rng_order_cursor_and_epoch_shuffle():
+    source = TrainSource([_env(num_tasks=5)], seed=7)
+    for _ in range(4):
+        source.next_example(available_permits=1)
+    state = source.state_dict()
+
+    expected = [source.next_example(available_permits=1) for _ in range(8)]
+    restored = TrainSource([_env(num_tasks=5)], seed=999)
+    restored.load_state_dict(state)
+
+    assert [restored.next_example(available_permits=1) for _ in range(8)] == expected
+
+
+def test_legacy_single_env_fast_forward_skips_completed_examples():
+    uninterrupted = TrainSource([_env(num_tasks=5)], seed=7)
+    for _ in range(6):
+        uninterrupted.next_example(available_permits=1)
+    expected = uninterrupted.next_example(available_permits=1)
+
+    resumed = TrainSource([_env(num_tasks=5)], seed=7)
+    resumed.fast_forward_single_env(6)
+
+    assert resumed.next_example(available_permits=1) == expected
+
+
+def test_checkpoint_manager_restores_train_source(tmp_path):
+    source = TrainSource([_env(num_tasks=5)], seed=7)
+    for _ in range(4):
+        source.next_example(available_permits=1)
+    progress = Progress(step=4, total_problems=4)
+    manager = CheckpointManager(tmp_path, CheckpointConfig())
+    manager.save(progress, step=4, train_source=source)
+    expected = [source.next_example(available_permits=1) for _ in range(8)]
+
+    restored_progress = Progress()
+    restored_source = TrainSource([_env(num_tasks=5)], seed=999)
+    manager.load(restored_progress, step=4, train_source=restored_source)
+
+    assert restored_progress == progress
+    assert [restored_source.next_example(available_permits=1) for _ in range(8)] == expected

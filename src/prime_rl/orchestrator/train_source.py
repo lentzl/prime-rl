@@ -10,6 +10,8 @@ epochs to shuffle."""
 from __future__ import annotations
 
 import random
+from copy import deepcopy
+from typing import Any
 
 from prime_rl.orchestrator.envs import TrainEnvs
 
@@ -73,3 +75,40 @@ class TrainSource:
         example = rows[cursor]
         self.cursors[env_name] = cursor + 1
         return example
+
+    def state_dict(self) -> dict[str, Any]:
+        """Return the sampling state needed to continue without replaying tasks."""
+        return {
+            "rng_state": self.rng.getstate(),
+            "examples": deepcopy(self.examples),
+            "cursors": dict(self.cursors),
+        }
+
+    def load_state_dict(self, state: dict[str, Any]) -> None:
+        saved_examples = state["examples"]
+        saved_cursors = state["cursors"]
+        if saved_examples.keys() != self.examples.keys() or saved_cursors.keys() != self.cursors.keys():
+            raise ValueError("TrainSource checkpoint environments do not match the configured train environments")
+
+        for env_name, rows in self.examples.items():
+            saved_rows = saved_examples[env_name]
+            if (rows is None) != (saved_rows is None):
+                raise ValueError(f"TrainSource checkpoint taskset type changed for {env_name!r}")
+            if rows is not None:
+                current = sorted((row["env_name"], row["task_idx"]) for row in rows)
+                saved = sorted((row["env_name"], row["task_idx"]) for row in saved_rows)
+                if current != saved:
+                    raise ValueError(f"TrainSource checkpoint tasks changed for {env_name!r}")
+
+        self.rng.setstate(state["rng_state"])
+        self.examples = deepcopy(saved_examples)
+        self.cursors = dict(saved_cursors)
+
+    def fast_forward_single_env(self, num_examples: int) -> None:
+        """Advance a legacy single-environment source by completed task groups."""
+        if len(self.env_names) != 1:
+            raise ValueError("Legacy TrainSource fast-forward requires exactly one train environment")
+        available_permits = self.env_costs[self.env_names[0]]
+        for _ in range(num_examples):
+            if self.next_example(available_permits) is None:
+                raise RuntimeError("TrainSource could not fast-forward with the environment's full permit cost")

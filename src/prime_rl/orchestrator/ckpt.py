@@ -9,6 +9,7 @@ import tempfile
 import time
 from dataclasses import asdict
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import torch
 
@@ -16,6 +17,9 @@ from prime_rl.configs.orchestrator import CheckpointConfig
 from prime_rl.orchestrator.types import Progress
 from prime_rl.utils.logger import format_time, get_logger
 from prime_rl.utils.pathing import get_ckpt_dir, get_step_path
+
+if TYPE_CHECKING:
+    from prime_rl.orchestrator.train_source import TrainSource
 
 
 class CheckpointManager:
@@ -26,7 +30,7 @@ class CheckpointManager:
     def get_ckpt_path(self, step: int) -> Path:
         return get_step_path(self.ckpt_dir, step) / "orchestrator"
 
-    def save(self, progress: Progress, step: int) -> None:
+    def save(self, progress: Progress, step: int, train_source: TrainSource | None = None) -> None:
         ckpt_path = self.get_ckpt_path(step)
         ckpt_path.mkdir(parents=True, exist_ok=True)
         start = time.perf_counter()
@@ -35,7 +39,10 @@ class CheckpointManager:
         fd, tmp_name = tempfile.mkstemp(dir=ckpt_path, prefix="progress.pt.", suffix=".tmp")
         try:
             with os.fdopen(fd, "wb") as f:
-                torch.save({"progress": progress}, f)
+                state = {"progress": progress}
+                if train_source is not None:
+                    state["train_source"] = train_source.state_dict()
+                torch.save(state, f)
             os.replace(tmp_name, ckpt_path / "progress.pt")
         except BaseException:
             with contextlib.suppress(OSError):
@@ -45,7 +52,7 @@ class CheckpointManager:
             f"Orchestrator checkpoint saved to {ckpt_path} in {format_time(time.perf_counter() - start)}"
         )
 
-    def load(self, progress: Progress, step: int) -> None:
+    def load(self, progress: Progress, step: int, train_source: TrainSource | None = None) -> None:
         ckpt_path = self.get_ckpt_path(step)
         state_file = ckpt_path / "progress.pt"
         if not state_file.exists():
@@ -61,6 +68,20 @@ class CheckpointManager:
             for key, value in asdict(saved).items():
                 if hasattr(progress, key):
                     setattr(progress, key, value)
+            if train_source is not None:
+                if "train_source" in state:
+                    train_source.load_state_dict(state["train_source"])
+                elif len(train_source.env_names) == 1:
+                    get_logger().warning(
+                        "Checkpoint predates TrainSource state; fast-forwarding the single train environment "
+                        f"by {saved.total_problems} completed task groups"
+                    )
+                    train_source.fast_forward_single_env(saved.total_problems)
+                else:
+                    get_logger().warning(
+                        "Checkpoint predates TrainSource state and has multiple train environments; "
+                        "the train sampling sequence will restart"
+                    )
         get_logger().debug(f"Orchestrator checkpoint loaded in {format_time(time.perf_counter() - start)}")
 
 
