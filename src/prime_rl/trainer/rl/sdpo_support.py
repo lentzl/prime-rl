@@ -63,19 +63,14 @@ def select_sdpo_student_topk_support(logits: Tensor, temperatures: Tensor, topk:
     return torch.topk(current_token_logits, topk, dim=-1).indices
 
 
-def gather_sdpo_teacher_topk_logprobs(logits: Tensor, positions: Tensor, token_ids: Tensor) -> Tensor:
+def gather_sdpo_teacher_topk_logprobs(logits: Tensor, token_ids: Tensor) -> Tensor:
     if logits.ndim != 3 or logits.shape[0] != 1:
-        raise ValueError("SDPO teacher logits must have shape (1, seq, vocab)")
-    if positions.ndim != 1 or token_ids.ndim != 2 or token_ids.shape[0] != positions.shape[0]:
-        raise ValueError("SDPO teacher positions and support ids must align")
-    if not bool(((positions >= 0) & (positions < logits.shape[1])).all()):
-        raise ValueError("SDPO teacher positions must be within the teacher sequence")
+        raise ValueError("SDPO teacher logits must have shape (1, targets, vocab)")
+    if token_ids.ndim != 2 or token_ids.shape[0] != logits.shape[1]:
+        raise ValueError("SDPO teacher logits and support ids must align")
     if not bool(((token_ids >= 0) & (token_ids < logits.shape[-1])).all()):
         raise ValueError("SDPO teacher support ids must be within the model vocabulary")
-    left_pad = torch.zeros_like(logits[:, :1])
-    current_token_logprobs = torch.cat([left_pad, logits[:, :-1]], dim=1).log_softmax(dim=-1)
-    selected_rows = current_token_logprobs[0, positions]
-    return torch.gather(selected_rows, dim=-1, index=token_ids)
+    return torch.gather(logits[0].log_softmax(dim=-1), dim=-1, index=token_ids)
 
 
 def pack_sdpo_teacher_spans(

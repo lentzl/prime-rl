@@ -1216,6 +1216,7 @@ def forward(
     position_ids: Int[Tensor, "batch seq"],
     labels: Int[Tensor, "batch seq"] | None = None,
     temperature: Tensor | None = None,
+    logits_to_keep: int | Tensor = 0,
     routed_experts: Int[Tensor, "batch seq layers topk"] | None = None,
     # Generic multimodal kwargs (e.g. {"pixel_values": ...,
     # "image_grid_thw": ...} for Qwen3-VL; just {"pixel_values": ...}
@@ -1231,6 +1232,7 @@ def forward(
         "input_ids": input_ids,
         "labels": labels,
         "temperature": temperature,
+        "logits_to_keep": logits_to_keep,
     }
 
     if mm_kwargs:

@@ -488,8 +488,9 @@ def train(config: TrainerConfig):
                     teacher_position_ids = torch.tensor(
                         teacher_position_ids_list, dtype=torch.long, device="cuda"
                     ).unsqueeze(0)
-                    teacher_temperatures = torch.ones_like(teacher_input_ids, dtype=torch.float)
-                    teacher_labels = shift_tensor_left(teacher_input_ids)
+                    teacher_logit_positions = torch.tensor(teacher_targets, dtype=torch.long, device="cuda") - 1
+                    if bool((teacher_logit_positions < 0).any()):
+                        raise ValueError("SDPO teacher targets must follow at least one prefix token")
 
                     if config.model.lora:
                         teacher_lora_num_tokens = torch.zeros_like(lora_num_tokens)
@@ -501,8 +502,7 @@ def train(config: TrainerConfig):
                             sdpo_teacher_model,
                             teacher_input_ids,
                             teacher_position_ids,
-                            labels=teacher_labels,
-                            temperature=teacher_temperatures,
+                            logits_to_keep=teacher_logit_positions,
                             mm_kwargs=None,
                             mm_token_type_ids=None,
                             routed_experts=None,
@@ -517,11 +517,9 @@ def train(config: TrainerConfig):
                             sdpo_topk_logprobs = torch.zeros_like(sdpo_topk_token_ids, dtype=teacher_logits.dtype)
                         if student_targets:
                             student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
-                            teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
                             support_ids = sdpo_topk_token_ids[0, student_target_tensor]
                             teacher_scores = gather_sdpo_teacher_topk_logprobs(
                                 teacher_logits,
-                                teacher_target_tensor,
                                 support_ids,
                             )
                             sdpo_topk_logprobs[0, student_target_tensor] = teacher_scores

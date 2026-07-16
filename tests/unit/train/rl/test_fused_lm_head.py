@@ -340,6 +340,15 @@ def test_inject_prime_lm_head_vanilla():
     assert out.get("logprobs") is None, "Vanilla path should not return logprobs"
     assert out["logits"].shape == (batch_size, seq_len, config.vocab_size), "Logits shape mismatch"
 
+    selected_positions = torch.tensor([3, 17, 41], device="cuda")
+    with torch.autocast("cuda", dtype=torch.bfloat16):
+        selected_out = model(
+            input_ids=input_ids,
+            position_ids=position_ids,
+            logits_to_keep=selected_positions,
+        )
+    torch.testing.assert_close(selected_out["logits"], out["logits"][:, selected_positions])
+
 
 @pytest.mark.gpu
 def test_inject_prime_lm_head_fused():

@@ -372,9 +372,10 @@ def _patch_model_forward(model: nn.Module) -> None:
         hidden_states = outputs.last_hidden_state
 
         # Slice hidden states for logits_to_keep
-        slice_indices = (
-            slice(-logits_to_keep, None) if isinstance(logits_to_keep, int) and logits_to_keep > 0 else slice(None)
-        )
+        if isinstance(logits_to_keep, int):
+            slice_indices = slice(-logits_to_keep, None) if logits_to_keep > 0 else slice(None)
+        else:
+            slice_indices = logits_to_keep
 
         # Pass through the wrapped lm_head
         return self.lm_head(

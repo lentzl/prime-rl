@@ -71,18 +71,14 @@ def test_student_support_logprobs_use_the_distribution_that_predicted_each_token
     torch.testing.assert_close(actual, expected)
 
 
-def test_student_selected_support_is_scored_at_matching_teacher_positions():
+def test_student_selected_support_is_scored_from_selected_teacher_logits():
     student_logits = torch.tensor([[[0.0, 3.0, 1.0], [2.0, 0.0, 1.0], [1.0, 2.0, 0.0]]])
     support_ids = select_sdpo_student_topk_support(student_logits, torch.ones(1, 3), topk=2)
     teacher_logits = torch.tensor([[[0.0, 0.0, 0.0], [1.0, 3.0, 0.0], [2.0, 0.0, 1.0]]])
 
-    actual = gather_sdpo_teacher_topk_logprobs(
-        teacher_logits,
-        positions=torch.tensor([1, 2]),
-        token_ids=support_ids[0, 1:],
-    )
-    shifted_teacher = torch.cat([torch.zeros(1, 1, 3), teacher_logits[:, :-1]], dim=1).log_softmax(dim=-1)
-    expected = torch.gather(shifted_teacher[0, 1:], dim=-1, index=support_ids[0, 1:])
+    selected_teacher_logits = teacher_logits[:, :2]
+    actual = gather_sdpo_teacher_topk_logprobs(selected_teacher_logits, token_ids=support_ids[0, 1:])
+    expected = torch.gather(selected_teacher_logits[0].log_softmax(dim=-1), dim=-1, index=support_ids[0, 1:])
 
     torch.testing.assert_close(actual, expected)
 
