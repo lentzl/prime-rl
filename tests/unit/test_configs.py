@@ -266,6 +266,18 @@ def test_zero_train_batch_lead_rejects_token_batching():
         )
 
 
+def test_rollout_batching_allows_inflight_capacity_below_group_size():
+    config = OrchestratorConfig.model_validate(
+        {
+            "batch_size": 8,
+            "group_size": 8,
+            "max_inflight_rollouts": 4,
+        }
+    )
+
+    assert config.max_inflight_rollouts == 4
+
+
 def test_per_env_sdpo_algorithm_enables_trainer_runtime():
     config = RLConfig.model_validate(
         {

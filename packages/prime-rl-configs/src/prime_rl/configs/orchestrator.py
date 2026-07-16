@@ -709,9 +709,6 @@ class OrchestratorConfig(BaseConfig):
             if self.max_inflight_rollouts is None:
                 self.max_inflight_rollouts = resolved_max_inflight_rollouts
 
-        if self.max_inflight_rollouts is not None and self.max_inflight_rollouts < self.group_size:
-            raise ValueError("max_inflight_rollouts must be at least the number of rollouts per example")
-
         # Propagate the top-level ``group_size`` into each train env that didn't set its own.
         for env_cfg in self.train.env:
             if "group_size" not in env_cfg.model_fields_set:

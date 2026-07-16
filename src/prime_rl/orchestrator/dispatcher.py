@@ -147,6 +147,15 @@ class RolloutDispatcher:
         self.train_rollouts_scheduled = 0
 
         self.max_inflight = max_inflight_rollouts
+        for envs in (train_envs, eval_envs):
+            if envs is None:
+                continue
+            for env in envs:
+                if env.requires_group_scoring and env.config.group_size > self.max_inflight:
+                    raise ValueError(
+                        f"max_inflight_rollouts ({self.max_inflight}) must be at least group_size "
+                        f"({env.config.group_size}) for group-scoring env {env.name!r}"
+                    )
         self.inflight_permits = 0
         self.rate_limiter: AsyncLimiter | None = (
             AsyncLimiter(tasks_per_minute, time_period=60) if tasks_per_minute else None
