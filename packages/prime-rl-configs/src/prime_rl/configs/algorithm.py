@@ -306,8 +306,8 @@ class SDPOAlgoConfig(BaseAlgoConfig):
     """Construct one teacher replay per sampled assistant turn.
 
     This is an opt-in extension beyond the paper's complete-response setting.
-    Each turn is supervised only by feedback observed before the next sampled
-    turn; rollout-level feedback is reserved for the final turn.
+    Each turn is supervised by all later environment observations and terminal
+    feedback, treating the complete agent trajectory as the paper's response.
     """
 
     max_reprompt_len: int = Field(10240, ge=1)

@@ -5,7 +5,7 @@ import pydantic
 import pytest
 import verifiers.v1 as vf
 from verifiers.v1.graph import MessageNode
-from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
+from verifiers.v1.types import AssistantMessage, ToolCall, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.orchestrator.algo import EchoAlgorithm, SDPOAlgorithm, stamp_advantages, stamp_loss_routing
@@ -276,7 +276,13 @@ def _node(message, *, parent, sampled, token_ids, logprobs=None, is_content=None
     )
 
 
-def _two_turn_rollout(observation_role: str = "tool", *, reward: float = 1.0, info: dict | None = None) -> Rollout:
+def _two_turn_rollout(
+    observation_role: str = "tool",
+    *,
+    reward: float = 1.0,
+    info: dict | None = None,
+    with_tool_call: bool = False,
+) -> Rollout:
     """A single linear branch: user prompt, an assistant response, an
     env-provided observation (tool output / user feedback), then a second
     assistant response. Tokens: prompt [1,2], action [3,4], observation
@@ -285,9 +291,17 @@ def _two_turn_rollout(observation_role: str = "tool", *, reward: float = 1.0, in
         obs_message = ToolMessage(tool_call_id="t", content="T")
     else:
         obs_message = UserMessage(content="feedback")
+    first_response = (
+        AssistantMessage(
+            content=None,
+            tool_calls=[ToolCall(id="t", name="ipython", arguments='{"code":"x = 1"}')],
+        )
+        if with_tool_call
+        else AssistantMessage(content="A")
+    )
     nodes = [
         _node(UserMessage(content="U"), parent=None, sampled=False, token_ids=[1, 2]),
-        _node(AssistantMessage(content="A"), parent=0, sampled=True, token_ids=[3, 4], logprobs=[-0.1, -0.2]),
+        _node(first_response, parent=0, sampled=True, token_ids=[3, 4], logprobs=[-0.1, -0.2]),
         _node(obs_message, parent=1, sampled=False, token_ids=[5, 6]),
         _node(AssistantMessage(content="A2"), parent=2, sampled=True, token_ids=[7, 8], logprobs=[-0.3, -0.4]),
     ]
@@ -368,7 +382,7 @@ def test_sdpo_multi_turn_replay_is_explicitly_opt_in():
         asyncio.run(algo.finalize_group([rollout]))
 
 
-def test_sdpo_multi_turn_replay_attributes_feedback_per_turn():
+def test_sdpo_multi_turn_replay_propagates_hindsight_feedback_across_turns():
     rollout = _two_turn_rollout(
         reward=0.0,
         info={"feedback": "final judge feedback"},
@@ -402,7 +416,7 @@ def test_sdpo_multi_turn_replay_attributes_feedback_per_turn():
     first_messages = algo.renderer.render_ids.call_args_list[0].args[0]
     final_messages = algo.renderer.render_ids.call_args_list[1].args[0]
     assert "tool: T" in first_messages[0]["content"]
-    assert "final judge feedback" not in first_messages[0]["content"]
+    assert "final judge feedback" in first_messages[0]["content"]
     assert "final judge feedback" in final_messages[0]["content"]
     assert [message["role"] for message in final_messages] == ["user", "assistant", "tool"]
 
@@ -429,6 +443,25 @@ def test_sdpo_multi_turn_replay_skips_turns_without_attributable_feedback():
         )
     ]
     algo.renderer.render_ids.assert_called_once()
+
+
+def test_sdpo_multi_turn_successful_sibling_preserves_tool_trajectory():
+    failed = _two_turn_rollout(reward=0.0)
+    successful = _two_turn_rollout(reward=1.0, with_tool_call=True)
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", multi_turn_replay=True),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.side_effect = [[20, 21], [30, 31]]
+
+    asyncio.run(algo.finalize_group([failed, successful]))
+
+    first_messages = algo.renderer.render_ids.call_args_list[0].args[0]
+    assert "Correct solution:" in first_messages[0]["content"]
+    assert 'assistant tool call ipython: {"code":"x = 1"}' in first_messages[0]["content"]
+    assert "tool: T" in first_messages[0]["content"]
+    assert "assistant: A2" in first_messages[0]["content"]
 
 
 def test_sdpo_reprompts_final_user_turn_and_reuses_sampled_completion_verbatim():

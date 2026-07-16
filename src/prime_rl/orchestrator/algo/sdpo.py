@@ -138,22 +138,44 @@ class SDPOAlgorithm(Algorithm):
 
     def _turn_feedback(self, rollout: Rollout, nodes: list, sampled_node_index: int, *, is_final_turn: bool) -> str:
         explicit = rollout.info.get("feedback")
-        if is_final_turn and not self.config.multi_turn_replay and isinstance(explicit, str) and explicit.strip():
+        explicit_feedback = explicit if isinstance(explicit, str) and explicit.strip() else ""
+        if is_final_turn and not self.config.multi_turn_replay and explicit_feedback:
             return explicit
         feedback: list[str] = []
         for node in nodes[sampled_node_index + 1 :]:
-            if node.sampled:
+            if node.sampled and not self.config.multi_turn_replay:
                 break
+            if node.sampled:
+                continue
             text = content_text(node.message.content).strip()
             if text:
                 feedback.append(f"{node.message.role}: {text}")
-        if feedback:
-            return "\n".join(feedback)
-        if is_final_turn and isinstance(explicit, str) and explicit.strip():
-            return explicit
-        return ""
+        if self.config.multi_turn_replay and explicit_feedback:
+            feedback.append(explicit_feedback)
+        elif is_final_turn and explicit_feedback:
+            feedback.append(explicit_feedback)
+        return "\n".join(feedback)
 
     def _demonstration(self, rollout: Rollout) -> str:
+        if self.config.multi_turn_replay:
+            branch = next(branch for branch in rollout.branches if any(branch.sampled_mask))
+            transcript: list[str] = []
+            started = False
+            for node in branch.nodes:
+                if node.sampled:
+                    started = True
+                if not started:
+                    continue
+                message = node.message
+                text = content_text(message.content)
+                if self.config.remove_thinking_from_demonstration and message.role == "assistant":
+                    text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL)
+                if text.strip():
+                    transcript.append(f"{message.role}: {text}")
+                for tool_call in getattr(message, "tool_calls", None) or []:
+                    transcript.append(f"assistant tool call {tool_call.name}: {tool_call.arguments}")
+            return "\n".join(transcript)
+
         text = "\n".join(content_text(message.content) for message in rollout.assistant_messages)
         if self.config.remove_thinking_from_demonstration:
             text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL)
