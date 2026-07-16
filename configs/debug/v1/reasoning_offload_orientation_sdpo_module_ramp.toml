@@ -34,7 +34,7 @@ wait_for_weights_timeout = 1200
 [orchestrator]
 batch_size = 8
 group_size = 8
-max_inflight_rollouts = 8
+max_inflight_rollouts = 4
 
 [orchestrator.algo]
 type = "sdpo"
