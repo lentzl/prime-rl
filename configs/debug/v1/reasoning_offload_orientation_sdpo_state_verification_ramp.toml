@@ -106,3 +106,4 @@ gpu_memory_utilization = 0.8
 dtype = "bfloat16"
 max_model_len = 4096
 enforce_eager = true
+tool_call_parser = "hermes"
