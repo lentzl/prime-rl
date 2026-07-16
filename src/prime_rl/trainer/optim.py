@@ -30,14 +30,25 @@ class CPUOffloadOptimizer:
     at the same time: peak memory becomes max(activations, opt_states) instead of sum.
     """
 
-    def __init__(self, optimizer: Optimizer, pin_memory: bool = True):
+    def __init__(
+        self,
+        optimizer: Optimizer,
+        pin_memory: bool = True,
+        max_state_chunk_numel: int = 64 * 1024 * 1024,
+    ):
+        if max_state_chunk_numel <= 0:
+            raise ValueError("max_state_chunk_numel must be positive")
         self.optimizer = optimizer
         self.pin_memory = pin_memory
+        self.max_state_chunk_numel = max_state_chunk_numel
         self._initialized = False
 
-    def _move_states(self, device: str):
+    def _move_states(self, device: str, parameters: list[nn.Parameter] | None = None):
         """Move optimizer states to CPU or back to GPU (matching each parameter's device)."""
-        for p in self.optimizer.state:
+        parameters = list(self.optimizer.state) if parameters is None else parameters
+        for p in parameters:
+            if p not in self.optimizer.state:
+                continue
             state = self.optimizer.state[p]
             for k, v in state.items():
                 if isinstance(v, DTensor):
@@ -62,7 +73,56 @@ class CPUOffloadOptimizer:
                     else:
                         state[k] = v.to(device, non_blocking=True)
 
+    @staticmethod
+    def _local_numel(parameter: nn.Parameter) -> int:
+        if isinstance(parameter, DTensor):
+            return parameter._local_tensor.numel()
+        return parameter.numel()
+
+    def _parameter_chunks(self):
+        for group_index, group in enumerate(self.optimizer.param_groups):
+            chunk: list[nn.Parameter] = []
+            chunk_numel = 0
+            for parameter in group["params"]:
+                parameter_numel = self._local_numel(parameter)
+                if chunk and chunk_numel + parameter_numel > self.max_state_chunk_numel:
+                    yield group_index, chunk
+                    chunk = []
+                    chunk_numel = 0
+                chunk.append(parameter)
+                chunk_numel += parameter_numel
+            if chunk:
+                yield group_index, chunk
+
+    def _step_adamw_in_chunks(self, closure=None):
+        original_params = [list(group["params"]) for group in self.optimizer.param_groups]
+        chunks = list(self._parameter_chunks())
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        try:
+            for group_index, parameters in chunks:
+                for group in self.optimizer.param_groups:
+                    group["params"] = []
+                self.optimizer.param_groups[group_index]["params"] = parameters
+                self._move_states("cuda", parameters)
+                try:
+                    self.optimizer.step()
+                finally:
+                    self._move_states("cpu", parameters)
+        finally:
+            for group, parameters in zip(self.optimizer.param_groups, original_params):
+                group["params"] = parameters
+
+        self._initialized = True
+        return loss
+
     def step(self, closure=None):
+        if isinstance(self.optimizer, AdamW):
+            return self._step_adamw_in_chunks(closure)
+
         # First step initializes states on GPU - offload after
         if not self._initialized:
             result = self.optimizer.step(closure)
