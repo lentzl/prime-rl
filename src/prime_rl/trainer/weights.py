@@ -75,9 +75,15 @@ def save_state_dict(
         filename_to_tensors = state_dict_split.filename_to_tensors.items()
         for shard_file, tensors in filename_to_tensors:
             shard = {}
+            storage_ptrs = set()
             for tensor in tensors:
                 assert isinstance(state_dict[tensor], Tensor)
-                shard[tensor] = state_dict[tensor].contiguous()
+                value = state_dict[tensor].contiguous()
+                storage_ptr = value.untyped_storage().data_ptr()
+                if save_format == "safetensors" and storage_ptr in storage_ptrs:
+                    value = value.clone()
+                storage_ptrs.add(value.untyped_storage().data_ptr())
+                shard[tensor] = value
                 # delete reference, see https://github.com/huggingface/transformers/pull/34890
                 del state_dict[tensor]
             if save_format == "safetensors":
