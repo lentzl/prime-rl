@@ -60,6 +60,7 @@ harness = { id = "rlm", version = "9017836", runtime = { type = "subprocess" } }
 max_turns = 8
 max_total_tokens = 4096
 timeout = { setup = 300, rollout = 900, finalize = 60, scoring = 60 }
+retries = { rollout = { max_retries = 2 } }
 
 [orchestrator.eval]
 interval = 8
@@ -77,6 +78,7 @@ harness = { id = "rlm", version = "9017836", runtime = { type = "subprocess" } }
 max_turns = 12
 max_total_tokens = 4096
 timeout = { setup = 300, rollout = 900, finalize = 60, scoring = 60 }
+retries = { rollout = { max_retries = 2 } }
 
 [trainer.sdpo_loss]
 distillation_topk = 20
