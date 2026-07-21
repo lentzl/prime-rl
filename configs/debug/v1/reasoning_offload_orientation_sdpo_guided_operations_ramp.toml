@@ -3,7 +3,7 @@
 # environment operations explicit enough to seed successful on-policy siblings.
 # Resume from a completed prior stage and reset its exhausted task-source cursor:
 #   uv run rl @ configs/debug/v1/reasoning_offload_orientation_sdpo_guided_operations_ramp.toml \
-#     --ckpt.resume-step N --ckpt.skip-progress true
+#     --ckpt.resume-step N
 
 output_dir = "outputs/reasoning-offload-orientation-sdpo-guided-operations-ramp"
 max_steps = 146
@@ -30,6 +30,10 @@ keep_last = 2
 
 [orchestrator.ckpt]
 wait_for_weights_timeout = 1200
+skip_progress = true
+
+[trainer.ckpt]
+skip_progress = true
 
 [orchestrator]
 batch_size = 8
@@ -51,7 +55,7 @@ enable_thinking = true
 
 [orchestrator.train.sampling]
 temperature = 1.0
-max_completion_tokens = 256
+max_completion_tokens = 512
 
 [[orchestrator.train.env]]
 name = "orientation-guided-operations-ramp"
