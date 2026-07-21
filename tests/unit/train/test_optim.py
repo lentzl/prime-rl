@@ -46,6 +46,38 @@ def test_cpu_offload_adamw_chunking_matches_regular_adamw():
             assert all(not isinstance(value, torch.Tensor) or value.device.type == "cpu" for value in state.values())
 
 
+@pytest.mark.gpu
+def test_cpu_offload_adamw_initializes_state_in_chunks_without_an_update():
+    parameters = [
+        torch.nn.Parameter(torch.arange(3, dtype=torch.float32, device="cuda")),
+        torch.nn.Parameter(torch.arange(4, dtype=torch.float32, device="cuda")),
+    ]
+    optimizer = AdamW(parameters, lr=0.03, weight_decay=0.01, foreach=True)
+    step_parameter_counts = []
+    original_step = optimizer.step
+
+    def tracked_step(*args, **kwargs):
+        step_parameter_counts.append(sum(len(group["params"]) for group in optimizer.param_groups))
+        return original_step(*args, **kwargs)
+
+    optimizer.step = tracked_step
+    wrapped = CPUOffloadOptimizer(optimizer, max_state_chunk_numel=4)
+    original_parameters = [parameter.detach().clone() for parameter in parameters]
+
+    wrapped.initialize_state()
+
+    assert wrapped._initialized
+    assert step_parameter_counts == [1, 1]
+    assert wrapped.param_groups[0]["params"] == parameters
+    assert wrapped.param_groups[0]["lr"] == 0.03
+    for parameter, original_parameter in zip(parameters, original_parameters):
+        torch.testing.assert_close(parameter, original_parameter)
+        assert parameter.grad is None
+        state = wrapped.state[parameter]
+        assert state["step"].item() == 1
+        assert all(not isinstance(value, torch.Tensor) or value.device.type == "cpu" for value in state.values())
+
+
 def test_cpu_offload_optimizer_rejects_nonpositive_chunk_size():
     parameter = torch.nn.Parameter(torch.ones(1))
     with pytest.raises(ValueError, match="max_state_chunk_numel must be positive"):

@@ -119,6 +119,46 @@ class CPUOffloadOptimizer:
         self._initialized = True
         return loss
 
+    def initialize_state(self) -> None:
+        """Initialize AdamW state in chunks without updating parameters."""
+        if self.optimizer.state:
+            self._move_states("cpu")
+            self._initialized = True
+            return
+        if not isinstance(self.optimizer, AdamW):
+            return
+        if any(parameter.grad is not None for group in self.optimizer.param_groups for parameter in group["params"]):
+            return
+
+        original_params = [list(group["params"]) for group in self.optimizer.param_groups]
+        original_lrs = [group.get("lr") for group in self.optimizer.param_groups]
+        chunks = list(self._parameter_chunks())
+
+        try:
+            for group, lr in zip(self.optimizer.param_groups, original_lrs):
+                if lr is not None:
+                    group["lr"] = torch.tensor(0.0) if isinstance(lr, torch.Tensor) else 0.0
+
+            for group_index, parameters in chunks:
+                for group in self.optimizer.param_groups:
+                    group["params"] = []
+                self.optimizer.param_groups[group_index]["params"] = parameters
+                for parameter in parameters:
+                    if parameter.requires_grad:
+                        parameter.grad = torch.zeros_like(parameter)
+                try:
+                    self.optimizer.step()
+                finally:
+                    self.optimizer.zero_grad(set_to_none=True)
+                    self._move_states("cpu", parameters)
+        finally:
+            for group, parameters, lr in zip(self.optimizer.param_groups, original_params, original_lrs):
+                group["params"] = parameters
+                if lr is not None:
+                    group["lr"] = lr
+
+        self._initialized = bool(self.optimizer.state)
+
     def step(self, closure=None):
         if isinstance(self.optimizer, AdamW):
             return self._step_adamw_in_chunks(closure)

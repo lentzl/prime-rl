@@ -73,13 +73,12 @@ class AppState(Stateful):
         return any(isinstance(opt, CPUOffloadOptimizer) for opt in self.optimizers)
 
     def state_dict(self) -> dict[str, Any]:
-        # get_state_dict requires optimizer states to live on param.device. For an
-        # already-initialized CPU-offload optimizer that means staging back to GPU
-        # before the call; the matching offload happens after the dict is built.
+        # DCP initializes an empty optimizer by running a zero-gradient step. Doing
+        # that through the base AdamW materializes every state tensor on GPU at
+        # once, so initialize CPU-offloaded optimizers through their chunked path.
         for opt in self.optimizers:
-            if isinstance(opt, CPUOffloadOptimizer) and opt._initialized:
-                opt._move_states("cuda")
-                torch.cuda.synchronize()
+            if isinstance(opt, CPUOffloadOptimizer) and not opt._initialized:
+                opt.initialize_state()
 
         # Automatically manages FSDP FQN's, as well as sets the default state dict type to FSDP.SHARDED_STATE_DICT
         base_optimizers = self._get_base_optimizers()
@@ -97,16 +96,9 @@ class AppState(Stateful):
         if self.extra_state is not None:
             state_dict["extra_state"] = self.extra_state.state_dict()
 
-        # Offload optimizer states to CPU for every CPUOffloadOptimizer, including
-        # ones that were uninitialized on entry. dcp_load calls this method to build
-        # a template, and get_state_dict's internal _init_optim_state populates an
-        # empty optim.state with GPU tensors. Optimizer.state_dict() returns those
-        # values via shallow copy, so optimizer_state_dict["state"][fqn] is the same
-        # dict object as optim.state[param]. Replacing the entries with CPU tensors
-        # in place therefore flips the template too — dcp_load reads bytes from disk
-        # straight into CPU storage and optim.state is loaded by the time the load
-        # returns, without GPU optimizer state ever existing for the duration of the
-        # read.
+        # Keep the checkpoint tensors and live optimizer state on CPU. The returned
+        # optimizer state is a shallow view of optim.state, so dcp_load writes the
+        # checkpoint bytes directly into the storage used by subsequent steps.
         has_cpu_offload = self._has_cpu_offload()
         for opt in self.optimizers:
             if isinstance(opt, CPUOffloadOptimizer):
