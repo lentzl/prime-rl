@@ -10,6 +10,9 @@ max_steps = 146
 seq_len = 4096
 max_train_batch_lead = 0
 
+[env_vars]
+VLLM_API_KEY = "EMPTY"
+
 [deployment]
 num_train_gpus = 1
 num_infer_gpus = 1
