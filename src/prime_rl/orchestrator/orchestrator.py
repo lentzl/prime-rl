@@ -523,6 +523,7 @@ class Orchestrator:
 
         if not batch.samples:
             self.consecutive_empty_batches += 1
+            self.dispatcher.reset_train_rollout_budget()
             get_logger().warning(
                 f"Step {step}: empty train batch (0 of {len(batch.rollouts)} generated rollouts shipped — "
                 f"all errored or filtered out) "

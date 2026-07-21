@@ -140,3 +140,22 @@ def test_begin_draining_immediately_disables_train_scheduling():
         dispatcher.cancel_inflight_train_rollouts.assert_awaited_once_with()
 
     asyncio.run(run())
+
+
+def test_empty_train_batch_reopens_synchronous_dispatch_budget():
+    async def run() -> None:
+        dispatcher = SimpleNamespace(reset_train_rollout_budget=Mock())
+        orchestrator = Orchestrator.__new__(Orchestrator)
+        orchestrator.config = SimpleNamespace(max_steps=None)
+        orchestrator.progress = SimpleNamespace(step=99)
+        orchestrator.dispatcher = dispatcher
+        orchestrator.consecutive_empty_batches = 0
+        orchestrator.last_batch_at = None
+        batch = SimpleNamespace(samples=[], rollouts=[object()] * 8)
+
+        await orchestrator.finalize_train_batch(batch)
+
+        dispatcher.reset_train_rollout_budget.assert_called_once_with()
+        assert orchestrator.consecutive_empty_batches == 1
+
+    asyncio.run(run())

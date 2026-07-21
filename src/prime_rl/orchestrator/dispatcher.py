@@ -320,6 +320,10 @@ class RolloutDispatcher:
 
     async def on_new_version(self, step: int) -> None:
         """Reset a synchronous cohort after the new policy is live."""
+        self.reset_train_rollout_budget()
+
+    def reset_train_rollout_budget(self) -> None:
+        """Allow a new synchronous cohort to be sampled from the current policy."""
         self.train_rollouts_scheduled = 0
 
     async def fill_inflight(self) -> None:

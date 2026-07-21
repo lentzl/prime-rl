@@ -89,7 +89,7 @@ def test_group_scoring_requires_capacity_for_the_whole_group():
         )
 
 
-def test_synchronous_dispatch_budget_resets_only_for_new_policy():
+def test_synchronous_dispatch_budget_resets_for_new_policy():
     async def run() -> None:
         async def run_rollout(**kwargs):
             return kwargs
@@ -132,3 +132,12 @@ def test_synchronous_dispatch_budget_resets_only_for_new_policy():
         assert dispatcher.available_train_permits == 15
 
     asyncio.run(run())
+
+
+def test_synchronous_dispatch_budget_can_retry_current_policy():
+    dispatcher = RolloutDispatcher.__new__(RolloutDispatcher)
+    dispatcher.train_rollouts_scheduled = 16
+
+    dispatcher.reset_train_rollout_budget()
+
+    assert dispatcher.train_rollouts_scheduled == 0
