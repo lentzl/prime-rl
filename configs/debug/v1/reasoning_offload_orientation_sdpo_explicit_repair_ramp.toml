@@ -1,0 +1,117 @@
+# Bootstrap the failure-to-file-mutation transition with a non-leaking
+# operation hint, while retaining the standard-prompt holdout for transfer.
+# Resume from the matched step-168 trainer checkpoint and reset its source cursor:
+#   rl @ configs/debug/v1/reasoning_offload_orientation_sdpo_explicit_repair_ramp.toml \
+#     --ckpt.resume-step 168
+
+output_dir = "outputs/reasoning-offload-orientation-sdpo-explicit-repair-ramp"
+max_steps = 176
+seq_len = 4096
+max_train_batch_lead = 0
+
+[env_vars]
+VLLM_API_KEY = "local-training"
+
+[deployment]
+num_train_gpus = 1
+num_infer_gpus = 1
+
+[weight_broadcast]
+type = "filesystem"
+
+[model]
+name = "Qwen/Qwen3-4B-Instruct-2507"
+
+[wandb]
+project = "reasoning-offload"
+name = "qwen3-4b-instruct-orientation-sdpo-explicit-repair-ramp"
+
+[ckpt]
+interval = 8
+keep_last = 2
+
+[orchestrator.ckpt]
+wait_for_weights_timeout = 1200
+skip_progress = true
+
+[trainer.ckpt]
+skip_progress = true
+
+[orchestrator]
+batch_size = 8
+group_size = 8
+max_inflight_rollouts = 4
+
+[orchestrator.algo]
+type = "sdpo"
+multi_turn_replay = true
+max_reprompt_len = 3584
+
+[orchestrator.algo.renderer]
+name = "qwen3"
+enable_thinking = true
+
+[orchestrator.renderer]
+name = "qwen3"
+enable_thinking = true
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 512
+
+[[orchestrator.train.env]]
+name = "orientation-explicit-repair-ramp"
+taskset = { id = "reasoning-offload-orientation-v1", split = "train", families = ["repair"], instruction_level = "explicit", instances_per_template = 8 }
+harness = { id = "rlm", version = "9017836", runtime = { type = "subprocess" } }
+max_turns = 12
+max_total_tokens = 4096
+timeout = { setup = 300, rollout = 180, finalize = 60, scoring = 60 }
+retries = { rollout = { max_retries = 2 } }
+
+[orchestrator.eval]
+interval = 2
+num_examples = -1
+group_size = 1
+
+[orchestrator.eval.sampling]
+temperature = 0.0
+max_completion_tokens = 512
+
+[[orchestrator.eval.env]]
+name = "orientation-holdout"
+taskset = { id = "reasoning-offload-orientation-v1", split = "eval", instances_per_template = 2 }
+harness = { id = "rlm", version = "9017836", runtime = { type = "subprocess" } }
+max_turns = 12
+max_total_tokens = 4096
+timeout = { setup = 300, rollout = 900, finalize = 60, scoring = 60 }
+retries = { rollout = { max_retries = 2 } }
+
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+teacher_regularization = "ema"
+teacher_update_rate = 0.01
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-7
+weight_decay = 0.01
+max_norm = 1.0
+
+[trainer.scheduler]
+type = "constant"
+
+[trainer.model]
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+fsdp_cpu_offload = false
+optim_cpu_offload = true
+
+[inference]
+gpu_memory_utilization = 0.8
+
+[inference.model]
+dtype = "bfloat16"
+max_model_len = 4096
+enforce_eager = true
+tool_call_parser = "hermes"
