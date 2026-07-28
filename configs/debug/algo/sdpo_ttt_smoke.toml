@@ -1,7 +1,7 @@
 # Section 5 test-time-training control-flow smoke. This deliberately uses the
 # small reverse-text debug task instead of the paper's Qwen3-8B/LCBv6 setup; it
 # validates one fixed question -> 16 attempts -> update -> fresh attempts.
-#   uv run rl @ configs/debug/algorithms/sdpo_ttt_smoke.toml
+#   uv run rl @ configs/debug/algo/sdpo_ttt_smoke.toml
 
 max_steps = 2
 seq_len = 2048

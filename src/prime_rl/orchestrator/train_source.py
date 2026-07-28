@@ -39,15 +39,36 @@ class TrainSource:
         # per-rollout envs need 1
         self.env_costs: dict[str, int] = {}
         for env in self.envs:
-            if env.tasks is None:  # legacy: sample over the index range from info()
-                rows: list[dict] = [{"task_idx": i, "env_name": env.name} for i in range(env.num_tasks)]
+            tasks = getattr(env, "tasks", None)
+            task_indices = env.config.task_indices
+            if tasks is None:  # legacy: sample over the index range from info()
+                if env.num_tasks is None:
+                    if task_indices is not None:
+                        raise ValueError(f"Train env {env.name} has an infinite taskset and cannot select task_indices")
+                    raise ValueError(f"Legacy train env {env.name} must report a finite taskset size")
+                selected = list(range(env.num_tasks)) if task_indices is None else task_indices
+                out_of_range = [index for index in selected if index >= env.num_tasks]
+                if out_of_range:
+                    raise ValueError(
+                        f"Train env {env.name} task_indices {out_of_range} exceed taskset size {env.num_tasks}"
+                    )
+                rows: list[dict] = [{"task_idx": index, "env_name": env.name} for index in selected]
                 self.rng.shuffle(rows)
                 self.examples[env.name] = rows
             elif env.num_tasks is None:  # infinite: pull the generator per example
+                if task_indices is not None:
+                    raise ValueError(f"Train env {env.name} has an infinite taskset and cannot select task_indices")
                 self.examples[env.name] = None
-                self.iters[env.name] = env.tasks
+                self.iters[env.name] = tasks
             else:
-                rows = [{"task_idx": task.data.idx, "task": task, "env_name": env.name} for task in env.tasks]
+                task_by_index = {task.data.idx: task for task in tasks}
+                selected = list(task_by_index) if task_indices is None else task_indices
+                missing = [index for index in selected if index not in task_by_index]
+                if missing:
+                    raise ValueError(
+                        f"Train env {env.name} task_indices {missing} are not present in the loaded taskset"
+                    )
+                rows = [{"task_idx": index, "task": task_by_index[index], "env_name": env.name} for index in selected]
                 self.rng.shuffle(rows)
                 self.examples[env.name] = rows
             self.cursors[env.name] = 0

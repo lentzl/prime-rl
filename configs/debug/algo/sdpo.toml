@@ -1,7 +1,7 @@
 # Feedback-conditioned SDPO (https://arxiv.org/abs/2601.20802). The policy
 # supplies both student and EMA teacher; no external model server is required.
 # Groups provide successful sibling demonstrations for failed attempts.
-#   uv run rl @ configs/debug/algorithms/sdpo.toml
+#   uv run rl @ configs/debug/algo/sdpo.toml
 
 max_steps = 20
 seq_len = 2048

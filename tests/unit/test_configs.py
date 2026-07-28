@@ -208,7 +208,7 @@ def test_sdpo_algorithm_enables_exact_feedback_trainer_runtime():
 
 
 def test_sdpo_debug_config_disables_thinking_for_student_and_teacher():
-    config = cli(RLConfig, args=["@", "configs/debug/algorithms/sdpo.toml"])
+    config = cli(RLConfig, args=["@", "configs/debug/algo/sdpo.toml"])
 
     assert config.orchestrator.renderer.name == "qwen3"
     assert config.orchestrator.renderer.enable_thinking is False
@@ -218,7 +218,7 @@ def test_sdpo_debug_config_disables_thinking_for_student_and_teacher():
 
 
 def test_sdpo_ttt_smoke_config_repeats_one_attempt_group_per_update():
-    config = cli(RLConfig, args=["@", "configs/debug/algorithms/sdpo_ttt_smoke.toml"])
+    config = cli(RLConfig, args=["@", "configs/debug/algo/sdpo_ttt_smoke.toml"])
 
     assert config.max_steps == 2
     assert config.max_train_batch_lead == 0

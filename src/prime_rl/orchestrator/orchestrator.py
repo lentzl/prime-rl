@@ -594,13 +594,14 @@ class Orchestrator:
                 f"({n_trainable / len(batch.rollouts):.1%}) — consider reviewing task difficulty / filter config"
             )
 
-        # Ship batch ``step`` only once the trainer has published v{step-1-TARGET_LAG}.
+        # Ship batch ``step`` only once the trainer has published the policy
+        # required by the configured batch lead.
         # Without this, fast envs fill batches from buffered rollouts, the
         # orchestrator finishes early, and its teardown strands the trainer inside
         # an in-memory broadcast handshake that needs the live weight watcher.
-        # Always satisfiable: the trainer skips only the final TARGET_LAG+1
+        # Always satisfiable: the trainer skips only the final lead+1
         # in-memory broadcasts. Bench runs have no trainer, so they ship freely.
-        required_version = step - 1 - TARGET_LAG
+        required_version = step - 1 - config.max_train_batch_lead
         if not config.bench and self.policy.version < required_version:
             get_logger().info(
                 f"Holding batch {step} until the trainer publishes policy v{required_version} "
@@ -918,11 +919,11 @@ class Orchestrator:
         building_final_batch_without_update = (
             self.config.weight_broadcast.type in ("nccl", "nixl")
             and self.config.max_steps is not None
-            and self.progress.step >= self.config.max_steps - 1
+            and self.progress.step >= self.config.max_steps - self.config.max_train_batch_lead
         )
         gate = self.dispatcher.dispatch_allowed
         was_set = gate.is_set()
-        if lead > TARGET_LAG and not building_final_batch_without_update:
+        if lead > self.config.max_train_batch_lead and not building_final_batch_without_update:
             if was_set:
                 get_logger().info(
                     "Pausing dispatcher to prevent orchestrator from racing from trainer. Waiting for new policy..."

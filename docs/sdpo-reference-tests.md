@@ -132,7 +132,7 @@ per-turn feedback attribution is a Prime-specific experimental design.
 
 ## Section 5 control-flow smoke
 
-`configs/debug/algorithms/sdpo_ttt_smoke.toml` exercises the published
+`configs/debug/algo/sdpo_ttt_smoke.toml` exercises the published
 test-time-training schedule without presenting the reverse-text debug task as
 a reproduction of the paper's Qwen3-8B/LCBv6 result. It selects one fixed
 finite task, samples 16 attempts, applies one update, broadcasts the new policy,

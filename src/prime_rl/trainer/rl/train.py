@@ -8,7 +8,7 @@ from datetime import timedelta
 # ruff: noqa: I001
 
 from prime_rl.trainer.models.layers.attn import substitute_ring_attn
-from prime_rl.trainer.rl.broadcast import nccl_broadcast_is_unused, setup_weight_broadcast
+from prime_rl.trainer.rl.broadcast import in_memory_broadcast_is_unused, setup_weight_broadcast
 from prime_rl.utils.act_offloading import maybe_activation_offloading
 import torch
 import torch.distributed as dist
@@ -758,10 +758,13 @@ def train(config: TrainerConfig):
         if weight_broadcast is None:
             broadcast_weights_time = 0
         else:
-            broadcast_unused = (
-                config.weight_broadcast.type in ("nccl", "nixl")
-                and config.max_steps is not None
-                and progress.step >= config.max_steps - 1
+            broadcast_unused = config.weight_broadcast.type in (
+                "nccl",
+                "nixl",
+            ) and in_memory_broadcast_is_unused(
+                progress_step=progress.step,
+                max_steps=config.max_steps,
+                max_train_batch_lead=config.max_train_batch_lead,
             )
             if not broadcast_unused:
                 broadcast_weights_start_time = time.perf_counter()

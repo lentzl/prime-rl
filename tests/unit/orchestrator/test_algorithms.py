@@ -294,7 +294,7 @@ def _two_turn_rollout(observation_role: str = "tool", *, reward: float = 1.0, in
     rollout = Rollout(
         task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"r": reward},
+        rewards={"r": vf.Reward(score=reward)},
         info=info or {},
         env_name="test-env",
     )
@@ -336,7 +336,7 @@ def test_sdpo_builds_feedback_conditioned_teacher_replay():
     rollout = Rollout(
         task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": 0.0},
+        rewards={"reward": vf.Reward(score=0.0)},
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")
@@ -450,7 +450,7 @@ def test_sdpo_reprompts_final_user_turn_and_reuses_sampled_completion_verbatim()
     rollout = Rollout(
         task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": 0.0},
+        rewards={"reward": vf.Reward(score=0.0)},
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")
@@ -488,7 +488,7 @@ def test_sdpo_uses_successful_sibling_and_skips_unsupervised_success():
         rollout = Rollout(
             task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
             nodes=nodes,
-            rewards={"reward": reward},
+            rewards={"reward": vf.Reward(score=reward)},
             env_name="test-env",
         )
         rollout.samples = trace_to_samples(rollout, env_name="test-env")
@@ -519,7 +519,7 @@ def test_sdpo_can_reprompt_success_with_its_own_response():
     rollout = Rollout(
         task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": 1.0},
+        rewards={"reward": vf.Reward(score=1.0)},
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")
@@ -547,7 +547,7 @@ def test_sdpo_preserves_explicit_environment_feedback_verbatim():
     rollout = Rollout(
         task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": 0.0},
+        rewards={"reward": vf.Reward(score=0.0)},
         info={"feedback": "  compiler output\n"},
         env_name="test-env",
     )
@@ -573,7 +573,7 @@ def test_sdpo_clears_failed_attempt_without_hindsight():
     rollout = Rollout(
         task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
         nodes=nodes,
-        rewards={"reward": 0.0},
+        rewards={"reward": vf.Reward(score=0.0)},
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")

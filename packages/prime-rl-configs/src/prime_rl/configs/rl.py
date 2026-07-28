@@ -396,8 +396,8 @@ class RLConfig(BaseConfig):
             raise ValueError("SDPO does not support context parallelism yet.")
         if self.trainer.model.vlm is not None:
             raise ValueError("SDPO does not support multimodal models yet.")
-        if self.trainer.model.fp8:
-            raise ValueError("SDPO EMA teacher training does not support FP8 yet.")
+        if self.trainer.model.quantization is not None:
+            raise ValueError("SDPO EMA teacher training does not support quantized trainer models yet.")
         if self.trainer.model.lora is not None and self.trainer.sdpo_loss.teacher_regularization == "ema":
             raise ValueError("SDPO EMA teacher training does not support LoRA yet.")
         if self.trainer.model.fused_lm_head_token_chunk_size != "disabled":

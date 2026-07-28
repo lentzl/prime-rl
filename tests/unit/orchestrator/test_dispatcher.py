@@ -11,7 +11,7 @@ def test_synchronous_dispatch_budget_resets_only_for_new_policy():
         async def run_rollout(**kwargs):
             return kwargs
 
-        env = SimpleNamespace(requires_group_scoring=False, run_rollout=run_rollout)
+        env = SimpleNamespace(requires_group_scoring=False, run=run_rollout)
         dispatcher = RolloutDispatcher.__new__(RolloutDispatcher)
         dispatcher.train_envs = SimpleNamespace(get=lambda name: env)
         dispatcher.eval_envs = None

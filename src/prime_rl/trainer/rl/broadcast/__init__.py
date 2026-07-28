@@ -10,7 +10,7 @@ from prime_rl.trainer.rl.broadcast.nccl import NCCLWeightBroadcast
 from prime_rl.trainer.rl.broadcast.nixl import NIXLWeightBroadcast
 
 
-def nccl_broadcast_is_unused(*, progress_step: int, max_steps: int | None, max_train_batch_lead: int) -> bool:
+def in_memory_broadcast_is_unused(*, progress_step: int, max_steps: int | None, max_train_batch_lead: int) -> bool:
     """Whether no future rollout batch can consume this policy version."""
     return max_steps is not None and progress_step + max_train_batch_lead >= max_steps
 

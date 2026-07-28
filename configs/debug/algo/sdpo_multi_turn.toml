@@ -1,7 +1,7 @@
 # Experimental per-turn SDPO replay on the multi-turn alphabet-sort env.
 # This validates Prime's agentic extension, not a setting evaluated in the
 # SDPO paper.
-#   uv run rl @ configs/debug/algorithms/sdpo_multi_turn.toml
+#   uv run rl @ configs/debug/algo/sdpo_multi_turn.toml
 
 max_steps = 2
 seq_len = 4096

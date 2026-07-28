@@ -56,13 +56,13 @@ uv run rl @ configs/debug/algo/sft_distill_lora.toml --output-dir outputs/sft_di
 uv run rl @ configs/debug/algo/self_distill.toml --output-dir outputs/self_distill
 
 # Feedback-conditioned SDPO with an EMA self-teacher (no frozen model)
-uv run rl @ configs/debug/algorithms/sdpo.toml --output-dir outputs/sdpo
+uv run rl @ configs/debug/algo/sdpo.toml --output-dir outputs/sdpo
 
 # Experimental per-turn feedback attribution (outside the paper's scope)
-uv run rl @ configs/debug/algorithms/sdpo_multi_turn.toml --output-dir outputs/sdpo_multi_turn
+uv run rl @ configs/debug/algo/sdpo_multi_turn.toml --output-dir outputs/sdpo_multi_turn
 
 # Two updates on one fixed task, exercising the Section 5 TTT schedule
-uv run rl @ configs/debug/algorithms/sdpo_ttt_smoke.toml --output-dir outputs/sdpo_ttt_smoke
+uv run rl @ configs/debug/algo/sdpo_ttt_smoke.toml --output-dir outputs/sdpo_ttt_smoke
 
 # ECHO (no frozen model; multi-turn env)
 uv run rl @ configs/debug/algo/echo.toml --output-dir outputs/echo
