@@ -357,11 +357,14 @@ def compute_loss(
     teacher_topk_logprobs: list[Float[Tensor, "seq_i topk"]] | None = None,
     sdpo_loss_config: SDPOComponentConfig | None = None,
     sdpo_scale: int = 1,
+    novelty_advantages: list[Float[Tensor, " seq_i"]] | None = None,
+    novelty_weights: list[Float[Tensor, " seq_i"]] | None = None,
+    novelty_scale: int = 1,
 ) -> tuple[Float[Tensor, ""], dict[str, Any]]:
     """
     Compute loss for packed sequences (batch size = 1, multiple sequences packed along sequence dimension).
 
-    The loss is a sum of four components, each running over its own per-token
+    The loss is a sum of five components, each running over its own per-token
     weight stream and normalized by its own global token count:
 
     - rl → ``rl_loss_fn`` (built by ``setup_rl_loss_fn``) on
@@ -370,6 +373,8 @@ def compute_loss(
     - ce → ``ce_loss_fn`` (masked NLL) on ``ce_weights != 0``.
     - ref_kl → ``ref_kl_loss_fn`` on ``ref_kl_weights != 0``.
     - sdpo → ``sdpo_loss_fn`` on ``sdpo_weights != 0``.
+    - novelty → ``rl_loss_fn`` with trainer-computed model-observer advantages
+      on ``novelty_weights != 0``.
 
     A weight scales its component's per-token loss; 0.0 removes the token from
     the component's mask and denominator. Per-component normalization keeps the
@@ -385,10 +390,19 @@ def compute_loss(
         rl_weights: Per-token rl weights for each sequence, or None (1.0 on the loss mask)
         ce_weights: Per-token ce weights for each sequence, or None (no ce component)
         ref_kl_weights: Per-token ref_kl weights for each sequence, or None (no ref_kl component)
+        sdpo_weights: Per-token SDPO component weights for each sequence, or None
+        sdpo_rollout_is_weights: Optional rollout-importance weights for SDPO
+        student_topk_logprobs: Student distributions on the shared top-k support
+        teacher_topk_logprobs: Feedback-conditioned teacher distributions on that support
+        sdpo_loss_config: SDPO loss configuration
+        sdpo_scale: Global SDPO-token count normalizing the SDPO component
+        novelty_advantages: Trainer-computed model-observer advantages for each sequence, or None
+        novelty_weights: Per-token novelty weights for each sequence, or None (no novelty component)
         rl_loss_fn: Loss fn for the rl component from setup_rl_loss_fn()
         rl_scale: Global rl-token count normalizing the rl component
         ce_scale: Global ce-token count normalizing the ce component
         ref_kl_scale: Global ref_kl-token count normalizing the ref_kl component
+        novelty_scale: Global novelty-token count normalizing the novelty component
 
     Returns:
         Tuple of (scaled_loss, aggregated_metrics)
@@ -414,11 +428,15 @@ def compute_loss(
         teacher_topk_logprobs = [None] * n
     if sdpo_loss_config is None:
         sdpo_loss_config = SDPOComponentConfig()
+    if novelty_advantages is None:
+        novelty_advantages = [None] * n
+    if novelty_weights is None:
+        novelty_weights = [None] * n
 
-    def run_loss_fn(loss_fn: LossFn, inputs: LossInputs) -> Tensor:
+    def run_loss_fn(loss_fn: LossFn, inputs: LossInputs, *, metric_prefix: str = "") -> Tensor:
         result = loss_fn(inputs)
         for k, v in result.metrics.items():
-            all_metrics.setdefault(k, []).append(v)
+            all_metrics.setdefault(f"{metric_prefix}{k}", []).append(v)
         return result.loss
 
     # Graph anchor: a micro batch whose components are all empty (e.g. a fully
@@ -429,7 +447,8 @@ def compute_loss(
     ce_loss = 0.0
     ref_kl_loss = 0.0
     sdpo_loss = 0.0
-    for t_logp, i_logp, ref_logp, adv, mask, rl_w, ce_w, ref_kl_w, sdpo_w, sdpo_is_w, student_topk, teacher_topk in zip(
+    novelty_loss = 0.0
+    streams = zip(
         trainer_logprobs,
         inference_logprobs,
         ref_logprobs,
@@ -442,8 +461,26 @@ def compute_loss(
         sdpo_rollout_is_weights,
         student_topk_logprobs,
         teacher_topk_logprobs,
+        novelty_advantages,
+        novelty_weights,
         strict=True,
-    ):
+    )
+    for (
+        t_logp,
+        i_logp,
+        ref_logp,
+        adv,
+        mask,
+        rl_w,
+        ce_w,
+        ref_kl_w,
+        sdpo_w,
+        sdpo_is_w,
+        student_topk,
+        teacher_topk,
+        novelty_adv,
+        novelty_w,
+    ) in streams:
 
         def make_inputs(component_mask: Bool[Tensor, " seq"], weights: Float[Tensor, " seq"] | None) -> LossInputs:
             return LossInputs(
@@ -479,8 +516,28 @@ def compute_loss(
                     lambda inputs: sdpo_loss_fn(inputs, sdpo_loss_config),
                     make_inputs(sdpo_mask, sdpo_w),
                 )
+        if novelty_w is not None:
+            novelty_mask = novelty_w != 0
+            if bool(novelty_mask.any()):
+                if novelty_adv is None:
+                    raise ValueError("novelty component requires model-observer advantages")
+                novelty_inputs = LossInputs(
+                    trainer_logprobs=t_logp,
+                    inference_logprobs=i_logp,
+                    ref_logprobs=ref_logp,
+                    advantages=novelty_adv,
+                    loss_mask=novelty_mask,
+                    loss_weights=novelty_w,
+                )
+                novelty_loss = novelty_loss + run_loss_fn(rl_loss_fn, novelty_inputs, metric_prefix="model_observer/")
 
-    scaled_loss = rl_loss / rl_scale + ce_loss / ce_scale + ref_kl_loss / ref_kl_scale + sdpo_loss / sdpo_scale
+    scaled_loss = (
+        rl_loss / rl_scale
+        + ce_loss / ce_scale
+        + ref_kl_loss / ref_kl_scale
+        + sdpo_loss / sdpo_scale
+        + novelty_loss / novelty_scale
+    )
 
     aggregated: dict[str, Any] = {}
     for k, v in all_metrics.items():

@@ -28,8 +28,8 @@ uses is an external OpenAI-compatible endpoint, declared inline on the
 algorithm that uses it (a :class:`FrozenModelConfig`). Model roles like
 "teacher" are algorithm-local vocabulary over these references; the pipeline
 branches on liveness alone. The trainer is algorithm-blind: the loss is a sum
-of four components (rl, ce, ref_kl, sdpo), each normalized by its own global token
-count; per-token component weights ship on the wire and the trainer just
+of five components (rl, ce, ref_kl, sdpo, novelty), each normalized by its own
+global token count; per-token component weights ship on the wire and the trainer just
 executes them.
 """
 
@@ -302,6 +302,12 @@ class OPSDAlgoConfig(BaseAlgoConfig):
     to match a non-auto policy renderer."""
 
 
+class SDPONoveltyConfig(BaseConfig):
+    weight: float = Field(0.1, gt=0.0, lt=1.0, allow_inf_nan=False)
+    """Fraction of the joint signal assigned to model-observer novelty. The
+    remaining ``1 - weight`` scales feedback-conditioned SDPO."""
+
+
 class SDPOAlgoConfig(BaseAlgoConfig):
     type: Literal["sdpo"] = "sdpo"
     """Feedback-conditioned self-distillation policy optimization (arXiv:2601.20802)."""
@@ -345,6 +351,9 @@ class SDPOAlgoConfig(BaseAlgoConfig):
 
     renderer: RendererConfig = AutoRendererConfig()
     """Renderer used to construct the feedback-conditioned teacher prefix."""
+
+    novelty: SDPONoveltyConfig | None = None
+    """Enable the experimental persistent model-observer novelty component."""
 
 
 class SFTAlgoConfig(BaseAlgoConfig):
@@ -390,7 +399,7 @@ its class defaults are the vetted setting.
 - ``rae`` — reward minus a per-agent EMA baseline (SPIRAL), for multi-agent self-play envs.
 - ``opd`` — on-policy distillation: policy samples, per-token reverse KL against a reference model. Needs ``teacher``.
 - ``opsd`` — SDFT: policy samples, demo-conditioned reverse KL against the live policy (the teacher is the policy itself).
-- ``sdpo`` — feedback-conditioned logit self-distillation over the policy's own attempts.
+- ``sdpo`` — feedback-conditioned logit self-distillation, optionally mixed with model-observer novelty.
 - ``sft`` — a frozen model samples, the policy trains with CE on its tokens. Needs a frozen ``sampling.source``.
 - ``echo`` — GRPO on action tokens + weighted CE on tool-response observation tokens.
 

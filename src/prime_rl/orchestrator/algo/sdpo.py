@@ -25,6 +25,7 @@ class SDPOAlgorithm(Algorithm):
     def __init__(self, config: SDPOAlgoConfig, policy_pool: InferencePool):
         super().__init__(config, policy_pool)
         self.config = config
+        self.novelty_weight = config.novelty.weight if config.novelty is not None else None
         self.renderer: Renderer | None = None
 
     async def setup(self) -> None:
@@ -68,6 +69,7 @@ class SDPOAlgorithm(Algorithm):
             return
 
         weights = [0.0] * len(sample.token_ids)
+        novelty_weights = [0.0] * len(sample.token_ids) if self.novelty_weight is not None else None
         spans: list[SDPOTeacherSpan] = []
         for turn_index, (node_index, sampled_node) in enumerate(sampled_nodes):
             feedback = self._turn_feedback(
@@ -94,7 +96,10 @@ class SDPOAlgorithm(Algorithm):
             messages = [node.message.model_dump(exclude_none=True) for node in branch.nodes[:node_index]]
             prefix_ids = self._teacher_prefix_ids(messages, solution=solution, feedback=feedback)
             for position in student_positions:
-                weights[position] = 1.0
+                weights[position] = 1.0 - (self.novelty_weight or 0.0)
+                if novelty_weights is not None:
+                    assert self.novelty_weight is not None
+                    novelty_weights[position] = self.novelty_weight
             spans.append(
                 SDPOTeacherSpan(
                     prefix_ids=prefix_ids,
@@ -108,6 +113,7 @@ class SDPOAlgorithm(Algorithm):
             self._clear_target(sample)
             return
         sample.sdpo_weights = weights
+        sample.novelty_weights = novelty_weights
         sample.sdpo_teacher_spans = spans
 
     def _teacher_prefix_ids(self, messages: list[dict], *, solution: str | None, feedback: str) -> list[int]:
@@ -159,7 +165,9 @@ class SDPOAlgorithm(Algorithm):
             text = re.sub(r"<think>.*?</think>\s*", "", text, flags=re.DOTALL)
         return text
 
-    @staticmethod
-    def _clear_target(sample: TrainingSample) -> None:
+    def _clear_target(self, sample: TrainingSample) -> None:
         sample.sdpo_weights = [0.0] * len(sample.token_ids)
+        sample.novelty_weights = (
+            [0.0] * len(sample.token_ids) if self.novelty_weight is not None else None
+        )
         sample.sdpo_teacher_spans = None

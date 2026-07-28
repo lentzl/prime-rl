@@ -38,7 +38,7 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
 
     There is no prompt/completion split: an agentic, multi-turn branch interleaves context and
     model-sampled spans, so ``mask`` marks which tokens are trainable (model-sampled) and
-    ``logprobs`` / ``temperatures`` are aligned per token. All four arrays share the length of
+    ``logprobs`` / ``temperatures`` are aligned per token. All token arrays share the length of
     ``token_ids``."""
 
     token_ids: list[int]
@@ -66,12 +66,13 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
 
     # Per-token component weight streams (full prompt+completion length),
     # stamped by the orchestrator from the env's algorithm. The training loss
-    # is a sum of four components, each normalized by its own global token
+    # is a sum of five components, each normalized by its own global token
     # count: rl (importance-weighted PG + KL), ce (masked NLL), ref_kl
-    # (reverse KL to a reference model as the PG signal), and sdpo
-    # (feedback-conditioned self-distillation). A weight scales that
+    # (reverse KL to a reference model as the PG signal), sdpo
+    # (feedback-conditioned self-distillation), and model-observer novelty.
+    # A weight scales that
     # component's per-token loss; 0.0 leaves the token out of the component
-    # (mask and denominator). ``None`` means absent: no ce/ref_kl/sdpo component,
+    # (mask and denominator). ``None`` means absent: no ce/ref_kl/sdpo/novelty component,
     # and an rl weight of 1.0 on every trainable token — so the plain GRPO
     # wire stays as small as before.
     rl_weights: list[float] | None = None
@@ -79,8 +80,9 @@ class TrainingSample(msgspec.Struct, array_like=True, gc=False, omit_defaults=Tr
     ref_kl_weights: list[float] | None = None
     sdpo_weights: list[float] | None = None
     sdpo_rollout_is_weights: list[float] | None = None
+    novelty_weights: list[float] | None = None
 
-    # Per-token advantages (full prompt+completion length), the fourth stream:
+    # Per-token advantages (full prompt+completion length), an independent stream:
     # the orchestrator broadcasts the rollout's scalar over the completion for
     # scalar algorithms. ``None`` means no rl credit assigned — legal only for
     # samples without live rl member tokens (the trainer raises otherwise).
@@ -119,13 +121,14 @@ class MicroBatch(msgspec.Struct, array_like=True, gc=False, omit_defaults=True):
     mm_token_type_ids: list[int] | None = None
 
     # Per-token component weight streams (see TrainingSample). ``None`` means
-    # absent: no ce/ref_kl/sdpo component, rl weight 1.0 everywhere — packing
+    # absent: no ce/ref_kl/sdpo/novelty component, rl weight 1.0 everywhere — packing
     # materializes a stream as soon as one packed sample carries it.
     rl_weights: list[float] | None = None
     ce_weights: list[float] | None = None
     ref_kl_weights: list[float] | None = None
     sdpo_weights: list[float] | None = None
     sdpo_rollout_is_weights: list[float] | None = None
+    novelty_weights: list[float] | None = None
 
     # Packer-derived metadata used for run-local token exports.
     run_id: str | None = None

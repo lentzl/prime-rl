@@ -50,13 +50,14 @@ class TensorMicroBatch(TypedDict):
     # mm_token_type_ids: token type per token [batch seq], int64 (0=text, 1=image, 2=video)
     mm_token_type_ids: Int[Tensor, "batch seq"] | None
 
-    # Per-token component weight streams. ``None`` means absent: no ce/ref_kl/sdpo
+    # Per-token component weight streams. ``None`` means absent: no ce/ref_kl/sdpo/novelty
     # component, rl weight 1.0 on every loss-masked token.
     rl_weights: Float[Tensor, "batch seq"] | None
     ce_weights: Float[Tensor, "batch seq"] | None
     ref_kl_weights: Float[Tensor, "batch seq"] | None
     sdpo_weights: Float[Tensor, "batch seq"] | None
     sdpo_rollout_is_weights: Float[Tensor, "batch seq"] | None
+    novelty_weights: Float[Tensor, "batch seq"] | None
 
     # Packer-derived metadata used for run-local debug exports.
     run_id: str | None
@@ -144,6 +145,7 @@ class FakeDataLoader:
             "ref_kl_weights": None,
             "sdpo_weights": None,
             "sdpo_rollout_is_weights": None,
+            "novelty_weights": None,
             "run_id": None,
             "run_step": None,
         }
@@ -180,6 +182,7 @@ class FakeDataLoader:
             "ref_kl_weights": None,
             "sdpo_weights": None,
             "sdpo_rollout_is_weights": None,
+            "novelty_weights": None,
             "run_id": None,
             "run_step": None,
         }
@@ -290,6 +293,9 @@ class DataLoader:
             else None,
             sdpo_rollout_is_weights=torch.tensor(micro_batch.sdpo_rollout_is_weights, dtype=torch.float).unsqueeze(0)
             if micro_batch.sdpo_rollout_is_weights is not None
+            else None,
+            novelty_weights=torch.tensor(micro_batch.novelty_weights, dtype=torch.float).unsqueeze(0)
+            if micro_batch.novelty_weights is not None
             else None,
             run_id=micro_batch.run_id,
             run_step=micro_batch.run_step,

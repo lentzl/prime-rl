@@ -21,7 +21,7 @@ turns the signal half into runtime objects (the sampling half is the env's
   full-length-N per-token list aligned to the concatenated sample token_ids
   (0.0 off-mask).
 - ``routing`` — wire-field stamping: per-token component weight streams
-  (rl / ce / ref_kl / sdpo) and the per-token advantage stream.
+  (rl / ce / ref_kl / sdpo / novelty) and the per-token advantage stream.
 """
 
 from __future__ import annotations
@@ -53,8 +53,8 @@ ALGORITHM_CLASSES: dict[str, type[Algorithm]] = {
     "rae": RAEAlgorithm,
     "opd": OPDAlgorithm,
     "opsd": OPSDAlgorithm,
-    "sft": SFTDistillAlgorithm,
     "sdpo": SDPOAlgorithm,
+    "sft": SFTDistillAlgorithm,
 }
 
 
@@ -78,8 +78,8 @@ __all__ = [
     "OPSDAlgorithm",
     "RAEAlgorithm",
     "Rollout",
-    "SFTDistillAlgorithm",
     "SDPOAlgorithm",
+    "SFTDistillAlgorithm",
     "build_algorithm",
     "connect_frozen_pool",
     "stamp_advantages",

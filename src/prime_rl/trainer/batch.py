@@ -9,9 +9,15 @@ from prime_rl.trainer.utils import balanced_partition
 from prime_rl.transport.types import EncodedTensor, MicroBatch, RoutedExperts, SDPOTeacherSpan, TrainingSample
 
 # Backfill value per component weight stream when a packed sample doesn't
-# carry it: absent rl means weight 1.0 on the loss mask, absent ce/ref_kl
+# carry it: absent rl means weight 1.0 on the loss mask, absent ce/ref_kl/novelty
 # means no component (weight 0.0).
-STREAM_FILL = {"rl_weights": 1.0, "ce_weights": 0.0, "ref_kl_weights": 0.0, "sdpo_weights": 0.0}
+STREAM_FILL = {
+    "rl_weights": 1.0,
+    "ce_weights": 0.0,
+    "ref_kl_weights": 0.0,
+    "sdpo_weights": 0.0,
+    "novelty_weights": 0.0,
+}
 
 
 def _prepare_sdpo_teacher_spans(
@@ -188,7 +194,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
             )
         advantages = [0.0] * len(input_ids)
     # Component weight streams: keep absent streams None (rl weight 1.0 on the
-    # loss mask, no ce/ref_kl/sdpo component) so the packed batch stays as small as before.
+    # loss mask, no ce/ref_kl/sdpo/novelty component) so the packed batch stays as small as before.
     rl_weights = list(training_example.rl_weights) if training_example.rl_weights is not None else None
     ce_weights = list(training_example.ce_weights) if training_example.ce_weights is not None else None
     ref_kl_weights = list(training_example.ref_kl_weights) if training_example.ref_kl_weights is not None else None
@@ -196,6 +202,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
     sdpo_rollout_is_weights = (
         list(training_example.sdpo_rollout_is_weights) if training_example.sdpo_rollout_is_weights is not None else None
     )
+    novelty_weights = list(training_example.novelty_weights) if training_example.novelty_weights is not None else None
     position_ids = list(range(len(input_ids)))
     mm_token_type_ids = training_example.mm_token_type_ids
     mm_kwargs = training_example.mm_kwargs
@@ -243,6 +250,8 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
             sdpo_weights = sdpo_weights[:cut]
         if sdpo_rollout_is_weights is not None:
             sdpo_rollout_is_weights = sdpo_rollout_is_weights[:cut]
+        if novelty_weights is not None:
+            novelty_weights = novelty_weights[:cut]
         if routed_experts is not None:
             routed_experts = _slice_routed_experts(routed_experts, cut)
         if mm_token_type_ids is not None:
@@ -267,6 +276,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         ("ref_kl_weights", ref_kl_weights),
         ("sdpo_weights", sdpo_weights),
         ("sdpo_rollout_is_weights", sdpo_rollout_is_weights),
+        ("novelty_weights", novelty_weights),
     ):
         if stream is not None:
             assert len(stream) == len(input_ids), f"{stream_name}: {len(stream)}"
@@ -305,6 +315,7 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
         rl_weights=rl_weights,
         ce_weights=ce_weights,
         ref_kl_weights=ref_kl_weights,
+        novelty_weights=novelty_weights,
         seq_lens=[len(input_ids)],
         sdpo_weights=sdpo_weights,
         sdpo_rollout_is_weights=sdpo_rollout_is_weights,
@@ -499,6 +510,7 @@ def _materialize_bin(bin_content: _MicroBatchBin, num_loras: int) -> MicroBatch:
         rl_weights=streams["rl_weights"],
         ce_weights=streams["ce_weights"],
         ref_kl_weights=streams["ref_kl_weights"],
+        novelty_weights=streams["novelty_weights"],
         seq_lens=seq_lens,
         sdpo_weights=streams["sdpo_weights"],
         sdpo_rollout_is_weights=sdpo_rollout_is_weights,
@@ -651,6 +663,7 @@ def _assert_token_arrays_aligned(micro_batch: MicroBatch) -> None:
         "ref_kl_weights",
         "sdpo_weights",
         "sdpo_rollout_is_weights",
+        "novelty_weights",
         "mm_token_type_ids",
     )
     for name in per_token_fields:
@@ -681,6 +694,7 @@ def _make_dummy_batch(source: MicroBatch) -> MicroBatch:
     dummy.sdpo_weights = None
     dummy.sdpo_rollout_is_weights = None
     dummy.sdpo_teacher_spans = None
+    dummy.novelty_weights = None
     return dummy
 
 

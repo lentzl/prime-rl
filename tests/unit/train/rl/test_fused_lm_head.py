@@ -126,6 +126,23 @@ def test_vanilla_lm_head_returns_logits():
     torch.testing.assert_close(out["logits"], logits_ref, rtol=0, atol=1e-6)
 
 
+def test_lm_heads_capture_detached_observer_features_only_when_enabled():
+    hidden = torch.randn(1, 3, 4, requires_grad=True)
+    labels = torch.tensor([[1, 2, 3]])
+    temperatures = torch.ones(1, 3)
+    vanilla = VanillaOutputLinear(4, 5)
+    assert vanilla(hidden).get("observer_features") is None
+    vanilla.capture_observer_features = True
+    assert torch.equal(vanilla(hidden)["observer_features"], hidden.detach())
+    assert not vanilla(hidden)["observer_features"].requires_grad
+
+    fused = FusedOutputLinear(4, 5, chunk_size=2)
+    fused.capture_observer_features = True
+    output = fused(hidden, labels, temperature=temperatures)
+    assert torch.equal(output["observer_features"], hidden.detach())
+    assert not output["observer_features"].requires_grad
+
+
 def test_fused_vs_vanilla_integration():
     """Integration test comparing fused and vanilla outputs after postprocessing."""
     torch.manual_seed(42)

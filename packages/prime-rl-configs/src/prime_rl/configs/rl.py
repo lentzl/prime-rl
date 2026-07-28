@@ -278,6 +278,24 @@ class RLConfig(BaseConfig):
     ### Validate configs (e.g. raise for unsupported (combinations of) configs)
 
     @model_validator(mode="after")
+    def validate_model_observer_routing(self):
+        algorithms = [env.algo for env in self.orchestrator.train.env]
+        if not algorithms:
+            algorithms = [self.orchestrator.algo]
+        novelty_enabled = any(
+            algo is not None and algo.type == "sdpo" and algo.novelty is not None for algo in algorithms
+        )
+        observer_enabled = self.trainer.model_observer is not None
+        if novelty_enabled != observer_enabled:
+            raise ValueError(
+                "sdpo novelty and trainer.model_observer must be enabled together; "
+                "novelty credit requires detached trainer representations"
+            )
+        if observer_enabled and (self.trainer.ckpt is None or self.trainer.ckpt.weights_only):
+            raise ValueError("trainer.model_observer requires resume-capable trainer checkpoints")
+        return self
+
+    @model_validator(mode="after")
     def auto_setup_infer_nodes(self):
         if self.deployment.type != "multi_node":
             return self

@@ -64,6 +64,11 @@ def _renorm_topk_log_probs(log_probs: Tensor) -> Tensor:
     return log_probs - torch.logsumexp(log_probs, dim=-1, keepdim=True)
 
 
+def prepare_sdpo_distribution(log_probs: Tensor, *, add_tail: bool) -> Tensor:
+    """Turn shared-support top-k log probabilities into an SDPO distribution."""
+    return _add_tail(log_probs) if add_tail else _renorm_topk_log_probs(log_probs)
+
+
 def _require_log_probability_rows(log_probs: Tensor, name: str, *, row_mask: Tensor | None = None) -> None:
     _require_floating_finite_values(log_probs, name, value_name="log-probabilities")
     if row_mask is not None:
@@ -252,12 +257,14 @@ def compute_sdpo_loss(
             )
             student_distill_log_probs = student_topk_log_probs
             teacher_distill_log_probs = teacher_topk_log_probs
-            if config.distillation_add_tail:
-                student_distill_log_probs = _add_tail(student_distill_log_probs)
-                teacher_distill_log_probs = _add_tail(teacher_distill_log_probs)
-            else:
-                student_distill_log_probs = _renorm_topk_log_probs(student_distill_log_probs)
-                teacher_distill_log_probs = _renorm_topk_log_probs(teacher_distill_log_probs)
+            student_distill_log_probs = prepare_sdpo_distribution(
+                student_distill_log_probs,
+                add_tail=config.distillation_add_tail,
+            )
+            teacher_distill_log_probs = prepare_sdpo_distribution(
+                teacher_distill_log_probs,
+                add_tail=config.distillation_add_tail,
+            )
         else:
             if student_all_log_probs is None or teacher_all_log_probs is None:
                 raise ValueError("full-logit SDPO requires student_all_log_probs and teacher_all_log_probs")

@@ -229,7 +229,7 @@ def test_assign_advantages_list_rejects_misaligned():
         rollout.assign_advantages([0.5])
 
 
-@pytest.mark.parametrize("component", ["ce_weights", "ref_kl_weights", "sdpo_weights"])
+@pytest.mark.parametrize("component", ["ce_weights", "ref_kl_weights", "sdpo_weights", "novelty_weights"])
 def test_is_trainable_recognizes_non_rl_loss_components(component):
     sample = _make_sample()
     setattr(sample, component, [0.0, 0.0, 1.0, 0.0, 0.0, 0.0])
@@ -241,6 +241,7 @@ def test_is_trainable_rejects_zero_only_loss_components():
     sample = _make_sample(ce_weights=[0.0] * 6)
     sample.ref_kl_weights = [0.0] * 6
     sample.sdpo_weights = [0.0] * 6
+    sample.novelty_weights = [0.0] * 6
 
     assert not _make_rollout([sample], advantages=[0.0] * 6).is_trainable
 
@@ -407,6 +408,26 @@ def test_sdpo_multi_turn_replay_attributes_feedback_per_turn():
     assert [message["role"] for message in final_messages] == ["user", "assistant", "tool"]
 
 
+def test_sdpo_novelty_splits_weight_on_the_same_teacher_targets():
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={"feedback": "final judge feedback"},
+    )
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", multi_turn_replay=True, novelty={"weight": 0.1}),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.side_effect = [[20, 21], [30, 31]]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 0.0, 0.9, 0.9, 0.0, 0.0, 0.9, 0.9]
+    assert sample.novelty_weights == [0.0, 0.0, 0.1, 0.1, 0.0, 0.0, 0.1, 0.1]
+    assert sample.sdpo_teacher_spans is not None
+
+
 def test_sdpo_multi_turn_replay_skips_turns_without_attributable_feedback():
     rollout = _two_turn_rollout(reward=0.0)
     algo = SDPOAlgorithm(
@@ -565,7 +586,8 @@ def test_sdpo_preserves_explicit_environment_feedback_verbatim():
     )
 
 
-def test_sdpo_clears_failed_attempt_without_hindsight():
+@pytest.mark.parametrize("novelty", [None, {"weight": 0.1}])
+def test_sdpo_clears_failed_attempt_without_hindsight(novelty):
     nodes = [
         _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1, 2]),
         _node(AssistantMessage(content="wrong"), parent=0, sampled=True, token_ids=[3, 4], logprobs=[-0.1, -0.2]),
@@ -577,13 +599,18 @@ def test_sdpo_clears_failed_attempt_without_hindsight():
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")
-    algo = SDPOAlgorithm(_build(type="sdpo"), MagicMock(model_name="org/model"))
+    config = {"type": "sdpo"}
+    if novelty is not None:
+        config["novelty"] = novelty
+    algo = SDPOAlgorithm(_build(**config), MagicMock(model_name="org/model"))
     algo.renderer = MagicMock()
 
     asyncio.run(algo.finalize_group([rollout]))
 
     assert rollout.samples[0].sdpo_teacher_spans is None
     assert rollout.samples[0].sdpo_weights == [0.0] * len(rollout.samples[0].token_ids)
+    expected_novelty = [0.0] * len(rollout.samples[0].token_ids) if novelty is not None else None
+    assert rollout.samples[0].novelty_weights == expected_novelty
     algo.renderer.render_ids.assert_not_called()
 
 

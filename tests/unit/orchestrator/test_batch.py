@@ -28,6 +28,7 @@ def make_training_example():
         temperature: float = 1.0,
         ce_weights: list[float] | None = None,
         rl_weights: list[float] | None = None,
+        novelty_weights: list[float] | None = None,
         env_name: str = "test-env",
     ) -> TrainingSample:
         return TrainingSample(
@@ -39,6 +40,7 @@ def make_training_example():
             env_name=env_name,
             ce_weights=ce_weights,
             rl_weights=rl_weights,
+            novelty_weights=novelty_weights,
         )
 
     return _make_training_example
@@ -375,6 +377,18 @@ def test_prepare_sample_uniform_rl_keeps_streams_none(make_training_example):
     assert micro_batch.rl_weights is None
     assert micro_batch.ce_weights is None
     assert micro_batch.ref_kl_weights is None
+    assert micro_batch.novelty_weights is None
+
+
+def test_prepare_sample_preserves_model_observer_novelty_stream(make_training_example):
+    example = make_training_example(
+        rl_weights=[0.0, 0.0, 0.0, 0.0],
+        novelty_weights=[0.0, 0.0, 0.1, 0.1],
+    )
+
+    micro_batch = prepare_sample(example, seq_len=16)
+
+    assert micro_batch.novelty_weights == [0.0, 0.0, 0.1, 0.1]
 
 
 @pytest.mark.parametrize("streams_on_longer", [True, False])

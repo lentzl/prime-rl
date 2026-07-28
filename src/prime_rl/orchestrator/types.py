@@ -138,7 +138,7 @@ class Rollout(vf.Trace[DataT], Generic[DataT]):
         """Whether the rollout carries a nonzero loss-component signal."""
         if self.advantages and any(advantage != 0.0 for advantage in self.advantages):
             return True
-        component_streams = ("ce_weights", "ref_kl_weights", "sdpo_weights")
+        component_streams = ("ce_weights", "ref_kl_weights", "sdpo_weights", "novelty_weights")
         return any(
             weights and any(weight != 0.0 for weight in weights)
             for sample in self.samples

@@ -14,6 +14,7 @@ Minimal end-to-end configs for the algorithms against bundled verifiers envs, us
 | `sdpo.toml` | `sdpo` | none (EMA self-teacher in the trainer) | feedback-conditioned SDPO; successful sibling demonstrations |
 | `sdpo_multi_turn.toml` | `sdpo` | none (EMA self-teacher in the trainer) | experimental per-turn replay on 3–5-turn alphabet-sort trajectories |
 | `sdpo_ttt_smoke.toml` | `sdpo` | none (EMA self-teacher in the trainer) | Section 5 control-flow smoke; one fixed reverse-text task, 16 attempts per update |
+| `sdpo_model_observer.toml` | `sdpo` | none (EMA self-teacher in the trainer) | 90% SDPO + 10% persistent learnable novelty |
 | `echo.toml` | `echo` | none | multi-turn `alphabet-sort`; CE on observation tokens |
 | `mixed_grpo_opd.toml` | `grpo` + `opd` (per env) | local vLLM (`Qwen3-0.6B-Reverse-Text-RL`) | two envs, one run; heterogeneous batches (with/without `ref_logprobs`) |
 
@@ -63,6 +64,9 @@ uv run rl @ configs/debug/algo/sdpo_multi_turn.toml --output-dir outputs/sdpo_mu
 
 # Two updates on one fixed task, exercising the Section 5 TTT schedule
 uv run rl @ configs/debug/algo/sdpo_ttt_smoke.toml --output-dir outputs/sdpo_ttt_smoke
+
+# Feedback-conditioned SDPO + model-observer novelty (no frozen model)
+uv run rl @ configs/debug/algo/sdpo_model_observer.toml --output-dir outputs/sdpo_model_observer
 
 # ECHO (no frozen model; multi-turn env)
 uv run rl @ configs/debug/algo/echo.toml --output-dir outputs/echo

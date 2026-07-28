@@ -556,6 +556,28 @@ class DataLoaderConfig(BaseConfig):
     """Use a fake data loader sampling random micro-batches (for debugging)."""
 
 
+class ModelObserverConfig(BaseConfig):
+    """Persistent learnable-novelty observer over detached policy states."""
+
+    feature_dim: int = Field(64, ge=1)
+    """Width of the deterministic final-state sketch."""
+
+    ridge_lambda: float = Field(0.3, gt=0.0, allow_inf_nan=False)
+    """L2 regularization for the persistent ridge readout."""
+
+    code_resolution: float = Field(1.0, gt=0.0, allow_inf_nan=False)
+    """Resolution multiplier in the spectral program-length estimate."""
+
+    correction_scale: float = Field(1.0, gt=0.0, allow_inf_nan=False)
+    """Scale divisor applied to feedback-conditioned log-probability corrections."""
+
+    advantage_clip: float = Field(5.0, gt=0.0, allow_inf_nan=False)
+    """Absolute clip applied after global RMS normalization."""
+
+    positive_only: bool = False
+    """Drop negative program-length increments when enabled."""
+
+
 class BaseWeightBroadcastConfig(BaseConfig):
     pass
 
@@ -623,6 +645,10 @@ class TrainerConfig(BaseConfig):
 
     sdpo_loss: SDPOComponentConfig = SDPOComponentConfig()
     """Loss config for the optional sdpo component."""
+
+    model_observer: ModelObserverConfig | None = None
+    """Enable the experimental model-observer novelty component. SDPO samples
+    carrying novelty weights activate it; other algorithms are unchanged."""
 
     optim: OptimizerConfig = AdamWConfig()
 
@@ -789,4 +815,12 @@ class TrainerConfig(BaseConfig):
         if self.enable_router_replay and self.model.impl not in ("custom", "auto"):
             raise ValueError("Router replay is only supported with the custom implementation or auto mode")
 
+        return self
+
+    @model_validator(mode="after")
+    def model_observer_disallows_context_parallelism(self):
+        if self.model_observer is not None and self.model.cp != 1:
+            raise ValueError("model_observer currently requires model.cp=1")
+        if self.model_observer is not None and self.max_concurrent_runs != 1:
+            raise ValueError("model_observer currently requires max_concurrent_runs=1")
         return self

@@ -168,11 +168,12 @@ def _export_columns(
         "is_masked_high": _optional_tensor_to_bools(export_tensors["is_masked_high"], seq_len),
         "is_masked_low": _optional_tensor_to_bools(export_tensors["is_masked_low"], seq_len),
         # Component weight streams; ``None`` columns mean the defaults (rl 1.0
-        # on the loss mask, no ce/ref_kl/sdpo component).
+        # on the loss mask, no ce/ref_kl/sdpo/novelty component).
         "rl_weights": _optional_tensor_to_floats(micro_batch.get("rl_weights"), seq_len),
         "ce_weights": _optional_tensor_to_floats(micro_batch.get("ce_weights"), seq_len),
         "ref_kl_weights": _optional_tensor_to_floats(micro_batch.get("ref_kl_weights"), seq_len),
         "sdpo_weights": _optional_tensor_to_floats(micro_batch.get("sdpo_weights"), seq_len),
+        "novelty_weights": _optional_tensor_to_floats(micro_batch.get("novelty_weights"), seq_len),
         "env_names": list(micro_batch["env_names"]),
     }
 

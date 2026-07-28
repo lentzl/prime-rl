@@ -35,6 +35,8 @@ from prime_rl.trainer.rl.loss import (
     shift_tensor_left,
     shift_tensor_right,
 )
+from prime_rl.trainer.rl.model_observer import ModelObserverBank
+from prime_rl.trainer.rl.sdpo_loss import prepare_sdpo_distribution
 from prime_rl.trainer.rl.token_export import setup_token_exporter
 from prime_rl.trainer.rl.sdpo_support import (
     active_sdpo_weight_mask,
@@ -261,6 +263,19 @@ def train(config: TrainerConfig):
     elif sdpo_teacher_state is not None:
         sdpo_teacher_state.sync_from_student()
 
+    model_observer = None
+    if config.model_observer is not None:
+        if ckpt_manager is None:
+            raise ValueError("model_observer requires resume-capable trainer checkpoints")
+        lm_head = getattr(model, "lm_head", None)
+        if lm_head is None or not hasattr(lm_head, "capture_observer_features"):
+            raise ValueError("model_observer requires a PrimeRL LM head")
+        lm_head.capture_observer_features = True
+        model_observer = ModelObserverBank(config.model_observer, device="cuda")
+        if checkpoint_step is not None:
+            observer_path = ckpt_manager.get_ckpt_path(checkpoint_step).parent / "model_observer.pt"
+            model_observer.load(observer_path)
+
     logger.info(
         f"Starting from step {progress.step} (total_tokens={progress.total_tokens}, total_samples={progress.total_samples})"
     )
@@ -346,6 +361,7 @@ def train(config: TrainerConfig):
         local_ce_scale = 0
         local_ref_kl_scale = 0
         local_sdpo_scale = 0
+        local_novelty_scale = 0
         for micro_batch in micro_batches:
             mask = micro_batch["loss_mask"]
             rl_w = micro_batch["rl_weights"]
@@ -356,17 +372,22 @@ def train(config: TrainerConfig):
                 local_ref_kl_scale += int((micro_batch["ref_kl_weights"] != 0).sum())
             if micro_batch["sdpo_weights"] is not None:
                 local_sdpo_scale += int((mask & active_sdpo_weight_mask(micro_batch["sdpo_weights"])).sum())
+            if micro_batch["novelty_weights"] is not None:
+                local_novelty_scale += int((micro_batch["novelty_weights"] != 0).sum())
         global_scales = torch.tensor(
-            [local_rl_scale, local_ce_scale, local_ref_kl_scale, local_sdpo_scale],
+            [local_rl_scale, local_ce_scale, local_ref_kl_scale, local_sdpo_scale, local_novelty_scale],
             dtype=torch.int64,
             device="cuda",
         )
         dp_cp_group = parallel_dims.get_mesh("dp_cp").get_group()
         dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
         has_global_sdpo = bool(global_scales[3] > 0)
+        has_global_novelty = bool(global_scales[4] > 0)
         if has_global_sdpo and not config.sdpo_loss.enabled:
             raise ValueError("Received SDPO samples but trainer.sdpo_loss.enabled is false")
-        rl_scale, ce_scale, ref_kl_scale, sdpo_scale = (max(scale, 1) for scale in global_scales.tolist())
+        rl_scale, ce_scale, ref_kl_scale, sdpo_scale, novelty_scale = (
+            max(scale, 1) for scale in global_scales.tolist()
+        )
 
         logger.debug(f"Starting forward and backward pass ({batch_size=})")
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
@@ -394,6 +415,9 @@ def train(config: TrainerConfig):
                 micro_batch["ref_kl_weights"].to("cuda") if micro_batch["ref_kl_weights"] is not None else None
             )
             sdpo_weights = micro_batch["sdpo_weights"].to("cuda") if micro_batch["sdpo_weights"] is not None else None
+            novelty_weights = (
+                micro_batch["novelty_weights"].to("cuda") if micro_batch["novelty_weights"] is not None else None
+            )
             routed_experts = (
                 micro_batch["routed_experts"].to("cuda") if micro_batch["routed_experts"] is not None else None
             )
@@ -606,6 +630,36 @@ def train(config: TrainerConfig):
                 out["entropy"], pad_value=torch.log(torch.tensor(float(vocab_size))).item()
             )
 
+            novelty_advantages = None
+            observer_metrics = {}
+            if model_observer is not None and has_global_novelty:
+                observer_features = out.get("observer_features")
+                if observer_features is None:
+                    raise ValueError("model_observer did not receive final-layer features")
+                if student_topk_logprobs is None or sdpo_topk_logprobs is None:
+                    raise ValueError("model_observer novelty requires SDPO teacher distributions")
+                shifted_features = torch.cat(
+                    [torch.zeros_like(observer_features[:, :1]), observer_features[:, :-1]], dim=1
+                )
+                effective_novelty_weights = (
+                    novelty_weights if novelty_weights is not None else torch.zeros_like(out["logprobs"])
+                )
+                student_distribution = prepare_sdpo_distribution(
+                    student_topk_logprobs.detach(),
+                    add_tail=config.sdpo_loss.distillation_add_tail,
+                )
+                teacher_distribution = prepare_sdpo_distribution(
+                    sdpo_topk_logprobs,
+                    add_tail=config.sdpo_loss.distillation_add_tail,
+                )
+                novelty_advantages, observer_metrics = model_observer.score_and_accumulate(
+                    shifted_features,
+                    teacher_distribution - student_distribution,
+                    effective_novelty_weights,
+                    micro_batch["env_names"],
+                    group=dp_cp_group,
+                )
+
             # Compute loss
             sequence_lengths = micro_batch["sequence_lengths"]
             loss, loss_tensors = compute_loss(
@@ -628,12 +682,20 @@ def train(config: TrainerConfig):
                 if sdpo_topk_logprobs is not None
                 else None,
                 sdpo_loss_config=config.sdpo_loss,
+                novelty_advantages=novelty_advantages.squeeze().split(sequence_lengths)
+                if novelty_advantages is not None
+                else None,
+                novelty_weights=novelty_weights.squeeze().split(sequence_lengths)
+                if novelty_weights is not None
+                else None,
                 rl_loss_fn=rl_loss_fn,
                 rl_scale=rl_scale,
                 ce_scale=ce_scale,
                 ref_kl_scale=ref_kl_scale,
                 sdpo_scale=sdpo_scale,
+                novelty_scale=novelty_scale,
             )
+            loss_tensors.update(observer_metrics)
 
             # Backward pass
             with maybe_record_function("backward"):
@@ -709,6 +771,9 @@ def train(config: TrainerConfig):
             if "routing_confidence" in tensors:
                 micro_step_message += f" | Routing Conf. {tensors['routing_confidence'][-1].mean().item():.4f}"
             logger.debug(micro_step_message)
+
+        if model_observer is not None and has_global_novelty:
+            model_observer.commit(group=dp_cp_group)
 
         if config.enable_token_export:
             dist.barrier()
@@ -810,6 +875,9 @@ def train(config: TrainerConfig):
                     extra_state=sdpo_teacher_state,
                 )
                 save_ckpt_time += time.perf_counter() - save_ckpt_start_time
+                if model_observer is not None and world.is_master:
+                    observer_path = ckpt_manager.get_ckpt_path(progress.step).parent / "model_observer.pt"
+                    model_observer.save(observer_path)
 
             ckpt_manager.maybe_clean()
 
@@ -971,6 +1039,9 @@ def train(config: TrainerConfig):
                 progress,
                 extra_state=sdpo_teacher_state,
             )
+            if model_observer is not None and world.is_master:
+                observer_path = ckpt_manager.get_ckpt_path(progress.step).parent / "model_observer.pt"
+                model_observer.save(observer_path)
         ckpt_manager.maybe_clean()
 
     if config.max_concurrent_runs == 1 and weight_ckpt_manager is not None:

@@ -18,6 +18,7 @@ class PrimeLmOutput(TypedDict, total=False):
     logprobs: Tensor | None
     entropy: Tensor | None
     loss: Tensor | None
+    observer_features: Tensor | None
 
 
 def cast_float_and_contiguous(output: PrimeLmOutput) -> PrimeLmOutput:
@@ -31,6 +32,7 @@ def cast_float_and_contiguous(output: PrimeLmOutput) -> PrimeLmOutput:
         logprobs=_float_and_contiguous(output.get("logprobs")),
         entropy=_float_and_contiguous(output.get("entropy")),
         loss=output.get("loss"),
+        observer_features=output.get("observer_features"),
     )
 
 
@@ -38,6 +40,7 @@ class FusedOutputLinear(torch.nn.Linear):
     def __init__(self, in_features: int, out_features: int, chunk_size: int):
         super().__init__(in_features, out_features, bias=False)
         self.chunk_size = chunk_size
+        self.capture_observer_features = False
 
     def forward(
         self,
@@ -59,18 +62,25 @@ class FusedOutputLinear(torch.nn.Linear):
 
         logprobs = logprobs.reshape(b, s)
         entropy = entropy.reshape(b, s)
-        return PrimeLmOutput(logprobs=logprobs, entropy=entropy)
+        output = PrimeLmOutput(logprobs=logprobs, entropy=entropy)
+        if self.capture_observer_features:
+            output["observer_features"] = hidden_states.reshape(b, s, h).detach()
+        return output
 
 
 class VanillaOutputLinear(torch.nn.Linear):
     def __init__(self, in_features: int, out_features: int):
         super().__init__(in_features, out_features, bias=False)
+        self.capture_observer_features = False
 
     def forward(
         self, hidden_states: torch.Tensor, labels: torch.Tensor | None = None, temperature: Tensor | None = None
     ) -> PrimeLmOutput:
         # VanillaOutputLinear just returns logits - temperature scaling is done externally in train.py
-        return PrimeLmOutput(logits=super().forward(hidden_states))
+        output = PrimeLmOutput(logits=super().forward(hidden_states))
+        if self.capture_observer_features:
+            output["observer_features"] = hidden_states.detach()
+        return output
 
 
 def _online_logsumexp_and_weighted_update(
