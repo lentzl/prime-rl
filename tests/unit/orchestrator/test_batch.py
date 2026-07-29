@@ -367,7 +367,7 @@ def test_prepare_sample_rejects_active_sdpo_without_support():
     example = _make_sdpo_example()
     example.sdpo_teacher_spans = None
 
-    with pytest.raises(ValueError, match="active sdpo_weights require feedback-conditioned teacher spans"):
+    with pytest.raises(ValueError, match="active SDPO or novelty weights require feedback-conditioned teacher spans"):
         prepare_sample(example, seq_len=4)
 
 
@@ -380,15 +380,23 @@ def test_prepare_sample_uniform_rl_keeps_streams_none(make_training_example):
     assert micro_batch.novelty_weights is None
 
 
-def test_prepare_sample_preserves_model_observer_novelty_stream(make_training_example):
-    example = make_training_example(
-        rl_weights=[0.0, 0.0, 0.0, 0.0],
-        novelty_weights=[0.0, 0.0, 0.1, 0.1],
-    )
+def test_prepare_sample_preserves_model_observer_novelty_stream():
+    example = _make_sdpo_example()
+    example.novelty_weights = [0.0, 0.0, 0.1, 0.1]
 
     micro_batch = prepare_sample(example, seq_len=16)
 
     assert micro_batch.novelty_weights == [0.0, 0.0, 0.1, 0.1]
+
+
+def test_prepare_sample_accepts_novelty_only_teacher_targets():
+    example = _make_sdpo_example()
+    example.sdpo_weights = [0.0] * 4
+    example.novelty_weights = [0.0, 0.0, 1.0, 1.0]
+
+    micro_batch = prepare_sample(example, seq_len=4)
+
+    assert micro_batch.sdpo_teacher_spans == example.sdpo_teacher_spans
 
 
 @pytest.mark.parametrize("streams_on_longer", [True, False])

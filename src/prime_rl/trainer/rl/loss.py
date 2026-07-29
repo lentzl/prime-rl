@@ -448,6 +448,7 @@ def compute_loss(
     ref_kl_loss = 0.0
     sdpo_loss = 0.0
     novelty_loss = 0.0
+    active_components: set[str] = set()
     streams = zip(
         trainer_logprobs,
         inference_logprobs,
@@ -496,22 +497,27 @@ def compute_loss(
             )
 
         if rl_w is None:
+            active_components.add("rl")
             rl_loss = rl_loss + run_loss_fn(rl_loss_fn, make_inputs(mask, None))
         else:
             rl_mask = mask & (rl_w != 0)
             if bool(rl_mask.any()):
+                active_components.add("rl")
                 rl_loss = rl_loss + run_loss_fn(rl_loss_fn, make_inputs(rl_mask, rl_w))
         if ce_w is not None:
             ce_mask = ce_w != 0
             if bool(ce_mask.any()):
+                active_components.add("ce")
                 ce_loss = ce_loss + run_loss_fn(ce_loss_fn, make_inputs(ce_mask, ce_w))
         if ref_kl_w is not None:
             ref_kl_mask = ref_kl_w != 0
             if bool(ref_kl_mask.any()):
+                active_components.add("ref_kl")
                 ref_kl_loss = ref_kl_loss + run_loss_fn(ref_kl_loss_fn, make_inputs(ref_kl_mask, ref_kl_w))
         if sdpo_w is not None:
             sdpo_mask = mask & active_sdpo_weight_mask(sdpo_w)
             if bool(sdpo_mask.any()):
+                active_components.add("sdpo")
                 sdpo_loss = sdpo_loss + run_loss_fn(
                     lambda inputs: sdpo_loss_fn(inputs, sdpo_loss_config),
                     make_inputs(sdpo_mask, sdpo_w),
@@ -519,6 +525,7 @@ def compute_loss(
         if novelty_w is not None:
             novelty_mask = novelty_w != 0
             if bool(novelty_mask.any()):
+                active_components.add("model_observer")
                 if novelty_adv is None:
                     raise ValueError("novelty component requires model-observer advantages")
                 novelty_inputs = LossInputs(
@@ -545,5 +552,18 @@ def compute_loss(
             aggregated[k] = torch.stack(v)
         else:
             aggregated[k] = torch.cat(v)
+
+    component_losses = {
+        "rl": rl_loss / rl_scale,
+        "ce": ce_loss / ce_scale,
+        "ref_kl": ref_kl_loss / ref_kl_scale,
+        "sdpo": sdpo_loss / sdpo_scale,
+        "model_observer": novelty_loss / novelty_scale,
+    }
+    for name in active_components:
+        value = component_losses[name]
+        if not isinstance(value, Tensor):
+            value = trainer_logprobs[0].new_tensor(value)
+        aggregated[f"loss_component/{name}"] = value.detach().reshape(1)
 
     return scaled_loss, aggregated

@@ -1,7 +1,6 @@
-# Feedback-conditioned SDPO plus persistent learnable novelty on the multi-turn
-# alphabet-sort env. The EMA self-teacher supplies hindsight corrections; a
-# ridge readout observes detached policy states.
-#   uv run rl @ configs/debug/algo/sdpo_model_observer.toml
+# Novelty-only control for the model-observer experiment. SDPO teacher replay
+# still supplies correction targets, but its direct loss weight is zero.
+#   uv run rl @ configs/debug/algo/sdpo_model_observer_novelty_only.toml
 
 max_steps = 2
 seq_len = 4096
@@ -11,7 +10,7 @@ name = "PrimeIntellect/Qwen3-0.6B-Reverse-Text-SFT"
 
 [wandb]
 project = "algorithms-debug"
-name = "debug-sdpo-model-observer"
+name = "debug-sdpo-model-observer-novelty-only"
 
 [file_monitor]
 
@@ -24,7 +23,7 @@ type = "sdpo"
 multi_turn_replay = true
 
 [orchestrator.algo.novelty]
-weight = 0.1
+weight = 1.0
 
 [orchestrator.algo.renderer]
 name = "qwen3"

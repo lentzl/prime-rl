@@ -22,12 +22,19 @@ STREAM_FILL = {
 
 def _prepare_sdpo_teacher_spans(
     spans: list[SDPOTeacherSpan] | None,
-    weights: list[float] | None,
+    sdpo_weights: list[float] | None,
+    novelty_weights: list[float] | None,
     token_ids: list[int],
 ) -> list[SDPOTeacherSpan] | None:
+    active = {
+        index
+        for index in range(len(token_ids))
+        if (sdpo_weights is not None and sdpo_weights[index] != 0)
+        or (novelty_weights is not None and novelty_weights[index] != 0)
+    }
     if spans is None:
-        if weights is not None and any(weight != 0 for weight in weights):
-            raise ValueError("active sdpo_weights require feedback-conditioned teacher spans")
+        if active:
+            raise ValueError("active SDPO or novelty weights require feedback-conditioned teacher spans")
         return None
 
     prepared: list[SDPOTeacherSpan] = []
@@ -54,8 +61,8 @@ def _prepare_sdpo_teacher_spans(
         for position, offset in zip(positions, offsets, strict=True):
             if token_ids[position] != span.completion_ids[offset]:
                 raise ValueError("SDPO teacher targets must align with the original sample tokens")
-            if weights is None or weights[position] == 0:
-                raise ValueError("SDPO teacher spans may only target active SDPO component tokens")
+            if position not in active:
+                raise ValueError("SDPO teacher spans may only target active SDPO or novelty tokens")
             if position in covered:
                 raise ValueError("SDPO teacher spans must not target a student position more than once")
             covered.add(position)
@@ -67,9 +74,8 @@ def _prepare_sdpo_teacher_spans(
                 target_offsets=offsets,
             )
         )
-    active = {index for index, weight in enumerate(weights or []) if weight != 0}
     if covered != active:
-        raise ValueError("every active SDPO component token must have exactly one teacher target")
+        raise ValueError("every active SDPO or novelty token must have exactly one teacher target")
     return prepared or None
 
 
@@ -280,7 +286,12 @@ def prepare_sample(training_example: TrainingSample, seq_len: int) -> MicroBatch
     ):
         if stream is not None:
             assert len(stream) == len(input_ids), f"{stream_name}: {len(stream)}"
-    sdpo_teacher_spans = _prepare_sdpo_teacher_spans(sdpo_teacher_spans, sdpo_weights, input_ids)
+    sdpo_teacher_spans = _prepare_sdpo_teacher_spans(
+        sdpo_teacher_spans,
+        sdpo_weights,
+        novelty_weights,
+        input_ids,
+    )
     if sdpo_rollout_is_weights is not None:
         if any(not math.isfinite(weight) or weight < 0 for weight in sdpo_rollout_is_weights):
             raise ValueError("sdpo_rollout_is_weights must be finite and non-negative")

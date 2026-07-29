@@ -577,6 +577,16 @@ class ModelObserverConfig(BaseConfig):
     positive_only: bool = False
     """Drop negative program-length increments when enabled."""
 
+    shuffle_corrections: bool = False
+    """Shuffle correction targets within each environment and microbatch.
+
+    This is an ablation control: it preserves the target distribution while
+    breaking its pairing with policy states.
+    """
+
+    shuffle_seed: int = Field(0, ge=0)
+    """Seed for the deterministic shuffled-correction control."""
+
 
 class BaseWeightBroadcastConfig(BaseConfig):
     pass

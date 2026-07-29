@@ -303,9 +303,11 @@ class OPSDAlgoConfig(BaseAlgoConfig):
 
 
 class SDPONoveltyConfig(BaseConfig):
-    weight: float = Field(0.1, gt=0.0, lt=1.0, allow_inf_nan=False)
+    weight: float = Field(0.1, gt=0.0, le=1.0, allow_inf_nan=False)
     """Fraction of the joint signal assigned to model-observer novelty. The
-    remaining ``1 - weight`` scales feedback-conditioned SDPO."""
+    remaining ``1 - weight`` scales feedback-conditioned SDPO. A value of
+    ``1`` enables novelty-only ablations while retaining the SDPO teacher
+    replay that supplies correction targets."""
 
 
 class SDPOAlgoConfig(BaseAlgoConfig):

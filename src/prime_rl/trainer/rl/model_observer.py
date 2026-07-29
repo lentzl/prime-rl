@@ -156,6 +156,9 @@ class ModelObserverBank:
 
         advantages = torch.zeros_like(weights_flat)
         raw_values: list[Tensor] = []
+        correction_norms: list[Tensor] = []
+        positive_values: list[Tensor] = []
+        clipped_values: list[Tensor] = []
         for env_name in all_envs:
             observer = self.observers.get(env_name)
             if observer is None:
@@ -168,13 +171,20 @@ class ModelObserverBank:
             )
             env_features = features[mask]
             env_corrections = corrections_flat[mask] / self.config.correction_scale
+            if self.config.shuffle_corrections:
+                env_corrections = self._shuffle_corrections(env_name, observer, env_corrections)
             raw = observer.hypothetical_novelty(env_features, env_corrections)
             normalized = self._normalize(raw, group=group)
+            positive = normalized > 0
             if self.config.positive_only:
                 normalized = normalized.clamp(min=0.0)
+            clipped = normalized.abs() > self.config.advantage_clip
             normalized = normalized.clamp(-self.config.advantage_clip, self.config.advantage_clip)
             advantages[mask] = normalized
             raw_values.append(raw)
+            correction_norms.append(env_corrections.norm(dim=-1).to(features.device, torch.float32))
+            positive_values.append(positive.to(features.device, torch.float32))
+            clipped_values.append(clipped.to(features.device, torch.float32))
             self._accumulate(env_name, observer, env_features, env_corrections)
 
         metrics = {
@@ -182,6 +192,15 @@ class ModelObserverBank:
             if raw_values
             else torch.empty(0, device=features.device),
             "model_observer/advantage": advantages[weights_flat != 0],
+            "model_observer/correction_norm": torch.cat(correction_norms)
+            if correction_norms
+            else torch.empty(0, device=features.device),
+            "model_observer/positive": torch.cat(positive_values)
+            if positive_values
+            else torch.empty(0, device=features.device),
+            "model_observer/clipped": torch.cat(clipped_values)
+            if clipped_values
+            else torch.empty(0, device=features.device),
         }
         return advantages.reshape_as(novelty_weights), metrics
 
@@ -214,6 +233,34 @@ class ModelObserverBank:
             observer.cross += cross_update
             observer.observation_count += int(count.item())
         self.pending_updates.clear()
+
+    @torch.no_grad()
+    def state_metrics(self) -> dict[str, Tensor]:
+        observers = list(self.observers.values())
+        return {
+            "model_observer/score_bits": torch.stack([observer.score_bits.float() for observer in observers]),
+            "model_observer/observation_count": torch.tensor(
+                [observer.observation_count for observer in observers], dtype=torch.float32, device=self.device
+            ),
+            "model_observer/readout_norm": torch.stack(
+                [observer.readout.float().norm() for observer in observers]
+            ),
+        }
+
+    def _shuffle_corrections(
+        self,
+        env_name: str,
+        observer: RidgeEpiplexityObserver,
+        corrections: Tensor,
+    ) -> Tensor:
+        if corrections.shape[0] < 2:
+            return corrections
+        pending = self.pending_updates.get(env_name)
+        pending_count = int(pending[2].item()) if pending is not None else 0
+        generator = torch.Generator(device="cpu")
+        generator.manual_seed(self.config.shuffle_seed + observer.observation_count + pending_count)
+        permutation = torch.randperm(corrections.shape[0], generator=generator, device="cpu").to(corrections.device)
+        return corrections[permutation]
 
     def _accumulate(
         self,

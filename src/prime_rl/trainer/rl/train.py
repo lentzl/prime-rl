@@ -384,8 +384,9 @@ def train(config: TrainerConfig):
         dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
         has_global_sdpo = bool(global_scales[3] > 0)
         has_global_novelty = bool(global_scales[4] > 0)
-        if has_global_sdpo and not config.sdpo_loss.enabled:
-            raise ValueError("Received SDPO samples but trainer.sdpo_loss.enabled is false")
+        has_global_teacher_targets = has_global_sdpo or has_global_novelty
+        if has_global_teacher_targets and not config.sdpo_loss.enabled:
+            raise ValueError("Received SDPO or novelty teacher targets but trainer.sdpo_loss.enabled is false")
         rl_scale, ce_scale, ref_kl_scale, sdpo_scale, novelty_scale = (
             max(scale, 1) for scale in global_scales.tolist()
         )
@@ -456,7 +457,7 @@ def train(config: TrainerConfig):
             seq_lens_are_pre_shard = False
 
             if cp_enabled:
-                if has_global_sdpo:
+                if has_global_teacher_targets:
                     raise NotImplementedError("SDPO top-k distillation is not supported with context parallelism")
                 # MRoPE batches must merge image embeddings before sharding.
                 defer_vlm_cp_to_model = mm_kwargs is not None and "image_grid_thw" in mm_kwargs
@@ -495,7 +496,7 @@ def train(config: TrainerConfig):
 
             sdpo_topk_token_ids = None
             sdpo_topk_logprobs = None
-            if has_global_sdpo:
+            if has_global_teacher_targets:
                 if mm_kwargs is not None:
                     raise NotImplementedError(
                         "SDPO feedback-conditioned teacher replay does not support multimodal batches"
@@ -605,7 +606,11 @@ def train(config: TrainerConfig):
                         "SDPO top-k distillation requires trainer logits; "
                         "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
                     )
-                support_mask = loss_mask if sdpo_weights is None else loss_mask & active_sdpo_weight_mask(sdpo_weights)
+                support_mask = torch.zeros_like(loss_mask)
+                if sdpo_weights is not None:
+                    support_mask |= loss_mask & active_sdpo_weight_mask(sdpo_weights)
+                if novelty_weights is not None:
+                    support_mask |= novelty_weights != 0
                 student_topk_logprobs = gather_sdpo_student_topk_logprobs(
                     logits,
                     temperatures,
@@ -722,9 +727,9 @@ def train(config: TrainerConfig):
                 tensors[f"entropy/{env_name}"].append(entropy[indices])
 
             # Mismatch KL is only meaningful where sampling logprobs exist —
-            # keep rl/ref_kl member tokens (policy-sampled), exclude tokens
+            # keep rl/ref_kl/sdpo/novelty member tokens (policy-sampled), exclude tokens
             # whose action component is ce (frozen-model tokens).
-            if rl_weights is None and ref_kl_weights is None and sdpo_weights is None:
+            if rl_weights is None and ref_kl_weights is None and sdpo_weights is None and novelty_weights is None:
                 mismatch_mask = loss_mask
                 has_mismatch_tokens = True
             else:
@@ -733,6 +738,8 @@ def train(config: TrainerConfig):
                     sampled_mask = sampled_mask | (ref_kl_weights != 0)
                 if sdpo_weights is not None:
                     sampled_mask = sampled_mask | active_sdpo_weight_mask(sdpo_weights)
+                if novelty_weights is not None:
+                    sampled_mask = sampled_mask | (novelty_weights != 0)
                 mismatch_mask = loss_mask & sampled_mask
                 has_mismatch_tokens = bool(mismatch_mask.any())
             if has_mismatch_tokens:
@@ -780,6 +787,8 @@ def train(config: TrainerConfig):
 
         if model_observer is not None and has_global_novelty:
             model_observer.commit(group=dp_cp_group)
+            for key, values in model_observer.state_metrics().items():
+                tensors[key].append(values)
 
         if config.enable_token_export:
             dist.barrier()

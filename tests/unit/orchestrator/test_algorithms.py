@@ -428,6 +428,23 @@ def test_sdpo_novelty_splits_weight_on_the_same_teacher_targets():
     assert sample.sdpo_teacher_spans is not None
 
 
+def test_sdpo_novelty_only_keeps_teacher_targets():
+    rollout = _two_turn_rollout(reward=0.0, info={"feedback": "final judge feedback"})
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", multi_turn_replay=True, novelty={"weight": 1.0}),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.side_effect = [[20, 21], [30, 31]]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0] * 8
+    assert sample.novelty_weights == [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0]
+    assert sample.sdpo_teacher_spans is not None
+
+
 def test_sdpo_multi_turn_replay_skips_turns_without_attributable_feedback():
     rollout = _two_turn_rollout(reward=0.0)
     algo = SDPOAlgorithm(

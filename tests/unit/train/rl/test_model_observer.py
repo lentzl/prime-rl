@@ -59,10 +59,18 @@ def test_model_observer_bank_scores_correction_and_round_trips(tmp_path):
     assert advantages.shape == weights.shape
     assert torch.isfinite(advantages).all()
     assert metrics["model_observer/raw_novelty"].numel() == 2
+    assert metrics["model_observer/correction_norm"].numel() == 2
+    assert metrics["model_observer/positive"].numel() == 2
+    assert metrics["model_observer/clipped"].numel() == 2
     assert bank.observers["env"].observation_count == 0
     with pytest.raises(RuntimeError, match="before committing"):
         bank.save(tmp_path / "premature.pt")
     bank.commit()
+    state_metrics = bank.state_metrics()
+    assert state_metrics["model_observer/observation_count"].item() == 2
+    assert state_metrics["model_observer/score_bits"].item() == pytest.approx(
+        bank.observers["env"].score_bits.item()
+    )
 
     path = tmp_path / "observer.pt"
     bank.save(path)
@@ -102,6 +110,23 @@ def test_model_observer_uses_one_pre_batch_state_across_microbatches():
     assert bank.observers["env"].observation_count == 2
 
 
+def test_model_observer_shuffled_control_is_deterministic_and_breaks_pairing():
+    hidden = torch.tensor(
+        [[[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]]]
+    )
+    corrections = torch.tensor([[[1.0, 0.0], [2.0, 1.0], [3.0, -1.0], [4.0, 2.0]]])
+    weights = torch.ones(1, 4)
+    config = ModelObserverConfig(feature_dim=4, shuffle_corrections=True, shuffle_seed=7)
+
+    first = ModelObserverBank(config)
+    second = ModelObserverBank(config)
+    first.score_and_accumulate(hidden, corrections, weights, ["env"] * 4)
+    second.score_and_accumulate(hidden, corrections, weights, ["env"] * 4)
+
+    assert torch.equal(first.pending_updates["env"][1], second.pending_updates["env"][1])
+    assert not torch.equal(first.pending_updates["env"][1], corrections.squeeze(0).double())
+
+
 def test_compute_loss_adds_weighted_model_observer_policy_credit():
     trainer = torch.tensor([-1.0, -1.0], requires_grad=True)
     inference = torch.tensor([-1.0, -1.0])
@@ -128,6 +153,7 @@ def test_compute_loss_adds_weighted_model_observer_policy_credit():
     )
     assert loss.item() == pytest.approx(-0.1)
     assert "model_observer/unmasked_mismatch_kl" in metrics
+    assert metrics["loss_component/model_observer"].item() == pytest.approx(-0.1)
     loss.backward()
     assert torch.allclose(trainer.grad, torch.tensor([-0.05, -0.05]))
 
@@ -159,6 +185,17 @@ def test_rl_config_accepts_joint_sdpo_model_observer():
         }
     )
     assert config.orchestrator.algo.type == "sdpo"
+
+
+def test_rl_config_accepts_novelty_only_ablation():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"model_observer": {}},
+            "orchestrator": {"algo": {"type": "sdpo", "novelty": {"weight": 1.0}}},
+            "ckpt": {},
+        }
+    )
+    assert config.orchestrator.algo.novelty.weight == 1.0
 
 
 def test_rl_config_requires_resume_capable_observer_checkpoint():
