@@ -75,6 +75,7 @@ from prime_rl.utils.metrics_server import HealthServer, MetricsServer, RunStats
 from prime_rl.utils.monitor import setup_monitor
 from prime_rl.utils.config import cli
 from prime_rl.utils.process import set_proc_title
+from prime_rl.utils.sequence import get_cu_seqlens_from_position_ids
 from prime_rl.utils.utils import clean_exit, resolve_latest_ckpt_step, to_col_format
 from ring_flash_attn import substitute_hf_flash_attn
 from torchtitan.distributed.utils import clip_grad_norm_
@@ -512,6 +513,8 @@ def train(config: TrainerConfig):
                         temperature=temperatures,
                         mm_kwargs=None,
                         mm_token_type_ids=None,
+                        seq_lens=seq_lens,
+                        seq_lens_are_pre_shard=seq_lens_are_pre_shard,
                         routed_experts=routed_experts,
                     )
                     support_logits = support_out.get("logits")
@@ -536,6 +539,8 @@ def train(config: TrainerConfig):
                     ).unsqueeze(0)
                     teacher_temperatures = torch.ones_like(teacher_input_ids, dtype=torch.float)
                     teacher_labels = shift_tensor_left(teacher_input_ids)
+                    teacher_cu_seqlens, _ = get_cu_seqlens_from_position_ids(teacher_position_ids)
+                    teacher_seq_lens = torch.diff(teacher_cu_seqlens)
 
                     if config.model.lora:
                         teacher_lora_num_tokens = torch.zeros_like(lora_num_tokens)
@@ -551,6 +556,7 @@ def train(config: TrainerConfig):
                             temperature=teacher_temperatures,
                             mm_kwargs=None,
                             mm_token_type_ids=None,
+                            seq_lens=teacher_seq_lens,
                             routed_experts=None,
                         )
                         teacher_logits = teacher_out.get("logits")

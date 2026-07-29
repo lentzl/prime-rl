@@ -37,8 +37,10 @@ temperature = 1.0
 max_completion_tokens = 512
 
 [[orchestrator.train.env]]
-id = "alphabet-sort"
-args = { min_turns = 3, max_turns = 5, power_per_turn = false }
+name = "alphabet-sort"
+env.taskset = { id = "alphabet-sort-v1", min_turns = 3, max_turns = 5, task = { power_per_turn = false } }
+env.agent.harness = { id = "null" }
+env.agent.runtime = { type = "subprocess" }
 
 [trainer.sdpo_loss]
 distillation_topk = 20
