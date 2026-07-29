@@ -45,6 +45,18 @@ def load_state_dict(save_dir: Path) -> dict[str, Tensor]:
     return state_dict
 
 
+def _clone_shared_tensors(state_dict: dict[str, Tensor]) -> dict[str, Tensor]:
+    """Clone later views of shared storage so safetensors can serialize every key."""
+    seen_storages: set[tuple[str, int, int]] = set()
+    independent = {}
+    for key, tensor in state_dict.items():
+        storage = tensor.untyped_storage()
+        storage_id = (str(tensor.device), storage.data_ptr(), storage.nbytes())
+        independent[key] = tensor.clone() if storage_id in seen_storages else tensor
+        seen_storages.add(storage_id)
+    return independent
+
+
 def save_state_dict(
     state_dict: dict[str, Tensor],
     save_dir: Path,
@@ -54,6 +66,8 @@ def save_state_dict(
 ):
     """Save a state dict to a local directory in safetensors or torch format."""
     logger = get_logger()
+    if save_format == "safetensors":
+        state_dict = _clone_shared_tensors(state_dict)
     if adapter:
         weights_name = ADAPTER_SAFE_WEIGHTS_NAME if save_format == "safetensors" else ADAPTER_WEIGHTS_NAME
     else:
