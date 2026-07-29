@@ -35,8 +35,7 @@ from prime_rl.trainer.rl.loss import (
     shift_tensor_left,
     shift_tensor_right,
 )
-from prime_rl.trainer.rl.model_observer import ModelObserverBank
-from prime_rl.trainer.rl.sdpo_loss import prepare_sdpo_distribution
+from prime_rl.trainer.rl.model_observer import ModelObserverBank, prepare_model_observer_corrections
 from prime_rl.trainer.rl.token_export import setup_token_exporter
 from prime_rl.trainer.rl.sdpo_support import (
     active_sdpo_weight_mask,
@@ -647,25 +646,21 @@ def train(config: TrainerConfig):
                 observer_features = out.get("observer_features")
                 if observer_features is None:
                     raise ValueError("model_observer did not receive final-layer features")
-                if student_topk_logprobs is None or sdpo_topk_logprobs is None:
-                    raise ValueError("model_observer novelty requires SDPO teacher distributions")
                 shifted_features = torch.cat(
                     [torch.zeros_like(observer_features[:, :1]), observer_features[:, :-1]], dim=1
                 )
                 effective_novelty_weights = (
                     novelty_weights if novelty_weights is not None else torch.zeros_like(out["logprobs"])
                 )
-                student_distribution = prepare_sdpo_distribution(
-                    student_topk_logprobs.detach(),
-                    add_tail=config.sdpo_loss.distillation_add_tail,
-                )
-                teacher_distribution = prepare_sdpo_distribution(
+                corrections = prepare_model_observer_corrections(
+                    student_topk_logprobs,
                     sdpo_topk_logprobs,
+                    novelty_weights,
                     add_tail=config.sdpo_loss.distillation_add_tail,
                 )
                 novelty_advantages, observer_metrics = model_observer.score_and_accumulate(
                     shifted_features,
-                    teacher_distribution - student_distribution,
+                    corrections,
                     effective_novelty_weights,
                     micro_batch["env_names"],
                     group=dp_cp_group,

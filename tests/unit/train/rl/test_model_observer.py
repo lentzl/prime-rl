@@ -6,7 +6,37 @@ import torch
 from prime_rl.configs.rl import RLConfig
 from prime_rl.configs.trainer import DefaultLossConfig, ModelObserverConfig, TrainerConfig
 from prime_rl.trainer.rl.loss import compute_loss, setup_rl_loss_fn
-from prime_rl.trainer.rl.model_observer import ModelObserverBank, RidgeEpiplexityObserver, project_model_states
+from prime_rl.trainer.rl.model_observer import (
+    ModelObserverBank,
+    RidgeEpiplexityObserver,
+    prepare_model_observer_corrections,
+    project_model_states,
+)
+
+
+def test_inactive_model_observer_microbatch_accepts_missing_teacher_distribution():
+    student = torch.log_softmax(torch.tensor([[[2.0, 1.0]]]), dim=-1)
+
+    corrections = prepare_model_observer_corrections(
+        student,
+        None,
+        torch.zeros(1, 1),
+        add_tail=True,
+    )
+
+    assert torch.equal(corrections, torch.zeros(1, 1, 3))
+
+
+def test_active_model_observer_microbatch_requires_teacher_distribution():
+    student = torch.log_softmax(torch.tensor([[[2.0, 1.0]]]), dim=-1)
+
+    with pytest.raises(ValueError, match="requires SDPO teacher distributions"):
+        prepare_model_observer_corrections(
+            student,
+            None,
+            torch.ones(1, 1),
+            add_tail=True,
+        )
 
 
 def test_project_model_states_is_fixed_normalized_and_detached():

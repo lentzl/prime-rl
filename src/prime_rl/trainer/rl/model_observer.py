@@ -9,6 +9,27 @@ import torch.nn.functional as F
 from torch import Tensor
 
 from prime_rl.configs.trainer import ModelObserverConfig
+from prime_rl.trainer.rl.sdpo_loss import prepare_sdpo_distribution
+
+
+def prepare_model_observer_corrections(
+    student_topk_logprobs: Tensor | None,
+    teacher_topk_logprobs: Tensor | None,
+    novelty_weights: Tensor | None,
+    *,
+    add_tail: bool,
+) -> Tensor:
+    """Build corrections while allowing inactive distributed microbatches."""
+    if student_topk_logprobs is None:
+        raise ValueError("model_observer novelty requires SDPO student distributions")
+    student_distribution = prepare_sdpo_distribution(student_topk_logprobs.detach(), add_tail=add_tail)
+    has_local_novelty = novelty_weights is not None and bool((novelty_weights != 0).any())
+    if teacher_topk_logprobs is None:
+        if has_local_novelty:
+            raise ValueError("model_observer novelty requires SDPO teacher distributions")
+        return torch.zeros_like(student_distribution)
+    teacher_distribution = prepare_sdpo_distribution(teacher_topk_logprobs, add_tail=add_tail)
+    return teacher_distribution - student_distribution
 
 
 def project_model_states(hidden_states: Tensor, feature_dim: int) -> Tensor:
