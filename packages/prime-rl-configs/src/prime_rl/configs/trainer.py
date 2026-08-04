@@ -381,6 +381,9 @@ class AdamWConfig(BaseOptimizerConfig):
     betas2: float = Field(0.999, ge=0)
     """Adam second-moment (β2) decay."""
 
+    foreach: bool | None = None
+    """Use PyTorch's multi-tensor AdamW implementation. ``None`` keeps the PyTorch default."""
+
 
 class MuonConfig(BaseOptimizerConfig):
     type: Literal["muon"] = "muon"

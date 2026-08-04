@@ -1,7 +1,23 @@
 import pytest
 import torch
 
-from prime_rl.trainer.optim import optimizer_update_succeeded
+from prime_rl.configs.trainer import AdamWConfig
+from prime_rl.trainer.optim import optimizer_update_succeeded, setup_optimizer
+from prime_rl.trainer.parallel_dims import ParallelDims
+
+
+@pytest.mark.parametrize("foreach", [None, False, True])
+def test_adamw_foreach_is_configurable(foreach):
+    parameter = torch.nn.Parameter(torch.ones(1))
+    parallel_dims = ParallelDims(dp_replicate=1, dp_shard=1, cp=1, pp=1, ep=1, world_size=1)
+
+    optimizer = setup_optimizer(
+        AdamWConfig(foreach=foreach),
+        [("parameter", parameter)],
+        parallel_dims,
+    )
+
+    assert optimizer.defaults["foreach"] is foreach
 
 
 @pytest.mark.parametrize("value", [None, torch.tensor(0.0), torch.tensor(1.0), torch.tensor([-1.0, 2.0])])
