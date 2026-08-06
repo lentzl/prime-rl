@@ -35,6 +35,7 @@ prime = false
 
 [manifest]
 members = [
+    "adaptive-skill-stream-v1",
     "aime24-v1",
     "aime25-v1",
     "aime26-v1",
@@ -104,6 +105,7 @@ members = [
     "proposer-solver-v1",
     "proverbench-v1",
     "r2e-gym-v1",
+    "reasoning-offload-orientation-v1",
     "redsearcher-v1",
     "reverse-text-v1",
     "s1-deepresearch-v1",
@@ -154,6 +156,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/64/c7/8de93764ad66968d1
 wheels = [
     { url = "https://files.pythonhosted.org/packages/18/a6/907a406bb7d359e6a63f99c313846d9eec4f7e6f7437809e03aa00fa3074/absl_py-2.4.0-py3-none-any.whl", hash = "sha256:88476fd881ca8aab94ffa78b7b6c632a782ab3ba1cd19c9bd423abc4fb4cd28d", size = 135750, upload-time = "2026-01-28T10:17:04.19Z" },
 ]
+
+[[package]]
+name = "adaptive-skill-stream-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/adaptive_skill_stream_v1" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
 
 [[package]]
 name = "addict"
@@ -5357,7 +5370,7 @@ requires-dist = [
 
 [[package]]
 name = "prime-sandboxes"
-version = "0.2.33"
+version = "0.2.35"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aiofiles" },
@@ -5367,9 +5380,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "tenacity" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/15/a9/880685cefd503aa92d2b49da46b60ba807015f8839c344a83d8c5bc02f30/prime_sandboxes-0.2.33.tar.gz", hash = "sha256:4253a3c345ccf6c07b41a81790f8515763333f094d20bc405a257432461e81d8", size = 81228, upload-time = "2026-07-22T23:23:55.715Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/cc/287c0db192ddbe003bd5882d1aab5461cdb3912d0c92db7b39734a9e828e/prime_sandboxes-0.2.35.tar.gz", hash = "sha256:e716bfccdcb51aefd5e2d48fdfc3a79bea8c6825bce1871f49f095ced03efc94", size = 86226, upload-time = "2026-08-05T14:29:53.33Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f8/1b/10b1044b8aaef561c32a34140f4a13c7310f73f92f9546337e2e8e6a5239/prime_sandboxes-0.2.33-py3-none-any.whl", hash = "sha256:92c9647557e76191ba926ac8ed01708de9ec4450142131b673cd5cf8d9d7ea56", size = 42773, upload-time = "2026-07-22T23:23:54.381Z" },
+    { url = "https://files.pythonhosted.org/packages/25/07/c186395925f780b1a18b350f562ebc4e8a64a182c37bd1e3db3948f297e2/prime_sandboxes-0.2.35-py3-none-any.whl", hash = "sha256:29d7057532b21545be5938d3aee822ae3a54085a45934d5c3ac55190e06c5bbb", size = 47189, upload-time = "2026-08-05T14:29:52.142Z" },
 ]
 
 [[package]]
@@ -6117,6 +6130,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/df/34/54a1eaaefa24db5cb
 wheels = [
     { url = "https://files.pythonhosted.org/packages/13/60/164246615e8b059f6d53d34648a0784260421ec98a07eb1e45160f063221/realtime-2.31.0-py3-none-any.whl", hash = "sha256:f6e494b53d6a6e80b6efcee6711c8dd40413a52e766271de1bce8ced6c36cc1d", size = 22374, upload-time = "2026-06-04T13:37:21.162Z" },
 ]
+
+[[package]]
+name = "reasoning-offload-orientation-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/reasoning_offload_orientation_v1" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
 
 [[package]]
 name = "redis"
@@ -7925,7 +7949,7 @@ requires-dist = [
     { name = "openai-agents", specifier = ">=0.8.2" },
     { name = "openenv", marker = "extra == 'openenv'", specifier = ">=0.4.1" },
     { name = "prime-pydantic-config", extras = ["toml"], specifier = ">=0.4.2" },
-    { name = "prime-sandboxes", specifier = ">=0.2.33" },
+    { name = "prime-sandboxes", specifier = ">=0.2.35" },
     { name = "prime-tunnel", specifier = ">=0.1.8" },
     { name = "pydantic", specifier = ">=2.12.3" },
     { name = "python-dotenv", marker = "extra == 'browser'", specifier = ">=1.0.0" },
@@ -7961,6 +7985,7 @@ dev = [
     { name = "ty", specifier = ">=0.0.63" },
 ]
 examples = [
+    { name = "adaptive-skill-stream-v1", editable = "deps/verifiers/environments/adaptive_skill_stream_v1" },
     { name = "alphabet-sort-v1", editable = "deps/verifiers/environments/alphabet_sort_v1" },
     { name = "code-golf-v1", editable = "deps/verifiers/environments/code_golf_v1" },
     { name = "color-codeword-v1", editable = "deps/verifiers/environments/color_codeword_v1" },
