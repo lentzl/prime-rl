@@ -1,0 +1,14 @@
+# Colocated one-GPU inference server for the IPython foundations run.
+
+enable_lora = true
+max_lora_rank = 16
+max_loras = 8
+gpu_memory_utilization = 0.19
+
+[model]
+name = "/ephemeral/models/qwen35-adaptive-skills-smoke-r1"
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+
+[weight_broadcast]
+type = "filesystem"
