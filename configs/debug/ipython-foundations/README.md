@@ -19,7 +19,7 @@ uv run hf download \
 Hydrate the whole repository at the pinned revision rather than selecting only model
 files. This preserves the model and its companion snapshot artifacts together.
 
-## Smoke Gate
+## Three Rungs
 
 Start the colocated inference server and wait for both ports:
 
@@ -29,23 +29,30 @@ curl -f http://127.0.0.1:8000/health
 curl -f http://127.0.0.1:8100/health
 ```
 
-Run the continuity baseline, then the four-step continuity smoke:
+Run each held-out baseline before its matching training recipe. Rung 2 starts from the
+merged step-8 weights written by rung 1, and rung 3 starts from rung 2:
 
 ```bash
 uv run eval @ \
-  deps/verifiers/configs/prime_agent_qwen35_ipython_continuity_eval.toml
-uv run rl @ configs/debug/ipython-foundations/continuity-rl.toml \
-  --max-steps 4 \
-  --output-dir /ephemeral/outputs/prime-agent-qwen35-ipython-continuity-smoke-r1
+  deps/verifiers/configs/prime_agent_qwen35_ipython_completion_eval.toml
+uv run rl @ configs/debug/ipython-foundations/01-completion-rl.toml
+
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_ipython_assignment_eval.toml
+uv run rl @ configs/debug/ipython-foundations/02-assignment-rl.toml
+
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_ipython_state_eval.toml
+uv run rl @ configs/debug/ipython-foundations/03-state-rl.toml
 ```
 
-After the final weight update is loaded by inference, repeat the same eval command.
-The continuity eval runs eight held-out task definitions twice to reduce single-sample
-noise. Promote the four-step adapter to the 16-step `continuity-rl.toml` only if
-`cross_turn_state_reused`, `silent_assignment_recovered`, and `process_score` improve
-without more identical calls or IPython calls. Do not promote on answer accuracy alone.
+Restart inference from each merged step-8 weight directory before evaluating or
+starting the next rung. Every gate uses four samples for each held-out task to reduce
+single-sample noise. Completion must improve `process_aligned` and accuracy while
+reducing calls; assignment must improve `silent_assignment_recovered`; state must
+improve `cross_turn_state_reused`. Do not advance a checkpoint on answer accuracy alone.
 
-Only after continuity passes should `rl.toml` reintroduce recovery and subprocess
+Only after all three rungs pass should `rl.toml` reintroduce recovery and subprocess
 families. For recovery, require `recovery_round_coverage` to improve. For subprocesses,
 require complete process-result observation and error-directed operation revision
 without increasing raw PDF-byte fallbacks.
