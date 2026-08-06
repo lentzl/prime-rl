@@ -29,7 +29,7 @@ curl -f http://127.0.0.1:8000/health
 curl -f http://127.0.0.1:8100/health
 ```
 
-Run the untrained eight-stream held-out baseline, then the four-step smoke:
+Run the untrained ten-stream held-out baseline, then the four-step smoke:
 
 ```bash
 uv run eval @ \
@@ -45,3 +45,6 @@ rollouts complete without infrastructure errors, and held-out stream accuracy or
 family diagnostics improve without an increase in identical consecutive IPython calls.
 The subprocess family must also improve complete result observation and error-directed
 operation revision without increasing raw PDF-byte fallbacks.
+For recovery streams, require `recovery_round_coverage` to improve rather than relying
+on aggregate answer accuracy: each round must expose real kernel feedback and repair it
+with retained state.
