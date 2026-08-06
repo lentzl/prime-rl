@@ -70,7 +70,7 @@ name = "prime-agent-ipython-state"
 id = "ipython-foundations-v1"
 split = "train"
 families = ["state"]
-instruction_level = "explicit"
+instruction_level = "guided"
 instances_per_template = 4
 
 [orchestrator.train.source.env.agent]
