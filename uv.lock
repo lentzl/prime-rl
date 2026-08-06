@@ -71,6 +71,7 @@ members = [
     "i3-science-v1",
     "ifbench-v1",
     "ifeval-v1",
+    "ipython-foundations-v1",
     "kimina-v1",
     "kuhn-poker-v1",
     "livecodebench-v1",
@@ -2903,6 +2904,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/cd/c4/87cda5842cf5c3183
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b9/86/3060e8029b7cc505cce9a0137431dda81d0a3fde93a8f0f50ee0bf37a795/ipython-9.13.0-py3-none-any.whl", hash = "sha256:57f9d4639e20818d328d287c7b549af3d05f12486ea8f2e7f73e52a36ec4d201", size = 627274, upload-time = "2026-04-24T12:24:53.038Z" },
 ]
+
+[[package]]
+name = "ipython-foundations-v1"
+version = "0.2.0"
+source = { editable = "deps/verifiers/environments/ipython_foundations_v1" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
 
 [[package]]
 name = "ipython-pygments-lexers"
