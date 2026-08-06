@@ -29,7 +29,7 @@ curl -f http://127.0.0.1:8000/health
 curl -f http://127.0.0.1:8100/health
 ```
 
-Run the untrained held-out baseline, then the four-step smoke:
+Run the untrained eight-stream held-out baseline, then the four-step smoke:
 
 ```bash
 uv run eval @ \
@@ -43,3 +43,5 @@ After the final weight update is loaded by inference, repeat the same eval comma
 Proceed to the unmodified 48-step `rl.toml` only if all optimizer steps are finite,
 rollouts complete without infrastructure errors, and held-out stream accuracy or the
 family diagnostics improve without an increase in identical consecutive IPython calls.
+The subprocess family must also improve complete result observation and error-directed
+operation revision without increasing raw PDF-byte fallbacks.

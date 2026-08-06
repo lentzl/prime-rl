@@ -69,7 +69,7 @@ name = "prime-agent-ipython-foundations"
 [orchestrator.train.source.env.taskset]
 id = "ipython-foundations-v1"
 split = "train"
-families = ["assignment", "state", "recovery"]
+families = ["assignment", "state", "recovery", "subprocess"]
 instruction_level = "explicit"
 instances_per_template = 4
 
