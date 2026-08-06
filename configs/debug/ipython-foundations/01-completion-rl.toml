@@ -1,6 +1,6 @@
 # Rung 1: stop using tools and answer as soon as IPython returns the result.
 
-max_steps = 8
+max_steps = 4
 seq_len = 8192
 output_dir = "/ephemeral/ipython-rungs/outputs/01-completion"
 clean_output_dir = true
@@ -16,7 +16,7 @@ type = "filesystem"
 [ckpt]
 interval = 4
 keep_last = 1
-keep_interval = 8
+keep_interval = 4
 
 [file_monitor]
 filename = "metrics.jsonl"

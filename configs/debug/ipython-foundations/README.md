@@ -30,7 +30,7 @@ curl -f http://127.0.0.1:8100/health
 ```
 
 Run each held-out baseline before its matching training recipe. Rung 2 starts from the
-merged step-8 weights written by rung 1, and rung 3 starts from rung 2:
+merged step-4 weights written by rung 1, and rung 3 starts from rung 2:
 
 ```bash
 uv run eval @ \
@@ -46,7 +46,7 @@ uv run eval @ \
 uv run rl @ configs/debug/ipython-foundations/03-state-rl.toml
 ```
 
-Restart inference from each merged step-8 weight directory before evaluating or
+Restart inference from each merged step-4 weight directory before evaluating or
 starting the next rung. Every gate uses four samples for each held-out task to reduce
 single-sample noise. Completion must improve `process_aligned` and accuracy while
 reducing calls; assignment must improve `silent_assignment_recovered`; state must

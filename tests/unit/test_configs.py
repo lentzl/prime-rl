@@ -281,7 +281,7 @@ def test_ipython_configs_stage_foundational_behaviors_separately(
         args=["@", f"configs/debug/ipython-foundations/{filename}"],
     )
     source = config.orchestrator.train.source[0]
-    assert config.max_steps == 8
+    assert config.max_steps == 4
     assert config.seq_len == seq_len
     assert source.env.taskset.id == "ipython-foundations-v1"
     assert source.env.taskset.families == (family,)
