@@ -29,22 +29,23 @@ curl -f http://127.0.0.1:8000/health
 curl -f http://127.0.0.1:8100/health
 ```
 
-Run the untrained ten-stream held-out baseline, then the four-step smoke:
+Run the continuity baseline, then the four-step continuity smoke:
 
 ```bash
 uv run eval @ \
-  deps/verifiers/configs/prime_agent_qwen35_ipython_foundations_eval.toml
-uv run rl @ configs/debug/ipython-foundations/rl.toml \
+  deps/verifiers/configs/prime_agent_qwen35_ipython_continuity_eval.toml
+uv run rl @ configs/debug/ipython-foundations/continuity-rl.toml \
   --max-steps 4 \
-  --output-dir /ephemeral/outputs/prime-agent-qwen35-ipython-foundations-smoke-r1
+  --output-dir /ephemeral/outputs/prime-agent-qwen35-ipython-continuity-smoke-r1
 ```
 
 After the final weight update is loaded by inference, repeat the same eval command.
-Proceed to the unmodified 48-step `rl.toml` only if all optimizer steps are finite,
-rollouts complete without infrastructure errors, and held-out stream accuracy or the
-family diagnostics improve without an increase in identical consecutive IPython calls.
-The subprocess family must also improve complete result observation and error-directed
-operation revision without increasing raw PDF-byte fallbacks.
-For recovery streams, require `recovery_round_coverage` to improve rather than relying
-on aggregate answer accuracy: each round must expose real kernel feedback and repair it
-with retained state.
+The continuity eval runs eight held-out task definitions twice to reduce single-sample
+noise. Promote the four-step adapter to the 16-step `continuity-rl.toml` only if
+`cross_turn_state_reused`, `silent_assignment_recovered`, and `process_score` improve
+without more identical calls or IPython calls. Do not promote on answer accuracy alone.
+
+Only after continuity passes should `rl.toml` reintroduce recovery and subprocess
+families. For recovery, require `recovery_round_coverage` to improve. For subprocesses,
+require complete process-result observation and error-directed operation revision
+without increasing raw PDF-byte fallbacks.

@@ -265,6 +265,22 @@ def test_sdpo_ttt_smoke_config_repeats_one_attempt_group_per_update():
     assert config.trainer.scheduler.type == "constant"
 
 
+def test_ipython_continuity_config_stages_persistent_state_first():
+    config = cli(
+        RLConfig,
+        args=["@", "configs/debug/ipython-foundations/continuity-rl.toml"],
+    )
+
+    source = config.orchestrator.train.source[0]
+    assert config.max_steps == 16
+    assert config.seq_len == 24576
+    assert source.env.taskset.id == "ipython-foundations-v1"
+    assert source.env.taskset.families == ("assignment", "state")
+    assert source.env.taskset.instruction_level == "explicit"
+    assert source.env.agent.max_turns == 12
+    assert source.sampling.max_completion_tokens == 1024
+
+
 def test_zero_train_batch_lead_rejects_token_batching():
     with pytest.raises(ValidationError, match="requires rollout-based batch_size"):
         OrchestratorConfig.model_validate(
