@@ -277,8 +277,8 @@ def test_sdpo_ttt_smoke_config_repeats_one_attempt_group_per_update():
     ),
     [
         ("01-completion-rl.toml", "completion", "explicit", 4, 4, 8192, None),
-        ("02-assignment-rl.toml", "assignment", "standard", 13, 6, 12288, 1),
-        ("03-state-rl.toml", "state", "standard", 13, 10, 24576, None),
+        ("02-assignment-rl.toml", "assignment", "standard", 4, 6, 12288, 1),
+        ("03-state-rl.toml", "state", "standard", 4, 10, 24576, None),
     ],
 )
 def test_ipython_configs_stage_foundational_behaviors_separately(
