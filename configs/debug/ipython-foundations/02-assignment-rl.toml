@@ -1,6 +1,6 @@
 # Rung 2: accept a silent assignment, use the variable, then answer.
 
-max_steps = 4
+max_steps = 13
 seq_len = 12288
 output_dir = "/ephemeral/ipython-rungs/outputs/02-assignment"
 clean_output_dir = true

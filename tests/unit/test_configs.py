@@ -270,25 +270,32 @@ def test_sdpo_ttt_smoke_config_repeats_one_attempt_group_per_update():
         "filename",
         "family",
         "instruction_level",
+        "max_steps",
         "max_turns",
         "seq_len",
         "rounds_per_task",
     ),
     [
-        ("01-completion-rl.toml", "completion", "explicit", 4, 8192, None),
-        ("02-assignment-rl.toml", "assignment", "standard", 6, 12288, 1),
-        ("03-state-rl.toml", "state", "standard", 10, 24576, None),
+        ("01-completion-rl.toml", "completion", "explicit", 4, 4, 8192, None),
+        ("02-assignment-rl.toml", "assignment", "standard", 13, 6, 12288, 1),
+        ("03-state-rl.toml", "state", "standard", 13, 10, 24576, None),
     ],
 )
 def test_ipython_configs_stage_foundational_behaviors_separately(
-    filename, family, instruction_level, max_turns, seq_len, rounds_per_task
+    filename,
+    family,
+    instruction_level,
+    max_steps,
+    max_turns,
+    seq_len,
+    rounds_per_task,
 ):
     config = cli(
         RLConfig,
         args=["@", f"configs/debug/ipython-foundations/{filename}"],
     )
     source = config.orchestrator.train.source[0]
-    assert config.max_steps == 4
+    assert config.max_steps == max_steps
     assert config.seq_len == seq_len
     assert source.env.taskset.id == "ipython-foundations-v1"
     assert source.env.taskset.families == (family,)
