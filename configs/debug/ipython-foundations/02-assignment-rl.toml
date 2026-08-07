@@ -1,7 +1,7 @@
 # Rung 2: accept a silent assignment, use the variable, then answer.
 
 max_steps = 4
-seq_len = 12288
+seq_len = 8192
 output_dir = "/ephemeral/ipython-rungs/outputs/02-assignment"
 clean_output_dir = true
 
@@ -86,7 +86,7 @@ rounds_per_task = 1
 [orchestrator.train.source.env.agent]
 max_turns = 6
 max_output_tokens = 4096
-max_total_tokens = 12288
+max_total_tokens = 8192
 
 [orchestrator.train.source.env.agent.timeout]
 setup = 300.0
