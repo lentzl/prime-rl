@@ -223,7 +223,7 @@ Use the verified rung-5 merge as the starting point:
 ```bash
 uv run hf download \
   lentzl/rlm-prime-agent-qwen35-file-processing-r1-20260807 \
-  --revision 48c07fc69071781f87d2120c5ee9049b4f65d4b4 \
+  --revision bf46092e9792359edfd514a2cd57108827e6c171 \
   --local-dir /ephemeral/models/qwen35-file-processing-r1
 uv run inference @ \
   configs/debug/ipython-foundations/06-document-control-inference.toml
