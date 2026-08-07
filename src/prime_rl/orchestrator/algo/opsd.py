@@ -57,7 +57,7 @@ class OPSDAlgorithm(Algorithm):
             if not completion_ids or len(student_positions) != len(completion_ids):
                 raise ValueError("OPSD sampled response tokens must be present and position-aligned")
 
-            messages = [node.message.model_dump(exclude_none=True) for node in nodes[:node_index]]
+            messages = [node.message for node in nodes[:node_index]]
             prefix_ids = self._teacher_prefix_ids(messages, rollout.tools, demonstration)
             for position in student_positions:
                 weights[position] = 1.0
@@ -73,26 +73,26 @@ class OPSDAlgorithm(Algorithm):
         sample.sdpo_weights = weights
         sample.sdpo_teacher_spans = spans or None
 
-    def _teacher_prefix_ids(self, messages: list[dict], tools: list, demonstration: str) -> list[int]:
+    def _teacher_prefix_ids(self, messages: list, tools: list, demonstration: str) -> list[int]:
         renderer = self.renderer
         if renderer is None:
             raise RuntimeError("OPSD renderer is not initialized; call Algorithm.setup() first")
-        messages = [dict(message) for message in messages]
         user_index = next(
-            (index for index in range(len(messages) - 1, -1, -1) if messages[index].get("role") == "user"),
+            (index for index in range(len(messages) - 1, -1, -1) if messages[index].role == "user"),
             None,
         )
         if user_index is None:
             raise ValueError("OPSD teacher context requires a user message")
-        question = content_text(messages[user_index].get("content")).strip()
+        question = content_text(messages[user_index].content).strip()
         if not question:
             raise ValueError("OPSD teacher context requires a text question")
-        messages[user_index]["content"] = self.config.template.format(
+        rendered_messages = [message.model_dump(exclude_none=True) for message in messages]
+        rendered_messages[user_index]["content"] = self.config.template.format(
             question=question,
             demonstration=demonstration,
         )
         rendered_tools = [tool.model_dump(exclude_none=True) for tool in tools]
-        prefix_ids = list(renderer.render_ids(messages, tools=rendered_tools, add_generation_prompt=True))
+        prefix_ids = list(renderer.render_ids(rendered_messages, tools=rendered_tools, add_generation_prompt=True))
         return prefix_ids[: self.config.max_reprompt_len]
 
     def _demonstration(self, rollout: Rollout) -> str:
