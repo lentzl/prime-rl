@@ -85,3 +85,40 @@ Only after all three rungs pass should `rl.toml` reintroduce recovery and subpro
 families. For recovery, require `recovery_round_coverage` to improve. For subprocesses,
 require complete process-result observation and error-directed operation revision
 without increasing raw PDF-byte fallbacks.
+
+## Rung 4: Error-Directed Recovery
+
+The locally verified cumulative checkpoint is the start of this rung:
+
+```bash
+uv run hf download \
+  lentzl/rlm-prime-agent-qwen35-ipython-foundations-r1-20260807 \
+  --revision 4bb1d809b79c34705f23ad2f069dea5ec09db943 \
+  --local-dir /ephemeral/models/qwen35-ipython-foundations-r1
+uv run inference @ \
+  configs/debug/ipython-foundations/04-recovery-inference.toml
+```
+
+Run the recovery and foundation-regression baselines independently before training:
+
+```bash
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_ipython_recovery_eval.toml
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_ipython_foundation_regression_eval.toml
+uv run rl @ configs/debug/ipython-foundations/04-recovery-rl.toml
+```
+
+This rung uses GRPO because the learner must execute the stale operation and receive
+the live kernel traceback before choosing its correction. Prompt-inserted or fixed
+golden traceback text is not used. Guided training states the recovery invariant but
+does not reveal executable repair code; held-out evaluation removes the family-specific
+hint while retaining the shared notebook policy.
+
+Evaluate every four-step checkpoint on both profiles. Select a checkpoint only when
+`recovery_round_coverage`, `document_text_extracted`, and
+`summary_reused_extraction` improve while `document_extra_errors`,
+`repeated_error_signatures`, `file_acquisition_calls`, and raw-byte fallbacks do not.
+The earlier completion, silent-assignment, state-continuity, and answer-accuracy gates
+must remain within baseline variance. Do not publish the final step merely because it
+is last; publish the best checkpoint that passes both capability and regression gates.
