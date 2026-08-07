@@ -1,0 +1,49 @@
+# Seed the two-call notebook behavior for two passes before SDPO refinement.
+
+max_steps = 24
+output_dir = "/ephemeral/ipython-rungs/outputs/02-assignment-sft"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 24
+keep_last = 1
+keep_interval = 24
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/ipython-rungs/outputs/01-completion/weights/step_4"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+
+[data]
+name = "/ephemeral/ipython-rungs/data/02-assignment-sft"
+seq_len = 8192
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20260806
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 1e-4

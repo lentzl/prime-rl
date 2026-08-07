@@ -132,3 +132,54 @@ def gather_weights_on_master(
         cpu_state = clean_lora_state_dict(cpu_state)
 
     return cpu_state
+
+
+def merge_lora_weights(
+    state_dict: dict[str, Tensor],
+    adapter_state_dict: dict[str, Tensor],
+    scaling: float,
+) -> dict[str, Tensor]:
+    """Merge a PEFT-shaped LoRA adapter into an HF model state dict."""
+    lora_a_suffix = ".lora_A.weight"
+    lora_b_suffix = ".lora_B.weight"
+    lora_a_keys = {key for key in adapter_state_dict if key.endswith(lora_a_suffix)}
+    lora_b_keys = {key for key in adapter_state_dict if key.endswith(lora_b_suffix)}
+
+    expected_b_keys = {f"{key[: -len(lora_a_suffix)]}{lora_b_suffix}" for key in lora_a_keys}
+    if lora_b_keys != expected_b_keys:
+        missing = sorted(expected_b_keys - lora_b_keys)
+        unexpected = sorted(lora_b_keys - expected_b_keys)
+        raise ValueError(f"LoRA adapter pairs do not match: missing B tensors {missing}, unexpected B tensors {unexpected}")
+
+    for lora_a_key in sorted(lora_a_keys):
+        prefix = lora_a_key[: -len(lora_a_suffix)]
+        lora_b_key = f"{prefix}{lora_b_suffix}"
+        weight_key = f"{prefix}.weight"
+        if weight_key not in state_dict:
+            raise KeyError(f"LoRA adapter target {weight_key!r} is absent from model weights")
+
+        base = state_dict[weight_key]
+        lora_a = adapter_state_dict[lora_a_key]
+        lora_b = adapter_state_dict[lora_b_key]
+        if lora_a.ndim != 2 or lora_b.ndim != 2:
+            raise ValueError(
+                f"LoRA tensors for {prefix!r} must be matrices, got A{tuple(lora_a.shape)} and B{tuple(lora_b.shape)}"
+            )
+        if lora_b.shape[1] != lora_a.shape[0] or base.shape != (
+            lora_b.shape[0],
+            lora_a.shape[1],
+        ):
+            raise ValueError(
+                f"LoRA tensors for {prefix!r} do not match base shape "
+                f"{tuple(base.shape)}: A{tuple(lora_a.shape)}, B{tuple(lora_b.shape)}"
+            )
+
+        merged = torch.addmm(
+            base.float(),
+            lora_b.float(),
+            lora_a.float(),
+            alpha=scaling,
+        )
+        state_dict[weight_key] = merged.to(base.dtype)
+
+    return state_dict

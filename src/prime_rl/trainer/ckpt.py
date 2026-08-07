@@ -28,6 +28,7 @@ from prime_rl.trainer.optim import CPUOffloadOptimizer
 from prime_rl.trainer.runs import Progress, get_multi_run_manager
 from prime_rl.trainer.weights import (
     gather_weights_on_master,
+    merge_lora_weights,
     save_state_dict,
 )
 from prime_rl.trainer.world import get_world
@@ -374,17 +375,17 @@ class WeightCheckpointManager:
             step_path = self.get_step_path(step)
             (step_path / "STABLE").touch()
 
-    def get_run_adapter_state_dict(self) -> dict[str, Tensor]:
+    def get_run_adapter_state_dict(self, *, peft_prefix: bool = True) -> dict[str, Tensor]:
         lora_state_dict = {
-            f"base_model.model.{key}": (value.full_tensor() if isinstance(value, DTensor) else value).to(
-                "cpu", non_blocking=False
-            )
+            key: (value.full_tensor() if isinstance(value, DTensor) else value).to("cpu", non_blocking=False)
             for key, value in get_multi_run_manager().get_state_dict_for_run(0).items()
         }
 
         if not lora_state_dict:
             raise ValueError("The LoRA state dict is empty. Something went wrong.")
 
+        if peft_prefix:
+            return {f"base_model.model.{key}": value for key, value in lora_state_dict.items()}
         return lora_state_dict
 
     def save_to_path(
@@ -469,13 +470,14 @@ class WeightCheckpointManager:
             for key in getattr(model, "_tied_weights_keys", []):
                 state_dict.pop(key, None)
 
-        if has_lora_layers(model) and self.config.save_adapter_separately:
+        has_lora = has_lora_layers(model)
+        if has_lora:
             self.logger.debug("Getting run adapter state dict for weight checkpoint")
             start_time = time.perf_counter()
-            lora_state_dict = self.get_run_adapter_state_dict()
+            merge_state_dict = self.get_run_adapter_state_dict(peft_prefix=False)
             self.logger.debug(f"Got run adapter state dict in {time.perf_counter() - start_time:.2f} seconds")
         else:
-            lora_state_dict = None
+            merge_state_dict = None
 
         # Convert to HF hub format if needed
         if isinstance(model, PreTrainedModelPrimeRL) and model.is_prime_state_dict(state_dict):
@@ -492,6 +494,17 @@ class WeightCheckpointManager:
             start_time = time.perf_counter()
             state_dict = revert_weight_conversion(model, state_dict)
             self.logger.debug(f"Reverted to HF hub format in {time.perf_counter() - start_time:.2f} seconds")
+
+        if merge_state_dict is not None and self.world.is_master:
+            scaling = float(get_multi_run_manager().scaling_factors[0].item())
+            self.logger.debug(f"Merging LoRA adapter into weight checkpoint with scaling {scaling}")
+            merge_lora_weights(state_dict, merge_state_dict, scaling)
+
+        lora_state_dict = (
+            {f"base_model.model.{key}": value for key, value in merge_state_dict.items()}
+            if merge_state_dict is not None and self.config.save_adapter_separately and self.world.is_master
+            else None
+        )
 
         # Save weight checkpoint on master rank
         self.save_to_path(step_path, state_dict, lora_state_dict, model, tokenizer, processor)

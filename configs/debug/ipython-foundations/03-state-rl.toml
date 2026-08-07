@@ -22,7 +22,7 @@ keep_interval = 4
 filename = "metrics.jsonl"
 
 [model]
-name = "/ephemeral/ipython-rungs/outputs/02-assignment/weights/step_4"
+name = "/ephemeral/ipython-rungs/outputs/03-state-sft-replay/weights/step_20"
 
 [model.vlm]
 vision_encoder_attr = "model.visual"

@@ -1,0 +1,49 @@
+# Seed cross-request continuity while replaying rung-2 assignment behavior for one epoch.
+
+max_steps = 20
+output_dir = "/ephemeral/ipython-rungs/outputs/03-state-sft-replay"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 20
+keep_last = 1
+keep_interval = 20
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/ipython-rungs/outputs/02-assignment-sft/weights/step_24"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+
+[data]
+name = "/ephemeral/ipython-rungs/data/03-state-sft-replay"
+seq_len = 8192
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20260806
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 1e-4
