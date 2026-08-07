@@ -434,9 +434,7 @@ def train(config: TrainerConfig):
 
             if cp_enabled:
                 if has_global_sdpo:
-                    raise NotImplementedError(
-                        "SDPO top-k distillation is not supported with context parallelism"
-                    )
+                    raise NotImplementedError("SDPO top-k distillation is not supported with context parallelism")
                 # MRoPE batches must merge image embeddings before sharding.
                 defer_vlm_cp_to_model = mm_kwargs is not None and "image_grid_thw" in mm_kwargs
                 if not defer_vlm_cp_to_model:
