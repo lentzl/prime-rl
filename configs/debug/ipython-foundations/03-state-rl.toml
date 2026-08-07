@@ -1,6 +1,6 @@
 # Rung 3: reuse notebook state across dependent user requests.
 
-max_steps = 13
+max_steps = 4
 seq_len = 24576
 output_dir = "/ephemeral/ipython-rungs/outputs/03-state"
 clean_output_dir = true
@@ -22,7 +22,7 @@ keep_interval = 4
 filename = "metrics.jsonl"
 
 [model]
-name = "/ephemeral/ipython-rungs/outputs/02-assignment/weights/step_13"
+name = "/ephemeral/ipython-rungs/outputs/02-assignment/weights/step_4"
 
 [model.vlm]
 vision_encoder_attr = "model.visual"
