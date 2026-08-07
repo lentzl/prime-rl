@@ -8,7 +8,13 @@ from verifiers.v1.graph import MessageNode
 from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
-from prime_rl.orchestrator.algo import EchoAlgorithm, SDPOAlgorithm, stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.algo import (
+    EchoAlgorithm,
+    OPSDAlgorithm,
+    SDPOAlgorithm,
+    stamp_advantages,
+    stamp_loss_routing,
+)
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.transport.types import SDPOTeacherSpan, TrainingSample
@@ -39,7 +45,7 @@ def _ref_kind(ref):
         ("max_rl", {}, "policy", "rl"),
         ("opd", {"teacher": FROZEN}, "policy", "ref_kl"),
         ("sft", {"sampling": {"source": FROZEN}}, "frozen", "ce"),
-        ("opsd", {}, "policy", "ref_kl"),
+        ("opsd", {}, "policy", "sdpo"),
         ("echo", {}, "policy", "rl"),
         ("sdpo", {}, "policy", "sdpo"),
     ],
@@ -330,6 +336,41 @@ def test_echo_weights_observations_by_role():
     algo = _echo_algorithm()  # tool only
     asyncio.run(algo.score_rollout(rollout))
     assert rollout.samples[0].ce_weights is None
+
+
+def test_opsd_builds_paper_ordered_teacher_replays_for_each_turn():
+    rollout = _two_turn_rollout(info={"demonstration": "Expert trajectory"})
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90, 91]
+    algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(model_name="policy"))
+    algo.renderer = renderer
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0]
+    assert sample.sdpo_teacher_spans == [
+        SDPOTeacherSpan(
+            prefix_ids=[90, 91],
+            completion_ids=[3, 4],
+            student_positions=[2, 3],
+            target_offsets=[0, 1],
+        ),
+        SDPOTeacherSpan(
+            prefix_ids=[90, 91],
+            completion_ids=[7, 8],
+            student_positions=[6, 7],
+            target_offsets=[0, 1],
+        ),
+    ]
+    first_messages = renderer.render_ids.call_args_list[0].args[0]
+    prompt = first_messages[0]["content"]
+    assert prompt.index("<Question>\nU") < prompt.index("<Demonstration>\nExpert trajectory")
+    assert prompt.endswith("Now answer with a response of your own, including the thinking process:")
+    assert renderer.render_ids.call_args_list[0].kwargs == {
+        "tools": [],
+        "add_generation_prompt": True,
+    }
 
 
 def test_sdpo_builds_feedback_conditioned_teacher_replay():

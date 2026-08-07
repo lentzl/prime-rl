@@ -228,6 +228,20 @@ def test_sdpo_algorithm_enables_exact_feedback_trainer_runtime():
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
 
 
+def test_opsd_algorithm_enables_distribution_distillation_runtime():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {},
+            "orchestrator": {"algo": {"type": "opsd"}},
+        }
+    )
+
+    assert config.trainer.sdpo_loss.enabled
+    assert config.trainer.sdpo_loss.distillation_topk == 20
+    assert config.trainer.sdpo_loss.teacher_regularization == "ema"
+    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+
+
 def test_sdpo_debug_config_disables_thinking_for_student_and_teacher():
     config = cli(RLConfig, args=["@", "configs/debug/algo/sdpo.toml"])
 

@@ -383,9 +383,9 @@ class RLConfig(BaseConfig):
     def auto_setup_sdpo(self):
         algorithms = [self.orchestrator.algo]
         algorithms.extend(source.algo for source in self.orchestrator.train.source if source.algo is not None)
-        if not any(algo.type == "sdpo" for algo in algorithms):
+        if not any(algo.action_loss_type == "sdpo" for algo in algorithms):
             if self.trainer.sdpo_loss.enabled:
-                raise ValueError("trainer.sdpo_loss.enabled requires an SDPO algorithm.")
+                raise ValueError("trainer.sdpo_loss.enabled requires a self-distillation algorithm.")
             return self
 
         self.trainer.sdpo_loss.enabled = True
@@ -397,16 +397,15 @@ class RLConfig(BaseConfig):
             raise ValueError("SDPO does not support batch-normalized rollout importance weights yet.")
         if self.trainer.model.cp != 1:
             raise ValueError("SDPO does not support context parallelism yet.")
-        if self.trainer.model.vlm is not None:
-            raise ValueError("SDPO does not support multimodal models yet.")
         if self.trainer.model.quantization is not None:
-            raise ValueError("SDPO EMA teacher training does not support FP8 quantization yet.")
+            raise ValueError("Self-distillation EMA teacher training does not support FP8 quantization yet.")
         if self.trainer.model.lora is not None and self.trainer.sdpo_loss.teacher_regularization == "ema":
-            raise ValueError("SDPO EMA teacher training does not support LoRA yet.")
+            raise ValueError("Self-distillation EMA teacher training does not support LoRA yet.")
         if self.trainer.model.fused_lm_head_token_chunk_size != "disabled":
             if "fused_lm_head_token_chunk_size" in self.trainer.model.model_fields_set:
                 raise ValueError(
-                    "SDPO requires trainer.model.fused_lm_head_token_chunk_size='disabled' to expose logits."
+                    "Self-distillation requires trainer.model.fused_lm_head_token_chunk_size='disabled' "
+                    "to expose logits."
                 )
             self.trainer.model.fused_lm_head_token_chunk_size = "disabled"
         return self

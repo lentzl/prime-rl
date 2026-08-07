@@ -316,31 +316,31 @@ class OPDAlgoConfig(BaseAlgoConfig):
 class OPSDAlgoConfig(BaseAlgoConfig):
     type: Literal["opsd"] = "opsd"
     """On-policy self-distillation (SDFT, https://arxiv.org/abs/2601.19897):
-    the per-token signal is the reverse KL against the live policy conditioned
-    on an expert demonstration. The teacher *is* the policy — self-distillation
-    names no separate model — scoring each sample with the demonstration
-    prepended as a leading system message. The sample is scored verbatim (no
-    re-rendering), so it's robust to tool/multimodal prompts and works for any
-    number of turns. No scalar advantage is assigned — rollouts keep
-    ``advantages=None`` (advantage-based filters never fire) and samples ship no
-    advantage stream."""
+    the student samples on-policy, while a version of the same model conditioned
+    on the task's expert demonstration supplies the per-token distribution
+    target. Teacher prefixes follow the paper's question-then-demonstration
+    template and preserve prior turns for agentic trajectories. No scalar
+    advantage is assigned."""
 
-    action_loss_type: ClassVar[ActionLossType] = "ref_kl"
+    action_loss_type: ClassVar[ActionLossType] = "sdpo"
 
     demo_key: str = "demonstration"
     """Key holding the expert demonstration text — looked up in the example's
     ``info`` dict first, then as a top-level rollout field (e.g. ``answer``)."""
 
-    template: str = "Here is an example of an expert response:\n<demonstration>\n{demonstration}\n</demonstration>"
-    """Content of the leading system message carrying the demonstration.
-    Receives ``{demonstration}``; the original question stays in the (verbatim)
-    user turn, so it isn't templated here."""
+    template: str = (
+        "<Question>\n{question}\n"
+        "This is an example for a response to the question:\n"
+        "<Demonstration>\n{demonstration}\n"
+        "Now answer with a response of your own, including the thinking process:"
+    )
+    """Teacher user-message template from Section 3 of the SDFT paper."""
+
+    max_reprompt_len: int = Field(10240, ge=1)
+    """Maximum rendered teacher-prefix length before appending the on-policy response."""
 
     renderer: RendererConfig = AutoRendererConfig()
-    """Renderer family for the hint block. The tokenizer is always the live
-    policy's (self-distillation has no separate model — not configurable).
-    Defaults to ``"auto"`` (resolved from the policy tokenizer); set explicitly
-    to match a non-auto policy renderer."""
+    """Renderer used to construct the demonstration-conditioned teacher prefix."""
 
 
 class SDPOAlgoConfig(BaseAlgoConfig):
