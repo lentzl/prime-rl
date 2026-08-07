@@ -2907,7 +2907,7 @@ wheels = [
 
 [[package]]
 name = "ipython-foundations-v1"
-version = "0.8.0"
+version = "0.9.0"
 source = { editable = "deps/verifiers/environments/ipython_foundations_v1" }
 dependencies = [
     { name = "verifiers" },

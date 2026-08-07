@@ -122,3 +122,66 @@ Evaluate every four-step checkpoint on both profiles. Select a checkpoint only w
 The earlier completion, silent-assignment, state-continuity, and answer-accuracy gates
 must remain within baseline variance. Do not publish the final step merely because it
 is last; publish the best checkpoint that passes both capability and regression gates.
+
+## Rung 5: Typed File Processing
+
+Start from the locally verified recovery checkpoint rather than the original Qwen
+snapshot:
+
+```bash
+uv run hf download \
+  lentzl/rlm-prime-agent-qwen35-ipython-recovery-r2-20260807 \
+  --revision cb6acc9b6187b34645c83b9e5b876c2ea226bb9c \
+  --local-dir /ephemeral/models/qwen35-ipython-recovery-r2
+uv run inference @ \
+  configs/debug/ipython-foundations/05-file-processing-inference.toml
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_file_processing_eval.toml
+```
+
+Build a compact replay set and the file-processing demonstrations. One assignment
+instance contributes 12 examples, one state instance contributes four examples, and
+the new matrix contributes 20, for 36 total examples:
+
+```bash
+uv run python scripts/export_ipython_assignment_sft.py \
+  /ephemeral/ipython-rungs/data/05-assignment-replay/train.json \
+  --instances 1
+uv run python scripts/export_ipython_state_sft.py \
+  /ephemeral/ipython-rungs/data/05-state-replay/train.json \
+  --instances 1 \
+  --assignment-replay \
+    /ephemeral/ipython-rungs/data/05-assignment-replay/train.json
+uv run python scripts/export_ipython_file_processing_sft.py \
+  /ephemeral/ipython-rungs/data/05-file-processing-sft/train.json \
+  --instances 5 \
+  --replay /ephemeral/ipython-rungs/data/05-state-replay/train.json
+uv run sft @ configs/debug/ipython-foundations/05-file-processing-sft.toml
+```
+
+The 18 SFT steps are exactly two epochs at batch size four. Restart inference from
+`/ephemeral/ipython-rungs/outputs/05-file-processing-sft/weights/step_18` and run the
+file-processing and foundation-regression gates independently. The supervised seed
+teaches the short call structure; GRPO remains responsible for executing controlled
+failures in the live kernel and adapting to their actual output:
+
+```bash
+uv run inference @ \
+  configs/debug/ipython-foundations/05-file-processing-inference.toml \
+  --model.name \
+    /ephemeral/ipython-rungs/outputs/05-file-processing-sft/weights/step_18
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_file_processing_eval.toml \
+  --model /ephemeral/ipython-rungs/outputs/05-file-processing-sft/weights/step_18
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_ipython_foundation_regression_eval.toml \
+  --model /ephemeral/ipython-rungs/outputs/05-file-processing-sft/weights/step_18
+uv run rl @ configs/debug/ipython-foundations/05-file-processing-rl.toml
+```
+
+Evaluate SFT before spending RL compute. Advance only if structured-result inspection,
+path reuse, extraction, and `grounded_file_answer` improve without regressing silent
+assignment or state continuity. During GRPO, compare steps 4, 8, and 12; reject a
+checkpoint that raises repeated-cell or extra-error counts even if answer accuracy
+improves. Malformed, scanned, encrypted, and unknown inputs may terminate with an
+evidenced limitation, but an empty parser result without diagnosis is not success.
