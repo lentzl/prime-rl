@@ -1,6 +1,6 @@
-# Test whether one replay-mixed epoch preserves prior IPython capabilities better.
+# Approximate one replay-mixed pass with PrimeRL's token-packed SFT loader.
 
-max_steps = 15
+max_steps = 2
 output_dir = "/ephemeral/ipython-rungs/outputs/06-document-control-sft-1epoch"
 clean_output_dir = true
 
@@ -8,9 +8,9 @@ clean_output_dir = true
 num_gpus = 1
 
 [ckpt]
-interval = 15
+interval = 2
 keep_last = 1
-keep_interval = 15
+keep_interval = 2
 
 [file_monitor]
 filename = "metrics.jsonl"

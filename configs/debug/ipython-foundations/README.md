@@ -234,8 +234,10 @@ failures, including `len(reader)`. A changed post-traceback cell receives only p
 credit; aligned repair requires successful all-page extraction and displayed source
 evidence. Final answers must parse as the exact requested JSON object.
 
-Generate 24 new examples and replay all 36 rung-5 examples. At batch size four, 30 SFT
-steps are exactly two epochs over the resulting 60-example dataset:
+Generate 24 new examples and replay all 36 rung-5 examples. PrimeRL packs multiple
+short examples into each 8,192-token sequence, so optimizer steps cannot be converted
+to epochs from the 60-row count alone. The initial 30-update stress run is retained for
+comparison:
 
 ```bash
 uv run python scripts/export_ipython_document_control_sft.py \
@@ -245,10 +247,12 @@ uv run python scripts/export_ipython_document_control_sft.py \
 uv run sft @ configs/debug/ipython-foundations/06-document-control-sft.toml
 ```
 
-The first two-epoch run made the document-control gate perfect but regressed the held-out
-assignment gate: process score fell from `0.771` to `0.591`, final correctness from
-`0.250` to `0.125`, and identical retries rose from `0.250` to `0.750`. Preserve that
-step-30 checkpoint as an ablation and test the otherwise identical one-epoch recipe:
+The 30-update run traversed 14 packed-loader epochs. It made the document-control gate
+perfect but regressed the held-out assignment gate: process score fell from `0.771` to
+`0.591`, final correctness from `0.250` to `0.125`, and identical retries rose from
+`0.250` to `0.750`. Preserve that step-30 checkpoint as an ablation and test an
+otherwise identical single-pass approximation. In the observed loader trace, two
+updates consumed 58 examples and the third update entered the next epoch:
 
 ```bash
 uv run sft @ \
