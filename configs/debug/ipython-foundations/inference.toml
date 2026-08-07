@@ -12,3 +12,6 @@ tool_call_parser = "qwen3_coder"
 
 [weight_broadcast]
 type = "filesystem"
+
+[vllm_extra]
+max_num_seqs = 16
