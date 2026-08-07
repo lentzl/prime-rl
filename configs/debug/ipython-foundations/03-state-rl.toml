@@ -52,6 +52,9 @@ group_size = 1
 type = "opsd"
 demo_key = "demonstration"
 
+[orchestrator.algo.renderer]
+name = "qwen3.5"
+
 [orchestrator.renderer]
 name = "qwen3.5"
 enable_thinking = false

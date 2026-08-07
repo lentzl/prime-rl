@@ -298,6 +298,7 @@ def test_ipython_configs_stage_foundational_behaviors_separately(
     if family != "completion":
         assert config.orchestrator.algo.type == "opsd"
         assert config.orchestrator.algo.demo_key == "demonstration"
+        assert config.orchestrator.algo.renderer.name == "qwen3.5"
 
 
 def test_zero_train_batch_lead_rejects_token_batching():
