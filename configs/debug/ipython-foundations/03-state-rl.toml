@@ -69,7 +69,7 @@ base_url = ["http://127.0.0.1:8000/v1"]
 admin_base_url = ["http://127.0.0.1:8100/v1"]
 
 [orchestrator.train.sampling]
-temperature = 0.8
+temperature = 1.0
 max_completion_tokens = 1024
 
 [[orchestrator.train.source]]
