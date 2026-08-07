@@ -78,6 +78,33 @@ curl http://localhost:8000/v1/chat/completions \
 - Entrypoint: `src/prime_rl/entrypoints/inference.py`
 - SLURM: single-node, multi-node, and disaggregated deployments
 
+## Pause, resume, and export
+
+Resume an RL run from a saved trainer checkpoint through the `rl` entrypoint:
+
+```bash
+uv run rl @ path/to/run.toml --ckpt.resume-step 4
+```
+
+When pausing at a checkpoint boundary, wait for both the inference broadcast and
+the trainer checkpoint. A `run_default/broadcasts/step_N/STABLE` marker only
+means the inference adapter can be loaded; optimizer-state serialization may
+still be running. Do not stop the process group until
+`checkpoints/step_N/trainer/.metadata` exists.
+
+PEFT is an optional publishing dependency rather than a training dependency.
+Run a LoRA merge in an isolated uv overlay instead of modifying the project
+environment:
+
+```bash
+uv run --with peft --with huggingface_hub python \
+  deps/verifiers/scripts/merge_hf_lora_checkpoint.py \
+  path/to/adapter path/to/merged-model
+```
+
+Validate the merged export before publication, including tokenizer-derived EOS
+metadata when the model uses chat-turn delimiters.
+
 ## Summary
 
 | Command | Purpose | Typical use |
