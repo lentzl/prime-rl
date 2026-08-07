@@ -1,0 +1,49 @@
+# Test whether one replay-mixed epoch preserves prior IPython capabilities better.
+
+max_steps = 15
+output_dir = "/ephemeral/ipython-rungs/outputs/06-document-control-sft-1epoch"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 15
+keep_last = 1
+keep_interval = 15
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/models/qwen35-file-processing-r1"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+
+[data]
+name = "/ephemeral/ipython-rungs/data/06-document-control-sft"
+seq_len = 8192
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20260806
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 5e-5

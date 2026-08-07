@@ -245,6 +245,20 @@ uv run python scripts/export_ipython_document_control_sft.py \
 uv run sft @ configs/debug/ipython-foundations/06-document-control-sft.toml
 ```
 
+The first two-epoch run made the document-control gate perfect but regressed the held-out
+assignment gate: process score fell from `0.771` to `0.591`, final correctness from
+`0.250` to `0.125`, and identical retries rose from `0.250` to `0.750`. Preserve that
+step-30 checkpoint as an ablation and test the otherwise identical one-epoch recipe:
+
+```bash
+uv run sft @ \
+  configs/debug/ipython-foundations/06-document-control-sft-1epoch.toml
+```
+
+Do not select either SFT duration from training loss. Compare the document-control,
+file-processing, and foundation gates below; only then point the GRPO config at the
+selected checkpoint.
+
 Evaluate the published base and SFT result on three independent gates before GRPO:
 
 ```bash
