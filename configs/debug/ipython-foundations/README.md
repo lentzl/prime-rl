@@ -207,3 +207,59 @@ assignment recovery remained 1.0 and its process score improved from 0.300 after
 to 0.771, but exact final-answer accuracy was only 0.25; assignment reliability is
 therefore the next regression target. The selected policy also repeated more cells
 than the SFT seed, so the no-repeat metric remains a hard gate for the next rung.
+
+Local Omnigent validation of the published merge confirmed clean PDF extraction, CSV
+aggregation, silent assignment, session reload, and generation termination; its full
+suite reported 258 passed and one skipped. The remaining failures define the next
+rung: a full-document request repeated `len(reader)` seven times instead of repairing
+it to `len(reader.pages)`, a recovery probe changed its operation without proving a
+successful repair, one CSV reply ignored the JSON contract, and a PDF answer reversed
+an extracted negation.
+
+## Rung 6: Document Control
+
+Use the verified rung-5 merge as the starting point:
+
+```bash
+uv run hf download \
+  lentzl/rlm-prime-agent-qwen35-file-processing-r1-20260807 \
+  --revision 48c07fc69071781f87d2120c5ee9049b4f65d4b4 \
+  --local-dir /ephemeral/models/qwen35-file-processing-r1
+uv run inference @ \
+  configs/debug/ipython-foundations/06-document-control-inference.toml
+```
+
+The new family pairs affirmative and negated source claims and executes four real PDF
+failures, including `len(reader)`. A changed post-traceback cell receives only partial
+credit; aligned repair requires successful all-page extraction and displayed source
+evidence. Final answers must parse as the exact requested JSON object.
+
+Generate 24 new examples and replay all 36 rung-5 examples. At batch size four, 30 SFT
+steps are exactly two epochs over the resulting 60-example dataset:
+
+```bash
+uv run python scripts/export_ipython_document_control_sft.py \
+  /ephemeral/ipython-rungs/data/06-document-control-sft/train.json \
+  --instances 6 \
+  --replay /ephemeral/ipython-rungs/data/05-file-processing-sft/train.json
+uv run sft @ configs/debug/ipython-foundations/06-document-control-sft.toml
+```
+
+Evaluate the published base and SFT result on three independent gates before GRPO:
+
+```bash
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_document_control_eval.toml
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_file_processing_eval.toml
+uv run eval @ \
+  deps/verifiers/configs/prime_agent_qwen35_ipython_foundation_regression_eval.toml
+uv run rl @ configs/debug/ipython-foundations/06-document-control-rl.toml \
+  --max-steps 4
+```
+
+Advance only when `repair_outcome_observed`, `full_document_text_extracted`,
+`json_contract_followed`, and `source_grounded_claim` improve without increasing
+identical calls or repeated error signatures. File-processing process score and the
+completion, assignment, and state gates must remain within baseline variance. Compare
+each available adapter rather than assuming the final GRPO step is best.

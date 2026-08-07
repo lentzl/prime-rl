@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export short file-processing trajectories with earlier notebook replay."""
+"""Export full-document repair and grounded-claim trajectories."""
 
 from __future__ import annotations
 
@@ -8,7 +8,9 @@ import json
 import random
 from pathlib import Path
 
-from ipython_foundations_v1.file_processing import generate_file_processing_scenario
+from ipython_foundations_v1.document_control import (
+    generate_document_control_scenario,
+)
 from ipython_foundations_v1.generators import TRAIN_VARIANTS
 from ipython_foundations_v1.taskset import SYSTEM_PROMPT
 from ipython_sft_export_utils import (
@@ -19,22 +21,22 @@ from ipython_sft_export_utils import (
 )
 
 
-def _example(variant: int, instance: int, system_prompt: str) -> dict:
+def _example(variant: int, instance: int, prompt: str) -> dict:
     rng = random.Random((20260806 * 1_000_003) + (variant * 10_007) + instance)
-    scenario = generate_file_processing_scenario(variant, instance, rng)
+    scenario = generate_document_control_scenario(variant, instance, rng)
     messages = [
-        {"role": "system", "content": system_prompt},
+        {"role": "system", "content": prompt},
         {
             "role": "user",
             "content": (
-                "Work in the persistent IPython session. Inspect live values and errors, "
-                "preserve successful state, and change failed operations rather than "
-                f"repeating them.\n\n{scenario.instruction}"
+                "Work in the persistent IPython session. Treat the live traceback as "
+                "feedback, prove that the correction succeeds, and preserve literal "
+                f"source meaning.\n\n{scenario.instruction}"
             ),
         },
     ]
     for index, call in enumerate(scenario.expert_calls):
-        call_id = f"file-{variant}-{instance}-{index}"
+        call_id = f"document-control-{variant}-{instance}-{index}"
         messages.extend(
             (
                 {
@@ -50,12 +52,11 @@ def _example(variant: int, instance: int, system_prompt: str) -> dict:
         "messages": messages,
         "tools": [IPYTHON_TOOL],
         "metadata": {
-            "family": "file_processing",
+            "family": "document_control",
             "variant": variant,
             "instance": instance,
-            "file_kind": scenario.file_kind,
+            "file_kind": "pdf",
             "failure_kind": scenario.failure_kind,
-            "terminal_status": scenario.terminal_status,
         },
     }
 
@@ -63,20 +64,20 @@ def _example(variant: int, instance: int, system_prompt: str) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
-    parser.add_argument("--instances", type=int, default=5)
+    parser.add_argument("--instances", type=int, default=6)
     parser.add_argument("--harness-trace", type=Path)
     parser.add_argument("--replay", type=Path)
     args = parser.parse_args()
 
     prompt = system_prompt(args.harness_trace, SYSTEM_PROMPT)
-    file_examples = [
+    document_examples = [
         _example(variant, instance, prompt) for instance in range(args.instances) for variant in TRAIN_VARIANTS
     ]
-    replay = replay_examples(args.replay, {"assignment", "state"})
-    examples = [*file_examples, *replay]
+    replay = replay_examples(args.replay, {"assignment", "state", "file_processing"})
+    examples = [*document_examples, *replay]
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text("".join(json.dumps(row) + "\n" for row in examples))
-    print(f"wrote {len(file_examples)} file-processing and {len(replay)} replay examples to {args.output}")
+    print(f"wrote {len(document_examples)} document-control and {len(replay)} replay examples to {args.output}")
 
 
 if __name__ == "__main__":

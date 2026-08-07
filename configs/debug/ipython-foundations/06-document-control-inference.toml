@@ -1,0 +1,17 @@
+# Colocated inference for the published file-processing checkpoint and rung-6 adapters.
+
+enable_lora = true
+max_lora_rank = 16
+max_loras = 8
+gpu_memory_utilization = 0.17
+
+[model]
+name = "/ephemeral/models/qwen35-file-processing-r1"
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+
+[weight_broadcast]
+type = "filesystem"
+
+[vllm_extra]
+max_num_seqs = 12
