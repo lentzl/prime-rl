@@ -185,3 +185,25 @@ assignment or state continuity. During GRPO, compare steps 4, 8, and 12; reject 
 checkpoint that raises repeated-cell or extra-error counts even if answer accuracy
 improves. Malformed, scanned, encrypted, and unknown inputs may terminate with an
 evidenced limitation, but an empty parser result without diagnosis is not success.
+
+### Rung 5 run record
+
+The first run started from
+`lentzl/rlm-prime-agent-qwen35-ipython-recovery-r2-20260807` at revision
+`cb6acc9b6187b34645c83b9e5b876c2ea226bb9c`. The 36-example replay mix completed
+18 SFT steps, followed by a bounded four-step GRPO run. Held-out file-processing
+evaluation used the same 18 tasks and sampling settings for every candidate:
+
+| Candidate | Process score | Grounded answer | Path reuse | Outcome observed | Extra errors | Repeated calls |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Recovery base | 0.103 | 0.167 | 0.056 | 0.167 | 4.444 | 1.611 |
+| SFT step 18 | 0.354 | 0.222 | 0.333 | 0.389 | 1.833 | 0.056 |
+| GRPO step 3 | **0.492** | **0.389** | **0.444** | **0.667** | **1.556** | 0.278 |
+| GRPO step 4 | 0.338 | 0.389 | 0.444 | 0.556 | 1.944 | 0.722 |
+
+Step 3 was selected instead of the final checkpoint. It retained perfect completion
+and cross-turn state-continuity scores over four held-out samples per family. Silent
+assignment recovery remained 1.0 and its process score improved from 0.300 after SFT
+to 0.771, but exact final-answer accuracy was only 0.25; assignment reliability is
+therefore the next regression target. The selected policy also repeated more cells
+than the SFT seed, so the no-repeat metric remains a hard gate for the next rung.
