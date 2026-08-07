@@ -465,6 +465,8 @@ def train(config: TrainerConfig):
                         temperature=temperatures,
                         mm_kwargs=None,
                         mm_token_type_ids=None,
+                        seq_lens=seq_lens,
+                        seq_lens_are_pre_shard=seq_lens_are_pre_shard,
                         routed_experts=routed_experts,
                     )
                     support_logits = support_out.get("logits")
@@ -482,11 +484,18 @@ def train(config: TrainerConfig):
                         raise ValueError("SDPO teacher replay requires one active LoRA per micro batch")
 
                 teacher_batches = pack_sdpo_teacher_span_batches(sdpo_teacher_spans, config.model.seq_len)
-                for teacher_ids, teacher_position_ids_list, teacher_targets, student_targets in teacher_batches:
+                for (
+                    teacher_ids,
+                    teacher_position_ids_list,
+                    teacher_targets,
+                    student_targets,
+                    teacher_sequence_lengths,
+                ) in teacher_batches:
                     teacher_input_ids = torch.tensor(teacher_ids, dtype=torch.long, device="cuda").unsqueeze(0)
                     teacher_position_ids = torch.tensor(
                         teacher_position_ids_list, dtype=torch.long, device="cuda"
                     ).unsqueeze(0)
+                    teacher_seq_lens = torch.tensor(teacher_sequence_lengths, dtype=torch.long, device="cuda")
                     teacher_temperatures = torch.ones_like(teacher_input_ids, dtype=torch.float)
                     teacher_labels = shift_tensor_left(teacher_input_ids)
 
@@ -504,6 +513,8 @@ def train(config: TrainerConfig):
                             temperature=teacher_temperatures,
                             mm_kwargs=None,
                             mm_token_type_ids=None,
+                            seq_lens=teacher_seq_lens,
+                            seq_lens_are_pre_shard=False,
                             routed_experts=None,
                         )
                         teacher_logits = teacher_out.get("logits")
