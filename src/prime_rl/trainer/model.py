@@ -1380,6 +1380,8 @@ def forward(
     # is split out because it comes from the renderer rather than the processor.
     mm_kwargs: dict[str, Tensor] | None = None,
     mm_token_type_ids: Int[Tensor, "batch seq"] | None = None,
+    support_token_ids: Int[Tensor, "batch seq support"] | None = None,
+    support_topk: int = 0,
     # True when seq_lens holds the full pre-CP-shard document boundaries
     # (kept global because documents can straddle the shard cut).
     seq_lens_are_pre_shard: bool = False,
@@ -1408,6 +1410,10 @@ def forward(
 
     if routed_experts is not None:
         kwargs["routed_experts"] = routed_experts
+    if support_token_ids is not None:
+        kwargs["support_token_ids"] = support_token_ids
+    if support_topk:
+        kwargs["support_topk"] = support_topk
 
     out = model(**kwargs)
 

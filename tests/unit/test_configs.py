@@ -225,7 +225,7 @@ def test_sdpo_algorithm_enables_exact_feedback_trainer_runtime():
     assert config.trainer.sdpo_loss.alpha == 1.0
     assert config.trainer.sdpo_loss.teacher_regularization == "ema"
     assert config.trainer.sdpo_loss.teacher_update_rate == 0.01
-    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    assert config.trainer.model.fused_lm_head_token_chunk_size == 1024
 
 
 def test_opsd_algorithm_enables_distribution_distillation_runtime():
@@ -239,7 +239,7 @@ def test_opsd_algorithm_enables_distribution_distillation_runtime():
     assert config.trainer.sdpo_loss.enabled
     assert config.trainer.sdpo_loss.distillation_topk == 20
     assert config.trainer.sdpo_loss.teacher_regularization == "ema"
-    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    assert config.trainer.model.fused_lm_head_token_chunk_size == 1024
 
 
 def test_sdpo_debug_config_disables_thinking_for_student_and_teacher():
@@ -356,14 +356,15 @@ def test_per_env_sdpo_algorithm_enables_trainer_runtime():
     assert config.trainer.sdpo_loss.enabled
 
 
-def test_sdpo_rejects_explicit_fused_lm_head():
-    with pytest.raises(ValidationError, match="fused_lm_head_token_chunk_size='disabled'"):
-        RLConfig.model_validate(
-            {
-                "trainer": {"model": {"fused_lm_head_token_chunk_size": 128}},
-                "orchestrator": {"algo": {"type": "sdpo"}},
-            }
-        )
+def test_sdpo_accepts_explicit_fused_lm_head():
+    config = RLConfig.model_validate(
+        {
+            "trainer": {"model": {"fused_lm_head_token_chunk_size": 128}},
+            "orchestrator": {"algo": {"type": "sdpo"}},
+        }
+    )
+
+    assert config.trainer.model.fused_lm_head_token_chunk_size == 128
 
 
 def test_trainer_enable_token_export_cli_flag():

@@ -401,13 +401,6 @@ class RLConfig(BaseConfig):
             raise ValueError("Self-distillation EMA teacher training does not support FP8 quantization yet.")
         if self.trainer.model.lora is not None and self.trainer.sdpo_loss.teacher_regularization == "ema":
             raise ValueError("Self-distillation EMA teacher training does not support LoRA yet.")
-        if self.trainer.model.fused_lm_head_token_chunk_size != "disabled":
-            if "fused_lm_head_token_chunk_size" in self.trainer.model.model_fields_set:
-                raise ValueError(
-                    "Self-distillation requires trainer.model.fused_lm_head_token_chunk_size='disabled' "
-                    "to expose logits."
-                )
-            self.trainer.model.fused_lm_head_token_chunk_size = "disabled"
         return self
 
     @model_validator(mode="after")

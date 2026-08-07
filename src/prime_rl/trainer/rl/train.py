@@ -41,7 +41,6 @@ from prime_rl.trainer.rl.sdpo_support import (
     gather_sdpo_student_topk_logprobs,
     gather_sdpo_teacher_topk_logprobs,
     pack_sdpo_teacher_span_batches,
-    select_sdpo_student_topk_support,
 )
 from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
 from prime_rl.trainer.model import (
@@ -471,6 +470,7 @@ def train(config: TrainerConfig):
                 temperatures = shard_for_cp(temperatures, cp_rank=cp_rank, cp_world_size=cp_size)
 
             sdpo_topk_token_ids = None
+            sdpo_model_topk_token_ids = None
             sdpo_topk_logprobs = None
             if has_global_sdpo:
                 if mm_kwargs is not None:
@@ -493,15 +493,21 @@ def train(config: TrainerConfig):
                         seq_lens=seq_lens,
                         seq_lens_are_pre_shard=seq_lens_are_pre_shard,
                         routed_experts=routed_experts,
+                        support_topk=topk,
                     )
-                    support_logits = support_out.get("logits")
-                    if support_logits is None:
-                        raise ValueError(
-                            "SDPO top-k distillation requires trainer logits; "
-                            "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
-                        )
-                    sdpo_topk_token_ids = select_sdpo_student_topk_support(support_logits, temperatures, topk)
-                    del support_out, support_logits
+                    sdpo_model_topk_token_ids = support_out.get("topk_token_ids")
+                    if sdpo_model_topk_token_ids is None:
+                        support_logits = support_out.get("logits")
+                        if support_logits is None:
+                            raise ValueError("SDPO top-k distillation requires trainer logits or fused top-k support")
+                        sdpo_model_topk_token_ids = torch.topk(
+                            support_logits / temperatures.unsqueeze(-1), topk, dim=-1
+                        ).indices
+                    sdpo_topk_token_ids = torch.cat(
+                        [torch.zeros_like(sdpo_model_topk_token_ids[:, :1]), sdpo_model_topk_token_ids[:, :-1]],
+                        dim=1,
+                    )
+                    del support_out
 
                 if config.model.lora:
                     active_loras = torch.nonzero(lora_num_tokens, as_tuple=False).flatten()
@@ -523,6 +529,18 @@ def train(config: TrainerConfig):
                     teacher_seq_lens = torch.tensor(teacher_sequence_lengths, dtype=torch.long, device="cuda")
                     teacher_temperatures = torch.ones_like(teacher_input_ids, dtype=torch.float)
                     teacher_labels = shift_tensor_left(teacher_input_ids)
+                    teacher_support_ids = torch.zeros(
+                        (*teacher_input_ids.shape, topk), dtype=torch.long, device="cuda"
+                    )
+                    student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
+                    teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
+                    if bool((teacher_target_tensor == 0).any()):
+                        raise ValueError("SDPO teacher targets must follow a non-empty teacher prefix")
+                    teacher_model_positions = teacher_target_tensor - 1
+                    if student_targets:
+                        teacher_support_ids[0, teacher_model_positions] = sdpo_topk_token_ids[
+                            0, student_target_tensor
+                        ]
 
                     if config.model.lora:
                         teacher_lora_num_tokens = torch.zeros_like(lora_num_tokens)
@@ -541,26 +559,31 @@ def train(config: TrainerConfig):
                             seq_lens=teacher_seq_lens,
                             seq_lens_are_pre_shard=False,
                             routed_experts=None,
+                            support_token_ids=teacher_support_ids,
                         )
+                        teacher_support_logprobs = teacher_out.get("support_logprobs")
                         teacher_logits = teacher_out.get("logits")
-                        if teacher_logits is None:
-                            raise ValueError(
-                                "SDPO teacher replay requires trainer logits; "
-                                "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
-                            )
+                        if teacher_support_logprobs is None and teacher_logits is None:
+                            raise ValueError("SDPO teacher replay requires trainer logits or fused support logprobs")
                         if sdpo_topk_logprobs is None:
-                            sdpo_topk_logprobs = torch.zeros_like(sdpo_topk_token_ids, dtype=teacher_logits.dtype)
-                        if student_targets:
-                            student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
-                            teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
-                            support_ids = sdpo_topk_token_ids[0, student_target_tensor]
-                            teacher_scores = gather_sdpo_teacher_topk_logprobs(
-                                teacher_logits,
-                                teacher_target_tensor,
-                                support_ids,
+                            output_dtype = (
+                                teacher_support_logprobs.dtype
+                                if teacher_support_logprobs is not None
+                                else teacher_logits.dtype
                             )
+                            sdpo_topk_logprobs = torch.zeros_like(sdpo_topk_token_ids, dtype=output_dtype)
+                        if student_targets:
+                            if teacher_support_logprobs is not None:
+                                teacher_scores = teacher_support_logprobs[0, teacher_model_positions]
+                            else:
+                                support_ids = sdpo_topk_token_ids[0, student_target_tensor]
+                                teacher_scores = gather_sdpo_teacher_topk_logprobs(
+                                    teacher_logits,
+                                    teacher_target_tensor,
+                                    support_ids,
+                                )
                             sdpo_topk_logprobs[0, student_target_tensor] = teacher_scores
-                        del teacher_out, teacher_logits
+                        del teacher_out
 
                 if config.model.lora:
                     set_lora_num_tokens(lora_num_tokens)
@@ -578,23 +601,33 @@ def train(config: TrainerConfig):
                     seq_lens=seq_lens,
                     seq_lens_are_pre_shard=seq_lens_are_pre_shard,
                     routed_experts=routed_experts,
+                    support_token_ids=sdpo_model_topk_token_ids,
                 )
 
             student_topk_logprobs = None
             if sdpo_topk_token_ids is not None:
-                logits = out.get("logits")
-                if logits is None:
-                    raise ValueError(
-                        "SDPO top-k distillation requires trainer logits; "
-                        "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
+                student_support_logprobs = out.get("support_logprobs")
+                if student_support_logprobs is not None:
+                    student_topk_logprobs = torch.cat(
+                        [
+                            torch.zeros_like(student_support_logprobs[:, :1]),
+                            student_support_logprobs[:, :-1],
+                        ],
+                        dim=1,
                     )
-                support_mask = loss_mask if sdpo_weights is None else loss_mask & active_sdpo_weight_mask(sdpo_weights)
-                student_topk_logprobs = gather_sdpo_student_topk_logprobs(
-                    logits,
-                    temperatures,
-                    sdpo_topk_token_ids,
-                    support_mask=support_mask,
-                )
+                else:
+                    logits = out.get("logits")
+                    if logits is None:
+                        raise ValueError("SDPO top-k distillation requires trainer logits or fused support logprobs")
+                    support_mask = (
+                        loss_mask if sdpo_weights is None else loss_mask & active_sdpo_weight_mask(sdpo_weights)
+                    )
+                    student_topk_logprobs = gather_sdpo_student_topk_logprobs(
+                        logits,
+                        temperatures,
+                        sdpo_topk_token_ids,
+                        support_mask=support_mask,
+                    )
 
             if out.get("logprobs") is None:
                 # VanillaOutputLinear was used - need to compute logprobs externally with per-token temps

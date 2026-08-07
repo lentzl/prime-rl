@@ -61,6 +61,47 @@ def test_fused_lm_head_matches_full_logits_forward_and_backward_cpu():
     torch.testing.assert_close(grad_weight1, grad_weight0, rtol=0, atol=1e-5)
 
 
+def test_fused_lm_head_matches_full_logits_for_sdpo_support_cpu():
+    torch.manual_seed(7)
+    b, s, h, v, k = 2, 4, 8, 37, 5
+    temperature = torch.rand((b, s), dtype=torch.float32) + 0.5
+    hidden0 = torch.randn(b, s, h, dtype=torch.float32, requires_grad=True)
+    labels = torch.randint(0, v, (b, s), dtype=torch.long)
+    support_ids = torch.stack([torch.randperm(v)[:k] for _ in range(b * s)]).reshape(b, s, k)
+    weight0 = torch.randn(v, h, dtype=torch.float32, requires_grad=True)
+
+    scaled_logits = hidden0 @ weight0.t() / temperature.unsqueeze(-1)
+    baseline_logprobs = scaled_logits.log_softmax(dim=-1)
+    baseline_support = torch.gather(baseline_logprobs, dim=-1, index=support_ids)
+    baseline_target = torch.gather(baseline_logprobs, dim=-1, index=labels.unsqueeze(-1)).squeeze(-1)
+    baseline_loss = baseline_target.sum() + 0.3 * baseline_support.sum()
+    baseline_loss.backward()
+    grad_hidden0 = hidden0.grad.detach().clone()
+    grad_weight0 = weight0.grad.detach().clone()
+
+    hidden1 = hidden0.detach().clone().requires_grad_(True)
+    lm = FusedOutputLinear(in_features=h, out_features=v, chunk_size=3)
+    lm.weight = torch.nn.Parameter(weight0.detach().clone())
+    out = lm(
+        hidden1,
+        labels,
+        temperature=temperature,
+        support_token_ids=support_ids,
+        support_topk=k,
+    )
+    fused_loss = out["logprobs"].sum() + 0.3 * out["support_logprobs"].sum()
+    fused_loss.backward()
+
+    torch.testing.assert_close(out["logprobs"], baseline_target, rtol=0, atol=1e-5)
+    torch.testing.assert_close(out["support_logprobs"], baseline_support, rtol=0, atol=1e-5)
+    torch.testing.assert_close(
+        out["topk_token_ids"],
+        torch.topk(scaled_logits.detach(), k, dim=-1).indices,
+    )
+    torch.testing.assert_close(hidden1.grad, grad_hidden0, rtol=0, atol=1e-5)
+    torch.testing.assert_close(lm.weight.grad, grad_weight0, rtol=0, atol=1e-5)
+
+
 def test_fused_lm_head_frozen_weight_backward_cpu():
     """Frozen LM-head weight: hidden gradient matches baseline, no weight gradient is produced."""
     torch.manual_seed(0)
