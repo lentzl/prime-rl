@@ -46,10 +46,11 @@ lr = 1e-5
 
 [orchestrator]
 batch_size = 12
-group_size = 4
+group_size = 1
 
 [orchestrator.algo]
-type = "grpo"
+type = "opsd"
+demo_key = "demonstration"
 
 [orchestrator.renderer]
 name = "qwen3.5"
@@ -70,7 +71,7 @@ name = "prime-agent-ipython-assignment"
 id = "ipython-foundations-v1"
 split = "train"
 families = ["assignment"]
-instruction_level = "explicit"
+instruction_level = "standard"
 instances_per_template = 4
 rounds_per_task = 1
 

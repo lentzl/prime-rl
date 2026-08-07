@@ -276,8 +276,8 @@ def test_sdpo_ttt_smoke_config_repeats_one_attempt_group_per_update():
     ),
     [
         ("01-completion-rl.toml", "completion", "explicit", 4, 8192, None),
-        ("02-assignment-rl.toml", "assignment", "explicit", 6, 12288, 1),
-        ("03-state-rl.toml", "state", "explicit", 10, 24576, None),
+        ("02-assignment-rl.toml", "assignment", "standard", 6, 12288, 1),
+        ("03-state-rl.toml", "state", "standard", 10, 24576, None),
     ],
 )
 def test_ipython_configs_stage_foundational_behaviors_separately(
@@ -295,6 +295,9 @@ def test_ipython_configs_stage_foundational_behaviors_separately(
     assert source.env.taskset.instruction_level == instruction_level
     assert source.env.taskset.rounds_per_task == rounds_per_task
     assert source.env.agent.max_turns == max_turns
+    if family != "completion":
+        assert config.orchestrator.algo.type == "opsd"
+        assert config.orchestrator.algo.demo_key == "demonstration"
 
 
 def test_zero_train_batch_lead_rejects_token_batching():
