@@ -280,6 +280,23 @@ Run only four updates initially and evaluate both step 2 and step 4. The mixed r
 an ablation of feedback-conditioned preservation, not permission to discard either SFT
 trace or the published rung-5 starting point.
 
+The four-update ablation completed, but neither checkpoint is a promotion candidate.
+Step 4 improved general file handling over rung 5: process score reached `0.520`, exact
+answers `0.556`, observed path reuse `0.833`, extra errors `0.889`, and identical calls
+`0.056`. It simultaneously lost document grounding and regressed assignment control to
+`0.519` process score with `2.125` identical calls. Step 2 retained only partial document
+gains, scored `0.484` on file process, and still produced `1.500` identical assignment
+calls. Completion and persistent state remained nearly perfect; one step-2 completion
+rollout ended in a harness error and was excluded from model averages.
+
+Keep `lentzl/rlm-prime-agent-qwen35-file-processing-r1-20260807` at revision
+`bf46092e9792359edfd514a2cd57108827e6c171` as the stable starting point. The next
+training attempt should first change reward semantics: any unchanged repeated cell must
+zero process reward, and file/document trajectories without explicit structured-result
+inspection must not receive an aligned reward merely for reaching a correct answer.
+Negation/source grounding should also receive a direct held-out reward rather than only
+being reported as a metric. Do not spend another run on the current soft aggregation.
+
 Evaluate the published base and SFT result on three independent gates before GRPO:
 
 ```bash
