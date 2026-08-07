@@ -263,6 +263,23 @@ Do not select either SFT duration from training loss. Compare the document-contr
 file-processing, and foundation gates below; only then point the GRPO config at the
 selected checkpoint.
 
+Neither SFT duration dominated all three gates. Step 2 improved document-control
+process score from `0.563` to `0.767` and exact answers from `0.083` to `0.250`, while
+the file-processing score moved from `0.492` to `0.508`. However, structured-result
+inspection fell from `0.222` to `0.056`, and assignment episodes developed repeated
+calls. Step 30 mastered the new gate but regressed assignment more broadly. The next
+experiment therefore starts from the intact rung-5 base and mixes live feedback at a
+`2:1:1` ratio across document control, file processing, and assignment recovery:
+
+```bash
+uv run rl @ \
+  configs/debug/ipython-foundations/06-document-control-mixed-rl.toml
+```
+
+Run only four updates initially and evaluate both step 2 and step 4. The mixed run is
+an ablation of feedback-conditioned preservation, not permission to discard either SFT
+trace or the published rung-5 starting point.
+
 Evaluate the published base and SFT result on three independent gates before GRPO:
 
 ```bash
