@@ -5,7 +5,7 @@ import pydantic
 import pytest
 import verifiers.v1 as vf
 from verifiers.v1.graph import MessageNode
-from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
+from verifiers.v1.types import AssistantMessage, TextContentPart, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.orchestrator.algo import (
@@ -340,6 +340,7 @@ def test_echo_weights_observations_by_role():
 
 def test_opsd_builds_paper_ordered_teacher_replays_for_each_turn():
     rollout = _two_turn_rollout(info={"demonstration": "Expert trajectory"})
+    rollout.nodes[0].message = UserMessage(content=[TextContentPart(text="U")])
     renderer = MagicMock()
     renderer.render_ids.return_value = [90, 91]
     algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(model_name="policy"))

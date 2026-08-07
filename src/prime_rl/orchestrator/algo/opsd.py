@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from verifiers.v1.types import content_text
+
 from prime_rl.configs.algorithm import OPSDAlgoConfig
 from prime_rl.orchestrator.algo.base import Algorithm
 from prime_rl.transport import SDPOTeacherSpan
@@ -82,9 +84,9 @@ class OPSDAlgorithm(Algorithm):
         )
         if user_index is None:
             raise ValueError("OPSD teacher context requires a user message")
-        question = messages[user_index].get("content")
-        if not isinstance(question, str):
-            raise ValueError("OPSD currently supports text-only prompts")
+        question = content_text(messages[user_index].get("content")).strip()
+        if not question:
+            raise ValueError("OPSD teacher context requires a text question")
         messages[user_index]["content"] = self.config.template.format(
             question=question,
             demonstration=demonstration,
