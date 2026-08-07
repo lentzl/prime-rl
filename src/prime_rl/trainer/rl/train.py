@@ -529,18 +529,14 @@ def train(config: TrainerConfig):
                     teacher_seq_lens = torch.tensor(teacher_sequence_lengths, dtype=torch.long, device="cuda")
                     teacher_temperatures = torch.ones_like(teacher_input_ids, dtype=torch.float)
                     teacher_labels = shift_tensor_left(teacher_input_ids)
-                    teacher_support_ids = torch.zeros(
-                        (*teacher_input_ids.shape, topk), dtype=torch.long, device="cuda"
-                    )
+                    teacher_support_ids = torch.zeros((*teacher_input_ids.shape, topk), dtype=torch.long, device="cuda")
                     student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
                     teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
                     if bool((teacher_target_tensor == 0).any()):
                         raise ValueError("SDPO teacher targets must follow a non-empty teacher prefix")
                     teacher_model_positions = teacher_target_tensor - 1
                     if student_targets:
-                        teacher_support_ids[0, teacher_model_positions] = sdpo_topk_token_ids[
-                            0, student_target_tensor
-                        ]
+                        teacher_support_ids[0, teacher_model_positions] = sdpo_topk_token_ids[0, student_target_tensor]
 
                     if config.model.lora:
                         teacher_lora_num_tokens = torch.zeros_like(lora_num_tokens)
