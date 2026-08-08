@@ -111,6 +111,7 @@ members = [
     "senior-swe-bench-v1",
     "simpleqa-v1",
     "simpleqa-verified-v1",
+    "subagent-communication-v1",
     "swebench-multilingual-v1",
     "swebench-pro-v1",
     "swebench-verified-v1",
@@ -6376,6 +6377,17 @@ wheels = [
 ]
 
 [[package]]
+name = "subagent-communication-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/subagent_communication_v1" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
+
+[[package]]
 name = "supabase"
 version = "2.31.0"
 source = { registry = "https://pypi.org/simple" }
@@ -7518,6 +7530,7 @@ examples = [
     { name = "proposer-solver-v1", editable = "deps/verifiers/environments/proposer_solver_v1" },
     { name = "reverse-text-v1", editable = "deps/verifiers/environments/reverse_text_v1" },
     { name = "scratchpad-v1", editable = "deps/verifiers/environments/scratchpad_v1" },
+    { name = "subagent-communication-v1", editable = "deps/verifiers/environments/subagent_communication_v1" },
     { name = "wiki-search-v1", editable = "deps/verifiers/environments/wiki_search_v1" },
     { name = "wordle-v1", editable = "deps/verifiers/environments/wordle_v1" },
 ]

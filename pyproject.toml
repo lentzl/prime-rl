@@ -145,6 +145,7 @@ members = [
     "deps/verifiers/environments/proposer_solver_v1",
     "deps/verifiers/environments/reasoning_offload_orientation_v1",
     "deps/verifiers/environments/reverse_text_v1",
+    "deps/verifiers/environments/subagent_communication_v1",
     "deps/verifiers/environments/wiki_search_v1",
     "deps/verifiers/environments/wordle_v1",
 ]
