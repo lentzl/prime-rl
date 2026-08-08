@@ -71,7 +71,8 @@ id = "subagent-communication-v1"
 split = "train"
 instruction_level = "guided"
 instances_per_template = 4
-seed = 20260809
+instance_offset = 20
+seed = 20260829
 
 [orchestrator.train.source.env.agent]
 max_turns = 18

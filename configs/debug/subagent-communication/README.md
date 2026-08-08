@@ -42,7 +42,8 @@ uv run sft @ configs/debug/subagent-communication/01-single-sft.toml
 
 The 96 compact examples are balanced between direct coordinator restraint,
 single-child parent behavior, and child reply behavior. They use a separate RNG seed
-and instance IDs starting at 100, disjoint from both RL and held-out eval paths. At
+and instance IDs starting at 100. RL and its calibration probe use a third seed and
+instance IDs starting at 20; held-out eval remains on v4/v5 at the default IDs. At
 batch size four, step 12 is half an epoch and step 24 is one epoch; both checkpoints
 are retained. Evaluate both on uncontaminated guided and standard held-out splits
 before choosing a seed for GRPO refinement or advancing to the parallel-child stage.
