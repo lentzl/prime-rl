@@ -34,9 +34,9 @@ seed the single-child protocol before returning to on-policy optimization:
 
 ```bash
 uv run python scripts/export_subagent_communication_sft.py \
-  /ephemeral/subagent-rung/data/01-single-sft/train.json \
+  /ephemeral/subagent-rung/data/01-single-sft-r2/train.json \
   --instances 8 \
-  --harness-trace /ephemeral/subagent-rung/evals/exact-single-v2/traces.jsonl
+  --harness-trace /ephemeral/subagent-rung/evals/step12-heldout-direct-single/traces.jsonl
 uv run sft @ configs/debug/subagent-communication/01-single-sft.toml
 ```
 
