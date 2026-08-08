@@ -40,9 +40,10 @@ uv run sft @ configs/debug/subagent-communication/01-single-sft.toml
 ```
 
 The 48 compact examples are balanced between direct coordinator restraint,
-single-child parent behavior, and child reply behavior. At batch size four, 24 steps
-are exactly two epochs. Evaluate the SFT checkpoint on both guided train probes and
-the standard held-out split before any GRPO refinement or parallel-child stage.
+single-child parent behavior, and child reply behavior. At batch size four, step 12
+is one epoch and step 24 is two epochs; both checkpoints are retained. Evaluate both
+on guided train probes and the standard held-out split before choosing a seed for
+GRPO refinement or advancing to the parallel-child stage.
 Protocol progress and protocol-gated answer correctness have equal reward weight so
 that repairing one observable protocol step provides a useful signal at 2B scale.
 
