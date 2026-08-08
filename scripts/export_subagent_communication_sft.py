@@ -133,7 +133,9 @@ def _single_examples(task, prompt: str) -> list[dict]:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
-    parser.add_argument("--instances", type=int, default=4)
+    parser.add_argument("--instances", type=int, default=8)
+    parser.add_argument("--instance-offset", type=int, default=100)
+    parser.add_argument("--seed", type=int, default=20260819)
     parser.add_argument("--harness-trace", type=Path)
     args = parser.parse_args()
 
@@ -144,6 +146,8 @@ def main() -> None:
             families=("direct", "single"),
             instruction_level="standard",
             instances_per_template=args.instances,
+            instance_offset=args.instance_offset,
+            seed=args.seed,
         )
     ).load()
     examples = []

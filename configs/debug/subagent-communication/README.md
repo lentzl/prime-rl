@@ -35,15 +35,17 @@ seed the single-child protocol before returning to on-policy optimization:
 ```bash
 uv run python scripts/export_subagent_communication_sft.py \
   /ephemeral/subagent-rung/data/01-single-sft/train.json \
+  --instances 8 \
   --harness-trace /ephemeral/subagent-rung/evals/exact-single-v2/traces.jsonl
 uv run sft @ configs/debug/subagent-communication/01-single-sft.toml
 ```
 
-The 48 compact examples are balanced between direct coordinator restraint,
-single-child parent behavior, and child reply behavior. At batch size four, step 12
-is one epoch and step 24 is two epochs; both checkpoints are retained. Evaluate both
-on guided train probes and the standard held-out split before choosing a seed for
-GRPO refinement or advancing to the parallel-child stage.
+The 96 compact examples are balanced between direct coordinator restraint,
+single-child parent behavior, and child reply behavior. They use a separate RNG seed
+and instance IDs starting at 100, disjoint from both RL and held-out eval paths. At
+batch size four, step 12 is half an epoch and step 24 is one epoch; both checkpoints
+are retained. Evaluate both on uncontaminated guided and standard held-out splits
+before choosing a seed for GRPO refinement or advancing to the parallel-child stage.
 Protocol progress and protocol-gated answer correctness have equal reward weight so
 that repairing one observable protocol step provides a useful signal at 2B scale.
 
