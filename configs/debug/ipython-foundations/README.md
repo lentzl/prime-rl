@@ -4,6 +4,11 @@ This experiment trains persistent notebook semantics before file, skill, or recu
 agent curricula. It starts from the complete adaptive-skills smoke snapshot and uses
 the `ipython-foundations-v1` environment pinned through `deps/verifiers`.
 
+These rungs are Stage 0 of the broader
+[recursive-specialization research target](../../../docs/recursive-specialization-target.md).
+They must stabilize the common RLM substrate before specialist or coordinator results
+can be interpreted cleanly.
+
 ## Setup
 
 ```bash
