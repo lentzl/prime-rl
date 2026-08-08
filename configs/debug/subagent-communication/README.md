@@ -22,11 +22,19 @@ Start inference, establish the held-out baseline, then run GRPO:
 uv run inference @ configs/debug/subagent-communication/inference.toml
 uv run eval @ deps/verifiers/configs/prime_agent_qwen35_subagent_communication_eval.toml \
   --output-dir /ephemeral/subagent-rung/evals/base
+uv run eval @ deps/verifiers/configs/prime_agent_qwen35_subagent_communication_train_probe.toml \
+  --output-dir /ephemeral/subagent-rung/evals/train-probe
 uv run rl @ configs/debug/subagent-communication/rl.toml
 ```
 
-Restart inference from each four-step checkpoint and rerun the held-out eval. Select a
-checkpoint only when `task_accuracy` and `protocol_aligned` improve together. The
+The train probe mirrors one GRPO group for each delegated family. Start RL only when
+at least one family shows nonzero within-group protocol variance; otherwise seed the
+native protocol with supervised traces before returning to on-policy optimization.
+
+Restart inference from each four-step checkpoint and rerun the held-out eval. Delegated
+answer credit is gated on complete protocol alignment, while `answer_accuracy` remains
+available as a diagnostic metric. Select a checkpoint only when `answer_accuracy` and
+`protocol_aligned` improve together. The
 `direct` family must retain zero spawns, `single` must retain one named handle and one
 child reply, `parallel` must retain two named handles and two replies, and `followup`
 must withhold the multiplier at spawn and show both message directions. Any increase
