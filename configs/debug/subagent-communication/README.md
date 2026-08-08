@@ -28,8 +28,23 @@ uv run rl @ configs/debug/subagent-communication/rl.toml
 ```
 
 The train probe mirrors one GRPO group for each delegated family. Start RL only when
-at least one family shows nonzero within-group protocol variance; otherwise seed the
-native protocol with supervised traces before returning to on-policy optimization.
+at least one family shows nonzero within-group protocol variance. The initial probe
+showed partial spawn variance but no delegated payloads or genuine child replies, so
+seed the single-child protocol before returning to on-policy optimization:
+
+```bash
+uv run python scripts/export_subagent_communication_sft.py \
+  /ephemeral/subagent-rung/data/01-single-sft/train.json \
+  --harness-trace /ephemeral/subagent-rung/evals/exact-single-v2/traces.jsonl
+uv run sft @ configs/debug/subagent-communication/01-single-sft.toml
+```
+
+The 48 compact examples are balanced between direct coordinator restraint,
+single-child parent behavior, and child reply behavior. At batch size four, 24 steps
+are exactly two epochs. Evaluate the SFT checkpoint on both guided train probes and
+the standard held-out split before any GRPO refinement or parallel-child stage.
+Protocol progress and protocol-gated answer correctness have equal reward weight so
+that repairing one observable protocol step provides a useful signal at 2B scale.
 
 Restart inference from each four-step checkpoint and rerun the held-out eval. Delegated
 answer credit is gated on complete protocol alignment, while `answer_accuracy` remains
