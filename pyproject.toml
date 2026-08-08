@@ -136,11 +136,14 @@ override-dependencies = [
 [tool.uv.workspace]
 members = [
     "deps/research-environments/environments/*/*",
+    "deps/verifiers/environments/adaptive_skill_stream_v1",
     "deps/verifiers/environments/alphabet_sort_v1",
     "deps/verifiers/environments/color_codeword_v1",
     "deps/verifiers/environments/gsm8k_v1",
+    "deps/verifiers/environments/ipython_foundations_v1",
     "deps/verifiers/environments/kuhn_poker_v1",
     "deps/verifiers/environments/proposer_solver_v1",
+    "deps/verifiers/environments/reasoning_offload_orientation_v1",
     "deps/verifiers/environments/reverse_text_v1",
     "deps/verifiers/environments/wiki_search_v1",
     "deps/verifiers/environments/wordle_v1",
