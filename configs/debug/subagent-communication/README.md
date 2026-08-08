@@ -30,5 +30,5 @@ checkpoint only when `task_accuracy` and `protocol_aligned` improve together. Th
 `direct` family must retain zero spawns, `single` must retain one named handle and one
 child reply, `parallel` must retain two named handles and two replies, and `followup`
 must withhold the multiplier at spawn and show both message directions. Any increase
-in `identical_consecutive_cells` is a regression. Re-run the IPython foundation and
+in `duplicate_cells` is a regression. Re-run the IPython foundation and
 file-processing gates before publishing.
