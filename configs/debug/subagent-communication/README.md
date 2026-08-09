@@ -106,3 +106,19 @@ This produces 192 examples: 32 direct parents, 32 single parents, 32 single chil
 children before coordinator-local work, retain both handles, use bounded native
 observation, and require both explicit replies. Reply order alternates across template
 variants so fan-in does not depend on alpha finishing first.
+
+The full-epoch parallel checkpoint retained 4/4 exact held-out direct and single-child
+behavior. On held-out parallel tasks, all four rollouts spawned two children and
+received both replies; three were exact and three were fully protocol-aligned. Since
+the guided parallel probe still had useful reward variance, refine this rung with the
+low-memory inference server left running on the same GPU:
+
+```bash
+uv run inference @ configs/debug/subagent-communication/inference.toml \
+  --vllm.model /ephemeral/subagent-rung/outputs/03-parallel-sft-r1/weights/step_48
+uv run rl @ configs/debug/subagent-communication/04-parallel-grpo.toml
+```
+
+`num_infer_gpus = 0` means externally managed inference, not no inference. Keep the
+17%-utilization server healthy on ports 8000 and 8100 while the trainer uses the
+remaining GPU memory.
