@@ -51,6 +51,13 @@ instance IDs starting at 20; held-out eval remains on v4/v5 at the default IDs. 
 batch size four, step 12 is half an epoch and step 24 is one epoch; both checkpoints
 are retained. Evaluate both on uncontaminated guided and standard held-out splits
 before choosing a seed for GRPO refinement or advancing to the parallel-child stage.
+
+The rejected r2 seed computed coordinator-local work before spawning. Its step-12
+policy reached the same partial protocol score in all four disjoint rollouts but sent
+zero child replies: the parent finalized while the child's concurrent generation was
+still in flight. Step 24 then exhausted the turn budget in both confirmation rollouts
+despite near-zero imitation loss. Treat spawn-first scheduling and live protocol eval,
+not supervised loss, as admission requirements for later communication rungs.
 Protocol progress and protocol-gated answer correctness have equal reward weight so
 that repairing one observable protocol step provides a useful signal at 2B scale.
 
