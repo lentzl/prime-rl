@@ -184,3 +184,19 @@ raises follow-up parent/child traces to half of the corpus. The spawn contract n
 the child role, forbids self-delegation and child-directed messages from that role,
 and makes ending then resuming after a parent message explicit. Steps 48 and 96 remain
 behavioral selection points; lower training loss alone is not admission evidence.
+
+The role-conditioned repair also failed admission. Step 48 completed all four guided
+rollouts but had zero answer accuracy and zero aligned protocols. Step 96 became
+blocked inside its first harness episode for more than six minutes with no model
+requests after the initial exchange, so stop it rather than waiting through four
+rollout timeouts. Exact transcript repetition improved imitation loss but did not
+teach the causal pause/resume boundary.
+
+Do not add another hand-authored SFT variant. Collect successful follow-up episodes
+from a stronger instruct teacher in the real Prime Agent harness, preserve the actual
+root and child branches, and export only observed successful protocols for 2B
+distillation. Use `Qwen/Qwen3.5-9B` as the temporary teacher: it fits this 48 GiB GPU
+for inference, shares the learner's tokenizer and chat family, and does not change the
+2B deployment target. Teacher traces must pass the same scorer before entering a new
+SFT corpus; failed or partially aligned traces remain eval evidence, not training
+demonstrations.
