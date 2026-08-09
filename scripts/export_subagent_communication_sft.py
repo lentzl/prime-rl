@@ -28,10 +28,9 @@ def _local_values(prompt: str) -> list[int]:
 
 def _child_prompt(path: str) -> str:
     return (
-        f"Read {path}, compute its weighted checksum, then make a separate final IPython "
-        "call exactly await agent_message.send(str(checksum), receiver_role='parent'). "
-        "Your task is incomplete until that call succeeds; do not finish with only a normal "
-        "assistant answer."
+        f"Read {path}, compute its weighted checksum, and before any final answer call "
+        "await agent_message.send(str(checksum), receiver_role='parent') in IPython. "
+        "Your task is incomplete until that call returns a delivery receipt."
     )
 
 
@@ -72,16 +71,11 @@ def _single_examples(task, prompt: str) -> list[dict]:
     local = task.data.answer["local"]
     remote = task.data.answer["remote"]
     child_prompt = _child_prompt(path)
-    local_code = (
-        f"local_values = {local_values!r}\n"
-        "local = sum((index + 1) * value for index, value in enumerate(local_values))\n"
-        "local"
+    local_assignment = f"local_values = {local_values!r}"
+    local_checksum = (
+        "local = sum((index + 1) * value for index, value in enumerate(local_values))\nlocal"
     )
     spawn_code = f"handle = await rlm({child_prompt!r}, name='shard-worker')"
-    spawn_output = (
-        "RLMSpawnHandle(rlm_child_id='sub-training', name='shard-worker', "
-        "session_dir=PosixPath('/tmp/prime-agent/sub-training'), model='current-policy')"
-    )
     incoming = (
         "[from child:shard-worker]\n"
         "Agent-to-agent message received.\n"
@@ -94,8 +88,9 @@ def _single_examples(task, prompt: str) -> list[dict]:
         "messages": [
             {"role": "system", "content": prompt},
             {"role": "user", "content": task.data.prompt},
-            *_tool_messages("single-local", local_code, str(local)),
-            *_tool_messages("single-spawn", spawn_code, spawn_output),
+            *_tool_messages("single-spawn", spawn_code, ""),
+            *_tool_messages("single-local-assignment", local_assignment, ""),
+            *_tool_messages("single-local-checksum", local_checksum, str(local)),
             {"role": "user", "content": incoming},
             {"role": "assistant", "content": json.dumps(task.data.answer)},
         ],
@@ -103,12 +98,11 @@ def _single_examples(task, prompt: str) -> list[dict]:
         "metadata": {"family": "single", "task": task.data.name, "role": "parent"},
     }
 
-    read_code = f"import json\nfrom pathlib import Path\nvalues = json.loads(Path({path!r}).read_text())"
-    checksum_code = (
+    child_code = (
+        f"import json\nfrom pathlib import Path\nvalues = json.loads(Path({path!r}).read_text())\n"
         "checksum = sum((index + 1) * value for index, value in enumerate(values))\n"
-        "checksum"
+        "await agent_message.send(str(checksum), receiver_role='parent')"
     )
-    send_code = "await agent_message.send(str(checksum), receiver_role='parent')"
     send_output = (
         "{'id': 'agentmsg_training', 'source': 'agent_message', "
         "'deliveryStatus': 'delivered', 'receiverRole': 'parent'}"
@@ -118,9 +112,7 @@ def _single_examples(task, prompt: str) -> list[dict]:
         "messages": [
             {"role": "system", "content": child_system_prompt},
             {"role": "user", "content": f"[task from parent]\n\n{child_prompt}"},
-            *_tool_messages("child-read", read_code, ""),
-            *_tool_messages("child-checksum", checksum_code, str(remote)),
-            *_tool_messages("child-reply", send_code, send_output),
+            *_tool_messages("child-compute-and-reply", child_code, send_output),
             {"role": "assistant", "content": "Sent the checksum to the parent."},
         ],
         "tools": [IPYTHON_TOOL],

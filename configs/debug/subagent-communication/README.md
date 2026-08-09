@@ -34,14 +34,18 @@ seed the single-child protocol before returning to on-policy optimization:
 
 ```bash
 uv run python scripts/export_subagent_communication_sft.py \
-  /ephemeral/subagent-rung/data/01-single-sft-r2/train.json \
+  /ephemeral/subagent-rung/data/01-single-sft-r3/train.json \
   --instances 8 \
   --harness-trace /ephemeral/subagent-rung/evals/step12-heldout-direct-single/traces.jsonl
 uv run sft @ configs/debug/subagent-communication/01-single-sft.toml
 ```
 
 The 96 compact examples are balanced between direct coordinator restraint,
-single-child parent behavior, and child reply behavior. They use a separate RNG seed
+single-child parent behavior, and child reply behavior. Delegated parent traces spawn
+first with the same silent assignment produced by the live harness, then preserve local
+state across two useful calls while the child runs. Child traces read, compute, and send
+their reply in one compact tool call, avoiding a race with premature parent finalization.
+They use a separate RNG seed
 and instance IDs starting at 100. RL and its calibration probe use a third seed and
 instance IDs starting at 20; held-out eval remains on v4/v5 at the default IDs. At
 batch size four, step 12 is half an epoch and step 24 is one epoch; both checkpoints
@@ -50,7 +54,7 @@ before choosing a seed for GRPO refinement or advancing to the parallel-child st
 Protocol progress and protocol-gated answer correctness have equal reward weight so
 that repairing one observable protocol step provides a useful signal at 2B scale.
 
-Restart inference from each four-step checkpoint and rerun the held-out eval. Delegated
+Restart inference from each 12-step checkpoint and rerun the held-out eval. Delegated
 answer credit is gated on complete protocol alignment, while `answer_accuracy` remains
 available as a diagnostic metric. Select a checkpoint only when `answer_accuracy` and
 `protocol_aligned` improve together. The
