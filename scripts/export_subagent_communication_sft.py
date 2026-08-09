@@ -44,6 +44,22 @@ def _tool_messages(call_id: str, code: str, output: str) -> list[dict]:
     ]
 
 
+def _validate_no_repeated_tool_calls(examples: list[dict]) -> None:
+    for example in examples:
+        calls = [
+            call["function"]["arguments"]
+            for message in example["messages"]
+            for call in message.get("tool_calls", [])
+        ]
+        repeated = {call for call in calls if calls.count(call) > 1}
+        if repeated:
+            metadata = example["metadata"]
+            raise ValueError(
+                "repeated tool call in "
+                f"{metadata['family']}:{metadata['task']}:{metadata['role']}"
+            )
+
+
 def _direct_example(task, prompt: str) -> dict:
     values = _local_values(task.data.prompt)
     code = (
@@ -261,15 +277,24 @@ def _followup_examples(task, prompt: str) -> list[dict]:
         "wait for the parent's reply, multiply the retained subtotal, then send a JSON object "
         "containing subtotal and result to your parent before answering."
     )
-    wait_code = (
+    wait_request_code = (
         "import asyncio\n"
         "await asyncio.sleep(1)\n"
         "for _ in range(30):\n"
-        "    child_state = await agent_observe.get_agent(child.name)\n"
-        "    if not child_state['agent']['isStreaming']:\n"
+        "    request_state = await agent_observe.get_agent(child.name)\n"
+        "    if not request_state['agent']['isStreaming']:\n"
         "        break\n"
         "    await asyncio.sleep(0.5)\n"
-        "child_state"
+        "request_state"
+    )
+    wait_result_code = (
+        "await asyncio.sleep(1)\n"
+        "for _ in range(30):\n"
+        "    result_state = await agent_observe.get_agent(child.name)\n"
+        "    if not result_state['agent']['isStreaming']:\n"
+        "        break\n"
+        "    await asyncio.sleep(0.5)\n"
+        "result_state"
     )
     wait_output = (
         "{'agent': {'sessionName': 'key-worker', 'status': 'idle', "
@@ -313,10 +338,10 @@ def _followup_examples(task, prompt: str) -> list[dict]:
             {"role": "system", "content": prompt},
             {"role": "user", "content": task.data.prompt},
             *_tool_messages("followup-spawn", spawn_code, ""),
-            *_tool_messages("followup-wait-request", wait_code, wait_output),
+            *_tool_messages("followup-wait-request", wait_request_code, wait_output),
             request_message,
             *_tool_messages("followup-send-multiplier", reply_code, reply_output),
-            *_tool_messages("followup-wait-result", wait_code, wait_output),
+            *_tool_messages("followup-wait-result", wait_result_code, wait_output),
             final_message,
             {"role": "assistant", "content": json.dumps(task.data.answer)},
         ],
@@ -413,6 +438,8 @@ def main() -> None:
             examples.extend(_parallel_examples(task, prompt))
         else:
             examples.extend(_followup_examples(task, prompt))
+
+    _validate_no_repeated_tool_calls(examples)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text("".join(json.dumps(example) + "\n" for example in examples))

@@ -122,3 +122,33 @@ uv run rl @ configs/debug/subagent-communication/04-parallel-grpo.toml
 `num_infer_gpus = 0` means externally managed inference, not no inference. Keep the
 17%-utilization server healthy on ports 8000 and 8100 while the trainer uses the
 remaining GPU memory.
+
+Evaluate GRPO checkpoints 2 and 4 against both the guided parallel probe and the
+held-out direct/single/parallel gate. Advance from the strongest admitted checkpoint,
+which may remain the parallel SFT checkpoint if either policy update regresses an
+earlier family. Update the model path in `05-followup-sft.toml` accordingly, then
+generate the bidirectional follow-up corpus and train its half- and full-epoch
+checkpoints:
+
+```bash
+uv run python scripts/export_subagent_communication_sft.py \
+  /ephemeral/subagent-rung/data/05-followup-sft-r1/train.json \
+  --instances 8 \
+  --families direct single parallel followup \
+  --harness-trace /ephemeral/subagent-rung/evals/parallel-selected-heldout/traces.jsonl
+uv run sft @ configs/debug/subagent-communication/05-followup-sft.toml
+```
+
+The 256 examples preserve all earlier families and add 32 follow-up parents plus 32
+follow-up children. The child computes and retains a subtotal, asks the parent for a
+withheld multiplier, receives it in a later turn, and sends the completed result back.
+The exporter rejects any example containing an identical repeated tool call. This
+keeps the supervised protocol aligned with the runtime `duplicate_cells` admission
+metric rather than teaching polling loops that our evaluator later penalizes.
+
+Select between steps 32 and 64 with
+`prime_agent_qwen35_subagent_followup_train_probe.toml`, then run
+`prime_agent_qwen35_subagent_followup_rung_eval.toml`. Admission requires all four
+families to preserve answer correctness and their exact protocol shape; the follow-up
+family must show both message directions while withholding the multiplier from the
+initial child prompt.
