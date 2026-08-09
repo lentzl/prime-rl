@@ -249,6 +249,134 @@ def _parallel_examples(task, prompt: str) -> list[dict]:
     return [parent, *children]
 
 
+def _followup_examples(task, prompt: str) -> list[dict]:
+    path = task.data.child_paths["key-worker"]
+    values = json.loads(task.data.files[path])
+    subtotal = task.data.answer["subtotal"]
+    multiplier = task.data.answer["multiplier"]
+    result = task.data.answer["result"]
+    child_prompt = (
+        f"Read {path} and compute the subtotal. In a separate IPython call, send "
+        "'need multiplier' to your parent with agent_message. Do not finish after the request: "
+        "wait for the parent's reply, multiply the retained subtotal, then send a JSON object "
+        "containing subtotal and result to your parent before answering."
+    )
+    wait_code = (
+        "import asyncio\n"
+        "await asyncio.sleep(1)\n"
+        "for _ in range(30):\n"
+        "    child_state = await agent_observe.get_agent(child.name)\n"
+        "    if not child_state['agent']['isStreaming']:\n"
+        "        break\n"
+        "    await asyncio.sleep(0.5)\n"
+        "child_state"
+    )
+    wait_output = (
+        "{'agent': {'sessionName': 'key-worker', 'status': 'idle', "
+        "'isStreaming': False, 'messageCount': 5}}"
+    )
+    spawn_code = f"child = await rlm({child_prompt!r}, name='key-worker')"
+    request_message = {
+        "role": "user",
+        "content": (
+            "[from child:key-worker]\n"
+            "Agent-to-agent message received.\n"
+            "Source: agent_message\n"
+            "From: key-worker\n"
+            "Message id: agentmsg_training_request\n\n"
+            "need multiplier"
+        ),
+    }
+    reply_code = (
+        f"multiplier = {multiplier}\n"
+        "await agent_message.send(str(multiplier), receiver_role='child', "
+        "receiver_name=child.name)"
+    )
+    reply_output = (
+        "{'id': 'agentmsg_training_multiplier', 'source': 'agent_message', "
+        "'deliveryStatus': 'delivered', 'receiverRole': 'child'}"
+    )
+    final_payload = json.dumps({"subtotal": subtotal, "result": result})
+    final_message = {
+        "role": "user",
+        "content": (
+            "[from child:key-worker]\n"
+            "Agent-to-agent message received.\n"
+            "Source: agent_message\n"
+            "From: key-worker\n"
+            "Message id: agentmsg_training_result\n\n"
+            f"{final_payload}"
+        ),
+    }
+    parent = {
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": task.data.prompt},
+            *_tool_messages("followup-spawn", spawn_code, ""),
+            *_tool_messages("followup-wait-request", wait_code, wait_output),
+            request_message,
+            *_tool_messages("followup-send-multiplier", reply_code, reply_output),
+            *_tool_messages("followup-wait-result", wait_code, wait_output),
+            final_message,
+            {"role": "assistant", "content": json.dumps(task.data.answer)},
+        ],
+        "tools": [IPYTHON_TOOL],
+        "metadata": {"family": "followup", "task": task.data.name, "role": "parent"},
+    }
+
+    child_system_prompt = prompt.replace("Recursive agent depth: 0", "Recursive agent depth: 1")
+    compute_code = (
+        f"import json\nfrom pathlib import Path\nvalues = json.loads(Path({path!r}).read_text())\n"
+        "subtotal = sum(values)\n"
+        "subtotal"
+    )
+    request_code = "await agent_message.send('need multiplier', receiver_role='parent')"
+    request_output = (
+        "{'id': 'agentmsg_training_request', 'source': 'agent_message', "
+        "'deliveryStatus': 'delivered', 'receiverRole': 'parent'}"
+    )
+    parent_message = {
+        "role": "user",
+        "content": (
+            "[from parent]\n"
+            "Agent-to-agent message received.\n"
+            "Source: agent_message\n"
+            "Message id: agentmsg_training_multiplier\n\n"
+            f"{multiplier}"
+        ),
+    }
+    result_code = (
+        f"multiplier = {multiplier}\n"
+        "result = subtotal * multiplier\n"
+        "payload = json.dumps({'subtotal': subtotal, 'result': result})\n"
+        "await agent_message.send(payload, receiver_role='parent')"
+    )
+    result_output = (
+        "{'id': 'agentmsg_training_result', 'source': 'agent_message', "
+        "'deliveryStatus': 'delivered', 'receiverRole': 'parent'}"
+    )
+    child = {
+        "messages": [
+            {"role": "system", "content": child_system_prompt},
+            {"role": "user", "content": f"[task from parent]\n\n{child_prompt}"},
+            *_tool_messages("followup-child-subtotal", compute_code, str(subtotal)),
+            *_tool_messages("followup-child-request", request_code, request_output),
+            {"role": "assistant", "content": "Requested the multiplier from the parent."},
+            parent_message,
+            *_tool_messages("followup-child-result", result_code, result_output),
+            {"role": "assistant", "content": "Sent the final result to the parent."},
+        ],
+        "tools": [IPYTHON_TOOL],
+        "metadata": {
+            "family": "followup",
+            "task": task.data.name,
+            "role": "child",
+            "values": values,
+        },
+    }
+    return [parent, child]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
@@ -259,7 +387,7 @@ def main() -> None:
     parser.add_argument(
         "--families",
         nargs="+",
-        choices=("direct", "single", "parallel"),
+        choices=("direct", "single", "parallel", "followup"),
         default=("direct", "single"),
     )
     args = parser.parse_args()
@@ -281,8 +409,10 @@ def main() -> None:
             examples.append(_direct_example(task, prompt))
         elif task.data.family == "single":
             examples.extend(_single_examples(task, prompt))
-        else:
+        elif task.data.family == "parallel":
             examples.extend(_parallel_examples(task, prompt))
+        else:
+            examples.extend(_followup_examples(task, prompt))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text("".join(json.dumps(example) + "\n" for example in examples))
