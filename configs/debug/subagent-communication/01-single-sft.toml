@@ -1,7 +1,7 @@
 # Seed native single-child admission and explicit child-to-parent replies.
 
 max_steps = 24
-output_dir = "/ephemeral/subagent-rung/outputs/01-single-sft-r3"
+output_dir = "/ephemeral/subagent-rung/outputs/01-single-sft-r4"
 clean_output_dir = true
 
 [deployment]
@@ -35,7 +35,7 @@ rank = 16
 alpha = 32
 
 [data]
-name = "/ephemeral/subagent-rung/data/01-single-sft-r3"
+name = "/ephemeral/subagent-rung/data/01-single-sft-r4"
 seq_len = 8192
 batch_size = 4
 micro_batch_size = 1

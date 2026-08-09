@@ -34,7 +34,7 @@ seed the single-child protocol before returning to on-policy optimization:
 
 ```bash
 uv run python scripts/export_subagent_communication_sft.py \
-  /ephemeral/subagent-rung/data/01-single-sft-r3/train.json \
+  /ephemeral/subagent-rung/data/01-single-sft-r4/train.json \
   --instances 8 \
   --harness-trace /ephemeral/subagent-rung/evals/step12-heldout-direct-single/traces.jsonl
 uv run sft @ configs/debug/subagent-communication/01-single-sft.toml
@@ -44,7 +44,9 @@ The 96 compact examples are balanced between direct coordinator restraint,
 single-child parent behavior, and child reply behavior. Delegated parent traces spawn
 first with the same silent assignment produced by the live harness, then preserve local
 state across two useful calls while the child runs. Child traces read, compute, and send
-their reply in one compact tool call, avoiding a race with premature parent finalization.
+their reply in one compact tool call. Parents then use bounded native `agent_observe`
+polling until the child is no longer streaming, avoiding a race with premature parent
+finalization without guessing or reading the delegated shard.
 They use a separate RNG seed
 and instance IDs starting at 100. RL and its calibration probe use a third seed and
 instance IDs starting at 20; held-out eval remains on v4/v5 at the default IDs. At

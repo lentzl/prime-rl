@@ -28,9 +28,8 @@ def _local_values(prompt: str) -> list[int]:
 
 def _child_prompt(path: str) -> str:
     return (
-        f"Read {path}, compute its weighted checksum, and before any final answer call "
-        "await agent_message.send(str(checksum), receiver_role='parent') in IPython. "
-        "Your task is incomplete until that call returns a delivery receipt."
+        f"Read {path}, compute its weighted checksum, then send the integer checksum to "
+        "your parent with agent_message before answering."
     )
 
 
@@ -75,6 +74,20 @@ def _single_examples(task, prompt: str) -> list[dict]:
     local_checksum = (
         "local = sum((index + 1) * value for index, value in enumerate(local_values))\nlocal"
     )
+    wait_code = (
+        "import asyncio\n"
+        "await asyncio.sleep(1)\n"
+        "for _ in range(30):\n"
+        "    child_state = await agent_observe.get_agent(handle.name)\n"
+        "    if not child_state['agent']['isStreaming']:\n"
+        "        break\n"
+        "    await asyncio.sleep(0.5)\n"
+        "child_state"
+    )
+    wait_output = (
+        "{'agent': {'sessionName': 'shard-worker', 'status': 'idle', "
+        "'isStreaming': False, 'messageCount': 5}}"
+    )
     spawn_code = f"handle = await rlm({child_prompt!r}, name='shard-worker')"
     incoming = (
         "[from child:shard-worker]\n"
@@ -91,6 +104,7 @@ def _single_examples(task, prompt: str) -> list[dict]:
             *_tool_messages("single-spawn", spawn_code, ""),
             *_tool_messages("single-local-assignment", local_assignment, ""),
             *_tool_messages("single-local-checksum", local_checksum, str(local)),
+            *_tool_messages("single-wait", wait_code, wait_output),
             {"role": "user", "content": incoming},
             {"role": "assistant", "content": json.dumps(task.data.answer)},
         ],
