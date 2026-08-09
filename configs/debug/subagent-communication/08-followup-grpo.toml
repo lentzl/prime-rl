@@ -82,7 +82,7 @@ max_total_tokens = 65536
 
 [orchestrator.train.source.env.agent.timeout]
 setup = 300.0
-rollout = 900.0
+rollout = 360.0
 finalize = 60.0
 scoring = 60.0
 
