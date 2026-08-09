@@ -272,10 +272,11 @@ def _followup_examples(task, prompt: str) -> list[dict]:
     multiplier = task.data.answer["multiplier"]
     result = task.data.answer["result"]
     child_prompt = (
-        f"Read {path} and compute the subtotal. In a separate IPython call, send "
-        "'need multiplier' to your parent with agent_message. Do not finish after the request: "
-        "wait for the parent's reply, multiply the retained subtotal, then send a JSON object "
-        "containing subtotal and result to your parent before answering."
+        f"You are key-worker, my child. Read {path} and retain its subtotal. Do not call rlm or "
+        "message a child. In a separate IPython call, send 'need multiplier' exactly with "
+        "receiver_role='parent'. End that turn and resume only when my parent follow-up arrives. "
+        "Then multiply the retained subtotal and send a JSON object containing subtotal and "
+        "result with receiver_role='parent' before answering."
     )
     wait_request_code = (
         "import asyncio\n"
@@ -409,6 +410,7 @@ def main() -> None:
     parser.add_argument("--instance-offset", type=int, default=100)
     parser.add_argument("--seed", type=int, default=20260819)
     parser.add_argument("--harness-trace", type=Path)
+    parser.add_argument("--followup-copies", type=int, default=1)
     parser.add_argument(
         "--families",
         nargs="+",
@@ -416,6 +418,8 @@ def main() -> None:
         default=("direct", "single"),
     )
     args = parser.parse_args()
+    if args.followup_copies < 1:
+        parser.error("--followup-copies must be at least 1")
 
     prompt = system_prompt(args.harness_trace, SYSTEM_PROMPT)
     tasks = SubagentCommunicationTaskset(
@@ -437,7 +441,11 @@ def main() -> None:
         elif task.data.family == "parallel":
             examples.extend(_parallel_examples(task, prompt))
         else:
-            examples.extend(_followup_examples(task, prompt))
+            for copy in range(args.followup_copies):
+                copied = _followup_examples(task, prompt)
+                for example in copied:
+                    example["metadata"]["copy"] = copy
+                examples.extend(copied)
 
     _validate_no_repeated_tool_calls(examples)
 

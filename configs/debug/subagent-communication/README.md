@@ -159,3 +159,28 @@ Select between steps 32 and 64 with
 families to preserve answer correctness and their exact protocol shape; the follow-up
 family must show both message directions while withholding the multiplier from the
 initial child prompt.
+
+The first follow-up seed did not pass this gate. Step 32 had no aligned rollouts and
+three of four samples exhausted 32 turns. Step 64 terminated cleanly and reduced
+repeated cells, but still had zero aligned rollouts: children confused parent/child
+message direction, parents failed to retain handles, and some children attempted
+interactive `input()` instead of consuming the ordinary parent message. Do not refine
+either checkpoint with RL.
+
+Repair role conditioning from the admitted parallel checkpoint instead:
+
+```bash
+uv run python scripts/export_subagent_communication_sft.py \
+  /ephemeral/subagent-rung/data/06-followup-role-sft-r2/train.json \
+  --instances 8 \
+  --families direct single parallel followup \
+  --followup-copies 3 \
+  --harness-trace /ephemeral/subagent-rung/evals/parallel-step48-heldout/traces.jsonl
+uv run sft @ configs/debug/subagent-communication/06-followup-role-sft.toml
+```
+
+This 384-example repair mix keeps the 192 earlier-family examples and intentionally
+raises follow-up parent/child traces to half of the corpus. The spawn contract names
+the child role, forbids self-delegation and child-directed messages from that role,
+and makes ending then resuming after a parent message explicit. Steps 48 and 96 remain
+behavioral selection points; lower training loss alone is not admission evidence.
