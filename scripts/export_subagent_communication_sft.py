@@ -60,6 +60,21 @@ def _validate_no_repeated_tool_calls(examples: list[dict]) -> None:
             )
 
 
+def _validate_followup_turn_boundaries(examples: list[dict]) -> None:
+    for example in examples:
+        metadata = example["metadata"]
+        if metadata["family"] != "followup" or metadata["role"] != "parent":
+            continue
+        messages = example["messages"]
+        incoming = [
+            index
+            for index, message in enumerate(messages)
+            if message["role"] == "user" and str(message.get("content", "")).startswith("[from child:")
+        ]
+        if len(incoming) != 2 or any(messages[index - 1]["role"] != "assistant" for index in incoming):
+            raise ValueError(f"missing follow-up turn boundary in {metadata['task']}")
+
+
 def _direct_example(task, prompt: str) -> dict:
     values = _local_values(task.data.prompt)
     code = (
@@ -278,29 +293,6 @@ def _followup_examples(task, prompt: str) -> list[dict]:
         "Then multiply the retained subtotal and send a JSON object containing subtotal and "
         "result with receiver_role='parent' before answering."
     )
-    wait_request_code = (
-        "import asyncio\n"
-        "await asyncio.sleep(1)\n"
-        "for _ in range(30):\n"
-        "    request_state = await agent_observe.get_agent(child.name)\n"
-        "    if not request_state['agent']['isStreaming']:\n"
-        "        break\n"
-        "    await asyncio.sleep(0.5)\n"
-        "request_state"
-    )
-    wait_result_code = (
-        "await asyncio.sleep(1)\n"
-        "for _ in range(30):\n"
-        "    result_state = await agent_observe.get_agent(child.name)\n"
-        "    if not result_state['agent']['isStreaming']:\n"
-        "        break\n"
-        "    await asyncio.sleep(0.5)\n"
-        "result_state"
-    )
-    wait_output = (
-        "{'agent': {'sessionName': 'key-worker', 'status': 'idle', "
-        "'isStreaming': False, 'messageCount': 5}}"
-    )
     spawn_code = f"child = await rlm({child_prompt!r}, name='key-worker')"
     request_message = {
         "role": "user",
@@ -339,10 +331,10 @@ def _followup_examples(task, prompt: str) -> list[dict]:
             {"role": "system", "content": prompt},
             {"role": "user", "content": task.data.prompt},
             *_tool_messages("followup-spawn", spawn_code, ""),
-            *_tool_messages("followup-wait-request", wait_request_code, wait_output),
+            {"role": "assistant", "content": "Spawned key-worker and retained its handle. Waiting for its request."},
             request_message,
             *_tool_messages("followup-send-multiplier", reply_code, reply_output),
-            *_tool_messages("followup-wait-result", wait_result_code, wait_output),
+            {"role": "assistant", "content": "Sent the multiplier to key-worker. Waiting for its result."},
             final_message,
             {"role": "assistant", "content": json.dumps(task.data.answer)},
         ],
@@ -448,6 +440,7 @@ def main() -> None:
                 examples.extend(copied)
 
     _validate_no_repeated_tool_calls(examples)
+    _validate_followup_turn_boundaries(examples)
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text("".join(json.dumps(example) + "\n" for example in examples))

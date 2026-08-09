@@ -1,0 +1,50 @@
+# Teach Prime Agent's native steer/resume boundaries for bidirectional messages.
+
+max_steps = 64
+output_dir = "/ephemeral/subagent-rung/outputs/07-followup-turn-boundary-sft-r3"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 32
+keep_last = 2
+keep_interval = 64
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/subagent-rung/outputs/03-parallel-sft-r1/weights/step_48"
+seq_len = 8192
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+
+[data]
+name = "/ephemeral/subagent-rung/data/07-followup-turn-boundary-sft-r3"
+seq_len = 8192
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20260809
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 5e-5

@@ -200,3 +200,26 @@ for inference, shares the learner's tokenizer and chat family, and does not chan
 2B deployment target. Teacher traces must pass the same scorer before entering a new
 SFT corpus; failed or partially aligned traces remain eval evidence, not training
 demonstrations.
+
+Prime Agent 0.7.0 source identifies the representation bug. Agent messages use
+`deliveryMode = "steer"`: a busy target queues the prompt without blocking the sender,
+and an idle target accepts it as a new prompt. The first two curricula incorrectly
+kept the parent in one tool-calling turn and simulated progress with polling. For a
+causal exchange, the parent must end its turn after spawn and again after sending the
+multiplier, allowing each queued child message to resume it.
+
+Train the corrected turn-boundary trace once from the admitted parallel checkpoint;
+do not carry forward the rejected follow-up weights or exact-copy oversampling:
+
+```bash
+uv run python scripts/export_subagent_communication_sft.py \
+  /ephemeral/subagent-rung/data/07-followup-turn-boundary-sft-r3/train.json \
+  --instances 8 \
+  --families direct single parallel followup \
+  --harness-trace /ephemeral/subagent-rung/evals/parallel-step48-heldout/traces.jsonl
+uv run sft @ configs/debug/subagent-communication/07-followup-turn-boundary-sft.toml
+```
+
+The exporter now fails if either incoming child message is not preceded by an
+assistant turn boundary. Follow-up parents use no polling cells: spawn and yield;
+resume on the request; reply and yield; resume on the result; return bare JSON.
