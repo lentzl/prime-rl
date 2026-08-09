@@ -72,3 +72,15 @@ child reply, `parallel` must retain two named handles and two replies, and `foll
 must withhold the multiplier at spawn and show both message directions. Any increase
 in `duplicate_cells` is a regression. Re-run the IPython foundation and
 file-processing gates before publishing.
+
+After a checkpoint passes both the guided single-child probe and the standard held-out
+direct/single gate, refine only that admitted family first:
+
+```bash
+uv run rl @ configs/debug/subagent-communication/02-single-grpo.toml
+```
+
+This short run starts from the one-epoch r4 SFT checkpoint and keeps the disjoint RL
+seed and instance offset. Do not substitute the mixed-family `rl.toml` until native
+single-child communication remains reliable after GRPO and the parallel/follow-up
+families have passed their own on-policy probes.
