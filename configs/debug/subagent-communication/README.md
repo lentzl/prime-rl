@@ -130,6 +130,13 @@ earlier family. Update the model path in `05-followup-sft.toml` accordingly, the
 generate the bidirectional follow-up corpus and train its half- and full-epoch
 checkpoints:
 
+Both GRPO checkpoints were rejected by the guided gate. The admitted SFT step 48
+averaged 1.292 reward and 0.75 answer accuracy with four clean completions. GRPO step
+2 averaged 1.188 and 0.5625, hit the turn limit once, and increased repeated cells;
+step 4 averaged 1.167 and 0.4375 and also hit the turn limit once. Both preserved the
+basic two-child shape, but neither improved it without behavioral regression. The
+follow-up rung therefore starts from SFT step 48.
+
 ```bash
 uv run python scripts/export_subagent_communication_sft.py \
   /ephemeral/subagent-rung/data/05-followup-sft-r1/train.json \

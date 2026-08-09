@@ -16,7 +16,7 @@ keep_interval = 64
 filename = "metrics.jsonl"
 
 [model]
-name = "/ephemeral/subagent-rung/outputs/04-parallel-grpo-r1/weights/step_4"
+name = "/ephemeral/subagent-rung/outputs/03-parallel-sft-r1/weights/step_48"
 seq_len = 8192
 impl = "custom"
 optimization_dtype = "bfloat16"
