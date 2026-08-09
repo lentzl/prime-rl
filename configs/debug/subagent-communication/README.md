@@ -223,3 +223,22 @@ uv run sft @ configs/debug/subagent-communication/07-followup-turn-boundary-sft.
 The exporter now fails if either incoming child message is not preceded by an
 assistant turn boundary. Follow-up parents use no polling cells: spawn and yield;
 resume on the request; reply and yield; resume on the result; return bare JSON.
+
+This native-idle representation is correct for a persistent Prime Agent daemon but
+not for the current single-response Verifiers episode: a plain root assistant message
+ends the episode before a later steer can resume it. Three guided step-32 samples
+stopped after only 2--4 turns with rewards between 0.625 and 0.75. Preserve this as a
+harness-integration finding; do not train further on the turn-boundary checkpoints.
+
+Use the r1 full-epoch seed as the highest-variance live policy and optimize its dense
+protocol components directly:
+
+```bash
+uv run inference @ configs/debug/subagent-communication/inference.toml \
+  --vllm.model /ephemeral/subagent-rung/outputs/05-followup-sft-r1/weights/step_64
+uv run rl @ configs/debug/subagent-communication/08-followup-grpo.toml
+```
+
+The four-step run is exploratory and retains steps 2 and 4. Admit neither by training
+reward alone: both must beat r1 on a disjoint guided probe and preserve the earlier
+direct, single, and parallel held-out families.
