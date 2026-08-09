@@ -253,7 +253,7 @@ HF-compatible weight snapshots are written under `<output_dir>/weights/step_N/` 
 uv run hf upload <user>/<model>-RL outputs/weights/step_100
 ```
 
-For LoRA runs, set `ckpt.weights.save_adapter_separately = true` to also write the raw adapter alongside the merged weights — useful when serving the adapter through a separate `/load_lora_adapter` call.
+For LoRA runs, set `ckpt.weights.save_adapter_separately = true` to also write the raw adapter alongside the merged weights — useful when serving the adapter through a separate `/load_lora_adapter` call. Set `ckpt.weights.save_adapter_only = true` instead when the merged snapshot is not needed: the checkpoint contains only the PEFT-compatible adapter and avoids gathering or writing the full base model. The two options are mutually exclusive.
 
 ## Observability
 

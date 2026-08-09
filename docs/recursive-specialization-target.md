@@ -27,6 +27,15 @@ domain generalist
     -> becomes a smaller or more efficient domain coordinator
 ```
 
+The immediate bootstrap target is deliberately narrower than a general-purpose
+assistant. First train the smallest viable Qwen policy to master Prime Agent itself:
+its persistent IPython control plane, RLM delegation, asynchronous messaging,
+recovery, routing, and synthesis. That policy becomes the first orchestrator. Do not
+spend its limited capacity learning document parsing in depth. Document handling is
+the first expert-child role, giving us the earliest concrete test of whether a small
+coordinator plus a specialist can grow more effectively than one increasingly dense
+generalist.
+
 A successful hierarchy may then repeat the transition recursively:
 
 ```text
@@ -152,114 +161,123 @@ gradients. We should adopt it only after measuring such a conflict in our settin
 Each stage has an explicit gate. Failure at a gate changes or contracts the design;
 it does not justify automatically proceeding to a more complex stage.
 
-### Stage 0: Stabilize the RLM substrate
+### Stage 0: Bootstrap the smallest harness-native orchestrator
 
-Train one Qwen3.5-2B instruct policy in Prime Agent to reliably use persistent IPython,
-tools, files, external state, and portable skills. The current IPython foundation and
-file-processing ladder belongs here.
+Start with Qwen3.5-2B Instruct and train only the capabilities needed to operate Prime
+Agent reliably. The root is a control policy, not the first domain expert. Persistent
+IPython is its working memory and coordination substrate; RLM children and explicit
+messages are its expandable cognition.
 
 Required behavior includes:
 
 - accepting silent assignments and reusing variables across turns;
-- inspecting structured tool results before acting on them;
-- reading tracebacks and changing the failed operation rather than repeating it;
-- preserving successful state while repairing only the failing step;
-- selecting processing methods from observed type, MIME, extension, and content;
-- grounding final answers in observed evidence, including negation;
-- following output contracts and stopping without protocol leakage;
-- using, creating, and revising skills without overfitting to one vendor's package
-  layout.
+- inspecting structured tool results and real tracebacks before the next action;
+- preserving successful state while repairing only the failing operation;
+- assigning and retaining RLM child handles in persistent state;
+- distinguishing admission handles, messages, observations, and final results;
+- spawning one or several named children without duplicating delegated work;
+- yielding after asynchronous sends instead of polling or inventing APIs;
+- completing causal child request, parent follow-up, and child-result exchanges;
+- routing, synthesizing, checking, and returning the requested output contract;
+- stopping cleanly without protocol leakage or uncontrolled retry loops.
 
-Gate: a checkpoint must improve the target behavior across repeated held-out samples
-while all earlier foundation gates remain within variance. No hierarchy is introduced
-until these behaviors are stable enough that coordination failures can be separated
-from basic harness failures.
+The admission suite must cover direct IPython work, one-child delegation, parallel
+fan-out/fan-in, bidirectional follow-up, malformed child output, delayed replies, and
+recoverable tool or messaging failures. Every delegated trajectory is scored by
+message provenance and order, not merely by a correct final value.
 
-Current status: the published file-processing rung is the stable starting point. It
-has demonstrated persistent state, file acquisition, parser selection, and useful
-repair behavior, but repeated-call control, structured-result inspection, strict
-output formatting, and source-grounded negation are not yet robust.
+Gate: promote the smallest checkpoint that repeatedly passes all harness families on
+unseen seeds and under realistic Prime Agent autonomous continuation. Compare LoRA
+against a higher-rank or short full-parameter run only if clean online optimization
+plateaus. Move from 2B to 4B only if 2B still cannot sustain the complete protocol
+after that controlled comparison.
 
-### Stage 1: Establish the generic RLM baseline
+Current status: Qwen3.5-2B has mastered useful IPython foundations. A Prime-native
+OPSD repair produced a new Stage-0 candidate at
+`37-single-path-opsd-dose-r1/weights/step_2`: it preserved task-specific paths in
+`4/5` held-out initial actions, solved full single-child and direct gates `3/3`, and
+returned exact answers on all three parallel gates. Parallel message provenance was
+fully aligned in only `2/3`, and the previously isolated bidirectional follow-up chain
+is still not reliable. The model is therefore materially closer but not admitted as
+the first orchestrator yet.
 
-Extend the stable substrate from notebook basics to invariant agent skills:
+On a broader 12-task standard-prompt gate, this candidate retained all direct and
+single-child answers but solved only three of four parallel answers; 10/12 episodes
+jointly met answer and protocol requirements. Two follow-up OPSD experiments were
+rejected. A shared coordinator demonstration reduced parallel accuracy to `2/4` by
+teaching the wrong role to child branches. Role-conditioned demonstrations restored
+parallel answer accuracy to `4/4`, but protocol alignment remained `2/4`, duplicate
+actions increased, and single-child accuracy fell to `3/4`. The infrastructure now
+supports exact initial-question keyed demonstrations per branch, but no later
+checkpoint supersedes rung 37.
 
-- decompose work into testable subproblems;
-- store durable procedures and facts outside the immediate context;
-- retrieve and apply portable skills;
-- use recursive model calls only when they add measurable value;
-- compare hypotheses through execution rather than monologue;
-- recognize uncertainty and terminate with an evidenced limitation.
+The selected adapter has also been merged into a standalone dense candidate. All 96
+updated matrices and 521 unchanged tensors passed exact export checks, and
+adapter/dense greedy spawn behavior matched. A sampled dense smoke still omitted the
+path and looped during repair, confirming that the remaining reliability problem
+belongs to the policy rather than the export pipeline.
 
-Evaluate Qwen3.5-2B against its untrained base and, if necessary, a 4B baseline. The
-comparison asks whether 2B can learn the substrate well enough, not whether it wins a
-single benchmark by chance.
+### Stage 1: Train the first expert child for documents
 
-Gate: choose the smallest model that meets robust process and task-success thresholds.
-If 2B cannot sustain metacognitive control, use 4B for parent roles while keeping 2B
-available for narrower specialists.
+After the Stage 0 checkpoint is frozen, train document handling as a separate expert
+role. This child owns the depth that should not burden the small orchestrator:
 
-### Stage 2: Train one domain parent
+- selecting parsers from extension, MIME type, magic bytes, and observed structure;
+- extracting grounded content from text, Markdown, CSV, JSON, PDF, and DOCX;
+- repairing missing parsers, malformed inputs, encoding failures, scanned PDFs, and
+  password protection without repeating unchanged calls;
+- preserving source locations, page references, uncertainty, and negation;
+- returning a compact, typed result that the orchestrator can inspect and synthesize.
 
-Choose one broad domain with diverse tasks, objective or auditable outcomes, and enough
-failure volume to identify structure. Start with a single model, not a predeclared
-expert tree.
+The expert may start from the harness-capable checkpoint, but its specialization gate
+is independent of the root's gate. It can be larger than the coordinator if document
+depth requires it; sparse activation, not uniform node size, is the efficiency target.
 
-Train it to solve tasks, classify its uncertainty, decompose problems, preserve RLM
-behavior, and produce diagnostic trajectories. Record failures with environment state,
-feedback, retries, resource use, and eventual outcome.
+Gate: retain the document expert only when it robustly beats the Stage 0 coordinator
+on held-out document tasks and exposes a stable interface rather than prose that the
+root must reinterpret heuristically.
 
-Gate: the parent must beat the generic RLM in-domain without unacceptable regression
-on the generic RLM suite. Its failure distribution must contain at least one stable,
-coherent cluster rather than only random mistakes.
+### Stage 2: Learn the orchestrator-document interface
 
-### Stage 3: Create the first child specialist
+Pair the frozen Stage 0 orchestrator with the validated document expert and collect
+real Prime Agent trajectories. Train the root to recognize document work, formulate a
+self-contained request, retain the child handle, pass only necessary state, wait for
+the explicit result, inspect its structure, request correction when evidence is
+missing, and synthesize a final answer grounded in the child's output.
 
-Select one recurring failure cluster that is narrow enough to train and broad enough
-to recur. A frontier teacher can initially design the curriculum and audit labels, but
-the child must ultimately learn through executable tasks and real feedback.
+Train the expert to accept that contract, report recoverable failures explicitly, and
+return evidence rather than silently guessing. Optimize whole-system success while
+keeping role-local diagnostics for routing, extraction, grounding, communication,
+and synthesis.
 
-Initialize the child from the shared RLM-capable base or parent, then train narrow
-depth while replaying generic RLM behavior. Do not assume that a narrower prompt alone
-constitutes specialization.
+Gate: root plus document expert must beat the root alone, expert alone, fixed routing,
+and an equivalently costed dense baseline after latency, generated tokens, and active
+parameters are counted. The root must retain every Stage 0 harness gate.
 
-Run three matched comparisons:
+### Stage 3: Grow from measured failure clusters
 
-```text
-A. Continue training the parent
-B. Use a larger or equivalently more expensive dense parent
-C. Parent plus the candidate specialist
-```
+Use failures of the orchestrator-document pair to decide what grows next. A coherent
+gap may justify deeper document specialization, a verifier child, a retrieval expert,
+or another domain expert. The next node is earned by recurring evidence rather than a
+predeclared taxonomy.
 
-Match or explicitly account for active parameters, generated tokens, latency, GPU
-time, and training cost. Evaluate both the specialist's narrow domain and the complete
-system.
+For every candidate, compare continued training of an existing node, a larger dense
+model, and the expanded sparse system under matched or explicitly reported cost.
 
-Gate: retain the child only if its marginal whole-system contribution exceeds its
-training, inference, coordination, and maintenance cost. Otherwise discard it and
-continue with the simpler parent.
+Gate: keep a new child only when its marginal whole-system contribution exceeds its
+training, inference, coordination, and maintenance cost.
 
-### Stage 4: Learn the parent-child interface
+### Stage 4: Generalize orchestration across experts
 
-Give the parent access to the validated child and collect real interaction trajectories.
-Train the parent to:
+Once at least two specialists earn their place, train expert selection, parallel
+delegation, cross-checking, conflict resolution, and budget-aware stopping. Use
+whole-system reward for end-to-end success. Use feedback-conditioned SDPO for
+same-policy hindsight where child or environment feedback improves a later decision;
+use OPD/MOPD only for same-role transfer or carefully selected interface knowledge.
 
-- recognize when the child's depth is relevant;
-- formulate a self-contained, useful subproblem;
-- pass the necessary state without flooding the child;
-- detect missing assumptions or suspicious child answers;
-- request clarification or verification when needed;
-- integrate the result into a grounded final response;
-- avoid delegation when direct solving is cheaper or safer.
-
-Use whole-system reward for end-to-end success. Use feedback-conditioned SDPO for
-same-parent hindsight where child or environment feedback improves the parent's next
-behavior. Use OPD/MOPD only for same-role transfer or carefully selected interface
-knowledge.
-
-Gate: the learned router must beat fixed routing, always-delegate, and never-delegate
-baselines. Parent plus child must still beat the best matched dense baseline after
-coordination overhead is counted.
+Gate: learned orchestration must beat fixed routing, always-delegate, and
+never-delegate baselines while retaining the document interface and all Stage 0
+harness behavior.
 
 ### Stage 5: Transition and compress the parent
 
@@ -385,14 +403,24 @@ bank, a larger coordinator, or a distilled dense model.
 
 ## Immediate Work
 
-The next training work remains Stage 0. Improve reward semantics for no-repeat control,
-structured-result inspection, successful repair, strict output contracts, and
-source-grounded claims while preserving the verified file-processing checkpoint.
+The next training work remains Stage 0, but its scope is now strictly harness mastery.
+Use rung 37 step 2 as the retention base. If SDFT is used again for asynchronous
+fan-in, restrict its loss to the coordinator branch; distilling child branches moved
+answer binding and protocol control in opposite directions. Independently, make the
+complete bidirectional causal chain reliable:
 
-After that gate is stable, the next major milestone is not a recursive tree. It is a
-single generic RLM baseline with portable skill use and measured recursive-call value.
-Only then should we select one domain parent and run the first specialist-versus-dense
-comparison.
+```text
+child request -> parent response from retained state -> child final result
+```
 
-That sequence keeps the long-term idea ambitious while making every near-term run
-answer one falsifiable question.
+Then rerun fresh held-out direct-IPython, one-child, parallel fan-out/fan-in,
+follow-up, traceback-repair, output-contract, and clean-stop gates at standard as well
+as guided instruction levels. Do not add more document formats to this root
+curriculum. Once one checkpoint passes the complete suite repeatedly, freeze and
+publish it as the first orchestrator.
+
+The next major milestone is the document expert trained against its own extraction,
+repair, and grounding suite. Only after both roles pass independently do we train and
+evaluate their interface. This sequence turns the long-term growth thesis into three
+immediate falsifiable questions: can the smallest model coordinate, can a specialist
+add depth, and does their combined system beat either alone at comparable cost?

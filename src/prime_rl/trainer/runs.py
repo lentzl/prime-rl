@@ -1,3 +1,4 @@
+import json
 import pickle
 import time
 from dataclasses import dataclass
@@ -8,6 +9,7 @@ import tomli
 import torch
 import torch.distributed as dist
 import torch.distributed.distributed_c10d as c10d
+from torch.distributed.tensor import DTensor, distribute_tensor
 
 from prime_rl.configs.trainer import LoRAConfig
 from prime_rl.trainer.world import get_world
@@ -213,6 +215,50 @@ class MultiRunManager:
         """
         for _, module in self._modules:
             module.reset_parameters(idx)
+
+    def load_run_adapter(self, idx: int, adapter_path: Path, config: LoRAConfig) -> None:
+        """Load a PEFT adapter into an initialized run slot."""
+        adapter_config_path = adapter_path / "adapter_config.json"
+        if not adapter_config_path.is_file():
+            raise FileNotFoundError(f"LoRA adapter config not found: {adapter_config_path}")
+        adapter_config = json.loads(adapter_config_path.read_text())
+        if adapter_config.get("r") != config.rank:
+            raise ValueError(
+                f"LoRA adapter rank {adapter_config.get('r')!r} does not match configured rank {config.rank}"
+            )
+        if adapter_config.get("lora_alpha") != config.alpha:
+            raise ValueError(
+                "LoRA adapter alpha "
+                f"{adapter_config.get('lora_alpha')!r} does not match configured alpha {config.alpha}"
+            )
+
+        from prime_rl.trainer.weights import load_state_dict, normalize_peft_lora_state_dict
+
+        adapter = normalize_peft_lora_state_dict(load_state_dict(adapter_path))
+        parameters = dict(self.get_named_parameters_for_run(idx))
+        missing = sorted(parameters.keys() - adapter.keys())
+        unexpected = sorted(adapter.keys() - parameters.keys())
+        if missing or unexpected:
+            raise ValueError(
+                f"LoRA adapter keys do not match the trainer policy: missing {missing}, unexpected {unexpected}"
+            )
+        with torch.no_grad():
+            for name, parameter in parameters.items():
+                value = adapter[name]
+                if value.shape != parameter.shape:
+                    raise ValueError(
+                        f"LoRA adapter tensor {name!r} has shape {tuple(value.shape)}, "
+                        f"expected {tuple(parameter.shape)}"
+                    )
+                value = value.to(device=parameter.device, dtype=parameter.dtype)
+                if isinstance(parameter, DTensor):
+                    value = distribute_tensor(
+                        value,
+                        device_mesh=parameter.device_mesh,
+                        placements=parameter.placements,
+                    )
+                parameter.copy_(value)
+        self.logger.info(f"Initialized run {idx} from LoRA adapter {adapter_path}")
 
     # =========================================================================
     # Config Loading
@@ -561,5 +607,13 @@ def setup_multi_run_manager(
 
         _MULTI_RUN_MANAGER.register_config_validation_hook(validate_lora_rank)
         _MULTI_RUN_MANAGER.register_discovered_hook(on_run_discovered)
+
+    if lora_config is not None and lora_config.init_adapter is not None:
+        init_adapter = lora_config.init_adapter
+
+        def initialize_run_adapter(idx: int, _run_id: str) -> None:
+            _MULTI_RUN_MANAGER.load_run_adapter(idx, init_adapter, lora_config)
+
+        _MULTI_RUN_MANAGER.register_creation_hook(initialize_run_adapter)
 
     return _MULTI_RUN_MANAGER

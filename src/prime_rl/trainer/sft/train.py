@@ -159,6 +159,8 @@ def train(config: SFTConfig):
     if config.model.lora is not None:
         multi_run_manager = get_multi_run_manager()
         multi_run_manager.reset_run_parameters(0)
+        if config.model.lora.init_adapter is not None:
+            multi_run_manager.load_run_adapter(0, config.model.lora.init_adapter, config.model.lora)
         multi_run_manager.scaling_factors[0] = config.model.lora.alpha / config.model.lora.rank
 
     logger.info(f"Initializing tokenizer ({config.tokenizer})")

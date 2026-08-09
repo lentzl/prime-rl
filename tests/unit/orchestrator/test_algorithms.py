@@ -374,6 +374,91 @@ def test_opsd_builds_paper_ordered_teacher_replays_for_each_turn():
     }
 
 
+def test_opsd_deduplicates_shared_sampled_nodes_across_forked_branches():
+    nodes = [
+        _node(UserMessage(content="question"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="shared"), parent=0, sampled=True, token_ids=[2]),
+        _node(UserMessage(content="left observation"), parent=1, sampled=False, token_ids=[3]),
+        _node(AssistantMessage(content="left"), parent=2, sampled=True, token_ids=[4]),
+        _node(UserMessage(content="right observation"), parent=1, sampled=False, token_ids=[5]),
+        _node(AssistantMessage(content="right"), parent=4, sampled=True, token_ids=[6]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=1.0)},
+        info={"demonstration": "Expert trajectory"},
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90]
+    algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(model_name="policy"))
+    algo.renderer = renderer
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    assert [sample.mask for sample in rollout.samples] == [
+        [False, True, False, True],
+        [False, False, False, True],
+    ]
+    assert [sample.sdpo_weights for sample in rollout.samples] == [
+        [0.0, 1.0, 0.0, 1.0],
+        [0.0, 0.0, 0.0, 1.0],
+    ]
+    assert [span.completion_ids for span in rollout.samples[0].sdpo_teacher_spans] == [[2], [4]]
+    assert [span.student_positions for span in rollout.samples[0].sdpo_teacher_spans] == [[1], [3]]
+    assert [span.completion_ids for span in rollout.samples[1].sdpo_teacher_spans] == [[6]]
+    assert [span.student_positions for span in rollout.samples[1].sdpo_teacher_spans] == [[3]]
+    assert renderer.render_ids.call_count == 3
+
+
+def test_opsd_selects_role_appropriate_demonstration_for_each_branch():
+    nodes = [
+        _node(UserMessage(content="coordinator question"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="coordinate"), parent=0, sampled=True, token_ids=[2]),
+        _node(UserMessage(content="[task from parent]\n\nchild question"), parent=None, sampled=False, token_ids=[3]),
+        _node(AssistantMessage(content="send result"), parent=2, sampled=True, token_ids=[4]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=1.0)},
+        info={
+            "demonstrations": {
+                "coordinator question": "Coordinator demonstration",
+                "[task from parent]\n\nchild question": "Child demonstration",
+            }
+        },
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90]
+    algo = OPSDAlgorithm(_build(type="opsd", demo_key="demonstrations"), MagicMock(model_name="policy"))
+    algo.renderer = renderer
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    prompts = [call.args[0][0]["content"] for call in renderer.render_ids.call_args_list]
+    assert len(prompts) == 2
+    assert "<Question>\ncoordinator question" in prompts[0]
+    assert "<Demonstration>\nCoordinator demonstration" in prompts[0]
+    assert "<Question>\n[task from parent]\n\nchild question" in prompts[1]
+    assert "<Demonstration>\nChild demonstration" in prompts[1]
+
+
+def test_opsd_rejects_branch_without_a_matching_demonstration():
+    rollout = _two_turn_rollout(info={"demonstrations": {"another question": "Another demo"}})
+    algo = OPSDAlgorithm(_build(type="opsd", demo_key="demonstrations"), MagicMock(model_name="policy"))
+    algo.renderer = MagicMock()
+
+    with pytest.raises(ValueError, match="no demonstration for branch question 'U'"):
+        asyncio.run(algo.score_rollout(rollout))
+
+
 def test_sdpo_builds_feedback_conditioned_teacher_replay():
     nodes = [
         _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1, 2]),

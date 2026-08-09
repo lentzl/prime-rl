@@ -325,8 +325,10 @@ class OPSDAlgoConfig(BaseAlgoConfig):
     action_loss_type: ClassVar[ActionLossType] = "sdpo"
 
     demo_key: str = "demonstration"
-    """Key holding the expert demonstration text — looked up in the example's
-    ``info`` dict first, then as a top-level rollout field (e.g. ``answer``)."""
+    """Key holding either one expert demonstration or a mapping from each
+    branch's initial user question to its role-appropriate demonstration.
+    Looked up in the example's ``info`` dict first, then as a top-level rollout
+    field (e.g. ``answer``). A ``"*"`` mapping entry is the optional fallback."""
 
     template: str = (
         "<Question>\n{question}\n"

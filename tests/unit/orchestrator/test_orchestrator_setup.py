@@ -4,7 +4,12 @@ from unittest.mock import AsyncMock, Mock, patch
 
 from renderers import Qwen3VLRendererConfig
 
-from prime_rl.orchestrator.orchestrator import Orchestrator
+from prime_rl.configs.orchestrator import OrchestratorConfig
+from prime_rl.orchestrator.orchestrator import (
+    STARTUP_WEIGHT_WAIT_TIMEOUT_S,
+    Orchestrator,
+    _startup_weight_wait_timeout,
+)
 from prime_rl.orchestrator.utils import setup_policy_inference_pool
 
 
@@ -95,6 +100,20 @@ def test_setup_policy_inference_pool_keeps_renderer_without_policy_sampling():
     asyncio.run(run())
 
 
+def test_startup_weight_wait_uses_default_when_checkpoint_timeout_is_unset():
+    config = OrchestratorConfig.model_validate({"batch_size": 1})
+
+    assert _startup_weight_wait_timeout(config) == STARTUP_WEIGHT_WAIT_TIMEOUT_S
+
+
+def test_startup_weight_wait_honors_checkpoint_timeout():
+    config = OrchestratorConfig.model_validate(
+        {"batch_size": 1, "ckpt": {"wait_for_weights_timeout": 37}}
+    )
+
+    assert _startup_weight_wait_timeout(config) == 37
+
+
 def test_zero_train_batch_lead_waits_for_updated_final_batch_policy():
     orchestrator = Orchestrator.__new__(Orchestrator)
     orchestrator.config = SimpleNamespace(
@@ -114,6 +133,20 @@ def test_zero_train_batch_lead_waits_for_updated_final_batch_policy():
     assert not orchestrator.dispatcher.dispatch_allowed.is_set()
 
     orchestrator.policy.version = 1
+    orchestrator.update_dispatch_gate()
+
+    assert orchestrator.dispatcher.dispatch_allowed.is_set()
+
+
+def test_one_batch_lead_does_not_wait_for_unused_final_update():
+    orchestrator = Orchestrator.__new__(Orchestrator)
+    orchestrator.config = SimpleNamespace(max_train_batch_lead=1)
+    orchestrator.progress = SimpleNamespace(step=2)
+    orchestrator.policy = SimpleNamespace(version=0)
+    orchestrator.dispatcher = SimpleNamespace(dispatch_allowed=asyncio.Event())
+    orchestrator.gate_closed_at = None
+    orchestrator.wait_for_policy_time = 0.0
+
     orchestrator.update_dispatch_gate()
 
     assert orchestrator.dispatcher.dispatch_allowed.is_set()

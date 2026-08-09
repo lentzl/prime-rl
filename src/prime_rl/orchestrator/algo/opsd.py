@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
 from verifiers.v1.types import content_text
 
 from prime_rl.configs.algorithm import OPSDAlgoConfig
 from prime_rl.orchestrator.algo.base import Algorithm
+from prime_rl.orchestrator.trajectories import iter_trainable_branches
 from prime_rl.transport import SDPOTeacherSpan
 
 if TYPE_CHECKING:
@@ -33,14 +35,15 @@ class OPSDAlgorithm(Algorithm):
         self.renderer = create_renderer(tokenizer, self.config.renderer)
 
     async def score_rollout(self, rollout: Rollout) -> None:
-        demonstration = self._demonstration(rollout)
-        trainable_branches = [branch for branch in rollout.branches if any(branch.sampled_mask)]
+        demonstrations = self._demonstrations(rollout)
+        trainable_branches = list(iter_trainable_branches(rollout))
         if len(trainable_branches) != len(rollout.samples):
             raise ValueError("OPSD samples must align one-to-one with trainable trace branches")
 
-        for branch, sample in zip(trainable_branches, rollout.samples, strict=True):
-            if list(branch.token_ids) != list(sample.token_ids) or list(branch.sampled_mask) != list(sample.mask):
+        for (branch, trainable_mask), sample in zip(trainable_branches, rollout.samples, strict=True):
+            if list(branch.token_ids) != list(sample.token_ids) or list(trainable_mask) != list(sample.mask):
                 raise ValueError("OPSD sample tokens must align with their Verifiers trace branch")
+            demonstration = self._branch_demonstration(rollout, branch.nodes, demonstrations)
             self._prepare_sample(rollout, branch.nodes, sample, demonstration)
 
     def _prepare_sample(self, rollout: Rollout, nodes: list, sample: TrainingSample, demonstration: str) -> None:
@@ -50,11 +53,17 @@ class OPSDAlgorithm(Algorithm):
             if not sampled_node.sampled:
                 continue
             node_start = sum(len(node.token_ids) for node in nodes[:node_index])
-            student_positions = [node_start + index for index, sampled in enumerate(sampled_node.mask) if sampled]
+            node_end = node_start + len(sampled_node.token_ids)
+            effective_mask = sample.mask[node_start:node_end]
+            if len(effective_mask) != len(sampled_node.token_ids):
+                raise ValueError("OPSD sample mask must span every Verifiers trace node")
+            student_positions = [node_start + index for index, sampled in enumerate(effective_mask) if sampled]
             completion_ids = [
-                token_id for token_id, sampled in zip(sampled_node.token_ids, sampled_node.mask, strict=True) if sampled
+                token_id for token_id, sampled in zip(sampled_node.token_ids, effective_mask, strict=True) if sampled
             ]
-            if not completion_ids or len(student_positions) != len(completion_ids):
+            if not completion_ids:
+                continue
+            if len(student_positions) != len(completion_ids):
                 raise ValueError("OPSD sampled response tokens must be present and position-aligned")
 
             messages = [node.message for node in nodes[:node_index]]
@@ -95,13 +104,47 @@ class OPSDAlgorithm(Algorithm):
         prefix_ids = list(renderer.render_ids(rendered_messages, tools=rendered_tools, add_generation_prompt=True))
         return prefix_ids[: self.config.max_reprompt_len]
 
-    def _demonstration(self, rollout: Rollout) -> str:
-        demonstration = rollout.info.get(self.config.demo_key)
-        if demonstration is None:
-            demonstration = getattr(rollout.task.data, self.config.demo_key, None)
-        if not isinstance(demonstration, str):
+    def _demonstrations(self, rollout: Rollout) -> str | Mapping[str, str]:
+        demonstrations = rollout.info.get(self.config.demo_key)
+        if demonstrations is None:
+            demonstrations = getattr(rollout.task.data, self.config.demo_key, None)
+        if not isinstance(demonstrations, (str, Mapping)):
             raise ValueError(
-                f"opsd requires string '{self.config.demo_key}' in the trace info dict or on the task "
+                f"opsd requires string or question-keyed mapping '{self.config.demo_key}' in the trace info dict "
+                f"or on the task "
                 f"(env '{rollout.env_name}', task {rollout.task.data.idx})."
+            )
+        if isinstance(demonstrations, Mapping) and not all(
+            isinstance(question, str) and isinstance(demonstration, str)
+            for question, demonstration in demonstrations.items()
+        ):
+            raise ValueError(f"opsd demonstration mapping '{self.config.demo_key}' must contain only strings")
+        return demonstrations
+
+    def _branch_demonstration(
+        self,
+        rollout: Rollout,
+        nodes: list,
+        demonstrations: str | Mapping[str, str],
+    ) -> str:
+        if isinstance(demonstrations, str):
+            return demonstrations
+        question = next(
+            (
+                content_text(node.message.content).strip()
+                for node in nodes
+                if node.message.role == "user" and content_text(node.message.content).strip()
+            ),
+            None,
+        )
+        if question is None:
+            raise ValueError("OPSD branch-specific demonstration requires an initial user question")
+        demonstration = demonstrations.get(question)
+        if demonstration is None:
+            demonstration = demonstrations.get("*")
+        if demonstration is None:
+            raise ValueError(
+                f"opsd found no demonstration for branch question {question!r} "
+                f"(env '{rollout.env_name}', task {rollout.task.data.idx})"
             )
         return demonstration

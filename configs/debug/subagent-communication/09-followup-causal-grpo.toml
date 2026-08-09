@@ -1,0 +1,105 @@
+# Causal follow-up repair after count-based protocol scoring admitted premature replies.
+
+max_steps = 4
+seq_len = 32768
+output_dir = "/ephemeral/subagent-rung/outputs/09-followup-causal-grpo-r1"
+clean_output_dir = true
+
+[deployment]
+gpus_per_node = 1
+num_train_gpus = 1
+num_infer_gpus = 0
+
+[weight_broadcast]
+type = "filesystem"
+
+[ckpt]
+interval = 2
+keep_last = 2
+keep_interval = 4
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/subagent-rung/outputs/08-followup-grpo-r1/weights/step_2"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model]
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.model.lora]
+rank = 16
+alpha = 32
+
+[trainer.optim]
+lr = 1e-5
+
+[orchestrator]
+batch_size = 8
+group_size = 4
+
+[orchestrator.algo]
+type = "grpo"
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[orchestrator.model.client]
+base_url = ["http://127.0.0.1:8000/v1"]
+admin_base_url = ["http://127.0.0.1:8100/v1"]
+
+[orchestrator.train.sampling]
+temperature = 0.8
+max_completion_tokens = 2048
+
+[[orchestrator.train.source]]
+name = "prime-agent-bidirectional-followup"
+
+[orchestrator.train.source.env.taskset]
+id = "subagent-communication-v1"
+split = "train"
+families = ["followup"]
+instruction_level = "guided"
+instances_per_template = 4
+instance_offset = 40
+seed = 20260831
+
+[orchestrator.train.source.env.agent]
+max_turns = 32
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 360.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime-agent"
+version = "0.7.0"
+save_session = true
+max_depth = 1
+model_context_window = 32768
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[orchestrator.train.source.serve]
+max_concurrent = 1

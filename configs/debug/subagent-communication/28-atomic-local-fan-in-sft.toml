@@ -1,0 +1,54 @@
+# Prevent child-message races by executing coordinator-local work atomically.
+
+max_steps = 128
+output_dir = "/ephemeral/subagent-rung/outputs/28-atomic-local-fan-in-sft-r1"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 32
+keep_last = 4
+keep_interval = 32
+weights_only = true
+
+[ckpt.weights]
+save_adapter_only = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/subagent-rung/outputs/18-retained-causal-conjunction-grpo-r1/weights/step_1"
+seq_len = 8192
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+
+[data]
+name = "/ephemeral/subagent-rung/data/28-atomic-local-fan-in-sft-r1"
+seq_len = 8192
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20261025
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 5e-6

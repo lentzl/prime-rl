@@ -534,6 +534,9 @@ class OrchestratorConfig(BaseConfig):
     weight_broadcast: WeightBroadcastConfig = FileSystemWeightBroadcastConfig()
     """Transport used to receive updated weights from the trainer."""
 
+    sync_initial_weights: bool = False
+    """Wait for trainer policy version 0 before scheduling the first rollout."""
+
     rollout_transport: TransportConfig = ZMQTransportConfig()
     """Transport used to ship rollouts from orchestrator to trainer."""
 

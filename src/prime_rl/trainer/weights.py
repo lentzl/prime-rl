@@ -45,6 +45,22 @@ def load_state_dict(save_dir: Path) -> dict[str, Tensor]:
     return state_dict
 
 
+def normalize_peft_lora_state_dict(state_dict: dict[str, Tensor]) -> dict[str, Tensor]:
+    """Remove PEFT's base-model prefix and validate adapter-only tensor keys."""
+    peft_prefix = "base_model.model."
+    normalized = {}
+    for key, value in state_dict.items():
+        normalized_key = key.removeprefix(peft_prefix)
+        if not normalized_key.endswith((".lora_A.weight", ".lora_B.weight")):
+            raise ValueError(f"Unexpected tensor {key!r} in LoRA adapter")
+        if normalized_key in normalized:
+            raise ValueError(f"Duplicate tensor {normalized_key!r} in LoRA adapter")
+        normalized[normalized_key] = value
+    if not normalized:
+        raise ValueError("LoRA adapter contains no tensors")
+    return normalized
+
+
 def save_state_dict(
     state_dict: dict[str, Tensor],
     save_dir: Path,

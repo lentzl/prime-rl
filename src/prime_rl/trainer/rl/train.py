@@ -304,11 +304,11 @@ def train(config: TrainerConfig):
 
         # In-memory transfers broadcast the incoming policy (v{progress.step-1}) before waiting
         # for its rollouts so the trainer and inference pool join the same update lifecycle.
-        if (
-            progress.step == start_step
-            and weight_broadcast is not None
-            and config.weight_broadcast.type in ("nccl", "nixl")
-        ):
+        sync_initial_weights = (
+            config.weight_broadcast.type in ("nccl", "nixl")
+            or (config.model.lora is not None and config.model.lora.init_adapter is not None)
+        )
+        if progress.step == start_step and weight_broadcast is not None and sync_initial_weights:
             logger.info(f"Broadcasting startup policy weights (v{progress.step - 1}) to inference engines")
             multi_run_manager.wait_for_run(0)
             for idx in multi_run_manager.used_idxs:

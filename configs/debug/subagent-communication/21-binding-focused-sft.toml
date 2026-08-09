@@ -1,0 +1,54 @@
+# Compare roughly one and two packed-data epochs over short handle-binding continuations.
+
+max_steps = 4
+output_dir = "/ephemeral/subagent-rung/outputs/21-binding-focused-sft-r2"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 2
+keep_last = 2
+keep_interval = 2
+weights_only = true
+
+[ckpt.weights]
+save_adapter_only = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/subagent-rung/outputs/18-retained-causal-conjunction-grpo-r1/weights/step_1"
+seq_len = 8192
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+
+[data]
+name = "/ephemeral/subagent-rung/data/21-binding-focused-sft-r1"
+seq_len = 8192
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20260927
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 4e-6

@@ -5,6 +5,7 @@ import pytest
 import tomli_w
 from pydantic import BaseModel, Field, ValidationError
 from pydantic_config import ConfigFileError
+from verifiers.v1.configs.cli.eval import EvalConfig
 
 from prime_rl.configs.env_server import EnvServerConfig
 from prime_rl.configs.inference import InferenceConfig
@@ -23,6 +24,7 @@ CONFIG_CLASSES = [
     OrchestratorConfig,
     InferenceConfig,
     EnvServerConfig,
+    EvalConfig,
 ]
 
 
@@ -161,6 +163,71 @@ def test_removed_fused_lm_head_chunk_size_field_is_rejected():
         TrainerModelConfig.model_validate({"fused_lm_head_chunk_size": "auto"})
 
 
+def test_adapter_only_weight_checkpoint_requires_lora():
+    with pytest.raises(ValidationError, match="requires LoRA"):
+        SFTConfig.model_validate({"ckpt": {"weights": {"save_adapter_only": True}}})
+
+
+def test_adapter_only_weight_checkpoint_accepts_lora():
+    config = SFTConfig.model_validate(
+        {
+            "model": {"lora": {"rank": 16}},
+            "ckpt": {"weights": {"save_adapter_only": True}},
+        }
+    )
+
+    assert config.ckpt is not None
+    assert config.ckpt.weights is not None
+    assert config.ckpt.weights.save_adapter_only
+
+
+def test_lora_adapter_initialization_accepts_single_run_path(tmp_path):
+    config = TrainerConfig.model_validate(
+        {"model": {"lora": {"init_adapter": str(tmp_path)}}}
+    )
+
+    assert config.model.lora is not None
+    assert config.model.lora.init_adapter == tmp_path
+
+
+def test_lora_adapter_initialization_rejects_multiple_runs(tmp_path):
+    with pytest.raises(ValidationError, match="requires max_concurrent_runs=1"):
+        TrainerConfig.model_validate(
+            {
+                "max_concurrent_runs": 2,
+                "model": {"lora": {"init_adapter": str(tmp_path)}},
+            }
+        )
+
+
+def test_rl_lora_adapter_initialization_enables_initial_weight_sync(tmp_path):
+    config = RLConfig.model_validate(
+        {
+            "orchestrator": {"batch_size": 1},
+            "trainer": {
+                "model": {"lora": {"init_adapter": str(tmp_path)}},
+            },
+        }
+    )
+
+    assert config.orchestrator.sync_initial_weights
+
+
+def test_adapter_only_weight_checkpoint_rejects_redundant_separate_adapter():
+    with pytest.raises(ValidationError, match="mutually exclusive"):
+        SFTConfig.model_validate(
+            {
+                "model": {"lora": {"rank": 16}},
+                "ckpt": {
+                    "weights": {
+                        "save_adapter_only": True,
+                        "save_adapter_separately": True,
+                    }
+                },
+            }
+        )
+
+
 def test_to_toml_dict_roundtrips_explicit_none(tmp_path):
     """An explicit None override survives the write/re-parse round-trip used by SLURM launches."""
     config = cli(TrainerConfig, args=["--model.compile", "None", "--optim.max_norm", "None"])
@@ -240,6 +307,42 @@ def test_opsd_algorithm_enables_distribution_distillation_runtime():
     assert config.trainer.sdpo_loss.distillation_topk == 20
     assert config.trainer.sdpo_loss.teacher_regularization == "ema"
     assert config.trainer.model.fused_lm_head_token_chunk_size == 1024
+
+
+@pytest.mark.parametrize("algo_type", ["opsd", "sdpo"])
+def test_self_distillation_rejects_non_unit_sampling_temperature(algo_type):
+    with pytest.raises(ValidationError, match="require sampling temperature 1.0"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "algo": {"type": algo_type},
+                    "train": {"sampling": {"temperature": 0.8}},
+                },
+            }
+        )
+
+
+def test_per_env_self_distillation_rejects_non_unit_sampling_temperature():
+    with pytest.raises(ValidationError, match="self-distill-env=0.8"):
+        RLConfig.model_validate(
+            {
+                "trainer": {},
+                "orchestrator": {
+                    "algo": {"type": "grpo"},
+                    "train": {
+                        "source": [
+                            {
+                                "name": "self-distill-env",
+                                "legacy": {"id": "reverse-text"},
+                                "sampling": {"temperature": 0.8},
+                                "algo": {"type": "opsd"},
+                            }
+                        ]
+                    },
+                },
+            }
+        )
 
 
 def test_sdpo_debug_config_disables_thinking_for_student_and_teacher():

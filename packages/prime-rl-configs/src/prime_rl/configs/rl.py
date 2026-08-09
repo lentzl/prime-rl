@@ -389,6 +389,26 @@ class RLConfig(BaseConfig):
             return self
 
         self.trainer.sdpo_loss.enabled = True
+        distilled_sources = [
+            source
+            for source in self.orchestrator.train.source
+            if (source.algo or self.orchestrator.algo).action_loss_type == "sdpo"
+        ]
+        invalid_temperatures = [
+            (source.resolved_name, source.sampling.temperature)
+            for source in distilled_sources
+            if source.sampling.temperature != 1.0
+        ]
+        if not self.orchestrator.train.source and self.orchestrator.algo.action_loss_type == "sdpo":
+            temperature = self.orchestrator.train.sampling.temperature
+            if temperature != 1.0:
+                invalid_temperatures.append(("default", temperature))
+        if invalid_temperatures:
+            details = ", ".join(f"{name}={temperature}" for name, temperature in invalid_temperatures)
+            raise ValueError(
+                "Self-distillation algorithms require sampling temperature 1.0 on every distilled token; "
+                f"got {details}."
+            )
         if self.trainer.max_concurrent_runs != 1:
             raise ValueError("SDPO currently requires trainer.max_concurrent_runs=1.")
         if not self.trainer.sdpo_loss.full_logit_distillation or self.trainer.sdpo_loss.distillation_topk is None:
@@ -558,6 +578,9 @@ class RLConfig(BaseConfig):
                     "make sure to set --enable_lora and --max-lora-rank.",
                     stacklevel=2,
                 )
+
+            if self.trainer.model.lora.init_adapter is not None:
+                self.orchestrator.sync_initial_weights = True
 
         return self
 

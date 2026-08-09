@@ -341,12 +341,15 @@ class SFTConfig(BaseConfig):
 
     @model_validator(mode="after")
     def validate_lora_adapter_saving(self):
-        if self.ckpt and self.ckpt.weights and self.ckpt.weights.save_adapter_separately:
+        weights = self.ckpt.weights if self.ckpt else None
+        if weights and weights.save_adapter_only and weights.save_adapter_separately:
+            raise ValueError("save_adapter_only and save_adapter_separately are mutually exclusive.")
+        if weights and (weights.save_adapter_only or weights.save_adapter_separately):
             lora_enabled = self.model and self.model.lora
             if not lora_enabled:
                 raise ValueError(
-                    "save_adapter_separately=True requires LoRA to be enabled. "
-                    "Set model.lora or disable save_adapter_separately."
+                    "Saving LoRA adapters requires LoRA to be enabled. "
+                    "Set model.lora or disable adapter saving."
                 )
         return self
 

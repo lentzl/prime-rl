@@ -99,6 +99,9 @@ class LoRAConfig(BaseConfig):
     modules_to_save: list[str] = []
     """Module names or regex patterns to keep fully trainable (not freeze). Same matching rules as ``target_modules``."""
 
+    init_adapter: Path | None = None
+    """Optional PEFT adapter directory used to initialize a single-run trainer policy."""
+
 
 class DebugModelConfig(BaseConfig):
     num_layers: int | None = None
@@ -416,6 +419,9 @@ class WeightCheckpointConfig(BaseConfig):
 
     save_adapter_separately: bool = False
     """Save LoRA adapters separately before merging into full model weights."""
+
+    save_adapter_only: bool = False
+    """Save only a PEFT-compatible LoRA adapter instead of merged model weights."""
 
 
 class CheckpointConfig(BaseConfig):
@@ -745,13 +751,23 @@ class TrainerConfig(BaseConfig):
 
     @model_validator(mode="after")
     def validate_lora_adapter_saving(self):
-        if self.ckpt and self.ckpt.weights and self.ckpt.weights.save_adapter_separately:
+        weights = self.ckpt.weights if self.ckpt else None
+        if weights and weights.save_adapter_only and weights.save_adapter_separately:
+            raise ValueError("save_adapter_only and save_adapter_separately are mutually exclusive.")
+        if weights and (weights.save_adapter_only or weights.save_adapter_separately):
             lora_enabled = self.model and self.model.lora
             if not lora_enabled:
                 raise ValueError(
-                    "save_adapter_separately=True requires LoRA to be enabled. "
-                    "Set model.lora or disable save_adapter_separately."
+                    "Saving LoRA adapters requires LoRA to be enabled. "
+                    "Set model.lora or disable adapter saving."
                 )
+        return self
+
+    @model_validator(mode="after")
+    def validate_lora_adapter_initialization(self):
+        if self.model.lora is not None and self.model.lora.init_adapter is not None:
+            if self.max_concurrent_runs != 1:
+                raise ValueError("LoRA adapter initialization requires max_concurrent_runs=1")
         return self
 
     @model_validator(mode="after")

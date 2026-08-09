@@ -459,6 +459,31 @@ class WeightCheckpointManager:
             step_path.mkdir(parents=True, exist_ok=True)
         torch.distributed.barrier()
 
+        if self.config.save_adapter_only:
+            if not has_lora_layers(model):
+                raise ValueError("save_adapter_only requires a model with LoRA layers")
+            self.logger.debug("Gathering adapter-only weight checkpoint")
+            lora_state_dict = self.get_run_adapter_state_dict()
+            if self.world.is_master:
+                save_state_dict(
+                    lora_state_dict,
+                    step_path,
+                    self.config.save_format,
+                    save_sharded=False,
+                    adapter=True,
+                )
+                assert self.lora_config is not None
+                save_lora_config(
+                    model,
+                    step_path,
+                    rank=self.lora_config.rank,
+                    alpha=self.lora_config.alpha,
+                    dropout=self.lora_config.dropout,
+                )
+            self.mark_stable(step)
+            bisect.insort(self.ckpt_steps, step)
+            return
+
         # Gather all weights on master rank
         self.logger.debug("Gathering weights on master rank for weight checkpoint")
         start_time = time.perf_counter()
