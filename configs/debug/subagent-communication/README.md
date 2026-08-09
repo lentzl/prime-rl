@@ -84,3 +84,25 @@ This short run starts from the one-epoch r4 SFT checkpoint and keeps the disjoin
 seed and instance offset. Do not substitute the mixed-family `rl.toml` until native
 single-child communication remains reliable after GRPO and the parallel/follow-up
 families have passed their own on-policy probes.
+
+The admitted step-24 checkpoint scored 4/4 on held-out direct tasks and 4/4 on
+held-out standard single-child tasks. Its first two complete GRPO groups were also
+4/4 exact and protocol-aligned, so the zero-advantage filter correctly rejected all
+eight rollouts and no optimizer update occurred. Stop rather than resampling an
+already-saturated rung. Advance to parallel fan-out/fan-in while retaining direct and
+single examples:
+
+```bash
+uv run python scripts/export_subagent_communication_sft.py \
+  /ephemeral/subagent-rung/data/03-parallel-sft-r1/train.json \
+  --instances 8 \
+  --families direct single parallel \
+  --harness-trace /ephemeral/subagent-rung/evals/r4-step24-heldout-direct-single/traces.jsonl
+uv run sft @ configs/debug/subagent-communication/03-parallel-sft.toml
+```
+
+This produces 192 examples: 32 direct parents, 32 single parents, 32 single children,
+32 parallel parents, and 64 parallel children. Parallel parents spawn both named
+children before coordinator-local work, retain both handles, use bounded native
+observation, and require both explicit replies. Reply order alternates across template
+variants so fan-in does not depend on alpha finishing first.

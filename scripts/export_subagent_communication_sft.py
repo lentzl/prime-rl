@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export compact parent/child demonstrations for the first subagent rung."""
+"""Export compact parent/child demonstrations for subagent communication rungs."""
 
 from __future__ import annotations
 
@@ -136,6 +136,119 @@ def _single_examples(task, prompt: str) -> list[dict]:
     return [parent, child]
 
 
+def _parallel_examples(task, prompt: str) -> list[dict]:
+    local_values = _local_values(task.data.prompt)
+    local = task.data.answer["local"]
+    handles = {"alpha-worker": "alpha", "beta-worker": "beta"}
+    spawn_messages = []
+    child_prompts = {}
+    for name in task.data.expected_children:
+        path = task.data.child_paths[name]
+        child_prompt = _child_prompt(path)
+        child_prompts[name] = child_prompt
+        spawn_messages.extend(
+            _tool_messages(
+                f"parallel-spawn-{handles[name]}",
+                f"{handles[name]} = await rlm({child_prompt!r}, name={name!r})",
+                "",
+            )
+        )
+
+    local_assignment = f"local_values = {local_values!r}"
+    local_checksum = (
+        "local = sum((index + 1) * value for index, value in enumerate(local_values))\nlocal"
+    )
+    wait_code = (
+        "import asyncio\n"
+        "await asyncio.sleep(1)\n"
+        "for _ in range(30):\n"
+        "    child_states = await asyncio.gather(\n"
+        "        agent_observe.get_agent(alpha.name),\n"
+        "        agent_observe.get_agent(beta.name),\n"
+        "    )\n"
+        "    if all(not state['agent']['isStreaming'] for state in child_states):\n"
+        "        break\n"
+        "    await asyncio.sleep(0.5)\n"
+        "child_states"
+    )
+    wait_output = (
+        "[{'agent': {'sessionName': 'alpha-worker', 'status': 'idle', "
+        "'isStreaming': False, 'messageCount': 5}}, "
+        "{'agent': {'sessionName': 'beta-worker', 'status': 'idle', "
+        "'isStreaming': False, 'messageCount': 5}}]"
+    )
+    reply_order = list(task.data.expected_children)
+    if task.data.template_variant % 2:
+        reply_order.reverse()
+    incoming = []
+    for name in reply_order:
+        key = handles[name]
+        incoming.append(
+            {
+                "role": "user",
+                "content": (
+                    f"[from child:{name}]\n"
+                    "Agent-to-agent message received.\n"
+                    "Source: agent_message\n"
+                    f"From: {name}\n"
+                    f"Message id: agentmsg_training_{key}\n\n"
+                    f"{task.data.answer[key]}"
+                ),
+            }
+        )
+    parent = {
+        "messages": [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": task.data.prompt},
+            *spawn_messages,
+            *_tool_messages("parallel-local-assignment", local_assignment, ""),
+            *_tool_messages("parallel-local-checksum", local_checksum, str(local)),
+            *_tool_messages("parallel-wait", wait_code, wait_output),
+            *incoming,
+            {"role": "assistant", "content": json.dumps(task.data.answer)},
+        ],
+        "tools": [IPYTHON_TOOL],
+        "metadata": {"family": "parallel", "task": task.data.name, "role": "parent"},
+    }
+
+    child_system_prompt = prompt.replace("Recursive agent depth: 0", "Recursive agent depth: 1")
+    children = []
+    for name in task.data.expected_children:
+        key = handles[name]
+        path = task.data.child_paths[name]
+        values = json.loads(task.data.files[path])
+        checksum = task.data.answer[key]
+        compute_code = (
+            f"import json\nfrom pathlib import Path\nvalues = json.loads(Path({path!r}).read_text())\n"
+            "checksum = sum((index + 1) * value for index, value in enumerate(values))\n"
+            "checksum"
+        )
+        send_code = "await agent_message.send(str(checksum), receiver_role='parent')"
+        send_output = (
+            f"{{'id': 'agentmsg_training_{key}', 'source': 'agent_message', "
+            "'deliveryStatus': 'delivered', 'receiverRole': 'parent'}"
+        )
+        child = {
+            "messages": [
+                {"role": "system", "content": child_system_prompt},
+                {"role": "user", "content": f"[task from parent]\n\n{child_prompts[name]}"},
+                *_tool_messages(f"parallel-child-compute-{key}", compute_code, str(checksum)),
+                *_tool_messages(f"parallel-child-send-{key}", send_code, send_output),
+                {"role": "assistant", "content": "Sent the checksum to the parent."},
+            ],
+            "tools": [IPYTHON_TOOL],
+            "metadata": {
+                "family": "parallel",
+                "task": task.data.name,
+                "role": "child",
+                "child": name,
+                "values": values,
+            },
+        }
+        children.append(child)
+    return [parent, *children]
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("output", type=Path)
@@ -143,13 +256,19 @@ def main() -> None:
     parser.add_argument("--instance-offset", type=int, default=100)
     parser.add_argument("--seed", type=int, default=20260819)
     parser.add_argument("--harness-trace", type=Path)
+    parser.add_argument(
+        "--families",
+        nargs="+",
+        choices=("direct", "single", "parallel"),
+        default=("direct", "single"),
+    )
     args = parser.parse_args()
 
     prompt = system_prompt(args.harness_trace, SYSTEM_PROMPT)
     tasks = SubagentCommunicationTaskset(
         SubagentCommunicationConfig(
             split="train",
-            families=("direct", "single"),
+            families=tuple(args.families),
             instruction_level="standard",
             instances_per_template=args.instances,
             instance_offset=args.instance_offset,
@@ -160,12 +279,14 @@ def main() -> None:
     for task in tasks:
         if task.data.family == "direct":
             examples.append(_direct_example(task, prompt))
-        else:
+        elif task.data.family == "single":
             examples.extend(_single_examples(task, prompt))
+        else:
+            examples.extend(_parallel_examples(task, prompt))
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text("".join(json.dumps(example) + "\n" for example in examples))
-    print(f"wrote {len(examples)} direct/parent/child examples to {args.output}")
+    print(f"wrote {len(examples)} examples for {','.join(args.families)} to {args.output}")
 
 
 if __name__ == "__main__":
