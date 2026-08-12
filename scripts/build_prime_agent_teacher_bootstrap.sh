@@ -3,9 +3,9 @@ set -euo pipefail
 
 ROOT=${RUNG_ROOT:-/ephemeral/subagent-rung}
 OUTPUT=${BOOTSTRAP_OUTPUT:-$ROOT/data/281-qwen35-27b-prime-agent-teacher-bootstrap}
-CHILD_RUN=${CHILD_RUN:-$ROOT/evals/278-qwen35-27b-mastery-child-teacher-collection/base-r1}
-COORDINATOR_RUN=${COORDINATOR_RUN:-$ROOT/evals/279-qwen35-27b-mastery-coordinator-teacher-collection/base-r1}
-COMMUNICATION_RUN=${COMMUNICATION_RUN:-$ROOT/evals/280-qwen35-27b-mastery-guided-communication-collection/base-r1}
+CHILD_RUNS=${CHILD_RUNS:-$ROOT/evals/278-qwen35-27b-mastery-child-teacher-collection/base-r1}
+COORDINATOR_RUNS=${COORDINATOR_RUNS:-$ROOT/evals/279-qwen35-27b-mastery-coordinator-teacher-collection/base-r1}
+COMMUNICATION_RUNS=${COMMUNICATION_RUNS:-$ROOT/evals/280-qwen35-27b-mastery-guided-communication-collection/base-r1}
 
 if [[ -e "$OUTPUT" ]]; then
   echo "refusing to overwrite existing bootstrap output: $OUTPUT" >&2
@@ -34,9 +34,22 @@ for family in "${communication_families[@]}"; do
   requirements+=(--require-count "family.$family=4")
 done
 
+source_args=()
+append_runs() {
+  local cohort=$1
+  local run_list=$2
+  local run
+  IFS=: read -r -a runs <<< "$run_list"
+  for run in "${runs[@]}"; do
+    [[ -n "$run" ]] && source_args+=("--${cohort}-run" "$run")
+  done
+}
+
+append_runs ownership "$CHILD_RUNS"
+append_runs ownership "$COORDINATOR_RUNS"
+append_runs communication "$COMMUNICATION_RUNS"
+
 python scripts/export_prime_agent_teacher_bootstrap.py \
-  --ownership-run "$CHILD_RUN" \
-  --ownership-run "$COORDINATOR_RUN" \
-  --communication-run "$COMMUNICATION_RUN" \
+  "${source_args[@]}" \
   "${requirements[@]}" \
   --output-dir "$OUTPUT"

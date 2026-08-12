@@ -1,4 +1,6 @@
 import argparse
+import json
+import sys
 from types import SimpleNamespace
 
 import pytest
@@ -76,3 +78,27 @@ def test_count_requirements_are_strict_and_report_missing_keys() -> None:
 def test_invalid_count_requirement_is_rejected(value: str) -> None:
     with pytest.raises(argparse.ArgumentTypeError):
         bootstrap.parse_count_requirement(value)
+
+
+def test_audit_only_reports_missing_requirements_without_writing(monkeypatch, capsys, tmp_path) -> None:
+    manifest = {"counts": {"family.parallel": 3}, "rows": 3}
+    monkeypatch.setattr(bootstrap, "build", lambda sources: ([{"messages_json": "[]"}], manifest))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "export_prime_agent_teacher_bootstrap.py",
+            "--communication-run",
+            str(tmp_path / "run"),
+            "--require-count",
+            "family.parallel=4",
+            "--audit-only",
+        ],
+    )
+
+    with pytest.raises(SystemExit) as exc:
+        bootstrap.main()
+
+    assert exc.value.code is True
+    assert json.loads(capsys.readouterr().out)["missing_requirements"] == ["family.parallel=3<4"]
+    assert not list(tmp_path.glob("*.parquet"))

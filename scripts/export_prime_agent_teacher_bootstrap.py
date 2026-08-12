@@ -165,7 +165,12 @@ def main() -> None:
         metavar="KEY=MIN",
         help="fail unless the manifest count KEY is at least MIN; repeatable",
     )
-    parser.add_argument("--output-dir", required=True, type=Path)
+    parser.add_argument(
+        "--audit-only",
+        action="store_true",
+        help="print the prospective manifest without writing a training dataset",
+    )
+    parser.add_argument("--output-dir", type=Path)
     args = parser.parse_args()
     sources = [
         *((path, "ownership") for path in args.ownership_run),
@@ -173,13 +178,19 @@ def main() -> None:
     ]
     if not sources:
         parser.error("at least one source run is required")
+    if not args.audit_only and args.output_dir is None:
+        parser.error("--output-dir is required unless --audit-only is set")
 
     rows, manifest = build(sources)
+    missing = unmet_count_requirements(manifest["counts"], args.require_count)
+    if args.audit_only:
+        print(json.dumps({**manifest, "missing_requirements": missing}, indent=2, sort_keys=True))
+        raise SystemExit(bool(missing))
     if not rows:
         raise SystemExit("no verified teacher rows were admitted")
-    missing = unmet_count_requirements(manifest["counts"], args.require_count)
     if missing:
         raise SystemExit(f"teacher coverage requirements failed: {', '.join(missing)}")
+    assert args.output_dir is not None
     args.output_dir.mkdir(parents=True, exist_ok=True)
     Dataset.from_list(rows).to_parquet(str(args.output_dir / "train.parquet"))
     (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
