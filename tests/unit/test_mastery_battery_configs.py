@@ -98,6 +98,20 @@ def test_child_ownership_supplement_is_targeted_and_disjoint() -> None:
     assert supplement["env"]["agent"]["harness"]["thinking"] == "high"
 
 
+def test_guided_coordinator_supplement_is_balanced_and_fresh() -> None:
+    native = load_config("279-qwen35-27b-mastery-coordinator-teacher-collection.toml")
+    supplement = load_config("288-qwen35-27b-mastery-guided-coordinator-ownership-supplement.toml")
+    taskset = supplement["env"]["taskset"]
+
+    assert taskset["ownership"] == "coordinator"
+    assert taskset["instruction_level"] == "guided"
+    assert taskset["instance_offset"] != native["env"]["taskset"]["instance_offset"]
+    assert taskset["seed"] != native["env"]["taskset"]["seed"]
+    assert supplement["num_tasks"] == 8
+    assert supplement["num_rollouts"] == 8
+    assert supplement["env"]["agent"]["harness"]["thinking"] == "high"
+
+
 def test_teacher_bootstraps_adapt_qwen35_linear_attention_and_preserve_thinking() -> None:
     names = (
         "281-qwen35-27b-prime-agent-teacher-bootstrap-r64.toml",
