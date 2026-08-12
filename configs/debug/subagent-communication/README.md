@@ -931,14 +931,22 @@ native teacher; mean sequence mismatch KL was `0.000287`. The trainer reported l
 and exact native demonstrations are recorded in
 `qwen35-27b-native-sibling-sdpo-dose-results-v1.json`.
 
-Run 266 rejected that candidate. On 32 matched ownership/direct tasks it produced two
+Run 266 did not promote that candidate. On 32 matched ownership/direct tasks it produced two
 strict gains and one loss, below the frozen six-gain minimum; child-owned path leakage
 and direct overdelegation both remained zero. The natural screen found a sharp split:
 handshake protocol improved from `2/4` to `4/4` and mean bidirectional control from
 `0.341` to `0.886`, but follow-up causal completion fell from `4/4` to `3/4` and four
 coordinator accesses to child-owned paths remained. Both primary gates therefore failed,
-Run 267 was not launched, and no second optimizer step is permitted. Exact paired
+Run 267 was not launched, and no further step is permitted under the promotion branch.
+Exact paired
 metrics and trace hashes are in `qwen35-27b-native-sibling-selection-results-v1.json`.
+
+This promotion failure does not by itself classify the learning direction as dead.
+Run 265 is retained as `CONTINUATION_ELIGIBLE`: its large handshake-control gain, two
+held-out child-owned gains, zero matched child-path leakage, and zero direct
+overdelegation justify a short predeclared continuation trajectory. Untouched 27B
+remains the canonical reference, and no continuation checkpoint is promoted unless
+it independently clears the unchanged gate.
 
 Run 268 returns to untouched 27B and performs no learning. It samples 16 native
 rollouts for each of the eight coordinator-owned admission families using the same
@@ -948,6 +956,26 @@ families producing multiple successes. Passing would justify a paired native-sib
 SDPO design that teaches both ownership arms from authentic on-policy reasoning;
 failure would show that coordinator-native teacher supply must be solved before such
 a cohort is viable.
+
+Run 268 failed with `0/128` strict successes across all eight coordinator-owned
+families. The model avoided spawning in `128/128` and accessed the local resource in
+`125/128`, but retained the requested state in only `46/128` and never returned the
+exact state-plus-result object. This rules out an authentic paired native-sibling
+cohort for now without invalidating the child-native continuation question. Exact
+counts and hashes are recorded in
+`qwen35-27b-coordinator-native-admission-results-v1.json`.
+
+Run 269 tests whether Run 265 is a non-monotonic but consolidating intermediate state.
+It initializes the exact Run-265 adapter, preserves its rank-16 LoRA and LR `1e-7`,
+and reuses the same five child-owned native-sibling groups. One continuous optimizer
+trajectory is resumed one update at a time through a maximum of four additional
+updates. After every update, the unchanged Run-266 ownership/direct/natural battery
+is run against the same frozen base traces. The runner stops early for full promotion
+or a hard invariant failure. Hard invariants are zero matched child path accesses,
+zero direct overdelegation, no increase beyond Run 265's four natural delegated-path
+accesses, and all eight natural answers retained. Consolidation requires follow-up
+causal recovery, retention of the Run-265 handshake gain, and broader ownership gains;
+none of these relax the original promotion gate.
 
 For a learning dose, reuse the structural audit while explicitly declaring the expected
 learning rate. The no-success fallback is not required again when it was already proven

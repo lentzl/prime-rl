@@ -149,7 +149,7 @@
     "exact_same_group_teacher_provenance_recorded": true,
     "optimizer_update_succeeded": true,
     "stable_adapter_checkpoint": true,
-    "qualification_status": "run_266_rejected"
+    "qualification_status": "run_266_not_promotable_continuation_eligible"
   },
-  "decision": "Run 266 rejected the candidate on both primary gates. Do not launch Run 267 or accumulate another optimizer step. Keep untouched thinking-mode Qwen3.5-27B as the teacher candidate."
+  "decision": "Run 266 failed both promotion gates, so do not launch Run 267 or treat this adapter as a teacher candidate. Preserve it as a continuation-eligible experimental seed for a prospectively frozen short trajectory. Untouched thinking-mode Qwen3.5-27B remains the canonical reference."
 }

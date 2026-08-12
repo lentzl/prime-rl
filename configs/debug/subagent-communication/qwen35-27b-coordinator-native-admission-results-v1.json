@@ -1,0 +1,49 @@
+{
+  "experiment_id": "qwen35-27b-coordinator-native-admission-v1",
+  "completed_at": "2026-08-12",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "config": "268-qwen35-27b-coordinator-native-admission.toml",
+  "output": "268-qwen35-27b-coordinator-native-admission-r1",
+  "sampling": {
+    "rollouts": 128,
+    "families": 8,
+    "rollouts_per_family": 16,
+    "temperature": 1,
+    "strict_successes": 0,
+    "families_with_success": 0,
+    "families_with_multiple_successes": 0
+  },
+  "family_strict_successes": {
+    "json_sum": 0,
+    "csv_amount_total": 0,
+    "text_keyword_count": 0,
+    "markdown_heading_count": 0,
+    "log_error_count": 0,
+    "python_def_count": 0,
+    "json_max_value": 0,
+    "sha256_prefix": 0
+  },
+  "component_pass_counts": {
+    "first_decision_only": 108,
+    "state_retained": 46,
+    "no_spawn": 128,
+    "parent_path_access": 125,
+    "no_prohibited_control": 128,
+    "direct_answer_accuracy": 0
+  },
+  "criteria": {
+    "minimum_families_with_success": 6,
+    "minimum_families_with_multiple_successes": 2
+  },
+  "artifact_sha256": {
+    "traces": "701970a830e6f08f8ebc62befbf682f84d3652da1a3cca83340543419166cc2d",
+    "summary": "40f3268b8f339d0a68718a001bcbf452994d6c48851b3e808e108eafc7c0c7ba"
+  },
+  "outcome": {
+    "admission_pass": false,
+    "paired_native_sibling_cohort_available": false
+  },
+  "interpretation": "Untouched 27B reliably avoided delegation and usually accessed the coordinator-owned resource, but it never completed the full state-and-answer contract. The dominant failures were retaining the requested coordinator state and returning that state, rather than the computed result, in local_state. Authentic successful coordinator-owned siblings are therefore unavailable for a balanced native-sibling SDPO cohort.",
+  "decision": "Do not force a paired native-sibling cohort or replace missing teachers with synthetic demonstrations. Preserve Run 265 as continuation-eligible and run the frozen short child-native continuation trajectory to test consolidation. If that fails, bootstrap coordinator state/output control with verifier RL before returning to paired native-policy hindsight."
+}

@@ -93,6 +93,7 @@
     "independent_repeat_launched": false,
     "candidate_promoted": false
   },
-  "interpretation": "One native-sibling SDPO step produced a narrow, causally relevant improvement in handshake communication and two held-out child-owned gains without path leakage. It did not generalize broadly enough: one child-owned success regressed, direct controls did not improve, follow-up causal completion regressed, and delegated-path access remained. The candidate is rejected; the result supports native-policy hindsight as a usable signal but not this sparse one-step cohort as a sufficient teacher-building curriculum.",
-  "decision": "Do not repeat or accumulate another update from this candidate. Return to untouched thinking-mode Qwen3.5-27B and design the next reversible experiment around broader native-success diversity and explicit paired ownership coverage while preserving authentic reasoning and on-policy provenance."
+  "interpretation": "One native-sibling SDPO step produced a narrow, causally relevant improvement in handshake communication and two held-out child-owned gains without path leakage. It did not generalize broadly enough for promotion: one child-owned success regressed, direct controls did not improve, follow-up causal completion regressed, and delegated-path access remained. The result supports native-policy hindsight as a usable signal but not this one-step endpoint as a teacher candidate.",
+  "status": "CONTINUATION_ELIGIBLE",
+  "decision": "Do not promote or run the independent promotion repeat. Preserve the adapter as a fixed continuation seed and test a prospectively frozen short trajectory to distinguish temporary interference from a stable harmful tradeoff. Untouched thinking-mode Qwen3.5-27B remains the canonical reference."
 }
