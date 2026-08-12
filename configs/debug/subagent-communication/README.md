@@ -980,6 +980,25 @@ accesses, and all eight natural answers retained. Consolidation requires follow-
 causal recovery, retention of the Run-265 handshake gain, and broader ownership gains;
 none of these relax the original promotion gate.
 
+Run 269 stopped after its first additional update under the predeclared hard-invariant
+rule. The update recovered follow-up causal completion and retained all eight natural
+answers, but introduced one matched child-owned path access, reduced handshake
+causal/protocol control from `4/4` to `3/4`, and reduced mean handshake bidirectional
+control from `0.886` to `0.636`. It produced only one ownership gain. The continuation
+direction is therefore `BRANCH_REJECTED`; updates `+2` through `+4` were not run. Exact
+training, qualification, and artifact hashes are recorded in
+`qwen35-27b-native-sibling-continuation-results-v1.json`.
+
+Inspection of Run-268 native coordinator traces exposed an ambiguity in the admission
+prompt rather than a model error alone. The contract rendered both fields as generic
+`value` placeholders, and the model usually returned the computed result in both
+`local_state` and `result`. Verifiers revision `bd3f31a7` now renders the already-given
+state token literally while keeping the result unknown. Run 270 repeats the untouched
+27B `8 x 16` admission screen at the same seed and temperature. Its gate remains strict
+success in at least six families, with multiple successes in at least two; no weights
+change. Only a fresh failure under this unambiguous contract can justify verifier-RL
+orientation for coordinator state/output control.
+
 For a learning dose, reuse the structural audit while explicitly declaring the expected
 learning rate. The no-success fallback is not required again when it was already proven
 by the immediately preceding zero-LR Phase-B audit:

@@ -1,0 +1,70 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-continuation-v1",
+  "completed_at": "2026-08-12",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "continuation_seed": {
+    "run": 265,
+    "status": "CONTINUATION_ELIGIBLE",
+    "adapter_sha256": "eb2ac2db65b4d3b8ba6562711f7da6d408deda1a7a7eda09415a3c2e3f5a29ab",
+    "huggingface_repo": "lentzl/rlm-prime-agent-qwen35-27b-native-sibling-run265-20260812",
+    "huggingface_revision": "b9f03175315c8dd13f26d67b02596c5c2c7fd635"
+  },
+  "training": {
+    "run": 269,
+    "config": "269-qwen35-27b-native-sibling-continuation.toml",
+    "additional_updates_completed": 1,
+    "frozen_maximum_additional_updates": 4,
+    "rollouts": 80,
+    "trainable_branches": 32,
+    "replay_groups": 2,
+    "no_success_groups": 3,
+    "selected_tokens": 3838,
+    "mean_reward": 0.0625,
+    "error_rate": 0.0,
+    "truncation_rate": 0.6,
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "lora_rank": 16,
+    "loss": 0.008424068801105022,
+    "gradient_norm": 0.98828125,
+    "trainer_mismatch_kl": 0.0004024083900731057,
+    "audit_sequence_mismatch_kl": 0.00034038099183848265,
+    "adapter_sha256": "bc8062ee61e40348ac55658a106f160a79421d8b523913fb6fcbf19dae62b6f7",
+    "metrics_sha256": "81f7a947a0dabdbe4058b8d6791e90fc272149cbfeec7ea56b519c1b688088bd",
+    "rollout_sha256": "93d5734cf27c6f18692d1bb6da2439b1537751ba02649efabb9d9759ce954314",
+    "native_sibling_audit_sha256": "fd739c3703d2318f219a6e55133450b4d6c2fefdb2d429ae332ad6e138091e66",
+    "native_sibling_structural_audit_pass": true,
+    "optimizer_update_succeeded": true
+  },
+  "qualification": {
+    "frozen_base": "Run 266 untouched-27B traces",
+    "ownership": {
+      "strict_gains": 1,
+      "strict_losses": 0,
+      "candidate_child_strict_successes": 3,
+      "candidate_child_path_accesses": 1.0,
+      "candidate_direct_strict_successes": 0,
+      "candidate_direct_spawns": 0.0,
+      "promotion_pass": false
+    },
+    "natural": {
+      "answers": 8.0,
+      "delegated_path_accesses": 4.0,
+      "followup_causal": 4.0,
+      "followup_protocol": 0.0,
+      "handshake_causal": 3.0,
+      "handshake_protocol": 3.0,
+      "handshake_bidirectional": 0.6363636363636364,
+      "promotion_pass": false
+    },
+    "trace_sha256": {
+      "candidate_child": "b1f6697c6be62ca200edab7eab38f5495548bd2eb991ca9362b9b729c7a11e3d",
+      "candidate_direct": "49f5ab5c6bffe5f2f44e25df8e6944e5ba2e28167c005d5f146603b8de1197d6",
+      "candidate_natural": "6df0aa9d681f57268916c8f389264e36c0121795932d7fc6e99a25e09f0fbcee",
+      "trajectory_summary": "0ffb086afb1f2550ace8ad264fb5f1a1a3cb7f9374d0fec95c8614ddf50a4fc6"
+    }
+  },
+  "classification": "BRANCH_REJECTED_HARD_INVARIANT",
+  "decision": "Stop after the first additional update. Follow-up causal completion recovered and all answers remained correct, but the update introduced matched child-owned path access, weakened Run 265's handshake gain, and broadened ownership by only one strict success. Do not train from or publish the Run 269 adapter. Preserve Run 265 only as historical evidence, not as a canonical teacher."
+}
