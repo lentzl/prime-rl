@@ -946,7 +946,10 @@ Run 265 is retained as `CONTINUATION_ELIGIBLE`: its large handshake-control gain
 held-out child-owned gains, zero matched child-path leakage, and zero direct
 overdelegation justify a short predeclared continuation trajectory. Untouched 27B
 remains the canonical reference, and no continuation checkpoint is promoted unless
-it independently clears the unchanged gate.
+it independently clears the unchanged gate. The exact Run-265 adapter is also stored
+privately at `lentzl/rlm-prime-agent-qwen35-27b-native-sibling-run265-20260812`, pinned
+to revision `b9f03175315c8dd13f26d67b02596c5c2c7fd635`; its Hub-linked SHA-256 matches the
+local checkpoint hash recorded in the result ledger.
 
 Run 268 returns to untouched 27B and performs no learning. It samples 16 native
 rollouts for each of the eight coordinator-owned admission families using the same
