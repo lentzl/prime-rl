@@ -84,6 +84,20 @@ def test_hard_communication_supplement_targets_fresh_sparse_families() -> None:
     assert supplement["env"]["agent"]["harness"]["autonomous"] is True
 
 
+def test_child_ownership_supplement_is_targeted_and_disjoint() -> None:
+    broad = load_config("278-qwen35-27b-mastery-child-teacher-collection.toml")
+    supplement = load_config("286-qwen35-27b-mastery-child-ownership-supplement.toml")
+    taskset = supplement["env"]["taskset"]
+
+    assert taskset["ownership"] == "child"
+    assert set(taskset["families"]) == {"csv_amount_total", "json_max_value", "sha256_prefix"}
+    assert taskset["instance_offset"] != broad["env"]["taskset"]["instance_offset"]
+    assert taskset["seed"] != broad["env"]["taskset"]["seed"]
+    assert supplement["num_tasks"] == 3
+    assert supplement["num_rollouts"] == 16
+    assert supplement["env"]["agent"]["harness"]["thinking"] == "high"
+
+
 def test_teacher_bootstraps_adapt_qwen35_linear_attention_and_preserve_thinking() -> None:
     names = (
         "281-qwen35-27b-prime-agent-teacher-bootstrap-r64.toml",
