@@ -480,7 +480,81 @@ These outcomes would still provide useful evidence. The project should contract 
 the simplest architecture supported by the experiments: one RLM, a flat specialist
 bank, a larger coordinator, or a distilled dense model.
 
-## Immediate Work
+## Harness Mastery Pivot (2026-08-12)
+
+The primary 27B objective is now to produce the strongest practical Prime Agent and
+RLM-harness master, not to conserve untouched Qwen behavior after every small update.
+Untouched thinking-mode Qwen3.5-27B remains a frozen baseline. The eventual canonical
+teacher will be the trained 27B checkpoint that demonstrates the broadest repeatable
+harness mastery while retaining enough general reasoning to interpret tasks, decompose
+work, judge child outputs, recover, and synthesize. Modest unrelated regression is
+acceptable when it buys material harness competence. Teacher-first means teacher
+mastery first, not teacher conservation first.
+
+Work now proceeds in two explicitly separate lanes:
+
+1. The surgical/scientific lane freezes Runs 257-270, their low-rank one-step updates,
+   causal probes, token/provenance audits, and predeclared gates as diagnostic evidence.
+   It remains the microscope for supervision quality, masks, shortcuts, and causal
+   semantics. Its ultra-conservative promotion rules do not govern mastery training.
+2. The Harness Mastery lane may move the 27B materially through higher-rank LoRA,
+   longer schedules, diverse verified executable bootstrap data, and then on-policy
+   RL or native-success SDPO. Partial or full-weight training remains available if
+   adapter capacity becomes an empirical bottleneck.
+
+The mastery curriculum covers the coupled policy rather than one boundary at a time:
+
+- direct solving and correct non-delegation;
+- useful REPL externalization and persistent coordinator state;
+- single-child delegation and parallel fan-out with retained stable handles;
+- child-to-parent results, parent-to-child follow-up, causal yield, and resumption;
+- fan-in, grounded synthesis, ownership transfer, verification, and reclaim;
+- bounded child failure, timeout, challenge, and recovery;
+- natural mixed tasks where the policy must choose internal reasoning, the REPL, one
+  child, or multiple children from cognitive value rather than an explicit recipe.
+
+The ownership invariant is phase-aware. While a child actively owns delegated work,
+the coordinator must not bypass that contract and independently perform the same work.
+After a result, failure, escalation, timeout, or explicit ownership transfer, parent
+inspection can be valid for synthesis, verification, or recovery. Historical
+first-decision probes retain their stricter no-path-access rule for comparability; new
+environments should measure unauthorized active-phase bypass instead of permanent
+resource exclusion.
+
+Freeze a Prime Agent Harness Mastery Battery before choosing checkpoints. It must have
+train-calibration, familiar-heldout, and semantic-OOD splits and report each capability
+separately. Track checkpoint trajectories rather than terminating on a one-sample
+fluctuation. True catastrophic guards remain: systemic always/never delegation,
+ordinary direct-task collapse, loss of persistent state, uncontrolled spawning or
+nontermination, systematic active-ownership bypass, and reasoning collapse severe
+enough to make the policy unusable as a teacher.
+
+Battery v1 builds directly on Prime's current Verifiers work. The packaged
+`prime-agent-capabilities-v1` environment promotes Prime's native ACP evidence for
+real IPython execution, persistent kernel state, subagent lifecycle and quiescence,
+continual `/refine` state, and loud cancellation into reusable evaluation tasks.
+`oolong-synth-v1` supplies natural long-context file externalization. Our
+`subagent-communication-v1` and `ownership-invariant-v1` extensions cover the
+higher-level routing, fan-out/fan-in, bidirectional messaging, and active ownership
+semantics Prime does not yet package as a training environment. This composition is
+intentional: extend Prime's substrate instead of rebuilding the harness in a parallel
+stack.
+
+The first capacity comparison uses the same thinking-enabled, structurally validated
+bootstrap stream and schedule at LoRA ranks 64 and 128. It saves dense checkpoints and
+compares learning rate, memory, optimization stability, and the frozen battery across
+training time. Rank is an engineering variable, not a claim that adapters are
+intrinsically sufficient. The first run may bootstrap complete executable trajectories
+without fabricating private chain-of-thought; later RL and native-success SDPO must
+broaden and de-template the learned policy on student-visited states.
+
+Promotion now asks whether a trained 27B repeatedly masters unseen executable Prime
+Agent tasks well enough to generate trajectories and policy guidance for direct OPD
+into 9B, 4B, and 2B students. Pareto dominance over untouched Qwen at every checkpoint
+is not required. Direct distillation from the canonical 27B remains the default; a
+27B-to-9B-to-4B-to-2B cascade is only a later measured ablation.
+
+## Historical Surgical Record
 
 The next training work remains Stage 0, but its scope is now strictly harness mastery.
 Preserve rung 37 step 2 as the 2B expert seed and baseline. The 4B coordinator search
