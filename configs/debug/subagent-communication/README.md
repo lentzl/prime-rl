@@ -940,6 +940,15 @@ coordinator accesses to child-owned paths remained. Both primary gates therefore
 Run 267 was not launched, and no second optimizer step is permitted. Exact paired
 metrics and trace hashes are in `qwen35-27b-native-sibling-selection-results-v1.json`.
 
+Run 268 returns to untouched 27B and performs no learning. It samples 16 native
+rollouts for each of the eight coordinator-owned admission families using the same
+resource seed and instance as the child-owned Run 265 cohort. The prospective admission
+gate requires strict native successes in at least six families, with at least two
+families producing multiple successes. Passing would justify a paired native-sibling
+SDPO design that teaches both ownership arms from authentic on-policy reasoning;
+failure would show that coordinator-native teacher supply must be solved before such
+a cohort is viable.
+
 For a learning dose, reuse the structural audit while explicitly declaring the expected
 learning rate. The no-success fallback is not required again when it was already proven
 by the immediately preceding zero-LR Phase-B audit:
