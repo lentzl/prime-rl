@@ -119,6 +119,7 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                     family = _data_field(trace.task.data, "resource_family")
                 task_name = _data_field(trace.task.data, "name")
                 ownership = _data_field(trace.task.data, "ownership") if cohort == "ownership" else "unknown"
+                instruction_level = _data_field(trace.task.data, "instruction_level", "standard")
                 trace_rows = training_rows(trace, cohort)
                 if not trace_rows:
                     raise ValueError(f"admitted trace {trace.id} has no eligible branch")
@@ -129,11 +130,14 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                         source_task=task_name,
                         source_family=family,
                         source_ownership=ownership,
+                        source_instruction_level=instruction_level,
                     )
                 rows.extend(trace_rows)
                 counts[f"{cohort}.admitted_traces"] += 1
                 counts[f"{cohort}.rows"] += len(trace_rows)
                 counts[f"family.{family}"] += 1
+                counts[f"instruction.{instruction_level}.admitted_traces"] += 1
+                counts[f"{cohort}.instruction.{instruction_level}.admitted_traces"] += 1
                 reasoning = "present" if has_authentic_reasoning(trace) else "absent"
                 counts[f"reasoning.{reasoning}_traces"] += 1
                 counts[f"{cohort}.reasoning.{reasoning}_traces"] += 1
@@ -148,6 +152,7 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
             "ownership": "ok and not truncated and strict_success == 1",
             "communication": ("ok and not truncated and answer_accuracy == 1 and clean_protocol_aligned == 1"),
             "reasoning": "preserve sampled reasoning_content when present; never synthesize it",
+            "prompts": "preserve the exact admitted trace; never rewrite guided context as standard context",
         },
         "sources": source_records,
         "counts": dict(sorted(counts.items())),

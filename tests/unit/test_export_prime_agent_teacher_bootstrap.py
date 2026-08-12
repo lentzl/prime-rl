@@ -59,6 +59,43 @@ def test_ownership_selects_only_the_root_coordinator_branch() -> None:
     assert bootstrap.coordinator_branches(value) == [coordinator]
 
 
+def test_build_records_instruction_provenance_without_rewriting_rows(monkeypatch, tmp_path) -> None:
+    root = SimpleNamespace(
+        sampled=True,
+        message=SimpleNamespace(role="assistant", reasoning_content="native reasoning"),
+    )
+    branch = SimpleNamespace(nodes=[root])
+    value = SimpleNamespace(
+        id="guided-trace",
+        ok=True,
+        is_truncated=False,
+        metrics={"strict_success": 1.0},
+        nodes=[root],
+        branches=[branch],
+        task=SimpleNamespace(
+            data=SimpleNamespace(
+                name="child-admission-json_sum",
+                resource_family="json_sum",
+                ownership="child",
+                instruction_level="guided",
+                model_extra={},
+            )
+        ),
+    )
+    original = '[{"role":"user","content":"Protocol hint: exact admitted context"}]'
+    monkeypatch.setattr(bootstrap, "read_episodes", lambda *_: [SimpleNamespace(traces=[value])])
+    monkeypatch.setattr(bootstrap, "_source_record", lambda *_: {"cohort": "ownership"})
+    monkeypatch.setattr(bootstrap, "sft_row", lambda *_: {"messages_json": original})
+
+    rows, manifest = bootstrap.build([(tmp_path, "ownership")])
+
+    assert rows[0]["messages_json"] == original
+    assert rows[0]["source_instruction_level"] == "guided"
+    assert manifest["counts"]["instruction.guided.admitted_traces"] == 1
+    assert manifest["counts"]["ownership.instruction.guided.admitted_traces"] == 1
+    assert "never rewrite guided context" in manifest["selection"]["prompts"]
+
+
 def test_count_requirements_are_strict_and_report_missing_keys() -> None:
     requirements = [
         bootstrap.parse_count_requirement("family.parallel=4"),

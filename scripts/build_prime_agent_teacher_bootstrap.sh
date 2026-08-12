@@ -31,6 +31,8 @@ communication_families=(direct single parallel followup handshake)
 
 requirements=()
 requirements+=(--require-count "reasoning.present_traces=1")
+requirements+=(--require-count "instruction.standard.admitted_traces=1")
+requirements+=(--require-count "instruction.guided.admitted_traces=1")
 for ownership in child coordinator; do
   for family in "${ownership_families[@]}"; do
     requirements+=(--require-count "ownership.$ownership.family.$family=1")
