@@ -540,6 +540,17 @@ semantics Prime does not yet package as a training environment. This composition
 intentional: extend Prime's substrate instead of rebuilding the harness in a parallel
 stack.
 
+The executable battery is pinned to Verifiers `053fd44aa`, which composes current
+upstream main `afbf16523`, Prime's staged Prime Agent harness tip `7e3bfc4a1`, and
+the complete staged Oolong/ACP-metadata lineage through `141d48abe`. Do not assemble
+the Oolong adapter by cherry-picking only its taskset commits: lifecycle scorers need
+the ancestry that records inbound ACP `_meta` histories. An initial ten-task 27B
+foundations attempt made this failure mode concrete: IPython and persistence scored,
+but subagent lifecycle, harness state, and cancellation raised `MissingAcpMeta` after
+successful agent turns. Those zeros are invalid infrastructure observations, not a
+27B capability result. Re-run the unchanged battery after the composed pin passes a
+live metadata-dependent smoke.
+
 The first capacity comparison uses the same thinking-enabled, structurally validated
 bootstrap stream and schedule at LoRA ranks 64 and 128. It saves dense checkpoints and
 compares learning rate, memory, optimization stability, and the frozen battery across
