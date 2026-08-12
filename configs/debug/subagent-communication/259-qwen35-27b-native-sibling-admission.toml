@@ -1,0 +1,63 @@
+# Zero-update admission screen for native successful-sibling SDPO. Eight
+# untouched thinking-mode rollouts share each of eight executable first-decision
+# tasks. Synthetic resources define task state only; no demonstration is exposed.
+
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 8
+num_rollouts = 8
+shuffle = false
+max_concurrent = 8
+verbose = false
+rich = false
+server = false
+push = false
+output_dir = "/ephemeral/subagent-rung/evals/259-qwen35-27b-native-sibling-admission-r1"
+
+[env]
+max_concurrent_agents = 2
+
+[env.retries]
+max_retries = 0
+
+[env.taskset]
+id = "ownership-invariant-v1"
+split = "admission"
+ownership = "child"
+instances_per_family = 1
+instance_offset = 0
+seed = 20260812
+
+[env.agent]
+max_turns = 2
+max_output_tokens = 8192
+max_total_tokens = 16384
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 300.0
+finalize = 60.0
+scoring = 60.0
+
+[env.agent.harness]
+id = "prime-agent"
+version = "0.7.0"
+save_session = true
+max_depth = 1
+model_context_window = 32768
+autonomous = false
+
+[env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[client]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 1.0
+max_tokens = 4096
+
+[sampling.extra_body.chat_template_kwargs]
+enable_thinking = true

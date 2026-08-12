@@ -8,7 +8,7 @@ WorkingDirectory=/home/ubuntu/prime-rl
 EnvironmentFile=/home/ubuntu/prime-rl/.env
 Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
 Environment=CUDA_VISIBLE_DEVICES=0,1
-ExecStart=/bin/bash -lc 'export HF_TOKEN="$HF_KEY"; exec /home/ubuntu/.local/bin/uv run inference @ configs/debug/subagent-communication/211-qwen35-27b-teacher-inference.toml'
+ExecStart=/bin/bash -lc 'export HF_TOKEN="$HF_KEY"; exec /home/ubuntu/prime-rl/.venv/bin/inference @ configs/debug/subagent-communication/211-qwen35-27b-teacher-inference.toml'
 Restart=on-failure
 RestartSec=5
 StandardOutput=append:/ephemeral/subagent-rung/launch-logs/211-qwen35-27b-teacher-inference.log

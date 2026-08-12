@@ -764,6 +764,26 @@ hand-authored reprompt into the teacher policy. Select the next bridge by the sm
 experiment that can produce and admit genuine natural successes while retaining the
 frozen follow-up and handshake boundary.
 
+The first native-sibling admission screen now supplies that measurement. Eight
+executable child-owned resource families were each sampled eight times from untouched
+thinking-mode 27B. Under the predeclared whole-atom verifier, the run produced `0/64`
+strict successes and zero mixed groups, so Phase A failed and no SDPO replay or weight
+update was allowed. A corrected rescore accepted semantically equivalent coordinator
+dictionary state in addition to top-level variables; it did not change the strict
+outcome. The dominant failures were stopping after one decision, assigning persistent
+state before the spawn, and retaining the returned handle.
+
+There is one narrow unresolved scoring boundary. Ten trajectories satisfied every
+other ownership atom and differed from the synthetic target only by passively
+displaying the retained handle, evaluating it as the final cell expression, or storing
+it in the coordinator-state dictionary after admission. None polled, discovered
+agents, opened the delegated resource, or performed local task work. They remain
+failures in the recorded result because the no-post-spawn rule was predeclared. Before
+rerunning Phase A, decide prospectively whether that rule forbids every AST statement
+after `await rlm(...)` or only substantive environment/task actions. Do not launch the
+zero-LR SDPO audit until a fresh screen passes the unchanged mixed-group, resource, and
+phrasing thresholds under the chosen definition.
+
 Do not apply another 2B dose of the same complete-fan-in demonstration: even
 coordinator-only, response-only SDFT traded
 single-child and parallel reliability. The first parallel-only process-control GRPO

@@ -837,3 +837,20 @@ locality therefore did not fix the target: both whole-response and action-only
 demonstration-reprompt OPSD reinforce the wrong ownership behavior. Do not search
 another learning rate or mask width in this family. Exact evidence is recorded in
 `qwen35-27b-action-local-opsd-results-v1.json`.
+
+Run 259 implements the next bridge's mandatory zero-update admission screen rather
+than another teacher demonstration. `ownership-invariant-v1` materializes eight
+resource families in the runtime and scores only the first child-owned coordinator
+decision. Each of eight tasks received eight untouched thinking-mode 27B rollouts.
+The frozen strict gate produced `0/64` successes and zero mixed groups, so native
+sibling SDPO was not admitted and no weights changed. Correcting the verifier to
+recognize coordinator dictionaries as persistent state did not alter that outcome.
+
+Ten trajectories missed only the literal post-spawn-statement atom. Their trailing
+statements merely displayed or stored the returned handle; none polled, discovered,
+read the delegated path, or continued local work. They remain recorded as failures
+until the definition is resolved prospectively. If passive handle inspection remains
+forbidden, revise the ordinary executable curriculum or sampling and repeat Phase A.
+If it is deemed non-substantive, revise the verifier first and rerun all 64 rollouts;
+do not rescore this batch into admission after observing it. Exact counts and hashes
+are in `qwen35-27b-native-sibling-admission-results-v1.json`.

@@ -147,6 +147,7 @@ members = [
     "deps/verifiers/environments/reverse_text_v1",
     "deps/verifiers/environments/subagent_admission_v1",
     "deps/verifiers/environments/subagent_communication_v1",
+    "deps/verifiers/environments/ownership_invariant_v1",
     "deps/verifiers/environments/wiki_search_v1",
     "deps/verifiers/environments/wordle_v1",
 ]

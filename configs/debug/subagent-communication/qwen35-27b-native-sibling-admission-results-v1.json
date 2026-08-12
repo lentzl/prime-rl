@@ -1,0 +1,60 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-admission-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "source_commit_before_experiment": "10d9c7f0652ad054d4e49f81b9ea38b306a6731f",
+  "completed_at": "2026-08-12",
+  "screen": {
+    "config": "259-qwen35-27b-native-sibling-admission.toml",
+    "config_sha256": "c107b3604734cbd1b3360ad4c0e4f6fa0a31df61bea349795f09d278d75a04b1",
+    "trace_sha256": "19aaf116f70ba8ea2d3fa6fb0f0dc36aa94af9709e8c99cd96063422f1c32a4f",
+    "eval_log_sha256": "6d4e9f99aa58bd8ee35a353f8a3f0ea89ef73b5daaa2c43f4131cf80b5710123",
+    "corrected_verifier_source_sha256": "16b00a0237a76a9df5919de650f485aff013b9ff58d152406aa4b5236394127d",
+    "thinking_mode": true,
+    "ownership": "child",
+    "tasks": 8,
+    "resource_families": 8,
+    "group_size": 8,
+    "rollouts": 64,
+    "sampling_temperature": 1.0
+  },
+  "frozen_gate": {
+    "strict_successes": 0,
+    "mixed_groups": 0,
+    "success_resource_families": 0,
+    "success_phrasings": 0,
+    "minimum_mixed_groups": 4,
+    "minimum_success_resource_families": 3,
+    "minimum_success_phrasings": 2,
+    "phase_a_pass": false
+  },
+  "corrected_state_rescore": {
+    "strict_successes": 0,
+    "reason": "The runtime verifier accepted only a top-level state variable. Rescoring also accepts an equivalent persistent coordinator dictionary or dictionary-key assignment. This changed individual state atoms but did not change any strict outcome."
+  },
+  "failure_atoms_after_rescore": {
+    "first_decision_only": 37,
+    "state_retained": 22,
+    "state_precedes_spawn": 48,
+    "one_spawn": 9,
+    "retained_handle": 36,
+    "expected_child": 10,
+    "delegated_path": 13,
+    "parent_path_access": 9,
+    "local_state_leaked": 0,
+    "prohibited_control": 0,
+    "post_spawn_action": 29
+  },
+  "near_success_boundary": {
+    "all_atoms_except_post_spawn_action": 10,
+    "observed_post_spawn_statements": "Only passive handle display, a bare handle expression, or storing the already-retained handle in coordinator_state. None of these ten trajectories polled, discovered agents, accessed the delegated resource, or performed coordinator-local task work after spawning.",
+    "classification": "Retained as strict failures pending a predeclared semantic decision; the result ledger does not relax the strategist's gate after observing data."
+  },
+  "diagnosis": "Untouched thinking-mode 27B frequently understands the ownership transfer but does not naturally emit the exact atomic transition required by the strict admission gate. The dominant boundaries are state-before-spawn, retaining the returned handle, stopping after one decision, and literal immediate yield. Ten trajectories are structurally safe near-successes whose only failure is passive handle inspection after admission.",
+  "decision": {
+    "phase_b_started": false,
+    "weights_updated": false,
+    "promoted": false,
+    "next": "Resolve whether passive inspection or storage of the returned handle counts as forbidden post-spawn action. If it does, adjust the executable curriculum or sampling budget and repeat Phase A. If it does not, revise that atom prospectively, rerun the full zero-update screen, and require the same mixed-group, family, and phrasing thresholds before Phase B."
+  }
+}

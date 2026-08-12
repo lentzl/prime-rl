@@ -93,6 +93,7 @@ members = [
     "openseeker-v1",
     "openswe-v1",
     "openthoughts-tblite-v1",
+    "ownership-invariant-v1",
     "papersearchqa-v1",
     "patterned-needle-in-haystack-v1",
     "pinchbench-v1",
@@ -4518,6 +4519,21 @@ wheels = [
 ]
 
 [[package]]
+name = "ownership-invariant-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/ownership_invariant_v1" }
+dependencies = [
+    { name = "subagent-communication-v1" },
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "subagent-communication-v1" },
+    { name = "verifiers" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.2"
 source = { registry = "https://pypi.org/simple" }
@@ -7543,6 +7559,7 @@ examples = [
     { name = "gsm8k-v1", editable = "deps/verifiers/environments/gsm8k_v1" },
     { name = "kuhn-poker-v1", editable = "deps/verifiers/environments/kuhn_poker_v1" },
     { name = "openenv-wordle-v1", editable = "deps/verifiers/environments/openenv_wordle_v1" },
+    { name = "ownership-invariant-v1", editable = "deps/verifiers/environments/ownership_invariant_v1" },
     { name = "proposer-solver-v1", editable = "deps/verifiers/environments/proposer_solver_v1" },
     { name = "reverse-text-v1", editable = "deps/verifiers/environments/reverse_text_v1" },
     { name = "scratchpad-v1", editable = "deps/verifiers/environments/scratchpad_v1" },
