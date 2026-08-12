@@ -47,7 +47,8 @@ finalize = 60.0
 scoring = 60.0
 
 [client]
-base_url = "http://127.0.0.1:8000/v1"
+# Router 0.1.26 rejects Prime Agent's OpenAI `developer` role; vLLM accepts it.
+base_url = "http://127.0.0.1:8100/v1"
 api_key_var = "PRIME_API_KEY"
 type = "eval"
 
