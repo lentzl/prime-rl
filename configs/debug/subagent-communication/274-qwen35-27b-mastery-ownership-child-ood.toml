@@ -32,7 +32,7 @@ max_total_tokens = 16384
 
 [env.agent.harness]
 id = "prime_agent"
-version = "0.7.0"
+version = "0.7.1"
 thinking = "high"
 autonomous = false
 

@@ -32,7 +32,7 @@ max_total_tokens = 98304
 
 [env.agent.harness]
 id = "prime_agent"
-version = "0.7.0"
+version = "0.7.1"
 thinking = "high"
 autonomous = true
 gates = ["python /workspace/.subagent-communication/completion_gate.py"]
