@@ -923,6 +923,14 @@ experiment identity, output path, and `trainer.optim.lr=1e-7`. It must be follow
 the frozen ownership, direct-control, natural follow-up, handshake, and independent
 repeat screens before another optimizer step is considered.
 
+The first Run 265 launch is invalid operator interference, not model evidence. A
+concurrent remote pytest validation activated Prime-RL's autouse zombie-cleanup
+fixture, whose broad `pkill -f torchrun` and `pkill -f VLLM` commands terminated the
+live trainer and inference workers after 23 saved traces and before any optimizer
+step. The partial output was archived and hashed in
+`qwen35-27b-native-sibling-sdpo-dose-test-interference-v1.json`. Repeat the exact
+committed config with no concurrent Prime-RL tests; do not use the partial traces.
+
 Run 266 prospectively freezes that primary selection. Its matched ownership screen
 contains 16 child-owned and 16 coordinator-owned tasks over two unseen instances of
 all eight training resources, using only held-out ownership phrasings. Candidate

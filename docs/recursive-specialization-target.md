@@ -849,6 +849,13 @@ that the implementation trains on the intended source and tokens; Phase C asks
 whether one minimal update improves that behavior without damaging coordinator
 controls.
 
+The first Run 265 launch was invalidated by operator interference before an optimizer
+step. Running the Prime-RL test suite concurrently activated its autouse
+`cleanup_zombies` fixture, which uses broad process-name kills for `torchrun` and
+`VLLM`; this terminated the live trainer and inference server after 23 partial traces.
+Those artifacts are archived and hashed but excluded from all model conclusions. The
+identical predeclared dose must be rerun without concurrent tests.
+
 The selection boundary is now executable rather than interpretive. The primary
 Run 266 battery pairs 16 held-out-phrasing child-owned tasks with 16 matched
 coordinator-owned direct controls. It requires at least six strict task gains and no

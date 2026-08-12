@@ -1,0 +1,21 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-sdpo-dose-test-interference-v1",
+  "completed_at": "2026-08-12",
+  "config": "265-qwen35-27b-native-sibling-sdpo-dose.toml",
+  "output": "265-qwen35-27b-native-sibling-sdpo-dose-invalid-test-interference-r1",
+  "valid_experimental_evidence": false,
+  "optimizer_steps": 0,
+  "weights_updated": false,
+  "saved_traces": 23,
+  "partial_counts": {
+    "text_keyword_count": {"strict_successes": 0, "failures": 16},
+    "markdown_heading_count": {"strict_successes": 2, "failures": 5}
+  },
+  "artifact_sha256": {
+    "traces": "0dfbc8dd889e668fdba60d3703329f80445e20b4b24b5b9555b339e7b22c2d30",
+    "trainer_log": "1db6758980ac764bfd52b6d9f1dfb556fcbaad638a311e4ee4e20495a0c9515d",
+    "orchestrator_log": "de17e7df7cff56ef8d8cca10600e49ba154207b993a204f6b940ad12fa1df24f"
+  },
+  "root_cause": "Concurrent Prime-RL pytest validation activated tests/conftest.py::cleanup_zombies, which runs pkill -f torchrun and pkill -f VLLM. It sent SIGTERM to the live trainer and killed the inference workers. The later ACP empty-reply warnings occurred during launcher teardown and did not cause the termination.",
+  "decision": "Archive the partial output as operator-invalid and rerun the identical committed Run 265 config without concurrent Prime-RL tests. Do not count these traces toward training or selection."
+}
