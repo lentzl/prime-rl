@@ -34,7 +34,11 @@ if manifest.get("base_revision") != expected_revision:
         f"bootstrap base revision {manifest.get('base_revision')} != {expected_revision}"
     )
 counts = manifest.get("counts", {})
-requirements = {"reasoning.present_traces": 1}
+requirements = {
+    "reasoning.present_traces": 1,
+    "instruction.standard.admitted_traces": 1,
+    "instruction.guided.admitted_traces": 1,
+}
 ownership_families = (
     "json_sum",
     "csv_amount_total",
