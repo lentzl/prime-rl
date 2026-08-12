@@ -923,6 +923,37 @@ experiment identity, output path, and `trainer.optim.lr=1e-7`. It must be follow
 the frozen ownership, direct-control, natural follow-up, handshake, and independent
 repeat screens before another optimizer step is considered.
 
+The valid Run 265 rerun completed one optimizer step. All five groups produced native
+successes, yielding 78 replay branches and 8,526 selected first-tool-call tokens. The
+nonzero-dose audit matched every export to its exact trace branch, mask, and same-group
+native teacher; mean sequence mismatch KL was `0.000287`. The trainer reported loss
+`0.00314`, gradient norm `0.7656`, LR `1e-7`, and a successful update. The stable adapter
+and exact native demonstrations are recorded in
+`qwen35-27b-native-sibling-sdpo-dose-results-v1.json`.
+
+Run 266 rejected that candidate. On 32 matched ownership/direct tasks it produced two
+strict gains and one loss, below the frozen six-gain minimum; child-owned path leakage
+and direct overdelegation both remained zero. The natural screen found a sharp split:
+handshake protocol improved from `2/4` to `4/4` and mean bidirectional control from
+`0.341` to `0.886`, but follow-up causal completion fell from `4/4` to `3/4` and four
+coordinator accesses to child-owned paths remained. Both primary gates therefore failed,
+Run 267 was not launched, and no second optimizer step is permitted. Exact paired
+metrics and trace hashes are in `qwen35-27b-native-sibling-selection-results-v1.json`.
+
+For a learning dose, reuse the structural audit while explicitly declaring the expected
+learning rate. The no-success fallback is not required again when it was already proven
+by the immediately preceding zero-LR Phase-B audit:
+
+```bash
+uv run python scripts/audit_native_sibling_sdpo_run.py \
+  --config configs/debug/subagent-communication/265-qwen35-27b-native-sibling-sdpo-dose.toml \
+  --traces /ephemeral/subagent-rung/outputs/265-qwen35-27b-native-sibling-sdpo-dose-r1/run_default/rollouts/step_1/train/all/traces.jsonl \
+  --token-exports /ephemeral/subagent-rung/outputs/265-qwen35-27b-native-sibling-sdpo-dose-r1/run_default/token_exports/step_1 \
+  --expected-learning-rate 1e-7 \
+  --no-require-no-success-group \
+  --output /tmp/run265-native-sibling-audit.json
+```
+
 The first Run 265 launch is invalid operator interference, not model evidence. A
 concurrent remote pytest validation activated Prime-RL's autouse zombie-cleanup
 fixture, whose broad `pkill -f torchrun` and `pkill -f VLLM` commands terminated the

@@ -1,0 +1,98 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-selection-v1",
+  "completed_at": "2026-08-12",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "candidate": {
+    "source_run": "265-qwen35-27b-native-sibling-sdpo-dose-r1",
+    "steps": 1,
+    "learning_rate": 1e-7,
+    "adapter_sha256": "eb2ac2db65b4d3b8ba6562711f7da6d408deda1a7a7eda09415a3c2e3f5a29ab"
+  },
+  "frozen_configs": {
+    "ownership": "266-qwen35-27b-native-sibling-ownership-selection.toml",
+    "natural": "258-qwen35-27b-action-local-selection.toml"
+  },
+  "ownership": {
+    "tasks": 32,
+    "strict_gains": 2,
+    "strict_losses": 1,
+    "candidate_child_path_accesses": 0,
+    "candidate_direct_spawns": 0,
+    "child": {
+      "base_strict_successes": 2,
+      "candidate_strict_successes": 3,
+      "strict_gains": 2,
+      "strict_losses": 1
+    },
+    "direct": {
+      "base_strict_successes": 0,
+      "candidate_strict_successes": 0,
+      "strict_gains": 0,
+      "strict_losses": 0
+    },
+    "criteria": {
+      "minimum_strict_gains": 6,
+      "maximum_strict_losses": 1,
+      "maximum_candidate_child_path_accesses": 0,
+      "maximum_candidate_direct_spawns": 0
+    },
+    "promotion_pass": false
+  },
+  "natural": {
+    "followup": {
+      "base": {
+        "answer_accuracy": 4,
+        "natural_followup_causal": 4,
+        "protocol_aligned": 0,
+        "bidirectional_control_mean": 0,
+        "coordinator_delegated_path_accesses": 6
+      },
+      "candidate": {
+        "answer_accuracy": 4,
+        "natural_followup_causal": 3,
+        "protocol_aligned": 1,
+        "bidirectional_control_mean": 0.36363636363636365,
+        "coordinator_delegated_path_accesses": 4
+      },
+      "family_pass": false
+    },
+    "handshake": {
+      "base": {
+        "answer_accuracy": 4,
+        "natural_followup_causal": 2,
+        "protocol_aligned": 2,
+        "bidirectional_control_mean": 0.34090909090909094,
+        "coordinator_delegated_path_accesses": 0
+      },
+      "candidate": {
+        "answer_accuracy": 4,
+        "natural_followup_causal": 4,
+        "protocol_aligned": 4,
+        "bidirectional_control_mean": 0.8863636363636364,
+        "coordinator_delegated_path_accesses": 0
+      },
+      "family_pass": true
+    },
+    "zero_candidate_coordinator_path_access": false,
+    "promotion_pass": false
+  },
+  "artifact_sha256": {
+    "base_child_traces": "700287847ee224dbc85fbfc90b9420a23c85cc9f4611030ba5d0a4ee88962eb6",
+    "base_direct_traces": "be38ef6f437e40412c06067420d3b7c3dc1ba2cd521aaf9187c83a8237f7bba4",
+    "base_natural_traces": "07d76399a82ea1d08dd4303a05df3036c8db23ffb4e9dcc86a012a075d611631",
+    "candidate_child_traces": "55170e4705ee4af04e17dcebafa35311b6d58461be83d73788c07f561e9292ad",
+    "candidate_direct_traces": "24b461fbc0af224340efba83a591e64773bf3f37310deed376792975024b6f50",
+    "candidate_natural_traces": "159ada55169bc1af6e0c11be2b47c46fe2e50afbf6c488dc093cb1bc71750dbd",
+    "ownership_report": "4c8b67ff435ae5d31a6f877d75d1e1ae3bf8ef884b4053cb754311c49d8c8b82",
+    "natural_report": "96705f4c417cb378ea973d525bb60047fa4dc5290c6ac2b53bfbec5fab742aa4"
+  },
+  "outcome": {
+    "ownership_gate_pass": false,
+    "natural_gate_pass": false,
+    "independent_repeat_launched": false,
+    "candidate_promoted": false
+  },
+  "interpretation": "One native-sibling SDPO step produced a narrow, causally relevant improvement in handshake communication and two held-out child-owned gains without path leakage. It did not generalize broadly enough: one child-owned success regressed, direct controls did not improve, follow-up causal completion regressed, and delegated-path access remained. The candidate is rejected; the result supports native-policy hindsight as a usable signal but not this sparse one-step cohort as a sufficient teacher-building curriculum.",
+  "decision": "Do not repeat or accumulate another update from this candidate. Return to untouched thinking-mode Qwen3.5-27B and design the next reversible experiment around broader native-success diversity and explicit paired ownership coverage while preserving authentic reasoning and on-policy provenance."
+}

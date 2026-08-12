@@ -60,7 +60,7 @@ def _question(nodes: list[Any]) -> str:
     return question
 
 
-def _load_config(path: Path) -> dict[str, Any]:
+def _load_config(path: Path, *, expected_learning_rate: float) -> dict[str, Any]:
     with path.open("rb") as file:
         config = tomllib.load(file)
     algo = config["orchestrator"]["algo"]
@@ -74,9 +74,24 @@ def _load_config(path: Path) -> dict[str, Any]:
     for key, value in expected.items():
         if algo.get(key) != value:
             raise ValueError(f"audit requires orchestrator.algo.{key}={value!r}")
-    if float(optim["lr"]) != 0.0:
-        raise ValueError("native-sibling replay audit requires trainer.optim.lr=0")
+    learning_rate = float(optim["lr"])
+    if not math.isclose(learning_rate, expected_learning_rate, rel_tol=1e-12, abs_tol=0.0):
+        raise ValueError(
+            "native-sibling replay audit expected "
+            f"trainer.optim.lr={expected_learning_rate}, found {learning_rate}"
+        )
     return config
+
+
+def _structural_pass(
+    *,
+    replay_groups: int,
+    no_success_groups: int,
+    exported_branches: int,
+    require_no_success_group: bool,
+) -> bool:
+    has_replay = replay_groups > 0 and exported_branches > 0
+    return has_replay and (not require_no_success_group or no_success_groups > 0)
 
 
 def _load_traces(path: Path) -> list[vf.Trace]:
@@ -105,9 +120,16 @@ def main() -> None:
     parser.add_argument("--traces", type=Path, required=True)
     parser.add_argument("--token-exports", type=Path, required=True)
     parser.add_argument("--output", type=Path, default=None)
+    parser.add_argument("--expected-learning-rate", type=float, default=0.0)
+    parser.add_argument(
+        "--require-no-success-group",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Require a rollout group with no successful sibling and therefore no replay target.",
+    )
     args = parser.parse_args()
 
-    config = _load_config(args.config)
+    config = _load_config(args.config, expected_learning_rate=args.expected_learning_rate)
     algo_config = config["orchestrator"]["algo"]
     threshold = float(algo_config["success_reward_threshold"])
     remove_thinking = bool(algo_config["remove_thinking_from_demonstration"])
@@ -238,8 +260,12 @@ def main() -> None:
     no_success_groups = [group for group in group_reports if group["strict_successes"] == 0]
     replay_groups = [group for group in group_reports if group["strict_successes"] > 0]
     selected_kls = [report["mean_mismatch_kl"] for report in export_reports]
+    native_sibling_structural_pass = bool(replay_groups and export_reports)
     report = {
         "config": str(args.config),
+        "configured_learning_rate": float(config["trainer"]["optim"]["lr"]),
+        "expected_learning_rate": args.expected_learning_rate,
+        "require_no_success_group": args.require_no_success_group,
         "traces": sum(len(group) for group in groups.values()),
         "groups": len(groups),
         "replay_groups": len(replay_groups),
@@ -247,7 +273,18 @@ def main() -> None:
         "exported_branches": len(export_reports),
         "selected_tokens": sum(report["selected_tokens"] for report in export_reports),
         "mean_sequence_mismatch_kl": (sum(selected_kls) / len(selected_kls) if selected_kls else None),
-        "phase_b_structural_pass": bool(replay_groups and no_success_groups and export_reports),
+        "native_sibling_structural_pass": native_sibling_structural_pass,
+        "audit_pass": _structural_pass(
+            replay_groups=len(replay_groups),
+            no_success_groups=len(no_success_groups),
+            exported_branches=len(export_reports),
+            require_no_success_group=args.require_no_success_group,
+        ),
+        "phase_b_structural_pass": bool(
+            native_sibling_structural_pass
+            and no_success_groups
+            and float(config["trainer"]["optim"]["lr"]) == 0.0
+        ),
         "group_reports": group_reports,
         "export_reports": export_reports,
     }
