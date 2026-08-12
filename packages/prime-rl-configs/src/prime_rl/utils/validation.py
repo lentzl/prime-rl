@@ -72,6 +72,12 @@ def propagate_shared_fields(data: Any) -> Any:
         "orchestrator.model.name",
     )
     propagate(
+        "model.revision",
+        "trainer.model.revision",
+        "inference.vllm.revision",
+        "orchestrator.model.revision",
+    )
+    propagate(
         "model.vlm",
         "trainer.model.vlm",
         "orchestrator.model.vlm",
@@ -113,6 +119,11 @@ def propagate_shared_fields(data: Any) -> Any:
     # differ between sub-configs (auto-derived from model names, which may
     # differ for FP8-quantized inference variants).
     propagate("tokenizer.name", "trainer.tokenizer.name", "orchestrator.tokenizer.name")
+    propagate(
+        "tokenizer.revision",
+        "trainer.tokenizer.revision",
+        "orchestrator.tokenizer.revision",
+    )
     propagate(
         "tokenizer.trust_remote_code",
         "trainer.tokenizer.trust_remote_code",

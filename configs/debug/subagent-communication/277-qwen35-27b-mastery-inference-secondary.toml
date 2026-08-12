@@ -1,0 +1,24 @@
+# Independent two-GPU replica used for teacher-data collection while the
+# frozen mastery battery runs on the primary server.
+
+backend_port = 8300
+
+[server]
+port = 8200
+
+[vllm]
+model = "Qwen/Qwen3.5-27B"
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
+tensor_parallel_size = 2
+data_parallel_rpc_port = 13355
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+enable_lora = true
+max_lora_rank = 128
+max_loras = 1
+gpu_memory_utilization = 0.82
+max_num_seqs = 2
+mamba_ssm_cache_dtype = "float32"
+
+[weight_broadcast]
+type = "filesystem"

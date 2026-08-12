@@ -227,7 +227,12 @@ class SFTDataset(StatefulIterableDataset):
             # as a whole-chat training sample with an empty prompt. Null-check rather
             # than key-check: Arrow schema union adds `messages: null` to
             # prompt/completion rows whenever other rows have a `messages` column.
-            if example.get("messages") is not None:
+            if example.get("messages_json") is not None:
+                messages = normalize_messages(
+                    json.loads(example["messages_json"]),
+                    default_role="assistant",
+                )
+            elif example.get("messages") is not None:
                 messages = normalize_messages(example["messages"], default_role="assistant")
             elif example.get("prompt") is not None and example.get("completion") is not None:
                 messages = normalize_messages(example["prompt"], default_role="user") + normalize_messages(

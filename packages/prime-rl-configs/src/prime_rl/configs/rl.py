@@ -114,6 +114,9 @@ class SharedModelConfig(BaseConfig):
     name: str = "Qwen/Qwen3-0.6B"
     """HF model name or local path."""
 
+    revision: str | None = None
+    """Pinned Hugging Face model revision."""
+
     vlm: "VLMConfig | None" = None
     """VLM configuration. Set this to enable vision-language model support."""
 

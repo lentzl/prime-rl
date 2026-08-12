@@ -1,0 +1,66 @@
+# Thinking-native verified bootstrap. Evaluate every saved adapter against the
+# frozen mastery battery; do not promote based on training loss alone.
+
+max_steps = 16
+output_dir = "/ephemeral/subagent-rung/outputs/281-qwen35-27b-prime-agent-teacher-bootstrap-r64"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 4
+
+[ckpt]
+interval = 2
+keep_last = 8
+keep_interval = 2
+weights_only = true
+
+[ckpt.weights]
+save_adapter_separately = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "Qwen/Qwen3.5-27B"
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
+seq_len = 16384
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 64
+alpha = 128
+target_modules = [
+  "q_proj",
+  "k_proj",
+  "v_proj",
+  "o_proj",
+  "gate_proj",
+  "up_proj",
+  "down_proj",
+  'linear_attn\.(in_proj_qkv|in_proj_z|in_proj_b|in_proj_a|out_proj)$',
+]
+
+[data]
+name = "/ephemeral/subagent-rung/data/281-qwen35-27b-prime-agent-teacher-bootstrap"
+seq_len = 16384
+batch_size = 8
+micro_batch_size = 1
+shuffle = true
+seed = 20260815
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[optim]
+lr = 2e-6

@@ -101,6 +101,9 @@ class BaseModelConfig(BaseConfig):
     name: str = "Qwen/Qwen3-0.6B"
     """HF model name or local path."""
 
+    revision: str | None = None
+    """Pinned Hugging Face model revision. Ignored when ``name`` is a local path."""
+
     trust_remote_code: bool = False
     """Trust remote code when initializing the tokenizer."""
 

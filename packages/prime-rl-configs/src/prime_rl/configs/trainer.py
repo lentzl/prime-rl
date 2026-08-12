@@ -312,6 +312,9 @@ class TokenizerConfig(BaseConfig):
     name: str | None = None
     """Tokenizer name or path. If None, the model's default tokenizer is used."""
 
+    revision: str | None = None
+    """Pinned Hugging Face tokenizer revision. If None, inherits the model revision."""
+
     trust_remote_code: bool | None = None
     """Trust remote code when initializing the tokenizer. If None, inherits the model's ``trust_remote_code`` setting."""
 
@@ -709,6 +712,8 @@ class TrainerConfig(BaseConfig):
     def auto_setup_tokenizer(self):
         if self.tokenizer.name is None:
             self.tokenizer.name = self.model.name
+        if self.tokenizer.revision is None:
+            self.tokenizer.revision = self.model.revision
         if self.tokenizer.trust_remote_code is None:
             self.tokenizer.trust_remote_code = self.model.trust_remote_code
         return self

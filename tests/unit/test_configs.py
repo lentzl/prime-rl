@@ -334,6 +334,23 @@ def test_shared_model_name_propagates_to_subconfigs():
     assert config.orchestrator.tokenizer.name == model_name
 
 
+def test_shared_model_revision_propagates_to_all_consumers():
+    revision = "0123456789abcdef"
+    config = RLConfig.model_validate(
+        {
+            "model": {"name": "PrimeIntellect/test-model", "revision": revision},
+            "trainer": {},
+            "orchestrator": {"renderer": {"name": "default"}},
+            "inference": {},
+        }
+    )
+    assert config.trainer.model.revision == revision
+    assert config.orchestrator.model.revision == revision
+    assert config.inference is not None and config.inference.vllm.revision == revision
+    assert config.trainer.tokenizer.revision == revision
+    assert config.orchestrator.tokenizer.revision == revision
+
+
 def test_shared_tokenizer_propagates_when_subconfigs_unset():
     config = RLConfig.model_validate(
         {
@@ -583,6 +600,17 @@ def test_orchestrator_renderer_auto_accepts_mapped_model():
 def test_sft_renderer_auto_accepts_prime_qwen_model():
     config = SFTConfig.model_validate({"model": {"name": "PrimeIntellect/Qwen3-0.6B"}})
     assert config.renderer.name == "auto"
+
+
+def test_sft_tokenizer_inherits_model_revision():
+    revision = "0123456789abcdef"
+    config = SFTConfig.model_validate(
+        {
+            "model": {"name": "PrimeIntellect/Qwen3-0.6B", "revision": revision},
+        }
+    )
+    assert config.model.revision == revision
+    assert config.tokenizer.revision == revision
 
 
 def test_sft_rejects_default_renderer_for_real_data():

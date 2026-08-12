@@ -1,9 +1,10 @@
 """Export a verifiers v1 eval run (traces.jsonl) as an SFT dataset for `uv run sft`.
 
 Reads a finished run's saved traces and reshapes them into the dataset shape the SFT trainer
-consumes directly (see `prime_rl.trainer.sft.data`): a `messages` column (OpenAI chat wire
-shape) plus a `tools` column (the tools the model was shown, from `Trace.tools`,
-JSON-encoded — heterogeneous JSON-schema dicts don't fit a fixed Arrow schema). One row per
+consumes directly (see `prime_rl.trainer.sft.data`): a `messages_json` column (the OpenAI chat
+wire messages, JSON-encoded) plus a `tools` column (the tools the model was shown, from
+`Trace.tools`, also JSON-encoded). Encoding both avoids Arrow schema inference failures from
+heterogeneous message content and tool schemas. One row per
 branch: a linear rollout contributes one sample, a compacted/subagent rollout one per branch
 (one training sample is built per branch).
 
@@ -27,30 +28,55 @@ from pathlib import Path
 
 from datasets import Dataset
 from verifiers.v1 import Trace, WireTrace
+from verifiers.v1.cli.output import read_episodes
 from verifiers.v1.dialects.chat import message_to_wire
 
 
-def sft_rows(trace: Trace) -> list[dict]:
-    """A trace's SFT rows — one per branch: the branch's conversation as OpenAI chat wire
-    dicts plus the trace's advertised tools, JSON-encoded."""
+def sft_row(trace: Trace, branch) -> dict:
+    """One branch in the Arrow-safe SFT wire format."""
     tools = json.dumps([t.model_dump(mode="json", exclude_none=True) for t in trace.tools or []])
-    return [
-        {
-            "messages": [message_to_wire(m) for m in branch.messages],
-            "tools": tools,
-        }
-        for branch in trace.branches
-        if branch.messages
-    ]
+    return {
+        "messages_json": json.dumps(
+            [message_to_wire(m) for m in branch.messages],
+            ensure_ascii=False,
+        ),
+        "tools": tools,
+    }
 
 
-def keep(trace: Trace, min_reward: float | None, drop_truncated: bool) -> bool:
+def sft_rows(trace: Trace) -> list[dict]:
+    """A trace's SFT rows, one per non-empty message-graph branch."""
+    return [sft_row(trace, branch) for branch in trace.branches if branch.messages]
+
+
+def parse_metric_requirement(value: str) -> tuple[str, float]:
+    """Parse NAME=MIN, where the saved metric must be at least MIN."""
+    name, separator, minimum = value.partition("=")
+    if not separator or not name:
+        raise argparse.ArgumentTypeError("metric requirement must be NAME=MIN")
+    try:
+        return name, float(minimum)
+    except ValueError as error:
+        raise argparse.ArgumentTypeError("metric minimum must be numeric") from error
+
+
+def keep(
+    trace: Trace,
+    min_reward: float | None,
+    drop_truncated: bool,
+    required_metrics: list[tuple[str, float]] | None = None,
+) -> bool:
     """Whether a trace is worth training on (see module docstring for the error semantics)."""
     if trace.stop_condition == "error":
         return False
     if drop_truncated and trace.is_truncated:
         return False
-    return min_reward is None or trace.reward >= min_reward
+    if min_reward is not None and trace.reward < min_reward:
+        return False
+    return all(
+        isinstance(trace.metrics.get(name), (int, float)) and trace.metrics[name] >= minimum
+        for name, minimum in required_metrics or []
+    )
 
 
 def main() -> None:
@@ -58,6 +84,14 @@ def main() -> None:
     parser.add_argument("run_dir", type=Path, help="the eval run dir (holds traces.jsonl)")
     parser.add_argument("--min-reward", type=float, default=None, help="keep traces with reward >= this")
     parser.add_argument("--drop-truncated", action="store_true", help="drop budget-cut traces")
+    parser.add_argument(
+        "--require-metric",
+        action="append",
+        default=[],
+        type=parse_metric_requirement,
+        metavar="NAME=MIN",
+        help="keep traces whose saved metric is at least MIN; repeatable",
+    )
     parser.add_argument("-o", "--output-dir", type=Path, default=None, help="default: <run-dir>/sft")
     parser.add_argument("--push", default=None, help="HF repo id to push to instead of writing parquet")
     args = parser.parse_args()
@@ -66,16 +100,13 @@ def main() -> None:
     if not traces_path.exists():
         raise SystemExit(f"no traces.jsonl in {args.run_dir}")
 
-    total, rows = 0, []
-    with traces_path.open(encoding="utf-8") as f:
-        for line in f:
-            if not line.strip():
-                continue
-            total += 1
-            trace = WireTrace.model_validate(json.loads(line))
-            if keep(trace, args.min_reward, args.drop_truncated):
-                rows.extend(sft_rows(trace))
-    print(f"export-sft: {total} trace(s) -> {len(rows)} row(s)")
+    episodes = read_episodes(args.run_dir, WireTrace)
+    traces = [trace for episode in episodes for trace in episode.traces]
+    rows = []
+    for trace in traces:
+        if keep(trace, args.min_reward, args.drop_truncated, args.require_metric):
+            rows.extend(sft_rows(trace))
+    print(f"export-sft: {len(episodes)} episode(s), {len(traces)} trace(s) -> {len(rows)} row(s)")
     if not rows:
         raise SystemExit("export-sft: no rows to export after selection")
 

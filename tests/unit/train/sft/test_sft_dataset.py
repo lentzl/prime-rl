@@ -1,3 +1,4 @@
+import json
 from collections import Counter
 
 import pytest
@@ -354,6 +355,27 @@ def test_messages_rows_are_equivalent_to_empty_prompt_completion():
     )
 
     assert next(iter(messages_dataset)) == next(iter(split_dataset))
+
+
+def test_json_encoded_messages_are_equivalent_to_structured_messages(dummy_renderer):
+    messages = [
+        {"role": "user", "content": "Compute this"},
+        {"role": "assistant", "content": "done"},
+    ]
+    encoded_dataset = SFTDataset(
+        Dataset.from_list([{"messages_json": json.dumps(messages)}]),
+        dummy_renderer,
+        shuffle=False,
+        max_epochs=1,
+    )
+    structured_dataset = SFTDataset(
+        Dataset.from_list([{"messages": messages}]),
+        dummy_renderer,
+        shuffle=False,
+        max_epochs=1,
+    )
+
+    assert next(iter(encoded_dataset)) == next(iter(structured_dataset))
 
 
 def test_messages_take_precedence_over_prompt_and_completion():

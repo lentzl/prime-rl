@@ -26,6 +26,16 @@ METRICS = (
     "observation_calls",
     "failed_cells",
     "duplicate_cells",
+    "strict_success",
+    "first_decision_only",
+    "state_retained",
+    "state_precedes_spawn",
+    "one_spawn",
+    "retained_handle",
+    "expected_child",
+    "delegated_path",
+    "parent_path_access",
+    "direct_answer_accuracy",
 )
 
 
@@ -75,10 +85,13 @@ def _issues(trace: dict[str, Any]) -> list[str]:
     family = _family(trace)
     metrics = trace.get("metrics", {})
     issues = []
+    if not trace.get("ok", True):
+        issues.append("trace-error")
     checks = {
         "answer": _score(metrics.get("answer_accuracy")),
         "protocol": _score(metrics.get("protocol_aligned")),
         "clean": _score(metrics.get("clean_protocol_aligned")),
+        "strict": _score(metrics.get("strict_success")),
     }
     for label, score in checks.items():
         if score is not None and score < 1.0:
@@ -87,17 +100,22 @@ def _issues(trace: dict[str, Any]) -> list[str]:
         causal = _score(metrics.get("natural_followup_causal"))
         if causal is not None and causal < 1.0:
             issues.append("causal")
-    counters = {
-        "path-access": "coordinator_delegated_path_accesses",
-        "roster": "roster_calls",
-        "observe": "observation_calls",
-        "failed-cell": "failed_cells",
-        "duplicate-cell": "duplicate_cells",
-    }
-    for label, metric in counters.items():
+    counters = (
+        ("path-access", "coordinator_delegated_path_accesses"),
+        ("path-access", "parent_path_access"),
+        ("roster", "roster_calls"),
+        ("observe", "observation_calls"),
+        ("failed-cell", "failed_cells"),
+        ("duplicate-cell", "duplicate_cells"),
+    )
+    for label, metric in counters:
         value = _score(metrics.get(metric))
         if value is not None and value > 0.0:
             issues.append(f"{label}={value:g}")
+    if not metrics:
+        rewards = [_score(value) for value in trace.get("rewards", {}).values()]
+        if rewards and sum(score for score in rewards if score is not None) < 1.0:
+            issues.append("reward")
     return issues
 
 
