@@ -13,6 +13,7 @@ INFERENCE_SERVICE=qwen35-27b-teacher-inference.service
 cd "$ROOT"
 export PATH="$ROOT/.venv/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 export HF_TOKEN="$HF_KEY"
+export CUDA_VISIBLE_DEVICES=2,3
 trap 'systemctl --user stop "$INFERENCE_SERVICE"' EXIT
 rm -rf "$EVAL_ROOT"
 mkdir -p "$EVAL_ROOT/frozen-base"
