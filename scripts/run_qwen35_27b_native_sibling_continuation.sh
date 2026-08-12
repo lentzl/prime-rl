@@ -11,6 +11,7 @@ NATURAL_CONFIG=configs/debug/subagent-communication/258-qwen35-27b-action-local-
 INFERENCE_SERVICE=qwen35-27b-teacher-inference.service
 
 cd "$ROOT"
+export PATH="$ROOT/.venv/bin:$HOME/.local/bin:/usr/local/bin:/usr/bin:/bin"
 export HF_TOKEN="$HF_KEY"
 trap 'systemctl --user stop "$INFERENCE_SERVICE"' EXIT
 rm -rf "$EVAL_ROOT"
