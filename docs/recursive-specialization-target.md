@@ -849,6 +849,18 @@ that the implementation trains on the intended source and tokens; Phase C asks
 whether one minimal update improves that behavior without damaging coordinator
 controls.
 
+The selection boundary is now executable rather than interpretive. The primary
+Run 266 battery pairs 16 held-out-phrasing child-owned tasks with 16 matched
+coordinator-owned direct controls. It requires at least six strict task gains and no
+more than one loss, while treating any candidate coordinator access to a child-owned
+path or any candidate delegation on a direct control as an immediate rejection. The
+existing disjoint Run 258 follow-up/handshake gate must also preserve each family's
+answers, natural causal completion, protocol alignment, and mean bidirectional
+control, with no delegated-path access by the coordinator. If both pass, Run 267
+repeats the ownership battery on unseen instances and the natural gate on the already
+frozen Run 239 offset. These rules were fixed before observing Run 265 and cannot be
+relaxed to admit its outcome.
+
 Do not apply another 2B dose of the same complete-fan-in demonstration: even
 coordinator-only, response-only SDFT traded
 single-child and parallel reliability. The first parallel-only process-control GRPO

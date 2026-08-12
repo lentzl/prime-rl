@@ -922,3 +922,20 @@ Run 265 is the single authorized learning dose. It is identical to Run 264 excep
 experiment identity, output path, and `trainer.optim.lr=1e-7`. It must be followed by
 the frozen ownership, direct-control, natural follow-up, handshake, and independent
 repeat screens before another optimizer step is considered.
+
+Run 266 prospectively freezes that primary selection. Its matched ownership screen
+contains 16 child-owned and 16 coordinator-owned tasks over two unseen instances of
+all eight training resources, using only held-out ownership phrasings. Candidate
+promotion requires at least six paired strict gains, at most one paired strict loss,
+zero coordinator access to child-owned paths, and zero child spawns on coordinator-
+owned direct controls. The natural gate reuses the already frozen Run 258 follow-up
+and handshake tasks and requires every family to preserve answer accuracy, natural
+causal completion, protocol alignment, and mean bidirectional control, with zero
+coordinator access to delegated paths.
+
+Run 267 is a disjoint repeat over two further ownership instances and the historical
+Run 239 natural-control repeat. It is required only if both primary Run 266 reports
+pass. Neither selection run may update weights. The exact comparators are
+`summarize_ownership_candidate_selection.py` and
+`summarize_natural_control_selection.py`; their criteria were committed before the
+Run 265 candidate existed.
