@@ -540,7 +540,7 @@ semantics Prime does not yet package as a training environment. This composition
 intentional: extend Prime's substrate instead of rebuilding the harness in a parallel
 stack.
 
-The executable battery is pinned to Verifiers `fadb10f16`, which composes current
+The executable battery is pinned to Verifiers `4ad1d5b98`, which composes current
 upstream main `afbf16523`, Prime's staged Prime Agent harness tip `7e3bfc4a1`, and
 the complete staged Oolong/ACP-metadata lineage through `141d48abe`. Do not assemble
 the Oolong adapter by cherry-picking only its taskset commits: lifecycle scorers need
