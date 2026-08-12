@@ -1,0 +1,117 @@
+{
+  "experiment_id": "qwen35-27b-action-local-opsd-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "discarded_attempt": {
+    "output": "257-qwen35-27b-action-local-opsd-r1",
+    "optimizer_steps": 0,
+    "reason": "A trainable parent rollout included an all-zero-loss child branch. The two FSDP ranks consequently entered different teacher-replay collective paths and deadlocked before an optimizer step.",
+    "repair": "TrainSink now ships and token-counts only branch samples that contribute to at least one routed loss component. The corrected run exercised the same parent-plus-child case and completed."
+  },
+  "training": {
+    "output": "257-qwen35-27b-action-local-opsd-r2",
+    "config": "257-qwen35-27b-action-local-opsd.toml",
+    "config_sha256": "4e8250ec3f16f56bb253b0f5f883754c996ecbdb2db38d0ffc9abb1fb253c4b5",
+    "metrics_sha256": "9b0cfccbe0c67f4487430de8c48886606686dfc116887763d44cf7c6b034fad7",
+    "rollout_trace_sha256": "5fddbb50035387f1550aefa649dde6fdfc8e576e2f74d6b6cd1be7da14cd6f0a",
+    "adapter_sha256": "107f6bc8eb5b4bcacee93239289330842e80a074acb4a0bc10b7e637d3c586eb",
+    "rank_0_token_export_sha256": "a3198f88720b7dc8436c6effbbf4497d4d2758a699f6ef7af50dada5e63e8f4b",
+    "rank_1_token_export_sha256": "1d6ab43baca8e2f81fe4fce9fa3ef2ce43c9b6f4b8a33b4d3c160d01d41363b9",
+    "thinking_mode": true,
+    "algorithm": "opsd",
+    "filter": "subagent_communication_v1.taskset.keep_first_coordinator_tool_call",
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "lora_rank": 16,
+    "optimizer_steps": 1,
+    "rollouts": 8,
+    "trainable_rollouts": 8,
+    "trainer_samples": 8,
+    "selected_tokens": 679,
+    "selected_tokens_per_sample": [158, 85, 84, 72, 97, 82, 64, 37],
+    "loss": 0.0066114766523242,
+    "entropy": 0.2443869262933731,
+    "gradient_norm": 0.66796875,
+    "peak_trainer_memory_gib": 35.3671875,
+    "inference_ssm_cache_dtype": "float32",
+    "mismatch_kl": {
+      "mean": 0.00019173330691847428,
+      "median": 0.0,
+      "p95": 0.0006232738494873057,
+      "p99": 0.005162494182586674,
+      "max": 0.026867389678955078
+    },
+    "trainer_minus_inference_logprob": {
+      "mean": 0.0018594506857777613,
+      "mean_absolute": 0.0053420221791100845,
+      "max_absolute": 0.22318744659423828
+    }
+  },
+  "selection": {
+    "config": "258-qwen35-27b-action-local-selection.toml",
+    "config_sha256": "4bdf19d707b9e946ef3a58d08fd9d96c46109fe132f35c7ec5d3fdba3048dbd3",
+    "task_offset": 10400,
+    "tasks_per_arm": 8,
+    "base_trace_sha256": "9623651f8660f6aecb2bba6e44e63e039c2ba9b1a4d2d78f034985b25b4c5935",
+    "candidate_trace_sha256": "73a8c508b114843c63343b4088bcff7d22727e6f60f47fc99d9385f2f5f2af05",
+    "base": {
+      "mean_reward": 3.1306818181818183,
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 0.875,
+      "protocol_aligned": 0.75,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.0,
+      "failed_cells": 1.625,
+      "bidirectional_control": 0.6931818181818181
+    },
+    "candidate": {
+      "mean_reward": 2.4081439393939394,
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 1.0,
+      "protocol_aligned": 0.5,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.875,
+      "failed_cells": 1.5,
+      "bidirectional_control": 0.5227272727272727
+    },
+    "followup_only": {
+      "base": {
+        "answers": "4/4",
+        "natural_followup_causal": "3/4",
+        "protocol_aligned": "2/4",
+        "mean_coordinator_delegated_path_accesses": 0.0,
+        "bidirectional_control": 0.5
+      },
+      "candidate": {
+        "answers": "4/4",
+        "natural_followup_causal": "4/4",
+        "protocol_aligned": "0/4",
+        "mean_coordinator_delegated_path_accesses": 1.75,
+        "bidirectional_control": 0.1590909090909091
+      }
+    },
+    "handshake_only": {
+      "base": {
+        "answers": "4/4",
+        "natural_followup_causal": "4/4",
+        "protocol_aligned": "4/4",
+        "bidirectional_control": 0.8863636363636364
+      },
+      "candidate": {
+        "answers": "4/4",
+        "natural_followup_causal": "4/4",
+        "protocol_aligned": "4/4",
+        "bidirectional_control": 0.8863636363636364
+      }
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "frozen_family_gates_run": false,
+    "reason": "The action-local update preserved answer completion and handshake behavior but sharply regressed the trained ownership boundary. Follow-up protocol alignment fell from 2/4 to 0/4, delegated-path access rose from 0.0 to 1.75 per trace, and bidirectional control fell from 0.500 to 0.159.",
+    "interpretation": "Restricting gradients to the first executable action does not repair the teacher target. Demonstration-conditioned OPSD still evaluates the student's sampled action under a reprompted distribution; here it reinforced nearby direct-access behavior rather than the latent ownership policy. The whole-response and action-local variants have now failed the same boundary independently.",
+    "next": "Keep untouched thinking-mode 27B. Reject further learning-rate or mask-width searches for this demonstration-reprompt OPSD family. Seek a mechanism that supplies genuine successful-policy hindsight, preferably admitted native successful siblings after a curriculum change produces them, and ask the strategist to select the smallest falsifiable bridge."
+  }
+}

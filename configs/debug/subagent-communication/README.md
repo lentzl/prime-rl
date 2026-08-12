@@ -820,3 +820,20 @@ the first executable action. If its fresh paired gate still increases coordinato
 access to child-owned files, reject this reprompt family rather than changing the
 learning rate or broadening the dose. Exact audit artifacts and hashes are recorded
 in `qwen35-27b-action-local-token-audit-results-v1.json`.
+
+Run 257 completed that intervention over 679 selected action tokens. Its loss
+(`0.00661`), mismatch KL (`0.000192`), and gradient norm (`0.668`) were healthy, and
+every sample shipped to the two FSDP ranks carried a nonzero routed loss. The latter
+required fixing `TrainSink`: a first attempt exposed that a trainable parent rollout
+could ship its all-zero child branch and put the ranks on different teacher-replay
+collective paths.
+
+The fresh run-258 gate rejects the adapter. On follow-up tasks, answers remained
+`4/4` and natural causal completion rose from `3/4` to `4/4`, but protocol alignment
+fell from `2/4` to `0/4`, coordinator access to child-owned paths rose from `0.0` to
+`1.75` per trace, and bidirectional control fell from `0.500` to `0.159`. Handshake
+behavior was exactly flat at `4/4` protocol alignment and `0.886` control. Action
+locality therefore did not fix the target: both whole-response and action-only
+demonstration-reprompt OPSD reinforce the wrong ownership behavior. Do not search
+another learning rate or mask width in this family. Exact evidence is recorded in
+`qwen35-27b-action-local-opsd-results-v1.json`.

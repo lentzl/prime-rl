@@ -746,6 +746,24 @@ rejected whole-response run. A fresh paired gate must reject it if coordinator a
 to child-owned paths rises again. Native sibling SDPO resumes only after the natural
 policy itself supplies enough strictly admitted successes.
 
+That bridge has now been falsified. Run 257 applied one numerically healthy update to
+679 first-action tokens, but the disjoint follow-up gate moved the intended boundary
+in the wrong direction: protocol alignment fell from `2/4` to `0/4`, child-owned path
+access rose from `0.0` to `1.75` per trace, and bidirectional control fell from `0.500`
+to `0.159`. Answers remained `4/4`, causal completion improved from `3/4` to `4/4`,
+and the held-out handshake family was unchanged, so this is not a general capability
+collapse. It is specific evidence that the demonstration-reprompt teacher assigns
+the wrong local policy even when gradients are restricted to the executable action.
+
+The teacher-first program therefore keeps untouched thinking-mode 27B and closes the
+whole-response/action-local OPSD branch. Do not tune its learning rate, widen its
+mask, or accumulate more steps. The next intervention must change where successful
+policy information comes from. Native successful-sibling SDPO remains the preferred
+hindsight mechanism, but its admission problem must be solved without converting a
+hand-authored reprompt into the teacher policy. Select the next bridge by the smallest
+experiment that can produce and admit genuine natural successes while retaining the
+frozen follow-up and handshake boundary.
+
 Do not apply another 2B dose of the same complete-fan-in demonstration: even
 coordinator-only, response-only SDFT traded
 single-child and parallel reliability. The first parallel-only process-control GRPO

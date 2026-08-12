@@ -5,7 +5,7 @@ ROOT=/home/ubuntu/prime-rl
 OUTPUT_ROOT=/ephemeral/subagent-rung/evals/258-qwen35-27b-action-local-selection-r1
 CONFIG=configs/debug/subagent-communication/258-qwen35-27b-action-local-selection.toml
 ADAPTER_NAME=qwen35-27b-action-local-step1
-ADAPTER_PATH=/ephemeral/subagent-rung/outputs/257-qwen35-27b-action-local-opsd-r1/weights/step_1
+ADAPTER_PATH=/ephemeral/subagent-rung/outputs/257-qwen35-27b-action-local-opsd-r2/weights/step_1
 
 cd "$ROOT"
 rm -rf "$OUTPUT_ROOT"

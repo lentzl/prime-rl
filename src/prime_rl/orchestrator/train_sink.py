@@ -32,6 +32,19 @@ from prime_rl.transport import TrainingSample
 from prime_rl.utils.logger import get_logger
 
 
+def sample_has_loss_signal(sample: TrainingSample) -> bool:
+    """Whether a sample contributes to at least one routed loss component."""
+    if sample.rl_weights is None:
+        if any(sample.mask):
+            return True
+    elif any(trainable and weight != 0.0 for trainable, weight in zip(sample.mask, sample.rl_weights, strict=True)):
+        return True
+    return any(
+        weights is not None and any(weight != 0.0 for weight in weights)
+        for weights in (sample.ce_weights, sample.ref_kl_weights, sample.sdpo_weights)
+    )
+
+
 def payload_tokens(rollout: Rollout) -> int:
     """Token cost of the rollout's trainer-bound payload — the samples built by
     ``process_rollout``. This is what actually ships: forked traces can drop
@@ -42,7 +55,10 @@ def payload_tokens(rollout: Rollout) -> int:
     total so they still advance token batching — a degenerate all-zero-payload
     stream then ships empty batches and trips the orchestrator's
     consecutive-empty-batch abort instead of stalling the readiness check."""
-    return sum(len(sample.token_ids) for sample in rollout.samples) or rollout.num_total_tokens
+    return (
+        sum(len(sample.token_ids) for sample in rollout.samples if sample_has_loss_signal(sample))
+        or rollout.num_total_tokens
+    )
 
 
 class TrainSink:
@@ -278,7 +294,11 @@ class TrainSink:
         # Samples are pre-built by ``process_rollout``; ``process_group`` already stamped the
         # advantage stream and loss routing on each sample. Filtered rollouts don't ship.
         samples: list[TrainingSample] = [
-            sample for r in cohort if not r.is_filtered and r.is_trainable for sample in r.samples
+            sample
+            for r in cohort
+            if not r.is_filtered and r.is_trainable
+            for sample in r.samples
+            if sample_has_loss_signal(sample)
         ]
 
         # ``rollouts`` is the observation window — every rollout of every group finalized since the
