@@ -1,0 +1,155 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-sdpo-token-audit-served-fix-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "prime_rl_revision": "cff8369d9",
+  "verifiers_revision": "be7e0576c222b3fd3afc83bf421fd4789ab7aa45",
+  "config": "264-qwen35-27b-native-sibling-sdpo-token-audit-served-fix.toml",
+  "output": "264-qwen35-27b-native-sibling-sdpo-token-audit-served-fix-r1",
+  "frozen_semantics": {
+    "yield_policy": "semantic",
+    "teacher_source": "first strict native successful sibling from the same rollout group",
+    "synthetic_completion": false,
+    "environment_feedback": false,
+    "self_success_reprompt": false,
+    "native_reasoning_retained": true,
+    "loss_scope": "first coordinator tool call only",
+    "learning_rate": 0
+  },
+  "sampling": {
+    "rollouts": 80,
+    "groups": 5,
+    "group_size": 16,
+    "temperature": 1,
+    "strict_successes": 8,
+    "tasks": [
+      {
+        "task_idx": 2,
+        "task_name": "text_keyword_count",
+        "rollouts": 16,
+        "strict_successes": 2
+      },
+      {
+        "task_idx": 3,
+        "task_name": "markdown_heading_count",
+        "rollouts": 16,
+        "strict_successes": 2
+      },
+      {
+        "task_idx": 7,
+        "task_name": "sha256_prefix",
+        "rollouts": 16,
+        "strict_successes": 2
+      },
+      {
+        "task_idx": 0,
+        "task_name": "json_sum",
+        "rollouts": 16,
+        "strict_successes": 0
+      },
+      {
+        "task_idx": 1,
+        "task_name": "csv_amount_total",
+        "rollouts": 16,
+        "strict_successes": 2
+      }
+    ]
+  },
+  "replay": {
+    "replay_groups": 4,
+    "no_success_groups": 1,
+    "exported_branches": 64,
+    "selected_tokens": 6152,
+    "mean_sequence_mismatch_kl": 0.00017272952254182602,
+    "max_sequence_mismatch_kl": 0.0006515219023353175,
+    "min_sequence_mismatch_kl": 3.0521688790156923e-07,
+    "selected_tokens_min_per_branch": 44,
+    "selected_tokens_max_per_branch": 306
+  },
+  "trainer": {
+    "steps": 1,
+    "loss": 0.0038,
+    "entropy": 0.2509,
+    "mismatch_kl": 0.0002,
+    "gradient_norm": 0.6758,
+    "learning_rate": 0,
+    "weights_updated": false
+  },
+  "artifact_sha256": {
+    "traces": "c1b3c3ca21121d022f2300f465a0dc008afd8d7d8f0a3d20dd7aba45a67a8d64",
+    "audit": "7b7aa120f8e7eab2c593ff3e7b8a62e14c86e0c0bf7fff56df3ad8b589d299c6",
+    "token_export_rank_0": "84297d437668686406a33db3a1a5ec10db96d6136cadb2618e5604e8aa0d3256",
+    "token_export_rank_1": "176f0399c3d279bc66d05d66b8a64523cf40065605892c097108fdf18bd82533"
+  },
+  "teacher_provenance": [
+    {
+      "group_id": "b5ec23fd-d8cf-4669-8ad5-fcd4de229c51",
+      "teacher_trace_id": "16f4310f2d3447b6be01048d69443c49",
+      "teacher_solution_sha256": "13e27ce401952c866b6d8a0abcb7dfc7b722470886dd48663f5c0c7f480558da",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Preserve a batch_marker locally\n2. Ask a child agent called \"outline-worker\" to count level-2 Markdown headings from a specific file\n3. Keep the child handle and end the turn after spawning\n\nLet me first preserve the batch_marker as a local variable, then spawn the child with a clear task to count the headings.\nipython({\"code\": \"# Preserve batch_marker locally\\nbatch_marker = 'coord-markdown_heading_count-0-1'\\nprint(f\\\"Preserved batch_marker: {batch_marker}\\\")\\n\\n# Now spawn outline-worker child to count level-2 Markdown headings\\nchild_handle = await rlm('Count level-2 Markdown headings (##) in /workspace/ownership-invariant/markdown_heading_count/i0.md and reply with the count', name='outline-worker')\\nprint(f\\\"Spawned child: {child_handle.name}, child_id: {child_handle.rlm_child_id}\\\")\"})\nThe child has been spawned successfully. The batch_marker is preserved locally and the outline-worker child is admitted with child_id sub-3d3caa1b. I should end this turn as instructed, keeping the child handle for subsequent interaction when the child replies.\nDone. The batch_marker `coord-markdown_heading_count-0-1` is preserved locally, and `outline-worker` has been spawned (child_id: `sub-3d3caa1b`) to count the level-2 Markdown headings. I'll await the child's reply in the next turn."
+    },
+    {
+      "group_id": "5d3440f5-333d-4b04-9a0c-bf0d5062520c",
+      "teacher_trace_id": "4525551b11c143f8abf1b5f6e17d4787",
+      "teacher_solution_sha256": "e941cf2dcd11dd0c9ccd673bcaf26f1995c74d81490b9846ca001e294eae45fa",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Keep a request_tag in coordinator state\n2. Delegate counting whitespace-delimited occurrences of 'retry' in a specific file to a child agent named 'text-worker'\n3. The child owns that resource\n4. Retain the admission handle\n5. Yield after spawning\n\nI need to spawn a child agent using `rlm()` with a specific task description and name it 'text-worker'.\nipython({\"code\": \"# Store coordinator state\\ncoordinator_state = {\\n    'request_tag': 'coord-text_keyword_count-0-0'\\n}\\nprint(f\\\"Coordinator state set: {coordinator_state}\\\")\\n\\n# Spawn child agent to count 'retry' occurrences in the file\\nhandle = await rlm(\\n    \\\"Count the exact number of whitespace-delimited occurrences of the word 'retry' in the file /workspace/ownership-invariant/text_keyword_count/i0.txt. Return the count explicitly to parent.\\\",\\n    name='text-worker'\\n)\\nprint(f\\\"Spawned child: {handle.name} (ID: {handle.rlm_child_id})\\\")\"})\nI've successfully:\n1. Stored the request_tag in coordinator state\n2. Spawned a child agent named 'text-worker' with the task to count whitespace-delimited occurrences of 'retry' in the specified file\n\nThe child has been admitted with ID 'sub-8150d451'. I should retain this handle and yield (end the turn) as requested. The child will reply when done.\nDone. Coordinator state set with `request_tag='coord-text_keyword_count-0-0'`. Child agent `text-worker` spawned (ID: sub-8150d451) to count whitespace-delimited occurrences of 'retry' in `/workspace/ownership-invariant/text_keyword_count/i0.txt`. Admission handle retained. Yielding for child to complete task."
+    },
+    {
+      "group_id": "60c33aa9-8145-408e-ba42-1d151a64d2e9",
+      "teacher_trace_id": "479be2797b8a4e859091e8175be545d7",
+      "teacher_solution_sha256": "6e5b0248a1eeae6e7a33b9298fa2d6e58c6e3ec61b550ab9668568cb27a41e36",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Preserve a batch_marker locally for later\n2. Ask a child agent (table-worker) to sum integer values in a CSV file\n3. Keep the child handle and end the turn once the child is admitted\n\nLet me break this down:\n1. I need to store the batch_marker 'coord-csv_amount_total-0-1' in local state/memory\n2. I need to spawn a child agent to do the CSV sum task\n3. Return the child handle and end the turn\n\nLet me start by setting up the local state and spawning the child agent.\nipython({\"code\": \"# Preserve batch_marker locally\\nbatch_marker = 'coord-csv_amount_total-0-1'\\nprint(f\\\"Preserved batch_marker={batch_marker} locally\\\")\\n\\n# Now spawn a child agent to sum the CSV values\\nchild = await rlm('Sum the integer values in the amount column of the CSV file at /workspace/ownership-invariant/csv_amount_total/i0.csv', name='table-worker')\\nprint(f\\\"Spawned child agent: {child.name}, session: {child.name}\\\")\\nprint(f\\\"RLM child id: {child.rlm_child_id}\\\")\"})\nThe child agent has been spawned successfully. I have:\n1. Preserved the batch_marker locally in Python state\n2. Spawned the table-worker child agent with the task to sum the CSV values\n3. Kept the child handle (child variable)\n\nNow I should end this turn as instructed. The child will reply when it completes the task.\nDone. Preserved `batch_marker='coord-csv_amount_total-0-1'` locally and spawned `table-worker` child agent (RLM ID: sub-9e10d0fe) to sum the integer values in `/workspace/ownership-invariant/csv_amount_total/i0.csv`. The child has been admitted and will reply with the sum result."
+    },
+    {
+      "group_id": "ecf6f9c2-b37c-496f-a17c-966c8f01ee76",
+      "teacher_trace_id": "6799981222bc40afafefab8dfac64b58",
+      "teacher_solution_sha256": "db1115e51f06dcf2a930615217b511a86361e16659a927595cab031d63cd736b",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Preserve a batch_marker locally for later\n2. Spawn a child agent called \"hash-worker\" to compute the first 8 hex characters of the SHA-256 digest of a specific file\n3. Keep the returned child handle\n4. End this turn once the child is admitted (not wait for result)\n\nLet me break this down:\n1. I'll store the batch_marker as a local variable\n2. I'll spawn a child using `await rlm()` with the task to compute the SHA256 prefix\n3. I'll keep the handle and end the turn\n\nLet me write a code cell to do this.\nipython({\"code\": \"# Store the batch_marker locally\\nbatch_marker = 'coord-sha256_prefix-0-1'\\nprint(f\\\"Stored batch_marker: {batch_marker}\\\")\\n\\n# Spawn hash-worker child to compute SHA-256 prefix\\nhandle = await rlm(\\n    \\\"Compute the first eight hexadecimal characters of the SHA-256 digest of the file /workspace/ownership-invariant/sha256_prefix/i0.bin. Reply with the result using agent_message.send().\\\",\\n    name='hash-worker'\\n)\\nprint(f\\\"Spawned child: {handle.name}, session_dir: {handle.session_dir}, model: {handle.model}\\\")\"})\nGood, I've:\n1. Stored the batch_marker locally in the IPython kernel\n2. Spawned the hash-worker child agent with the task to compute the SHA-256 prefix of the specified file\n3. Captured the child handle\n\nThe child is admitted. Per the instructions, I should end this turn now and wait for the child to reply via agent_message. The result will arrive as an agent message.\nDone. I've:\n1. Stored `batch_marker='coord-sha256_prefix-0-1'` locally in the kernel\n2. Spawned `hash-worker` child (session: `sub-5eb7897c`) to compute the SHA-256 prefix of `/workspace/ownership-invariant/sha256_prefix/i0.bin`\n\nWaiting for the child to reply via agent_message with the result."
+    },
+    {
+      "group_id": "60c33aa9-8145-408e-ba42-1d151a64d2e9",
+      "teacher_trace_id": "745bd41ab79048f6960c4928abf94e92",
+      "teacher_solution_sha256": "3f6e93d417b4981d35e9f805dbc6aebfc0f93a36c76c3c148ccf4db85971c886",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Preserve batch_marker='coord-csv_amount_total-0-1' locally\n2. Spawn a child agent called \"table-worker\" to sum integer values in a CSV amount column\n3. Keep the child handle and end the turn once the child is admitted\n\nLet me first set the batch_marker in local memory, then spawn the child agent.\nipython({\"code\": \"# Preserve batch_marker locally\\nimport os\\nbatch_marker = 'coord-csv_amount_total-0-1'\\nos.environ['BATCH_MARKER'] = batch_marker\\nprint(f\\\"Preserved batch_marker: {batch_marker}\\\")\\n\\n# Spawn child agent to handle CSV amount summation\\nhandle = await rlm(\\n    \\\"Read the CSV file at /workspace/ownership-invariant/csv_amount_total/i0.csv and sum the integer values in the 'amount' column. Reply with the total sum.\\\",\\n    name='table-worker'\\n)\\nprint(f\\\"Spawned child: {handle}\\\")\\n\\n# Save the child handle for later use\\nchild_handle = handle\\nprint(f\\\"Keep reference to child: {child_handle.name}\\\")\"})\nGreat! I've:\n1. Preserved the batch_marker 'coord-csv_amount_total-0-1' locally in the environment variable\n2. Spawned the child agent named 'table-worker' with the task to sum the CSV amount column\n3. The child has been admitted with handle name='table-worker' and id='sub-563b1e98'\n\nNow I should end this turn as instructed - the child has been admitted and I've kept the handle. The child will reply with the result when ready.\nDone. I've:\n1. Preserved `batch_marker='coord-csv_amount_total-0-1'` locally as an environment variable\n2. Spawned child agent `table-worker` (rlm_child_id: sub-563b1e98) to sum the integer values in the `amount` column of the CSV at `/workspace/ownership-invariant/csv_amount_total/i0.csv`\n3. Kept the child handle reference\n\nEnding this turn now. Await the child's reply with the computed total."
+    },
+    {
+      "group_id": "b5ec23fd-d8cf-4669-8ad5-fcd4de229c51",
+      "teacher_trace_id": "7aacfae986e342a596d2286dd9872596",
+      "teacher_solution_sha256": "b39b1f0f4ab7b2e7f151104a197b47432177bd4afe749f6e5f8f60c85b225dc8",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Preserve a batch_marker locally for later\n2. Ask an existing agent called \"outline-worker\" to count level-2 Markdown headings in a specific file\n3. Keep the returned child handle and end this turn once the child is admitted\n\nLet me first spawn a child agent with the task to count level-2 headings, and also save the batch_marker with a local memory.\nipython({\"code\": \"# Save batch_marker locally\\nbatch_marker = 'coord-markdown_heading_count-0-1'\\nprint(f\\\"Batch marker saved: {batch_marker}\\\")\\n\\n# Now spawn a child agent to count level-2 headings\\nchild_handle = await rlm(\\n    \\\"Count level-2 Markdown headings using /workspace/ownership-invariant/markdown_heading_count/i0.md\\\",\\n    name='outline-worker'\\n)\\nprint(f\\\"\\\\nChild spawned with handle: {child_handle}\\\")\\nprint(f\\\"Child ID: {child_handle.rlm_child_id}\\\")\\nprint(f\\\"Child name: {child_handle.name}\\\")\\nprint(f\\\"Session dir: {child_handle.session_dir}\\\")\"})\nThe child agent has been spawned successfully. The batch_marker is saved locally in Python, and the child handle is preserved. Now I should end this turn without waiting for the child to complete - it needs to reply via agent_message when done.\nDone. I've:\n1. Saved `batch_marker='coord-markdown_heading_count-0-1'` locally in the kernel\n2. Spawned child agent `outline-worker` (ID: `sub-0d96e847`) with the task to count level-2 Markdown headings in `/workspace/ownership-invariant/markdown_heading_count/i0.md`\n3. Preserved the child handle for later use\n\nThe child is now admitted and running. Waiting for the outline-worker to reply via agent_message with the heading count."
+    },
+    {
+      "group_id": "ecf6f9c2-b37c-496f-a17c-966c8f01ee76",
+      "teacher_trace_id": "a7f1a6bd1ab54ae6bb8f7243f3387b58",
+      "teacher_solution_sha256": "105fe90912c58ae2d6835cac3aeb675f9cfc28691a6c198b64e718da8e8771ac",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Preserve a batch_marker locally (batch_marker='coord-sha256_prefix-0-1')\n2. Spawn a child agent named 'hash-worker' to compute the first 8 hex characters of SHA-256 digest of the file /workspace/ownership-invariant/sha256_prefix/i0.bin\n3. Keep the child handle and end this turn once the child is admitted (not waiting for the result)\n\nLet me first preserve the batch_marker locally, then spawn the child.\nipython({\"code\": \"# Preserve batch_marker locally\\nbatch_marker = 'coord-sha256_prefix-0-1'\\nprint(f\\\"Preserved batch_marker: {batch_marker}\\\")\\n\\n# Now spawn the hash-worker child\\nhandle = await rlm(\\n    \\\"Compute the first eight hexadecimal characters of the SHA-256 digest of /workspace/ownership-invariant/sha256_prefix/i0.bin and reply with the result to your parent.\\\",\\n    name='hash-worker'\\n)\\nprint(f\\\"Child spawned: {handle.name}, handle: {handle}\\\")\"})\nThe child 'hash-worker' has been spawned and admitted. I have:\n1. Preserved the batch_marker locally as 'coord-sha256_prefix-0-1'\n2. Spooled the hash-worker child with the task to compute the first 8 hex characters of SHA-256 digest of the specified file\n3. Kept the handle: RLMSpawnHandle(rlm_child_id='sub-072673f2', name='hash-worker', ...)\n\nNow I should end this turn as instructed once the child is admitted. The child will reply with the result when done.\nDone. I have:\n\n1. **Preserved locally**: `batch_marker='coord-sha256_prefix-0-1'`\n2. **Spawned child**: `hash-worker` (handle: `RLMSpawnHandle(rlm_child_id='sub-072673f2', name='hash-worker', ...)`)\n3. **Task**: Compute the first 8 hexadecimal characters of the SHA-256 digest of `/workspace/ownership-invariant/sha256_prefix/i0.bin`\n\nThe child has been admitted and is working. I'm keeping the handle and ending this turn. The `hash-worker` child will reply with the result when complete."
+    },
+    {
+      "group_id": "5d3440f5-333d-4b04-9a0c-bf0d5062520c",
+      "teacher_trace_id": "debe59d49d014b55a20b04192ebf0310",
+      "teacher_solution_sha256": "acd2ce7f0ae1537a9d131855d4a7c210b38fae3841fcba775c4ac2bfe3c5a28f",
+      "teacher_has_reasoning": true,
+      "teacher_solution": "The user wants me to:\n1. Keep a request_tag in coordinator state\n2. Delegate a task to a child agent named \"text-worker\" - counting exact whitespace-delimited occurrences of 'retry' in a specific file\n3. Retain the admission handle\n4. Yield after spawning (not waiting for completion)\n\nLet me spawn the child agent with the specific task.\nipython({\"code\": \"import asyncio\\n# Store coordinator state\\nif not hasattr(asyncio.get_event_loop(), 'coordinator_state'):\\n    asyncio.get_event_loop().coordinator_state = {}\\nasyncio.get_event_loop().coordinator_state['request_tag'] = 'coord-text_keyword_count-0-0'\\n\\n# Spawn the child agent for text processing\\nhandle = await rlm('Count exact whitespace-delimited occurrences of the word \\\"retry\\\" in the file /workspace/ownership-invariant/text_keyword_count/i0.txt. Report the final count explicitly.', name='text-worker')\\nprint(f\\\"Spawned child: {handle.name}\\\")\\nprint(f\\\"Session: {handle.session_dir}\\\")\\nprint(f\\\"Model: {handle.model}\\\")\"})\nSuccessfully spawned the child agent \"text-worker\" with the task. The child owns the resource (the file to analyze), and I've retained the admission handle. The task is to count exact whitespace-delimited occurrences of 'retry' in the specified file.\n\nThe spawn completed and returned the handle. I should now yield by ending the current turn.\nDone. Spawned child agent `text-worker` with admission handle retained. The child is delegated to count exact whitespace-delimited occurrences of 'retry' in `/workspace/ownership-invariant/text_keyword_count/i0.txt`. Coordinator state has `request_tag='coord-text_keyword_count-0-0'` stored."
+    }
+  ],
+  "outcome": {
+    "phase_b_pass": true,
+    "same_group_native_sibling_verified": true,
+    "no_synthetic_or_feedback_fallback": true,
+    "no_success_group_zero_target_verified": true,
+    "first_tool_call_token_locality_verified": true,
+    "exact_teacher_provenance_recorded": true,
+    "zero_lr_no_update_verified": true,
+    "small_mismatch_kl_verified": true
+  },
+  "decision": "Phase B passed. Proceed once with the predeclared rank-16 1e-7 native-sibling SDPO dose, then run frozen ownership, direct-control, follow-up, handshake, and independent-repeat screens before accumulating another update."
+}
+

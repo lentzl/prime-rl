@@ -888,10 +888,10 @@ Audit the completed run from its serialized native traces and trainer token expo
 
 ```bash
 uv run python scripts/audit_native_sibling_sdpo_run.py \
-  --config configs/debug/subagent-communication/263-qwen35-27b-native-sibling-sdpo-token-audit-multifamily.toml \
-  --traces /ephemeral/subagent-rung/outputs/263-qwen35-27b-native-sibling-sdpo-token-audit-multifamily-r1/run_default/rollouts/step_1/train/all/traces.jsonl \
-  --token-exports /ephemeral/subagent-rung/outputs/263-qwen35-27b-native-sibling-sdpo-token-audit-multifamily-r1/run_default/token_exports/step_1 \
-  --output /tmp/run263-native-sibling-audit.json
+  --config configs/debug/subagent-communication/264-qwen35-27b-native-sibling-sdpo-token-audit-served-fix.toml \
+  --traces /ephemeral/subagent-rung/outputs/264-qwen35-27b-native-sibling-sdpo-token-audit-served-fix-r1/run_default/rollouts/step_1/train/all/traces.jsonl \
+  --token-exports /ephemeral/subagent-rung/outputs/264-qwen35-27b-native-sibling-sdpo-token-audit-served-fix-r1/run_default/token_exports/step_1 \
+  --output /tmp/run264-native-sibling-audit.json
 ```
 
 The report reconstructs the exact first successful sibling selected in each
@@ -906,3 +906,19 @@ knob was semantic. It was stopped at 51/80 rollouts with zero trainer steps and 
 token exports. Verifiers commit `be7e0576` propagates that policy across the served
 boundary and adds a reconstruction regression test. Run 264 is the fresh repeat, with
 the semantic task subtree also explicit in its TOML.
+
+Run 264 passes Phase B. Four of five 16-rollout groups each produced two strict
+native successes; the JSON group remained the no-success control. The trainer
+exported all 64 replay branches from the four mixed groups and none from the control.
+The auditor matched every export to its exact same-group sibling provenance and
+configured first-tool-call mask: 6,152 tokens were selected, all eight unique teacher
+demonstrations retained native reasoning, and mean sequence mismatch KL was
+`0.000173`. The zero-LR step reported loss `0.0038` and gradient norm `0.6758` but
+could not update weights. Exact teacher text, IDs, hashes, trace/export hashes, and
+numerical evidence are in
+`qwen35-27b-native-sibling-sdpo-token-audit-served-fix-results-v1.json`.
+
+Run 265 is the single authorized learning dose. It is identical to Run 264 except for
+experiment identity, output path, and `trainer.optim.lr=1e-7`. It must be followed by
+the frozen ownership, direct-control, natural follow-up, handshake, and independent
+repeat screens before another optimizer step is considered.

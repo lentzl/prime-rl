@@ -832,6 +832,23 @@ step or token export. Verifiers commit `be7e0576` propagates the policy through 
 served config and tests the exact server reconstruction path. Run 264 repeats the
 otherwise frozen audit from scratch and also declares the task policy explicitly.
 
+Run 264 passes the complete zero-LR Phase-B gate. The four replay groups each
+contained two strict native successes, while the JSON control contained none. All 64
+eligible replay branches mapped exactly to same-group native sibling demonstrations;
+the no-success group exported zero targets. Nonzero SDPO weights selected only the
+configured first coordinator tool call, covering 6,152 tokens. Every one of the eight
+unique native teachers retained reasoning, mean sequence mismatch KL was `0.000173`,
+and LR remained exactly zero. The committed result ledger preserves exact teacher
+text and content hashes as well as hashes for the traces, audit, and rank exports.
+
+Run 265 therefore applies exactly one rank-16 native-sibling SDPO update at `1e-7`.
+No second dose is allowed until the candidate is compared with untouched 27B on the
+frozen ownership and direct-control screens, natural follow-up and handshake gates,
+and an independent repeat. This keeps the next inference causal: Phase B established
+that the implementation trains on the intended source and tokens; Phase C asks
+whether one minimal update improves that behavior without damaging coordinator
+controls.
+
 Do not apply another 2B dose of the same complete-fan-in demonstration: even
 coordinator-only, response-only SDFT traded
 single-child and parallel reliability. The first parallel-only process-control GRPO
