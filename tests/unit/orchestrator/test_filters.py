@@ -3,10 +3,15 @@ import uuid
 
 import verifiers.v1 as vf
 
-from prime_rl.configs.orchestrator import GibberishFilterConfig, RepetitionFilterConfig
+from prime_rl.configs.orchestrator import (
+    GibberishFilterConfig,
+    RepetitionFilterConfig,
+    RewardThresholdFilterConfig,
+)
 from prime_rl.orchestrator.filters import (
     GibberishFilter,
     RepetitionFilter,
+    RewardThresholdFilter,
     apply_filters,
     setup_filter,
     setup_filters,
@@ -78,6 +83,14 @@ def _make_gibberish_filter(vocab_size=128_000, token_id_threshold=100_000, logpr
 def _make_repetition_filter(window=5, prob_threshold=0.99, enforce=False):
     return RepetitionFilter(
         name="repetition", window=window, logprob_threshold=math.log(prob_threshold), enforce=enforce
+    )
+
+
+def _make_reward_threshold_filter(threshold=1.0, enforce=True):
+    return RewardThresholdFilter(
+        name="reward_threshold",
+        threshold=threshold,
+        enforce=enforce,
     )
 
 
@@ -247,6 +260,38 @@ def test_setup_filters_multiple():
     assert len(filters) == 2
     assert filters[0].name == "gibberish"
     assert filters[1].name == "repetition"
+
+
+def test_setup_filter_reward_threshold():
+    reward_filter = setup_filter(
+        RewardThresholdFilterConfig(threshold=1.0),
+        vocab_size=128_000,
+    )
+    assert isinstance(reward_filter, RewardThresholdFilter)
+    assert reward_filter.threshold == 1.0
+    assert reward_filter.enforce is True
+
+
+def test_reward_threshold_flags_only_rollouts_below_threshold():
+    reward_filter = _make_reward_threshold_filter(threshold=0.8)
+
+    below = reward_filter.check(_make_rollout([1], [-1.0], reward=0.6))
+    equal = reward_filter.check(_make_rollout([1], [-1.0], reward=0.8))
+    above = reward_filter.check(_make_rollout([1], [-1.0], reward=1.0))
+
+    assert below.detected is True
+    assert equal.detected is False
+    assert above.detected is False
+
+
+def test_reward_threshold_filter_preserves_rejected_rollout_evidence():
+    rollout = _make_rollout([1], [-1.0], reward=0.8)
+
+    apply_filters([_make_reward_threshold_filter(threshold=1.0)], [rollout])
+
+    assert rollout.reward == 0.8
+    assert rollout.filter_results == {"reward_threshold": True}
+    assert rollout.is_filtered is True
 
 
 # --- apply_filters tests (enforce=True) ---

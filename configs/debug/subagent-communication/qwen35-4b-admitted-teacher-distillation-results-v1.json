@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-admitted-teacher-distillation-v1",
+  "base_model": {
+    "name": "Qwen/Qwen3.5-4B",
+    "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+  },
+  "initial_checkpoint": {
+    "adapter": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+    "adapter_sha256": "595d4362f005dc4a4df8637be79e8315bf43e7523142898d8573b462196a04d3"
+  },
+  "teacher": {
+    "model": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "role": "bounded trajectory generator only"
+  },
+  "training_data": {
+    "path": "/ephemeral/subagent-rung/data/117-qwen35-4b-admitted-teacher-sft-r1",
+    "dataset_sha256": "9a98231f989c929550b084b5d551add4d15f1528fdca79ef6767fd882ff8fe2e",
+    "admitted_traces": 7,
+    "branch_examples": 14,
+    "composition": {
+      "coordinator": 7,
+      "child": 7
+    },
+    "selection": {
+      "causal_completed": 1.0,
+      "answer_accuracy": 1.0,
+      "protocol_aligned": 1.0,
+      "duplicate_cells": 0.0,
+      "post_fan_in_failed_cells": 0.0,
+      "post_fan_in_control_aligned": 1.0
+    },
+    "serialization_repair": "Typed text parts were normalized to strings so every message content field has one Arrow-compatible representation. The failed launch stopped before any weight update."
+  },
+  "training": {
+    "config": "117-qwen35-4b-admitted-teacher-sft.toml",
+    "config_sha256": "49bc73e57444d77aa196465020b1934a36a9f848626af06576c4dbf201abbbbc",
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 5e-7,
+    "batch_size": 4,
+    "micro_batch_size": 1,
+    "sequence_length": 12288,
+    "max_steps": 4,
+    "nan_count": 0,
+    "peak_memory_gib": 12.806640625,
+    "checkpoints": {
+      "step_2": {
+        "loss": 0.24358436465263367,
+        "gradient_norm": 1.21875,
+        "adapter_sha256": "7d0b2bbe31a1951892d0400fc339c9e2dd1b60534adb6a602de7464fde67b311"
+      },
+      "step_4": {
+        "loss": 0.20170655846595764,
+        "gradient_norm": 0.6796875,
+        "adapter_sha256": "ecfeaddf14408719c62696ad8968003bfc6248820c3b11a9d13197fce4a7c46e"
+      }
+    }
+  },
+  "paired_development": {
+    "baseline": {
+      "direct_joint": "4/4",
+      "causal_completed": "0/8",
+      "causal_spawn_first": "0/8",
+      "answer_accuracy_sum": 6.0,
+      "protocol_aligned": "5/8",
+      "duplicate_cells": 3,
+      "direct_trace_sha256": "940f55f723a2a83872901796793a926a2a77b91f697d34a6958370b89b7212a4",
+      "causal_trace_sha256": "31fd6e0bbad3d1ff1c4505ea5224e5e9dc98448588e85f7c2d92c7f3e4d4feaf"
+    },
+    "step_2": {
+      "direct_joint": "4/4",
+      "causal_completed": "0/8",
+      "causal_spawn_first": "1/8",
+      "causal_contract_bound": "0/8",
+      "answer_accuracy_sum": 5.666666666666666,
+      "protocol_aligned": "4/8",
+      "duplicate_cells": 3,
+      "direct_trace_sha256": "2b4a706ed41e4780eec04801ab8f4e1c68ae69d5173414cac215cc1c1dd00286",
+      "causal_trace_sha256": "4ab08c7a9a2652aadd98ad430d47f5aa3066d969ad97c148170f8ff3a3794891"
+    },
+    "step_4": {
+      "direct_joint": "4/4",
+      "causal_completed": "0/8",
+      "causal_spawn_first": "2/8",
+      "causal_contract_bound": "0/8",
+      "answer_accuracy_sum": 7.0,
+      "protocol_aligned": "4/8",
+      "duplicate_cells": 2,
+      "direct_trace_sha256": "9e9e85e4d02ead2ba53faa885fedef704f1010320939b1ee9cf94b18f52d56af",
+      "causal_trace_sha256": "6ba329fbaa84839a05942e4ba63400bd0ab6428f3f5aaf10517988c4fb4d49f4"
+    }
+  },
+  "selection": {
+    "checkpoint": null,
+    "decision": "reject both distilled checkpoints",
+    "accepted_checkpoint_remains": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+    "promotion_ready": false,
+    "published_to_hugging_face": false,
+    "frozen_capacity_battery_v1_run": false,
+    "conclusion": "Seven clean 9B demonstrations preserved direct behavior and increased spawn-first frequency, especially at step 4, but did not transfer exact contract binding or any later causal stage.",
+    "next_intervention": "Increase successful trajectory diversity and train the causal transition as a balanced sequence of coordinator and child decisions before considering another on-policy update."
+  }
+}

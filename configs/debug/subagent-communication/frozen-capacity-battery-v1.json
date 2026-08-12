@@ -1,0 +1,96 @@
+{
+  "battery_id": "qwen35-prime-agent-capacity-v1",
+  "status": "frozen",
+  "frozen_at": "2026-08-10",
+  "prime_rl_revision": "28810895274e4c75203432a093e8635422b793eb",
+  "verifiers_revision": "31551d30f3345f31df6ad47c69cee8ed4d61e4aa",
+  "prime_agent_version": "0.7.0",
+  "allowed_comparison_overrides": [
+    "model",
+    "output_dir"
+  ],
+  "files": {
+    "configs/debug/subagent-communication/39-standard-generalization-eval.toml": "e42210bfea8356c63f9ea596190fd85deda1b0a8468511999bf98dd059c1e33b",
+    "configs/debug/subagent-communication/55-rung37-fresh-paired-eval.toml": "2da855e3bffd8d676c75024ff59a41476078dab75fadef89b570b3421716850a",
+    "configs/debug/subagent-communication/61-rung37-cross-family-paired-eval.toml": "3c6cee255d89388327123d0a5542d4a571b48d178065a28c0bcd150a04998952",
+    "configs/debug/subagent-communication/70-rung37-bidirectional-state-probe.toml": "fcb7188bf659261facb8fe690ffcb541a68e646bbade68f5189a7995c06a8a66",
+    "configs/debug/subagent-communication/81-qwen35-4b-standard-baseline.toml": "b78772a3de6f8e35921c46eb8cb28f99e2d49fea5cc91a95d52f538e7d5f1177",
+    "configs/debug/subagent-communication/82-qwen35-4b-bidirectional-baseline.toml": "a6d996b9f63c85d3dbb3f762f9f876201a663066af694ed6f983cd772e8fcf45",
+    "configs/debug/subagent-communication/83-qwen35-4b-standard-generalization-baseline.toml": "5db1f77a37393cd9face0b19e17103cfedbc4d1bbecb81d9fc199724a03cf58f",
+    "configs/debug/subagent-communication/84-qwen35-4b-cross-family-baseline.toml": "758a58da41859418c8bed3c879120b622baaec09b3535b06c6b41e47fa1e3ecf",
+    "deps/verifiers/environments/subagent_communication_v1/subagent_communication_v1/taskset.py": "f7fdb40b9a11c66123a029bad6a215b46f9fbdd590dd41caceb08331ccd6a1cd",
+    "deps/verifiers/environments/subagent_communication_v1/subagent_communication_v1/__init__.py": "4267dcbebce46c98d1b451c420fd98d7fcd2743b86f1d6ad0d0e1704684cade3",
+    "deps/verifiers/environments/subagent_communication_v1/pyproject.toml": "365c26da8c76c2b372ff309c8f42b94092e817ab2aebb8ba11889bc8f676275b"
+  },
+  "paired_configs": [
+    {
+      "name": "standard-generalization",
+      "historical": "configs/debug/subagent-communication/39-standard-generalization-eval.toml",
+      "comparison": "configs/debug/subagent-communication/83-qwen35-4b-standard-generalization-baseline.toml"
+    },
+    {
+      "name": "fresh-paired",
+      "historical": "configs/debug/subagent-communication/55-rung37-fresh-paired-eval.toml",
+      "comparison": "configs/debug/subagent-communication/81-qwen35-4b-standard-baseline.toml"
+    },
+    {
+      "name": "cross-family",
+      "historical": "configs/debug/subagent-communication/61-rung37-cross-family-paired-eval.toml",
+      "comparison": "configs/debug/subagent-communication/84-qwen35-4b-cross-family-baseline.toml"
+    },
+    {
+      "name": "bidirectional",
+      "historical": "configs/debug/subagent-communication/70-rung37-bidirectional-state-probe.toml",
+      "comparison": "configs/debug/subagent-communication/82-qwen35-4b-bidirectional-baseline.toml"
+    }
+  ],
+  "historical_2b_results": [
+    {
+      "name": "standard-generalization",
+      "attempted": 12,
+      "valid": 12,
+      "joint_solve": 10,
+      "families": {
+        "direct": "4/4",
+        "single": "3/4",
+        "parallel": "3/4"
+      },
+      "trace_sha256": "4832c8df7133573e162e95da0e800278a4e5266db01aca5ea55078826cee8666"
+    },
+    {
+      "name": "fresh-paired",
+      "attempted": 12,
+      "valid": 12,
+      "joint_solve": 10,
+      "families": {
+        "direct": "4/4",
+        "single": "4/4",
+        "parallel": "2/4"
+      },
+      "trace_sha256": "d7864e336997dee013e44588d7176d3f55372ffbe5d2836fed69ce3d68199906"
+    },
+    {
+      "name": "cross-family",
+      "attempted": 12,
+      "valid": 12,
+      "joint_solve": 11,
+      "families": {
+        "direct": "4/4",
+        "single": "4/4",
+        "parallel": "3/4"
+      },
+      "trace_sha256": "0c9e755f8577845c9527ace1ed5d25f83cc5a3955d639ba41bc988968b0fa0b4"
+    },
+    {
+      "name": "bidirectional",
+      "attempted": 16,
+      "valid": 15,
+      "joint_solve": 0,
+      "families": {
+        "handshake": "0/8",
+        "followup": "0/7"
+      },
+      "trace_sha256": "44e5ae46841c0dfd56c4504f4e04c34d525f907eb339cd566d3a1298286d60ef"
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+# Fresh standard-prompt thinking-mode gate for child-request OPSD checkpoints.
+
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 4
+num_rollouts = 1
+shuffle = false
+max_concurrent = 2
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 2
+
+[env.retries]
+max_retries = 0
+
+[env.taskset]
+id = "subagent-communication-v1"
+split = "train"
+families = ["followup", "handshake"]
+instruction_level = "standard"
+instances_per_template = 2
+instance_offset = 8700
+seed = 20270207
+reward_post_fan_in_control = true
+
+[env.agent]
+max_turns = 24
+max_output_tokens = 24576
+max_total_tokens = 98304
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[env.agent.harness]
+id = "prime-agent"
+version = "0.7.0"
+save_session = true
+max_depth = 1
+model_context_window = 32768
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_gate_retries = 12
+autonomous_gate_timeout_ms = 10000
+autonomous_max_continuations = 12
+autonomous_max_turns = 24
+autonomous_max_tokens = 98304
+autonomous_timeout_ms = 300000
+
+[env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[client]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 0.4
+max_tokens = 4096
+
+[sampling.extra_body.chat_template_kwargs]
+enable_thinking = true

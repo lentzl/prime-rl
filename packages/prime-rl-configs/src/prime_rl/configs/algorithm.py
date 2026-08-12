@@ -133,14 +133,14 @@ class EchoRolesConfig(BaseConfig):
         return self
 
 
-class EchoFilterConfig(BaseConfig):
-    """User-supplied per-token filter narrowing the role-selected echo tokens.
+class TokenFilterConfig(BaseConfig):
+    """User-supplied per-token filter narrowing an algorithm's selected tokens.
 
     The callable is imported at startup and invoked once per rollout as
     ``filter_fn(rollout, **kwargs) -> list[list[bool]]`` — one keep-mask per
     trainable branch, each spanning that branch's ``token_ids``. Tokens with
-    ``False`` never receive echo weight; the
-    filter can only narrow the role selection, not widen it. The raw rollout
+    ``False`` never receive the algorithm's selected loss weight; the filter
+    can only narrow the algorithm's selection, not widen it. The raw rollout
     exposes message text and sampling logprobs, so content filters (e.g.
     dropping tool-output warnings) and sampling-probability filters need no
     extra framework surface."""
@@ -175,6 +175,11 @@ class BaseAlgoConfig(BaseConfig):
     sampling: SamplingConfig = SamplingConfig()
     """Sampling component: which model generates train rollouts."""
 
+    loss_weight: float = Field(1.0, gt=0, allow_inf_nan=False)
+    """Coefficient on this algorithm's action-token loss component. This is
+    most useful when a batch mixes algorithms whose independently normalized
+    components would otherwise contribute at equal strength."""
+
     @model_validator(mode="after")
     def validate_sampling_source(self):
         """The on-policy loss types (rl, ref_kl, sdpo) need the live policy's own
@@ -207,6 +212,11 @@ class GRPOAlgoConfig(BaseAlgoConfig):
     length_penalty: LengthPenaltyConfig | None = None
     """Linear length penalty subtracted from each reward before the GRPO baseline (see ``LinearLengthPenaltyConfig``): a ``pass_rate``-scaled sum of output-token, input-token, and turns terms, each normalized by the group's own max for that quantity. None disables it."""
 
+    action_filter: TokenFilterConfig | None = None
+    """Optional user-supplied filter narrowing which sampled action tokens
+    receive the rollout's group-relative advantage. Unselected tokens remain
+    context and receive zero RL credit."""
+
 
 class EchoAlgoConfig(GRPOAlgoConfig):
     type: Literal["echo"] = "echo"  # type: ignore[assignment]
@@ -221,7 +231,7 @@ class EchoAlgoConfig(GRPOAlgoConfig):
     """The role table. The default — tool-response bodies at ``alpha = 0.1``
     — is the vetted ECHO setting."""
 
-    filter: EchoFilterConfig | None = None
+    filter: TokenFilterConfig | None = None
     """Optional user-supplied filter narrowing the role-selected tokens."""
 
 
@@ -326,7 +336,10 @@ class OPSDAlgoConfig(BaseAlgoConfig):
 
     demo_key: str = "demonstration"
     """Key holding either one expert demonstration or a mapping from each
-    branch's initial user question to its role-appropriate demonstration.
+    branch's initial user question to its role-appropriate demonstration. A
+    mapping value may instead be a sequence of demonstrations (or nulls)
+    aligned to the sampled responses retained by the optional token filter.
+    A null mapping value explicitly excludes that branch from distillation.
     Looked up in the example's ``info`` dict first, then as a top-level rollout
     field (e.g. ``answer``). A ``"*"`` mapping entry is the optional fallback."""
 
@@ -340,6 +353,10 @@ class OPSDAlgoConfig(BaseAlgoConfig):
 
     max_reprompt_len: int = Field(10240, ge=1)
     """Maximum rendered teacher-prefix length before appending the on-policy response."""
+
+    filter: TokenFilterConfig | None = None
+    """Optional user-supplied filter narrowing the sampled response tokens
+    distilled on each branch."""
 
     renderer: RendererConfig = AutoRendererConfig()
     """Renderer used to construct the demonstration-conditioned teacher prefix."""
@@ -376,6 +393,10 @@ class SDPOAlgoConfig(BaseAlgoConfig):
 
     max_reprompt_len: int = Field(10240, ge=1)
     """Maximum rendered teacher-prefix length before appending the original response."""
+
+    filter: TokenFilterConfig | None = None
+    """Optional user-supplied filter narrowing the sampled response tokens
+    distilled on each branch."""
 
     template: str = "{question}{successful_solution_block}{feedback_block}\n\nCorrectly solve the original question."
     """Feedback-conditioned user-message template."""

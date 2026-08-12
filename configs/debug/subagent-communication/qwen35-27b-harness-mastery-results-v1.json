@@ -1,0 +1,89 @@
+{
+  "experiment_id": "qwen35-27b-harness-mastery-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-11",
+  "training": {
+    "method": "sft-lora",
+    "precision": "bf16",
+    "rank": 16,
+    "alpha": 32,
+    "learning_rate": 2e-7,
+    "steps": 24,
+    "examples": 224,
+    "dataset_sha256": "e968dc0bae3ce7df90608fcc38358c6981d951ea626ca6f7e09a410aa55c6459",
+    "final_loss": 0.720645,
+    "peak_memory_gib_per_gpu": 38.1367
+  },
+  "screens": {
+    "standard": {
+      "tasks": 6,
+      "base": {
+        "answer": "3/6",
+        "protocol": "4/6",
+        "clean": "2/6",
+        "trace_sha256": "2226ce36a049122b6fd459a417089b3705ebaa97d4c486c0a7d4941c8b1a5f71"
+      },
+      "step_4": {
+        "answer": "5/6",
+        "protocol": "5/6",
+        "clean": "2/6",
+        "adapter_sha256": "5f96740ec231a6b61a12bb8003a352cd6e5b914d5a798e33164873b46dac480e",
+        "trace_sha256": "0d48e50b4e298128716921f03de0743549094e62bdfd18b266e54297ffec590c"
+      },
+      "step_12": {
+        "answer": "3/6",
+        "protocol": "5/6",
+        "clean": "2/6",
+        "trace_sha256": "90985c876921444902a66506bc1fa9f1533bf14e80afc8eaff522c68673269a0"
+      },
+      "step_24": {
+        "answer": "4/6",
+        "protocol": "4/6",
+        "clean": "2/6",
+        "trace_sha256": "b7b271cf80e706d2bfa864493eeeace6aab981203bce70f8961624e016af64bd"
+      }
+    },
+    "guided_clean_causal": {
+      "tasks": 4,
+      "base": {
+        "completed": "3/4",
+        "trace_sha256": "130e955cc47151edd25a782fb2471908334dbce573b974891cd2d7c6dd1209d8"
+      },
+      "step_4": {
+        "completed": "3/4",
+        "trace_sha256": "6dc8f7de28c173462f6d420f3b4d96162c024900e9673e3ce4ab5f61609057de"
+      },
+      "step_12": {
+        "completed": "4/4",
+        "trace_sha256": "2e549f6ed393351f3907ab0cdac5eba87e559755a89aa8f9895de7b0fe6cf379"
+      },
+      "step_24": {
+        "completed": "1/4",
+        "trace_sha256": "3d028f8389b949e9d63c8f9f9927bc070d65ee5dde044e67806452fe6858ab7a"
+      }
+    },
+    "bidirectional": {
+      "tasks": 8,
+      "base": {
+        "causal_exchange": "0/8",
+        "protocol": "0/8",
+        "answer_credit": "4.6667/8",
+        "failed_cells": 13,
+        "trace_sha256": "5a260e5ce321f8a21acccf98f042b53517e44c69a732401ce30ea0746c90e847"
+      },
+      "step_4": {
+        "causal_exchange": "0/8",
+        "protocol": "0/8",
+        "answer_credit": "1.3333/8",
+        "failed_cells": 11,
+        "trace_sha256": "409b6b377611c049fff84958972ba7a9484cb88b0236bc7c784e10c2c1ac9d19"
+      }
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "summary": "Step 4 improved ordinary direct/single/parallel answer and protocol totals but did not create any clean delegated standard trace or bidirectional causal exchange. Later checkpoints improved guided imitation non-monotonically and did not transfer to standard prompts. Retain the run as curriculum evidence, not as a trajectory teacher."
+  }
+}

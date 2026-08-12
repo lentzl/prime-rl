@@ -1,0 +1,55 @@
+{
+  "battery_id": "qwen35-prime-agent-capacity-v1",
+  "model": "Qwen/Qwen3.5-4B",
+  "model_state": "untouched",
+  "completed_at": "2026-08-10",
+  "results": [
+    {
+      "name": "standard-generalization",
+      "attempted": 12,
+      "valid": 12,
+      "joint_solve": 4,
+      "families": {
+        "direct": "4/4",
+        "single": "0/4",
+        "parallel": "0/4"
+      },
+      "trace_sha256": "dd53f1bb6b5ef4a1255d44e328183490a894e5c8e5bfcf44cce0878f27546270"
+    },
+    {
+      "name": "fresh-paired",
+      "attempted": 12,
+      "valid": 12,
+      "joint_solve": 4,
+      "families": {
+        "direct": "4/4",
+        "single": "0/4",
+        "parallel": "0/4"
+      },
+      "trace_sha256": "0bbaa9d558d56fb0caabbd015e0a4f4d8d3542dac3e7e70aba63fa32573bba78"
+    },
+    {
+      "name": "cross-family",
+      "attempted": 12,
+      "valid": 12,
+      "joint_solve": 4,
+      "families": {
+        "direct": "4/4",
+        "single": "0/4",
+        "parallel": "0/4"
+      },
+      "trace_sha256": "7f3f2f0c1acbb8b413c1253bdf7ca372281c3564c57fc5e5bc1cd82e7ff245b6"
+    },
+    {
+      "name": "bidirectional",
+      "attempted": 16,
+      "valid": 16,
+      "joint_solve": 0,
+      "families": {
+        "handshake": "0/8",
+        "followup": "0/8"
+      },
+      "trace_sha256": "481164b399194fa3c9cc5b70b8eece77d1f9413a53955e1804228b13902a6a78"
+    }
+  ]
+}

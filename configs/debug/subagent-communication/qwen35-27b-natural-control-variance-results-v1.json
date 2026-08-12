@@ -1,0 +1,38 @@
+{
+  "experiment_id": "qwen35-27b-natural-control-variance-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-11",
+  "screen": {
+    "config": "231-qwen35-27b-thinking-natural-control-variance.toml",
+    "config_sha256": "2bb3baf3c95d2c4845a6aba3e11e8d75bd45703da50de7a826713352de930f72",
+    "trace_sha256": "9383259e9a233421b4e5214eb1eb894301395f60e8509a835f1bd3f8f3db95f4",
+    "verifier_source_sha256": "2a43217c9f7955882d6789643b5c507e1396c5dc18429589e787410fde8cd280",
+    "thinking_mode": true,
+    "prompt_contract": "explicit_bidirectional_v2",
+    "rollouts_per_prompt": 4,
+    "sampling_temperature": 0.8
+  },
+  "corrected_group_rewards": {
+    "followup": [3.318182, 1.666667, 1.916667, 0.416667],
+    "handshake": [3.636364, 3.909091, 3.301865, 3.818182]
+  },
+  "followup_diagnostics": {
+    "no_leak_rollouts": "1/4",
+    "causal_rollouts": "1/4",
+    "clean_rollouts": "0/4",
+    "unique_reward_values": 4
+  },
+  "handshake_diagnostics": {
+    "causal_rollouts": "4/4",
+    "protocol_rollouts": "3/4",
+    "clean_rollouts": "0/4",
+    "unique_reward_values": 4
+  },
+  "objective_correction": "Before the optimizer run, coordinator access to a delegated path was made a hard gate on stateful-control and bidirectional-control credit. Under this corrected objective, every leaked follow-up ranks below the only no-leak sample; the evaluator's embedded pre-gate rewards are not authoritative.",
+  "decision": {
+    "grpo_admitted": true,
+    "reason": "Both identical-prompt groups contain four distinct corrected rewards, and the ranking now prioritizes externalization integrity before causal completeness.",
+    "next": "Run one rank-16 LoRA GRPO step at learning rate 1e-7, then compare the candidate and untouched base on disjoint natural tasks."
+  }
+}

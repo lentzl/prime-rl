@@ -1,0 +1,13 @@
+[Unit]
+Description=Independent paired repeat for selective-credit thinking Qwen 3.5 27B
+After=qwen35-27b-teacher-inference.service
+Requires=qwen35-27b-teacher-inference.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_selective_control_repeat.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/236-qwen35-27b-selective-control-repeat.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/236-qwen35-27b-selective-control-repeat.log

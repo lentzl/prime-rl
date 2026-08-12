@@ -110,6 +110,18 @@ class ZeroAdvantageFilter:
         return FilterResult(detected=False)
 
 
+@dataclass
+class RewardThresholdFilter:
+    """Flags rollouts whose total environment reward is below a threshold."""
+
+    name: str
+    threshold: float
+    enforce: bool = True
+
+    def check(self, rollout: Rollout) -> FilterResult:
+        return FilterResult(detected=rollout.reward < self.threshold)
+
+
 def setup_filter(config: FilterConfig, vocab_size: int) -> RolloutFilter:
     """Create a RolloutFilter from a filter config."""
     if config.type == "gibberish":
@@ -129,6 +141,12 @@ def setup_filter(config: FilterConfig, vocab_size: int) -> RolloutFilter:
     elif config.type == "zero_advantage":
         return ZeroAdvantageFilter(
             name="zero_advantage",
+            enforce=config.enforce,
+        )
+    elif config.type == "reward_threshold":
+        return RewardThresholdFilter(
+            name="reward_threshold",
+            threshold=config.threshold,
             enforce=config.enforce,
         )
     raise ValueError(f"Unknown filter type: {config.type}")

@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-causal-mastery-v1",
+  "base_model": {
+    "name": "Qwen/Qwen3.5-4B",
+    "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+  },
+  "initial_checkpoint": {
+    "role": "experimental initialization, not an accepted checkpoint",
+    "adapter": "/ephemeral/subagent-rung/outputs/122-qwen35-4b-clean-causal-sft-r1/weights/step_36",
+    "adapter_sha256": "3beb22b0ae1b0e59d0c9edb268230c6690045a58a82f7b3ce6f25b1ab4420909",
+    "selection_gate_clean_completed": "2/8",
+    "disjoint_confirmation_clean_completed": "0/8"
+  },
+  "training_data": {
+    "path": "/ephemeral/subagent-rung/data/128-qwen35-4b-causal-mastery-sft-r1",
+    "dataset_sha256": "aa9bab6f4f19d94270a3d14bd1569fc22ae83a3094a789354766844520287742",
+    "examples": 224,
+    "composition": {
+      "direct_full": 32,
+      "single_full_parent_and_child": 64,
+      "admission_prefix": 32,
+      "child_send": 32,
+      "parent_wait": 32,
+      "parent_bind_and_finalize": 32
+    }
+  },
+  "training": {
+    "config": "128-qwen35-4b-causal-mastery-sft.toml",
+    "config_sha256": "aa68ca089369e9a6e3f7429b90d6b2fad74aca9efab7a0f983bb65c218f0af31",
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 5e-7,
+    "batch_size": 4,
+    "micro_batch_size": 1,
+    "sequence_length": 8192,
+    "max_steps": 16,
+    "nan_count": 0,
+    "peak_memory_gib": 11.908203125,
+    "checkpoints": {
+      "step_4": {
+        "loss": 0.7010508179664612,
+        "gradient_norm": 2.15625,
+        "adapter_sha256": "d8e8d0c9a96b273ad3d5e436090a44aa2ff2540067fa2514d30a87bcebc7d498"
+      },
+      "step_8": {
+        "loss": 0.8860496878623962,
+        "gradient_norm": 2.328125,
+        "adapter_sha256": "6abb754108823b81d6209e69806ccb95ae1dc58b5ead8ef1226ecbdd8a127863"
+      },
+      "step_12": {
+        "loss": 0.665278971195221,
+        "gradient_norm": 1.9453125,
+        "adapter_sha256": "2cf1c67737313e5d2978ec8b87e1329de2df9d5415b242e26eeff4ee73f68b13"
+      },
+      "step_16": {
+        "loss": 0.7966322302818298,
+        "gradient_norm": 1.90625,
+        "adapter_sha256": "776d3b409b464d21d205b36007831fc8309add5310049d87dc3dee35e5e9c7c5"
+      }
+    }
+  },
+  "disjoint_confirmation": {
+    "step_4": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "0/8",
+      "causal_completed": "0/8",
+      "answer_accuracy_sum": 6.0,
+      "protocol_aligned": "6/8",
+      "explicit_messages_to_parent": 5,
+      "roster_calls": 3,
+      "observation_calls": 8,
+      "failed_cells": 23,
+      "duplicate_cells": 1,
+      "direct_trace_sha256": "70e9f4899c064a53595d5734625d2a6d9ede1e135ec4aba9e8509022acb9384a",
+      "causal_trace_sha256": "d89bf9eef6f8abff13cbb025349e410a4716719d90de3b417735aca2b190f8d8"
+    },
+    "step_8": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "0/8",
+      "causal_completed": "0/8",
+      "causal_spawn_first": "1/8",
+      "answer_accuracy_sum": 4.0,
+      "protocol_aligned": "5/8",
+      "explicit_messages_to_parent": 6,
+      "roster_calls": 0,
+      "observation_calls": 11,
+      "failed_cells": 11,
+      "duplicate_cells": 2,
+      "direct_trace_sha256": "fe225d6bd1471e42434dbf00635579f81272db84b4d8210e2e0e1c324c60d51c",
+      "causal_trace_sha256": "d81f2acb385608e73befb43dea916c140a0ea92f6d6f92ac8b3b4dc7918e5e49"
+    },
+    "step_12": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "0/8",
+      "causal_completed": "1/8",
+      "causal_spawn_first": "1/8",
+      "causal_contract_bound": "1/8",
+      "causal_local_work": "1/8",
+      "causal_child_reply": "1/8",
+      "answer_accuracy_sum": 7.0,
+      "protocol_aligned": "7/8",
+      "explicit_messages_to_parent": 5,
+      "roster_calls": 14,
+      "observation_calls": 6,
+      "failed_cells": 11,
+      "duplicate_cells": 7,
+      "direct_trace_sha256": "e7bb273db8211903b4b60b938d2eefee6bd6677762df57eaf35463650aded924",
+      "causal_trace_sha256": "50e2483ecb740f983ebcbd42ff044cb6bb15deaf1e1273f90194a73cda1f5224"
+    },
+    "step_16": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "0/8",
+      "causal_completed": "0/8",
+      "answer_accuracy_sum": 7.333333333333333,
+      "protocol_aligned": "3/8",
+      "explicit_messages_to_parent": 7,
+      "roster_calls": 1,
+      "observation_calls": 8,
+      "failed_cells": 20,
+      "duplicate_cells": 2,
+      "direct_trace_sha256": "5a738498ac22043496e036f7aff95cd16ff987d88b4fed5a7aa0192552709368",
+      "causal_trace_sha256": "138e111d41b15cea0a3ee8e011483262da621859fed81169c3c6bd8fa83402b3"
+    }
+  },
+  "fresh_confirmation": {
+    "checkpoint": "step_12",
+    "config": "137-qwen35-4b-causal-mastery-fresh-confirmation.toml",
+    "config_sha256": "024752d60ffacfc59c52ab13bf86c75b68eebbcfd99af255356d645a8774a23f",
+    "instance_offset": 2500,
+    "seed": 20261107,
+    "causal_clean_completed": "0/8",
+    "causal_completed": "0/8",
+    "answer_accuracy_sum": 6.0,
+    "protocol_aligned": "3/8",
+    "explicit_messages_to_parent": 5,
+    "roster_calls": 19,
+    "observation_calls": 5,
+    "failed_cells": 15,
+    "duplicate_cells": 15,
+    "trace_sha256": "a32414fef80674c8fd97b937cb3570ecbb4c8251caec1f90fecc67f645371cac"
+  },
+  "selection": {
+    "checkpoint": null,
+    "decision": "reject all focused checkpoints",
+    "accepted_checkpoint_remains": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+    "promotion_ready": false,
+    "published_to_hugging_face": false,
+    "frozen_capacity_battery_v1_run": false,
+    "conclusion": "The focused curriculum preserved direct behavior and produced one complete but non-clean causal trajectory at step 12. That event did not repeat on a fresh disjoint confirmation, while later training erased it. The 4B model has expressed the full sequence, but not reliably enough to become the coordinator.",
+    "next_intervention": "Keep step 12 as a diagnostic milestone only. Repair process control with more diverse clean on-policy trajectories or a stronger coordinator intervention, and require repeatable clean causal completion before opening the frozen capacity battery."
+  }
+}

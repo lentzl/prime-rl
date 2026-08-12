@@ -1,0 +1,61 @@
+{
+  "experiment_id": "qwen35-27b-exact-request-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "initial_adapter": "221-qwen35-27b-bidirectional-sft-r1/step_12",
+  "completed_at": "2026-08-11",
+  "thinking_mode": false,
+  "training": {
+    "method": "sft-lora",
+    "precision": "bf16",
+    "rank": 16,
+    "alpha": 32,
+    "learning_rate": 2e-7,
+    "steps": 12,
+    "examples": 144,
+    "dataset_sha256": "83d579ecee12d1336cec971f888cafd23f47c82d2332fead9403188b16bb1a0c"
+  },
+  "fresh_bidirectional_screen": {
+    "tasks": 4,
+    "source": {
+      "exact_request": "0/4",
+      "causal_exchange": "0/4",
+      "answer_credit": "2.3333/4",
+      "failed_cells": 4,
+      "duplicate_cells": 5,
+      "trace_sha256": "f02abb06ac667431c73f953bf146d5d16fe1ac7e4cfb0aa755ed50547f47c3bd"
+    },
+    "step_4": {
+      "exact_request": "0/4",
+      "causal_exchange": "0/4",
+      "answer_credit": "1/4",
+      "failed_cells": 10,
+      "duplicate_cells": 3,
+      "adapter_sha256": "66d5dcbcf1ae22bffdac6e33ea48680cffaf4dbb3d00732a4c7405f40563a3c4",
+      "trace_sha256": "55cd6bc1a72e099b0a4a3740e36a1653502dd52e3bcbb8fce5e926965e86ea01"
+    },
+    "step_8": {
+      "exact_request": "0/4",
+      "causal_exchange": "0/4",
+      "answer_credit": "1/4",
+      "failed_cells": 4,
+      "duplicate_cells": 0,
+      "adapter_sha256": "78617bc4f1d54ced258f1da6457cf9a0d2c15a6d9a9ab8458ae58fec789751fe",
+      "trace_sha256": "dbf53d90327d425db281fdf0f574212f90f8944e8e12e0033656888b2f02d97c"
+    },
+    "step_12": {
+      "exact_request": "0/4",
+      "causal_exchange": "0/4",
+      "answer_credit": "0.6667/4",
+      "failed_cells": 6,
+      "duplicate_cells": 1,
+      "adapter_sha256": "751b8ea158aa154ff935d6b3809260ed1625b9d5d4556c7c08d35995b19e662c",
+      "trace_sha256": "39e87cb3a08e2d67efae9a9dbea708d3d5ec398f516e9dc1ec14c96dcd4f3f85"
+    }
+  },
+  "diagnosis": "Low-rate literal SFT did not preserve the exact request through natural parent-to-child language. Children continued to paraphrase the protocol atom, so later causal stages never became admissible.",
+  "decision": {
+    "promoted": false,
+    "published": false
+  }
+}

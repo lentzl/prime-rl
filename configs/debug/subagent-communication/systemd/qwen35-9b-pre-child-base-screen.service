@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen the base Qwen 3.5 9B on the pre-child OPSD comparison tasks
+After=qwen35-9b-opsd-inference.service
+Requires=qwen35-9b-opsd-inference.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run eval @ configs/debug/subagent-communication/198-qwen35-9b-pre-child-base-screen.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/198-qwen35-9b-pre-child-base-screen.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/198-qwen35-9b-pre-child-base-screen.log

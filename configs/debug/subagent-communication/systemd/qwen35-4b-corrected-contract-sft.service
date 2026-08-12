@@ -1,0 +1,12 @@
+[Unit]
+Description=Train the Qwen 3.5 4B corrected self-contained admission contract
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run sft @ configs/debug/subagent-communication/199-qwen35-4b-corrected-contract-sft.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/199-qwen35-4b-corrected-contract-sft.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/199-qwen35-4b-corrected-contract-sft.log

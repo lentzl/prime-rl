@@ -31,16 +31,94 @@ def test_followup_child_binds_multiplier_from_parent_message(tmp_path: Path) -> 
             if message["role"] == "user" and message["content"].startswith("[from parent]")
         )
         body = messages[parent_index]["content"].rsplit("\n\n", 1)[-1]
-        result_call = next(
-            call
-            for message in messages[parent_index + 1 :]
-            for call in message.get("tool_calls", [])
-        )
+        result_call = next(call for message in messages[parent_index + 1 :] for call in message.get("tool_calls", []))
         code = json.loads(result_call["function"]["arguments"])["code"]
 
         assert f"parent_message_body = {body!r}" in code
         assert "multiplier = int(parent_message_body.strip())" in code
         assert not re.search(r"(?m)^multiplier\s*=\s*-?\d+\s*$", code)
+
+
+def test_handshake_export_preserves_both_message_directions(tmp_path: Path) -> None:
+    output = tmp_path / "train.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--instances",
+            "1",
+            "--families",
+            "handshake",
+            "--handshake-copies",
+            "2",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    assert len(examples) == 16
+    assert {example["metadata"]["role"] for example in examples} == {"parent", "child"}
+    assert {example["metadata"]["copy"] for example in examples} == {0, 1}
+
+    for child in [example for example in examples if example["metadata"]["role"] == "child"]:
+        messages = child["messages"]
+        parent_index = next(
+            index
+            for index, message in enumerate(messages)
+            if message["role"] == "user" and message["content"].startswith("[from parent]")
+        )
+        body = messages[parent_index]["content"].rsplit("\n\n", 1)[-1]
+        result_call = next(
+            call for message in messages[parent_index + 1 :] for call in message.get("tool_calls", [])
+        )
+        code = json.loads(result_call["function"]["arguments"])["code"]
+
+        assert f"parent_message_body = {body!r}" in code
+        assert "nonce = int(parent_message_body.strip())" in code
+        assert not re.search(r"(?m)^nonce\s*=\s*\d+\s*$", code)
+
+
+def test_bidirectional_request_atoms_end_after_exact_child_request(tmp_path: Path) -> None:
+    output = tmp_path / "train.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--instances",
+            "1",
+            "--families",
+            "followup",
+            "handshake",
+            "--bidirectional-request-atoms",
+            "--bidirectional-request-copies",
+            "2",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    atoms = [example for example in examples if example["metadata"]["family"] == "bidirectional_request_atom"]
+    assert len(atoms) == 16
+    assert {atom["metadata"]["source_family"] for atom in atoms} == {"followup", "handshake"}
+
+    for atom in atoms:
+        codes = [
+            json.loads(call["function"]["arguments"])["code"]
+            for message in atom["messages"]
+            for call in message.get("tool_calls", [])
+        ]
+        expected = "'need multiplier'" if atom["metadata"]["source_family"] == "followup" else "'need nonce'"
+        sends = [code for code in codes if "agent_message.send" in code]
+        assert len(sends) == 1
+        assert expected in sends[0]
+        assert atom["messages"][-1]["role"] == "assistant"
+        assert "Requested the" in atom["messages"][-1]["content"]
+        assert not any(
+            message["role"] == "user" and message["content"].startswith("[from parent]")
+            for message in atom["messages"]
+        )
 
 
 def test_delegated_parents_yield_for_messages_without_polling(tmp_path: Path) -> None:
@@ -153,10 +231,7 @@ def test_protocol_atoms_teach_only_corrected_native_operations(tmp_path: Path) -
         for message in example["messages"]
         for call in message.get("tool_calls", [])
     ]
-    assert any(
-        "multiplier = " in code and "child = await rlm(" in code
-        for code in trained_code
-    )
+    assert any("multiplier = " in code and "child = await rlm(" in code for code in trained_code)
     assert any("receiver_role='child'" in code for code in trained_code)
     assert any("receiver_role='parent'" in code for code in trained_code)
     assert not any("await child =" in code or "await _ =" in code for code in trained_code)
@@ -213,8 +288,7 @@ def test_protocol_followup_retains_child_handle_before_direct_send(tmp_path: Pat
     parent_atoms = [
         example
         for example in examples
-        if example["metadata"]["family"] == "protocol_atom"
-        and example["metadata"]["role"] == "parent"
+        if example["metadata"]["family"] == "protocol_atom" and example["metadata"]["role"] == "parent"
     ]
     send_atom = next(
         example
@@ -224,10 +298,7 @@ def test_protocol_followup_retains_child_handle_before_direct_send(tmp_path: Pat
             for message in example["messages"]
             for call in message.get("tool_calls", [])
         )
-        and not any(
-            "active as variable child" in str(message.get("content", ""))
-            for message in example["messages"]
-        )
+        and not any("active as variable child" in str(message.get("content", "")) for message in example["messages"])
     )
     codes = [
         json.loads(call["function"]["arguments"])["code"]
@@ -259,9 +330,7 @@ def test_retained_spawn_only_isolates_varied_handle_binding_decisions(tmp_path: 
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
     assert len(examples) == 8
-    assert {example["metadata"]["family"] for example in examples} == {
-        "retained_spawn_atom"
-    }
+    assert {example["metadata"]["family"] for example in examples} == {"retained_spawn_atom"}
     assert len({example["metadata"]["task"] for example in examples}) == 8
     codes = []
     for example in examples:
@@ -276,6 +345,56 @@ def test_retained_spawn_only_isolates_varied_handle_binding_decisions(tmp_path: 
         assert "agent_message" not in calls[0]
         codes.extend(calls)
     assert len(set(codes)) == len(codes)
+
+
+def test_retained_spawn_thinking_rationales_encode_ownership_and_yield(tmp_path: Path) -> None:
+    output = tmp_path / "train.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--instances",
+            "1",
+            "--families",
+            "followup",
+            "--retained-spawn-only",
+            "--thinking-rationales",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    assert len(examples) == 4
+    for example in examples:
+        assert example["metadata"]["thinking_rationale"] is True
+        assistant_messages = [
+            message for message in example["messages"] if message["role"] == "assistant"
+        ]
+        assert len(assistant_messages) == 2
+        reasoning = " ".join(message["reasoning_content"] for message in assistant_messages)
+        assert "coordinator-owned" in reasoning
+        assert "child-owned" in reasoning
+        assert "child handle" in reasoning
+        assert "instead of polling" in reasoning
+
+
+def test_thinking_rationales_require_retained_spawn_only(tmp_path: Path) -> None:
+    result = subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(tmp_path / "train.json"),
+            "--families",
+            "followup",
+            "--thinking-rationales",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "requires --retained-spawn-only" in result.stderr
 
 
 def test_binding_focused_only_targets_short_handle_assignment_after_retained_state(
@@ -300,9 +419,7 @@ def test_binding_focused_only_targets_short_handle_assignment_after_retained_sta
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
     assert len(examples) == 16
-    assert {example["metadata"]["family"] for example in examples} == {
-        "binding_spawn_atom"
-    }
+    assert {example["metadata"]["family"] for example in examples} == {"binding_spawn_atom"}
     assert {example["metadata"]["context_style"] for example in examples} == {
         "retained_state",
         "correct_bare_spawn",
@@ -383,11 +500,7 @@ def test_parallel_control_atoms_isolate_child_delivery_and_parent_fan_in(
     )
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
-    atoms = [
-        example
-        for example in examples
-        if example["metadata"]["family"] == "parallel_control_atom"
-    ]
+    atoms = [example for example in examples if example["metadata"]["family"] == "parallel_control_atom"]
     assert len(atoms) == 24
     assert {example["metadata"]["context_style"] for example in atoms} == {
         "child_send",
@@ -424,23 +537,14 @@ def test_parallel_control_atoms_isolate_child_delivery_and_parent_fan_in(
         }
     }
     assert calls_by_style["parent_wait_for_both"] == []
-    assert all(
-        "local = sum((index + 1) * value" in code
-        for code in calls_by_style["parent_local_compute"]
-    )
-    assert all(
-        "_message_body" in code and " = int(" in code
-        for code in calls_by_style["parent_bind_first_and_wait"]
-    )
+    assert all("local = sum((index + 1) * value" in code for code in calls_by_style["parent_local_compute"])
+    assert all("_message_body" in code and " = int(" in code for code in calls_by_style["parent_bind_first_and_wait"])
     assert all(
         "_message_body" in code and "'total': local + alpha + beta" in code
         for code in calls_by_style["parent_bind_second_and_fan_in"]
     )
     assert all(
-        not any(
-            forbidden in code
-            for forbidden in ("agent_observe", "asyncio.sleep", "ai.get_harness_state")
-        )
+        not any(forbidden in code for forbidden in ("agent_observe", "asyncio.sleep", "ai.get_harness_state"))
         for calls in calls_by_style.values()
         for code in calls
     )
@@ -471,11 +575,7 @@ def test_extra_parallel_control_instances_are_unique_and_schema_stable(
     )
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
-    extra = [
-        example
-        for example in examples
-        if example["metadata"].get("source") == "extra_parallel_control"
-    ]
+    extra = [example for example in examples if example["metadata"].get("source") == "extra_parallel_control"]
     assert len(extra) == 24
     assert len({(example["metadata"]["task"], json.dumps(example["messages"])) for example in extra}) == 24
     assert all("source" in example["metadata"] for example in examples)
@@ -501,11 +601,7 @@ def test_extra_parallel_parent_instances_replay_complete_semantic_fan_in(
     )
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
-    extra = [
-        example
-        for example in examples
-        if example["metadata"].get("source") == "extra_parallel_parent"
-    ]
+    extra = [example for example in examples if example["metadata"].get("source") == "extra_parallel_parent"]
     assert len(extra) == 4
     assert len({example["metadata"]["task"] for example in extra}) == 4
     for parent in extra:
@@ -521,8 +617,7 @@ def test_extra_parallel_parent_instances_replay_complete_semantic_fan_in(
         incoming = [
             (index, message)
             for index, message in enumerate(parent["messages"])
-            if message["role"] == "user"
-            and str(message.get("content", "")).startswith("[from child:")
+            if message["role"] == "user" and str(message.get("content", "")).startswith("[from child:")
         ]
         assert len(incoming) == 2
         for index, message in incoming:
@@ -562,13 +657,10 @@ def test_single_control_atoms_isolate_exact_payload_and_event_driven_fan_in(
     )
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
-    atoms = [
-        example
-        for example in examples
-        if example["metadata"]["family"] == "single_control_atom"
-    ]
-    assert len(atoms) == 16
+    atoms = [example for example in examples if example["metadata"]["family"] == "single_control_atom"]
+    assert len(atoms) == 20
     assert {example["metadata"]["context_style"] for example in atoms} == {
+        "child_send",
         "parent_spawn_exact_payload",
         "parent_local_compute",
         "parent_wait_for_reply",
@@ -581,20 +673,63 @@ def test_single_control_atoms_isolate_exact_payload_and_event_driven_fan_in(
             for call in message.get("tool_calls", [])
         ]
         style = atom["metadata"]["context_style"]
-        if style == "parent_spawn_exact_payload":
+        if style == "child_send":
+            assert atom["metadata"]["role"] == "child"
+            assert calls == ["await agent_message.send(str(checksum), receiver_role='parent')"]
+            assert atom["messages"][-1] == {
+                "role": "assistant",
+                "content": "Sent the checksum to the parent.",
+            }
+        elif style == "parent_spawn_exact_payload":
+            formula = "sum((index + 1) * value for index, value in enumerate(values))"
             assert calls == [
                 "handle = await rlm("
                 + repr(
-                    f"Read {atom['metadata']['path']}, compute its weighted checksum, then "
-                    "send the integer checksum to your parent with agent_message before answering."
+                    f"Read {atom['metadata']['path']} as the JSON list values and compute its "
+                    f"weighted checksum using exactly {formula}. Then execute exactly once: "
+                    "await agent_message.send(str(checksum), receiver_role='parent'). After the "
+                    "delivery receipt succeeds, answer with a concise confirmation and stop."
                 )
                 + ", name='shard-worker')"
             ]
-        assert not any(
-            forbidden in code
-            for code in calls
-            for forbidden in ("agent_observe", "asyncio", "sleep(")
-        )
+        assert not any(forbidden in code for code in calls for forbidden in ("agent_observe", "asyncio", "sleep("))
+
+
+def test_single_causal_mastery_balances_full_traces_and_ordered_transitions(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "single-causal-mastery.jsonl"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--families",
+            "direct",
+            "single",
+            "--instances",
+            "1",
+            "--single-causal-mastery",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    styles: dict[str, int] = {}
+    for example in examples:
+        if example["metadata"]["family"] == "direct":
+            continue
+        style = example["metadata"].get("context_style", "full")
+        styles[style] = styles.get(style, 0) + 1
+
+    assert len(examples) == 28
+    assert styles == {
+        "full": 8,
+        "exact_spawn_local_yield": 4,
+        "child_send": 4,
+        "parent_wait_for_reply": 4,
+        "parent_bind_reply_and_finalize": 4,
+    }
 
 
 def test_extra_single_examples_concentrate_parent_control_without_duplicate_tasks(
@@ -622,22 +757,14 @@ def test_extra_single_examples_concentrate_parent_control_without_duplicate_task
     )
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
-    extra_control = [
-        example
-        for example in examples
-        if example["metadata"].get("source") == "extra_single_control"
-    ]
-    extra_parents = [
-        example
-        for example in examples
-        if example["metadata"].get("source") == "extra_single_parent"
-    ]
-    assert len(extra_control) == 16
+    extra_control = [example for example in examples if example["metadata"].get("source") == "extra_single_control"]
+    extra_parents = [example for example in examples if example["metadata"].get("source") == "extra_single_parent"]
+    assert len(extra_control) == 20
     assert len(extra_parents) == 4
     assert len({example["metadata"]["task"] for example in extra_parents}) == 4
-    assert {
-        example["metadata"]["task"] for example in extra_control
-    }.isdisjoint({example["metadata"]["task"] for example in extra_parents})
+    assert {example["metadata"]["task"] for example in extra_control}.isdisjoint(
+        {example["metadata"]["task"] for example in extra_parents}
+    )
     assert all(example["metadata"].get("source") for example in examples)
 
 
@@ -661,9 +788,7 @@ def test_single_exact_spawn_only_varies_paths_without_diluting_the_action(
 
     examples = [json.loads(line) for line in output.read_text().splitlines()]
     assert len(examples) == 8
-    assert {example["metadata"]["context_style"] for example in examples} == {
-        "parent_spawn_exact_payload"
-    }
+    assert {example["metadata"]["context_style"] for example in examples} == {"parent_spawn_exact_payload"}
     assert len({example["metadata"]["path"] for example in examples}) == 8
     for example in examples:
         calls = [
@@ -674,3 +799,197 @@ def test_single_exact_spawn_only_varies_paths_without_diluting_the_action(
         assert len(calls) == 1
         assert example["metadata"]["path"] in calls[0]
         assert calls[0].startswith("handle = await rlm(")
+
+
+def test_single_admission_only_keeps_natural_prefix_and_direct_replay(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "train.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--instances",
+            "2",
+            "--families",
+            "direct",
+            "single",
+            "--single-admission-only",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    direct = [example for example in examples if example["metadata"]["family"] == "direct"]
+    admission = [example for example in examples if example["metadata"]["family"] == "single_admission_trajectory"]
+    assert len(direct) == 8
+    assert len(admission) == 8
+    for example in admission:
+        calls = [
+            json.loads(call["function"]["arguments"])["code"]
+            for message in example["messages"]
+            for call in message.get("tool_calls", [])
+        ]
+        path = example["metadata"]["path"]
+        assert len(calls) == 2
+        assert calls[0].startswith("handle = await rlm(")
+        assert path in calls[0]
+        assert "agent_message" in calls[0]
+        assert path not in calls[1]
+        assert "local = sum(" in calls[1]
+        assert not any(
+            message["role"] == "user" and message["content"].startswith("[from child:shard-worker]")
+            for message in example["messages"]
+        )
+        assert example["messages"][-1]["content"] == "Waiting for shard-worker's explicit reply."
+
+
+def test_single_admission_can_match_the_self_contained_environment_contract(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "train.json"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--instances",
+            "1",
+            "--families",
+            "direct",
+            "single",
+            "--single-admission-only",
+            "--self-contained-child-contract",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    direct = [example for example in examples if example["metadata"]["family"] == "direct"]
+    admission = [
+        example
+        for example in examples
+        if example["metadata"]["family"] == "single_admission_trajectory"
+    ]
+    assert direct
+    assert admission
+    assert all("Delegation contract:" not in example["messages"][1]["content"] for example in direct)
+    for example in admission:
+        prompt = example["messages"][1]["content"]
+        assert "Delegation contract:" in prompt
+        assert "sum((index + 1) * value for index, value in enumerate(values))" in prompt
+        spawn = json.loads(example["messages"][2]["tool_calls"][0]["function"]["arguments"])["code"]
+        assert "sum((index + 1) * value for index, value in enumerate(values))" in spawn
+
+
+def test_single_executable_causal_mastery_covers_live_recovery_boundaries(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "single-executable-causal-mastery.jsonl"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--families",
+            "direct",
+            "single",
+            "--instances",
+            "1",
+            "--single-executable-causal-mastery",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    direct = [example for example in examples if example["metadata"]["family"] == "direct"]
+    recovery = [
+        example for example in examples if example["metadata"]["family"] == "single_recovery_atom"
+    ]
+    admission = [
+        example
+        for example in examples
+        if example["metadata"]["family"] == "single_admission_trajectory"
+    ]
+
+    assert len(examples) == 40
+    assert len(direct) == 4
+    assert len(admission) == 4
+    assert len(recovery) == 12
+    assert {example["metadata"]["context_style"] for example in recovery} == {
+        "child_string_type_repair",
+        "child_declared_tool_repair",
+        "parent_top_level_await_repair",
+    }
+    assert all("Delegation contract:" not in example["messages"][1]["content"] for example in direct)
+    assert all("Delegation contract:" in example["messages"][1]["content"] for example in admission)
+
+    for example in recovery:
+        calls = [
+            json.loads(call["function"]["arguments"])["code"]
+            for message in example["messages"]
+            for call in message.get("tool_calls", [])
+        ]
+        assert len(calls) == 1
+        assert "run_until_complete" not in calls[0]
+        if example["metadata"]["role"] == "child":
+            assert calls == ["await agent_message.send(str(checksum), receiver_role='parent')"]
+            assert example["messages"][-1]["content"] == "Sent the checksum to the parent."
+        else:
+            assert calls[0].startswith("handle = await rlm(")
+            assert example["metadata"]["path"] in calls[0]
+
+
+def test_single_resumption_control_mastery_targets_noop_boundaries(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "single-resumption-control-mastery.jsonl"
+    subprocess.run(
+        [
+            sys.executable,
+            "scripts/export_subagent_communication_sft.py",
+            str(output),
+            "--families",
+            "direct",
+            "single",
+            "--instances",
+            "1",
+            "--single-resumption-control-mastery",
+        ],
+        check=True,
+    )
+
+    examples = [json.loads(line) for line in output.read_text().splitlines()]
+    direct = [example for example in examples if example["metadata"]["family"] == "direct"]
+    resumption = [
+        example for example in examples if example["metadata"]["family"] == "single_resumption_atom"
+    ]
+
+    assert len(examples) == 40
+    assert len(direct) == 4
+    assert len(resumption) == 16
+    assert {example["metadata"]["context_style"] for example in resumption} == {
+        "parent_inert_wait_repair",
+        "parent_message_finalize_without_tool",
+        "child_inert_send_repair",
+        "child_stop_after_receipt",
+    }
+
+    for example in resumption:
+        calls = [
+            json.loads(call["function"]["arguments"])["code"]
+            for message in example["messages"]
+            for call in message.get("tool_calls", [])
+        ]
+        style = example["metadata"]["context_style"]
+        if style == "child_inert_send_repair":
+            assert calls == ["await agent_message.send(str(checksum), receiver_role='parent')"]
+        else:
+            assert calls == []
+        if style == "parent_inert_wait_repair":
+            assert example["messages"][-1]["content"] == "Waiting for shard-worker's explicit reply."
+        elif style == "parent_message_finalize_without_tool":
+            assert example["messages"][-1]["content"] == json.dumps(example["metadata"]["answer"])
+        elif style == "child_stop_after_receipt":
+            assert example["messages"][-1]["content"] == "Sent the checksum to the parent."

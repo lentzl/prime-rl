@@ -1,0 +1,64 @@
+# Untouched-4B baseline on the held-out follow-up and handshake capacity gate.
+
+model = "Qwen/Qwen3.5-4B"
+num_tasks = 8
+num_rollouts = 2
+shuffle = false
+max_concurrent = 3
+verbose = false
+rich = false
+server = false
+push = false
+output_dir = "/ephemeral/subagent-rung/evals/qwen35-4b-bidirectional-baseline-r1"
+
+[env]
+max_concurrent_agents = 2
+
+[env.taskset]
+id = "subagent-communication-v1"
+split = "eval"
+families = ["followup", "handshake"]
+instruction_level = "standard"
+instances_per_template = 2
+instance_offset = 3400
+seed = 20270207
+reward_post_fan_in_control = true
+
+[env.agent]
+max_turns = 24
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[env.agent.harness]
+id = "prime-agent"
+version = "0.7.0"
+save_session = true
+max_depth = 1
+model_context_window = 32768
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_gate_retries = 12
+autonomous_gate_timeout_ms = 10000
+autonomous_max_continuations = 12
+autonomous_max_turns = 24
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 240000
+
+[env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8000/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 0.8
+max_tokens = 2048

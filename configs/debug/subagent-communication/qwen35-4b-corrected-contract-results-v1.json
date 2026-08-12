@@ -1,0 +1,88 @@
+{
+  "experiment": "qwen35-4b-corrected-contract-sft-r1",
+  "base_model": "Qwen/Qwen3.5-4B",
+  "initialization": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+  "training": {
+    "config": "configs/debug/subagent-communication/199-qwen35-4b-corrected-contract-sft.toml",
+    "data_sha256": "0f4fc8a1310adef7f05bb515f153ee906638f38bf740119051c54f1aa876409e",
+    "examples": {
+      "direct_parent": 32,
+      "single_admission_parent": 32
+    },
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 1e-6,
+    "steps": 8
+  },
+  "selection_screen": {
+    "config": "configs/debug/subagent-communication/200-qwen35-4b-corrected-contract-screen.toml",
+    "tasks": 4,
+    "rollouts_per_task": 2,
+    "instance_offset": 5300,
+    "seed": 20270111,
+    "reward": "strict five-stage causal prefix"
+  },
+  "results": {
+    "run100_step8": {
+      "answer_accuracy": "8/8",
+      "causal_spawn_first": "1/8",
+      "causal_contract_bound": "0/8",
+      "causal_local_work": "0/8",
+      "causal_child_reply": "0/8",
+      "causal_completed": "0/8",
+      "failed_cells": 4,
+      "duplicate_cells": 47,
+      "max_turns": 0,
+      "trace_sha256": "6dbd70a8b714d50732109c3b2ad905917c8d731c84b17825549e33339183d3bc"
+    },
+    "contract_step2": {
+      "answer_accuracy": "6/8",
+      "causal_spawn_first": "0/8",
+      "causal_completed": "0/8",
+      "failed_cells": 2,
+      "duplicate_cells": 57,
+      "max_turns": 2,
+      "adapter_sha256": "a7e559f8d4d699a5c81e80dfe9f1a22ea4ab7fa97bb9267c9399a0c03dbab0ab",
+      "trace_sha256": "43afb1ba8b6c21cbd0a7b0387d0aaa67f5eb4825a2df0dd333a4826e83f30342"
+    },
+    "contract_step4": {
+      "answer_accuracy": "7/8",
+      "causal_spawn_first": "1/8",
+      "causal_contract_bound": "0/8",
+      "causal_completed": "0/8",
+      "failed_cells": 2,
+      "duplicate_cells": 43,
+      "max_turns": 1,
+      "adapter_sha256": "db05f6a9917b9845b2c6c1cd8276707c942f5141efc3095a335a77886851bdf2",
+      "trace_sha256": "6f49279a1df0933c8ea96347e1473f90b899219a08c87e1c98790640f47669a3"
+    },
+    "contract_step6": {
+      "answer_accuracy": "7/8",
+      "causal_spawn_first": "0/8",
+      "causal_completed": "0/8",
+      "failed_cells": 4,
+      "duplicate_cells": 66,
+      "max_turns": 1,
+      "adapter_sha256": "bd65b7b4415f493f37b49bd3f8e262aaed6881e187271328f7ebd1bb4b1007d5",
+      "trace_sha256": "5a8805ef9475c0c823f0730e8a7a18e3bf68f161269424b83351d46d46706207"
+    },
+    "contract_step8": {
+      "answer_accuracy": "6/8",
+      "causal_spawn_first": "0/8",
+      "causal_completed": "0/8",
+      "failed_cells": 3,
+      "duplicate_cells": 58,
+      "max_turns": 2,
+      "adapter_sha256": "4b828dcc701929026c9f99dc092818a124e12ab7c03df7d1beb665aefefcf487",
+      "trace_sha256": "d164e2b4f956ab4e06119fb22cad1e5a32c01417d233058363f63ed64f139cf0"
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "direct_screen_run": false,
+    "frozen_capacity_battery_run": false,
+    "accepted_checkpoint_unchanged": true,
+    "reason": "No corrected checkpoint exceeded the accepted initialization's earliest causal prefix, and none reached contract binding or a complete chain."
+  }
+}

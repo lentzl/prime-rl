@@ -52,6 +52,13 @@ base_url = ["http://localhost:8001/v1"]
 
 Model *roles* are algorithm-local vocabulary — each algorithm names its reference on the field where the model is actually used, and there is no shared `teacher` slot. `opd` declares a `teacher` field (the frozen model whose reverse KL the policy distills toward); `sft`'s teacher *is* its `sampling.source` (the frozen model it imitates); `opsd` self-distills against the live policy and names no model at all. No role exists outside the algorithm that declares it: the dispatcher, sink, and trainer branch on liveness alone, never on what an algorithm calls a model.
 
+Every algorithm also has `loss_weight = 1.0`, a coefficient on its action-token
+loss component. Leave it at the default for a single-algorithm run. In a mixed
+batch, components are normalized independently before they are summed, so
+source sampling ratios control estimator coverage rather than relative loss
+strength; use `loss_weight` when one algorithm should contribute more or less
+than another.
+
 So for `opd` set `[orchestrator.algo.teacher]`; for `sft` set `[orchestrator.algo.sampling.source]`; `opsd` needs neither. `opd`'s teacher must be a frozen endpoint — it is typed `FrozenModelConfig`, so `"policy"` isn't representable (the KL would be identically zero); `opsd`'s teacher *is* the live policy by definition (self-distillation conditioned on a demonstration), so it exposes no reference to configure.
 
 Liveness is a property of the reference, not of any role: rollouts sampled from `"policy"` get version-salted prefix caches, carry sampling logprobs for importance ratios, and age off-policy as weights update; rollouts and scores from frozen models get a stable prefix cache and never go stale. Frozen models are externally hosted (`base_url` is required) — `prime-rl` never launches or updates them, and each env's algorithm builds its own client pool to the endpoints it declares.
@@ -212,6 +219,15 @@ extension: every sampled assistant turn becomes an independent teacher replay,
 supervised by the environment messages before the next sampled turn. A
 rollout-level `info.feedback` value applies only to the final turn, and a turn
 without attributable feedback or a successful sibling is excluded from SDPO.
+Multi-agent traces are matched branch by branch using each branch's initial
+user question. A successful sibling therefore supervises the corresponding
+coordinator or child branch only; its assistant text, reasoning, and tool calls
+form that branch's successful-previous-attempt context. Duplicate branch
+questions are rejected because their correspondence would be ambiguous.
+Prime Agent represents user content with OpenAI-compatible text-part lists;
+matching first normalizes those parts through the renderer's content helpers,
+so textual identity does not depend on whether a harness emitted a string or
+structured content.
 The original sampled tokens and their positions remain unchanged in every
 teacher span. When the spans together exceed `model.seq_len`, the trainer
 greedily evaluates them in multiple bounded teacher forwards and scatters the
@@ -463,7 +479,7 @@ Each per-token list must match the rollout's completion-token count exactly — 
 `OPDAlgorithm` / `OPSDAlgorithm` do their model I/O in `score_rollout`: as each rollout arrives they query a reference (the sample's own context for `opd`, the demo-conditioned context for `opsd`) and attach per-token reference logprobs to each sample. Rollouts are consumed serially by the orchestrator's main loop and each carries only a handful of samples, so the in-flight request count is naturally bounded — no explicit concurrency cap:
 
 - `opd` — score each sample's own context under the `teacher` (a frozen [model reference](#model-references)) via prefill; fills `ref_logprobs` for the `ref_kl` loss component (on-policy distillation). The `teacher` is typed `FrozenModelConfig`, so `"policy"` isn't representable (the KL would be identically zero).
-- `opsd` — SDFT: replace the active user question with the paper's question-and-demonstration template, preserve the preceding trajectory, and score each on-policy response under that demo-conditioned context. The scoring reference *is* the live policy — self-distillation names no teacher. The demonstration is read from the example's `info[demo_key]`, falling back to a task-data field of the same name. A string applies to every trainable branch. Multi-agent environments can instead provide a mapping from each branch's exact initial user question to its role-appropriate demonstration, with `"*"` as an optional fallback; this prevents a coordinator demonstration from supervising child-agent actions.
+- `opsd` — SDFT: replace the active user question with the paper's question-and-demonstration template, preserve the preceding trajectory, and score each on-policy response under that demo-conditioned context. The scoring reference *is* the live policy — self-distillation names no teacher. The demonstration is read from the example's `info[demo_key]`, falling back to a task-data field of the same name. A string applies to every trainable branch. Multi-agent environments can instead provide a mapping from each branch's exact initial user question to its role-appropriate demonstration, with `"*"` as an optional fallback. A mapping value can be a sequence aligned to the responses retained by the optional filter, allowing each state transition in a multi-turn branch to receive its own demonstration; null sequence entries skip individual transitions. A null mapping value leaves the entire branch untrained. Missing entries remain an error. The optional imported `filter` follows ECHO's branch-aligned keep-mask contract and can narrow distillation to selected sampled response tokens.
 
 ```toml
 [orchestrator.algo]

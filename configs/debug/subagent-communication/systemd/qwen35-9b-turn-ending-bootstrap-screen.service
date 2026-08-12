@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen the Qwen 3.5 9B turn-ending bootstrap adapter
+After=qwen35-9b-base-inference.service
+Requires=qwen35-9b-base-inference.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run eval @ configs/debug/subagent-communication/193-qwen35-9b-turn-ending-bootstrap-screen.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/193-qwen35-9b-turn-ending-bootstrap-screen.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/193-qwen35-9b-turn-ending-bootstrap-screen.log

@@ -1,0 +1,75 @@
+{
+  "experiment_id": "qwen35-27b-first-response-alignment-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "question": "Do vLLM rollout log probabilities and the Prime-RL custom trainer agree on the first coordinator response closely enough for a nonzero OPSD update?",
+  "failed_control": {
+    "run": "240-qwen35-27b-first-coordinator-opsd-dose-r1",
+    "selected_tokens": 1875,
+    "mismatch_kl_mean": 74.19518280029297,
+    "gradient_norm": 1256.0,
+    "decision": "invalid_for_reuse",
+    "reason": "The update used vLLM's default bfloat16 recurrent SSM cache. The resulting trainer/inference disagreement makes its behavioral result uninterpretable as an OPSD intervention."
+  },
+  "zero_update_control": {
+    "run": "253-qwen35-27b-first-response-token-audit-r1",
+    "inference_ssm_cache_dtype": "bfloat16",
+    "selected_tokens": 268,
+    "mismatch_kl_mean": 13.193699,
+    "trainer_minus_inference_logprob_mean": -14.1937,
+    "fresh_vllm_prefill_mean_absolute_logprob_error": 0.00356,
+    "fresh_vllm_prefill_max_absolute_logprob_error": 0.07418,
+    "rollout_trace_sha256": "478bc4cbe9367901e24978110ef870d62fe11cb09e74747d71d2cbaa1a883e57",
+    "rank_0_export_sha256": "d5c11692ed2bfdbc47ed00578c366f641ded8d9e555cd182fa752863be15dd19",
+    "rank_1_export_sha256": "ce55dc79b44c319b0f07fec2ed6df9605e9c981f64cb70d842d3e54444758da2"
+  },
+  "discarded_diagnostics": [
+    {
+      "run": "253-qwen35-27b-first-response-token-audit-r2",
+      "reason": "Discarded before interpretation. It forced recurrent GDN across the full trainer sequence, while vLLM 0.26 uses the Triton/FLA chunked kernel for prefill and recurrent GDN only for decode."
+    },
+    {
+      "run": "253-qwen35-27b-first-response-token-audit-r3",
+      "reason": "A one-sequence batch on two FSDP ranks left one rank without a sequence. The ranks entered different collective paths and hit the NCCL watchdog; this was a batch-layout failure, not a probability result."
+    }
+  ],
+  "validated_audit": {
+    "run": "253-qwen35-27b-first-response-token-audit-r4",
+    "config": "253-qwen35-27b-first-response-token-audit.toml",
+    "config_sha256": "67b3f2ab5bc8000dca1cfee7572a7a66dbfdd7e8be73a5b9eff7d9509b742dcf",
+    "inference_config": "211-qwen35-27b-teacher-inference.toml",
+    "inference_config_sha256": "1629a268778e0a180c3173eed352342ab65aedf160115c54186c65f945871da1",
+    "metrics_sha256": "c6c12f38bd54ccdfc06be252666bb5de173ab735af7cf47e95a031de499ce438",
+    "rollout_trace_sha256": "baa3c19ac9bdde0d74e9b9aa2c8a92b2d596343fadf6c1c3f484b99918c4b897",
+    "rank_0_export_sha256": "7df82cff9779f57c0598c0f4d38636c1705a5bf9cd3196b3dca5857fbdd5095a",
+    "rank_1_export_sha256": "188ea77eb75ea0622f7ab76b93d3a3fe214046bc4058ff789258ed069c0c247b",
+    "learning_rate": 0.0,
+    "inference_ssm_cache_dtype": "float32",
+    "trainer_gdn_prefill": "chunked",
+    "trajectories": 2,
+    "selected_tokens": 482,
+    "mismatch_kl": {
+      "mean": 0.00022015321798839015,
+      "median": 0.0,
+      "p95": 0.0008385181427001953,
+      "p99": 0.00636601448059082,
+      "max": 0.012805938720703125
+    },
+    "trainer_minus_inference_logprob": {
+      "mean": -0.0013295063128486901,
+      "mean_absolute": 0.007127657545239211,
+      "max_absolute": 0.16442203521728516
+    },
+    "loss": 0.029144058004021645,
+    "gradient_norm": 0.478515625,
+    "peak_trainer_memory_gib": 35.4,
+    "step_time_seconds": 115.74517608599854
+  },
+  "conclusion": {
+    "alignment_gate_passed": true,
+    "root_cause": "vLLM's default bfloat16 recurrent SSM cache quantized Qwen3.5 linear-attention state between prefill and decode, while the trainer retained float32 chunked state. Setting mamba_ssm_cache_dtype=float32 restored rollout/trainer agreement.",
+    "implementation_decision": "Keep chunked GDN for trainer prefill. Do not use the experimental full-sequence recurrent path because it does not match vLLM prefill semantics.",
+    "next": "Run one low-rate first-response-only OPSD update from the untouched thinking-mode 27B base, then require improvement on a disjoint paired natural gate before broadening the curriculum."
+  }
+}

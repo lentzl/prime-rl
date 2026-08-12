@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen epoch two of the Qwen 3.5 9B turn-ending teacher bootstrap
+After=qwen35-9b-base-inference.service
+Requires=qwen35-9b-base-inference.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run eval @ configs/debug/subagent-communication/195-qwen35-9b-turn-ending-epoch2-screen.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/195-qwen35-9b-turn-ending-epoch2-screen.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/195-qwen35-9b-turn-ending-epoch2-screen.log

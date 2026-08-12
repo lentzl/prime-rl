@@ -1,10 +1,59 @@
 # Subagent Communication
 
 This rung starts from the selected Qwen 3.5 2B file-processing checkpoint and trains
-the native Prime Agent depth-one protocol. It is Stage 1 of the
+the native Prime Agent depth-one protocol. It is Stage 0 of the
 [recursive-specialization target](../../../docs/recursive-specialization-target.md):
 the goal here is reliable delegation mechanics, not yet autonomous decomposition or
 recursive specialization.
+
+The completed 2B evidence and the controlled capacity transition are summarized in
+[QWEN35_2B_CAPABILITY_REPORT.md](QWEN35_2B_CAPABILITY_REPORT.md) and
+[QWEN35_4B_TRANSITION_PLAN.md](QWEN35_4B_TRANSITION_PLAN.md). Rung 37 remains the
+retained 2B checkpoint even while the coordinator experiment advances to 4B.
+The three disjoint standard gates and bidirectional screen are immutable under the
+[Frozen Capacity Battery V1](FROZEN_CAPACITY_BATTERY_V1.md); new training curricula
+must use separate tasks and may not evolve this historical test surface.
+
+Do not run `pytest` on a host with live Prime-RL training or inference processes.
+The repository-wide module fixture in `tests/conftest.py` deliberately runs
+`pkill -f torchrun` and `pkill -f VLLM` to clean CI zombies, so even a focused unit
+test terminates an unrelated live experiment. Validate before launch or on a separate
+host; during a run, use read-only log, trace, and health checks only.
+
+The 4B parent-admission process-reward probes are configured in runs 102 through 105.
+Run 102 is the rejected mixed-reward control, run 103 verifies that strict sparse
+reward correctly produces no update, and run 104 is the rejected one-step dense probe.
+Run 105 completed a bounded four-step dense dose from the unregressed run-100 step-8
+initialization. Its step 3 improved held-out admission but remained `0/8`
+protocol-complete on the full single-child development gate, so no checkpoint was
+promoted or published. The selection rule and exact evidence are recorded in
+[`qwen35-4b-admission-control-results-v1.json`](qwen35-4b-admission-control-results-v1.json).
+
+The next probe targets the complete causal prefix rather than another admission-only
+dose. `106-qwen35-4b-causal-chain-preflight.toml` scores five ordered stages: spawn
+first, bind the exact safe contract, perform coordinator-local work, receive the child
+reply, and finish with a protocol-aligned correct answer. A later stage receives no
+credit after an earlier stage fails. Run the eight-rollout preflight from run-100 step
+8 before defining any optimizer update; continue only if it has nonzero within-group
+variance beyond the first stage.
+
+The run-100 step-8 preflight produced causal rewards
+`[0, 0, 0, 0.2, 0, 0, 0, 0.8]`. The strongest trajectory completed the first four
+ordered stages and failed only final answer completion, while otherwise successful
+late-spawn trajectories correctly received zero. This admits one `1e-7` GRPO update
+in `107-qwen35-4b-causal-chain-grpo.toml` on a fresh task. The update must still pass
+fresh direct, causal-chain, and full normal single-child gates before promotion.
+
+Run 107 was numerically stable and preserved the fresh direct screen at `4/4`, but its
+training group contained only one spawn-first trajectory (`0.2`) and no deeper causal
+prefix. On the disjoint run-108 gate, only one of eight trajectories again reached
+spawn-first and none bound the contract or progressed further. The checkpoint is
+rejected without running Frozen Capacity Battery V1. The causal scorer remains useful;
+the missing ingredient is successful behavior to learn from, not weaker admission.
+The next intervention will collect real-harness Qwen3.5-9B teacher trajectories and
+retain only complete five-stage chains before distilling into the run-100 step-8 4B
+learner. Exact evidence is recorded in
+[`qwen35-4b-causal-chain-results-v1.json`](qwen35-4b-causal-chain-results-v1.json).
 
 Hydrate the pinned starting point:
 
@@ -19,6 +68,9 @@ uv run hf download \
 Start inference, establish the held-out baseline, then run GRPO:
 
 ```bash
+mkdir -p /ephemeral/subagent-rung/xdg-config
+export XDG_CONFIG_HOME=/ephemeral/subagent-rung/xdg-config
+export VLLM_NO_USAGE_STATS=1
 uv run inference @ configs/debug/subagent-communication/inference.toml
 uv run eval @ deps/verifiers/configs/prime_agent_qwen35_subagent_communication_eval.toml \
   --output-dir /ephemeral/subagent-rung/evals/base
@@ -418,9 +470,11 @@ all missing.
 
 The evidence-bound rung 30 preserved direct and parallel behavior but failed the
 held-out single-child gate: all three parent prompts compressed the delegated request
-to `Read the file` and omitted the task-specific path. Broad replay SFT, concentrated
-parent-control SFT, and a 64-example exact-spawn micro-rung did not change that first
-action. Do not continue literal SFT for this failure.
+to `Read the file` and omitted the task-specific path. This was a delegation-fidelity
+failure, not a document-parser failure: the coordinator discarded the known absolute
+path before the child ever saw the task. Broad replay SFT, concentrated parent-control
+SFT, and a 64-example exact-spawn micro-rung did not change that first action. Do not
+continue literal SFT for this failure.
 
 Prime-native OPSD supplies a more local learning signal. The taskset stores a
 task-specific successful demonstration, while the ordinary student prompt remains
@@ -487,14 +541,13 @@ that rung 37 is not yet the frozen master.
 ## Standard-prompt and parallel-provenance gates
 
 The first broad standard-prompt gate used 12 unseen tasks (four each of direct,
-single-child, and parallel) at temperature `0.8`. Rung 37 solved all four direct
-tasks, all four single-child answers, and three of four parallel answers. Only two
-single traces were fully protocol-aligned because they sent a redundant second child
-message. The fourth parallel trace received both correct child replies but ignored
-their message bodies, tried to parse the delegated shard files as message envelopes,
-and exhausted 24 turns. Overall, 10/12 episodes jointly satisfied answer and protocol
-requirements. This confirms that path-bearing delegation transferred more strongly
-than asynchronous reply binding.
+single-child, and parallel) at temperature `0.8`. The authoritative trace metrics for
+rung 37 were `4/4` direct, `2/4` single, and `3/4` parallel joint answer-and-protocol
+solves: `9/12` overall with mean reward `1.6944`. Single failures included redundant
+messages or recovery loops. The fourth parallel trace received both correct child
+replies but ignored their message bodies, tried to parse delegated shard files as
+message envelopes, and exhausted 24 turns. Path-bearing delegation therefore
+transferred more strongly than asynchronous reply binding.
 
 The first parallel OPSD extension reused one task-level coordinator demonstration for
 all three trainable branches. The on-policy batch looked healthy, but fresh paired
@@ -514,9 +567,256 @@ parallel answer accuracy to `4/4`. It nevertheless reduced parallel protocol ali
 to `2/4`, introduced extra sends and duplicate cells, and reduced single-child answer
 accuracy to `3/4`; mean reward was `1.611`. Rung 43 is therefore rejected too.
 
-Keep rung 37 step 2 as the selected Stage-0 candidate. Preserve branch-specific OPSD
-as the correct multi-agent abstraction, but do not apply another all-branch dose to
-this model. A future SDFT retry for fan-in should explicitly train only coordinator
-branches and leave already-functional child behavior untouched, then face the same
-paired direct/single/parallel gate. The broader remaining curriculum still includes
-bidirectional follow-up, traceback recovery, output contracts, and clean stopping.
+Coordinator-only OPSD then established two additional controls. Rung 45 used null
+demonstrations for child branches but still distilled every sampled coordinator
+response. It fell to `6/12` (`4/4` direct, `1/4` single, `1/4` parallel; mean reward
+`1.4375`) because the broad coordinator loss disturbed spawning and waiting as well
+as final synthesis. Rung 47 filtered the loss to the immediate response after each
+child message. Its first gate improved to `10/12`, but a disjoint replication exposed
+a capability transfer rather than a promotion: rung 37 scored `4/4` direct, `2/4`
+single, and `3/4` parallel, while rung 47 scored `4/4`, `4/4`, and `1/4`. Both were
+`9/12`; rung 47 strengthened single-child completion at the expense of parallel
+fan-in because it also trained the response after only the first child reply.
+
+The environment-specific `keep_complete_fan_in_response` filter corrects that causal
+boundary. It selects exactly the first coordinator response after every expected
+child has replied, selects it only once, and leaves child branches and all earlier
+coordinator actions at zero SDFT weight. The one-update rung 50 smoke trained cleanly
+on four nearly perfect trajectories (`1.9375` reward, loss `0.0760`, mismatch KL
+`5.5e-6`, gradient norm `3.75`). Its held-out gate was stopped after 11 episodes once
+promotion became mathematically impossible: `4/4` direct, `2/4` single, and `1/3`
+parallel were joint solves, for `7/11` and mean reward `1.5909`; even a final success
+could only reach `8/12`, below rung 37's `9/12`.
+
+Rungs 53 and 54 tested whether the smoke simply lacked corrective diversity. Four
+cumulative complete-fan-in updates used 16 fresh on-policy trajectories at half the
+learning rate. The first three updates were numerically stable; the fourth batch
+exposed a paraphrased child question that was absent from the exact demonstration
+map. Coordinator-only mappings now include a `"*": null` fallback, so any canonical
+or paraphrased child branch is excluded without environment-specific role logic in
+Prime-RL. The repaired final update completed with reward `1.9375`, loss `0.0381`,
+effectively zero mismatch KL, and gradient norm `2.69`.
+
+A new paired gate still rejected the scaled candidate. On the identical 12 tasks,
+rung 37 scored `4/4` direct, `3/4` single, and `1/4` parallel (`8/12`, mean reward
+`1.7292`). Rung 54 scored `4/4`, `2/4`, and `2/4` (`8/12`, mean reward `1.6250`). The
+narrow SDFT signal converted one parallel failure but introduced one single-child
+failure and did not improve the total. This is useful causal evidence: selective SDFT
+can move the intended behavior in Qwen3.5-2B, but repeated task-level demonstrations
+still trade adjacent harness capabilities rather than producing robust mastery.
+
+Keep rung 37 step 2 as the selected Stage-0 candidate. Preserve null branch mappings
+and generic OPSD token filters as the correct abstractions, but do not add another
+dose of this same fan-in demonstration. The next intervention should collect and
+score the concrete process-control failures themselves: consume visible child message
+bodies, prohibit invented polling after explicit replies, repair from actual
+tracebacks, and stop after a valid final object. The broader remaining curriculum
+still includes bidirectional follow-up, output contracts, and clean stopping.
+
+## Post-fan-in process-control GRPO
+
+The next experiment measured the coordinator phase after all expected child messages
+were visible. The branch-aware metric ignores child-side cells and permits ordinary
+local aggregation, but counts coordinator failures, repeated cells, and calls that
+cannot advance a completed single or parallel fan-in (`rlm`, observation, roster,
+receive, or message calls). Each count contributes `1 / (1 + count)` to a dense
+control score; a missing complete fan-in scores zero. The reward is opt-in through
+`reward_post_fan_in_control`, so historical and unrelated tasksets are unchanged.
+
+Before training, the rung 56 probe sampled four rollouts for each of two identical
+fresh parallel prompts. Both groups had substantial within-prompt variance. Revised
+total rewards ranged from `1.103` to `2.667` and from `1.464` to `3.000`; the second
+group contained two completely clean trajectories. This admitted the signal for a
+single conservative GRPO update rather than proving the checkpoint would improve.
+
+Rung 57 started from rung 37 step 2, used eight parallel trajectories, learning rate
+`5e-7`, and one update. Training was stable: reward `2.4643`, exact answer accuracy
+`0.8125`, complete fan-in `7/8`, clean post-fan-in control `6/8`, loss `0.0445`,
+mismatch KL `0.00057`, gradient norm `0.457`, and peak memory `10.2 GiB`.
+
+The fresh paired gate rejected the update. Rung 37 scored `4/4` direct, `2/4` single,
+and `3/4` parallel joint solves (`9/12`, mean historical reward `1.7986`). Rung 57
+scored `4/4`, `2/4`, and `1/4` (`7/12`, mean `1.6667`). Parallel clean control fell
+from `4/4` to `3/4`; single clean control fell from `3/4` to `2/4`, with 14 failed
+post-fan-in cells and nine repeated cells in the candidate's single-child traces.
+
+This result falsifies the assumption that adding an accurate local reward to the
+same arithmetic fan-in distribution is sufficient. Six of eight training trajectories
+already saturated the new control signal, so the one-step update mostly learned from
+adjacent answer and protocol variation and harmed retention. Keep rung 37 selected.
+The next process-control batch must include the actual unsolved failure regimes across
+single and parallel tasks, plus explicit retention groups; do not run another
+parallel-only update merely because its on-policy batch reward is high.
+
+## Cross-family retention and dense training
+
+Rung 59 sampled four trajectories from each train-split single and parallel prompt to
+find tasks with genuine policy variance rather than repeatedly optimizing saturated
+examples. Rung 37 jointly solved `25/32` trajectories (`12/16` single and `13/16`
+parallel). Rung 60 then made one low-rate GRPO update on one mixed-success prompt from
+each family. On the exact paired gate it reached `10/12`, but only by exchanging the
+retained model's split: rung 37 scored `4/4` direct, `4/4` single, and `2/4` parallel;
+rung 60 scored `4/4`, `2/4`, and `4/4`. This is capability transfer, not mastery.
+
+A separate OPD update against frozen rung 37 restored the original `4/4`, `4/4`,
+`2/4` split without improving it. Combining hard-parallel GRPO and single-child OPD
+inside one optimizer step did not solve the interference: rung 64 scored `8/12`, and
+a second weighting control scored `9/12`. Independent component normalization and
+per-source loss weights are now available for principled mixed objectives, but loss
+weighting alone cannot replace broader causal examples.
+
+Before testing full-parameter SDPO, the selected rung-37 adapter was exported through
+Prime-RL's checkpoint path as a standalone dense model. Both artifacts contained 617
+tensors. All 96 adapted matrices matched `base + 2.0 * B @ A` at every sampled
+coordinate, all 521 untouched tensors were bit-identical, and all numeric EOS fields
+remained `248046`. This dense export is the exact training base for subsequent
+full-weight experiments, not a behaviorally chosen replacement for rung 37.
+
+Multi-step full-weight runs must use
+`configs/debug/subagent-communication/inference-dense.toml`, not the shared LoRA
+inference profile. With `enable_lora = true`, vLLM wraps Qwen3.5 linear-attention
+parameters under `base_layer`; an in-place dense broadcast then fails because the
+checkpoint correctly contains the unwrapped `conv1d.weight` key. A frozen OPD teacher
+must also run in a separate worker, as configured by
+`inference-dense-teacher.toml` on ports `8200/8300`. LoRA training can share one
+worker because the base weights remain resident while adapters change. A dense policy
+broadcast replaces the resident base itself, so sharing that worker would silently
+turn the supposed frozen teacher into the updated policy after step 1.
+
+## Branch-matched SDPO and SDFT preservation
+
+Prime-RL's SDPO path now pairs successful and failed multi-agent branches by their
+initial user question. A successful coordinator branch supervises only the matching
+coordinator branch, and each child branch is matched independently; reasoning, tool
+calls, and assistant text are preserved in the successful replay. Prime Agent stores
+user content as OpenAI-style text-part lists, so branch keys are normalized through
+the renderer's content helpers before exact matching. Ambiguous duplicate questions
+remain a hard error rather than receiving a guessed teacher.
+
+Rung 67 applied one full-weight, EMA-teacher SDPO update to eight trajectories of one
+mixed-success parallel task. Seven trajectories were trainable. Training was stable
+(`loss 0.0103`, mismatch KL `0.0006`, gradient norm `19.5` clipped to `1.0`, peak
+memory `23.2 GiB`), but the paired gate scored `9/12`: `4/4` direct, `3/4` single,
+and `2/4` parallel. Branch-correct hindsight is therefore operational end to end, but
+this isolated dose did not improve the selected policy.
+
+Rung 69 combined the same parallel SDPO group with eight fresh one-rollout OPSD/SDFT
+preservation examples. The SDFT source used coordinator-only demonstrations at
+`loss_weight = 0.25`; dynamic child prompts were excluded with the explicit wildcard
+null mapping instead of unsafe fuzzy matching. All 16 trajectories were trainable,
+and the full-weight update was stable (`loss 0.0059`, mismatch KL `0.0005`, gradient
+norm `16.625` clipped to `1.0`, peak memory `23.2 GiB`). Its exact paired result was
+`10/12`: `4/4` direct, `3/4` single, and `3/4` parallel. Relative to rung 37, it
+converted one parallel failure but introduced one single-child failure.
+
+Rung 69 is rejected and rung 37 remains selected. The experiment supports a narrow
+conclusion: SDFT is effective for a known deterministic harness procedure, as already
+shown by the original exact-path repair, but generic coordinator rehearsal does not
+guarantee retention of adjacent multi-agent behavior. The next curriculum must train
+the concrete failures themselves, include direct/single/parallel retention in every
+batch, and earn promotion on repeated held-out gates rather than a single aggregate
+score.
+
+## Bidirectional capacity boundary
+
+Rungs 70 through 77 isolated the missing bidirectional primitive. Standard held-out
+follow-up and handshake traces did not complete one causally ordered child request,
+parent response, and child result. Full-weight OPSD updates were numerically stable,
+but guided request training did not transfer to standard language: all four rung-76
+screens and the rung-77 response-phase screen had zero aligned protocols. Rung 77
+itself produced zero child requests across eight held-out tasks.
+
+Direct child-role probes explain why. Given an explicit API instruction, the 2B child
+sent `await agent_message.send('need multiplier', receiver_role='parent')` in `24/24`
+post-compute samples. Under the canonical standard prompt it instead emitted plain
+assistant text in `24/24` samples. The frozen 2B teacher also failed this transition:
+the original standard demonstration produced `0/16` tool calls, and a response-aligned
+request-only demonstration produced only `1/24`. SDFT cannot provide a dependable
+target when the admitted teacher distribution does not express the action.
+
+This closes the current 2B coordinator search without discarding the model. The exact
+dense rung-37 snapshot is retained privately on HF at revision
+`b469454738dfc911f43233f172ca4ff920ea695d` and remains the preferred 2B expert-child
+base. The next coordinator experiment starts from untouched `Qwen/Qwen3.5-4B`, reuses
+the same task families and gates, and recalibrates teacher admission and optimization
+rather than replaying 2B update doses blindly.
+
+## Thinking 27B native ownership admission
+
+The teacher-first program now starts from untouched thinking-mode
+`Qwen/Qwen3.5-27B`, not from a no-thinking adapter or a larger dose of the earlier
+synthetic ownership bootstrap. Runs 249 and 250 sampled 64 answer-free guided first
+decisions and admitted only responses that passed all seven structural ownership
+checks. Seven native decisions passed, covering every train prompt variant. The
+exporter recomputes admission from the trace, requires native reasoning and one
+IPython action, removes the temporary guidance, caps each task at one example, and
+records immutable source and dataset hashes.
+
+Run 251 made one rank-16 SFT step at `5e-8` over that corpus. The update was stable but
+run 252 rejected it on an unguided paired gate. Follow-up dense ownership improved
+from `0.250` to `0.330`, but both arms retained the multiplier `0/16` times and
+completed `0/16` strict transitions. The candidate also regressed the unseen handshake
+control from `0.848` to `0.795` dense ownership. Do not publish, continue, or distill
+from run 251. Exact artifacts and hashes are recorded in
+`qwen35-27b-native-ownership-results-v1.json`. The next experiment must focus the
+teacher signal on the state-binding decision itself and first repair the prior OPSD
+trainer/inference discrepancy; another ordinary full-response SFT epoch is not the
+next step.
+
+## Qwen3.5-27B trainer/inference alignment
+
+The first-response discrepancy was an inference-state precision error, not evidence
+against OPSD. A zero-update replay with vLLM's default bfloat16 recurrent SSM cache
+reproduced the failure: 268 selected tokens had mean mismatch KL `13.1937`, while a
+fresh vLLM prefill reproduced the rollout log probabilities closely. Qwen3.5 uses
+chunked GDN for prefill and recurrent GDN only during decode, so forcing recurrent
+GDN across the trainer's full sequence is not a faithful repair and was discarded.
+
+Setting vLLM `mamba_ssm_cache_dtype = "float32"` while retaining the trainer's
+standard chunked forward restored agreement. Across two independent first responses
+and 482 selected tokens, mean mismatch KL was `0.000220`, median was zero, p95 was
+`0.000839`, and mean absolute trainer/inference log-probability delta was `0.00713`.
+Both FSDP ranks completed a zero-learning-rate forward/backward step with gradient
+norm `0.4785`. The audit also established that a two-rank run needs at least two
+sequences; a one-sequence diagnostic can put ranks on different collective paths.
+
+Exact controls, hashes, discarded diagnostics, and the implementation decision are
+recorded in `qwen35-27b-first-response-alignment-results-v1.json`. The next allowed
+intervention is one low-rate first-response OPSD step from untouched thinking-mode
+27B, followed by a disjoint paired natural gate. Do not broaden the curriculum or
+promote the adapter merely because its training step is numerically healthy.
+
+Run 254 completed that intervention with healthy numerics over 2,219 selected tokens:
+loss `0.00871`, mismatch KL `0.000255`, gradient norm `0.3438`, and no rollout errors.
+The disjoint run-255 gate nevertheless rejected it. Follow-up answer and causal
+completion remained `4/4`, but protocol alignment fell from `1/4` to `0/4`, mean
+coordinator access to the child-owned path rose from `0.5` to `1.5`, and
+bidirectional-control score collapsed from `0.477` to zero. All four candidate
+follow-up coordinators read the delegated file; the untouched base did so in one.
+
+This separates the two problems cleanly. FP32 recurrent state fixed the numerical
+error, but whole-response demonstration-conditioned OPSD remains the wrong teaching
+surface for this primitive. It guided 218-371 tokens per response and did not isolate
+the state assignment, retained handle, and ownership-transfer actions. Keep untouched
+thinking-mode 27B and do not retry the dose at another learning rate. The next
+candidate mechanism is action-local successful-sibling SDPO on grouped native first
+decisions, admitted before any update. Exact artifacts and metrics are recorded in
+`qwen35-27b-aligned-first-response-opsd-results-v1.json`.
+
+The next zero-update audit narrowed the existing OPSD target without changing its
+teacher context. Prime-RL now retains every sampled token in the teacher completion
+and carries separate target offsets for selected tokens; this is required for any
+non-contiguous SDPO or OPSD filter. The Qwen-specific environment filter selected
+only the first coordinator's serialized `<tool_call>...</tool_call>` span. Across
+two fresh trajectories it selected 216 tokens in exactly two contiguous spans, with
+zero reasoning, child, or later-coordinator tokens. Mean mismatch KL remained
+`0.000129` and the maximum was `0.00520`.
+
+This audit validates the mechanics, not the policy. The selected spans are the
+student's on-policy actions; the demonstration conditions the teacher distribution
+evaluated on those states. The next falsifiable intervention therefore keeps the
+same demonstration and `1e-7` learning rate as run 254 but applies gradients only to
+the first executable action. If its fresh paired gate still increases coordinator
+access to child-owned files, reject this reprompt family rather than changing the
+learning rate or broadening the dose. Exact audit artifacts and hashes are recorded
+in `qwen35-27b-action-local-token-audit-results-v1.json`.

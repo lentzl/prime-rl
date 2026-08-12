@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen Qwen 3.5 27B Prime Agent harness-mastery checkpoints
+After=qwen35-27b-harness-mastery-sft.service qwen35-27b-teacher-qualification.service qwen35-27b-teacher-inference.service
+Requires=qwen35-27b-teacher-inference.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/prime-rl/scripts/run_qwen35_27b_harness_mastery_screens.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/218-219-qwen35-27b-harness-mastery-screens.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/218-219-qwen35-27b-harness-mastery-screens.log

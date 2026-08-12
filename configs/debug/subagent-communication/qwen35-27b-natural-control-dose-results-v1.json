@@ -1,0 +1,68 @@
+{
+  "experiment_id": "qwen35-27b-natural-control-dose-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-11",
+  "training": {
+    "config": "232-qwen35-27b-natural-control-grpo-dose.toml",
+    "config_sha256": "ee7c87b7f1b3b186a850e95db370fcbd023b6eb26cb9e8268d8ad844acb4459a",
+    "rollout_log_sha256": "1e31b52765519f272960b982057170dafdf9c93cd65b3172331829eb7b4a0669",
+    "adapter_sha256": "8049c6065b1452076bc905cf3b4ba6a8837bf923ebfbc5c17652f8f310529ebf",
+    "thinking_mode": true,
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "lora_rank": 16,
+    "optimizer_steps": 1,
+    "rollouts": 8,
+    "trainable_rollouts": 8,
+    "mean_reward": 1.3740530303030303,
+    "minimum_reward": 0.4166666666666667,
+    "maximum_reward": 3.7272727272727275,
+    "loss": -0.0008,
+    "entropy": 0.157,
+    "mismatch_kl": 0.0003,
+    "gradient_norm": 0.0718,
+    "peak_trainer_memory_gib": 36.8
+  },
+  "selection": {
+    "config": "233-qwen35-27b-natural-control-selection.toml",
+    "config_sha256": "0b645fff3b99db0c999822047a62a983ebfde22d17e5308bfda8ee54a799c15b",
+    "base_trace_sha256": "e7c6bbda467a9e5be4bf743f81789786f6a3ee5ae28159063ed87fbc8422a9fe",
+    "candidate_trace_sha256": "216e166b0fc57838876a40c44772b532032c6e68382eaea0189110133e1f96c7",
+    "verifier_source_sha256": "98f7ad7d0dd167e59742e2e8bb9300989ea704a879cefef44207ba5540613bba",
+    "tasks_per_arm": 8,
+    "task_offset": 9100,
+    "sampling_temperature": 0.4,
+    "thinking_mode": true
+  },
+  "corrected_paired_means": {
+    "base": {
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 1.0,
+      "protocol_score": 0.9375,
+      "protocol_aligned": 0.5,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.875,
+      "stateful_control_progress": 0.5,
+      "bidirectional_control": 0.4431818181818182,
+      "failed_cells": 1.375
+    },
+    "candidate": {
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 0.75,
+      "protocol_score": 0.875,
+      "protocol_aligned": 0.5,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.75,
+      "stateful_control_progress": 0.5,
+      "bidirectional_control": 0.40909090909090906,
+      "failed_cells": 1.125
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "reason": "The candidate retained 8/8 answer accuracy and slightly reduced mean delegated-path access, but natural causal completion regressed from 8/8 to 6/8, protocol score and causality-gated bidirectional control both fell, and neither arm produced a clean trace.",
+    "frozen_family_gates_run": false,
+    "next": "Keep untouched thinking-mode 27B as the reference. Inspect the paired follow-up transitions and redesign a narrower update that preserves causal completion while hard-gating coordinator access to delegated state; do not freeze or distill from this adapter."
+  }
+}

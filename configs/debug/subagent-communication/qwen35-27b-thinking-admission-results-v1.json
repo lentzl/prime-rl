@@ -1,0 +1,70 @@
+{
+  "experiment_id": "qwen35-27b-thinking-admission-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "comparison_adapter": "217-qwen35-27b-harness-mastery-sft-r1/step_12",
+  "completed_at": "2026-08-11",
+  "screen": {
+    "config": "225-qwen35-27b-thinking-bidirectional-screen.toml",
+    "thinking_mode": true,
+    "tasks": 4,
+    "base": {
+      "answer": "0/4",
+      "protocol": "0/4",
+      "clean_protocol": "0/4",
+      "exact_request": "0/4",
+      "causal_exchange": "0/4",
+      "stateful_control_progress": 1.8333333333333333,
+      "failed_cells": 13,
+      "duplicate_cells": 4,
+      "stop_conditions": {
+        "agent_completed": 2,
+        "max_turns": 2
+      },
+      "trace_sha256": "8ebd3a1cbdcd8bb850cc736fc1ec3d18b9af798ec2c4932191c4d030ad6bb7c4"
+    },
+    "historical_step_12": {
+      "answer": "2/4",
+      "protocol": "0/4",
+      "clean_protocol": "0/4",
+      "exact_request": "0/4",
+      "causal_exchange": "0/4",
+      "stateful_control_progress": 1.1666666666666665,
+      "failed_cells": 7,
+      "duplicate_cells": 2,
+      "stop_conditions": {
+        "agent_completed": 3,
+        "max_turns": 1
+      },
+      "trace_sha256": "0c0f2b777c0e3a13451c6dc2eb32908ad2648d94260b22136adf0d0215af2c6f"
+    }
+  },
+  "natural_contract_rescore": {
+    "verifier_source_sha256": "59b0ddad9cf183883f3fa8b35ae657b097965cb5d19505e2031b0d6497dadb87",
+    "literal_metrics_preserved": true,
+    "base": {
+      "answer": "0/4",
+      "protocol": "1/4",
+      "clean_protocol": "0/4",
+      "natural_causal_exchange": "2/4",
+      "natural_request": "4/4",
+      "natural_parent_followup": "3/4",
+      "natural_child_result": "2/4"
+    },
+    "historical_step_12": {
+      "answer": "2/4",
+      "protocol": "2/4",
+      "clean_protocol": "0/4",
+      "natural_causal_exchange": "2/4",
+      "natural_request": "3/4",
+      "natural_parent_followup": "2/4",
+      "natural_child_result": "2/4"
+    }
+  },
+  "diagnosis": "The original zero-causal conclusion depended on a synthetic literal request phrase. Under the natural task contract, untouched thinking 27B completes both handshake exchanges but neither file-backed follow-up exchange; polling, failed cells, answer grounding, and stopping still prevent every clean completion. The historical no-thinking SFT adapter does not improve the natural causal boundary. Future teacher and student training remains thinking-native and starts from untouched 27B.",
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "canonical_start": "Qwen/Qwen3.5-27B"
+  }
+}

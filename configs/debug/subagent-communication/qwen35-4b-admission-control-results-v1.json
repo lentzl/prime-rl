@@ -1,0 +1,141 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-admission-control-v1",
+  "initial_checkpoint": {
+    "model": "Qwen/Qwen3.5-4B",
+    "adapter": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8"
+  },
+  "implementation": {
+    "prime_rl_base_revision": "d8d988db4bf8214a9a5654f287d69afaf7f439ce",
+    "verifiers_revision": "202de9f7875d11039ba9d772736952f76c9dc141",
+    "prime_agent_version": "0.7.0"
+  },
+  "pre_update_admission_gate": {
+    "traces": 8,
+    "exact_admission": 2,
+    "complete_admission": 1,
+    "spawn_first_cell": 2,
+    "local_work_after_spawn": 2
+  },
+  "probes": {
+    "run_102_mixed_reward": {
+      "decision": "reject",
+      "reason": "The inherited task rewards dominated the intended admission signal and the held-out gate had zero exact or complete admissions.",
+      "config_sha256": "a88517c1695a8c8ee467d954a0ca1ca3a90900d05ff122065e9242d5b7d5a830"
+    },
+    "run_103_strict_admission_only": {
+      "decision": "stop_without_update",
+      "reason": "All eight strict rewards were zero, so the zero-advantage filter correctly removed the group.",
+      "config_sha256": "dfca3ef0b3cc9463be83c89a88a029e62bfb12676ef374deb8d673577f6f04af"
+    },
+    "run_104_dense_admission_only": {
+      "decision": "reject",
+      "config_sha256": "1531007ac30b93713a33f191aa8c5d32fa8d983b94e9cb301e9311d273f2407d",
+      "adapter_sha256": "5d21f9c44c349c0878ef770cdd3ccb0c0e4b22dd9f7fc8ce6b68604ebd3bda9e",
+      "training": {
+        "steps": 1,
+        "learning_rate": 2e-7,
+        "reward_mean": 0.3125,
+        "complete_admission_rate": 0.125,
+        "loss": -0.014122787863016129,
+        "gradient_norm": 0.2314453125,
+        "mismatch_kl": 0.00028743603616021574,
+        "peak_memory_gib": 17.337890625
+      },
+      "direct_screen": {
+        "joint": "4/4",
+        "trace_sha256": "6e2b510031af0857bb64da5bfa7ec76156253bced3bbda09e3c640e32ac3d5a0"
+      },
+      "admission_gate": {
+        "traces": 8,
+        "exact_admission": 1,
+        "complete_admission": 0,
+        "spawn_first_cell": 2,
+        "local_work_after_spawn": 0,
+        "trace_sha256": "a8fa4793d35d289703edf1a627d454c9aea98e4b0c2b4b521a751397bdd37c24"
+      },
+      "reason": "The update preserved direct behavior but regressed the held-out admission gate relative to its initialization."
+    }
+  },
+  "run_105_dense_admission_dose": {
+    "config": "105-qwen35-4b-dense-admission-grpo-dose.toml",
+    "config_sha256": "744111cb06c323ea0b39f78ea47e53eacae523611497a3ccae13817d3deaccaa",
+    "steps": 4,
+    "initialization": "run100 step_8, not rejected run104",
+    "selection_rule": "Each checkpoint must preserve the fresh direct screen and exceed 2/8 exact plus 1/8 complete admission on a fresh development gate.",
+    "checkpoints": {
+      "step_1": {
+        "adapter_sha256": "35f7e338b4e64fcdbf5799e5e7b2f2b2b438f3bb075ec8805894077ef67df06f",
+        "training_reward_mean": 0.125,
+        "loss": 0.009762699715793133,
+        "gradient_norm": 0.138671875,
+        "mismatch_kl": 0.0005485109286382794,
+        "direct_joint": "4/4",
+        "exact_admission": "2/8",
+        "complete_admission": "1/8",
+        "direct_trace_sha256": "783257b9feef6298099164dab34410a74bae2f3acb36315d533da1e076183524",
+        "admission_trace_sha256": "c2452328bd56286ce89d029684b9502c6e923dd1a58bdd2adadb3bd07bde5b38",
+        "decision": "reject: matches but does not exceed initialization"
+      },
+      "step_2": {
+        "adapter_sha256": "58169d06ab9271baa9a54dc16b78201de0ca07af5ab5404597e0d4cbc2bd5960",
+        "training_reward_mean": 0.16666666666666666,
+        "loss": 0.007703208364546299,
+        "gradient_norm": 0.1064453125,
+        "mismatch_kl": 0.0003094800631515682,
+        "direct_joint": "4/4",
+        "exact_admission": "2/8",
+        "complete_admission": "0/8",
+        "direct_trace_sha256": "33b247f4adacb78193872ae1712cf79d8a1d1a1b20ea81d0994845d44f9f060e",
+        "admission_trace_sha256": "68e96f1e64897bc89993829086eb21ee8c527cb5ecaddd9f9d60df3bab7ff0e2",
+        "decision": "reject: regresses complete admission"
+      },
+      "step_3": {
+        "adapter_sha256": "1bac93158889d2d082f9d51f6402847eefdd1ee3477004e14f9a09bf81b78703",
+        "training_reward_mean": 0.22916666666666666,
+        "loss": -0.02925657480955124,
+        "gradient_norm": 0.173828125,
+        "mismatch_kl": 0.00029462791280820966,
+        "direct_joint": "4/4",
+        "exact_admission": "3/8",
+        "complete_admission": "2/8",
+        "direct_trace_sha256": "d990a6604370833734596053b5186ffafb0411bbe83f7eecb4e00e7a93cda75b",
+        "admission_trace_sha256": "22db85e378befa61bec3126d1687ff984bc18aa2cb457dfe405cc7ec3f3ea374",
+        "full_development_gate": {
+          "direct_joint": "8/8",
+          "direct_spawn_calls": 0,
+          "direct_duplicate_cells": 0,
+          "single_answer_credit": "3/8",
+          "single_protocol": "0/8",
+          "single_spawn_calls": 10,
+          "single_messages_to_parent": 2,
+          "single_duplicate_cells": 11,
+          "single_max_turns": 5,
+          "trace_sha256": "b4b27f676ee3fc0cee4a7b6a63ff55564a2b4f379222f641e8de9620ffdd492b"
+        },
+        "decision": "reject: improved admission but did not compose into a complete normal single-child protocol"
+      },
+      "step_4": {
+        "adapter_sha256": "871c06be58e634934c005e66e0a86c83e02ef10605d079a73cefdabf20946b3f",
+        "training_reward_mean": 0.3958333333333333,
+        "loss": -0.005423799157142639,
+        "gradient_norm": 0.2138671875,
+        "mismatch_kl": 0.000330376613419503,
+        "direct_joint": "4/4",
+        "exact_admission": "1/8",
+        "complete_admission": "0/8",
+        "direct_trace_sha256": "192550c561c1e6cb3d02a179f040622ef62768d8ef2d9de2cf745032e535d9a2",
+        "admission_trace_sha256": "a0c5511addc561a22659f07f7fc37189e2a2d115197a4d7cdd7888ca42649e0a",
+        "decision": "reject: held-out admission regressed while training reward increased"
+      }
+    }
+  },
+  "selection": {
+    "checkpoint": null,
+    "decision": "reject the dense admission-only dose",
+    "promotion_ready": false,
+    "published_to_hugging_face": false,
+    "frozen_capacity_battery_v1_run": false,
+    "conclusion": "Dense admission reward can improve the parent first-turn primitive at 4B, but admission-only optimization did not compose it with child reply and parent resumption."
+  }
+}

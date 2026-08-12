@@ -1,0 +1,136 @@
+{
+  "experiment": "qwen35-4b-executable-causal-sft-r1",
+  "base_model": "Qwen/Qwen3.5-4B",
+  "initialization": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+  "training": {
+    "config": "configs/debug/subagent-communication/201-qwen35-4b-executable-causal-sft.toml",
+    "data_sha256": "40794bce33a0643898c1dc8a628cac3b0f063d2d28945331eafe97eb03a41f39",
+    "metrics_sha256": "b09a47da1af3288daaba865a3990739564e7709a96aac52d57cc97926e0fc79a",
+    "examples": 160,
+    "examples_per_style": 16,
+    "styles": [
+      "direct_parent",
+      "single_parent_full",
+      "single_child_full",
+      "single_admission_parent",
+      "child_send",
+      "parent_wait_for_reply",
+      "parent_bind_reply_and_finalize",
+      "child_declared_tool_repair",
+      "child_string_type_repair",
+      "parent_top_level_await_repair"
+    ],
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 5e-7,
+    "steps": 40,
+    "epochs": 1,
+    "loss_min": 0.3448089063167572,
+    "loss_max": 1.2944698333740234,
+    "nan_loss_rows": 0
+  },
+  "adapter_sha256": {
+    "step_8": "b3170320d43ff43d66adc1ae0c73b9d15b691fcb67330aaffed8f2a2be07b980",
+    "step_16": "286509713e69b33f253d228febf86d69ce2e970b235f1b1168c542199af968e6",
+    "step_24": "045e4c37be4c1c2325a572e0c0708d52372c2bdcbdd75fdc443844d604f7e458",
+    "step_32": "ca68d5ee5663f38baab3ff2e16157940b69c738d24ec9a2d3b7672f6d69510a7",
+    "step_40": "081a4aa0d8001455f5dbd94e7b21cba2ea0d9685c5d645797cd5466479345e27"
+  },
+  "selection_screen": {
+    "config": "configs/debug/subagent-communication/202-qwen35-4b-executable-causal-screen.toml",
+    "instance_offset": 5500,
+    "seed": 20270113,
+    "results": {
+      "run100_step8": {
+        "answer_accuracy": "5/8",
+        "causal_spawn_first": "3/8",
+        "causal_contract_bound": "0/8",
+        "causal_local_work": "0/8",
+        "causal_child_reply": "0/8",
+        "causal_completed": "0/8",
+        "trace_sha256": "a77c64ca54931c544304d736401977ad180b283576cf7b92b1684759792413e1"
+      },
+      "step_8": {
+        "answer_accuracy": "7/8",
+        "causal_spawn_first": "1/8",
+        "causal_completed": "0/8",
+        "trace_sha256": "3fa51bb86b7e3df76c98e936ee352d4ab4e850712f8c217a3c1fd78c67a5f9dc"
+      },
+      "step_16": {
+        "answer_accuracy": "6/8",
+        "causal_spawn_first": "2/8",
+        "causal_contract_bound": "1/8",
+        "causal_local_work": "0/8",
+        "causal_completed": "0/8",
+        "trace_sha256": "bb4279b4efcb2acfa436beb8b9bff0d935f5fbbdf1672e2bf8f4d9bf3dfa1979"
+      },
+      "step_24": {
+        "answer_accuracy": "5/8",
+        "causal_spawn_first": "1/8",
+        "causal_contract_bound": "1/8",
+        "causal_local_work": "1/8",
+        "causal_child_reply": "1/8",
+        "causal_clean_child_reply": "1/8",
+        "causal_completed": "0/8",
+        "duplicate_cells": 80,
+        "max_turns": 3,
+        "trace_sha256": "307cb9004b4c20ec150b7278f9cfaeb4acfb5aae72b8c065456370c761639159"
+      },
+      "step_32": {
+        "answer_accuracy": "7/8",
+        "causal_spawn_first": "0/8",
+        "causal_completed": "0/8",
+        "trace_sha256": "3c5db36e0e4eba3a01ca76557441ab4279f0e4324cc8cabba717ade9f6064e90"
+      },
+      "step_40": {
+        "answer_accuracy": "4/8",
+        "causal_spawn_first": "0/8",
+        "causal_completed": "0/8",
+        "trace_sha256": "b65edb2db65a9c2702bbe18b932f1eb502adb1abd23ccebdbb4d68fc69076af9"
+      }
+    }
+  },
+  "direct_screen": {
+    "config": "configs/debug/subagent-communication/203-qwen35-4b-executable-step24-direct-screen.toml",
+    "run100_step8": {
+      "joint_success": "8/8",
+      "failed_cells": 0,
+      "duplicate_cells": 0,
+      "trace_sha256": "3391ceeb49f1fc07f6c76d918f6a091977a5be5287efc86b9b15039c74d42d8b"
+    },
+    "step_24": {
+      "joint_success": "8/8",
+      "failed_cells": 0,
+      "duplicate_cells": 0,
+      "trace_sha256": "7a2cf6a325f330f9fa4f0141ff55a0cdf9894eeccb41a342ccd44f64a29d7341"
+    }
+  },
+  "fresh_causal_confirmation": {
+    "config": "configs/debug/subagent-communication/204-qwen35-4b-executable-step24-confirmation.toml",
+    "instance_offset": 5700,
+    "seed": 20270115,
+    "run100_step8": {
+      "answer_accuracy": "6/8",
+      "causal_reward_sum": 0.8,
+      "causal_child_reply": "1/8",
+      "causal_completed": "0/8",
+      "trace_sha256": "b672656f5b89f0710346f894e825901ab6a2d8f219febd2eca85445f6f752e62"
+    },
+    "step_24": {
+      "answer_accuracy": "7/8",
+      "causal_reward_sum": 0.2,
+      "causal_child_reply": "0/8",
+      "causal_completed": "0/8",
+      "trace_sha256": "8c04543aa00560eb5980a9efdbab07ed07b650c5e68fa2280af6274b8556fd06"
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "frozen_capacity_battery_run": false,
+    "accepted_checkpoint_unchanged": true,
+    "experimental_trace_source": "step_24",
+    "reason": "Step 24 preserved direct behavior and produced one fourth-stage chain on selection tasks, but failed a fresh causal confirmation and did not outperform the accepted baseline."
+  }
+}

@@ -3,7 +3,7 @@ import uuid
 from types import SimpleNamespace
 
 from prime_rl.orchestrator.dispatcher import RolloutDispatcher
-from prime_rl.orchestrator.types import GroupState
+from prime_rl.orchestrator.types import GroupState, InflightRollout
 
 
 def test_synchronous_dispatch_budget_resets_only_for_new_policy():
@@ -49,3 +49,68 @@ def test_synchronous_dispatch_budget_resets_only_for_new_policy():
         assert dispatcher.available_train_permits == 15
 
     asyncio.run(run())
+
+
+def test_synchronous_dispatch_budget_refunds_unusable_train_rollouts():
+    dispatcher = RolloutDispatcher.__new__(RolloutDispatcher)
+    dispatcher.train_envs = SimpleNamespace(get=lambda name: SimpleNamespace(requires_group_scoring=False))
+    dispatcher.train_rollouts_per_policy = 8
+    dispatcher.train_rollouts_scheduled = 8
+    meta = InflightRollout(
+        kind="train",
+        env_name="test-env",
+        group_id=uuid.uuid4(),
+        policy_version=0,
+        rollout_count=2,
+    )
+    rollouts = [
+        SimpleNamespace(has_error=True, agent=SimpleNamespace(trainable=True)),
+        SimpleNamespace(has_error=False, agent=SimpleNamespace(trainable=True)),
+    ]
+
+    dispatcher.refund_unusable_train_rollouts(meta, rollouts)
+
+    assert dispatcher.train_rollouts_scheduled == 7
+
+
+def test_synchronous_dispatch_budget_refunds_entire_group_scored_call():
+    dispatcher = RolloutDispatcher.__new__(RolloutDispatcher)
+    dispatcher.train_envs = SimpleNamespace(get=lambda name: SimpleNamespace(requires_group_scoring=True))
+    dispatcher.train_rollouts_per_policy = 8
+    dispatcher.train_rollouts_scheduled = 8
+    meta = InflightRollout(
+        kind="train",
+        env_name="test-env",
+        group_id=uuid.uuid4(),
+        policy_version=0,
+        rollout_count=4,
+    )
+    rollouts = [
+        SimpleNamespace(has_error=True, agent=SimpleNamespace(trainable=True)),
+        SimpleNamespace(has_error=False, agent=SimpleNamespace(trainable=True)),
+        SimpleNamespace(has_error=False, agent=SimpleNamespace(trainable=True)),
+        SimpleNamespace(has_error=False, agent=SimpleNamespace(trainable=True)),
+    ]
+
+    dispatcher.refund_unusable_train_rollouts(meta, rollouts)
+
+    assert dispatcher.train_rollouts_scheduled == 4
+
+
+def test_synchronous_dispatch_budget_does_not_refund_eval_failures():
+    dispatcher = RolloutDispatcher.__new__(RolloutDispatcher)
+    dispatcher.train_envs = SimpleNamespace(get=lambda name: SimpleNamespace(requires_group_scoring=False))
+    dispatcher.train_rollouts_per_policy = 8
+    dispatcher.train_rollouts_scheduled = 8
+    meta = InflightRollout(
+        kind="eval",
+        env_name="test-env",
+        group_id=uuid.uuid4(),
+        policy_version=0,
+        rollout_count=1,
+    )
+    rollouts = [SimpleNamespace(has_error=True, agent=SimpleNamespace(trainable=True))]
+
+    dispatcher.refund_unusable_train_rollouts(meta, rollouts)
+
+    assert dispatcher.train_rollouts_scheduled == 8

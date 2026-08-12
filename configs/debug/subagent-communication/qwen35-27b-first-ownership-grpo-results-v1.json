@@ -1,0 +1,116 @@
+{
+  "experiment_id": "qwen35-27b-first-ownership-grpo-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "reward": {
+    "environment": "subagent-communication-v1",
+    "mode": "ownership_transition",
+    "components": [
+      "one successful rlm spawn in the first coordinator cell",
+      "assigned child handle",
+      "expected child name",
+      "delegated path present inside the child prompt",
+      "secret absent from the child prompt",
+      "delegated path absent outside rlm(...)"
+    ],
+    "standard_task_rewards_disabled": true,
+    "action_filter": "subagent_communication_v1.taskset.keep_first_coordinator_response",
+    "linux_tests": "68 passed"
+  },
+  "strict_preflight": {
+    "reward_shape": "strict",
+    "rollouts": 8,
+    "reward_values": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+    "optimizer_update": false,
+    "reason": "The zero-advantage filter correctly removed the saturated all-zero group. The service was stopped after the first empty batch and no checkpoint was retained."
+  },
+  "dense_preflight": {
+    "config": "247-qwen35-27b-ownership-dense-preflight.toml",
+    "config_sha256": "8fc5157c0b230110b7642493078602ab34eb1ab16593a08fed178d3b32f20efa",
+    "trace_sha256": "46da4f3bb6dab4fe49c97cd55f34fa058d80890fc24378b12bea651907eb24bb",
+    "rollouts": 8,
+    "reward_values": [
+      0.6666666666666666,
+      0.16666666666666666,
+      0.8333333333333334,
+      0.16666666666666666,
+      0.16666666666666666,
+      0.8333333333333334,
+      0.16666666666666666,
+      0.16666666666666666
+    ],
+    "interpretation": "Five first responses read the child-owned file and earned 1/6; two spawned the correct named child with its path but discarded the returned handle and earned 5/6; one spawned without the path or retained handle and earned 4/6."
+  },
+  "training": {
+    "config": "245-qwen35-27b-first-ownership-grpo-dose.toml",
+    "config_sha256": "74fcd5e6bef6968c6002ed4e9613abe79d550553a43b4a2e44f0e886dd50c8f8",
+    "metrics_sha256": "a737369db092b33f439f977c2834539764da2aa26bbeca16327589ccc70ba6cb",
+    "adapter_sha256": "1b7c15e5702db5f27b2c8ad52855e79d25dad6db5e29f750d3d2d44949e7bde8",
+    "thinking_mode": true,
+    "reward_shape": "dense",
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "lora_rank": 16,
+    "optimizer_steps": 1,
+    "rollouts": 8,
+    "trainable_rollouts": 8,
+    "mean_reward": 0.375,
+    "mean_turns": 2.1,
+    "loss": -0.001192167866975069,
+    "gradient_norm": 0.078125,
+    "mismatch_kl": 0.0003059811133425683,
+    "update_succeeded": true,
+    "peak_trainer_memory_gib": 36.59375
+  },
+  "selection": {
+    "config": "246-qwen35-27b-first-ownership-selection.toml",
+    "config_sha256": "db439d7e3c0754a1294510bbe09eb3db1dd28a25570064990a193e569d7dfadf",
+    "task_offset": 10300,
+    "tasks_per_arm": 8,
+    "base_trace_sha256": "6da550478553bd6055ea1cab254c44ed7e74de891a15cda27669e00531c10b15",
+    "candidate_trace_sha256": "26a0b98fb09348f2c4bfc3da87a2c292d33b55c1cce1eb231e81a00fd3c31b33",
+    "base": {
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 1.0,
+      "protocol_aligned": 0.5,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.125,
+      "ownership_transition_dense": 0.7708333333333334,
+      "bidirectional_control": 0.6818181818181819
+    },
+    "candidate": {
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 0.75,
+      "protocol_aligned": 0.25,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.75,
+      "ownership_transition_dense": 0.5833333333333333,
+      "bidirectional_control": 0.3068181818181818
+    },
+    "followup_only": {
+      "base": {
+        "answers": "4/4",
+        "natural_followup_causal": "4/4",
+        "protocol_aligned": "1/4",
+        "coordinator_delegated_path_accesses": 0.25,
+        "ownership_transition_dense": 0.7083333333333334
+      },
+      "candidate": {
+        "answers": "4/4",
+        "natural_followup_causal": "3/4",
+        "protocol_aligned": "0/4",
+        "coordinator_delegated_path_accesses": 1.5,
+        "ownership_transition_dense": 0.3333333333333333
+      }
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "frozen_family_gates_run": false,
+    "reason": "The candidate moved opposite to the trained objective on the disjoint natural gate, sharply increased coordinator path access, and regressed causal completion and handshake retention. No repeat can rescue an intervention whose direct structural metric moved backward.",
+    "retain": "Keep the environment-native ownership reward and first-response action filter as diagnostics. Do not retain or initialize from the adapter.",
+    "next": "Pause optimization and redesign collection around admitted native 27B first decisions. The current evidence says 27B has sufficient causal capacity but the stochastic one-step updates are not reliably transferring the structural ownership boundary."
+  }
+}

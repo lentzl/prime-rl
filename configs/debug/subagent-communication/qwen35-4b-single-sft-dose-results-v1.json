@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-single-sft-dose-v1",
+  "base_model": {
+    "name": "Qwen/Qwen3.5-4B",
+    "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+  },
+  "training_data": {
+    "path": "/ephemeral/subagent-rung/data/01-single-sft-r4/train.json",
+    "sha256": "1ebeb965bcd46dd7866a90260fcd22623d9eba51e29da2478accde11acc32686",
+    "examples": 96,
+    "composition": {
+      "direct_parent": 32,
+      "single_parent": 32,
+      "single_child": 32
+    }
+  },
+  "shared_training": {
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "batch_size": 4,
+    "micro_batch_size": 1,
+    "sequence_length": 8192,
+    "seed": 20260809
+  },
+  "high_rate_probe": {
+    "config": "85-qwen35-4b-single-sft.toml",
+    "learning_rate": 0.00005,
+    "max_steps": 24,
+    "observations": {
+      "step_12_loss": 0.0031,
+      "step_24_loss": 0.0001,
+      "step_12_direct_screen_joint": "0/4",
+      "step_24_direct_screen_joint": "0/4"
+    },
+    "decision": "rejected as an overfit schedule"
+  },
+  "low_rate_probe": {
+    "config": "90-qwen35-4b-single-sft-low-rate.toml",
+    "learning_rate": 0.00001,
+    "max_steps": 12,
+    "checkpoints": {
+      "step_4": {
+        "loss": 0.5907,
+        "adapter_sha256": "8bdc69ba7bd21c2a386428fde0b5baaf7be9ce5e485cdf3bba5dd35b8bcb29a7",
+        "direct_screen": {
+          "joint": "4/4",
+          "trace_sha256": "3df0db5e0b2b4f3c48795ff80e3d27da29379f8d02e4e9db5622a5e490f7c8da"
+        },
+        "development": {
+          "direct_joint": "8/8",
+          "single_answer": "2/8",
+          "single_protocol": "0/8",
+          "single_joint": "0/8",
+          "duplicate_cells": 1,
+          "rollout_errors": 0,
+          "trace_sha256": "5cb093d73c03107a137fead9a661133ad477aa530692468e1d4b580d356f25d7"
+        }
+      },
+      "step_8": {
+        "loss": 0.1838,
+        "adapter_sha256": "eb97a8ca7d95b7faaf8458e6b50aff1cb85f063b966b877dbbf1406586d91c1a",
+        "direct_screen": {
+          "joint": "4/4",
+          "trace_sha256": "b82d5894e00475541e1ea2d15119439c785a357653c85bf41fba276ba479c429"
+        },
+        "development": {
+          "direct_joint": "8/8",
+          "single_answer": "2/8",
+          "single_protocol": "0/8",
+          "single_joint": "0/8",
+          "duplicate_cells": 6,
+          "rollout_errors": 1,
+          "trace_sha256": "7e80b6c263f9f076576e8eb17aee835859b25920519cb96693bfcf855988dd3a"
+        }
+      },
+      "step_12": {
+        "loss": 0.2837,
+        "adapter_sha256": "92f90e8115e4321346288f060c03cc04db7dd3b797697860272f95c772c36f4c",
+        "direct_screen": {
+          "joint": "4/4",
+          "trace_sha256": "f744d478efb8e693f9844b316df03355cea3011ed3a2a036545ebf8252effc12"
+        },
+        "development": {
+          "direct_joint": "8/8",
+          "single_answer": "2/8",
+          "single_protocol": "0/8",
+          "single_joint": "0/8",
+          "duplicate_cells": 1,
+          "rollout_errors": 2,
+          "trace_sha256": "0c53fd10fe68dad03a4a0f3e099686c6c278d7d1d6c7ace06315a98432e429b7"
+        }
+      }
+    }
+  },
+  "selection": {
+    "checkpoint": "step_4",
+    "reason": "Equal task metrics with the fewest behavioral and infrastructure failures.",
+    "promotion_ready": false,
+    "frozen_capacity_battery_v1_run": false
+  },
+  "observed_failure_boundary": [
+    "The parent usually attempts a spawn but often reads or computes the child-assigned shard itself.",
+    "The child-side explicit agent_message transition is not reliable.",
+    "The parent substitutes agent_observe or repeated tool calls for ending the turn and receiving the child message.",
+    "Additional updates through step 12 do not improve completed single-child protocol success."
+  ]
+}

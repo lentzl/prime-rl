@@ -1,0 +1,15 @@
+[Unit]
+Description=Train Qwen 3.5 27B on exact bidirectional child requests
+After=qwen35-27b-teacher-inference.service
+Requires=qwen35-27b-teacher-inference.service
+OnSuccess=qwen35-27b-exact-request-selection.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=CUDA_VISIBLE_DEVICES=2,3
+ExecStart=/bin/bash -lc 'export HF_TOKEN="$HF_KEY"; exec /home/ubuntu/.local/bin/uv run sft @ configs/debug/subagent-communication/223-qwen35-27b-exact-request-sft.toml'
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/223-qwen35-27b-exact-request-sft.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/223-qwen35-27b-exact-request-sft.log

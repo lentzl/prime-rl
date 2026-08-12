@@ -1,0 +1,13 @@
+# Colocated dense inference for full-weight Prime Agent training.
+# LoRA wrapping changes Qwen3.5 parameter names and breaks in-place dense reloads.
+
+[vllm]
+model = "/ephemeral/models/qwen35-file-processing-r1"
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+enable_lora = false
+gpu_memory_utilization = 0.17
+max_num_seqs = 12
+
+[weight_broadcast]
+type = "filesystem"

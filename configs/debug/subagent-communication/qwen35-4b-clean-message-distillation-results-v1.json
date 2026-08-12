@@ -1,0 +1,168 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-clean-message-distillation-v1",
+  "base_model": {
+    "name": "Qwen/Qwen3.5-4B",
+    "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+  },
+  "initial_checkpoint": {
+    "adapter": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+    "role": "accepted 4B development initialization"
+  },
+  "teacher": {
+    "model": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "natural_preflight": {
+      "rollouts": 8,
+      "causal_completed": 4,
+      "causal_clean_completed": 0
+    },
+    "conditioned_preflight": {
+      "rollouts": 8,
+      "causal_child_reply": 8,
+      "causal_clean_child_reply": 1,
+      "causal_completed": 2,
+      "causal_clean_completed": 0
+    },
+    "explicit_message_preflight": {
+      "config": "142-qwen35-9b-explicit-message-resume-preflight.toml",
+      "rollouts": 8,
+      "causal_child_reply": 8,
+      "causal_clean_child_reply": 3,
+      "causal_completed": 0,
+      "causal_clean_completed": 0
+    },
+    "collection": {
+      "config": "144-qwen35-9b-clean-message-trajectory-collection.toml",
+      "config_sha256": "72d80c60165492f84bb48b55c0c77933a495f9cf8f0fb9348727f13980727f13",
+      "prompt_sha256": "15cd72b3a4d83d2b4dd3ed15381ed27fe66c9a84054bdc2d531d82b9f5c01c24",
+      "rollouts": 32,
+      "causal_spawn_first": 31,
+      "causal_contract_bound": 31,
+      "causal_local_work": 31,
+      "causal_child_reply": 28,
+      "causal_clean_child_reply": 14,
+      "causal_completed": 11,
+      "causal_clean_completed": 5,
+      "trace_sha256": "c3b2fc4b87483b0a3bf389c7eee36ea9e91a9fb8b042c3f52b0f58a4a5bc8675"
+    }
+  },
+  "training_data": {
+    "path": "/ephemeral/subagent-rung/data/146-qwen35-9b-clean-message-distillation-r1",
+    "dataset_sha256": "3cb1eff778c549e03430ab59683bc93a561fa73fe300edd1a11d7879d9e7d6d9",
+    "source_traces": 17,
+    "strict_traces": 5,
+    "canonicalized_final_traces": 12,
+    "branch_examples": 34,
+    "coordinator_branches": 17,
+    "child_branches": 17,
+    "unique_tasks": 10,
+    "canonicalization": "Only a clean real trajectory's final coordinator text was replaced, and only when its embedded JSON object exactly matched the verifier answer. No tool call, child message, intermediate action, or value was synthesized."
+  },
+  "training": {
+    "config": "149-qwen35-4b-clean-message-distillation-sft.toml",
+    "config_sha256": "b6a9eb38301488484473ba9675f9db40c7633fa8ec2852cbd1403fa508279a0f",
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 5e-7,
+    "batch_size": 4,
+    "micro_batch_size": 1,
+    "sequence_length": 12288,
+    "max_steps": 8,
+    "nan_count": 0,
+    "peak_memory_gib": 12.806640625,
+    "checkpoints": {
+      "step_2": {
+        "loss": 0.4941,
+        "gradient_norm": 1.1953,
+        "adapter_sha256": "8e9b2fcb88c59ac2cf667d69d2807fdffb11a6cec33076fd86ccdde1c1b2c9b5"
+      },
+      "step_4": {
+        "loss": 0.4939,
+        "gradient_norm": 1.1953,
+        "adapter_sha256": "d96fe819cf25938c31c0e5a6934d8d38cfe8b0e269b9e3e27078bcff778a54cc"
+      },
+      "step_6": {
+        "loss": 0.4502,
+        "gradient_norm": 1.0234,
+        "adapter_sha256": "471363784f06c18d298d5d7e575bbf64d2b6047fd290d87b179da708954472f2"
+      },
+      "step_8": {
+        "loss": 0.3394,
+        "gradient_norm": 0.9062,
+        "adapter_sha256": "23d178f4430ad58c5d87bcef6d56fb0a27d542af1e9b6c980267c2a4dacfd9b6"
+      }
+    }
+  },
+  "disjoint_development": {
+    "step_2": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "1/8",
+      "causal_completed": "1/8",
+      "causal_spawn_first": "1/8",
+      "causal_contract_bound": "1/8",
+      "causal_local_work": "1/8",
+      "causal_child_reply": "1/8",
+      "answer_accuracy_sum": 6.0,
+      "protocol_aligned": "5/8",
+      "roster_calls": 10,
+      "observation_calls": 11,
+      "failed_cells": 9,
+      "duplicate_cells": 7,
+      "direct_trace_sha256": "4059d98ac01b050b66593232673db1baad643685cd2cce087cc9c1e7736d6a4d",
+      "causal_trace_sha256": "7884cfebcc2dc1f4675ae290184bf9b43b69276d1a1cc2abb8cdd0978da20c42"
+    },
+    "step_4": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "0/8",
+      "causal_completed": "0/8",
+      "answer_accuracy_sum": 8.0,
+      "protocol_aligned": "5/8",
+      "direct_trace_sha256": "f0ac019a916fc4d1eb96649f8dd314df8315186ed44815f616277f3e96fd7408",
+      "causal_trace_sha256": "f4ad883fd5310b8d8f3029c69551b534ad448c42263d5436f1d3f07990032f5d"
+    },
+    "step_6": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "0/8",
+      "causal_completed": "0/8",
+      "answer_accuracy_sum": 6.0,
+      "protocol_aligned": "3/8",
+      "direct_trace_sha256": "1c16d72dfa95be792cb053e7a2afeaad4c6f66d90c3cd1e7346e9cdc758ea245",
+      "causal_trace_sha256": "1a4b2a4b4b5a550dd3a0ae576f6d1dbb97ac1376d3b61ab984e9280d7e7c3ae0"
+    },
+    "step_8": {
+      "direct_joint": "4/4",
+      "causal_clean_completed": "0/8",
+      "causal_completed": "0/8",
+      "answer_accuracy_sum": 5.666666666666666,
+      "protocol_aligned": "6/8",
+      "direct_trace_sha256": "cae3f141949731ed855c620d6e8354ebb075f59c652ff68c97c8e2bf099345a5",
+      "causal_trace_sha256": "33007d4d5183f3275ef3271ad8a12f3d32b996bb67f679c747863a539bbd193a"
+    }
+  },
+  "fresh_confirmation": {
+    "checkpoint": "step_2",
+    "instance_offset": 2500,
+    "seed": 20261107,
+    "causal_clean_completed": "0/8",
+    "causal_completed": "0/8",
+    "answer_accuracy_sum": 8.0,
+    "protocol_aligned": "6/8",
+    "roster_calls": 1,
+    "observation_calls": 15,
+    "failed_cells": 11,
+    "duplicate_cells": 2,
+    "trace_sha256": "f10604346aa1f18af1b52aaa1f920a1a4d368bdcf1dba02aaaf29efedd8dee49"
+  },
+  "selection": {
+    "checkpoint": null,
+    "decision": "reject all checkpoints",
+    "accepted_checkpoint_remains": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+    "promotion_ready": false,
+    "published_to_hugging_face": false,
+    "frozen_capacity_battery_v1_run": false,
+    "conclusion": "Corrected real-harness distillation produced one fully clean disjoint causal completion at step 2 while preserving direct behavior, but the event did not repeat on a fresh confirmation and later checkpoints erased the causal ordering.",
+    "next_intervention": "Train the 9B teacher itself on the clean trajectory pool until clean causal completion is repeatable, then use the mastered teacher for a larger compression attempt into 4B."
+  }
+}

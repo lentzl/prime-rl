@@ -1,0 +1,11 @@
+[Unit]
+Description=Run one pre-child coordinator OPSD update for Qwen 3.5 9B
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run rl @ configs/debug/subagent-communication/196-qwen35-9b-pre-child-opsd.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/196-qwen35-9b-pre-child-opsd.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/196-qwen35-9b-pre-child-opsd.log

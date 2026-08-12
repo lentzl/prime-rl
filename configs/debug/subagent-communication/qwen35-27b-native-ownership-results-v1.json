@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "experiment": "thinking Qwen3.5-27B native ownership rejection sampling",
+  "decision": "rejected",
+  "base": {
+    "model": "Qwen/Qwen3.5-27B",
+    "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+    "thinking_enabled": true
+  },
+  "collection": {
+    "sampling": {
+      "num_batches": 2,
+      "tasks_per_batch": 8,
+      "rollouts_per_task": 4,
+      "temperature": 0.8,
+      "temporary_answer_free_ownership_guidance": true
+    },
+    "source_trace_sha256": [
+      "9233bef06571deafd61ba67c770234d27534aa755e9ab4c167b41d9aaff423f1",
+      "14409fe5523a11a4fd7b7b111ad77540d899a239931902805209bf107faabeef"
+    ],
+    "sampled_traces": 64,
+    "strictly_admitted_traces": 7,
+    "admission_rate": 0.109375,
+    "selection": "all seven structural ownership checks pass on the first coordinator response",
+    "temporary_guidance_removed_before_training": true,
+    "max_per_task": 1,
+    "covered_prompt_variants": [0, 1, 2, 3],
+    "dataset_sha256": "4f3f925376a0f18c143a3c31ded5b291d1b52d7df99c6be8d32f1b0a8709544b"
+  },
+  "training": {
+    "config": "251-qwen35-27b-native-ownership-sft.toml",
+    "optimizer_steps": 1,
+    "learning_rate": 5e-8,
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "optimization_dtype": "bfloat16",
+    "dataset_examples": 7,
+    "packed_samples_consumed": 5,
+    "tokens": 32768,
+    "loss": 0.31866028904914856,
+    "gradient_norm": 0.44140625,
+    "nan_count": 0,
+    "peak_memory_gib": 33.6640625,
+    "adapter_sha256": "0b0dfd389c83604e3912a73487ddea79564f290a8f31368477bd1930a379d16f"
+  },
+  "selection": {
+    "config": "252-qwen35-27b-native-ownership-selection.toml",
+    "prompt_distribution": "unguided standard language",
+    "tasks": 8,
+    "rollouts_per_task": 4,
+    "base_trace_sha256": "222dd52654fa6cd3c8efe153bcbb625713caabbf7452f19794c61ee1645524c3",
+    "candidate_trace_sha256": "a053d3c75700a25f61ceb8b9f217da4eb95289abd3ce013c4ac271255e222d48",
+    "ownership_rescore_sha256": "644233ff3a08a84e62603b509f19a26fcee4174973e9c82999b4b3d0455785a5",
+    "base": {
+      "strict_transitions": 0,
+      "dense_mean": 0.5491071428571428,
+      "retained_secrets": 0,
+      "followup": {
+        "n": 16,
+        "strict_transitions": 0,
+        "dense_mean": 0.25,
+        "retained_secrets": 0,
+        "retained_handles": 0,
+        "path_owned": 3
+      },
+      "handshake": {
+        "n": 16,
+        "strict_transitions": 0,
+        "dense_mean": 0.8482142857142857,
+        "retained_secrets": 0,
+        "retained_handles": 15
+      }
+    },
+    "candidate": {
+      "strict_transitions": 0,
+      "dense_mean": 0.5625,
+      "retained_secrets": 0,
+      "followup": {
+        "n": 16,
+        "strict_transitions": 0,
+        "dense_mean": 0.33035714285714285,
+        "retained_secrets": 0,
+        "retained_handles": 3,
+        "path_owned": 6
+      },
+      "handshake": {
+        "n": 16,
+        "strict_transitions": 0,
+        "dense_mean": 0.7946428571428571,
+        "retained_secrets": 0,
+        "retained_handles": 14
+      }
+    }
+  },
+  "scorer_repairs": [
+    "require the coordinator-owned multiplier or nonce to be assigned in persistent state",
+    "accept rlm prompts supplied through either the positional argument or prompt keyword",
+    "score natural handshake requests for the nonce from the parent rather than only the literal phrase need nonce"
+  ],
+  "interpretation": [
+    "Answer-free guidance plus rejection sampling proves untouched 27B can express the exact first ownership action, but only sparsely.",
+    "The conservative full-response SFT dose improved adjacent followup spawning, handle retention, and path isolation without teaching the decisive persistent secret assignment.",
+    "The unseen handshake control regressed, so the small aggregate dense gain is not a transferable ownership-policy gain.",
+    "Do not publish, distill from, or continue this adapter, and do not repeat the same undifferentiated full-response SFT objective at a larger dose."
+  ]
+}

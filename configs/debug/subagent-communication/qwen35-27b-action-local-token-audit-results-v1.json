@@ -1,0 +1,53 @@
+{
+  "experiment_id": "qwen35-27b-action-local-token-audit-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "audit": {
+    "config": "256-qwen35-27b-action-local-token-audit.toml",
+    "config_sha256": "cf61f4548a896ac1c9b2470c1c27fe26b5ee8985f7bf9900c621a94d76fdc2d9",
+    "metrics_sha256": "afc08ec60e6d00a0aad58db16af8d284dad72b78f4b9e3f930c29fc367a562d7",
+    "rollout_trace_sha256": "1dc6ecc4de7069467d6f8e98d56ffd2be100c79ede1302315974dc2a48eebaa9",
+    "rank_0_token_export_sha256": "53e9b34718fa7f6fda0f0831e80b3608340799387dcfc361ebffd107c58d2a02",
+    "rank_1_token_export_sha256": "967a46602da4d8c0278a1056aa7d539e57d120b44bc3e7164d13cd2a28e16549",
+    "zero_update_adapter_sha256": "7cc24b7ae9a37c991bd44cda9c4713782b11b895cf72883b56a6d559563029e5",
+    "thinking_mode": true,
+    "inference_ssm_cache_dtype": "float32",
+    "learning_rate": 0.0,
+    "rollouts": 2,
+    "trainable_rollouts": 2,
+    "selected_tokens": 216,
+    "selected_tokens_per_trace": [
+      138,
+      78
+    ],
+    "loss": 0.013725175522267818,
+    "entropy": 0.2150629460811615,
+    "gradient_norm": 0.384765625,
+    "peak_trainer_memory_gib": 35.3671875,
+    "mismatch_kl": {
+      "mean": 0.00012874437379650772,
+      "max": 0.005201101303100586
+    }
+  },
+  "mask_validation": {
+    "filter": "subagent_communication_v1.taskset.keep_first_coordinator_tool_call",
+    "contiguous_selected_spans_per_trace": [
+      1,
+      1
+    ],
+    "starts_with": "<tool_call>",
+    "ends_with": "</tool_call>",
+    "reasoning_tokens_selected": 0,
+    "later_coordinator_tokens_selected": 0,
+    "child_tokens_selected": 0,
+    "teacher_context_semantics": "The complete sampled first response remains in completion_ids, while target_offsets select only the serialized first coordinator tool call."
+  },
+  "decision": {
+    "passed": true,
+    "promoted": false,
+    "published": false,
+    "reason": "The action-local mask selected exactly one complete coordinator tool-call span in each trace, excluded rationale and all later roles, and retained trainer/inference agreement. This validates the teaching surface but makes no behavioral claim because the learning rate was zero.",
+    "next": "Run one action-local OPSD update from untouched thinking-mode 27B, holding the learning rate and paired-gate design fixed relative to the rejected whole-response intervention."
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "experiment_id": "qwen35-27b-bidirectional-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "initial_adapter": "217-qwen35-27b-harness-mastery-sft-r1/step_4",
+  "completed_at": "2026-08-11",
+  "training": {
+    "method": "sft-lora",
+    "precision": "bf16",
+    "rank": 16,
+    "alpha": 32,
+    "learning_rate": 2e-7,
+    "steps": 12,
+    "examples": 176,
+    "composition": {
+      "direct": 8,
+      "single": 16,
+      "parallel": 24,
+      "followup": 64,
+      "handshake": 64
+    },
+    "dataset_sha256": "117800753ab624ace58e941a1815d301cfe46e11b96251dd2bea4e582f5d0f02",
+    "final_loss": 0.718440055847168,
+    "peak_memory_gib_per_gpu": 35.2265625
+  },
+  "fresh_bidirectional_screen": {
+    "tasks": 4,
+    "source_step_4": {
+      "causal_exchange": "0/4",
+      "answer_credit": "0.6667/4",
+      "failed_cells": 8,
+      "trace_sha256": "43f9590bba899cc7c1cfe01aaf1a7abe1e71127a9ae25df6f82fd8da82370940"
+    },
+    "step_4": {
+      "causal_exchange": "0/4",
+      "answer_credit": "1/4",
+      "failed_cells": 10,
+      "adapter_sha256": "14a577f4eb34c5da8d8ae4a4b94dbf1d7da83300e25efff12fee389fdce91189",
+      "trace_sha256": "8d600163c72825d72b95106f3b644992e23c7604960e5b3e59a327cfe8c139ba"
+    },
+    "step_8": {
+      "causal_exchange": "0/4",
+      "answer_credit": "1.3333/4",
+      "failed_cells": 5,
+      "adapter_sha256": "1c970d0ce3a74b800cf56e9ac8e1c5e8b1cbbe0fe4db609432ffe7eabbae767f",
+      "trace_sha256": "bdc7e2f206bb512fcf1966ffc6f0fda8f8ed305f6891e8f6f31d656bde08062f"
+    },
+    "step_12": {
+      "causal_exchange": "0/4",
+      "answer_credit": "2/4",
+      "failed_cells": 7,
+      "adapter_sha256": "be992276c7ad200078fce9a685e3dfd0c9a75bc9f201ff041726845002a8c4c5",
+      "trace_sha256": "5b0be5e37766f3098117bd82d0c7c35ddf9c23e680a851c722ddefb408d2a6d5"
+    }
+  },
+  "diagnosis": "Children send parent messages but paraphrase the required literal request; parents poll, inspect delegated state, and sometimes synthesize child actions themselves. The next intervention isolates exact clean child-request transitions before any later causal stage is trained further.",
+  "decision": {
+    "promoted": false,
+    "published": false
+  }
+}

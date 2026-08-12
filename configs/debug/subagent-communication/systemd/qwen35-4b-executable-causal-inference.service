@@ -1,0 +1,14 @@
+[Unit]
+Description=Qwen 3.5 4B inference for executable causal screens
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run inference @ configs/debug/subagent-communication/201-qwen35-4b-executable-causal-inference.toml
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/201-qwen35-4b-executable-causal-inference.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/201-qwen35-4b-executable-causal-inference.log

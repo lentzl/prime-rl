@@ -1,0 +1,16 @@
+[Unit]
+Description=Screen the Qwen 3.5 4B first-response OPSD checkpoints
+After=qwen35-4b-executable-causal-inference.service
+Requires=qwen35-4b-executable-causal-inference.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=-/home/ubuntu/prime-rl/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/home/ubuntu/prime-rl/scripts/run_qwen35_4b_first_response_opsd_screen.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/210-qwen35-4b-first-response-opsd-screen.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/210-qwen35-4b-first-response-opsd-screen.log
+
+[Install]
+WantedBy=default.target

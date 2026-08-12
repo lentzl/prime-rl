@@ -1,0 +1,12 @@
+[Unit]
+Description=Train Qwen 3.5 4B duplicate-free resumption control
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run sft @ configs/debug/subagent-communication/205-qwen35-4b-resumption-control-sft.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/205-qwen35-4b-resumption-control-sft.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/205-qwen35-4b-resumption-control-sft.log

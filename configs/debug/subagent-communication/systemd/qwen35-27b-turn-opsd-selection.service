@@ -1,0 +1,12 @@
+[Unit]
+Description=Paired natural selection for Qwen 3.5 27B transition OPSD
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_turn_opsd_selection.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/238-qwen35-27b-turn-opsd-selection.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/238-qwen35-27b-turn-opsd-selection.log

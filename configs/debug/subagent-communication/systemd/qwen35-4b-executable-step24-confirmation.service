@@ -1,0 +1,13 @@
+[Unit]
+Description=Fresh causal confirmation for Qwen 3.5 4B executable step 24
+After=qwen35-4b-executable-causal-inference.service
+Requires=qwen35-4b-executable-causal-inference.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/prime-rl/scripts/run_qwen35_4b_executable_step24_confirmation.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/204-qwen35-4b-executable-step24-confirmation.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/204-qwen35-4b-executable-step24-confirmation.log

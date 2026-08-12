@@ -213,6 +213,30 @@ def test_rl_lora_adapter_initialization_enables_initial_weight_sync(tmp_path):
     assert config.orchestrator.sync_initial_weights
 
 
+def test_single_node_external_inference_omits_inference_config():
+    config = RLConfig.model_validate(
+        {
+            "deployment": {"gpus_per_node": 1, "num_train_gpus": 1, "num_infer_gpus": 0},
+            "orchestrator": {"batch_size": 1},
+            "trainer": {},
+        }
+    )
+
+    assert config.inference is None
+
+
+def test_single_node_rejects_zero_gpu_managed_inference():
+    with pytest.raises(ValidationError, match="externally managed inference server"):
+        RLConfig.model_validate(
+            {
+                "deployment": {"gpus_per_node": 1, "num_train_gpus": 1, "num_infer_gpus": 0},
+                "inference": {},
+                "orchestrator": {"batch_size": 1},
+                "trainer": {},
+            }
+        )
+
+
 def test_adapter_only_weight_checkpoint_rejects_redundant_separate_adapter():
     with pytest.raises(ValidationError, match="mutually exclusive"):
         SFTConfig.model_validate(

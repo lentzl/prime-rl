@@ -1,0 +1,13 @@
+[Unit]
+Description=Compare Qwen 3.5 4B executable causal checkpoints
+After=qwen35-4b-executable-causal-inference.service
+Requires=qwen35-4b-executable-causal-inference.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/prime-rl/scripts/run_qwen35_4b_executable_causal_screens.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/202-qwen35-4b-executable-causal-screens.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/202-qwen35-4b-executable-causal-screens.log

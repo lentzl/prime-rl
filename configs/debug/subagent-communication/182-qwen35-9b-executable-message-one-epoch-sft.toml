@@ -1,0 +1,54 @@
+# One packed epoch over the audited pool at a stronger behavior-learning rate.
+
+max_steps = 4
+output_dir = "/ephemeral/subagent-rung/outputs/182-qwen35-9b-executable-message-one-epoch-sft-r1"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 1
+keep_last = 4
+keep_interval = 4
+weights_only = true
+
+[ckpt.weights]
+save_adapter_only = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "Qwen/Qwen3.5-9B"
+seq_len = 12288
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+
+[data]
+name = "/ephemeral/subagent-rung/data/171-qwen35-9b-executable-message-mastery-r1"
+seq_len = 12288
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20261229
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 2e-6

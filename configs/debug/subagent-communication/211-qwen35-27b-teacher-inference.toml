@@ -1,0 +1,19 @@
+# Two-GPU adapter-capable Qwen 3.5 27B teacher server.
+
+[vllm]
+model = "Qwen/Qwen3.5-27B"
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
+tensor_parallel_size = 2
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+enable_lora = true
+max_lora_rank = 16
+max_loras = 1
+# Prompt-logprob scoring temporarily materializes full-vocabulary logits. Leave
+# explicit headroom and serialize enough requests to keep OPSD prefill stable.
+gpu_memory_utilization = 0.82
+max_num_seqs = 2
+mamba_ssm_cache_dtype = "float32"
+
+[weight_broadcast]
+type = "filesystem"

@@ -560,6 +560,7 @@ class RolloutDispatcher:
                     get_logger().warning(
                         f"Rollout failed in group {meta.group_id} ({meta.env_name}) — {r.last_error.type}: {r.last_error.message}"
                     )
+        self.refund_unusable_train_rollouts(meta, rollouts)
         if meta.rollout_count == 1:
             # A ``run`` task: the whole result is one episode.
             await self.emit_episode(meta, group, rollouts)
@@ -567,6 +568,23 @@ class RolloutDispatcher:
             # A legacy ``run_group`` task: one single-trace episode per trace.
             for r in rollouts:
                 await self.emit_episode(meta, group, [r])
+
+    def refund_unusable_train_rollouts(self, meta: InflightRollout, rollouts: list[Rollout]) -> None:
+        """Allow synchronous collection to replace rollouts the sink cannot train on."""
+        if meta.kind != "train" or self.train_rollouts_per_policy is None:
+            return
+
+        unusable = [rollout for rollout in rollouts if rollout.has_error or not rollout.agent.trainable]
+        if not unusable:
+            return
+
+        env = self.train_envs.get(meta.env_name)
+        refunded = meta.rollout_count if env.requires_group_scoring else len(unusable)
+        self.train_rollouts_scheduled = max(0, self.train_rollouts_scheduled - refunded)
+        get_logger().debug(
+            f"Refunded {refunded} unusable train rollout slot(s) for {meta.env_name}; "
+            f"scheduled={self.train_rollouts_scheduled}/{self.train_rollouts_per_policy}"
+        )
 
     async def emit_episode(self, meta: InflightRollout, group: GroupState | None, rollouts: list[Rollout]) -> None:
         """Stamp prime-rl metadata onto one completed episode and put it on

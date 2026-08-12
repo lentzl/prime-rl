@@ -1,0 +1,18 @@
+# Frozen rung-37 teacher for full-weight retention. It must not share the policy
+# worker because filesystem policy broadcasts replace the resident dense weights.
+
+backend_port = 8300
+
+[server]
+port = 8200
+
+[vllm]
+model = "/ephemeral/subagent-rung/outputs/68-rung37-dense-export-r1/weights/step_1"
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+enable_lora = false
+gpu_memory_utilization = 0.17
+max_num_seqs = 12
+
+[weight_broadcast]
+type = "filesystem"

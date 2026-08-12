@@ -1,0 +1,108 @@
+{
+  "experiment_id": "qwen35-27b-aligned-first-response-opsd-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "training": {
+    "config": "254-qwen35-27b-aligned-first-response-opsd.toml",
+    "config_sha256": "efb364aa18017d06306f873a332d19459d7b2b81ea96072a2e25666086dc2c63",
+    "metrics_sha256": "68774fe33ac1d70260e7a1892b0d25ac9ff90aafe994df7c1d14513eb3508334",
+    "rollout_trace_sha256": "892b98fa0ca75549ec0616e208faf12f235233b23bc99363c535096e052afb8e",
+    "adapter_sha256": "ef5f113b2c2d363880f7d33ffc990d03651539b255b9b2af638ee16db17ff8f9",
+    "rank_0_token_export_sha256": "4e3abb801e4e146a4c05276644efff7081ead235a5c5f6a655149be35a8a4dc0",
+    "rank_1_token_export_sha256": "dba871126b1061eb6e851875a622b44e5ab6493a20c468a9a56e296ed14ad631",
+    "thinking_mode": true,
+    "algorithm": "opsd",
+    "filter": "subagent_communication_v1.taskset.keep_first_coordinator_response",
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "lora_rank": 16,
+    "optimizer_steps": 1,
+    "rollouts": 8,
+    "trainable_rollouts": 8,
+    "selected_tokens": 2219,
+    "loss": 0.00871371291577816,
+    "entropy": 0.25436773896217346,
+    "gradient_norm": 0.34375,
+    "peak_trainer_memory_gib": 35.3671875,
+    "inference_ssm_cache_dtype": "float32",
+    "mismatch_kl": {
+      "mean": 0.0002552024304947374,
+      "median": 0.0,
+      "p95": 0.0011185407638549805,
+      "p99": 0.004997730255126953,
+      "max": 0.0324634313583374
+    },
+    "trainer_minus_inference_logprob": {
+      "mean": -0.00019805480497024286,
+      "mean_absolute": 0.007838982981533583,
+      "max_absolute": 0.26610398292541504
+    }
+  },
+  "selection": {
+    "config": "255-qwen35-27b-aligned-first-response-selection.toml",
+    "config_sha256": "4e8629716759b867b0c2fcb3ef0d6455ac61ff410f02042fc638c5c0d8c3a373",
+    "task_offset": 10100,
+    "tasks_per_arm": 8,
+    "base_trace_sha256": "0e3af4c852e363bf651aa65c8db675a670d2f094fb74424b7471cf943608c74f",
+    "candidate_trace_sha256": "017ef84047a949deb20df4f4b75543c210d4f7194c63d7b7c5fb3bfb4d487b60",
+    "base": {
+      "mean_reward": 2.526875,
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 0.875,
+      "protocol_aligned": 0.5,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.25,
+      "failed_cells": 1.75,
+      "bidirectional_control": 0.5340909090909091
+    },
+    "candidate": {
+      "mean_reward": 2.006,
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 0.875,
+      "protocol_aligned": 0.375,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.75,
+      "failed_cells": 1.25,
+      "bidirectional_control": 0.28409090909090906
+    },
+    "followup_only": {
+      "base": {
+        "answers": "4/4",
+        "natural_followup_causal": "4/4",
+        "protocol_aligned": "1/4",
+        "mean_coordinator_delegated_path_accesses": 0.5,
+        "bidirectional_control": 0.4772727272727273
+      },
+      "candidate": {
+        "answers": "4/4",
+        "natural_followup_causal": "4/4",
+        "protocol_aligned": "0/4",
+        "mean_coordinator_delegated_path_accesses": 1.5,
+        "bidirectional_control": 0.0
+      }
+    },
+    "handshake_only": {
+      "base": {
+        "answers": "4/4",
+        "natural_followup_causal": "3/4",
+        "protocol_aligned": "3/4",
+        "bidirectional_control": 0.5909090909090909
+      },
+      "candidate": {
+        "answers": "4/4",
+        "natural_followup_causal": "3/4",
+        "protocol_aligned": "3/4",
+        "bidirectional_control": 0.5681818181818181
+      }
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "frozen_family_gates_run": false,
+    "reason": "The numerically valid update sharply regressed the trained ownership boundary. All four candidate follow-up coordinators read the child-owned path before or during delegation; protocol alignment fell from 1/4 to 0/4, path leakage rose from 0.5 to 1.5 accesses per trace, and bidirectional control fell from 0.477 to 0.0.",
+    "interpretation": "The earlier failure was not solely numerical. Whole-response OPSD assigns guidance to 218-371 tokens per first response. A path-bearing demonstration-conditioned teacher can still assign probability to the student's nearby direct-read continuation, so this objective does not isolate state assignment, retained-handle binding, and ownership transfer.",
+    "next": "Keep untouched thinking-mode 27B. Add action-local filtering to Prime-RL SDPO and test native successful-sibling hindsight on grouped first decisions before any new update. Do not retry this intervention at another learning rate."
+  }
+}

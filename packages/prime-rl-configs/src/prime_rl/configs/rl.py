@@ -309,6 +309,15 @@ class RLConfig(BaseConfig):
 
     @model_validator(mode="after")
     def validate_deployment(self):
+        if (
+            self.deployment.type == "single_node"
+            and self.inference is not None
+            and self.deployment.num_infer_gpus == 0
+        ):
+            raise ValueError(
+                "Cannot configure inference with num_infer_gpus = 0. "
+                "Remove the inference config when using an externally managed inference server."
+            )
         if self.deployment.type == "multi_node":
             if self.slurm is None:
                 raise ValueError("Must use SLURM for multi-node deployment.")

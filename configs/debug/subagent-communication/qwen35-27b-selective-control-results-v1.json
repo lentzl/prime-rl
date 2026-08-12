@@ -1,0 +1,116 @@
+{
+  "experiment_id": "qwen35-27b-selective-control-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-11",
+  "training": {
+    "config": "234-qwen35-27b-selective-control-grpo-dose.toml",
+    "config_sha256": "d61e3035fb97c5746a6f7670ea248e76a551cc3dcc0cb1fa378e357d4593a0a9",
+    "environment_log_sha256": "864ae5ba9e8bfae8bc27549de7625497634fe805a553430831c83e8342812e24",
+    "metrics_sha256": "e2793b88a5b41b6f29db64a24eccffc03a496a7551e5718975d4e5395e0ffb88",
+    "rollout_trace_sha256": "72f2257a44c0105e413e6ed880e1c6b649bc7e7f93fded55f2261776639a6483",
+    "adapter_sha256": "9118dbe8f389e543a6a1436f28c693eed8faa6517c7a6e2bbd96840fefdbeb9c",
+    "thinking_mode": true,
+    "family": "followup",
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "lora_rank": 16,
+    "optimizer_steps": 1,
+    "rollouts": 8,
+    "loss": -0.0003,
+    "entropy": 0.1617,
+    "mismatch_kl": 0.0002,
+    "gradient_norm": 0.0635,
+    "peak_trainer_memory_gib": 36.8,
+    "action_filter": {
+      "import_path": "subagent_communication_v1.taskset.keep_bidirectional_state_transitions",
+      "config_source_sha256": "37f5ab2831fa1b6113790523c7e25639f8742aa32d6c7b896d9625d586ff6d8c",
+      "implementation_source_sha256": "768b45c813250b2f7c77dd7d76dfb93df749b8c67b1f9ccb49fd95af6a25a667",
+      "retained_action_tokens": 7095,
+      "sampled_action_tokens": 19361,
+      "retained_fraction": 0.3664583440937968,
+      "semantics": "Apply each rollout's scalar group advantage only to the first response at the selected coordinator and child causal state transitions."
+    }
+  },
+  "selection": {
+    "first": {
+      "config": "235-qwen35-27b-selective-control-selection.toml",
+      "config_sha256": "26015a88558cbb721448a61af056c4ca539bba60ecdbe79544ec2cd518b8f648",
+      "task_offset": 9300,
+      "tasks_per_arm": 8,
+      "base_trace_sha256": "d0b7415e45b0dda50f711bf7ed2aac5496139f8d2d645914a14c5b3eb585479b",
+      "candidate_trace_sha256": "abda246c5c77ec1276329f338b839646eb813808f71f3ffb6e451170bf4d876a",
+      "base": {
+        "answer_accuracy": 1.0,
+        "natural_followup_causal": 1.0,
+        "protocol_aligned": 0.5,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.875,
+        "bidirectional_control": 0.38636363636363635
+      },
+      "candidate": {
+        "answer_accuracy": 1.0,
+        "natural_followup_causal": 0.875,
+        "protocol_aligned": 0.5,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.375,
+        "bidirectional_control": 0.5681818181818181
+      }
+    },
+    "independent_repeat": {
+      "config": "236-qwen35-27b-selective-control-repeat.toml",
+      "config_sha256": "54b6351a989f2b154463a718aeec4c3dc237109b32e2c3e11bdac2909a23b229",
+      "task_offset": 9400,
+      "tasks_per_arm": 8,
+      "base_trace_sha256": "df14d86e3196f10c67071789ed8ad5f0f87bf8e7f4de8e2effedef048803cb87",
+      "candidate_trace_sha256": "2616c2d08600c4e7750dab02dfb55860df74ad5297fd6a6d43ca3e71a4a9d0ce",
+      "base": {
+        "answer_accuracy": 1.0,
+        "natural_followup_causal": 1.0,
+        "protocol_aligned": 0.375,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.5,
+        "bidirectional_control": 0.40909090909090906
+      },
+      "candidate": {
+        "answer_accuracy": 1.0,
+        "natural_followup_causal": 0.625,
+        "protocol_aligned": 0.375,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.875,
+        "bidirectional_control": 0.2954545454545454
+      }
+    },
+    "verifier_source_sha256": "98f7ad7d0dd167e59742e2e8bb9300989ea704a879cefef44207ba5540613bba",
+    "sampling_temperature": 0.4,
+    "thinking_mode": true
+  },
+  "combined": {
+    "tasks_per_arm": 16,
+    "base": {
+      "answers": "16/16",
+      "natural_followup_causal": "16/16",
+      "protocol_aligned": "7/16",
+      "clean_protocol_aligned": "0/16",
+      "mean_coordinator_delegated_path_accesses": 0.6875,
+      "mean_bidirectional_control": 0.3977272727272727
+    },
+    "candidate": {
+      "answers": "16/16",
+      "natural_followup_causal": "12/16",
+      "protocol_aligned": "7/16",
+      "clean_protocol_aligned": "0/16",
+      "mean_coordinator_delegated_path_accesses": 0.625,
+      "mean_bidirectional_control": 0.43181818181818177
+    }
+  },
+  "invalid_artifact_exclusion": "The first attempt at the independent repeat overlapped the inference server's clean idle shutdown. Its partial provider-error artifacts were deleted before the complete repeat and are excluded from every metric and digest above.",
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "frozen_family_gates_run": false,
+    "reason": "The first screen's leakage improvement did not repeat. Across both screens the candidate retained all answers but regressed causal completion from 16/16 to 12/16, produced no clean trace, and matched the base's 7/16 protocol alignment. The small aggregate leakage and control changes are not credible against that causal regression.",
+    "infrastructure_decision": "Retain the generic GRPO action filter: it behaved as designed and has passing default, selective-credit, and alignment tests. Reject only this scalar-advantage training result.",
+    "next": "Return to untouched thinking-mode 27B and use per-transition demonstration-conditioned OPSD so each student-visited causal state receives a state-specific target instead of a scalar rollout advantage."
+  }
+}

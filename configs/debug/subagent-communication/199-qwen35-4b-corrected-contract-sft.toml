@@ -1,0 +1,55 @@
+# Correct the stale run-100 child contract without broadening the curriculum.
+
+max_steps = 8
+output_dir = "/ephemeral/subagent-rung/outputs/199-qwen35-4b-corrected-contract-sft-r1"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 1
+
+[ckpt]
+interval = 2
+keep_last = 4
+keep_interval = 8
+weights_only = true
+
+[ckpt.weights]
+save_adapter_only = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "Qwen/Qwen3.5-4B"
+seq_len = 8192
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+freq = 1
+
+[model.lora]
+rank = 16
+alpha = 32
+init_adapter = "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8"
+
+[data]
+name = "/ephemeral/subagent-rung/data/199-qwen35-4b-corrected-contract-sft-r1"
+seq_len = 8192
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20270110
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[optim]
+lr = 1e-6

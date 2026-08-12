@@ -1,0 +1,101 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-9b-clean-message-mastery-v1",
+  "base_model": {
+    "name": "Qwen/Qwen3.5-9B",
+    "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+  },
+  "training_data": {
+    "path": "/ephemeral/subagent-rung/data/146-qwen35-9b-clean-message-distillation-r1",
+    "dataset_sha256": "3cb1eff778c549e03430ab59683bc93a561fa73fe300edd1a11d7879d9e7d6d9",
+    "reported_traces": 17,
+    "reported_branches": 34,
+    "post_training_audit": {
+      "branches_with_non_ipython_tool_calls": 20,
+      "branches_with_tool_not_found_results": 19,
+      "traces_passing_executable_branch_admission": 3,
+      "branches_passing_executable_branch_admission": 6,
+      "corrected_dataset_sha256": "9e67225f50ca3974a604f771ee3890ddaa7aac6cb8a081446adcdf5daa21f439"
+    }
+  },
+  "training": {
+    "config": "159-qwen35-9b-clean-message-mastery-sft.toml",
+    "config_sha256": "8d5b46b261abda2f3005c043bd6817cc8557d492d95c9dd16a3dc3f4927d031c",
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 5e-7,
+    "max_steps": 8,
+    "nan_count": 0,
+    "peak_memory_gib": 21.71875,
+    "checkpoints": {
+      "step_2": {
+        "loss": 0.3448038101196289,
+        "gradient_norm": 0.6796875,
+        "adapter_sha256": "2e9a33e50cd08b2c4817feeba7ba1debfd3b76134a5dd2f66c663515c5657dca"
+      },
+      "step_4": {
+        "loss": 0.33500775694847107,
+        "gradient_norm": 0.65625,
+        "adapter_sha256": "79029ec0f83d0454ef52ad3d33999bfa43c0b25068638fb054c7454181d91664"
+      },
+      "step_6": {
+        "loss": 0.45101019740104675,
+        "gradient_norm": 0.97265625,
+        "adapter_sha256": "83a01c9b3e8aefa07b1c01695294b9c61a2af96e40bcb9c7f7e7a69f02407340"
+      },
+      "step_8": {
+        "loss": 0.3896441161632538,
+        "gradient_norm": 0.88671875,
+        "adapter_sha256": "4a3ede5c5b382e0cb4f5c69970464b7262dfddbdac88b069fb92a5ab97e9dfd5"
+      }
+    }
+  },
+  "partial_evaluations": {
+    "step_2": {
+      "direct": {
+        "episodes": 4,
+        "answer_accuracy": 4,
+        "clean_protocol_aligned": 4,
+        "traces_sha256": "c7136da41adc71525d2edb4f6dd57a3834fb8657337a58d89c8a32c1f41b11e1"
+      },
+      "causal": {
+        "episodes": 8,
+        "causal_completed": 2,
+        "causal_clean_completed": 0,
+        "roster_calls": 20,
+        "observation_calls": 3,
+        "failed_cells": 14,
+        "duplicate_cells": 2,
+        "traces_sha256": "c55bcc598e20050db18240514421dee8b04404f04286fe2a00947107f258d9c8"
+      }
+    },
+    "step_4": {
+      "direct": {
+        "episodes": 4,
+        "answer_accuracy": 4,
+        "clean_protocol_aligned": 4,
+        "traces_sha256": "52666ac59fc023a394cd851900e82dd708ce824502f25ac42ea21e3d6ee017e2"
+      },
+      "causal": {
+        "episodes": 8,
+        "causal_completed": 1,
+        "causal_clean_completed": 0,
+        "roster_calls": 50,
+        "observation_calls": 1,
+        "failed_cells": 9,
+        "duplicate_cells": 21,
+        "traces_sha256": "07d6a87222a79118c8e47ec3179c4deab026e0afe4b77f5ba20d102fc82e7db5"
+      }
+    }
+  },
+  "selection": {
+    "checkpoint": null,
+    "decision": "invalidate intervention",
+    "promotion_ready": false,
+    "published_to_hugging_face": false,
+    "compressed_to_4b": false,
+    "reason": "The exporter admitted failed and undeclared model tool calls that the aggregate IPython-cell scorer did not count. Training and remaining checkpoint screens stopped after the branch-level audit found contamination in most source branches.",
+    "next_intervention": "Collect a larger low-temperature 9B teacher pool under executable branch admission, then train only after every exported branch passes the harness tool contract."
+  }
+}

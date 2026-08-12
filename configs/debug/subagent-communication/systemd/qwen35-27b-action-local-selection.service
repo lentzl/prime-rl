@@ -1,0 +1,12 @@
+[Unit]
+Description=Paired selection for action-local Qwen 3.5 27B OPSD
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_action_local_selection.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/258-qwen35-27b-action-local-selection.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/258-qwen35-27b-action-local-selection.log

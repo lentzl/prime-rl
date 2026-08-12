@@ -1,0 +1,165 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-resumption-control-v1",
+  "base_model": "Qwen/Qwen3.5-4B",
+  "accepted_checkpoint": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8",
+  "experimental_initialization": "/ephemeral/subagent-rung/outputs/201-qwen35-4b-executable-causal-sft-r1/weights/step_24",
+  "training": {
+    "config": "configs/debug/subagent-communication/205-qwen35-4b-resumption-control-sft.toml",
+    "config_sha256": "5b10e470b59842c4c3b7b443641b68c5b91fbafb536dea193f76d1fd62b9be4e",
+    "data_sha256": "c6d753049697b773acd998ea421928c03429a90a745d84a5fbb5ae645c3dd3ac",
+    "metrics_sha256": "85239802988590545ac57aaeeb0c1dc0f4306206354184351f36d0b7b08ff22c",
+    "examples": 160,
+    "examples_per_style": 16,
+    "resumption_styles": [
+      "parent_inert_wait_repair",
+      "parent_message_finalize_without_tool",
+      "child_inert_send_repair",
+      "child_stop_after_receipt"
+    ],
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 2e-7,
+    "steps": 12,
+    "loss_min": 0.2677028179168701,
+    "loss_max": 2.000335216522217,
+    "max_gradient_norm": 18.0,
+    "nan_loss_rows": 0
+  },
+  "adapter_sha256": {
+    "step_4": "edd24e3280c15b678476fee5685af9ad5e6364e157538713c73b9ad8893bb575",
+    "step_8": "fd1ffc347173e6b500786553764e223fe2697982da291115424f3cec29c96e08",
+    "step_12": "6673cc17eb12deac5b27b67dc899d7ff503e1077b1584d3a48085fca7635f559"
+  },
+  "selection_screen": {
+    "config": "configs/debug/subagent-communication/206-qwen35-4b-resumption-control-screen.toml",
+    "config_sha256": "d72532aa1e9d1605148b11486b6d112111b46f3e7614c29cd1a43d9c64ad3cec",
+    "n_per_model": 8,
+    "legacy_headline": {
+      "run100_step8": {
+        "answer_accuracy": 7,
+        "causal_spawn_first": 1,
+        "causal_child_reply": 1,
+        "causal_completed": 0
+      },
+      "executable_step24": {
+        "answer_accuracy": 8,
+        "causal_spawn_first": 2,
+        "causal_child_reply": 1,
+        "causal_completed": 1,
+        "causal_clean_completed": 1
+      },
+      "resumption_step4": {
+        "answer_accuracy": 6,
+        "causal_spawn_first": 4,
+        "causal_child_reply": 1,
+        "causal_completed": 0
+      },
+      "resumption_step8": {
+        "answer_accuracy": 8,
+        "causal_spawn_first": 1,
+        "causal_completed": 0
+      },
+      "resumption_step12": {
+        "answer_accuracy": 8,
+        "causal_spawn_first": 3,
+        "causal_completed": 0
+      }
+    },
+    "corrected_headline": {
+      "run100_step8": {
+        "clean_causal_tool_discipline": 0,
+        "clean_causal_child_reply": 0,
+        "clean_causal_completed": 0,
+        "non_ipython_tool_calls": 5,
+        "inert_cells": 60
+      },
+      "executable_step24": {
+        "clean_causal_tool_discipline": 0,
+        "clean_causal_child_reply": 0,
+        "clean_causal_completed": 0,
+        "non_ipython_tool_calls": 10,
+        "inert_cells": 54
+      },
+      "resumption_step4": {
+        "clean_causal_tool_discipline": 0,
+        "clean_causal_child_reply": 0,
+        "clean_causal_completed": 0,
+        "non_ipython_tool_calls": 13,
+        "inert_cells": 62
+      },
+      "resumption_step8": {
+        "clean_causal_tool_discipline": 0,
+        "clean_causal_child_reply": 0,
+        "clean_causal_completed": 0,
+        "non_ipython_tool_calls": 14,
+        "inert_cells": 50
+      },
+      "resumption_step12": {
+        "clean_causal_tool_discipline": 0,
+        "clean_causal_child_reply": 0,
+        "clean_causal_completed": 0,
+        "non_ipython_tool_calls": 8,
+        "inert_cells": 40
+      }
+    },
+    "trace_sha256": {
+      "run100_step8": "68c22d621e3a109c6563f79d893b8e67ab2bf3cc092c7ea6593bc970e3a50862",
+      "executable_step24": "09057621b638ac084bea7dbe9ae7eb497a717830ef4559d641a9bd5b9ed4c142",
+      "resumption_step4": "41e04bacb3c617208f4573ec9e8446c6a6ce392e77eadfbd9f082a39675f8568",
+      "resumption_step8": "9e0f340db5fdaa70342827df38dd3edc6ff7784f6d9486d5eb323c7715560d98",
+      "resumption_step12": "75835e2d594c6949fe78dd15706b675a28bcd8e936ff620f580cf4c4b9799efa"
+    }
+  },
+  "repeat_confirmation": {
+    "config": "configs/debug/subagent-communication/207-qwen35-4b-executable-step24-repeat-confirmation.toml",
+    "config_sha256": "0944715e60c13b9b932cdc94f7998630d11a813312f6c294308de5bf1767c088",
+    "n_per_model": 8,
+    "run100_step8": {
+      "answer_accuracy": 5,
+      "clean_causal_spawn_first": 1,
+      "clean_causal_tool_discipline": 0,
+      "clean_causal_completed": 0,
+      "non_ipython_tool_calls": 21,
+      "inert_cells": 81,
+      "trace_sha256": "0d54dd17943a81f7b35c719bd7e1dc6befc06c1c2422e618a281d4aa1d0daa73"
+    },
+    "executable_step24": {
+      "answer_accuracy": 7,
+      "clean_causal_spawn_first": 0,
+      "clean_causal_tool_discipline": 0,
+      "clean_causal_completed": 0,
+      "non_ipython_tool_calls": 16,
+      "inert_cells": 68,
+      "trace_sha256": "f2522ddf8f14ab539324bd2ffa5f0e46cb4a8637c9ebb67e98b50a60aa776466"
+    }
+  },
+  "verifier_correction": {
+    "problem": "The legacy clean scorer inspected only IPython AST calls and allowed undeclared direct tools, inert waiting cells, child tool use after a successful parent send, coordinator tool use after fan-in, and a later coordinator read of the delegated shard.",
+    "new_metrics": [
+      "non_ipython_tool_calls",
+      "inert_cells",
+      "post_parent_send_tool_calls",
+      "parent_remote_read",
+      "clean_causal_tool_discipline"
+    ],
+    "focused_tests": 68,
+    "corrected_legacy_clean_trace_id": "38d48c3ad3eb4324b81b8fdc7bb24c73",
+    "corrected_result": "not clean"
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "frozen_capacity_battery_run": false,
+    "accepted_checkpoint_unchanged": true,
+    "rejected_checkpoints": [
+      "resumption_step4",
+      "resumption_step8",
+      "resumption_step12"
+    ],
+    "experimental_step24_promoted": false,
+    "reason": "The apparent clean completion did not satisfy the complete Prime Agent tool and event-loop contract, and it did not repeat on a fresh eight-rollout confirmation.",
+    "next_intervention": "Use the corrected six-stage clean-causal reward in a bounded grouped preflight, then admit low-rate GRPO only if fresh on-policy groups contain real prefix variance."
+  }
+}

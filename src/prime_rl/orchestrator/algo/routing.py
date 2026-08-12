@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from prime_rl.orchestrator.types import Rollout
 
 
-def stamp_loss_routing(sample: TrainingSample, action_loss_type: ActionLossType) -> None:
+def stamp_loss_routing(sample: TrainingSample, action_loss_type: ActionLossType, loss_weight: float = 1.0) -> None:
     """Stamp the algorithm's loss routing onto one sample's component weight
     streams: action tokens (the trainable completion tokens, per the loss
     mask) feed the algorithm's declared component.
@@ -33,20 +33,24 @@ def stamp_loss_routing(sample: TrainingSample, action_loss_type: ActionLossType)
     component an algorithm weights them into is the only one that trains
     them.
     """
-    if action_loss_type == "rl":
+    if action_loss_type == "rl" and loss_weight == 1.0:
         return
 
     seq_len = len(sample.token_ids)
+    if action_loss_type == "rl":
+        sample.rl_weights = [loss_weight if trains else 0.0 for trains in sample.mask]
+        return
+
     sample.rl_weights = [0.0] * seq_len
     if action_loss_type == "sdpo" and sample.sdpo_weights is not None:
-        action_weights = sample.sdpo_weights
+        action_weights = [weight * loss_weight for weight in sample.sdpo_weights]
     else:
         action_weights = (
             sample.ce_weights if action_loss_type == "ce" and sample.ce_weights is not None else [0.0] * seq_len
         )
         for i, trains in enumerate(sample.mask):
             if trains:
-                action_weights[i] = 1.0
+                action_weights[i] = loss_weight
     if action_loss_type == "ce":
         sample.ce_weights = action_weights
     elif action_loss_type == "ref_kl":

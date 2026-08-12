@@ -277,7 +277,9 @@ class TrainSink:
 
         # Samples are pre-built by ``process_rollout``; ``process_group`` already stamped the
         # advantage stream and loss routing on each sample. Filtered rollouts don't ship.
-        samples: list[TrainingSample] = [sample for r in cohort if not r.is_filtered for sample in r.samples]
+        samples: list[TrainingSample] = [
+            sample for r in cohort if not r.is_filtered and r.is_trainable for sample in r.samples
+        ]
 
         # ``rollouts`` is the observation window — every rollout of every group finalized since the
         # last ship (errored + filtered + survivors) — while ``samples`` is the shipped cohort's

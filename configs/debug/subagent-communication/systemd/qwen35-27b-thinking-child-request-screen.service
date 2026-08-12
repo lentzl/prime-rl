@@ -1,0 +1,13 @@
+[Unit]
+Description=Screen Qwen 3.5 27B thinking child-request OPSD checkpoints
+After=qwen35-27b-teacher-inference.service qwen35-27b-thinking-child-request-opsd.service
+Requires=qwen35-27b-teacher-inference.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_thinking_child_request_screen.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/227-qwen35-27b-thinking-child-request-screen.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/227-qwen35-27b-thinking-child-request-screen.log

@@ -1,0 +1,12 @@
+[Unit]
+Description=Thinking Qwen 3.5 27B guided follow-up trajectory collection
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_thinking_guided_followup_collection.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/242-qwen35-27b-thinking-guided-followup-collection.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/242-qwen35-27b-thinking-guided-followup-collection.log

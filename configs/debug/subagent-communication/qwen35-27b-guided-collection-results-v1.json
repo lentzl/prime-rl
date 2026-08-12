@@ -1,0 +1,33 @@
+{
+  "experiment_id": "qwen35-27b-thinking-guided-followup-collection-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "collection": {
+    "config": "242-qwen35-27b-thinking-guided-followup-collection.toml",
+    "config_sha256": "98ac73b0f44e05f59503e13a20b8d6ea7b6dfd8c9daa181c3d6a9a9ebcf040fb",
+    "trace_sha256": "7f8f3a793fac8e702d5bf13beaf33bb0c507b2bea338fb0ce278da52dfcdc3d1",
+    "thinking_mode": true,
+    "teacher_conditioned": true,
+    "family": "followup",
+    "rollouts": 8,
+    "answer_accuracy": 1.0,
+    "natural_request": 0.625,
+    "natural_followup_after_request": 0.0,
+    "natural_result_after_followup": 0.0,
+    "natural_followup_causal": 0.0,
+    "protocol_aligned": 0.0,
+    "clean_protocol_aligned": 0.0,
+    "strictly_admitted_traces": 0,
+    "mean_coordinator_delegated_path_accesses": 0.625,
+    "mean_failed_cells": 1.0,
+    "mean_duplicate_cells": 0.375,
+    "mean_roster_calls": 0.5,
+    "mean_post_parent_tool_calls": 0.875
+  },
+  "decision": {
+    "usable_as_teacher_data": false,
+    "reason": "The privileged demonstration made every final answer available, but no rollout completed the measured natural request-response-result chain. Action inspection showed coordinator file access before delegation, polling and child-session inspection after successful spawn, and repeated post-message tool work. Correct answers therefore cannot be treated as evidence of a clean coordination policy.",
+    "next": "Teach only the first ownership/spawn/yield decision with an opt-in thinking rationale, then collect fresh natural thinking trajectories. Admit complete trajectories only after the model executes the causal chain without coordinator path access, polling, repeated cells, or demonstration leakage."
+  }
+}

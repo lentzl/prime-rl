@@ -1,0 +1,48 @@
+{
+  "experiment_id": "qwen35-27b-natural-admission-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "source_commit": "28810895274e4c75203432a093e8635422b793eb",
+  "completed_at": "2026-08-11",
+  "screen": {
+    "config": "230-qwen35-27b-thinking-natural-admission-r3.toml",
+    "config_sha256": "850aa5174e2c14403aa1c8d1896e3e664b7b96bdb667d1c9a14f7a5325756ed5",
+    "trace_sha256": "57fc9cf30ad7a26eabbb3570a8ba6429aa5b7467bbd11192bb8da7241eba58ee",
+    "verifier_source_sha256": "ad9833f7c9c2cd58e9183bbf780e52f2ba08c52308fa7f426361ee9e7be8148a",
+    "thinking_mode": true,
+    "prompt_contract": "explicit_bidirectional_v2",
+    "tasks": 8,
+    "sampling_temperature": 0.4
+  },
+  "corrected_rescore": {
+    "all": {
+      "answer": "8/8",
+      "protocol": "4/8",
+      "clean_protocol": "0/8",
+      "natural_causal_exchange": "7/8"
+    },
+    "followup": {
+      "answer": "4/4",
+      "protocol": "1/4",
+      "clean_protocol": "0/4",
+      "natural_causal_exchange": "4/4",
+      "coordinator_delegated_path_access": "3/4",
+      "mean_bidirectional_control": 0.6818181818181819
+    },
+    "handshake": {
+      "answer": "4/4",
+      "protocol": "3/4",
+      "clean_protocol": "0/4",
+      "natural_causal_exchange": "3/4",
+      "coordinator_delegated_path_access": "0/4",
+      "mean_bidirectional_control": 0.7727272727272727
+    }
+  },
+  "embedded_reward_caveat": "The running evaluator embedded metrics from the pre-leakage verifier and reported seven maximum-reward traces. Promotion uses the corrected rescore above, which rejects coordinator access to delegated paths and distinguishes required final child sends from extra post-request tools.",
+  "diagnosis": "Untouched thinking 27B already represents the natural bidirectional protocol and returns every correct answer. It is not a teacher yet: file-backed follow-up usually succeeds by reopening the delegated file in the coordinator, one handshake misses the parent follow-up, and every trace contains avoidable failed, polling, observation, or post-request work. This isolates process control and externalization discipline rather than global protocol comprehension as the next training target.",
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "next": "Measure four-rollout within-prompt variance under the corrected reward before choosing GRPO or a bootstrap intervention."
+  }
+}

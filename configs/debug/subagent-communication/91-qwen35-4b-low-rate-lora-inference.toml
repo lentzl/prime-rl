@@ -1,0 +1,15 @@
+# Base 4B inference used to compare intermediate low-rate LoRA checkpoints.
+
+[vllm]
+model = "Qwen/Qwen3.5-4B"
+revision = "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+enable_lora = true
+max_lora_rank = 16
+max_loras = 1
+gpu_memory_utilization = 0.30
+max_num_seqs = 12
+
+[weight_broadcast]
+type = "filesystem"

@@ -1,0 +1,11 @@
+[Unit]
+Description=Train epoch two of the Qwen 3.5 9B turn-ending teacher bootstrap
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run sft @ configs/debug/subagent-communication/194-qwen35-9b-turn-ending-bootstrap-epoch2-sft.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/194-qwen35-9b-turn-ending-bootstrap-epoch2-sft.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/194-qwen35-9b-turn-ending-bootstrap-epoch2-sft.log

@@ -1,0 +1,13 @@
+[Unit]
+Description=Natural process-control variance probe for untouched thinking Qwen 3.5 27B
+After=qwen35-27b-teacher-inference.service
+Requires=qwen35-27b-teacher-inference.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run eval @ configs/debug/subagent-communication/231-qwen35-27b-thinking-natural-control-variance.toml --output-dir /ephemeral/subagent-rung/evals/231-qwen35-27b-thinking-natural-control-variance/base
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/231-qwen35-27b-thinking-natural-control-variance.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/231-qwen35-27b-thinking-natural-control-variance.log

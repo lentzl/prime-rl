@@ -245,6 +245,7 @@ class TrainSourceConfig(EnvConfig):
             raise ValueError("task_indices must not contain duplicates")
         return value
 
+
 class EvalSourceConfig(EnvConfig):
     sampling: EvalSamplingConfig = EvalSamplingConfig()
     """Per-env sampling overrides. Unset fields inherit from the group-level eval sampling config."""
@@ -413,8 +414,18 @@ class ZeroAdvantageFilterConfig(BaseConfig):
     """When True, skip detected rollouts entirely so they are not sent to the trainer. When False, only track detection metrics."""
 
 
+class RewardThresholdFilterConfig(BaseConfig):
+    type: Literal["reward_threshold"] = "reward_threshold"
+
+    threshold: float = Field(ge=0, allow_inf_nan=False)
+    """Minimum total reward required to keep a rollout."""
+
+    enforce: bool = True
+    """When True, skip rollouts below the threshold. When False, only track them."""
+
+
 FilterConfig: TypeAlias = Annotated[
-    GibberishFilterConfig | RepetitionFilterConfig | ZeroAdvantageFilterConfig,
+    GibberishFilterConfig | RepetitionFilterConfig | ZeroAdvantageFilterConfig | RewardThresholdFilterConfig,
     Field(discriminator="type"),
 ]
 

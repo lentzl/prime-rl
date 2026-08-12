@@ -1,0 +1,12 @@
+[Unit]
+Description=Paired selection for thinking Qwen 3.5 27B first-ownership GRPO
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_first_ownership_selection.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/246-qwen35-27b-first-ownership-selection.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/246-qwen35-27b-first-ownership-selection.log

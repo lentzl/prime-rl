@@ -1,0 +1,154 @@
+# One Prime-native OPSD update focused on coordinator control before child fan-in.
+
+max_steps = 1
+# The selected coordinator responses precede child fan-in. Truncating later
+# trajectory context keeps this focused update within one-GPU memory.
+seq_len = 16384
+max_train_batch_lead = 0
+output_dir = "/ephemeral/subagent-rung/outputs/196-qwen35-9b-pre-child-opsd-r1"
+clean_output_dir = true
+
+[deployment]
+gpus_per_node = 1
+num_train_gpus = 1
+num_infer_gpus = 0
+
+[weight_broadcast]
+type = "filesystem"
+
+[ckpt]
+interval = 1
+keep_last = 1
+keep_interval = 1
+
+[trainer.ckpt]
+weights_only = true
+
+[trainer.ckpt.weights]
+save_adapter_only = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "Qwen/Qwen3.5-9B"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model]
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.model.lora]
+rank = 16
+alpha = 32
+
+[trainer.optim]
+type = "adamw"
+lr = 5e-7
+max_norm = 1.0
+
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+is_clip = 2.0
+rollout_is = "token"
+rollout_is_threshold = 2.0
+teacher_regularization = "live-policy"
+
+[orchestrator]
+batch_size = 4
+group_size = 1
+
+[orchestrator.algo]
+type = "opsd"
+demo_key = "coordinator_demonstrations"
+
+[orchestrator.algo.renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[orchestrator.algo.filter]
+import_path = "subagent_communication_v1.taskset.keep_coordinator_pre_child_responses"
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[orchestrator.model.client]
+base_url = ["http://127.0.0.1:8000/v1"]
+admin_base_url = ["http://127.0.0.1:8100/v1"]
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 2048
+
+[[orchestrator.train.source]]
+name = "prime-agent-9b-pre-child-opsd"
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 2
+
+[orchestrator.train.source.env.retries]
+max_retries = 1
+
+[orchestrator.train.source.env.taskset]
+id = "subagent-admission-v1"
+system_prompt = "configs/debug/subagent-communication/prompts/clean-message-resume.txt"
+split = "train"
+families = ["single"]
+instruction_level = "guided"
+instances_per_template = 1
+instance_offset = 4900
+seed = 20270108
+teacher_conditioned = false
+self_contained_child_contract = true
+
+[orchestrator.train.source.env.taskset.task]
+reward_mode = "causal"
+reward_shape = "strict"
+
+[orchestrator.train.source.env.agent]
+max_turns = 24
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime-agent"
+version = "0.7.0"
+save_session = true
+max_depth = 1
+model_context_window = 32768
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_gate_retries = 12
+autonomous_gate_timeout_ms = 10000
+autonomous_max_continuations = 12
+autonomous_max_turns = 24
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 240000
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[orchestrator.train.source.serve]
+max_concurrent = 1

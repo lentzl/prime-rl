@@ -1,0 +1,103 @@
+{
+  "experiment_id": "qwen35-27b-first-coordinator-opsd-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "training": {
+    "config": "240-qwen35-27b-first-coordinator-opsd-dose.toml",
+    "config_sha256": "4909c2dc169efd8dcfac6854cf8b346aca92cd4d64e87153f7568560327aa05e",
+    "metrics_sha256": "e1f5b9e23ae362a29b18194f951ffc9b674589d6474444868d6ab2b6a500fb7f",
+    "rollout_trace_sha256": "c68962f9af04ea1c42b1d5ceb446dffb9b0219a6ac5916f1648da0f77b23cb1e",
+    "adapter_sha256": "f62c9ab007802d2fb02ae7e4651a7ffb31523c03bff67816dd502980187468ce",
+    "thinking_mode": true,
+    "family": "followup",
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "lora_rank": 16,
+    "optimizer_steps": 1,
+    "rollouts": 8,
+    "loss": 3.352214861251923e-8,
+    "entropy": 2.253892660140991,
+    "mismatch_kl": 74.19518280029297,
+    "gradient_norm": 1256.0,
+    "update_succeeded": true,
+    "peak_trainer_memory_gib": 37.005859375,
+    "algorithm": {
+      "type": "opsd",
+      "demo_key": "turn_demonstrations",
+      "filter": "subagent_communication_v1.taskset.keep_first_coordinator_response",
+      "selected_action_tokens": 1875,
+      "retained_action_tokens": 1875,
+      "teacher_selected_tokens": 1875,
+      "audit_sha256": "b3d1c96919d038e2f99de39e76def4ee99b2d8331193b458e72d9894830d7096",
+      "audit_semantics": "Exactly one first coordinator response was selected in each of eight traces; all child and later coordinator responses had zero SDPO weight."
+    }
+  },
+  "selection": {
+    "config": "241-qwen35-27b-first-coordinator-opsd-selection.toml",
+    "config_sha256": "04a996674a51e881c48ebecb57321d551f1597e2e1806016f7025cfc5b69ff20",
+    "task_offset": 9900,
+    "tasks_per_arm": 8,
+    "base_trace_sha256": "243a0aeccef88ab7e5907435c52ef1a833a18ad71328b336affbb8f8a7530d0a",
+    "candidate_trace_sha256": "3edf6df313fc3fa3936739da591409378a07db114119c86998e416fce0132651",
+    "base": {
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 0.625,
+      "protocol_aligned": 0.5,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.375,
+      "failed_cells": 1.75,
+      "bidirectional_control": 0.38636363636363635
+    },
+    "candidate": {
+      "answer_accuracy": 1.0,
+      "natural_followup_causal": 0.75,
+      "protocol_aligned": 0.25,
+      "clean_protocol_aligned": 0.0,
+      "coordinator_delegated_path_accesses": 0.625,
+      "failed_cells": 1.375,
+      "bidirectional_control": 0.3636363636363636
+    },
+    "followup_only": {
+      "base": {
+        "answers": "4/4",
+        "natural_followup_causal": "2/4",
+        "protocol_aligned": "1/4",
+        "clean_protocol_aligned": "0/4",
+        "mean_coordinator_delegated_path_accesses": 0.75
+      },
+      "candidate": {
+        "answers": "4/4",
+        "natural_followup_causal": "2/4",
+        "protocol_aligned": "0/4",
+        "clean_protocol_aligned": "0/4",
+        "mean_coordinator_delegated_path_accesses": 1.25
+      }
+    },
+    "handshake_only": {
+      "base": {
+        "answers": "4/4",
+        "natural_followup_causal": "3/4",
+        "protocol_aligned": "3/4",
+        "clean_protocol_aligned": "0/4"
+      },
+      "candidate": {
+        "answers": "4/4",
+        "natural_followup_causal": "4/4",
+        "protocol_aligned": "2/4",
+        "clean_protocol_aligned": "0/4"
+      }
+    },
+    "sampling_temperature": 0.4,
+    "thinking_mode": true
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "independent_repeat_run": false,
+    "frozen_family_gates_run": false,
+    "reason": "The exact target regressed in the first paired gate. Candidate follow-up leakage rose from 0.75 to 1.25 path accesses per episode, causal completion stayed 2/4, alignment fell from 1/4 to 0/4, and neither family produced a clean trace. A repeat cannot rescue an intervention whose directly trained boundary moved backward.",
+    "stability_warning": "Despite a successful clipped optimizer update and an exact serialized mask, trainer/inference mismatch KL was 74.1952 versus approximately 0.0002 in the prior valid transition-wide OPSD run, gradient norm was 1256, and the reported loss collapsed to 3.35e-8. Do not interpret or reuse this adapter until that mismatch is explained.",
+    "next": "Return to untouched thinking-mode 27B. Generate executable teacher-conditioned follow-up trajectories with native reasoning, admit only no-leakage traces, strip the demonstration from their user prompts, and use a small supervised bootstrap to teach the standard-language ownership transition. Reserve on-policy teacher distillation for the later canonical-teacher-to-student stage."
+  }
+}

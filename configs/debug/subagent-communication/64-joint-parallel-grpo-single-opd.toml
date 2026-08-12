@@ -1,0 +1,196 @@
+# Jointly preserve rung-37 single-agent behavior while retaining rung-60's
+# hard-parallel GRPO signal in the same optimizer step.
+
+max_steps = 1
+seq_len = 32768
+max_train_batch_lead = 0
+output_dir = "/ephemeral/subagent-rung/outputs/64-joint-parallel-grpo-single-opd-r1"
+clean_output_dir = true
+
+[deployment]
+gpus_per_node = 1
+num_train_gpus = 1
+num_infer_gpus = 0
+
+[weight_broadcast]
+type = "filesystem"
+
+[ckpt]
+interval = 1
+keep_last = 1
+keep_interval = 1
+
+[trainer.ckpt]
+weights_only = true
+
+[trainer.ckpt.weights]
+save_adapter_only = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "/ephemeral/subagent-rung/outputs/18-retained-causal-conjunction-grpo-r1/weights/step_1"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model]
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[trainer.model.ac]
+freq = 1
+
+[trainer.model.lora]
+rank = 16
+alpha = 32
+init_adapter = "/ephemeral/subagent-rung/outputs/60-cross-family-hard-grpo-r1/weights/step_1"
+
+[trainer.optim]
+lr = 1e-7
+
+[orchestrator]
+batch_size = 16
+group_size = 8
+
+[orchestrator.algo]
+type = "grpo"
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[orchestrator.model.client]
+base_url = ["http://127.0.0.1:8000/v1"]
+admin_base_url = ["http://127.0.0.1:8100/v1"]
+
+[orchestrator.train.sampling]
+temperature = 0.8
+max_completion_tokens = 2048
+
+[[orchestrator.train.source]]
+name = "prime-agent-hard-parallel-grpo"
+ratio = 1
+group_size = 8
+task_indices = [7]
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 3
+
+[orchestrator.train.source.env.retries]
+max_retries = 1
+
+[orchestrator.train.source.env.taskset]
+id = "subagent-communication-v1"
+split = "train"
+families = ["single", "parallel"]
+instruction_level = "standard"
+instances_per_template = 1
+instance_offset = 2800
+seed = 20270103
+reward_post_fan_in_control = true
+
+[orchestrator.train.source.env.agent]
+max_turns = 24
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime-agent"
+version = "0.7.0"
+save_session = true
+max_depth = 1
+model_context_window = 32768
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_gate_retries = 12
+autonomous_gate_timeout_ms = 10000
+autonomous_max_continuations = 12
+autonomous_max_turns = 24
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 240000
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[orchestrator.train.source.serve]
+max_concurrent = 2
+
+[[orchestrator.train.source]]
+name = "prime-agent-single-retention-opd"
+ratio = 11
+group_size = 1
+
+[orchestrator.train.source.algo]
+type = "opd"
+
+[orchestrator.train.source.algo.teacher]
+name = "rung37-step2"
+base_url = ["http://127.0.0.1:8100/v1"]
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 2
+
+[orchestrator.train.source.env.retries]
+max_retries = 1
+
+[orchestrator.train.source.env.taskset]
+id = "subagent-communication-v1"
+split = "train"
+families = ["single"]
+instruction_level = "standard"
+instances_per_template = 4
+instance_offset = 3100
+seed = 20270123
+
+[orchestrator.train.source.env.agent]
+max_turns = 24
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime-agent"
+version = "0.7.0"
+save_session = true
+max_depth = 1
+model_context_window = 32768
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_gate_retries = 12
+autonomous_gate_timeout_ms = 10000
+autonomous_max_continuations = 12
+autonomous_max_turns = 24
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 240000
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[orchestrator.train.source.serve]
+max_concurrent = 2

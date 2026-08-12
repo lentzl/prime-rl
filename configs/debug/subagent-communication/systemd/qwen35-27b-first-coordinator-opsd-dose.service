@@ -1,0 +1,13 @@
+[Unit]
+Description=One-step first-coordinator OPSD dose for thinking Qwen 3.5 27B
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=CUDA_VISIBLE_DEVICES=2,3
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_first_coordinator_opsd_dose.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/240-qwen35-27b-first-coordinator-opsd-dose.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/240-qwen35-27b-first-coordinator-opsd-dose.log

@@ -1,0 +1,12 @@
+# Dense inference for the merged 4B single-child SFT selection checkpoints.
+
+[vllm]
+model = "/ephemeral/subagent-rung/outputs/85-qwen35-4b-single-sft-r1/weights/step_12"
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+enable_lora = false
+gpu_memory_utilization = 0.30
+max_num_seqs = 12
+
+[weight_broadcast]
+type = "filesystem"

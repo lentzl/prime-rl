@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-causal-chain-v1",
+  "initial_checkpoint": {
+    "model": "Qwen/Qwen3.5-4B",
+    "adapter": "/ephemeral/subagent-rung/outputs/100-qwen35-4b-single-admission-sft-r1/weights/step_8"
+  },
+  "objective": {
+    "reward_mode": "causal",
+    "prefix_stages": [
+      "spawn first",
+      "bind the exact retained contract before coordinator-local work",
+      "perform coordinator-local work after spawning",
+      "receive the child reply",
+      "finish with a protocol-aligned correct answer"
+    ],
+    "rule": "A stage earns no credit unless every preceding stage succeeded."
+  },
+  "preflight": {
+    "config": "106-qwen35-4b-causal-chain-preflight.toml",
+    "config_sha256": "d36f0f295599f725a63be071ccbc4702366c0a899e3ce6a2de77b9eaccac6b6c",
+    "rewards": [0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.8],
+    "stage_counts": {
+      "spawn_first": 2,
+      "contract_bound": 1,
+      "local_work": 1,
+      "child_reply": 1,
+      "completed": 0
+    },
+    "trace_sha256": "d61c9b97b45cb7a01753d2aa946d9939b07b961a39a72949e08fbcd4b29aa3ac",
+    "decision": "admit one conservative update because the group had real variance through the fourth causal stage"
+  },
+  "run_107": {
+    "config": "107-qwen35-4b-causal-chain-grpo.toml",
+    "config_sha256": "a55663a39e54ba8ccddceab59d757f7b34444ca7513cb653a76239298b1025ea",
+    "steps": 1,
+    "learning_rate": 1e-7,
+    "training": {
+      "rewards": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.2, 0.0],
+      "reward_mean": 0.025,
+      "loss": 0.0017964443,
+      "gradient_norm": 0.0103759765625,
+      "mismatch_kl": 0.0003544776,
+      "peak_memory_gib": 17.1445,
+      "rollout_errors": 0,
+      "truncation_rate": 0.875,
+      "trace_sha256": "4ae842ff8e5873363014024c804c1fd5afb18a5ae1786c1dd02090aa4895e1f3"
+    },
+    "checkpoint": {
+      "adapter": "/ephemeral/subagent-rung/outputs/107-qwen35-4b-causal-chain-grpo-r1/weights/step_1",
+      "adapter_sha256": "cd6643bb4645de96f6a26424e7fed6a5453ee58f1205e7c1620b49cfcfeff7bf"
+    },
+    "direct_screen": {
+      "joint": "4/4",
+      "trace_sha256": "f21e08dd981cc678b1717dc97fbe605d6463c2d75f5a239ed92fbeac1a4a145c"
+    },
+    "fresh_causal_gate": {
+      "config": "108-qwen35-4b-causal-chain-gate.toml",
+      "config_sha256": "9c7460d8d8f71749b6e020f5a3a3cb11cda99859dc865771b104fa0e811b94b1",
+      "rewards": [0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.0],
+      "stage_counts": {
+        "spawn_first": 1,
+        "contract_bound": 0,
+        "local_work": 0,
+        "child_reply": 0,
+        "completed": 0
+      },
+      "trace_sha256": "91a28e5c1099a1b55686547ebc5dda7f91e477e598ceb19aa6f908d6d661be5b"
+    }
+  },
+  "selection": {
+    "checkpoint": null,
+    "decision": "reject run 107",
+    "promotion_ready": false,
+    "published_to_hugging_face": false,
+    "frozen_capacity_battery_v1_run": false,
+    "conclusion": "The prefix-gated objective correctly identifies rare partial causal behavior, but one weak GRPO group did not transfer beyond spawn-first behavior on a fresh gate.",
+    "next_intervention": "Collect successful Qwen3.5-9B teacher trajectories in the real harness, retain only traces with causal_completed=1, distill them into the run-100 step-8 learner, and then retry causal RL without weakening the scorer."
+  }
+}

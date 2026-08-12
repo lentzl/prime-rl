@@ -1,0 +1,13 @@
+[Unit]
+Description=Aligned first-response OPSD dose for thinking Qwen 3.5 27B
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=CUDA_VISIBLE_DEVICES=2,3
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_aligned_first_response_opsd.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/254-qwen35-27b-aligned-first-response-opsd.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/254-qwen35-27b-aligned-first-response-opsd.log

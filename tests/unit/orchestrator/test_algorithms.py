@@ -5,11 +5,12 @@ import pydantic
 import pytest
 import verifiers.v1 as vf
 from verifiers.v1.graph import MessageNode
-from verifiers.v1.types import AssistantMessage, TextContentPart, ToolMessage, UserMessage
+from verifiers.v1.types import AssistantMessage, TextContentPart, ToolCall, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.orchestrator.algo import (
     EchoAlgorithm,
+    GRPOAlgorithm,
     OPSDAlgorithm,
     SDPOAlgorithm,
     stamp_advantages,
@@ -55,6 +56,14 @@ def test_type_defaults_are_the_vetted_algorithms(algorithm_type, build_kwargs, s
     assert algo.type == algorithm_type
     assert _ref_kind(algo.sampling.source) == source
     assert algo.action_loss_type == action_loss_type
+    assert algo.loss_weight == 1.0
+
+
+def test_loss_weight_must_be_positive_and_finite():
+    assert _build(type="grpo", loss_weight=0.25).loss_weight == 0.25
+    for value in (0, -1, float("nan"), float("inf")):
+        with pytest.raises(ValueError):
+            _build(type="grpo", loss_weight=value)
 
 
 def test_echo_role_table():
@@ -126,12 +135,28 @@ def test_stamp_loss_routing_uniform_rl():
     assert sample.ref_kl_weights is None
 
 
+def test_stamp_loss_routing_weighted_rl():
+    sample = _make_sample()
+    stamp_loss_routing(sample, "rl", 0.25)
+    assert sample.rl_weights == [0.0, 0.0, 0.25, 0.25, 0.0, 0.25]
+    assert sample.ce_weights is None
+    assert sample.ref_kl_weights is None
+
+
 def test_stamp_loss_routing_ref_kl_action():
     sample = _make_sample()
     stamp_loss_routing(sample, "ref_kl")
     # Action tokens (mask True) feed the ref_kl component; rl is off
     assert sample.rl_weights == [0.0] * 6
     assert sample.ref_kl_weights == [0.0, 0.0, 1.0, 1.0, 0.0, 1.0]
+    assert sample.ce_weights is None
+
+
+def test_stamp_loss_routing_weighted_ref_kl_action():
+    sample = _make_sample()
+    stamp_loss_routing(sample, "ref_kl", 2.0)
+    assert sample.rl_weights == [0.0] * 6
+    assert sample.ref_kl_weights == [0.0, 0.0, 2.0, 2.0, 0.0, 2.0]
     assert sample.ce_weights is None
 
 
@@ -160,6 +185,16 @@ def test_stamp_loss_routing_preserves_selective_sdpo_targets():
     assert sample.sdpo_weights == [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
     assert sample.ce_weights is None
     assert sample.ref_kl_weights is None
+
+
+def test_stamp_loss_routing_scales_selective_sdpo_targets():
+    sample = _make_sample()
+    sample.sdpo_weights = [0.0, 0.0, 1.0, 0.0, 0.0, 0.0]
+
+    stamp_loss_routing(sample, "sdpo", 0.5)
+
+    assert sample.rl_weights == [0.0] * len(sample.token_ids)
+    assert sample.sdpo_weights == [0.0, 0.0, 0.5, 0.0, 0.0, 0.0]
 
 
 def test_stamp_loss_routing_keeps_algorithm_written_ce_stream():
@@ -313,6 +348,39 @@ def _two_turn_rollout(observation_role: str = "tool", *, reward: float = 1.0, in
     return rollout
 
 
+def test_grpo_action_filter_narrows_group_advantage_to_selected_responses() -> None:
+    winner = _two_turn_rollout(reward=1.0)
+    loser = _two_turn_rollout(reward=0.0)
+    algo = GRPOAlgorithm(_build(type="grpo"), MagicMock())
+    algo.action_filter_fn = lambda _trace: [[False] * 6 + [True, True]]
+
+    asyncio.run(algo.score_group([winner, loser]))
+
+    assert winner.advantages == [0.0] * 6 + [0.5, 0.5]
+    assert loser.advantages == [0.0] * 6 + [-0.5, -0.5]
+
+
+def test_grpo_without_action_filter_keeps_uniform_action_credit() -> None:
+    winner = _two_turn_rollout(reward=1.0)
+    loser = _two_turn_rollout(reward=0.0)
+    algo = GRPOAlgorithm(_build(type="grpo"), MagicMock())
+
+    asyncio.run(algo.score_group([winner, loser]))
+
+    assert winner.advantages == [0.0, 0.0, 0.5, 0.5, 0.0, 0.0, 0.5, 0.5]
+    assert loser.advantages == [0.0, 0.0, -0.5, -0.5, 0.0, 0.0, -0.5, -0.5]
+
+
+def test_grpo_action_filter_rejects_branch_count_mismatch() -> None:
+    winner = _two_turn_rollout(reward=1.0)
+    loser = _two_turn_rollout(reward=0.0)
+    algo = GRPOAlgorithm(_build(type="grpo"), MagicMock())
+    algo.action_filter_fn = lambda _trace: []
+
+    with pytest.raises(ValueError, match="one keep-mask per trainable branch"):
+        asyncio.run(algo.score_group([winner, loser]))
+
+
 def test_echo_weights_observations_by_role():
     # The observation node [5,6] follows the first sampled node, so it is
     # weighted; the initial prompt [1,2] precedes it and is excluded.
@@ -450,6 +518,168 @@ def test_opsd_selects_role_appropriate_demonstration_for_each_branch():
     assert "<Demonstration>\nChild demonstration" in prompts[1]
 
 
+def test_opsd_aligns_demonstration_sequence_to_filter_selected_responses():
+    rollout = _two_turn_rollout(
+        info={"demonstrations": {"U": ["First transition", "Second transition"]}}
+    )
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90]
+    algo = OPSDAlgorithm(
+        _build(type="opsd", demo_key="demonstrations"),
+        MagicMock(model_name="policy"),
+    )
+    algo.renderer = renderer
+    algo.filter_fn = lambda _trace: [[False, False, True, True, False, False, True, True]]
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    prompts = [
+        next(
+            message["content"]
+            for message in call.args[0]
+            if "<Demonstration>" in message["content"]
+        )
+        for call in renderer.render_ids.call_args_list
+    ]
+    assert len(prompts) == 2
+    assert "<Demonstration>\nFirst transition" in prompts[0]
+    assert "<Demonstration>\nSecond transition" in prompts[1]
+    assert rollout.samples[0].sdpo_weights == [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0]
+
+
+def test_opsd_null_or_exhausted_transition_demonstrations_skip_selected_responses():
+    rollout = _two_turn_rollout(info={"demonstrations": {"U": [None]}})
+    algo = OPSDAlgorithm(
+        _build(type="opsd", demo_key="demonstrations"),
+        MagicMock(model_name="policy"),
+    )
+    algo.renderer = MagicMock()
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    assert rollout.samples[0].sdpo_weights == [0.0] * 8
+    assert rollout.samples[0].sdpo_teacher_spans is None
+    algo.renderer.render_ids.assert_not_called()
+
+
+def test_opsd_explicitly_skips_a_branch_with_null_demonstration():
+    nodes = [
+        _node(UserMessage(content="coordinator question"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="coordinate"), parent=0, sampled=True, token_ids=[2]),
+        _node(UserMessage(content="child question"), parent=None, sampled=False, token_ids=[3]),
+        _node(AssistantMessage(content="send result"), parent=2, sampled=True, token_ids=[4]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=1.0)},
+        info={
+            "demonstrations": {
+                "coordinator question": "Coordinator demonstration",
+                "child question": None,
+            }
+        },
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90]
+    algo = OPSDAlgorithm(_build(type="opsd", demo_key="demonstrations"), MagicMock(model_name="policy"))
+    algo.renderer = renderer
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    assert rollout.samples[0].sdpo_weights == [0.0, 1.0]
+    assert rollout.samples[0].sdpo_teacher_spans is not None
+    assert rollout.samples[1].sdpo_weights == [0.0, 0.0]
+    assert rollout.samples[1].sdpo_teacher_spans is None
+    assert renderer.render_ids.call_count == 1
+
+
+def test_opsd_wildcard_null_skips_an_unrecognized_branch():
+    nodes = [
+        _node(UserMessage(content="coordinator question"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="coordinate"), parent=0, sampled=True, token_ids=[2]),
+        _node(UserMessage(content="paraphrased child question"), parent=None, sampled=False, token_ids=[3]),
+        _node(AssistantMessage(content="send result"), parent=2, sampled=True, token_ids=[4]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=1.0)},
+        info={
+            "demonstrations": {
+                "coordinator question": "Coordinator demonstration",
+                "*": None,
+            }
+        },
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90]
+    algo = OPSDAlgorithm(_build(type="opsd", demo_key="demonstrations"), MagicMock(model_name="policy"))
+    algo.renderer = renderer
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    assert rollout.samples[0].sdpo_teacher_spans is not None
+    assert rollout.samples[1].sdpo_weights == [0.0, 0.0]
+    assert rollout.samples[1].sdpo_teacher_spans is None
+    assert renderer.render_ids.call_count == 1
+
+
+def test_opsd_filter_narrows_distillation_to_selected_response_tokens():
+    rollout = _two_turn_rollout(info={"demonstration": "Expert trajectory"})
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90]
+    algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(model_name="policy"))
+    algo.renderer = renderer
+    algo.filter_fn = lambda _trace: [[False] * 6 + [True, True]]
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0]
+    assert sample.sdpo_teacher_spans is not None
+    assert [span.completion_ids for span in sample.sdpo_teacher_spans] == [[7, 8]]
+    assert renderer.render_ids.call_count == 1
+
+
+def test_opsd_filter_retains_unselected_completion_tokens_as_teacher_context():
+    rollout = _two_turn_rollout(info={"demonstration": "Expert trajectory"})
+    renderer = MagicMock()
+    renderer.render_ids.return_value = [90]
+    algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(model_name="policy"))
+    algo.renderer = renderer
+    algo.filter_fn = lambda _trace: [[False, False, False, True, False, False, False, False]]
+
+    asyncio.run(algo.score_rollout(rollout))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    assert sample.sdpo_teacher_spans == [
+        SDPOTeacherSpan(
+            prefix_ids=[90],
+            completion_ids=[3, 4],
+            student_positions=[3],
+            target_offsets=[1],
+        )
+    ]
+
+
+def test_opsd_filter_rejects_branch_count_mismatch():
+    rollout = _two_turn_rollout(info={"demonstration": "Expert trajectory"})
+    algo = OPSDAlgorithm(_build(type="opsd"), MagicMock(model_name="policy"))
+    algo.renderer = MagicMock()
+    algo.filter_fn = lambda _trace: []
+
+    with pytest.raises(ValueError, match="one keep-mask per trainable branch"):
+        asyncio.run(algo.score_rollout(rollout))
+
+
 def test_opsd_rejects_branch_without_a_matching_demonstration():
     rollout = _two_turn_rollout(info={"demonstrations": {"another question": "Another demo"}})
     algo = OPSDAlgorithm(_build(type="opsd", demo_key="demonstrations"), MagicMock(model_name="policy"))
@@ -564,6 +794,93 @@ def test_sdpo_multi_turn_replay_skips_turns_without_attributable_feedback():
     algo.renderer.render_ids.assert_called_once()
 
 
+def test_sdpo_filter_narrows_hindsight_to_selected_response_tokens():
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={"feedback": "final judge feedback"},
+    )
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", multi_turn_replay=True),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [30, 31]
+    algo.filter_fn = lambda _trace: [[False] * 6 + [True, True]]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0] * 6 + [1.0, 1.0]
+    assert sample.sdpo_teacher_spans == [
+        SDPOTeacherSpan(
+            prefix_ids=[30, 31],
+            completion_ids=[7, 8],
+            student_positions=[6, 7],
+            target_offsets=[0, 1],
+        )
+    ]
+    algo.renderer.render_ids.assert_called_once()
+
+
+def test_sdpo_filter_retains_unselected_completion_tokens_as_teacher_context():
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={"feedback": "final judge feedback"},
+    )
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", multi_turn_replay=True),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [30, 31]
+    algo.filter_fn = lambda _trace: [[False, False, False, True, False, False, False, False]]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+    assert sample.sdpo_teacher_spans == [
+        SDPOTeacherSpan(
+            prefix_ids=[30, 31],
+            completion_ids=[3, 4],
+            student_positions=[3],
+            target_offsets=[1],
+        )
+    ]
+
+
+def test_sdpo_filter_rejects_branch_count_mismatch():
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={"feedback": "final judge feedback"},
+    )
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", multi_turn_replay=True),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.filter_fn = lambda _trace: []
+
+    with pytest.raises(ValueError, match="one keep-mask per trainable branch"):
+        asyncio.run(algo.finalize_group([rollout]))
+
+
+def test_sdpo_filter_rejects_token_count_mismatch():
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={"feedback": "final judge feedback"},
+    )
+    algo = SDPOAlgorithm(
+        _build(type="sdpo", multi_turn_replay=True),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.filter_fn = lambda _trace: [[True]]
+
+    with pytest.raises(ValueError, match="must span the branch's tokens"):
+        asyncio.run(algo.finalize_group([rollout]))
+
+
 def test_sdpo_reprompts_final_user_turn_and_reuses_sampled_completion_verbatim():
     nodes = [
         _node(UserMessage(content="Worked example"), parent=None, sampled=False, token_ids=[1]),
@@ -644,6 +961,62 @@ def test_sdpo_uses_successful_sibling_and_skips_unsupervised_success():
     assert failed.samples[0].sdpo_teacher_spans is not None
     assert successful.samples[0].sdpo_teacher_spans is None
     assert successful.samples[0].sdpo_weights == [0.0] * len(successful.samples[0].token_ids)
+
+
+def test_sdpo_matches_multi_agent_branches_and_preserves_successful_tool_calls():
+    def make_rollout(root_response: AssistantMessage, child_response: str, reward: float) -> Rollout:
+        nodes = [
+            _node(
+                UserMessage(content=[TextContentPart(text="coordinator task")]),
+                parent=None,
+                sampled=False,
+                token_ids=[1],
+            ),
+            _node(root_response, parent=0, sampled=True, token_ids=[2], logprobs=[-0.1]),
+            _node(
+                UserMessage(content=[TextContentPart(text="[task from parent]\n\nchild task")]),
+                parent=None,
+                sampled=False,
+                token_ids=[3],
+            ),
+            _node(AssistantMessage(content=child_response), parent=2, sampled=True, token_ids=[4], logprobs=[-0.2]),
+        ]
+        rollout = Rollout(
+            task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+            agent=vf.AgentInfo(config=vf.AgentConfig()),
+            nodes=nodes,
+            rewards={"reward": vf.Reward(score=reward)},
+            env_name="test-env",
+        )
+        rollout.samples = trace_to_samples(rollout, env_name="test-env")
+        return rollout
+
+    failed = make_rollout(AssistantMessage(content="wrong root"), "wrong child", 0.0)
+    successful = make_rollout(
+        AssistantMessage(
+            content="correct root",
+            tool_calls=[ToolCall(id="call_0", name="ipython", arguments='{"code":"root_success()"}')],
+        ),
+        "correct child",
+        1.0,
+    )
+    algo = SDPOAlgorithm(_build(type="sdpo"), MagicMock(model_name="org/model"))
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.side_effect = [[20], [21]]
+
+    asyncio.run(algo.finalize_group([failed, successful]))
+
+    assert len(failed.samples) == 2
+    assert all(sample.sdpo_teacher_spans is not None for sample in failed.samples)
+    assert all(sample.sdpo_teacher_spans is None for sample in successful.samples)
+    prompts = [call.args[0][0]["content"] for call in algo.renderer.render_ids.call_args_list]
+    coordinator_prompt = next(prompt for prompt in prompts if prompt.startswith("coordinator task"))
+    child_prompt = next(prompt for prompt in prompts if prompt.startswith("[task from parent]"))
+    assert 'ipython({"code":"root_success()"})' in coordinator_prompt
+    assert "correct root" in coordinator_prompt
+    assert "correct child" not in coordinator_prompt
+    assert "correct child" in child_prompt
+    assert "correct root" not in child_prompt
 
 
 def test_sdpo_can_reprompt_success_with_its_own_response():

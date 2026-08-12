@@ -1,0 +1,154 @@
+{
+  "experiment_id": "qwen35-27b-turn-opsd-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "training": {
+    "config": "237-qwen35-27b-turn-opsd-dose.toml",
+    "config_sha256": "7bd7eeefbba92a590f58c894bb98272c50da6a39d801f1080987ca4515c79e3e",
+    "metrics_sha256": "ad4cf2b1013e118189931b7d124393849a5c7bc2f8d53ea6a3ae4211c04509e2",
+    "rollout_trace_sha256": "e5b125ea72cb2218f33b9ce1c4110869b8a3d58b880e5cd08220f941c87e0b48",
+    "adapter_sha256": "6de50c678954a59a7c0efbf2bd8c54f23fe6d9268f352662a894ae77e8c4b496",
+    "thinking_mode": true,
+    "family": "followup",
+    "optimizer": "adamw",
+    "learning_rate": 5e-8,
+    "lora_rank": 16,
+    "optimizer_steps": 1,
+    "rollouts": 4,
+    "loss": 0.0028863372,
+    "entropy": 0.24692969,
+    "mismatch_kl": 0.0002176613,
+    "gradient_norm": 0.17871094,
+    "peak_trainer_memory_gib": 35.6,
+    "algorithm": {
+      "type": "opsd",
+      "demo_key": "turn_demonstrations",
+      "filter": "subagent_communication_v1.taskset.keep_bidirectional_state_transitions",
+      "selected_action_tokens": 4259,
+      "teacher_selected_tokens": 4259,
+      "per_trace_selected_tokens": [1391, 925, 1027, 916],
+      "audit_sha256": "ef3e58ed907ae818960fba546884eafb0ff3a1695629908b0a7e5ce3d7ad5719"
+    }
+  },
+  "selection": {
+    "first": {
+      "config": "238-qwen35-27b-turn-opsd-selection.toml",
+      "config_sha256": "a6e482137d461501c8cc6d31edd8583a28539f4c5d4a430058b7f0a21e5802b4",
+      "task_offset": 9600,
+      "tasks_per_arm": 8,
+      "base_trace_sha256": "95efe36d6a9fdcf33160205a301adfcc6e561070c761766dbfee1fcd2734c7d0",
+      "candidate_trace_sha256": "2cf8e1d01d56b88e7789a6afcd18920e4235d4ee782e72e93d72b28cc57e1fa7",
+      "base": {
+        "answer_accuracy": 1.0,
+        "natural_followup_causal": 0.625,
+        "protocol_aligned": 0.25,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.875,
+        "failed_cells": 1.125,
+        "bidirectional_control": 0.3068181818181818
+      },
+      "candidate": {
+        "answer_accuracy": 1.0,
+        "natural_followup_causal": 0.75,
+        "protocol_aligned": 0.375,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.875,
+        "failed_cells": 1.625,
+        "bidirectional_control": 0.32954545454545453
+      }
+    },
+    "independent_repeat": {
+      "config": "239-qwen35-27b-turn-opsd-repeat.toml",
+      "config_sha256": "cbb43864f789148d7cf21d7cc105731b485e2b034dfe871267f04e38609b84af",
+      "task_offset": 9700,
+      "tasks_per_arm": 8,
+      "base_trace_sha256": "075db8199ca3403a8dc5b25f5f6a233c117ea863938fdf40550c6539ae99566f",
+      "candidate_trace_sha256": "ca7ddf1823d8e942954879998f80c2754e2e6379e299413042e6bc0ee08a9525",
+      "base": {
+        "answer_accuracy": 1.0,
+        "natural_followup_causal": 0.75,
+        "protocol_aligned": 0.375,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.5,
+        "failed_cells": 1.5,
+        "bidirectional_control": 0.3181818181818182
+      },
+      "candidate": {
+        "answer_accuracy": 0.875,
+        "natural_followup_causal": 0.875,
+        "protocol_aligned": 0.5,
+        "clean_protocol_aligned": 0.0,
+        "coordinator_delegated_path_accesses": 0.375,
+        "failed_cells": 1.75,
+        "bidirectional_control": 0.40909090909090906
+      }
+    },
+    "verifier_source_sha256": "98f7ad7d0dd167e59742e2e8bb9300989ea704a879cefef44207ba5540613bba",
+    "sampling_temperature": 0.4,
+    "thinking_mode": true
+  },
+  "combined": {
+    "tasks_per_arm": 16,
+    "base": {
+      "answers": "16/16",
+      "natural_followup_causal": "11/16",
+      "protocol_aligned": "5/16",
+      "clean_protocol_aligned": "0/16",
+      "mean_coordinator_delegated_path_accesses": 0.6875,
+      "mean_failed_cells": 1.3125,
+      "mean_bidirectional_control": 0.3125
+    },
+    "candidate": {
+      "answers": "15/16",
+      "natural_followup_causal": "13/16",
+      "protocol_aligned": "7/16",
+      "clean_protocol_aligned": "0/16",
+      "mean_coordinator_delegated_path_accesses": 0.625,
+      "mean_failed_cells": 1.6875,
+      "mean_bidirectional_control": 0.3693181818181818
+    },
+    "followup_only": {
+      "tasks_per_arm": 8,
+      "base": {
+        "answers": "8/8",
+        "natural_followup_causal": "6/8",
+        "protocol_aligned": "1/8",
+        "clean_protocol_aligned": "0/8",
+        "mean_coordinator_delegated_path_accesses": 1.375,
+        "mean_failed_cells": 1.625
+      },
+      "candidate": {
+        "answers": "8/8",
+        "natural_followup_causal": "6/8",
+        "protocol_aligned": "0/8",
+        "clean_protocol_aligned": "0/8",
+        "mean_coordinator_delegated_path_accesses": 1.25,
+        "mean_failed_cells": 2.125
+      }
+    },
+    "handshake_only": {
+      "tasks_per_arm": 8,
+      "base": {
+        "answers": "8/8",
+        "natural_followup_causal": "5/8",
+        "protocol_aligned": "4/8",
+        "clean_protocol_aligned": "0/8"
+      },
+      "candidate": {
+        "answers": "7/8",
+        "natural_followup_causal": "7/8",
+        "protocol_aligned": "7/8",
+        "clean_protocol_aligned": "0/8"
+      }
+    }
+  },
+  "decision": {
+    "promoted": false,
+    "published": false,
+    "frozen_family_gates_run": false,
+    "reason": "The adapter improved the simpler handshake mechanism, but not the target file-backed follow-up policy. Follow-up causal completion stayed 6/8, aligned follow-ups fell from 1/8 to 0/8, all 16 candidate traces failed the clean gate, and mean failed follow-up cells rose from 1.625 to 2.125. It also introduced one answer failure. The small aggregate leakage reduction is not credible evidence of harness mastery.",
+    "trace_diagnosis": "In the independent repeat, three of four candidate follow-up coordinators reopened the delegated file, all four attempted unnecessary polling, roster, observation, or API-discovery work, and all four needed completion-gate correction to emit bare JSON. The multi-transition objective moved handshake states but did not isolate the coordinator's initial ownership decision.",
+    "next": "Return again to untouched thinking-mode 27B. Apply turn-demonstration OPSD only to the first coordinator response on a larger disjoint follow-up batch, where the exact decision is spawn-and-retain versus reopening the delegated path. Evaluate with fresh paired follow-up and handshake tasks before any later-transition dose."
+  }
+}

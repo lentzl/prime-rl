@@ -1,0 +1,17 @@
+[Unit]
+Description=Colocated Qwen 3.5 9B inference for one-GPU OPSD
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/.local/bin/uv run inference @ configs/debug/subagent-communication/196-qwen35-9b-pre-child-opsd-inference.toml
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/196-qwen35-9b-opsd-inference.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/196-qwen35-9b-opsd-inference.log
+
+[Install]
+WantedBy=default.target

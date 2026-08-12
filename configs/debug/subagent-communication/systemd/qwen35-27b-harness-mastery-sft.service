@@ -1,0 +1,14 @@
+[Unit]
+Description=Train Qwen 3.5 27B Prime Agent harness-mastery teacher
+After=network-online.target
+OnSuccess=qwen35-27b-harness-mastery-screens.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+Environment=CUDA_VISIBLE_DEVICES=2,3
+ExecStart=/bin/bash -lc 'export HF_TOKEN="$HF_KEY"; exec /home/ubuntu/.local/bin/uv run sft @ configs/debug/subagent-communication/217-qwen35-27b-harness-mastery-sft.toml'
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/217-qwen35-27b-harness-mastery-sft.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/217-qwen35-27b-harness-mastery-sft.log

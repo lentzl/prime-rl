@@ -1,0 +1,136 @@
+{
+  "schema_version": 1,
+  "experiment": "qwen35-4b-single-reply-control-r1",
+  "base_model": {
+    "name": "Qwen/Qwen3.5-4B",
+    "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a"
+  },
+  "initial_adapter": {
+    "experiment": "qwen35-4b-single-sft-dose-v1",
+    "checkpoint": "step_4",
+    "adapter_sha256": "8bdc69ba7bd21c2a386428fde0b5baaf7be9ce5e485cdf3bba5dd35b8bcb29a7"
+  },
+  "implementation": {
+    "prime_rl_base_revision": "d8d988db4bf8214a9a5654f287d69afaf7f439ce",
+    "verifiers_revision": "202de9f7875d11039ba9d772736952f76c9dc141",
+    "prime_agent_version": "0.7.0",
+    "working_tree_sources": {
+      "scripts/export_subagent_communication_sft.py": "1e8eba0e2cf2318e439fe1e768f0cb03f555ee775921e74a60a6142e46259a54",
+      "tests/unit/test_export_subagent_communication_sft.py": "0a3a7e06d279ff4ff7ef0b360fe1a29c67b823dc140c03594d6ee48f6da6bac3",
+      "configs/debug/subagent-communication/94-qwen35-4b-single-reply-control-sft.toml": "4fdbe6a1cbba3ee3a07b1af62764ab1635db033a14d3c0fa6389b2e2fcb54ca8",
+      "configs/debug/subagent-communication/95-qwen35-4b-single-reply-direct-screen.toml": "d9e8c3dc19d66217a213e72bfb0b3955d51d162b452654089e6b2c6ad81e68f1",
+      "configs/debug/subagent-communication/96-qwen35-4b-single-reply-dev-eval.toml": "e0451167c7a34d778591230ef51763a538fa251e803e28d95c309ecd510aa2f0"
+    }
+  },
+  "training_data": {
+    "path": "/ephemeral/subagent-rung/data/94-qwen35-4b-single-reply-control-r1/train.json",
+    "sha256": "13bbcaf230265d0623b5f9bb09aee5f23159dec09aebc318ffbb2105f0e6caf4",
+    "examples": 104,
+    "composition": {
+      "full_direct_parent": 8,
+      "full_single_parent": 8,
+      "full_single_child": 8,
+      "child_send_atom": 16,
+      "parent_exact_spawn_atom": 16,
+      "parent_local_compute_atom": 16,
+      "parent_wait_atom": 16,
+      "parent_bind_and_finalize_atom": 16
+    }
+  },
+  "training": {
+    "config": "94-qwen35-4b-single-reply-control-sft.toml",
+    "precision": "bfloat16",
+    "lora_rank": 16,
+    "lora_alpha": 32,
+    "learning_rate": 0.000002,
+    "max_steps": 12,
+    "checkpoint_steps": [
+      4,
+      8,
+      12
+    ],
+    "loss": {
+      "step_4": 0.6752,
+      "step_8": 0.6766,
+      "step_12": 0.7525
+    }
+  },
+  "matched_development_gate": {
+    "families": [
+      "direct",
+      "single"
+    ],
+    "instances_per_template": 2,
+    "instance_offset": 5200,
+    "seed": 20270417,
+    "temperature": 0.8,
+    "rollouts_per_task": 2,
+    "control_step_4": {
+      "direct_joint": "8/8",
+      "single_answer_credit": "6/8",
+      "single_protocol": "0/8",
+      "single_joint": "0/8",
+      "single_spawn_calls": 7,
+      "single_messages_to_parent": 2,
+      "single_duplicate_cells": 3,
+      "single_max_turns": 2,
+      "single_rollout_errors": 0,
+      "trace_sha256": "e819136cc940596a54207b0799ec892edb1a9ffe520f3a1522d810235374ee5b"
+    },
+    "continuation_step_4": {
+      "adapter_sha256": "a0e39717295dac51d44dd00604b5bd0258acbbc612d429caad90a6fce152e8cf",
+      "direct_joint": "8/8",
+      "single_answer_credit": "2.3333333333333335/8",
+      "single_protocol": "0/8",
+      "single_joint": "0/8",
+      "single_spawn_calls": 7,
+      "single_messages_to_parent": 5,
+      "single_duplicate_cells": 1,
+      "single_max_turns": 3,
+      "single_rollout_errors": 2,
+      "trace_sha256": "e9f3928cefca66e9b4406f2006cc1c09e5f2cf466847d8b8bbd4501411243753"
+    },
+    "continuation_step_8": {
+      "adapter_sha256": "82f041251277a812377363e167148916deda45362ed4fb445ab3ed8713718fbc",
+      "direct_screen_joint": "3/4",
+      "direct_screen_duplicate_cells": 1,
+      "direct_screen_rollout_errors": 0,
+      "trace_sha256": "ff754d715c755f5375c974148a595c3d4ffd8df27ba50a68377ac3bab6fa1c85",
+      "development_gate_run": false
+    },
+    "continuation_step_12": {
+      "adapter_sha256": "cadc5f3d8fac80ca25e0809c8fe50d0a84a06cf8f43e27a9357793f321c47a5e",
+      "direct_screen_joint": "4/4",
+      "direct_screen_trace_sha256": "3d32ed3791f94783180c3cafbaa1e0b973a25dcbe3cc9ebeca103173bf1556c5",
+      "direct_joint": "8/8",
+      "single_answer_credit": "3/8",
+      "single_protocol": "0/8",
+      "single_joint": "0/8",
+      "single_spawn_calls": 8,
+      "single_messages_to_parent": 2,
+      "single_duplicate_cells": 0,
+      "single_max_turns": 4,
+      "single_rollout_errors": 1,
+      "trace_sha256": "7d4130f5271d0531355ab0564297d05c2c86fbc2b30ba0e78b74e80f7b55db2e"
+    }
+  },
+  "selection": {
+    "checkpoint": null,
+    "decision": "reject the continuation rung",
+    "promotion_ready": false,
+    "frozen_capacity_battery_v1_run": false
+  },
+  "archive": {
+    "repository": "lentzl/rlm-prime-agent-qwen35-4b-coordinator-step4-r1-20260810",
+    "evidence_revision": "78d753f0af105ffd69309546d7a3aa0332d19bb7",
+    "path": "experiments/single-reply-control-r1",
+    "retained_adapters": false
+  },
+  "observed_failure_boundary": [
+    "The child-send atom increased explicit child-to-parent messages at step 4 but did not produce a complete protocol trajectory.",
+    "A solved single-child trace read the delegated file in the parent before spawning the child.",
+    "The same trace spawned the child with the literal payload 'sub-task' instead of the exact file path and reply contract, leaving delegated_payloads at zero.",
+    "Later dose either regressed direct restraint or increased max-turn and rollout failures without protocol success.",
+    "The next intervention must bind spawn timing, exact delegated payload, retained handle, local-only parent work, child reply, and resumed finalization as one causal trajectory."
+  ]
+}

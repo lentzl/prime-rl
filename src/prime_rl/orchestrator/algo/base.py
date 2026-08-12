@@ -121,6 +121,7 @@ class Algorithm:
 
     def __init__(self, config: AlgoConfig, policy_pool: InferencePool):
         self.policy_pool = policy_pool
+        self.loss_weight = config.loss_weight
         self.connected_pools: list[InferencePool] = []  # frozen pools connected in setup(); closed at shutdown
 
     async def setup(self) -> None:
@@ -162,4 +163,4 @@ class Algorithm:
         for rollout in rollouts:
             stamp_advantages(rollout)
             for sample in rollout.samples:
-                stamp_loss_routing(sample, self.action_loss_type)
+                stamp_loss_routing(sample, self.action_loss_type, self.loss_weight)

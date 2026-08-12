@@ -1,0 +1,12 @@
+[Unit]
+Description=First-turn dense ownership preflight for thinking Qwen 3.5 27B
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/bin/bash /home/ubuntu/prime-rl/scripts/run_qwen35_27b_ownership_dense_preflight.sh
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/247-qwen35-27b-ownership-dense-preflight.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/247-qwen35-27b-ownership-dense-preflight.log
