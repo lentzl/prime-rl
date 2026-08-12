@@ -1,0 +1,45 @@
+{
+  "experiment_id": "qwen35-27b-coordinator-native-admission-contract-fix-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "completed_at": "2026-08-12",
+  "evaluation": {
+    "tasks": 8,
+    "rollouts_per_task": 16,
+    "total_rollouts": 128,
+    "strict_successes": 18,
+    "success_families": [
+      "csv_amount_total",
+      "markdown_heading_count",
+      "sha256_prefix"
+    ],
+    "multi_success_families": [
+      "csv_amount_total",
+      "markdown_heading_count",
+      "sha256_prefix"
+    ],
+    "strict_successes_by_family": {
+      "csv_amount_total": 4,
+      "json_max_value": 0,
+      "json_sum": 0,
+      "log_error_count": 0,
+      "markdown_heading_count": 6,
+      "python_def_count": 0,
+      "sha256_prefix": 8,
+      "text_keyword_count": 0
+    },
+    "component_totals": {
+      "direct_answer_accuracy": 74,
+      "first_decision_only": 111,
+      "parent_path_access": 127,
+      "post_spawn_action": 16,
+      "state_retained": 31,
+      "strict_success": 18
+    },
+    "trace_sha256": "279fb4b7897e96fd3d315cd3eacde0512eacf2c85cd52750f8b3e148371c2eee"
+  },
+  "decision": {
+    "historical_admission_pass": false,
+    "weights_changed": false,
+    "summary": "The explicit output contract removed the Run 268 placeholder ambiguity and revealed natural coordinator-local success in three of eight resource families. The run fails the frozen six-family admission threshold, but it supersedes the earlier conclusion that untouched 27B supplied no native coordinator policy at all. Preserve this as diagnostic evidence; the Harness Mastery lane evaluates trajectories across checkpoints rather than using this narrow gate as a teacher-training stop condition."
+  }
+}
