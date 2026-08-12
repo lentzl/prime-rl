@@ -1054,6 +1054,57 @@ def test_sdpo_does_not_match_siblings_for_filtered_out_branches():
     assert "correct root" in teacher_messages[0]["content"]
 
 
+def test_sdpo_single_turn_scope_applies_after_token_filter():
+    nodes = [
+        _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="selected"), parent=0, sampled=True, token_ids=[2], logprobs=[-0.1]),
+        _node(AssistantMessage(content="filtered"), parent=1, sampled=True, token_ids=[3], logprobs=[-0.2]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=0.0)},
+        info={"feedback": "correct this"},
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    algo = SDPOAlgorithm(_build(type="sdpo"), MagicMock(model_name="org/model"))
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20]
+    algo.filter_fn = lambda _: [[False, True, False]]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 1.0, 0.0]
+    assert sample.sdpo_teacher_spans is not None
+    assert sample.sdpo_teacher_spans[0].student_positions == [1]
+
+
+def test_sdpo_rejects_multiple_responses_selected_by_filter():
+    nodes = [
+        _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="first"), parent=0, sampled=True, token_ids=[2], logprobs=[-0.1]),
+        _node(AssistantMessage(content="second"), parent=1, sampled=True, token_ids=[3], logprobs=[-0.2]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=0.0)},
+        info={"feedback": "correct this"},
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    algo = SDPOAlgorithm(_build(type="sdpo"), MagicMock(model_name="org/model"))
+    algo.renderer = MagicMock()
+    algo.filter_fn = lambda _: [[False, True, True]]
+
+    with pytest.raises(ValueError, match="single-turn rollouts"):
+        asyncio.run(algo.finalize_group([rollout]))
+
+
 def test_sdpo_can_reprompt_success_with_its_own_response():
     nodes = [
         _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1, 2]),

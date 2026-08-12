@@ -111,7 +111,19 @@ class SDPOAlgorithm(Algorithm):
         keep_mask: list[bool] | None = None,
     ) -> None:
 
-        sampled_nodes = [(index, node) for index, node in enumerate(nodes) if node.sampled]
+        sampled_nodes: list[tuple[int, object, int, int]] = []
+        node_start = 0
+        for node_index, node in enumerate(nodes):
+            node_end = node_start + len(node.token_ids)
+            if node.sampled:
+                action_mask = sample.mask[node_start:node_end]
+                node_keep_mask = keep_mask[node_start:node_end] if keep_mask is not None else action_mask
+                if any(
+                    sampled and keep
+                    for sampled, keep in zip(action_mask, node_keep_mask, strict=True)
+                ):
+                    sampled_nodes.append((node_index, node, node_start, node_end))
+            node_start = node_end
         if len(sampled_nodes) != 1 and not self.config.multi_turn_replay:
             raise ValueError("SDPO currently requires single-turn rollouts")
 
@@ -121,9 +133,7 @@ class SDPOAlgorithm(Algorithm):
 
         weights = [0.0] * len(sample.token_ids)
         spans: list[SDPOTeacherSpan] = []
-        for turn_index, (node_index, sampled_node) in enumerate(sampled_nodes):
-            node_start = sum(len(node.token_ids) for node in nodes[:node_index])
-            node_end = node_start + len(sampled_node.token_ids)
+        for turn_index, (node_index, sampled_node, node_start, node_end) in enumerate(sampled_nodes):
             action_mask = sample.mask[node_start:node_end]
             if len(action_mask) != len(sampled_node.token_ids):
                 raise ValueError("SDPO sample mask must span every Verifiers trace node")
