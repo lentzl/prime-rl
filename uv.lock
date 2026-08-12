@@ -90,12 +90,15 @@ members = [
     "oolong-pairs",
     "oolong-real",
     "oolong-synth",
+    "oolong-synth-v1",
     "openseeker",
     "openswe",
     "openthoughts-tblite",
+    "ownership-invariant-v1",
     "papersearchqa",
     "patterned-needle-in-haystack",
     "pinchbench",
+    "prime-agent-capabilities-v1",
     "prime-rl",
     "programbench-env",
     "prolog",
@@ -110,6 +113,8 @@ members = [
     "senior-swe-bench",
     "simpleqa",
     "simpleqa-verified",
+    "subagent-admission-v1",
+    "subagent-communication-v1",
     "swebench-multilingual",
     "swebench-pro",
     "swebench-verified",
@@ -4244,6 +4249,21 @@ requires-dist = [
 ]
 
 [[package]]
+name = "oolong-synth-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/oolong_synth_v1" }
+dependencies = [
+    { name = "datasets" },
+    { name = "python-dateutil" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "datasets" },
+    { name = "python-dateutil" },
+]
+
+[[package]]
 name = "openai"
 version = "2.38.0"
 source = { registry = "https://pypi.org/simple" }
@@ -4519,6 +4539,21 @@ wheels = [
 ]
 
 [[package]]
+name = "ownership-invariant-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/ownership_invariant_v1" }
+dependencies = [
+    { name = "subagent-communication-v1" },
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "subagent-communication-v1" },
+    { name = "verifiers" },
+]
+
+[[package]]
 name = "packaging"
 version = "26.2"
 source = { registry = "https://pypi.org/simple" }
@@ -4760,6 +4795,17 @@ sdist = { url = "https://files.pythonhosted.org/packages/54/01/d355265be49ec5bd5
 wheels = [
     { url = "https://files.pythonhosted.org/packages/5e/ad/67705b41b441513cc09de0a6134b8584d436efba8bc8b4ddeb4a3bbca768/prime-0.6.19-py3-none-any.whl", hash = "sha256:c2a4ee9252cd1a54fa6bcec2958a09ad4374077c68d461071d1ca699a9f4dda2", size = 473362, upload-time = "2026-07-17T17:41:07.35Z" },
 ]
+
+[[package]]
+name = "prime-agent-capabilities-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/prime_agent_capabilities_v1" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
 
 [[package]]
 name = "prime-evals"
@@ -6368,6 +6414,32 @@ wheels = [
 ]
 
 [[package]]
+name = "subagent-admission-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/subagent_admission_v1" }
+dependencies = [
+    { name = "subagent-communication-v1" },
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "subagent-communication-v1" },
+    { name = "verifiers" },
+]
+
+[[package]]
+name = "subagent-communication-v1"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/subagent_communication_v1" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
+
+[[package]]
 name = "supabase"
 version = "2.31.0"
 source = { registry = "https://pypi.org/simple" }
@@ -7505,10 +7577,15 @@ examples = [
     { name = "glossary", editable = "deps/verifiers/environments/glossary" },
     { name = "gsm8k", editable = "deps/verifiers/environments/gsm8k" },
     { name = "kuhn-poker", editable = "deps/verifiers/environments/kuhn_poker" },
+    { name = "oolong-synth-v1", editable = "deps/verifiers/environments/oolong_synth_v1" },
     { name = "openenv-wordle", editable = "deps/verifiers/environments/openenv_wordle" },
+    { name = "ownership-invariant-v1", editable = "deps/verifiers/environments/ownership_invariant_v1" },
+    { name = "prime-agent-capabilities-v1", editable = "deps/verifiers/environments/prime_agent_capabilities_v1" },
     { name = "proposer-solver", editable = "deps/verifiers/environments/proposer_solver" },
     { name = "reverse-text", editable = "deps/verifiers/environments/reverse_text" },
     { name = "scratchpad", editable = "deps/verifiers/environments/scratchpad" },
+    { name = "subagent-admission-v1", editable = "deps/verifiers/environments/subagent_admission_v1" },
+    { name = "subagent-communication-v1", editable = "deps/verifiers/environments/subagent_communication_v1" },
     { name = "wiki-search", editable = "deps/verifiers/environments/wiki_search" },
     { name = "wordle", editable = "deps/verifiers/environments/wordle" },
 ]

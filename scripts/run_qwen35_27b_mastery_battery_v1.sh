@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-root=/home/ubuntu/prime-rl
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 model=${1:-Qwen/Qwen3.5-27B}
 label=${2:-base}
-output_root=/ephemeral/subagent-rung/evals/271-276-qwen35-27b-mastery-battery-v1/${label}
+output_root=${PRIME_MASTERY_OUTPUT_ROOT:-/ephemeral/subagent-rung/evals/271-276-qwen35-27b-mastery-battery-v1}/${label}
+uv_bin=${UV_BIN:-uv}
 
 configs=(
   271-qwen35-27b-mastery-foundations-baseline
@@ -18,7 +19,7 @@ configs=(
 cd "$root"
 mkdir -p "$output_root"
 for name in "${configs[@]}"; do
-  /home/ubuntu/.local/bin/uv run eval @ \
+  "$uv_bin" run eval @ \
     "configs/debug/subagent-communication/${name}.toml" \
     --model "$model" \
     --output-dir "$output_root/$name"
