@@ -1019,6 +1019,41 @@ def test_sdpo_matches_multi_agent_branches_and_preserves_successful_tool_calls()
     assert "correct root" not in child_prompt
 
 
+def test_sdpo_does_not_match_siblings_for_filtered_out_branches():
+    def make_rollout(child_question: str, response: str, reward: float) -> Rollout:
+        nodes = [
+            _node(UserMessage(content="coordinator task"), parent=None, sampled=False, token_ids=[1]),
+            _node(AssistantMessage(content=response), parent=0, sampled=True, token_ids=[2], logprobs=[-0.1]),
+            _node(UserMessage(content=child_question), parent=None, sampled=False, token_ids=[3]),
+            _node(AssistantMessage(content="child"), parent=2, sampled=True, token_ids=[4], logprobs=[-0.2]),
+        ]
+        rollout = Rollout(
+            task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+            agent=vf.AgentInfo(config=vf.AgentConfig()),
+            nodes=nodes,
+            rewards={"reward": vf.Reward(score=reward)},
+            env_name="test-env",
+        )
+        rollout.samples = trace_to_samples(rollout, env_name="test-env")
+        return rollout
+
+    failed = make_rollout("[task from parent]\n\nfailed child task", "wrong root", 0.0)
+    successful = make_rollout("[task from parent]\n\nsuccessful child task", "correct root", 1.0)
+    algo = SDPOAlgorithm(_build(type="sdpo"), MagicMock(model_name="org/model"))
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20]
+    algo.filter_fn = lambda _: [[False, True], [False, False]]
+
+    asyncio.run(algo.finalize_group([failed, successful]))
+
+    assert failed.samples[0].sdpo_teacher_spans is not None
+    assert failed.samples[1].sdpo_teacher_spans is None
+    assert failed.samples[1].sdpo_weights == [0.0, 0.0]
+    assert all(sample.sdpo_teacher_spans is None for sample in successful.samples)
+    teacher_messages = algo.renderer.render_ids.call_args.args[0]
+    assert "correct root" in teacher_messages[0]["content"]
+
+
 def test_sdpo_can_reprompt_success_with_its_own_response():
     nodes = [
         _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1, 2]),

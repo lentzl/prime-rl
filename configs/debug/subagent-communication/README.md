@@ -854,3 +854,24 @@ forbidden, revise the ordinary executable curriculum or sampling and repeat Phas
 If it is deemed non-substantive, revise the verifier first and rerun all 64 rollouts;
 do not rescore this batch into admission after observing it. Exact counts and hashes
 are in `qwen35-27b-native-sibling-admission-results-v1.json`.
+
+The prospective semantic-yield screen and its predeclared sampling extension now
+admit the native sibling source. Run 260 alone produced `5/64` strict successes but
+only three mixed groups. Run 261 added eight independent rollouts to the same tasks;
+the combined group size of 16 produced `11/128` successes across six mixed resource
+families and both phrasings. This exceeds the frozen four-group, three-family,
+two-phrasing gate without changing any weights. Exact counts and hashes are recorded
+in `qwen35-27b-native-sibling-admission-results-v2.json`.
+
+Run 262 is the required zero-LR replay audit. It samples one empirically mixed JSON
+group and one empirically no-success CSV group at group size 16, disables environment
+feedback, preserves authentic native successful reasoning, and filters loss to the
+first coordinator tool call. The audit must prove sibling provenance, no-success
+zero-target routing, mask locality, and trainer/inference agreement before the first
+native-sibling SDPO update.
+
+Run 262 uses live-policy teacher regularization because Prime-RL rejects EMA with
+LoRA: the current EMA implementation creates a second full model. At zero learning
+rate, and at teacher-evaluation time in a single-step dose, live policy is exactly the
+newly initialized EMA teacher. This equivalence does not extend to multiple optimizer
+steps; that later lane needs adapter-only EMA support or full-weight capacity.

@@ -75,6 +75,12 @@ class SDPOAlgorithm(Algorithm):
         ):
             if list(branch.token_ids) != list(sample.token_ids) or list(trainable_mask) != list(sample.mask):
                 raise ValueError("SDPO sample tokens must align with their Verifiers trace branch")
+            keep_mask = filter_masks[branch_index] if filter_masks is not None else None
+            if keep_mask is not None and not any(
+                sampled and keep for sampled, keep in zip(sample.mask, keep_mask, strict=True)
+            ):
+                self._clear_target(sample)
+                continue
             question = self._branch_question(branch.nodes)
             if solutions is None:
                 solution = None
@@ -91,7 +97,7 @@ class SDPOAlgorithm(Algorithm):
                 sample,
                 solution,
                 explicit_feedback=explicit_feedback if branch_index == 0 else None,
-                keep_mask=filter_masks[branch_index] if filter_masks is not None else None,
+                keep_mask=keep_mask,
             )
 
     def _prepare_sample(

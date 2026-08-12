@@ -784,6 +784,31 @@ after `await rlm(...)` or only substantive environment/task actions. Do not laun
 zero-LR SDPO audit until a fresh screen passes the unchanged mixed-group, resource, and
 phrasing thresholds under the chosen definition.
 
+The prospective semantic-yield rerun resolved that boundary without changing the
+frozen literal result. Semantic yield permits only passive display or storage derived
+from the returned handle in the same first cell; it still rejects second cells,
+polling, discovery, messaging, delegated-resource access, computation, and all other
+post-spawn work. A fresh eight-rollout screen produced five strict successes but only
+three mixed groups, one below admission. A predeclared sampling extension then added
+eight independent rollouts on each identical task. The combined group size of 16
+produced `11/128` strict successes across six mixed resource families and both
+ownership phrasings, passing every Phase-A threshold. No weights changed.
+
+The next step is therefore the mandatory zero-LR native-sibling SDPO replay audit,
+not a learning update. It must use group size 16 to match the admitted signal and
+establish same-group strict-sibling provenance, zero target for groups without a
+success, first-coordinator-tool-call-only loss, authentic successful reasoning in the
+teacher context, and small trainer/inference mismatch. Only if all five checks pass
+may one rank-16 `1e-7` update be considered.
+
+Prime-RL currently rejects EMA self-distillation together with LoRA because its EMA
+runtime instantiates a second full model. Run 262 therefore uses live-policy teacher
+regularization. This does not change the zero-LR audit or a single-step bridge: at the
+only teacher evaluation, live policy and a newly initialized EMA teacher have
+identical parameters; they diverge only after the optimizer step, when the proposed
+bridge ends. Multi-step native SDPO will require adapter-only EMA support or a larger
+full-weight training deployment rather than silently extending this equivalence.
+
 Do not apply another 2B dose of the same complete-fan-in demonstration: even
 coordinator-only, response-only SDFT traded
 single-child and parallel reliability. The first parallel-only process-control GRPO

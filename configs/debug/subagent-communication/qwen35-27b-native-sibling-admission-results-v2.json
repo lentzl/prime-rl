@@ -1,0 +1,64 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-semantic-admission-v2",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "policy": {
+    "yield_policy": "semantic",
+    "definition": "Passive display or storage derived only from the returned admission handle is permitted in the first cell. Second cells, polling, discovery, messaging, resource access, computation, and other substantive post-spawn actions remain failures.",
+    "literal_run_259_remains_frozen": true
+  },
+  "initial_screen": {
+    "config": "260-qwen35-27b-native-sibling-semantic-admission.toml",
+    "config_sha256": "117dd56377de18f6bcbe34bf39c0fcdf38b32379a793d4dea76353599c87a53e",
+    "trace_sha256": "47cff5e9c99ac91f2f20f4f45e40569f0cf7796e8507fb6b820d3f3effd9da93",
+    "eval_log_sha256": "8147fec5a9869de5e4d0ae09b507f9d40207eeff831d4175b15477aba08d93b8",
+    "rollouts_per_group": 8,
+    "strict_successes": 5,
+    "mixed_groups": 3,
+    "phase_a_pass": false
+  },
+  "sampling_extension": {
+    "predeclared_commit": "996be9de8",
+    "config": "261-qwen35-27b-native-sibling-semantic-admission-topup.toml",
+    "config_sha256": "04e5e16bef31d5fb7435a6e340db7a5ee1c936b3d311fdfdea652de16f1b2e20",
+    "trace_sha256": "be8a40c3e66011a387d7b488a51f8b67f4a7c38aaec790385dea973c1d3922b9",
+    "eval_log_sha256": "b0c344261c37424a2e43d5724dcf29e8f4da93933636d6e52ad0180a95533f5e",
+    "additional_rollouts_per_group": 8
+  },
+  "combined_gate": {
+    "rollouts": 128,
+    "groups": 8,
+    "rollouts_per_group": 16,
+    "strict_successes": 11,
+    "mixed_groups": 6,
+    "success_resource_families": [
+      "json_sum",
+      "log_error_count",
+      "markdown_heading_count",
+      "python_def_count",
+      "sha256_prefix",
+      "text_keyword_count"
+    ],
+    "success_phrasings": [0, 1],
+    "minimum_mixed_groups": 4,
+    "minimum_success_resource_families": 3,
+    "minimum_success_phrasings": 2,
+    "phase_a_pass": true
+  },
+  "per_group": {
+    "json_sum": {"successes": 3, "failures": 13},
+    "csv_amount_total": {"successes": 0, "failures": 16},
+    "text_keyword_count": {"successes": 1, "failures": 15},
+    "markdown_heading_count": {"successes": 2, "failures": 14},
+    "log_error_count": {"successes": 1, "failures": 15},
+    "python_def_count": {"successes": 1, "failures": 15},
+    "json_max_value": {"successes": 0, "failures": 16},
+    "sha256_prefix": {"successes": 3, "failures": 13}
+  },
+  "decision": {
+    "phase_a_passed": true,
+    "weights_updated": false,
+    "next": "Run one zero-LR group_size-16 native-sibling SDPO replay audit. Verify same-group strict sibling provenance, zero target for a no-success group, first-coordinator-tool-call-only loss, authentic reasoning content, and trainer/inference agreement before any optimizer step."
+  }
+}
