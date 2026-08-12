@@ -370,12 +370,15 @@ class SFTConfig(BaseConfig):
 
         host = self.inference.server.host or "localhost"
         client = self.eval.client
+        allowed_client_ports = {self.inference.server.port}
+        if self.inference.router is not None:
+            allowed_client_ports.add(self.inference.backend_port)
         if "base_url" not in client.model_fields_set:
             client.base_url = f"http://{host}:{self.inference.server.port}/v1"
-        elif urlparse(client.base_url).port != self.inference.server.port:
+        if "base_url" in client.model_fields_set and urlparse(client.base_url).port not in allowed_client_ports:
             raise ValueError(
-                f"eval.client.base_url port ({urlparse(client.base_url).port}) does not match "
-                f"inference.server.port ({self.inference.server.port})."
+                f"eval.client.base_url port ({urlparse(client.base_url).port}) must match an inference "
+                f"client port ({', '.join(map(str, sorted(allowed_client_ports)))})."
             )
         if self.inference.router is not None and "admin_base_url" not in client.model_fields_set:
             # Admin ops (pause/update_weights/resume) must bypass the router and hit

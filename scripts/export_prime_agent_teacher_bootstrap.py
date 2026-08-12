@@ -37,6 +37,21 @@ def _metric(trace, name: str) -> float | None:
     return float(value) if isinstance(value, (int, float)) else None
 
 
+def parse_count_requirement(value: str) -> tuple[str, int]:
+    try:
+        name, minimum = value.rsplit("=", 1)
+        parsed = int(minimum)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("count requirements use KEY=MIN") from exc
+    if not name or parsed < 0:
+        raise argparse.ArgumentTypeError("count requirements need a key and a non-negative integer")
+    return name, parsed
+
+
+def unmet_count_requirements(counts: dict[str, int], requirements: list[tuple[str, int]]) -> list[str]:
+    return [f"{key}={counts.get(key, 0)}<{minimum}" for key, minimum in requirements if counts.get(key, 0) < minimum]
+
+
 def has_authentic_reasoning(trace) -> bool:
     """Require reasoning attached to a sampled model response, not prompt text."""
     return any(
@@ -103,6 +118,7 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                 if family == "unknown" and cohort == "ownership":
                     family = _data_field(trace.task.data, "resource_family")
                 task_name = _data_field(trace.task.data, "name")
+                ownership = _data_field(trace.task.data, "ownership") if cohort == "ownership" else "unknown"
                 trace_rows = training_rows(trace, cohort)
                 if not trace_rows:
                     raise ValueError(f"admitted trace {trace.id} has no eligible branch")
@@ -112,11 +128,15 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                         source_trace_id=trace.id,
                         source_task=task_name,
                         source_family=family,
+                        source_ownership=ownership,
                     )
                 rows.extend(trace_rows)
                 counts[f"{cohort}.admitted_traces"] += 1
                 counts[f"{cohort}.rows"] += len(trace_rows)
                 counts[f"family.{family}"] += 1
+                if cohort == "ownership":
+                    counts[f"ownership.{ownership}.admitted_traces"] += 1
+                    counts[f"ownership.{ownership}.family.{family}"] += 1
     manifest = {
         "schema_version": 1,
         "base_model": BASE_MODEL,
@@ -137,6 +157,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ownership-run", action="append", type=Path, default=[])
     parser.add_argument("--communication-run", action="append", type=Path, default=[])
+    parser.add_argument(
+        "--require-count",
+        action="append",
+        type=parse_count_requirement,
+        default=[],
+        metavar="KEY=MIN",
+        help="fail unless the manifest count KEY is at least MIN; repeatable",
+    )
     parser.add_argument("--output-dir", required=True, type=Path)
     args = parser.parse_args()
     sources = [
@@ -149,6 +177,9 @@ def main() -> None:
     rows, manifest = build(sources)
     if not rows:
         raise SystemExit("no verified teacher rows were admitted")
+    missing = unmet_count_requirements(manifest["counts"], args.require_count)
+    if missing:
+        raise SystemExit(f"teacher coverage requirements failed: {', '.join(missing)}")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     Dataset.from_list(rows).to_parquet(str(args.output_dir / "train.parquet"))
     (args.output_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")

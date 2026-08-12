@@ -76,7 +76,11 @@ def build_evaluator_config(config: SFTConfig) -> EvaluatorConfig:
     assert config.eval is not None
     ckpt_base = (config.ckpt.output_dir if config.ckpt else None) or config.output_dir
     return EvaluatorConfig(
-        model=BaseModelConfig(name=config.model.name),
+        model=BaseModelConfig(
+            name=config.model.name,
+            revision=config.model.revision,
+            trust_remote_code=config.model.trust_remote_code,
+        ),
         eval=config.eval,
         weights_dir=get_weights_dir(ckpt_base),
         output_dir=config.output_dir,

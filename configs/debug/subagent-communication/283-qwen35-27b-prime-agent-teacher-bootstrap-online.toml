@@ -1,0 +1,298 @@
+# Verified thinking-native teacher bootstrap with Prime-RL's native online
+# evaluator. The frozen gates select checkpoints; training loss never does.
+
+max_steps = 16
+output_dir = "/ephemeral/subagent-rung/outputs/283-qwen35-27b-prime-agent-teacher-bootstrap-online-r64"
+clean_output_dir = true
+
+[deployment]
+gpus_per_node = 4
+num_gpus = 2
+num_infer_gpus = 2
+
+[ckpt]
+interval = 4
+weights_only = true
+
+[ckpt.weights]
+save_adapter_separately = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "Qwen/Qwen3.5-27B"
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
+seq_len = 12288
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+optim_cpu_offload = true
+reshard_after_forward = true
+fused_lm_head_token_chunk_size = 1024
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.ac]
+mode = "full"
+freq = 1
+
+[model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[model.lora]
+rank = 64
+alpha = 128
+target_modules = [
+  "q_proj",
+  "k_proj",
+  "v_proj",
+  "o_proj",
+  "gate_proj",
+  "up_proj",
+  "down_proj",
+  'linear_attn\.(in_proj_qkv|in_proj_z|in_proj_b|in_proj_a|out_proj)$',
+]
+
+[data]
+name = "/ephemeral/subagent-rung/data/281-qwen35-27b-prime-agent-teacher-bootstrap"
+seq_len = 12288
+batch_size = 4
+micro_batch_size = 1
+shuffle = true
+seed = 20260815
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[optim]
+lr = 5e-7
+
+[eval]
+interval = 4
+max_inflight_episodes = 4
+num_examples = -1
+group_size = 1
+skip_first_step = false
+
+[eval.client]
+# Prime Agent emits the OpenAI developer role, which the current router rejects.
+# Use the launcher-managed vLLM backend directly for both generation and reloads.
+base_url = "http://localhost:8100/v1"
+admin_base_url = ["http://localhost:8100/v1"]
+api_key_var = "PRIME_API_KEY"
+
+[eval.sampling]
+temperature = 0.4
+max_completion_tokens = 4096
+reasoning_effort = "high"
+
+[[eval.source]]
+name = "ownership-child-heldout"
+interval = 4
+
+[eval.source.env]
+max_concurrent_agents = 1
+
+[eval.source.env.taskset]
+id = "ownership-invariant-v1"
+split = "heldout_resource"
+ownership = "child"
+yield_policy = "semantic"
+instances_per_family = 1
+instance_offset = 14000
+seed = 20260814
+
+[eval.source.env.taskset.task]
+yield_policy = "semantic"
+
+[eval.source.env.agent]
+max_turns = 8
+max_output_tokens = 24576
+max_total_tokens = 65536
+
+[eval.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = false
+
+[eval.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[eval.source.env.agent.timeout]
+setup = 300.0
+rollout = 300.0
+finalize = 60.0
+scoring = 60.0
+
+[[eval.source]]
+name = "ownership-coordinator-heldout"
+interval = 4
+
+[eval.source.env]
+max_concurrent_agents = 1
+
+[eval.source.env.taskset]
+id = "ownership-invariant-v1"
+split = "heldout_resource"
+ownership = "coordinator"
+yield_policy = "semantic"
+instances_per_family = 1
+instance_offset = 14000
+seed = 20260814
+
+[eval.source.env.taskset.task]
+yield_policy = "semantic"
+
+[eval.source.env.agent]
+max_turns = 8
+max_output_tokens = 24576
+max_total_tokens = 65536
+
+[eval.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = false
+
+[eval.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[eval.source.env.agent.timeout]
+setup = 300.0
+rollout = 300.0
+finalize = 60.0
+scoring = 60.0
+
+[[eval.source]]
+name = "communication-heldout"
+interval = 8
+
+[eval.source.env]
+max_concurrent_agents = 3
+
+[eval.source.env.taskset]
+id = "subagent-communication-v1"
+split = "eval"
+families = ["direct", "single", "parallel", "followup", "handshake"]
+instruction_level = "standard"
+prompt_contract = "explicit_bidirectional_v2"
+instances_per_template = 2
+instance_offset = 13000
+seed = 20260814
+reward_post_fan_in_control = true
+reward_bidirectional_control = true
+
+[eval.source.env.agent]
+max_turns = 24
+max_output_tokens = 24576
+max_total_tokens = 98304
+
+[eval.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+
+[eval.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[eval.source.env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[[eval.source]]
+name = "prime-agent-foundations"
+interval = 16
+
+[eval.source.env]
+max_concurrent_agents = 1
+
+[eval.source.env.taskset]
+id = "prime-agent-capabilities-v1"
+families = ["ipython_cell", "persistence", "subagent_lifecycle", "harness_state", "killed_child"]
+instances_per_family = 2
+
+[eval.source.env.agent]
+max_turns = 12
+max_output_tokens = 12288
+max_total_tokens = 32768
+
+[eval.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[eval.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[eval.source.env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[[eval.source]]
+name = "oolong-externalization"
+interval = 16
+
+[eval.source.env]
+max_concurrent_agents = 1
+
+[eval.source.env.taskset]
+id = "oolong-synth-v1"
+split = "validation"
+context_len = 16384
+
+[eval.source.env.agent]
+max_turns = 24
+max_input_tokens = 196608
+max_output_tokens = 24576
+max_total_tokens = 221184
+
+[eval.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[eval.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[eval.source.env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[inference]
+backend_port = 8100
+
+[inference.server]
+port = 8000
+
+[inference.vllm]
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
+tensor_parallel_size = 2
+max_model_len = 32768
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+gpu_memory_utilization = 0.82
+max_num_seqs = 4
+mamba_ssm_cache_dtype = "float32"
+
+[inference.weight_broadcast]
+type = "filesystem"

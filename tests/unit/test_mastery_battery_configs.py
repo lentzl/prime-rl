@@ -84,3 +84,29 @@ def test_teacher_bootstraps_adapt_qwen35_linear_attention_and_preserve_thinking(
     assert all(
         any("linear_attn" in target for target in config["model"]["lora"]["target_modules"]) for config in configs
     )
+
+
+def test_online_teacher_bootstrap_reserves_inference_and_uses_frozen_gates() -> None:
+    config = load_config("283-qwen35-27b-prime-agent-teacher-bootstrap-online.toml")
+    sources = {source["name"]: source for source in config["eval"]["source"]}
+
+    assert config["deployment"] == {
+        "gpus_per_node": 4,
+        "num_gpus": 2,
+        "num_infer_gpus": 2,
+    }
+    assert config["renderer"]["enable_thinking"] is True
+    assert config["eval"]["skip_first_step"] is False
+    assert set(sources) == {
+        "ownership-child-heldout",
+        "ownership-coordinator-heldout",
+        "communication-heldout",
+        "prime-agent-foundations",
+        "oolong-externalization",
+    }
+    assert sources["ownership-child-heldout"]["interval"] == 4
+    assert sources["ownership-coordinator-heldout"]["interval"] == 4
+    assert sources["communication-heldout"]["interval"] == 8
+    assert sources["prime-agent-foundations"]["interval"] == config["max_steps"]
+    assert sources["oolong-externalization"]["interval"] == config["max_steps"]
+    assert config["eval"]["client"]["base_url"].endswith(":8100/v1")

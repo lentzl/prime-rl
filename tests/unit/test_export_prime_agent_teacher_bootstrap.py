@@ -1,3 +1,4 @@
+import argparse
 from types import SimpleNamespace
 
 import pytest
@@ -54,3 +55,24 @@ def test_ownership_selects_only_the_root_coordinator_branch() -> None:
     )
 
     assert bootstrap.coordinator_branches(value) == [coordinator]
+
+
+def test_count_requirements_are_strict_and_report_missing_keys() -> None:
+    requirements = [
+        bootstrap.parse_count_requirement("family.parallel=4"),
+        bootstrap.parse_count_requirement("ownership.child.admitted_traces=2"),
+    ]
+
+    assert bootstrap.unmet_count_requirements(
+        {"family.parallel": 3},
+        requirements,
+    ) == [
+        "family.parallel=3<4",
+        "ownership.child.admitted_traces=0<2",
+    ]
+
+
+@pytest.mark.parametrize("value", ["missing-separator", "family.parallel=-1", "=2"])
+def test_invalid_count_requirement_is_rejected(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError):
+        bootstrap.parse_count_requirement(value)
