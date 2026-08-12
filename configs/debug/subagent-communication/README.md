@@ -883,3 +883,18 @@ export or weight change. Run 263 keeps every audit semantic fixed and broadens o
 the sampling cohort to four previously mixed families plus the CSV control. Its
 `80` rollouts are a reliability measure for obtaining an authentic replay, not a
 learning-budget increase because the optimizer remains at zero learning rate.
+
+Audit the completed run from its serialized native traces and trainer token exports:
+
+```bash
+uv run python scripts/audit_native_sibling_sdpo_run.py \
+  --config configs/debug/subagent-communication/263-qwen35-27b-native-sibling-sdpo-token-audit-multifamily.toml \
+  --traces /ephemeral/subagent-rung/outputs/263-qwen35-27b-native-sibling-sdpo-token-audit-multifamily-r1/run_default/rollouts/step_1/train/all/traces.jsonl \
+  --token-exports /ephemeral/subagent-rung/outputs/263-qwen35-27b-native-sibling-sdpo-token-audit-multifamily-r1/run_default/token_exports/step_1 \
+  --output /tmp/run263-native-sibling-audit.json
+```
+
+The report reconstructs the exact first successful sibling selected in each
+same-task group, retains its full native demonstration and content hash, maps every
+trainer-exported sequence back to its trace branch, and rejects any discrepancy
+between the configured first-tool-call filter and nonzero SDPO token weights.
