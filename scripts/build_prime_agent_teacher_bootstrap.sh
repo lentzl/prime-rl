@@ -3,11 +3,16 @@ set -euo pipefail
 
 ROOT=${RUNG_ROOT:-/ephemeral/subagent-rung}
 OUTPUT=${BOOTSTRAP_OUTPUT:-$ROOT/data/281-qwen35-27b-prime-agent-teacher-bootstrap}
+AUDIT_ONLY=${AUDIT_ONLY:-0}
+if [[ -z "${PYTHON:-}" ]]; then
+  PYTHON=python
+  [[ -x .venv/bin/python ]] && PYTHON=.venv/bin/python
+fi
 CHILD_RUNS=${CHILD_RUNS:-$ROOT/evals/278-qwen35-27b-mastery-child-teacher-collection/base-r1}
 COORDINATOR_RUNS=${COORDINATOR_RUNS:-$ROOT/evals/279-qwen35-27b-mastery-coordinator-teacher-collection/base-r1}
 COMMUNICATION_RUNS=${COMMUNICATION_RUNS:-$ROOT/evals/280-qwen35-27b-mastery-guided-communication-collection/base-r1}
 
-if [[ -e "$OUTPUT" ]]; then
+if [[ "$AUDIT_ONLY" != 1 && -e "$OUTPUT" ]]; then
   echo "refusing to overwrite existing bootstrap output: $OUTPUT" >&2
   exit 1
 fi
@@ -42,7 +47,9 @@ append_runs() {
   local run
   IFS=: read -r -a runs <<< "$run_list"
   for run in "${runs[@]}"; do
-    [[ -n "$run" ]] && source_args+=("--${cohort}-run" "$run")
+    if [[ -n "$run" ]]; then
+      source_args+=("--${cohort}-run" "$run")
+    fi
   done
 }
 
@@ -50,7 +57,12 @@ append_runs ownership "$CHILD_RUNS"
 append_runs ownership "$COORDINATOR_RUNS"
 append_runs communication "$COMMUNICATION_RUNS"
 
-python scripts/export_prime_agent_teacher_bootstrap.py \
+output_args=(--output-dir "$OUTPUT")
+if [[ "$AUDIT_ONLY" == 1 ]]; then
+  output_args=(--audit-only)
+fi
+
+"$PYTHON" scripts/export_prime_agent_teacher_bootstrap.py \
   "${source_args[@]}" \
   "${requirements[@]}" \
-  --output-dir "$OUTPUT"
+  "${output_args[@]}"
