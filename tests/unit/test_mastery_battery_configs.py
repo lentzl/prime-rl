@@ -70,6 +70,20 @@ def test_guided_collection_is_complete_thinking_data_not_a_frozen_gate() -> None
     assert config["num_rollouts"] >= 4
 
 
+def test_hard_communication_supplement_targets_fresh_sparse_families() -> None:
+    broad = load_config("280-qwen35-27b-mastery-guided-communication-collection.toml")
+    supplement = load_config("284-qwen35-27b-mastery-hard-communication-supplement.toml")
+    taskset = supplement["env"]["taskset"]
+
+    assert set(taskset["families"]) == {"parallel", "followup", "handshake"}
+    assert taskset["instance_offset"] != broad["env"]["taskset"]["instance_offset"]
+    assert taskset["seed"] != broad["env"]["taskset"]["seed"]
+    assert supplement["num_tasks"] == 12
+    assert supplement["num_rollouts"] == 8
+    assert supplement["env"]["agent"]["harness"]["thinking"] == "high"
+    assert supplement["env"]["agent"]["harness"]["autonomous"] is True
+
+
 def test_teacher_bootstraps_adapt_qwen35_linear_attention_and_preserve_thinking() -> None:
     names = (
         "281-qwen35-27b-prime-agent-teacher-bootstrap-r64.toml",
