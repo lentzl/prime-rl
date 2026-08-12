@@ -61,7 +61,7 @@ def has_authentic_reasoning(trace) -> bool:
 
 
 def admitted(trace, cohort: Cohort) -> bool:
-    if not trace.ok or trace.is_truncated or not has_authentic_reasoning(trace):
+    if not trace.ok or trace.is_truncated:
         return False
     if cohort == "ownership":
         return _metric(trace, "strict_success") == 1.0
@@ -134,6 +134,9 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                 counts[f"{cohort}.admitted_traces"] += 1
                 counts[f"{cohort}.rows"] += len(trace_rows)
                 counts[f"family.{family}"] += 1
+                reasoning = "present" if has_authentic_reasoning(trace) else "absent"
+                counts[f"reasoning.{reasoning}_traces"] += 1
+                counts[f"{cohort}.reasoning.{reasoning}_traces"] += 1
                 if cohort == "ownership":
                     counts[f"ownership.{ownership}.admitted_traces"] += 1
                     counts[f"ownership.{ownership}.family.{family}"] += 1
@@ -144,7 +147,7 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
         "selection": {
             "ownership": "ok and not truncated and strict_success == 1",
             "communication": ("ok and not truncated and answer_accuracy == 1 and clean_protocol_aligned == 1"),
-            "reasoning": "at least one sampled assistant response has reasoning_content",
+            "reasoning": "preserve sampled reasoning_content when present; never synthesize it",
         },
         "sources": source_records,
         "counts": dict(sorted(counts.items())),

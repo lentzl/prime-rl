@@ -24,10 +24,10 @@ def trace(*, ok=True, truncated=False, reasoning=True, **metrics):
     )
 
 
-def test_ownership_admission_requires_strict_success_and_sampled_reasoning() -> None:
+def test_ownership_admission_requires_strict_success() -> None:
     assert bootstrap.admitted(trace(strict_success=1.0), "ownership")
     assert not bootstrap.admitted(trace(strict_success=0.0), "ownership")
-    assert not bootstrap.admitted(trace(strict_success=1.0, reasoning=False), "ownership")
+    assert bootstrap.admitted(trace(strict_success=1.0, reasoning=False), "ownership")
     assert not bootstrap.admitted(trace(strict_success=1.0, truncated=True), "ownership")
 
 
