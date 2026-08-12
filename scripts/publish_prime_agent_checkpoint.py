@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -99,6 +100,11 @@ def main() -> None:
     parser.add_argument("repo_id")
     parser.add_argument("--dataset-manifest", required=True, type=Path)
     parser.add_argument("--eval-report", action="append", required=True, type=Path)
+    parser.add_argument(
+        "--training-config",
+        type=Path,
+        default=Path("configs/debug/subagent-communication/283-qwen35-27b-prime-agent-teacher-bootstrap-online.toml"),
+    )
     parser.add_argument("--base-model", default="Qwen/Qwen3.5-27B")
     parser.add_argument("--base-revision", required=True)
     parser.add_argument("--public", action="store_true")
@@ -108,7 +114,8 @@ def main() -> None:
     checkpoint = args.checkpoint.resolve()
     dataset_manifest = args.dataset_manifest.resolve()
     eval_reports = [path.resolve() for path in args.eval_report]
-    for path in [dataset_manifest, *eval_reports]:
+    training_config = args.training_config.resolve()
+    for path in [dataset_manifest, training_config, *eval_reports]:
         if not path.is_file():
             raise SystemExit(f"required provenance file does not exist: {path}")
 
@@ -118,16 +125,28 @@ def main() -> None:
         "schema_version": 1,
         "base_model": args.base_model,
         "base_revision": args.base_revision,
+        "runtime_contract": {
+            "harness": "prime_agent",
+            "harness_version": "0.7.1",
+            "thinking": "high",
+        },
         "prime_rl_revision": git_revision(root),
         "verifiers_revision": git_revision(root / "deps" / "verifiers"),
         "checkpoint": str(checkpoint),
+        "training_config": {
+            "path": "prime_agent_training/training_config.toml",
+            "sha256": sha256(training_config),
+        },
         "dataset_manifest": {
-            "name": dataset_manifest.name,
+            "path": "prime_agent_training/dataset_manifest.json",
             "sha256": sha256(dataset_manifest),
         },
         "eval_reports": [
-            {"name": path.name, "sha256": sha256(path)}
-            for path in eval_reports
+            {
+                "path": f"prime_agent_training/evals/{index:02d}-{path.name}",
+                "sha256": sha256(path),
+            }
+            for index, path in enumerate(eval_reports)
         ],
         **validation,
     }
@@ -144,14 +163,22 @@ def main() -> None:
         commit_message=args.commit_message,
     )
     with tempfile.TemporaryDirectory() as temp_dir:
-        bundle_path = Path(temp_dir) / "prime_agent_bundle.json"
+        provenance_dir = Path(temp_dir)
+        bundle_path = provenance_dir / "prime_agent_bundle.json"
         bundle_path.write_text(json.dumps(bundle, indent=2, sort_keys=True) + "\n")
-        api.upload_file(
+        training_target = provenance_dir / bundle["training_config"]["path"]
+        training_target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(training_config, training_target)
+        shutil.copyfile(dataset_manifest, provenance_dir / bundle["dataset_manifest"]["path"])
+        for source, record in zip(eval_reports, bundle["eval_reports"], strict=True):
+            target = provenance_dir / record["path"]
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
+        api.upload_folder(
             repo_id=args.repo_id,
             repo_type="model",
-            path_or_fileobj=bundle_path,
-            path_in_repo=bundle_path.name,
-            commit_message="Attach Prime Agent training provenance",
+            folder_path=provenance_dir,
+            commit_message="Attach reproducible Prime Agent training bundle",
         )
 
     info = api.model_info(args.repo_id)
@@ -166,6 +193,17 @@ def main() -> None:
     )
     if json.loads(remote_bundle.read_text()) != bundle:
         raise RuntimeError("published provenance did not round-trip exactly")
+    provenance_sources = {
+        bundle["training_config"]["path"]: training_config,
+        bundle["dataset_manifest"]["path"]: dataset_manifest,
+        **{record["path"]: source for source, record in zip(eval_reports, bundle["eval_reports"], strict=True)},
+    }
+    for filename, source in provenance_sources.items():
+        remote_path = Path(
+            hf_hub_download(repo_id=args.repo_id, filename=filename, revision=info.sha, token=token)
+        )
+        if sha256(remote_path) != sha256(source):
+            raise RuntimeError(f"published {filename} did not round-trip exactly")
     for filename in ("config.json", "generation_config.json", "tokenizer_config.json"):
         remote_path = Path(
             hf_hub_download(
