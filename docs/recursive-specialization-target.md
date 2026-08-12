@@ -553,6 +553,32 @@ Agent 0.7.1 artifact (SHA-256 `d68612c8...`), not the expired staging tunnel. Pu
 0.7.1 emits ordered child lifecycle rosters but not the staged `quiescence` counter,
 so the no-outstanding-child guard falls back narrowly to terminal final roster states.
 
+The corrected untouched thinking-mode 27B foundations baseline is `8/10`. Both
+IPython cells, both persistent-kernel tasks, both continual `/refine` tasks, and both
+child-cancellation tasks passed under the final exact-completion scorers. Both simple
+subagent-lifecycle tasks failed for the same policy reason: after a successful spawn,
+the parent invented `agent_message.list_messages()`, then used introspection and
+parent-side computation instead of yielding for the child's pushed message. This is
+a valid model failure, unlike the earlier missing-ACP-metadata run.
+
+The first 20-task coordination calibration gives a sharper boundary. Untouched 27B
+answered `20/20`; direct work was clean `4/4`, and single-child protocol alignment was
+`4/4`. No delegated trace was clean, however. Parallel alignment was `3/4`, handshake
+alignment was `3/4`, and file-backed follow-up alignment was `0/4`. Every follow-up
+coordinator accessed the child-owned path, averaging `1.25` accesses per trace. The
+delegated families also averaged failed cells and often used child-roster discovery;
+the recurring invented API was `agent_message.list_messages()`. Therefore raw 27B
+has enough capacity to solve and sometimes coordinate every family, but it is not an
+admissible teacher yet. Training must target event-driven waiting, API certainty,
+active ownership, and clean stopping while preserving its `20/20` task competence.
+The disjoint 20-task coordination screen confirms the boundary: `19/20` answers,
+direct clean `4/4`, single-child aligned `4/4`, parallel aligned `2/4`, handshake
+aligned `3/4`, and file-backed follow-up aligned `0/4`. All four held-out follow-up
+coordinators accessed the child-owned path, and one lost the final answer. Across
+both coordination slices, raw 27B answers `39/40` but produces only the eight direct
+traces cleanly. The semantic-OOD ownership and externalization slices remain required
+before freezing the minimal teacher curriculum.
+
 The first capacity comparison uses the same thinking-enabled, structurally validated
 bootstrap stream and schedule at LoRA ranks 64 and 128. It saves dense checkpoints and
 compares learning rate, memory, optimization stability, and the frozen battery across

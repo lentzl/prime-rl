@@ -26,9 +26,11 @@ seed = 20260814
 yield_policy = "semantic"
 
 [env.agent]
-max_turns = 2
-max_output_tokens = 8192
-max_total_tokens = 16384
+# Prime Agent may finish the admitted child before the parent segment returns.
+# Two turns converts ordinary budget exhaustion into an ACP HarnessError.
+max_turns = 8
+max_output_tokens = 24576
+max_total_tokens = 65536
 
 [env.agent.harness]
 id = "prime_agent"
