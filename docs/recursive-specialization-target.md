@@ -809,6 +809,19 @@ identical parameters; they diverge only after the optimizer step, when the propo
 bridge ends. Multi-step native SDPO will require adapter-only EMA support or a larger
 full-weight training deployment rather than silently extending this equivalence.
 
+Run 262 did not obtain a replay signal. Its fresh 16-sample JSON group and the
+predeclared 16-sample CSV no-success control both produced zero strict successes.
+SDPO consequently created no teacher targets, `TrainSink` removed all 32 zero-loss
+samples, and no trainer step, token export, or weight update occurred. This is a
+sampling failure rather than an algorithm failure: Phase A admits the population-level
+native signal, but one nominally mixed group is too brittle for the replay audit.
+
+Run 263 repeats the identical zero-LR semantics over four Phase-A mixed families and
+the same CSV no-success control, all at group size 16. The model, verifier, seed,
+temperature, teacher construction, reasoning policy, token filter, and optimizer are
+unchanged. Phase B still requires an observed same-group native sibling replay and all
+five provenance/mask/numerical checks; the larger batch cannot itself count as a pass.
+
 Do not apply another 2B dose of the same complete-fan-in demonstration: even
 coordinator-only, response-only SDFT traded
 single-child and parallel reliability. The first parallel-only process-control GRPO

@@ -875,3 +875,11 @@ LoRA: the current EMA implementation creates a second full model. At zero learni
 rate, and at teacher-evaluation time in a single-step dose, live policy is exactly the
 newly initialized EMA teacher. This equivalence does not extend to multiple optimizer
 steps; that later lane needs adapter-only EMA support or full-weight capacity.
+
+The first Run 262 sample was inconclusive: both the nominally mixed JSON group and the
+CSV no-success control produced `0/16` strict successes. All 32 samples therefore had
+zero SDPO signal and were correctly removed before the trainer; there was no token
+export or weight change. Run 263 keeps every audit semantic fixed and broadens only
+the sampling cohort to four previously mixed families plus the CSV control. Its
+`80` rollouts are a reliability measure for obtaining an authentic replay, not a
+learning-budget increase because the optimizer remains at zero learning rate.

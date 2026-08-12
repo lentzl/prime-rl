@@ -1,0 +1,27 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-sdpo-token-audit-v1",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "completed_at": "2026-08-12",
+  "config": "262-qwen35-27b-native-sibling-sdpo-token-audit.toml",
+  "trace_sha256": "8c51933b2b5d090a12654e3db64075b4527bf141e632c729eba3d10ed31f5d0c",
+  "sampling": {
+    "group_size": 16,
+    "rollouts": 32,
+    "temperature": 1.0,
+    "tasks": {
+      "json_sum": {"strict_successes": 0, "failures": 16},
+      "csv_amount_total": {"strict_successes": 0, "failures": 16}
+    }
+  },
+  "outcome": {
+    "strict_successes": 0,
+    "sdpo_training_samples": 0,
+    "trainer_steps": 0,
+    "token_exports": 0,
+    "weights_updated": false,
+    "phase_b_pass": false
+  },
+  "interpretation": "The fresh JSON group did not reproduce its earlier mixed-success state, while the CSV no-success control remained all-failure. With no strict native sibling in either same-task group, SDPO correctly produced no privileged targets and TrainSink removed every zero-loss sample. This is an inconclusive sampling failure, not an algorithm or trainer failure.",
+  "next": "Repeat the identical zero-LR audit over four previously admitted mixed families plus the CSV no-success control. Do not change the verifier, policy, sampling temperature, group size, teacher construction, token filter, or optimizer semantics."
+}
