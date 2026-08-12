@@ -822,6 +822,16 @@ temperature, teacher construction, reasoning policy, token filter, and optimizer
 unchanged. Phase B still requires an observed same-group native sibling replay and all
 five provenance/mask/numerical checks; the larger batch cannot itself count as a pass.
 
+Run 263 exposed a served-task configuration bug and is not experimental evidence.
+Prime-RL materializes task data client-side but a separate Verifiers server rebuilds
+task behavior from `env.taskset.task`. The ownership taskset applied semantic yield to
+the client-side `Task` while leaving that serialized task subtree at its literal
+default. This produced the diagnostic contradiction `passive_handle_tail=1` together
+with `post_spawn_action=1`. The run was stopped after 51 rollouts, before any trainer
+step or token export. Verifiers commit `be7e0576` propagates the policy through the
+served config and tests the exact server reconstruction path. Run 264 repeats the
+otherwise frozen audit from scratch and also declares the task policy explicitly.
+
 Do not apply another 2B dose of the same complete-fan-in demonstration: even
 coordinator-only, response-only SDFT traded
 single-child and parallel reliability. The first parallel-only process-control GRPO

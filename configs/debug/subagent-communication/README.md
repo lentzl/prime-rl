@@ -898,3 +898,11 @@ The report reconstructs the exact first successful sibling selected in each
 same-task group, retains its full native demonstration and content hash, maps every
 trainer-exported sequence back to its trace branch, and rejects any discrepancy
 between the configured first-tool-call filter and nonzero SDPO token weights.
+
+Run 263 is an invalid plumbing diagnostic, not a zero-success model result. The
+separate Verifiers server reconstructed tasks from the serialized `taskset.task`
+subtree, whose yield policy was still literal even though the taskset-level curriculum
+knob was semantic. It was stopped at 51/80 rollouts with zero trainer steps and no
+token exports. Verifiers commit `be7e0576` propagates that policy across the served
+boundary and adds a reconstruction regression test. Run 264 is the fresh repeat, with
+the semantic task subtree also explicit in its TOML.

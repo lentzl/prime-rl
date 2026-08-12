@@ -1,0 +1,19 @@
+{
+  "experiment_id": "qwen35-27b-native-sibling-sdpo-token-audit-served-config-bug-v1",
+  "run": 263,
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "stopped_at_rollouts": 51,
+  "trainer_steps": 0,
+  "token_exports": 0,
+  "weights_updated": false,
+  "valid_experiment": false,
+  "symptom": "Serialized traces could simultaneously report passive_handle_tail=1 and post_spawn_action=1 under a nominal semantic-yield run.",
+  "root_cause": "Prime-RL's client loaded tasks with taskset-level yield_policy=semantic, but the separate Verifiers server reconstructed task behavior from env.taskset.task, whose serialized default remained literal.",
+  "fix": {
+    "verifiers_commit": "be7e0576c222b3fd3afc83bf421fd4789ab7aa45",
+    "behavior": "OwnershipInvariantConfig now propagates yield_policy into its task subtree during validation, and Run 264 also declares the task subtree explicitly.",
+    "regression_test": "Reconstruct a task from serialized task data plus config.task exactly as EnvServer does and assert semantic yield survives."
+  },
+  "decision": "Discard Run 263 as invalid plumbing evidence and repeat the frozen zero-LR audit fresh as Run 264."
+}
