@@ -10,15 +10,18 @@ from pathlib import Path
 from typing import Any
 
 
-def summarize(path: Path) -> dict[str, Any]:
+def summarize(paths: list[Path] | Path) -> dict[str, Any]:
+    if isinstance(paths, Path):
+        paths = [paths]
     groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
-    for line in path.read_text().splitlines():
-        if not line.strip():
-            continue
-        record = json.loads(line)
-        for trace in record.get("traces") or [record]:
-            task = trace["task"]["data"]
-            groups[task["name"]].append(trace)
+    for path in paths:
+        for line in path.read_text().splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            for trace in record.get("traces") or [record]:
+                task = trace["task"]["data"]
+                groups[task["name"]].append(trace)
 
     rows: list[dict[str, Any]] = []
     success_families: set[str] = set()
@@ -62,7 +65,7 @@ def summarize(path: Path) -> dict[str, Any]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("traces", type=Path)
+    parser.add_argument("traces", type=Path, nargs="+")
     args = parser.parse_args()
     print(json.dumps(summarize(args.traces), indent=2, sort_keys=True))
 

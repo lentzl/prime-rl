@@ -34,3 +34,18 @@ def test_summary_applies_frozen_phase_a_gate(tmp_path: Path) -> None:
     assert result["mixed_groups"] == 4
     assert len(result["success_resource_families"]) == 4
     assert result["success_phrasings"] == [0, 1]
+
+
+def test_summary_aggregates_sampling_budget_extensions(tmp_path: Path) -> None:
+    first = tmp_path / "first.jsonl"
+    second = tmp_path / "second.jsonl"
+    first.write_text(json.dumps({"traces": [_trace("json", 0, True)]}) + "\n")
+    second.write_text(json.dumps({"traces": [_trace("json", 0, False)]}) + "\n")
+
+    result = summarize([first, second])
+
+    assert result["traces"] == 2
+    assert result["rows"][0]["rollouts"] == 2
+    assert result["rows"][0]["successes"] == 1
+    assert result["rows"][0]["failures"] == 1
+    assert result["rows"][0]["mixed"] is True

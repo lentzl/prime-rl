@@ -1,0 +1,17 @@
+[Unit]
+Description=Qwen3.5-27B native sibling semantic admission top-up
+After=network-online.target qwen35-27b-teacher-inference.service
+Wants=network-online.target
+Requires=qwen35-27b-teacher-inference.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/ubuntu/prime-rl
+EnvironmentFile=/home/ubuntu/prime-rl/.env
+Environment=PATH=/home/ubuntu/prime-rl/.venv/bin:/home/ubuntu/.local/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/home/ubuntu/prime-rl/.venv/bin/eval @ configs/debug/subagent-communication/261-qwen35-27b-native-sibling-semantic-admission-topup.toml
+StandardOutput=append:/ephemeral/subagent-rung/launch-logs/261-qwen35-27b-native-sibling-semantic-admission-topup.log
+StandardError=append:/ephemeral/subagent-rung/launch-logs/261-qwen35-27b-native-sibling-semantic-admission-topup.log
+
+[Install]
+WantedBy=default.target
