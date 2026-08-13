@@ -70,6 +70,7 @@ def test_reward_only_and_ownership_tasks_are_not_false_clean() -> None:
         "child-heldout-0",
         "child",
         strict_success=0.0,
+        dense_reward=0.75,
         state_retained=0.0,
         parent_path_access=1.0,
     )
@@ -85,6 +86,7 @@ def test_reward_only_and_ownership_tasks_are_not_false_clean() -> None:
     ]
     assert summary["families"]["oolong"]["clean_count"] == 0
     assert summary["families"]["child"]["clean_count"] == 0
+    assert summary["families"]["child"]["means"]["dense_reward"] == 0.75
 
 
 def test_load_traces_accepts_direct_online_and_legacy_records(tmp_path: Path) -> None:

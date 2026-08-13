@@ -27,6 +27,7 @@ METRICS = (
     "failed_cells",
     "duplicate_cells",
     "strict_success",
+    "dense_reward",
     "first_decision_only",
     "state_retained",
     "state_precedes_spawn",
