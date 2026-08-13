@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "dataset": "programmatic-episodic-memory-v1",
+  "seed": 20260813,
+  "source_of_truth": "/workspace/history.log",
+  "reasoning_policy": "no fabricated reasoning_content",
+  "splits": {
+    "train": 72,
+    "familiar_heldout": 36,
+    "semantic_ood": 18
+  },
+  "design": {
+    "train_history_format": "tagged key-value append-only lines",
+    "familiar_heldout": "same policy families, fresh instances and longer horizons",
+    "semantic_ood": "unseen JSONL memory formats and unseen temporal/supersession operations",
+    "horizon_events": "32-224 train/familiar; 128-384 OOD",
+    "instruction_levels": "explicit-history, natural, and context-reset variants; OOD is natural",
+    "direct_controls": "self-contained tasks with no history lookup",
+    "persistent_state": "repeated_lookup_index builds an index once and reuses it on the next request"
+  },
+  "train_families": [
+    "latest_state",
+    "accepted_requirement",
+    "successful_attempt",
+    "correction_aggregate",
+    "provenance_conflict",
+    "checkpoint_resume",
+    "stale_note_override",
+    "repeated_lookup_index",
+    "multi_key_join",
+    "context_reset_resume",
+    "constraint_update",
+    "direct_control"
+  ],
+  "semantic_ood_families": [
+    "ood_jsonl_latest_revision",
+    "ood_temporal_window",
+    "ood_supersession_chain"
+  ]
+}
