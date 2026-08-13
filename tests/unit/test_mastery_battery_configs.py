@@ -101,6 +101,7 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
     battery_launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_battery_v1.sh").read_text()
     assert "EVAL_CLIENT_BASE_URL" in battery_launcher
     assert 'args+=(--client.base-url "$client_base_url")' in battery_launcher
+    assert '[[ -n "${MASTERY_CONFIGS:-}" ]]' in battery_launcher
 
 
 def test_teacher_collections_are_disjoint_and_keep_thinking_enabled() -> None:

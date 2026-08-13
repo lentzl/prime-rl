@@ -16,6 +16,9 @@ configs=(
   275-qwen35-27b-mastery-ownership-coordinator-ood
   276-qwen35-27b-mastery-oolong-ood
 )
+if [[ -n "${MASTERY_CONFIGS:-}" ]]; then
+  read -ra configs <<<"$MASTERY_CONFIGS"
+fi
 
 cd "$root"
 if [[ ! -x "$eval_bin" ]]; then
