@@ -58,9 +58,14 @@ def load_traces(paths: Iterable[Path]) -> list[dict[str, Any]]:
                     continue
                 envelope = json.loads(line)
                 saved = envelope.get("traces")
-                if not isinstance(saved, list):
-                    raise SystemExit(f"{path}:{line_number}: missing traces list")
-                traces.extend(saved)
+                if isinstance(saved, list):
+                    traces.extend(saved)
+                elif isinstance(envelope.get("task"), dict):
+                    # Prime-RL's online evaluator stores one TraceRecord directly
+                    # on each line; vf-eval exports wrap records in `traces`.
+                    traces.append(envelope)
+                else:
+                    raise SystemExit(f"{path}:{line_number}: expected a trace record or traces list")
     return traces
 
 
@@ -77,8 +82,15 @@ def _family(trace: dict[str, Any]) -> str:
     family = data.get("family")
     if isinstance(family, str):
         return family
-    name = data.get("name", "unknown")
-    return str(name).split("-", 1)[0]
+    name = data.get("name")
+    if name:
+        return str(name).split("-", 1)[0]
+    return _environment(trace)
+
+
+def _environment(trace: dict[str, Any]) -> str:
+    env_name = (trace.get("info") or {}).get("env_name")
+    return str(env_name) if env_name else "unknown"
 
 
 def _issues(trace: dict[str, Any]) -> list[str]:
@@ -100,19 +112,27 @@ def _issues(trace: dict[str, Any]) -> list[str]:
         causal = _score(metrics.get("natural_followup_causal"))
         if causal is not None and causal < 1.0:
             issues.append("causal")
-    counters = (
+        control = _score(metrics.get("bidirectional_control"))
+        if control is not None and control < 1.0:
+            issues.append("bidirectional-control")
+    if family in {"single", "parallel"}:
+        control = _score(metrics.get("post_fan_in_control"))
+        if control is not None and control < 1.0:
+            issues.append("post-fan-in-control")
+    counters = [
         ("path-access", "coordinator_delegated_path_accesses"),
-        ("path-access", "parent_path_access"),
         ("roster", "roster_calls"),
         ("observe", "observation_calls"),
         ("failed-cell", "failed_cells"),
         ("duplicate-cell", "duplicate_cells"),
-    )
+    ]
+    if family == "child":
+        counters.append(("path-access", "parent_path_access"))
     for label, metric in counters:
         value = _score(metrics.get(metric))
         if value is not None and value > 0.0:
             issues.append(f"{label}={value:g}")
-    if not metrics:
+    if not metrics and trace.get("ok", True):
         rewards = [_score(value) for value in trace.get("rewards", {}).values()]
         if rewards and sum(score for score in rewards if score is not None) < 1.0:
             issues.append("reward")
@@ -124,12 +144,14 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
     tasks = []
     for trace in traces:
         family = _family(trace)
+        task_data = trace.get("task", {}).get("data", {})
         grouped[family].append(trace)
         rewards = [_score(value) for value in trace.get("rewards", {}).values()]
         tasks.append(
             {
-                "name": trace.get("task", {}).get("data", {}).get("name", "unknown"),
+                "name": task_data.get("name") or _environment(trace),
                 "family": family,
+                "environment": _environment(trace),
                 "reward": sum(score for score in rewards if score is not None),
                 "issues": _issues(trace),
                 "stop_condition": trace.get("stop_condition"),
@@ -150,11 +172,37 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
             "clean_count": sum(not _issues(trace) for trace in family_traces),
             "means": means,
         }
-    return {"trace_count": len(traces), "families": families, "tasks": tasks}
+    environments = {}
+    for env_name in sorted({_environment(trace) for trace in traces}):
+        env_traces = [trace for trace in traces if _environment(trace) == env_name]
+        environments[env_name] = {
+            "count": len(env_traces),
+            "clean_count": sum(not _issues(trace) for trace in env_traces),
+            "families": sorted({_family(trace) for trace in env_traces}),
+        }
+    policy_versions = sorted(
+        {
+            int(version)
+            for trace in traces
+            if isinstance((version := (trace.get("info") or {}).get("policy_version")), int)
+            and not isinstance(version, bool)
+        }
+    )
+    return {
+        "trace_count": len(traces),
+        "policy_versions": policy_versions,
+        "environments": environments,
+        "families": families,
+        "tasks": tasks,
+    }
 
 
 def _print(summary: dict[str, Any]) -> None:
     print(f"traces: {summary['trace_count']}")
+    if summary["policy_versions"]:
+        print("policy versions: " + ", ".join(map(str, summary["policy_versions"])))
+    for env_name, data in summary["environments"].items():
+        print(f"environment {env_name}: n={data['count']} clean={data['clean_count']}/{data['count']}")
     for family, data in summary["families"].items():
         fields = [f"n={data['count']}", f"clean={data['clean_count']}/{data['count']}"]
         fields.extend(f"{name}={value:.3f}" for name, value in data["means"].items())
