@@ -14,6 +14,7 @@ tensor_parallel_size=${EVAL_TENSOR_PARALLEL_SIZE:-4}
 eval_driver=${MASTERY_EVAL_DRIVER:-scripts/run_qwen35_27b_mastery_fast_screen_v1.sh}
 backend_port=${EVAL_BACKEND_PORT:-8100}
 router_port=${EVAL_ROUTER_PORT:-8000}
+data_parallel_rpc_port=${EVAL_DATA_PARALLEL_RPC_PORT:-13345}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -68,6 +69,7 @@ tool_call_parser = "qwen3_coder"
 reasoning_parser = "qwen3"
 tensor_parallel_size = $tensor_parallel_size
 data_parallel_size = 1
+data_parallel_rpc_port = $data_parallel_rpc_port
 gpu_memory_utilization = 0.80
 max_num_seqs = 4
 $revision_line

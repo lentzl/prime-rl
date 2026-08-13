@@ -95,6 +95,8 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
     assert "inference exited before the mastery evaluation completed" in model_launcher
     assert "EVAL_BACKEND_PORT" in model_launcher
     assert "EVAL_ROUTER_PORT" in model_launcher
+    assert "EVAL_DATA_PARALLEL_RPC_PORT" in model_launcher
+    assert "data_parallel_rpc_port = $data_parallel_rpc_port" in model_launcher
 
     battery_launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_battery_v1.sh").read_text()
     assert "EVAL_CLIENT_BASE_URL" in battery_launcher
