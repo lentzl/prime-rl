@@ -79,6 +79,14 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
     launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_fast_screen_v1.sh").read_text()
     assert all(name.removesuffix(".toml") in launcher for name in names)
 
+    model_launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_fast_screen_model_v1.sh").read_text()
+    assert "refusing to launch while another GPU process is active" in model_launcher
+    assert '[[ ! -f "$model/STABLE" ]]' in model_launcher
+    assert 'max_model_len = 65536' in model_launcher
+    assert 'tool_call_parser = "qwen3_coder"' in model_launcher
+    assert 'reasoning_parser = "qwen3"' in model_launcher
+    assert "run_qwen35_27b_mastery_fast_screen_v1.sh" in model_launcher
+
 
 def test_teacher_collections_are_disjoint_and_keep_thinking_enabled() -> None:
     names = (
