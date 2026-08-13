@@ -1,0 +1,61 @@
+# Fresh follow-up collection after the completion gate learned to observe one
+# bounded asynchronous child-message transition before returning feedback.
+# Run 310 remains immutable diagnostic evidence for the pre-fix lifecycle race.
+
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 4
+num_rollouts = 8
+shuffle = false
+max_concurrent = 2
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 2
+
+[env.taskset]
+id = "subagent-communication-v1"
+split = "train"
+families = ["followup"]
+instruction_level = "guided"
+prompt_contract = "explicit_bidirectional_v2"
+teacher_conditioned = true
+instances_per_template = 1
+instance_offset = 44000
+seed = 20260821
+reward_post_fan_in_control = true
+reward_bidirectional_control = true
+
+[env.agent]
+max_turns = 24
+max_input_tokens = 196608
+max_output_tokens = 24576
+max_total_tokens = 221184
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+
+[env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8100/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 0.4
+max_tokens = 4096
