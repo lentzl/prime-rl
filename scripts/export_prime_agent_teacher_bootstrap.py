@@ -120,6 +120,8 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                 task_name = _data_field(trace.task.data, "name")
                 ownership = _data_field(trace.task.data, "ownership") if cohort == "ownership" else "unknown"
                 instruction_level = _data_field(trace.task.data, "instruction_level", "standard")
+                teacher_conditioned = _data_field(trace.task.data, "teacher_conditioned", "false").lower() == "true"
+                conditioning = "teacher_conditioned" if teacher_conditioned else "none"
                 trace_rows = training_rows(trace, cohort)
                 if not trace_rows:
                     raise ValueError(f"admitted trace {trace.id} has no eligible branch")
@@ -131,6 +133,7 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                         source_family=family,
                         source_ownership=ownership,
                         source_instruction_level=instruction_level,
+                        source_conditioning=conditioning,
                     )
                 rows.extend(trace_rows)
                 counts[f"{cohort}.admitted_traces"] += 1
@@ -138,6 +141,8 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                 counts[f"family.{family}"] += 1
                 counts[f"instruction.{instruction_level}.admitted_traces"] += 1
                 counts[f"{cohort}.instruction.{instruction_level}.admitted_traces"] += 1
+                counts[f"conditioning.{conditioning}.admitted_traces"] += 1
+                counts[f"{cohort}.conditioning.{conditioning}.admitted_traces"] += 1
                 reasoning = "present" if has_authentic_reasoning(trace) else "absent"
                 counts[f"reasoning.{reasoning}_traces"] += 1
                 counts[f"{cohort}.reasoning.{reasoning}_traces"] += 1

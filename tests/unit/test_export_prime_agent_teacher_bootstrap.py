@@ -78,6 +78,7 @@ def test_build_records_instruction_provenance_without_rewriting_rows(monkeypatch
                 resource_family="json_sum",
                 ownership="child",
                 instruction_level="guided",
+                teacher_conditioned=True,
                 model_extra={},
             )
         ),
@@ -91,8 +92,10 @@ def test_build_records_instruction_provenance_without_rewriting_rows(monkeypatch
 
     assert rows[0]["messages_json"] == original
     assert rows[0]["source_instruction_level"] == "guided"
+    assert rows[0]["source_conditioning"] == "teacher_conditioned"
     assert manifest["counts"]["instruction.guided.admitted_traces"] == 1
     assert manifest["counts"]["ownership.instruction.guided.admitted_traces"] == 1
+    assert manifest["counts"]["conditioning.teacher_conditioned.admitted_traces"] == 1
     assert "never rewrite guided context" in manifest["selection"]["prompts"]
 
 
