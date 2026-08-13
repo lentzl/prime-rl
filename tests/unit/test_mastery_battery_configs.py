@@ -232,4 +232,5 @@ def test_mastery_grpo_launcher_uses_native_rl_entrypoint() -> None:
 
     assert "nvidia-smi --query-compute-apps=pid" in launcher
     assert "source .env" in launcher
-    assert 'exec rl @ "$config"' in launcher
+    assert "backup_prime_agent_adapters.py" in launcher
+    assert 'rl @ "$config"' in launcher
