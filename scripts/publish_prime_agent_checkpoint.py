@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from huggingface_hub import HfApi, hf_hub_download
-from transformers import AutoTokenizer
+from transformers import AutoProcessor, AutoTokenizer
 
 
 def sha256(path: Path) -> str:
@@ -134,6 +134,16 @@ def validate_checkpoint(checkpoint: Path) -> dict[str, Any]:
     missing = [str(path) for path in required_metadata if not path.is_file()]
     if missing:
         raise ValueError(f"checkpoint metadata missing: {', '.join(missing)}")
+    model_config = json.loads((checkpoint / "config.json").read_text())
+    multimodal = "vision_config" in model_config
+    if multimodal:
+        processor_metadata = [checkpoint / "preprocessor_config.json", checkpoint / "video_preprocessor_config.json"]
+        missing = [str(path) for path in processor_metadata if not path.is_file()]
+        if missing:
+            raise ValueError(f"multimodal checkpoint metadata missing: {', '.join(missing)}")
+        processor = AutoProcessor.from_pretrained(checkpoint, local_files_only=True, trust_remote_code=True)
+        if not (getattr(processor, "image_processor", None) and getattr(processor, "video_processor", None)):
+            raise ValueError("multimodal checkpoint did not load both image and video processors")
     fields: list[tuple[str, int]] = []
     for path in sorted(checkpoint.glob("*.json")):
         fields.extend(
@@ -144,11 +154,13 @@ def validate_checkpoint(checkpoint: Path) -> dict[str, Any]:
     mismatches = [f"{field}={token_id}" for field, token_id in fields if token_id != expected_eos]
     if mismatches:
         raise ValueError(f"EOS metadata does not match <|im_end|>={expected_eos}: {', '.join(mismatches)}")
-    return {"im_end_token_id": expected_eos, "validated_eos_fields": dict(fields)}
+    return {"im_end_token_id": expected_eos, "multimodal": multimodal, "validated_eos_fields": dict(fields)}
 
 
-def validate_remote_file_list(filenames: set[str]) -> None:
+def validate_remote_file_list(filenames: set[str], *, multimodal: bool = False) -> None:
     required = {"config.json", "generation_config.json", "tokenizer_config.json", "prime_agent_bundle.json"}
+    if multimodal:
+        required.update({"preprocessor_config.json", "video_preprocessor_config.json"})
     missing = sorted(required - filenames)
     if missing:
         raise RuntimeError(f"published checkpoint is missing: {', '.join(missing)}")
@@ -249,7 +261,7 @@ def main() -> None:
         )
 
     info = api.model_info(args.repo_id)
-    validate_remote_file_list({sibling.rfilename for sibling in info.siblings})
+    validate_remote_file_list({sibling.rfilename for sibling in info.siblings}, multimodal=validation["multimodal"])
     remote_bundle = Path(
         hf_hub_download(
             repo_id=args.repo_id,
@@ -269,7 +281,10 @@ def main() -> None:
         remote_path = Path(hf_hub_download(repo_id=args.repo_id, filename=filename, revision=info.sha, token=token))
         if sha256(remote_path) != sha256(source):
             raise RuntimeError(f"published {filename} did not round-trip exactly")
-    for filename in ("config.json", "generation_config.json", "tokenizer_config.json"):
+    metadata_filenames = ["config.json", "generation_config.json", "tokenizer_config.json"]
+    if validation["multimodal"]:
+        metadata_filenames.extend(["preprocessor_config.json", "video_preprocessor_config.json"])
+    for filename in metadata_filenames:
         remote_path = Path(
             hf_hub_download(
                 repo_id=args.repo_id,

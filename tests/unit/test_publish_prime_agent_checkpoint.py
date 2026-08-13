@@ -80,6 +80,39 @@ def test_validate_checkpoint_rejects_mismatched_tokenizer_metadata(monkeypatch, 
         validate_checkpoint(tmp_path)
 
 
+def test_validate_checkpoint_requires_loadable_multimodal_processor(monkeypatch, tmp_path) -> None:
+    class Tokenizer:
+        eos_token_id = 248046
+
+        @staticmethod
+        def encode(text, *, add_special_tokens):
+            return [248046]
+
+    (tmp_path / "STABLE").touch()
+    (tmp_path / "model.safetensors").touch()
+    (tmp_path / "config.json").write_text(
+        json.dumps({"vision_config": {}, "text_config": {"eos_token_id": 248046}})
+    )
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 248046}))
+    monkeypatch.setattr(
+        "scripts.publish_prime_agent_checkpoint.AutoTokenizer.from_pretrained",
+        lambda *args, **kwargs: Tokenizer(),
+    )
+
+    with pytest.raises(ValueError, match="preprocessor_config.json"):
+        validate_checkpoint(tmp_path)
+
+    (tmp_path / "preprocessor_config.json").write_text("{}")
+    (tmp_path / "video_preprocessor_config.json").write_text("{}")
+    processor = type("Processor", (), {"image_processor": object(), "video_processor": object()})()
+    monkeypatch.setattr(
+        "scripts.publish_prime_agent_checkpoint.AutoProcessor.from_pretrained",
+        lambda *args, **kwargs: processor,
+    )
+
+    assert validate_checkpoint(tmp_path)["multimodal"] is True
+
+
 def test_normalize_eos_fields_updates_nested_scalars_and_lists() -> None:
     metadata = {
         "eos_token_id": 248044,
@@ -136,3 +169,21 @@ def test_remote_file_list_requires_merged_model_and_metadata() -> None:
 
     with pytest.raises(RuntimeError, match="full-model safetensors"):
         validate_remote_file_list((valid - {"model-00001-of-00002.safetensors"}) | {"adapter_model.safetensors"})
+
+
+def test_remote_file_list_requires_multimodal_processor_metadata() -> None:
+    files = {
+        "config.json",
+        "generation_config.json",
+        "tokenizer_config.json",
+        "prime_agent_bundle.json",
+        "model.safetensors",
+    }
+
+    with pytest.raises(RuntimeError, match="preprocessor_config.json"):
+        validate_remote_file_list(files, multimodal=True)
+
+    validate_remote_file_list(
+        files | {"preprocessor_config.json", "video_preprocessor_config.json"},
+        multimodal=True,
+    )
