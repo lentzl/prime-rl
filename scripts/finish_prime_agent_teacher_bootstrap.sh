@@ -9,9 +9,9 @@ audit_report=${BOOTSTRAP_AUDIT_REPORT:-$root/data/285-qwen35-27b-prime-agent-tea
 dataset=${BOOTSTRAP_OUTPUT:-$root/data/281-qwen35-27b-prime-agent-teacher-bootstrap}
 poll_seconds=${POLL_SECONDS:-30}
 
-child_runs=${CHILD_RUNS:-$root/evals/278-qwen35-27b-mastery-child-teacher-collection/base-r1:$root/evals/290-qwen35-27b-mastery-child-ownership-supplement-r2/base-r1}
+child_runs=${CHILD_RUNS:-$root/evals/278-qwen35-27b-mastery-child-teacher-collection/base-r1:$root/evals/290-qwen35-27b-mastery-guided-child-ownership-supplement/base-r1}
 coordinator_runs=${COORDINATOR_RUNS:-$root/evals/279-qwen35-27b-mastery-coordinator-teacher-collection/base-r1:$root/evals/288-qwen35-27b-mastery-guided-coordinator-ownership-supplement/base-r1}
-communication_runs=${COMMUNICATION_RUNS:-$root/evals/280-qwen35-27b-mastery-guided-communication-collection/base-r1:$root/evals/292-qwen35-27b-mastery-corrected-parallel-supplement/base-r1:$root/evals/308-qwen35-27b-mastery-evidence-gated-handshake-supplement/base-r1:$followup_run}
+communication_runs=${COMMUNICATION_RUNS:-$root/evals/280-qwen35-27b-mastery-guided-communication-collection/base-r1:$root/evals/292-qwen35-27b-mastery-hard-communication-supplement/base-r1:$root/evals/308-qwen35-27b-mastery-evidence-gated-handshake-supplement/base-r1:$followup_run}
 
 count_admitted() {
   python3 - "$1/traces.jsonl" <<'PY'

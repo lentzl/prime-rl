@@ -9,11 +9,11 @@ def test_finish_script_uses_only_final_verified_sources() -> None:
     source = SCRIPT.read_text()
 
     assert "278-qwen35-27b-mastery-child-teacher-collection" in source
-    assert "290-qwen35-27b-mastery-child-ownership-supplement-r2" in source
+    assert "290-qwen35-27b-mastery-guided-child-ownership-supplement" in source
     assert "279-qwen35-27b-mastery-coordinator-teacher-collection" in source
     assert "288-qwen35-27b-mastery-guided-coordinator-ownership-supplement" in source
     assert "280-qwen35-27b-mastery-guided-communication-collection" in source
-    assert "292-qwen35-27b-mastery-corrected-parallel-supplement" in source
+    assert "292-qwen35-27b-mastery-hard-communication-supplement" in source
     assert "308-qwen35-27b-mastery-evidence-gated-handshake-supplement" in source
     assert "314-qwen35-27b-mastery-literal-safe-followup-supplement" in source
     for excluded in ("302-qwen", "304-qwen", "306-qwen", "310-qwen", "312-qwen"):
