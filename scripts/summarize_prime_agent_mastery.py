@@ -41,6 +41,8 @@ METRICS = (
     "retrieval_decision",
     "grounded_answer",
     "valid_tool_behavior",
+    "bounded_retrieval",
+    "observation_chars",
     "no_repeated_cell",
     "persistent_index_required",
     "persistent_index_reuse",
