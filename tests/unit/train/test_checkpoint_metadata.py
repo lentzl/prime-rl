@@ -6,6 +6,7 @@ from prime_rl.trainer.ckpt import (
     CHAT_EOS_TOKEN,
     _chat_eos_token_id,
     _numeric_eos_fields,
+    _save_processor_metadata,
     _set_numeric_eos_token_ids,
     _validate_chat_eos_metadata,
 )
@@ -19,6 +20,21 @@ class ChatTokenizer:
         assert text == CHAT_EOS_TOKEN
         assert add_special_tokens is False
         return [248046]
+
+
+class SavingComponent:
+    def __init__(self, filename: str) -> None:
+        self.filename = filename
+
+    def save_pretrained(self, path) -> None:
+        (path / self.filename).write_text("{}")
+
+
+class SavingProcessor(SavingComponent):
+    def __init__(self) -> None:
+        super().__init__("processor_config.json")
+        self.image_processor = SavingComponent("preprocessor_config.json")
+        self.video_processor = SavingComponent("video_preprocessor_config.json")
 
 
 def test_chat_eos_token_id_requires_template_usage() -> None:
@@ -59,3 +75,13 @@ def test_numeric_eos_fields_ignores_strings_and_bools() -> None:
     assert _numeric_eos_fields(
         {"eos_token_id": 248046, "nested": {"eos_token_id": "248046"}, "flag": {"eos_token_id": True}}
     ) == [("eos_token_id", 248046)]
+
+
+def test_save_processor_metadata_includes_standalone_multimodal_components(tmp_path) -> None:
+    _save_processor_metadata(SavingProcessor(), tmp_path)
+
+    assert {path.name for path in tmp_path.iterdir()} == {
+        "preprocessor_config.json",
+        "processor_config.json",
+        "video_preprocessor_config.json",
+    }

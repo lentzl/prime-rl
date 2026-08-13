@@ -112,6 +112,15 @@ def _validate_chat_eos_metadata(path: Path, tokenizer: PreTrainedTokenizer, eos_
         raise ValueError(f"Export metadata does not use {CHAT_EOS_TOKEN}={eos_token_id}: {', '.join(mismatches)}")
 
 
+def _save_processor_metadata(processor: ProcessorMixin, path: Path) -> None:
+    """Save both composite and standalone multimodal processor metadata."""
+    processor.save_pretrained(path)
+    for attribute in ("image_processor", "video_processor"):
+        component = getattr(processor, attribute, None)
+        if component is not None:
+            component.save_pretrained(path)
+
+
 @dataclass
 class Progress:
     step: int = 1
@@ -502,7 +511,7 @@ class WeightCheckpointManager:
                 # Processor first: it saves its own (unmodified) tokenizer, which the
                 # configured tokenizer (pad token, custom chat template) must override.
                 if processor is not None:
-                    processor.save_pretrained(path)
+                    _save_processor_metadata(processor, path)
                 export_tokenizer.save_pretrained(path)
                 if chat_eos_token_id is not None:
                     _validate_chat_eos_metadata(path, export_tokenizer, chat_eos_token_id)
