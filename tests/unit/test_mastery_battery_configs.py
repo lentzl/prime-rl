@@ -225,3 +225,11 @@ def test_broad_mastery_grpo_is_on_policy_disjoint_and_strictly_gated() -> None:
     assert externalization["example_offset"] == 8
     assert externalization["num_examples"] == 24
     assert evaluation["oolong-externalization"]["num_examples"] == 8
+
+
+def test_mastery_grpo_launcher_uses_native_rl_entrypoint() -> None:
+    launcher = (ROOT / "scripts" / "run_prime_agent_mastery_grpo.sh").read_text()
+
+    assert "nvidia-smi --query-compute-apps=pid" in launcher
+    assert "source .env" in launcher
+    assert 'exec rl @ "$config"' in launcher
