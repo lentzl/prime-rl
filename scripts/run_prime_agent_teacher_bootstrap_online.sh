@@ -7,6 +7,7 @@ config=${TEACHER_CONFIG:-configs/debug/subagent-communication/283-qwen35-27b-pri
 base_revision=fc05daec18b0a78c049392ed2e771dde82bdf654
 
 cd "$root"
+export PATH="$root/.venv/bin:$PATH"
 if ! git diff-index --quiet HEAD -- || [[ -n "$(git status --porcelain --untracked-files=normal)" ]]; then
   echo "refusing to train from a dirty Prime-RL checkout" >&2
   exit 1

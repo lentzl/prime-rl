@@ -3,6 +3,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[2]
 SCRIPT = ROOT / "scripts/finish_prime_agent_teacher_bootstrap.sh"
+TRAINER_SCRIPT = ROOT / "scripts/run_prime_agent_teacher_bootstrap_online.sh"
 
 
 def test_finish_script_uses_only_final_verified_sources() -> None:
@@ -30,3 +31,10 @@ def test_finish_script_is_fail_closed_before_training() -> None:
     assert "refusing to overwrite existing bootstrap dataset" in source
     assert "GPU processes did not quiesce" in source
     assert "run_prime_agent_teacher_bootstrap_online.sh" in source
+
+
+def test_trainer_launcher_exposes_venv_sibling_commands() -> None:
+    source = TRAINER_SCRIPT.read_text()
+
+    assert 'export PATH="$root/.venv/bin:$PATH"' in source
+    assert 'exec .venv/bin/sft @ "$config"' in source
