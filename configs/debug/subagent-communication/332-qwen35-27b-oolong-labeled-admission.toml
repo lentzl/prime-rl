@@ -1,0 +1,52 @@
+# Easy externalization admission: labels are present and exact aggregation is programmatic.
+
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 4
+num_rollouts = 1
+shuffle = false
+max_concurrent = 2
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 1
+
+[env.taskset]
+id = "oolong-synth-v1"
+split = "validation"
+with_labels = true
+context_len = 2048
+example_offset = 0
+num_examples = 4
+
+[env.agent]
+max_turns = 12
+max_input_tokens = 65536
+max_output_tokens = 12288
+max_total_tokens = 77824
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8501/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 0.4
+max_tokens = 4096

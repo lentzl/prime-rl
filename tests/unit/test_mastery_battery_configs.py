@@ -38,6 +38,29 @@ def test_oolong_battery_leaves_room_for_the_agent_feedback_loop() -> None:
     assert limits["max_total_tokens"] >= 221_184
 
 
+def test_externalization_ramp_separates_aggregation_from_recursive_classification() -> None:
+    labeled = load_config("332-qwen35-27b-oolong-labeled-admission.toml")
+    recursive = load_config("333-qwen35-27b-oolong-recursive-admission.toml")
+
+    assert labeled["env"]["taskset"] == {
+        "id": "oolong-synth-v1",
+        "split": "validation",
+        "with_labels": True,
+        "context_len": 2048,
+        "example_offset": 0,
+        "num_examples": 4,
+    }
+    assert recursive["env"]["taskset"] == {
+        "id": "oolong-synth-v1",
+        "split": "validation",
+        "with_labels": False,
+        "context_len": 1024,
+        "example_offset": 0,
+        "num_examples": 4,
+    }
+    assert recursive["env"]["agent"]["max_turns"] > labeled["env"]["agent"]["max_turns"]
+
+
 def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
     names = (
         "320-qwen35-27b-mastery-fast-foundations.toml",
