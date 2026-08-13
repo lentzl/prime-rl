@@ -595,6 +595,30 @@ into 9B, 4B, and 2B students. Pareto dominance over untouched Qwen at every chec
 is not required. Direct distillation from the canonical 27B remains the default; a
 27B-to-9B-to-4B-to-2B cascade is only a later measured ablation.
 
+Run 283/315 closes the first rank-64 SFT bootstrap tranche without promoting a
+teacher. Training completed 16 stable steps over 117 samples from the 172-row audited
+corpus. The repaired frozen qualification then completed all 176 planned rollouts
+across base and checkpoints 4/8/12/16 with no context or infrastructure errors. Base
+and step 16 each produced 17 clean outcomes on their 54-task full batteries, but the
+tie concealed a harmful redistribution: child-owned strict success fell from `2/8`
+to `1/8`, follow-up answers from `4/4` to `2/4`, and handshake answers from `4/4` to
+`3/4`; no delegated communication family produced a clean trace in either arm.
+Foundations stayed `8/10`, direct stayed `4/4`, and Oolong stayed `3/8`, while step 16
+had more silent Oolong failures. Earlier checkpoints did not qualify on their frozen
+ownership/communication screens either. The exact hashes and family ledger are in
+`qwen35-27b-teacher-bootstrap-qualification-results-v1.json`.
+
+Run 316 therefore starts from untouched thinking-mode 27B rather than inheriting the
+guided SFT bias. It is the first broad executable on-policy mastery tranche: rank-64
+LoRA, eight GRPO updates, checkpoints every two steps, and equal sampling across
+Prime Agent foundations, child-owned decisions, coordinator-owned controls, complete
+communication trajectories, and disjoint Oolong externalization tasks. Ownership
+uses an opt-in dense structural reward to create within-group contrast, while strict
+success remains unchanged as the held-out promotion metric. The complete frozen
+battery runs online across checkpoints. Stable adapters and their exact config/hash
+manifests are backed up incrementally to one private HF repository; this backup is
+recoverable experiment state, not a canonical teacher publication.
+
 ## Historical Surgical Record
 
 The next training work remains Stage 0, but its scope is now strictly harness mastery.

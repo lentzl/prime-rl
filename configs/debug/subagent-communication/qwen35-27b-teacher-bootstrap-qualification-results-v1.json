@@ -1,0 +1,104 @@
+{
+  "experiment_id": "qwen35-27b-teacher-bootstrap-qualification-v1",
+  "completed_at": "2026-08-13",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "training": {
+    "run": 283,
+    "algorithm": "sft",
+    "lora_rank": 64,
+    "steps": 16,
+    "dataset_rows": 172,
+    "samples_consumed": 117,
+    "thinking": true,
+    "checkpoint_steps": [4, 8, 12, 16]
+  },
+  "qualification": {
+    "run": 315,
+    "planned_rollouts": 176,
+    "completed_rollouts": 176,
+    "context_errors": 0,
+    "infrastructure_errors": 0,
+    "summary_sha256": "5fa665fc29ec88041afa71b2b1e0795bd2176c0a1eea274e23af6f3d0aa0c8e1",
+    "trace_sha256": {
+      "0": "1aa8a13c25c4a0bc06877361f5a21facd088cfe3ad04b8d667e462833cefb5fd",
+      "4": "b7320d88d9e314abac45fc24f266ca39ffe1a777cfc102e4da27a9a357bb885f",
+      "8": "a18aacff1c613ab63fd44a328cf0de702576158f4672b8508d1f8dd2cf66054a",
+      "12": "b2bf9f73d5d69d092448c05463b8e0b0c1128fc442ffa7c1c8b26e1b94cac380",
+      "16": "22e7841f7e1a628f31807a35394dc54568531b17c0411169be814b1b4fdba623"
+    },
+    "checkpoints": {
+      "0": {
+        "scope": "full",
+        "clean": {
+          "ownership_child": "2/8",
+          "ownership_coordinator": "0/8",
+          "communication": "4/20",
+          "foundations": "8/10",
+          "oolong": "3/8"
+        },
+        "communication": {
+          "direct": "4/4",
+          "single": "0/4",
+          "parallel": "0/4",
+          "followup": "0/4",
+          "handshake": "0/4"
+        }
+      },
+      "4": {
+        "scope": "ownership",
+        "clean": {
+          "ownership_child": "1/8",
+          "ownership_coordinator": "1/8"
+        }
+      },
+      "8": {
+        "scope": "ownership_and_communication",
+        "clean": {
+          "ownership_child": "1/8",
+          "ownership_coordinator": "0/8",
+          "communication": "4/20"
+        }
+      },
+      "12": {
+        "scope": "ownership",
+        "clean": {
+          "ownership_child": "1/8",
+          "ownership_coordinator": "0/8"
+        }
+      },
+      "16": {
+        "scope": "full",
+        "clean": {
+          "ownership_child": "1/8",
+          "ownership_coordinator": "1/8",
+          "communication": "4/20",
+          "foundations": "8/10",
+          "oolong": "3/8"
+        },
+        "communication": {
+          "direct": "4/4",
+          "single": "0/4",
+          "parallel": "0/4",
+          "followup": "0/4",
+          "handshake": "0/4"
+        },
+        "answer_accuracy": {
+          "direct": 1.0,
+          "single": 1.0,
+          "parallel": 1.0,
+          "followup": 0.5,
+          "handshake": 0.75
+        }
+      }
+    }
+  },
+  "decision": {
+    "teacher_promoted": false,
+    "checkpoint_published": false,
+    "next_initialization": "untouched thinking-mode Qwen3.5-27B",
+    "next_run": 316,
+    "next_config": "configs/debug/subagent-communication/316-qwen35-27b-prime-agent-mastery-grpo.toml",
+    "summary": "The guided rank-64 SFT bootstrap did not produce broad natural Prime Agent mastery. Step 16 retained direct and foundation behavior but traded away child-owned decisions and natural follow-up/handshake answers without making any delegated family clean. Run 316 therefore starts from untouched 27B and uses broad executable on-policy GRPO with dense structural training reward and unchanged strict held-out promotion gates."
+  }
+}
