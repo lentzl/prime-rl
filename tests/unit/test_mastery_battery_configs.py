@@ -1,6 +1,9 @@
 import tomllib
 from pathlib import Path
 
+from prime_rl.configs.rl import RLConfig
+from prime_rl.utils.config import cli
+
 ROOT = Path(__file__).parents[2]
 CONFIG_ROOT = ROOT / "configs" / "debug" / "subagent-communication"
 
@@ -200,6 +203,7 @@ def test_broad_mastery_grpo_is_on_policy_disjoint_and_strictly_gated() -> None:
     }
     assert config["trainer"]["model"]["lora"]["rank"] == 64
     assert config["orchestrator"]["max_off_policy_steps"] == 0
+    assert config["inference"]["router"] == "None"
     assert set(train) == {
         "mastery-foundations-train",
         "mastery-ownership-child-train",
@@ -225,6 +229,22 @@ def test_broad_mastery_grpo_is_on_policy_disjoint_and_strictly_gated() -> None:
     assert externalization["example_offset"] == 8
     assert externalization["num_examples"] == 24
     assert evaluation["oolong-externalization"]["num_examples"] == 8
+
+
+def test_broad_mastery_grpo_resolves_to_bare_vllm() -> None:
+    config = cli(
+        RLConfig,
+        args=[
+            "@",
+            str(CONFIG_ROOT / "316-qwen35-27b-prime-agent-mastery-grpo.toml"),
+            "--dry-run",
+        ],
+    )
+
+    assert config.inference is not None
+    assert config.inference.router is None
+    assert config.inference.server.port == 8000
+    assert config.orchestrator.model.client.base_url == "http://localhost:8000/v1"
 
 
 def test_mastery_grpo_launcher_uses_native_rl_entrypoint() -> None:

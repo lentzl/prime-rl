@@ -509,6 +509,9 @@ finalize = 60.0
 scoring = 60.0
 
 [inference]
+# One TP=2 engine needs no load balancer. Running bare vLLM also preserves
+# Prime Agent's OpenAI developer-role requests, which the current router rejects.
+router = "None"
 backend_port = 8100
 
 [inference.server]
