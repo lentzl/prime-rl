@@ -33,8 +33,11 @@ rl @ "$config" \
   --max-steps 1 \
   --output-dir "$output" \
   --deployment.gpus-per-node 8 \
-  --deployment.num-train-gpus 6 \
-  --deployment.num-infer-gpus 2 \
+  --deployment.num-train-gpus 4 \
+  --deployment.num-infer-gpus 4 \
+  --inference.vllm.tensor-parallel-size 4 \
+  --inference.vllm.gpu-memory-utilization 0.58 \
+  --inference.vllm.enforce-eager true \
   --trainer.model.lora None \
   --trainer.ckpt.weights.save-adapter-separately false \
   --orchestrator.eval None \
