@@ -26,3 +26,5 @@ def test_launcher_is_fresh_gpu_scoped_and_process_scoped() -> None:
     assert 'kill "${pids[$index]}"' in source
     assert "pkill" not in source
     assert 'wait "$evaluator_pid"' in source
+    assert "--json --by-policy-version" in source
+    assert "qualification-summary.json" in source

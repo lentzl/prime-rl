@@ -78,4 +78,13 @@ if ! wait "$evaluator_pid"; then
   echo "checkpoint qualification failed" >&2
   exit 1
 fi
+
+trace_paths=("$output"/rollouts/step_*/eval/all/traces.jsonl)
+if [[ ! -e "${trace_paths[0]}" ]]; then
+  echo "checkpoint qualification produced no trace files" >&2
+  exit 1
+fi
+.venv/bin/python scripts/summarize_prime_agent_mastery.py \
+  --json --by-policy-version "${trace_paths[@]}" \
+  >"$output/qualification-summary.json"
 echo "checkpoint qualification completed: $output"

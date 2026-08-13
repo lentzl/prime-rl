@@ -149,3 +149,16 @@ def test_coordinator_owned_path_access_is_not_reported_as_bypass() -> None:
     summary = MODULE.summarize([coordinator])
 
     assert summary["tasks"][0]["issues"] == []
+
+
+def test_policy_version_summaries_do_not_blend_checkpoints() -> None:
+    base = trace("direct-base", "direct", answer_accuracy=0.0)
+    base["info"]["policy_version"] = 0
+    checkpoint = trace("direct-step-8", "direct", answer_accuracy=1.0)
+
+    summaries = MODULE.summarize_by_policy_version([checkpoint, base])
+
+    assert list(summaries) == ["0", "8"]
+    assert summaries["0"]["trace_count"] == 1
+    assert summaries["0"]["families"]["direct"]["means"]["answer_accuracy"] == 0.0
+    assert summaries["8"]["families"]["direct"]["means"]["answer_accuracy"] == 1.0

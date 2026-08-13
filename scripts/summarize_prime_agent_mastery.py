@@ -197,6 +197,18 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def summarize_by_policy_version(traces: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    for trace in traces:
+        version = (trace.get("info") or {}).get("policy_version")
+        key = str(version) if isinstance(version, int) and not isinstance(version, bool) else "unknown"
+        grouped[key].append(trace)
+    return {
+        key: summarize(grouped[key])
+        for key in sorted(grouped, key=lambda value: (value == "unknown", int(value) if value != "unknown" else 0))
+    }
+
+
 def _print(summary: dict[str, Any]) -> None:
     print(f"traces: {summary['trace_count']}")
     if summary["policy_versions"]:
@@ -217,8 +229,24 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("paths", nargs="+", type=Path, help="run directories or traces.jsonl files")
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    parser.add_argument(
+        "--by-policy-version",
+        action="store_true",
+        help="report each evaluated checkpoint separately instead of blending versions",
+    )
     args = parser.parse_args()
-    summary = summarize(load_traces(args.paths))
+    traces = load_traces(args.paths)
+    if args.by_policy_version:
+        summaries = summarize_by_policy_version(traces)
+        if args.json:
+            print(json.dumps({"policy_versions": summaries}, indent=2, sort_keys=True))
+        else:
+            for version, summary in summaries.items():
+                print(f"policy version {version}")
+                _print(summary)
+        return
+
+    summary = summarize(traces)
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:
