@@ -1,0 +1,84 @@
+# Four-pass full-weight plain-SFT baseline for Programmatic Episodic Memory v2.
+# The launcher overrides model.name with the frozen common starting checkpoint.
+
+max_steps = 154
+output_dir = "/ephemeral/subagent-rung/outputs/340-qwen35-27b-memory-v2-plain-sft-r1"
+clean_output_dir = true
+
+[deployment]
+num_gpus = 6
+gpus_per_node = 8
+
+[model]
+name = "Qwen/Qwen3.5-27B"
+seq_len = 4096
+attn = "auto"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+optim_cpu_offload = true
+reshard_after_forward = true
+fused_lm_head_token_chunk_size = 1024
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.compile]
+fullgraph = false
+
+[model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[data]
+type = "sft"
+name = "/ephemeral/subagent-rung/data/programmatic-episodic-memory-v2/train.parquet"
+batch_size = 6
+micro_batch_size = 1
+seq_len = 4096
+shuffle = true
+seed = 20260818
+
+[data.loss_mask]
+assistant = true
+system = false
+user = false
+tool = false
+
+[optim]
+type = "adamw"
+lr = 5e-7
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[scheduler]
+type = "constant"
+
+[ckpt]
+interval = 38
+keep_last = 1
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[log]
+level = "info"
+log_data = false
+interval = 10.0

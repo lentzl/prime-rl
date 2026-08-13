@@ -1,0 +1,155 @@
+# Four-pass full-weight SDFT/OPSD lane for Programmatic Episodic Memory v2.
+# This config is admissible only after the frozen conditioned-teacher gate passes.
+
+max_steps = 200
+seq_len = 16384
+output_dir = "/ephemeral/subagent-rung/outputs/341-qwen35-27b-memory-v2-sdft-r1"
+clean_output_dir = true
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 6
+num_infer_gpus = 2
+
+[model]
+name = "Qwen/Qwen3.5-27B"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model]
+seq_len = 16384
+attn = "auto"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+optim_cpu_offload = true
+reshard_after_forward = true
+fused_lm_head_token_chunk_size = 1024
+
+[trainer.model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model.compile]
+fullgraph = false
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[trainer.model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[trainer.optim]
+type = "adamw"
+lr = 5e-7
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[trainer.scheduler]
+type = "constant"
+
+[orchestrator]
+batch_size = 24
+group_size = 1
+max_inflight_episodes = 8
+max_off_policy_steps = 0
+
+[orchestrator.algo]
+type = "opsd"
+demo_key = "demonstration"
+
+[orchestrator.algo.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.train.sampling]
+temperature = 0.4
+max_completion_tokens = 4096
+
+[orchestrator.train.sampling.extra_body]
+top_k = -1
+min_p = 0.0
+return_token_ids = true
+
+[[orchestrator.train.source]]
+name = "programmatic-memory-v2-train"
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 1
+
+[orchestrator.train.source.env.taskset]
+id = "programmatic-episodic-memory-v2"
+dataset_path = "/ephemeral/subagent-rung/data/programmatic-episodic-memory-v2/train.jsonl"
+split = "train"
+condition_on_demonstration = false
+
+[orchestrator.train.source.env.agent]
+max_turns = 8
+max_output_tokens = 8192
+max_total_tokens = 24576
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.retries]
+max_retries = 0
+
+[orchestrator.train.source.serve.pool]
+type = "elastic"
+multiplex = 128
+
+[inference]
+backend_port = 8100
+
+[inference.server]
+port = 8000
+liveness_timeout_seconds = 30.0
+
+[inference.vllm]
+max_model_len = 32768
+enforce_eager = true
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+tensor_parallel_size = 2
+data_parallel_size = 1
+data_parallel_rpc_port = 13345
+gpu_memory_utilization = 0.8
+max_num_seqs = 4
+mamba_ssm_cache_dtype = "float32"
+
+[ckpt]
+interval = 50
+keep_last = 2
+keep_interval = 50
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[log]
+json_logging = false
