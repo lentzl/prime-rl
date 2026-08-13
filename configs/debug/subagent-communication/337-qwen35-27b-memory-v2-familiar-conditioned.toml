@@ -17,7 +17,7 @@ max_concurrent_agents = 1
 id = "programmatic-episodic-memory-v2"
 dataset_path = "/ephemeral/subagent-rung/data/programmatic-episodic-memory-v2/familiar_heldout.jsonl"
 split = "familiar_heldout"
-condition_on_demonstration = true
+condition_on_demonstration = false
 instance_offset = 9
 instances_per_family = 1
 
@@ -44,7 +44,17 @@ scoring = 60.0
 [client]
 base_url = "http://127.0.0.1:8100/v1"
 api_key_var = "PRIME_API_KEY"
-type = "eval"
+type = "train"
+renderer_model_name = "Qwen/Qwen3.5-27B"
+task_system_prefix_field = "demonstration"
+task_system_prefix_template = """Here is an example of an expert response:
+<demonstration>
+{value}
+</demonstration>"""
+
+[client.renderer]
+name = "qwen3.5"
+enable_thinking = true
 
 [sampling]
 temperature = 0.4

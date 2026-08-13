@@ -4,7 +4,7 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 lane=${1:?usage: run_programmatic_memory_v2_training.sh sft|sdft [start_model]}
 start_model=${2:-Qwen/Qwen3.5-27B}
-admission_root=${MEMORY_ADMISSION_ROOT:-/ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r1}
+admission_root=${MEMORY_ADMISSION_ROOT:-/ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r3}
 admission_report=${MEMORY_ADMISSION_REPORT:-$admission_root/admission.json}
 
 case "$lane" in

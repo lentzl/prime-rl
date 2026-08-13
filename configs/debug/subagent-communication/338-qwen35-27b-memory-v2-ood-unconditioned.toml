@@ -44,7 +44,12 @@ scoring = 60.0
 [client]
 base_url = "http://127.0.0.1:8100/v1"
 api_key_var = "PRIME_API_KEY"
-type = "eval"
+type = "train"
+renderer_model_name = "Qwen/Qwen3.5-27B"
+
+[client.renderer]
+name = "qwen3.5"
+enable_thinking = true
 
 [sampling]
 temperature = 0.4

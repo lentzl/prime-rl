@@ -42,12 +42,18 @@ distinguishes a semantically recovered value wrapped in unwanted prose from a
 wrong value. This prevents a conditioning-induced concision gain from being
 misreported as a retrieval-reasoning gain.
 
+Both admission arms use Verifiers' renderer-backed train client. The conditioned
+arm prepends the demonstration as an independent rendered system block before
+the unchanged ordinary prompt. This exactly matches Prime-RL OPSD's token-prefix
+teacher context; concatenating the hint into the task's existing system message
+is not equivalent under the Qwen3.5 chat template and is not admissible evidence.
+
 Run the assessment with:
 
 ```bash
 .venv/bin/python scripts/assess_programmatic_memory_teacher_admission.py \
-  /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r1 \
-  --output /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r1/admission.json \
+  /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r3 \
+  --output /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r3/admission.json \
   --require-pass
 ```
 
