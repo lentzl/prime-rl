@@ -13,6 +13,7 @@ num_infer_gpus = 2
 
 [model]
 name = "Qwen/Qwen3.5-27B"
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
 
 [model.vlm]
 vision_encoder_attr = "model.visual"

@@ -166,7 +166,7 @@ def main() -> None:
 
     summaries: dict[str, dict] = {}
     for name, (pattern, _) in ARMS.items():
-        matches = sorted(args.root.glob(f"step-4/{pattern}"))
+        matches = sorted(args.root.glob(f"*/{pattern}"))
         if len(matches) > 1:
             raise ValueError(f"ambiguous {name} result directories: {matches}")
         summaries[name] = summarize(load_traces(matches[0])) if matches else summarize([])

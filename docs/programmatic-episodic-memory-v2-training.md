@@ -8,7 +8,11 @@ for GRPO or for the frozen Harness Mastery battery.
 
 ## Frozen inputs
 
-- Common start: Run 331 Step 4, selected by the 21-task checkpoint screen.
+- Common start: untouched thinking-mode
+  `Qwen/Qwen3.5-27B@fc05daec18b0a78c049392ed2e771dde82bdf654`.
+  Run 331 remains an independent broad-RL experiment; its Step 4 fast-screen
+  candidate is not allowed to confound the algorithm comparison before passing
+  the frozen 74-task battery.
 - Train split: 1,200 examples across 25 familiar families.
 - Familiar heldout: 300 examples; admission samples one frozen instance from
   every family twice (50 traces per arm).
@@ -39,8 +43,8 @@ Run the assessment with:
 
 ```bash
 .venv/bin/python scripts/assess_programmatic_memory_teacher_admission.py \
-  /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-r2 \
-  --output /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-r2/admission.json \
+  /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r1 \
+  --output /ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r1/admission.json \
   --require-pass
 ```
 
@@ -63,7 +67,7 @@ equal token exposure is not claimed. Checkpoint comparisons must include actual
 trainable-token counts, not only optimizer steps.
 
 Both lanes use full-weight BF16 AdamW on six trainer GPUs, learning rate 5e-7,
-the same Step-4 start, and epoch-scale checkpoints. SFT trains only observable
+the same untouched-base start, and epoch-scale checkpoints. SFT trains only observable
 assistant/tool actions. SDFT samples the unconditioned live policy and applies
 dense demo-conditioned reverse-KL on those student-visited tokens.
 

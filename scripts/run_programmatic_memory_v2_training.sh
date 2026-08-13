@@ -3,8 +3,8 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 lane=${1:?usage: run_programmatic_memory_v2_training.sh sft|sdft [start_model]}
-start_model=${2:-/ephemeral/subagent-rung/outputs/331-qwen35-27b-full-weight-consolidation-r1/weights/step_4}
-admission_root=${MEMORY_ADMISSION_ROOT:-/ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-r2}
+start_model=${2:-Qwen/Qwen3.5-27B}
+admission_root=${MEMORY_ADMISSION_ROOT:-/ephemeral/subagent-rung/evals/336-339-qwen35-27b-memory-v2-teacher-admission-base-r1}
 admission_report=${MEMORY_ADMISSION_REPORT:-$admission_root/admission.json}
 
 case "$lane" in
@@ -30,7 +30,7 @@ if [[ ! -x .venv/bin/sft || ! -x .venv/bin/rl ]]; then
   echo "Prime-RL executables are missing; run scripts/setup_prime_agent_mastery_host.sh" >&2
   exit 1
 fi
-if [[ ! -d "$start_model" || ! -f "$start_model/STABLE" ]]; then
+if [[ "$start_model" = /* && (! -d "$start_model" || ! -f "$start_model/STABLE") ]]; then
   echo "starting checkpoint is not stable: $start_model" >&2
   exit 1
 fi

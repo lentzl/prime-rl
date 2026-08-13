@@ -11,6 +11,7 @@ gpus_per_node = 8
 
 [model]
 name = "Qwen/Qwen3.5-27B"
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
 seq_len = 4096
 attn = "auto"
 impl = "custom"

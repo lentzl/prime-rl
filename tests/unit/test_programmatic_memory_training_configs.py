@@ -12,6 +12,7 @@ def test_plain_sft_is_full_weight_and_four_pass_budgeted() -> None:
     assert "max_steps = 154" in source
     assert "name = \"/ephemeral/subagent-rung/data/programmatic-episodic-memory-v2/train.parquet\"" in source
     assert "assistant = true" in source
+    assert 'revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"' in source
     assert "[model.lora]" not in source
 
 
@@ -34,3 +35,4 @@ def test_launcher_enforces_admission_only_for_sdft() -> None:
     assert "refusing to launch while another GPU process is active" in source
     assert 'command=(sft @ "$config" --model.name "$start_model")' in source
     assert 'command=(rl @ "$config" --model.name "$start_model")' in source
+    assert "start_model=${2:-Qwen/Qwen3.5-27B}" in source
