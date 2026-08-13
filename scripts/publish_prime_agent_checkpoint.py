@@ -53,6 +53,72 @@ def eos_fields(value: Any, path: tuple[str, ...] = ()) -> list[tuple[str, int]]:
     return found
 
 
+def normalize_eos_fields(value: Any, expected_eos: int) -> int:
+    changed = 0
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if key == "eos_token_id" and isinstance(item, int) and not isinstance(item, bool):
+                if item != expected_eos:
+                    value[key] = expected_eos
+                    changed += 1
+                continue
+            if key == "eos_token_id" and isinstance(item, list):
+                for index, token_id in enumerate(item):
+                    if isinstance(token_id, int) and not isinstance(token_id, bool) and token_id != expected_eos:
+                        item[index] = expected_eos
+                        changed += 1
+                continue
+            changed += normalize_eos_fields(item, expected_eos)
+    elif isinstance(value, list):
+        for item in value:
+            changed += normalize_eos_fields(item, expected_eos)
+    return changed
+
+
+def _expected_chat_eos(tokenizer) -> int:
+    im_end_ids = tokenizer.encode("<|im_end|>", add_special_tokens=False)
+    if len(im_end_ids) != 1:
+        raise ValueError(f"<|im_end|> must encode to one token, got {im_end_ids}")
+    return im_end_ids[0]
+
+
+def _write_json_atomic(path: Path, value: Any) -> None:
+    with tempfile.NamedTemporaryFile("w", dir=path.parent, delete=False) as stream:
+        temp_path = Path(stream.name)
+        json.dump(value, stream, indent=2, sort_keys=True)
+        stream.write("\n")
+    os.replace(temp_path, path)
+
+
+def repair_checkpoint_eos(checkpoint: Path) -> dict[str, Any]:
+    stable = checkpoint / "STABLE"
+    if not stable.is_file():
+        raise ValueError(f"checkpoint is not marked stable: {checkpoint}")
+    if not any(checkpoint.glob("model*.safetensors")):
+        raise ValueError("checkpoint does not contain merged full-model safetensors")
+
+    tokenizer = AutoTokenizer.from_pretrained(checkpoint, local_files_only=True, trust_remote_code=True)
+    expected_eos = _expected_chat_eos(tokenizer)
+    stable.unlink()
+    changed = 0
+    try:
+        if tokenizer.eos_token_id != expected_eos:
+            tokenizer.eos_token = "<|im_end|>"
+            tokenizer.save_pretrained(checkpoint)
+        for metadata_path in sorted(checkpoint.glob("*.json")):
+            metadata = json.loads(metadata_path.read_text())
+            file_changes = normalize_eos_fields(metadata, expected_eos)
+            if file_changes:
+                _write_json_atomic(metadata_path, metadata)
+                changed += file_changes
+        stable.touch()
+        validation = validate_checkpoint(checkpoint)
+    except BaseException:
+        stable.unlink(missing_ok=True)
+        raise
+    return {**validation, "repaired_eos_fields": changed}
+
+
 def validate_checkpoint(checkpoint: Path) -> dict[str, Any]:
     if not (checkpoint / "STABLE").is_file():
         raise ValueError(f"checkpoint is not marked stable: {checkpoint}")
@@ -60,22 +126,18 @@ def validate_checkpoint(checkpoint: Path) -> dict[str, Any]:
         raise ValueError("checkpoint does not contain merged full-model safetensors")
 
     tokenizer = AutoTokenizer.from_pretrained(checkpoint, local_files_only=True, trust_remote_code=True)
-    im_end_ids = tokenizer.encode("<|im_end|>", add_special_tokens=False)
-    if len(im_end_ids) != 1:
-        raise ValueError(f"<|im_end|> must encode to one token, got {im_end_ids}")
-    expected_eos = im_end_ids[0]
+    expected_eos = _expected_chat_eos(tokenizer)
     if tokenizer.eos_token_id != expected_eos:
         raise ValueError(f"tokenizer eos_token_id={tokenizer.eos_token_id}, expected {expected_eos}")
 
-    metadata_files = [checkpoint / "config.json", checkpoint / "generation_config.json"]
-    missing = [str(path) for path in metadata_files if not path.is_file()]
+    required_metadata = [checkpoint / "config.json", checkpoint / "generation_config.json"]
+    missing = [str(path) for path in required_metadata if not path.is_file()]
     if missing:
         raise ValueError(f"checkpoint metadata missing: {', '.join(missing)}")
     fields: list[tuple[str, int]] = []
-    for path in metadata_files:
+    for path in sorted(checkpoint.glob("*.json")):
         fields.extend(
-            (f"{path.name}:{field}", token_id)
-            for field, token_id in eos_fields(json.loads(path.read_text()))
+            (f"{path.name}:{field}", token_id) for field, token_id in eos_fields(json.loads(path.read_text()))
         )
     if not fields:
         raise ValueError("checkpoint metadata has no numeric eos_token_id fields")
@@ -108,6 +170,11 @@ def main() -> None:
     parser.add_argument("--base-model", default="Qwen/Qwen3.5-27B")
     parser.add_argument("--base-revision", required=True)
     parser.add_argument("--public", action="store_true")
+    parser.add_argument(
+        "--repair-eos-metadata",
+        action="store_true",
+        help="normalize an existing stable checkpoint to its tokenizer's <|im_end|> ID before validation",
+    )
     parser.add_argument("--commit-message", default="Publish verified Prime Agent checkpoint")
     args = parser.parse_args()
 
@@ -119,7 +186,7 @@ def main() -> None:
         if not path.is_file():
             raise SystemExit(f"required provenance file does not exist: {path}")
 
-    validation = validate_checkpoint(checkpoint)
+    validation = repair_checkpoint_eos(checkpoint) if args.repair_eos_metadata else validate_checkpoint(checkpoint)
     root = Path(__file__).resolve().parents[1]
     bundle = {
         "schema_version": 1,
@@ -199,9 +266,7 @@ def main() -> None:
         **{record["path"]: source for source, record in zip(eval_reports, bundle["eval_reports"], strict=True)},
     }
     for filename, source in provenance_sources.items():
-        remote_path = Path(
-            hf_hub_download(repo_id=args.repo_id, filename=filename, revision=info.sha, token=token)
-        )
+        remote_path = Path(hf_hub_download(repo_id=args.repo_id, filename=filename, revision=info.sha, token=token))
         if sha256(remote_path) != sha256(source):
             raise RuntimeError(f"published {filename} did not round-trip exactly")
     for filename in ("config.json", "generation_config.json", "tokenizer_config.json"):
