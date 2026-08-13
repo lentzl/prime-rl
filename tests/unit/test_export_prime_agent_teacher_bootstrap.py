@@ -11,7 +11,15 @@ pytest.importorskip("verifiers")
 from scripts import export_prime_agent_teacher_bootstrap as bootstrap
 
 
-def trace(*, ok=True, truncated=False, reasoning=True, **metrics):
+def trace(
+    *,
+    ok=True,
+    truncated=False,
+    reasoning=True,
+    family="direct",
+    teacher_conditioned=False,
+    **metrics,
+):
     message = SimpleNamespace(
         role="assistant",
         reasoning_content="authentic sampled reasoning" if reasoning else None,
@@ -21,6 +29,13 @@ def trace(*, ok=True, truncated=False, reasoning=True, **metrics):
         is_truncated=truncated,
         metrics=metrics,
         nodes=[SimpleNamespace(sampled=True, message=message)],
+        task=SimpleNamespace(
+            data=SimpleNamespace(
+                family=family,
+                teacher_conditioned=teacher_conditioned,
+                model_extra={},
+            )
+        ),
     )
 
 
@@ -42,6 +57,34 @@ def test_communication_admission_requires_answer_and_clean_protocol() -> None:
     )
     assert not bootstrap.admitted(
         trace(answer_accuracy=0.0, clean_protocol_aligned=1.0),
+        "communication",
+    )
+
+
+def test_conditioned_bidirectional_admission_allows_one_redundant_local_call() -> None:
+    metrics = {
+        "answer_accuracy": 1.0,
+        "clean_protocol_aligned": 0.0,
+        "protocol_aligned": 1.0,
+        "natural_followup_causal": 1.0,
+        "bidirectional_control": 10 / 11,
+        "post_parent_send_tool_calls": 1.0,
+        "coordinator_delegated_path_accesses": 0.0,
+        "duplicate_cells": 0.0,
+        "failed_cells": 0.0,
+        "non_ipython_tool_calls": 0.0,
+        "observation_calls": 0.0,
+        "post_result_coordinator_cells": 0.0,
+    }
+    conditioned = trace(family="followup", teacher_conditioned=True, **metrics)
+    assert bootstrap.admission_quality(conditioned, "communication") == "conditioned_causal_near_clean"
+
+    assert not bootstrap.admitted(
+        trace(family="followup", teacher_conditioned=False, **metrics),
+        "communication",
+    )
+    assert not bootstrap.admitted(
+        trace(family="followup", teacher_conditioned=True, **{**metrics, "failed_cells": 1.0}),
         "communication",
     )
 

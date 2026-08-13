@@ -20,6 +20,7 @@ except ModuleNotFoundError:  # Direct `python scripts/...` execution.
     from export_sft import sft_row, sft_rows
 
 Cohort = Literal["ownership", "communication"]
+AdmissionQuality = Literal["clean", "conditioned_causal_near_clean"]
 BASE_MODEL = "Qwen/Qwen3.5-27B"
 BASE_REVISION = "fc05daec18b0a78c049392ed2e771dde82bdf654"
 
@@ -60,12 +61,47 @@ def has_authentic_reasoning(trace) -> bool:
     )
 
 
-def admitted(trace, cohort: Cohort) -> bool:
+def _teacher_conditioned(trace) -> bool:
+    return _data_field(trace.task.data, "teacher_conditioned", "false").lower() == "true"
+
+
+def admission_quality(trace, cohort: Cohort) -> AdmissionQuality | None:
     if not trace.ok or trace.is_truncated:
-        return False
+        return None
     if cohort == "ownership":
-        return _metric(trace, "strict_success") == 1.0
-    return _metric(trace, "answer_accuracy") == 1.0 and _metric(trace, "clean_protocol_aligned") == 1.0
+        return "clean" if _metric(trace, "strict_success") == 1.0 else None
+    if _metric(trace, "answer_accuracy") == 1.0 and _metric(trace, "clean_protocol_aligned") == 1.0:
+        return "clean"
+
+    # Bootstrap-only fallback for the asynchronous boundary: preserve a
+    # complete, causally correct model trajectory when its sole defect is one
+    # redundant local IPython call. This never changes the clean eval gate and
+    # is restricted to explicitly teacher-conditioned bidirectional traces.
+    family = _data_field(trace.task.data, "family")
+    required = {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "natural_followup_causal": 1.0,
+        "coordinator_delegated_path_accesses": 0.0,
+        "duplicate_cells": 0.0,
+        "failed_cells": 0.0,
+        "non_ipython_tool_calls": 0.0,
+        "observation_calls": 0.0,
+        "post_result_coordinator_cells": 0.0,
+    }
+    if (
+        family in {"followup", "handshake"}
+        and _teacher_conditioned(trace)
+        and all(_metric(trace, name) == expected for name, expected in required.items())
+        and (_metric(trace, "bidirectional_control") or 0.0) >= 0.9
+        and (_metric(trace, "post_parent_send_tool_calls") or 0.0) <= 1.0
+    ):
+        return "conditioned_causal_near_clean"
+    return None
+
+
+def admitted(trace, cohort: Cohort) -> bool:
+    return admission_quality(trace, cohort) is not None
 
 
 def coordinator_branches(trace) -> list:
@@ -111,7 +147,8 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
         for episode in read_episodes(run_dir, WireTrace):
             for trace in episode.traces:
                 counts[f"{cohort}.seen"] += 1
-                if trace.id in seen or not admitted(trace, cohort):
+                quality = admission_quality(trace, cohort)
+                if trace.id in seen or quality is None:
                     continue
                 seen.add(trace.id)
                 family = _data_field(trace.task.data, "family")
@@ -134,6 +171,7 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                         source_ownership=ownership,
                         source_instruction_level=instruction_level,
                         source_conditioning=conditioning,
+                        source_admission_quality=quality,
                     )
                 rows.extend(trace_rows)
                 counts[f"{cohort}.admitted_traces"] += 1
@@ -143,6 +181,8 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
                 counts[f"{cohort}.instruction.{instruction_level}.admitted_traces"] += 1
                 counts[f"conditioning.{conditioning}.admitted_traces"] += 1
                 counts[f"{cohort}.conditioning.{conditioning}.admitted_traces"] += 1
+                counts[f"quality.{quality}.admitted_traces"] += 1
+                counts[f"{cohort}.quality.{quality}.admitted_traces"] += 1
                 reasoning = "present" if has_authentic_reasoning(trace) else "absent"
                 counts[f"reasoning.{reasoning}_traces"] += 1
                 counts[f"{cohort}.reasoning.{reasoning}_traces"] += 1
@@ -156,6 +196,12 @@ def build(sources: list[tuple[Path, Cohort]]) -> tuple[list[dict], dict]:
         "selection": {
             "ownership": "ok and not truncated and strict_success == 1",
             "communication": ("ok and not truncated and answer_accuracy == 1 and clean_protocol_aligned == 1"),
+            "conditioned_bidirectional_bootstrap": (
+                "teacher-conditioned followup/handshake only; answer and causal protocol complete; "
+                "no ownership, failure, duplicate, observation, or post-result violation; "
+                "bidirectional_control >= 0.9 and at most one redundant local IPython call"
+            ),
+            "promotion": "the conditioned bootstrap exception never changes clean evaluation or teacher promotion gates",
             "reasoning": "preserve sampled reasoning_content when present; never synthesize it",
             "prompts": "preserve the exact admitted trace; never rewrite guided context as standard context",
         },
