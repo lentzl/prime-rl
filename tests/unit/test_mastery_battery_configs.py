@@ -119,6 +119,8 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
 
     launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_fast_screen_v1.sh").read_text()
     assert all(name.removesuffix(".toml") in launcher for name in names)
+    assert "EVAL_CLIENT_BASE_URL" in launcher
+    assert 'args+=(--client.base-url "$client_base_url")' in launcher
 
     model_launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_fast_screen_model_v1.sh").read_text()
     assert "refusing to launch while another GPU process is active" in model_launcher
@@ -138,6 +140,7 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
     assert "EVAL_ROUTER_PORT" in model_launcher
     assert "EVAL_DATA_PARALLEL_RPC_PORT" in model_launcher
     assert "data_parallel_rpc_port = $data_parallel_rpc_port" in model_launcher
+    assert 'EVAL_CLIENT_BASE_URL="http://127.0.0.1:$backend_port/v1"' in model_launcher
 
     battery_launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_battery_v1.sh").read_text()
     assert "EVAL_CLIENT_BASE_URL" in battery_launcher

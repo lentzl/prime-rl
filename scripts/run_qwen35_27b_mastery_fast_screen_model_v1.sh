@@ -115,6 +115,7 @@ if ! curl -fsS "http://127.0.0.1:$backend_port/health" >/dev/null; then
 fi
 
 PRIME_MASTERY_OUTPUT_ROOT=$output_root \
+  EVAL_CLIENT_BASE_URL="http://127.0.0.1:$backend_port/v1" \
   "$eval_driver" "$model" "$label" &
 eval_pid=$!
 
