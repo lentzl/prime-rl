@@ -89,11 +89,13 @@ def test_corrected_bidirectional_supplements_are_disjoint_and_conditioned() -> N
     handshake = load_config("304-qwen35-27b-mastery-corrected-handshake-supplement.toml")
     followup = load_config("306-qwen35-27b-mastery-corrected-followup-supplement.toml")
     evidence_gated_handshake = load_config("308-qwen35-27b-mastery-evidence-gated-handshake-supplement.toml")
-    supplements = (handshake, followup, evidence_gated_handshake)
+    strict_output_followup = load_config("310-qwen35-27b-mastery-strict-output-followup-supplement.toml")
+    supplements = (handshake, followup, evidence_gated_handshake, strict_output_followup)
 
     assert handshake["env"]["taskset"]["families"] == ["handshake"]
     assert followup["env"]["taskset"]["families"] == ["followup"]
     assert evidence_gated_handshake["env"]["taskset"]["families"] == ["handshake"]
+    assert strict_output_followup["env"]["taskset"]["families"] == ["followup"]
     assert {config["env"]["taskset"]["instance_offset"] for config in supplements}.isdisjoint(
         {original["env"]["taskset"]["instance_offset"]}
     )
