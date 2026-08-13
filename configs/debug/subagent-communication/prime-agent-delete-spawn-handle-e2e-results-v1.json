@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "purpose": "Verify that Prime Agent accepts the RLMSpawnHandle returned by rlm() in delete_subagent().",
+  "source": {
+    "prime_agent_commit": "a3b922badb7bff2246552b8dd07f1f39338a8721",
+    "prime_rl_commit": "1cbd384fb6012401c6d0d15223aca552f1cf09a5",
+    "verifiers_commit": "68639a79ca3e766b3950a04f05e87c2f755c761b",
+    "model": "Qwen/Qwen3.5-27B",
+    "model_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+    "release_tarball_sha256": "ad89e477fe193c576ff3d86f672c5d04475978059bea233887f0ebe1f10fd832"
+  },
+  "run": {
+    "date": "2026-08-13",
+    "trace_id": "a801d350e62a4031b8b213f89074da7b",
+    "config": "configs/debug/subagent-communication/330-prime-agent-delete-spawn-handle-e2e.toml",
+    "remote_output": "/ephemeral/subagent-rung/evals/330-prime-agent-delete-spawn-handle-e2e/patched-delete-handle-base-r2",
+    "result": {
+      "ok": true,
+      "stop_condition": "user_closed",
+      "capability_reward": 1.0,
+      "errors": []
+    }
+  },
+  "observed_behavior": {
+    "spawn_cell_prefix": "child = rlm(",
+    "delete_cell": "await rlm.delete_subagent(child)",
+    "final_child_status": "cancelled",
+    "final_child_error": "Deleted by parent orchestrator"
+  },
+  "notes": [
+    "The release tarball was built from the exact Prime Agent commit and installed inside the Verifiers Docker runtime by URL plus SHA-256.",
+    "The first packaging attempt failed before model execution because the temporary host server was not reachable through the provider firewall; opening the Docker bridge only for the test repaired setup.",
+    "The temporary HTTP server and firewall rule were removed after the successful episode."
+  ]
+}
