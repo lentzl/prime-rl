@@ -97,7 +97,7 @@ def test_corrected_bidirectional_supplements_are_disjoint_and_conditioned() -> N
     assert {config["env"]["taskset"]["instance_offset"] for config in supplements}.isdisjoint(
         {original["env"]["taskset"]["instance_offset"]}
     )
-    assert len({config["env"]["taskset"]["seed"] for config in supplements}) == 2
+    assert len({config["env"]["taskset"]["seed"] for config in supplements}) == len(supplements)
     assert all(config["env"]["taskset"]["teacher_conditioned"] is True for config in supplements)
     assert all(config["env"]["taskset"]["prompt_contract"] == "explicit_bidirectional_v2" for config in supplements)
     assert all(config["env"]["agent"]["harness"]["thinking"] == "high" for config in supplements)
