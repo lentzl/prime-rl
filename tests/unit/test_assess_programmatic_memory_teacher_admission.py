@@ -97,3 +97,46 @@ def test_expected_value_presence_is_distinct_from_exact_output_contract() -> Non
 
     assert MODULE.expected_value_present(trace) == 1.0
     assert MODULE.summarize([trace])["diagnostics"]["expected_value_present"] == 1.0
+
+
+def test_task_identity_ignores_only_conditioned_system_prompt() -> None:
+    base = {
+        "task": {
+            "data": {
+                "name": "familiar_heldout-latest_state-9",
+                "prompt": "Recover the value.",
+                "system_prompt": "ordinary system prompt",
+                "expected_answers": ["stable"],
+                "files": {"/workspace/history.log": "event"},
+            }
+        }
+    }
+    conditioned = {
+        "task": {
+            "data": {
+                **base["task"]["data"],
+                "system_prompt": "expert demonstration followed by ordinary system prompt",
+            }
+        }
+    }
+
+    assert MODULE.task_identity(base) == MODULE.task_identity(conditioned)
+    conditioned["task"]["data"]["expected_answers"] = ["beta"]
+    assert MODULE.task_identity(base) != MODULE.task_identity(conditioned)
+
+
+def test_rejects_unpaired_conditioned_tasks() -> None:
+    arms = {
+        "familiar_unconditioned": arm(50, 0.88),
+        "familiar_conditioned": arm(50, 0.96),
+        "ood_unconditioned": arm(16, 0.75),
+        "ood_conditioned": arm(16, 0.875),
+    }
+    for value in arms.values():
+        value["task_identity_counts"] = {"same": value["count"]}
+    arms["familiar_conditioned"]["task_identity_counts"] = {"different": 50}
+
+    report = MODULE.assess(arms)
+
+    assert report["admission_pass"] is False
+    assert any("same frozen task identities" in item for item in report["failures"])

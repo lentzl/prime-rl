@@ -29,7 +29,10 @@ conditioned arms must meet every core behavior minimum (0.90 familiar, 0.80
 OOD), may not regress any core component by more than 0.05, and must improve
 aggregate strict success by at least 0.08 absolute or by at least 0.04 absolute
 with at least 50% relative error reduction. Every planned trace must complete
-cleanly. Core components include answer and grounding, retrieve/no-retrieve,
+cleanly. Each conditioned/unconditioned pair must also contain the exact same
+multiset of frozen semantic task payloads; the identity check excludes only the
+system prompt where the demonstration intervention is intentionally applied.
+Core components include answer and grounding, retrieve/no-retrieve,
 tool validity, bounded retrieval, no repeated cells, stale-note resolution,
 context-reset recovery, persistent-index reuse, and current-turn override.
 

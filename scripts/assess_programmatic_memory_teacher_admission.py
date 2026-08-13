@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
+from collections import Counter
 from pathlib import Path
 from statistics import mean
 
@@ -29,6 +31,14 @@ CORE_METRICS = (
     "current_turn_override",
 )
 DIAGNOSTIC_METRICS = ("expected_value_present",)
+
+
+def task_identity(trace: dict) -> str:
+    """Hash the frozen task payload while ignoring the intended hint intervention."""
+    data = dict(trace.get("task", {}).get("data", {}))
+    data.pop("system_prompt", None)
+    encoded = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
 
 
 def load_traces(path: Path) -> list[dict]:
@@ -62,9 +72,11 @@ def expected_value_present(trace: dict) -> float:
 
 
 def summarize(traces: list[dict]) -> dict:
+    identities = Counter(task_identity(trace) for trace in traces)
     return {
         "count": len(traces),
         "clean_count": sum(bool(trace.get("ok")) for trace in traces),
+        "task_identity_counts": dict(sorted(identities.items())),
         "means": {
             metric: mean(float(trace.get("metrics", {}).get(metric, 0.0)) for trace in traces)
             if traces
@@ -94,6 +106,19 @@ def assess(arms: dict[str, dict]) -> dict:
             failures.append(f"{name}: expected {expected} traces, found {arm['count']}")
         if arm["clean_count"] != arm["count"]:
             failures.append(f"{name}: contains errored traces")
+
+    for split in ("familiar", "ood"):
+        unconditioned = arms[f"{split}_unconditioned"].get("task_identity_counts")
+        conditioned = arms[f"{split}_conditioned"].get("task_identity_counts")
+        if (
+            unconditioned is not None
+            and conditioned is not None
+            and unconditioned != conditioned
+        ):
+            failures.append(
+                f"{split}: conditioned and unconditioned arms do not contain "
+                "the same frozen task identities"
+            )
 
     thresholds = {"familiar": 0.90, "ood": 0.80}
     for split, threshold in thresholds.items():
@@ -140,6 +165,7 @@ def assess(arms: dict[str, dict]) -> dict:
         "admission_pass": not failures,
         "criteria": {
             "expected_traces": {name: expected for name, (_, expected) in ARMS.items()},
+            "paired_task_identity": "exact multiset match within each split",
             "conditioned_core_minimum": thresholds,
             "maximum_core_regression": 0.05,
             "substantial_strict_gain": (
