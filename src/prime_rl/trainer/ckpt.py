@@ -1,8 +1,10 @@
 import bisect
 import gc
+import json
 import shutil
 import time
 import warnings
+from copy import deepcopy
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -32,6 +34,82 @@ from prime_rl.trainer.weights import (
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
 from prime_rl.utils.utils import get_all_ckpt_steps, get_ckpt_dir, get_step_path, get_weights_dir
+
+CHAT_EOS_TOKEN = "<|im_end|>"
+
+
+def _chat_eos_token_id(tokenizer: PreTrainedTokenizer) -> int | None:
+    """Return the chat turn terminator ID when the tokenizer template uses it."""
+    chat_template = getattr(tokenizer, "chat_template", None)
+    if not chat_template or CHAT_EOS_TOKEN not in chat_template:
+        return None
+
+    token_ids = tokenizer.encode(CHAT_EOS_TOKEN, add_special_tokens=False)
+    if len(token_ids) != 1:
+        raise ValueError(f"Expected {CHAT_EOS_TOKEN} to encode as one token, got {token_ids}")
+    return token_ids[0]
+
+
+def _set_numeric_eos_token_ids(value: Any, eos_token_id: int, seen: set[int] | None = None) -> None:
+    """Update numeric EOS fields in copied Transformers configuration objects."""
+    if seen is None:
+        seen = set()
+    if id(value) in seen:
+        return
+    seen.add(id(value))
+
+    if isinstance(value, dict):
+        for key, child in value.items():
+            if key == "eos_token_id" and isinstance(child, int) and not isinstance(child, bool):
+                value[key] = eos_token_id
+            else:
+                _set_numeric_eos_token_ids(child, eos_token_id, seen)
+        return
+    if isinstance(value, list):
+        for child in value:
+            _set_numeric_eos_token_ids(child, eos_token_id, seen)
+        return
+    if not hasattr(value, "__dict__"):
+        return
+
+    for key, child in vars(value).items():
+        if key == "eos_token_id" and isinstance(child, int) and not isinstance(child, bool):
+            setattr(value, key, eos_token_id)
+        else:
+            _set_numeric_eos_token_ids(child, eos_token_id, seen)
+
+
+def _numeric_eos_fields(value: Any, prefix: str = "") -> list[tuple[str, int]]:
+    fields: list[tuple[str, int]] = []
+    if isinstance(value, dict):
+        for key, child in value.items():
+            path = f"{prefix}.{key}" if prefix else key
+            if key == "eos_token_id" and isinstance(child, int) and not isinstance(child, bool):
+                fields.append((path, child))
+            else:
+                fields.extend(_numeric_eos_fields(child, path))
+    elif isinstance(value, list):
+        for index, child in enumerate(value):
+            fields.extend(_numeric_eos_fields(child, f"{prefix}[{index}]"))
+    return fields
+
+
+def _validate_chat_eos_metadata(path: Path, tokenizer: PreTrainedTokenizer, eos_token_id: int) -> None:
+    token_ids = tokenizer.encode(CHAT_EOS_TOKEN, add_special_tokens=False)
+    if token_ids != [eos_token_id] or tokenizer.eos_token_id != eos_token_id:
+        raise ValueError(
+            f"Export tokenizer does not use {CHAT_EOS_TOKEN}={eos_token_id} as EOS: "
+            f"encoded={token_ids}, eos_token_id={tokenizer.eos_token_id}"
+        )
+
+    mismatches: list[str] = []
+    for metadata_path in sorted(path.glob("*.json")):
+        metadata = json.loads(metadata_path.read_text())
+        for field, value in _numeric_eos_fields(metadata):
+            if value != eos_token_id:
+                mismatches.append(f"{metadata_path.name}:{field}={value}")
+    if mismatches:
+        raise ValueError(f"Export metadata does not use {CHAT_EOS_TOKEN}={eos_token_id}: {', '.join(mismatches)}")
 
 
 @dataclass
@@ -400,22 +478,34 @@ class WeightCheckpointManager:
                 # Save weights
                 save_state_dict(state_dict, path, self.config.save_format, self.config.save_sharded)
 
+                # Keep chat checkpoints aligned with the turn terminator used by
+                # their template. In particular, Qwen's pretrained metadata may
+                # otherwise stop on <|endoftext|> instead of <|im_end|>.
+                chat_eos_token_id = _chat_eos_token_id(tokenizer)
+                model_config = deepcopy(model.config)
+                gen_config = deepcopy(model.generation_config) if model.generation_config else None
+                export_tokenizer = deepcopy(tokenizer)
+                if chat_eos_token_id is not None:
+                    _set_numeric_eos_token_ids(model_config, chat_eos_token_id)
+                    _set_numeric_eos_token_ids(gen_config, chat_eos_token_id)
+                    export_tokenizer.eos_token = CHAT_EOS_TOKEN
+
                 # Save model config, generation arguments and tokenizer
-                model.config.save_pretrained(path)
+                model_config.save_pretrained(path)
                 if model.generation_config:
                     # training sets use_cache=False which can conflict with
                     # cache_implementation — save with use_cache=True without
                     # mutating the model's config
-                    from copy import deepcopy
-
-                    gen_config = deepcopy(model.generation_config)
+                    assert gen_config is not None
                     gen_config.use_cache = True
                     gen_config.save_pretrained(path)
                 # Processor first: it saves its own (unmodified) tokenizer, which the
                 # configured tokenizer (pad token, custom chat template) must override.
                 if processor is not None:
                     processor.save_pretrained(path)
-                tokenizer.save_pretrained(path)
+                export_tokenizer.save_pretrained(path)
+                if chat_eos_token_id is not None:
+                    _validate_chat_eos_metadata(path, export_tokenizer, chat_eos_token_id)
 
             if lora_state_dict is not None:
                 adapter_path = path / "lora_adapters"
