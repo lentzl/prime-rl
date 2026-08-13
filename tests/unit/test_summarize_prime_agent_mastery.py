@@ -186,3 +186,34 @@ def test_summary_only_retains_issue_count_without_task_records() -> None:
     assert summary["trace_count"] == 1
     assert summary["issue_count"] == 1
     assert "tasks" not in summary
+
+
+def test_programmatic_memory_components_remain_visible() -> None:
+    memory = trace(
+        "familiar-latest-state-9",
+        "latest_state",
+        strict_success=0.0,
+        dense_reward=0.8,
+        answer_correct=1.0,
+        retrieval_decision=0.0,
+        grounded_answer=0.0,
+        valid_tool_behavior=1.0,
+        no_repeated_cell=1.0,
+        efficient_calls=1.0,
+        ipython_calls=0.0,
+    )
+
+    summary = MODULE.summarize([memory])
+
+    assert summary["tasks"][0]["issues"] == ["strict"]
+    assert summary["families"]["latest_state"]["means"] == {
+        "strict_success": 0.0,
+        "dense_reward": 0.8,
+        "answer_correct": 1.0,
+        "retrieval_decision": 0.0,
+        "grounded_answer": 0.0,
+        "valid_tool_behavior": 1.0,
+        "no_repeated_cell": 1.0,
+        "efficient_calls": 1.0,
+        "ipython_calls": 0.0,
+    }

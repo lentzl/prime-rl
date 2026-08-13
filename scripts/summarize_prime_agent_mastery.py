@@ -37,6 +37,21 @@ METRICS = (
     "delegated_path",
     "parent_path_access",
     "direct_answer_accuracy",
+    "answer_correct",
+    "retrieval_decision",
+    "grounded_answer",
+    "valid_tool_behavior",
+    "no_repeated_cell",
+    "persistent_index_required",
+    "persistent_index_reuse",
+    "stale_note_required",
+    "stale_note_resolution",
+    "context_reset_required",
+    "context_reset_recovery",
+    "current_turn_override_required",
+    "current_turn_override",
+    "efficient_calls",
+    "ipython_calls",
 )
 
 

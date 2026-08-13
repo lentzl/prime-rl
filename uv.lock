@@ -101,6 +101,7 @@ members = [
     "prime-agent-capabilities-v1",
     "prime-rl",
     "programbench-env",
+    "programmatic-episodic-memory-v2",
     "prolog",
     "proposer-solver",
     "proverbench",
@@ -5130,6 +5131,17 @@ requires-dist = [
     { name = "programbench", specifier = ">=1.0.2" },
     { name = "verifiers", specifier = ">=0.2.0" },
 ]
+
+[[package]]
+name = "programmatic-episodic-memory-v2"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/programmatic_episodic_memory_v2" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
 
 [[package]]
 name = "prolog"

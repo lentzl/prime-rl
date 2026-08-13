@@ -16,6 +16,7 @@ environments=(
   subagent_communication_v1
   subagent_admission_v1
   ownership_invariant_v1
+  programmatic_episodic_memory_v2
 )
 install_args=()
 for environment in "${environments[@]}"; do
@@ -38,6 +39,7 @@ packages = (
     "subagent_communication_v1",
     "subagent_admission_v1",
     "ownership_invariant_v1",
+    "programmatic_episodic_memory_v2",
 )
 for package in packages:
     importlib.import_module(package)
