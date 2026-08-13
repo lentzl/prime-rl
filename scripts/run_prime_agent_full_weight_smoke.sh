@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config=${MASTERY_GRPO_CONFIG:-$root/configs/debug/subagent-communication/316-qwen35-27b-prime-agent-mastery-grpo.toml}
-output=${FULL_WEIGHT_SMOKE_OUTPUT:-/ephemeral/subagent-rung/outputs/318-qwen35-27b-full-weight-smoke}
+output=${FULL_WEIGHT_SMOKE_OUTPUT:-/ephemeral/subagent-rung/outputs/319-qwen35-27b-full-weight-smoke}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -33,10 +33,11 @@ rl @ "$config" \
   --max-steps 1 \
   --output-dir "$output" \
   --deployment.gpus-per-node 8 \
-  --deployment.num-train-gpus 4 \
-  --deployment.num-infer-gpus 4 \
-  --inference.vllm.tensor-parallel-size 4 \
-  --inference.vllm.gpu-memory-utilization 0.58 \
+  --deployment.num-train-gpus 6 \
+  --deployment.num-infer-gpus 2 \
+  --inference.vllm.tensor-parallel-size 2 \
+  --inference.vllm.gpu-memory-utilization 0.80 \
+  --inference.vllm.max-num-seqs 4 \
   --inference.vllm.enforce-eager true \
   --trainer.model.lora None \
   --trainer.ckpt.weights.save-adapter-separately false \
