@@ -58,6 +58,28 @@ def test_validate_checkpoint_rejects_mismatched_nested_eos(monkeypatch, tmp_path
         validate_checkpoint(tmp_path)
 
 
+def test_validate_checkpoint_rejects_mismatched_tokenizer_metadata(monkeypatch, tmp_path) -> None:
+    class Tokenizer:
+        eos_token_id = 248046
+
+        @staticmethod
+        def encode(text, *, add_special_tokens):
+            return [248046]
+
+    (tmp_path / "STABLE").touch()
+    (tmp_path / "model.safetensors").touch()
+    (tmp_path / "config.json").write_text(json.dumps({"text_config": {"eos_token_id": 248046}}))
+    (tmp_path / "generation_config.json").write_text(json.dumps({"eos_token_id": 248046}))
+    (tmp_path / "tokenizer_config.json").write_text(json.dumps({"eos_token_id": 248044}))
+    monkeypatch.setattr(
+        "scripts.publish_prime_agent_checkpoint.AutoTokenizer.from_pretrained",
+        lambda *args, **kwargs: Tokenizer(),
+    )
+
+    with pytest.raises(ValueError, match="tokenizer_config.json:eos_token_id=248044"):
+        validate_checkpoint(tmp_path)
+
+
 def test_normalize_eos_fields_updates_nested_scalars_and_lists() -> None:
     metadata = {
         "eos_token_id": 248044,
