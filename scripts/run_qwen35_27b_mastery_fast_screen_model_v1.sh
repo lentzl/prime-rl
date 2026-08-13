@@ -76,8 +76,13 @@ interval = 10.0
 EOF
 
 inference_pid=
+eval_pid=
 cleanup() {
   trap - EXIT INT TERM
+  if [[ -n "$eval_pid" ]]; then
+    kill "$eval_pid" 2>/dev/null || true
+    wait "$eval_pid" 2>/dev/null || true
+  fi
   if [[ -n "$inference_pid" ]]; then
     kill "$inference_pid" 2>/dev/null || true
     wait "$inference_pid" 2>/dev/null || true
@@ -103,5 +108,24 @@ if ! curl -fsS http://127.0.0.1:8100/health >/dev/null; then
 fi
 
 PRIME_MASTERY_OUTPUT_ROOT=$output_root \
-  "$eval_driver" "$model" "$label"
+  "$eval_driver" "$model" "$label" &
+eval_pid=$!
+
+completed_pid=
+set +e
+wait -n -p completed_pid "$inference_pid" "$eval_pid"
+completed_status=$?
+set -e
+if [[ "$completed_pid" == "$inference_pid" ]]; then
+  kill "$eval_pid" 2>/dev/null || true
+  wait "$eval_pid" 2>/dev/null || true
+  if (( completed_status == 0 )); then
+    completed_status=1
+  fi
+  echo "inference exited before the mastery evaluation completed; see $serve_log" >&2
+  exit "$completed_status"
+fi
+if (( completed_status != 0 )); then
+  exit "$completed_status"
+fi
 echo "mastery evaluation completed: $run_output"
