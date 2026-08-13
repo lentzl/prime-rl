@@ -16,6 +16,7 @@ def arm(count: int, strict: float, other: float = 1.0) -> dict:
             metric: strict if metric == "strict_success" else other
             for metric in MODULE.CORE_METRICS
         },
+        "diagnostics": {"expected_value_present": strict},
     }
 
 
@@ -77,3 +78,22 @@ def test_incomplete_audit_reports_rejection_without_crashing() -> None:
 
     assert report["admission_pass"] is False
     assert report["comparison"]["conditioned_strict"] == 0.0
+
+
+def test_expected_value_presence_is_distinct_from_exact_output_contract() -> None:
+    trace = {
+        "task": {"data": {"expected_answers": ["8"]}},
+        "nodes": [
+            {
+                "sampled": True,
+                "message": {
+                    "role": "assistant",
+                    "content": "The latest stable checkpoint is **step 8**.",
+                },
+            }
+        ],
+        "metrics": {"answer_correct": 0.0},
+    }
+
+    assert MODULE.expected_value_present(trace) == 1.0
+    assert MODULE.summarize([trace])["diagnostics"]["expected_value_present"] == 1.0

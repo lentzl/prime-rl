@@ -29,6 +29,12 @@ cleanly. Core components include answer and grounding, retrieve/no-retrieve,
 tool validity, bounded retrieval, no repeated cells, stale-note resolution,
 context-reset recovery, persistent-index reuse, and current-turn override.
 
+`answer_correct` and strict success enforce the requested exact output contract.
+The admission report also records non-gating `expected_value_present`, which
+distinguishes a semantically recovered value wrapped in unwanted prose from a
+wrong value. This prevents a conditioning-induced concision gain from being
+misreported as a retrieval-reasoning gain.
+
 Run the assessment with:
 
 ```bash

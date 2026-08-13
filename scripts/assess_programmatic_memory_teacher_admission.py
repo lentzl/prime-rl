@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 from pathlib import Path
 from statistics import mean
 
@@ -27,6 +28,7 @@ CORE_METRICS = (
     "context_reset_recovery",
     "current_turn_override",
 )
+DIAGNOSTIC_METRICS = ("expected_value_present",)
 
 
 def load_traces(path: Path) -> list[dict]:
@@ -40,6 +42,25 @@ def load_traces(path: Path) -> list[dict]:
     return traces
 
 
+def expected_value_present(trace: dict) -> float:
+    expected = [str(value).strip() for value in trace.get("task", {}).get("data", {}).get("expected_answers", [])]
+    answers = []
+    for node in trace.get("nodes", []):
+        message = node.get("message", {})
+        content = message.get("content")
+        if node.get("sampled") and message.get("role") == "assistant" and isinstance(content, str) and content.strip():
+            answers.append(content.strip())
+    observed = answers[-len(expected) :] if expected else []
+    if len(observed) != len(expected):
+        return 0.0
+    return float(
+        all(
+            re.search(rf"(?<!\w){re.escape(value)}(?!\w)", answer, re.IGNORECASE)
+            for answer, value in zip(observed, expected)
+        )
+    )
+
+
 def summarize(traces: list[dict]) -> dict:
     return {
         "count": len(traces),
@@ -49,6 +70,11 @@ def summarize(traces: list[dict]) -> dict:
             if traces
             else 0.0
             for metric in CORE_METRICS
+        },
+        "diagnostics": {
+            "expected_value_present": mean(expected_value_present(trace) for trace in traces)
+            if traces
+            else 0.0
         },
     }
 
