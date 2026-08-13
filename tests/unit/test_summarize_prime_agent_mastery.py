@@ -137,6 +137,16 @@ def test_unnamed_online_trace_uses_environment_as_family() -> None:
     assert summary["tasks"][0]["issues"] == ["trace-error"]
 
 
+def test_no_visible_reply_is_classified_as_model_behavior() -> None:
+    online = trace("oolong-0", "oolong")
+    online["ok"] = False
+    online["errors"] = [{"message": "ACP agent produced no visible reply (stop_reason=end_turn)"}]
+
+    summary = MODULE.summarize([online])
+
+    assert summary["tasks"][0]["issues"] == ["no-visible-reply"]
+
+
 def test_coordinator_owned_path_access_is_not_reported_as_bypass() -> None:
     coordinator = trace(
         "coordinator-heldout-v0",

@@ -93,12 +93,23 @@ def _environment(trace: dict[str, Any]) -> str:
     return str(env_name) if env_name else "unknown"
 
 
+def _trace_error_issue(trace: dict[str, Any]) -> str:
+    messages = "\n".join(
+        str(error.get("message", "")) for error in trace.get("errors", []) if isinstance(error, dict)
+    ).lower()
+    if "acp agent produced no visible reply" in messages:
+        return "no-visible-reply"
+    if "context length" in messages or "maximum context" in messages:
+        return "context-length"
+    return "trace-error"
+
+
 def _issues(trace: dict[str, Any]) -> list[str]:
     family = _family(trace)
     metrics = trace.get("metrics", {})
     issues = []
     if not trace.get("ok", True):
-        issues.append("trace-error")
+        issues.append(_trace_error_issue(trace))
     checks = {
         "answer": _score(metrics.get("answer_accuracy")),
         "protocol": _score(metrics.get("protocol_aligned")),
