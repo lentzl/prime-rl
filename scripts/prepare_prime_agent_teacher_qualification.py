@@ -30,6 +30,8 @@ def prepare(
     raw["output_dir"] = str(output_dir)
     raw["clean_output_dir"] = False
     raw["ckpt"]["output_dir"] = str(source_output)
+    raw["deployment"]["num_gpus"] = 0
+    raw["deployment"]["num_infer_gpus"] = data_parallel_size * raw["inference"]["vllm"]["tensor_parallel_size"]
     raw["inference"]["vllm"]["max_model_len"] = max_model_len
     raw["inference"]["vllm"]["data_parallel_size"] = data_parallel_size
     raw["inference"]["vllm"]["data_parallel_size_local"] = data_parallel_size

@@ -9,6 +9,7 @@ def test_preparer_keeps_frozen_run_and_repairs_only_eval_capacity() -> None:
     source = PREPARE.read_text()
 
     assert 'raw["ckpt"]["output_dir"] = str(source_output)' in source
+    assert 'raw["deployment"]["num_gpus"] = 0' in source
     assert 'raw["inference"]["vllm"]["max_model_len"] = max_model_len' in source
     assert 'raw["inference"]["vllm"]["data_parallel_size"] = data_parallel_size' in source
     assert 'source["num_examples"] = oolong_examples' in source
