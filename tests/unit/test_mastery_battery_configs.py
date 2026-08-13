@@ -321,3 +321,16 @@ def test_full_weight_smoke_reserves_dense_reload_headroom() -> None:
     assert "--trainer.model.lora None" in launcher
     assert "--trainer.ckpt.weights.save-adapter-separately false" in launcher
     assert "--orchestrator.eval None" in launcher
+
+
+def test_balanced_full_weight_launcher_restores_multi_group_updates() -> None:
+    launcher = (ROOT / "scripts" / "run_prime_agent_full_weight_balanced_mastery.sh").read_text()
+
+    assert "327-qwen35-27b-full-weight-balanced-r1" in launcher
+    assert "refusing to overwrite balanced-mastery output" in launcher
+    assert "--deployment.num-train-gpus 6" in launcher
+    assert "--deployment.num-infer-gpus 2" in launcher
+    assert "--trainer.model.lora None" in launcher
+    assert "--orchestrator.batch-size 24" in launcher
+    assert "--orchestrator.oversampling-factor 1.0" in launcher
+    assert "--ckpt.interval 2" in launcher
