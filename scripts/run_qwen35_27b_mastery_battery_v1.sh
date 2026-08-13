@@ -6,6 +6,7 @@ model=${1:-Qwen/Qwen3.5-27B}
 label=${2:-base}
 output_root=${PRIME_MASTERY_OUTPUT_ROOT:-/ephemeral/subagent-rung/evals/271-276-qwen35-27b-mastery-battery-v1}/${label}
 eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
+client_base_url=${EVAL_CLIENT_BASE_URL:-}
 
 configs=(
   271-qwen35-27b-mastery-foundations-baseline
@@ -23,8 +24,14 @@ if [[ ! -x "$eval_bin" ]]; then
 fi
 mkdir -p "$output_root"
 for name in "${configs[@]}"; do
-  "$eval_bin" @ \
-    "configs/debug/subagent-communication/${name}.toml" \
-    --model "$model" \
+  args=(
+    "$eval_bin" @
+    "configs/debug/subagent-communication/${name}.toml"
+    --model "$model"
     --output-dir "$output_root/$name"
+  )
+  if [[ -n "$client_base_url" ]]; then
+    args+=(--client.base-url "$client_base_url")
+  fi
+  "${args[@]}"
 done

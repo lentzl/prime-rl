@@ -12,6 +12,8 @@ serve_log=$run_output/inference.log
 cuda_devices=${EVAL_CUDA_VISIBLE_DEVICES:-0,1,2,3}
 tensor_parallel_size=${EVAL_TENSOR_PARALLEL_SIZE:-4}
 eval_driver=${MASTERY_EVAL_DRIVER:-scripts/run_qwen35_27b_mastery_fast_screen_v1.sh}
+backend_port=${EVAL_BACKEND_PORT:-8100}
+router_port=${EVAL_ROUTER_PORT:-8000}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -27,10 +29,13 @@ if [[ -e "$run_output" ]]; then
   echo "refusing to overwrite fast-screen output: $run_output" >&2
   exit 1
 fi
-if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
-  echo "refusing to launch while another GPU process is active" >&2
-  exit 1
-fi
+IFS=, read -ra eval_devices <<<"$cuda_devices"
+for device in "${eval_devices[@]}"; do
+  if [[ -n "$(nvidia-smi --id="$device" --query-compute-apps=pid --format=csv,noheader)" ]]; then
+    echo "refusing to launch while another GPU process is active on device $device" >&2
+    exit 1
+  fi
+done
 if [[ "$model" = /* ]] && [[ ! -f "$model/STABLE" ]]; then
   echo "local model has no STABLE marker: $model" >&2
   exit 1
@@ -47,10 +52,10 @@ if [[ -n "$revision" ]]; then
   revision_line="revision = \"$revision\""
 fi
 cat >"$serve_config" <<EOF
-backend_port = 8100
+backend_port = $backend_port
 
 [server]
-port = 8000
+port = $router_port
 liveness_timeout_seconds = 30.0
 
 [vllm]
@@ -97,12 +102,12 @@ for _ in $(seq 1 480); do
     echo "inference exited before becoming healthy; see $serve_log" >&2
     exit 1
   fi
-  if curl -fsS http://127.0.0.1:8100/health >/dev/null; then
+  if curl -fsS "http://127.0.0.1:$backend_port/health" >/dev/null; then
     break
   fi
   sleep 1
 done
-if ! curl -fsS http://127.0.0.1:8100/health >/dev/null; then
+if ! curl -fsS "http://127.0.0.1:$backend_port/health" >/dev/null; then
   echo "inference did not become healthy within 480 seconds; see $serve_log" >&2
   exit 1
 fi

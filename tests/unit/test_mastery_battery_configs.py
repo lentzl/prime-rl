@@ -81,6 +81,8 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
 
     model_launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_fast_screen_model_v1.sh").read_text()
     assert "refusing to launch while another GPU process is active" in model_launcher
+    assert 'for device in "${eval_devices[@]}"' in model_launcher
+    assert 'nvidia-smi --id="$device" --query-compute-apps=pid' in model_launcher
     assert '[[ ! -f "$model/STABLE" ]]' in model_launcher
     assert 'max_model_len = 65536' in model_launcher
     assert 'tool_call_parser = "qwen3_coder"' in model_launcher
@@ -91,6 +93,12 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
     assert 'kill "$eval_pid"' in model_launcher
     assert 'wait -n -p completed_pid "$inference_pid" "$eval_pid"' in model_launcher
     assert "inference exited before the mastery evaluation completed" in model_launcher
+    assert "EVAL_BACKEND_PORT" in model_launcher
+    assert "EVAL_ROUTER_PORT" in model_launcher
+
+    battery_launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_battery_v1.sh").read_text()
+    assert "EVAL_CLIENT_BASE_URL" in battery_launcher
+    assert 'args+=(--client.base-url "$client_base_url")' in battery_launcher
 
 
 def test_teacher_collections_are_disjoint_and_keep_thinking_enabled() -> None:
