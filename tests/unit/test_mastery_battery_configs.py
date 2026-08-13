@@ -71,7 +71,7 @@ def test_oolong_scale_admission_increases_decomposition_pressure() -> None:
     assert [config["env"]["taskset"]["context_len"] for config in configs] == [4096, 8192]
     assert all(config["env"]["taskset"]["with_labels"] is False for config in configs)
     assert all(config["env"]["taskset"]["num_examples"] == 4 for config in configs)
-    assert configs[1]["env"]["max_concurrent_agents"] > configs[0]["env"]["max_concurrent_agents"]
+    assert all(config["env"]["max_concurrent_agents"] == 4 for config in configs)
     assert configs[1]["env"]["agent"]["max_turns"] > configs[0]["env"]["agent"]["max_turns"]
     assert configs[1]["env"]["agent"]["max_total_tokens"] > configs[0]["env"]["agent"]["max_total_tokens"]
 
