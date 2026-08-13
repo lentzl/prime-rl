@@ -1034,3 +1034,32 @@ repair, and grounding suite. Only after both roles pass independently do we trai
 evaluate their interface. This sequence turns the long-term growth thesis into three
 immediate falsifiable questions: can the smallest model coordinate, can a specialist
 add depth, and does their combined system beat either alone at comparable cost?
+
+## Full-weight 27B qualification and Run 328
+
+Run 319 qualified the complete dense-training path on eight L40S GPUs: Prime Agent
+streaming rollouts, multi-agent trajectories, BF16 FSDP/AdamW, a resumable optimizer
+checkpoint, and a valid Hugging Face export all completed end to end. The stable
+topology is six trainer GPUs plus two TP2 inference GPUs with at most four live
+inference sequences. This was an engineering qualification, not a teacher promotion.
+
+Run 328 then applied two broad full-weight GRPO updates at `5e-7` from the untouched
+thinking-mode 27B. Its frozen 21-task fast screen improved aggregate reward by 15.5%
+and initially looked promising. The full matched 74-task battery rejected that signal:
+both base and candidate finished `20/74` clean, while the candidate regressed every
+delegated communication family. Single-child protocol fell from `0.875` to `0.500`,
+parallel protocol from `0.375` to `0.125`, follow-up causal completion from `0.750` to
+`0.500`, and follow-up bidirectional control from `0.318` to `0.091`. Mean coordinator
+access to a child-owned delegated path rose from `0.625` to `1.750`. The isolated
+child-owned strict gain, `0/8` to `1/8`, came with lower dense reward and new parent
+path access. Oolong also fell from `3/8` to `2/8`.
+
+The training audit explains why this was not yet a genuine iterative learning run.
+With `max_steps=2`, Prime-RL entered its two-step shutdown window and both optimizer
+cohorts were sampled from policy version zero. Run 328 is therefore neither a teacher
+nor a continuation checkpoint. The next broad tranche starts again from exact
+`Qwen/Qwen3.5-27B@fc05daec18b0a78c049392ed2e771dde82bdf654`, removes the global
+length/turn penalty that could reward coordination shortcuts, and runs eight
+full-weight updates with dense checkpoints so each later cohort can observe updated
+weights. The exact comparison and trace hashes are recorded in
+`qwen35-27b-run328-mastery-battery-results-v1.json`.
