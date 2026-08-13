@@ -185,3 +185,43 @@ def test_online_teacher_bootstrap_reserves_inference_and_uses_frozen_gates() -> 
     assert sources["prime-agent-foundations"]["interval"] == config["max_steps"]
     assert sources["oolong-externalization"]["interval"] == config["max_steps"]
     assert config["eval"]["client"]["base_url"].endswith(":8100/v1")
+
+
+def test_broad_mastery_grpo_is_on_policy_disjoint_and_strictly_gated() -> None:
+    config = load_config("316-qwen35-27b-prime-agent-mastery-grpo.toml")
+    train = {source["name"]: source for source in config["orchestrator"]["train"]["source"]}
+    evaluation = {source["name"]: source for source in config["orchestrator"]["eval"]["source"]}
+
+    assert config["max_steps"] == 8
+    assert config["deployment"] == {
+        "gpus_per_node": 4,
+        "num_train_gpus": 2,
+        "num_infer_gpus": 2,
+    }
+    assert config["trainer"]["model"]["lora"]["rank"] == 64
+    assert config["orchestrator"]["max_off_policy_steps"] == 0
+    assert set(train) == {
+        "mastery-foundations-train",
+        "mastery-ownership-child-train",
+        "mastery-ownership-coordinator-train",
+        "mastery-communication-train",
+        "mastery-externalization-train",
+    }
+    assert set(evaluation) == {
+        "ownership-child-heldout",
+        "ownership-coordinator-heldout",
+        "communication-heldout",
+        "prime-agent-foundations",
+        "oolong-externalization",
+    }
+    for name in ("mastery-ownership-child-train", "mastery-ownership-coordinator-train"):
+        assert train[name]["env"]["taskset"]["task"]["reward_shape"] == "dense"
+        assert train[name]["env"]["taskset"]["instance_offset"] != evaluation[
+            name.removeprefix("mastery-").removesuffix("-train") + "-heldout"
+        ]["env"]["taskset"]["instance_offset"]
+    assert "reward_shape" not in evaluation["ownership-child-heldout"]["env"]["taskset"]["task"]
+    assert train["mastery-foundations-train"]["env"]["taskset"]["instance_offset"] > 0
+    externalization = train["mastery-externalization-train"]["env"]["taskset"]
+    assert externalization["example_offset"] == 8
+    assert externalization["num_examples"] == 24
+    assert evaluation["oolong-externalization"]["num_examples"] == 8
