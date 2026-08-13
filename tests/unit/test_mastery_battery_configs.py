@@ -352,3 +352,43 @@ def test_balanced_full_weight_resume_restores_optimizer_and_policy_version() -> 
     assert '--max-steps "$max_steps"' in launcher
     assert "--orchestrator.max-inflight-episodes 8" in launcher
     assert "refusing to resume while another GPU process is active" in launcher
+
+
+def test_qwen35_9b_opd_smoke_uses_direct_frozen_teacher_distillation() -> None:
+    config = load_config("329-qwen35-9b-prime-agent-mastery-opd.toml")
+    sources = {source["name"]: source for source in config["orchestrator"]["train"]["source"]}
+
+    assert config["model"] == {
+        "name": "Qwen/Qwen3.5-9B",
+        "revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+        "vlm": {
+            "vision_encoder_attr": "model.visual",
+            "language_model_attr": "model.language_model",
+            "freeze_vision_encoder": True,
+        },
+    }
+    assert config["deployment"] == {
+        "gpus_per_node": 6,
+        "num_train_gpus": 5,
+        "num_infer_gpus": 1,
+    }
+    assert config["orchestrator"]["algo"]["type"] == "opd"
+    assert config["orchestrator"]["algo"]["teacher"]["base_url"] == "http://localhost:8001/v1"
+    assert config["orchestrator"]["group_size"] == 1
+    assert config["orchestrator"]["renderer"]["enable_thinking"] is True
+    assert set(sources) == {
+        "mastery-foundations-opd",
+        "mastery-ownership-child-opd",
+        "mastery-ownership-coordinator-opd",
+        "mastery-communication-opd",
+        "mastery-externalization-opd",
+    }
+    assert all(source["group_size"] == 1 for source in sources.values())
+    assert "pre_batch_filters" not in config["orchestrator"]
+
+    launcher = (ROOT / "scripts" / "run_qwen35_9b_prime_agent_opd_smoke.sh").read_text()
+    assert "PRIME_AGENT_OPD_TEACHER:?" in launcher
+    assert '[[ ! -f "$teacher/STABLE" ]]' in launcher
+    assert "CUDA_VISIBLE_DEVICES=6,7 inference" in launcher
+    assert "CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 rl" in launcher
+    assert '--orchestrator.algo.teacher.name "$teacher"' in launcher

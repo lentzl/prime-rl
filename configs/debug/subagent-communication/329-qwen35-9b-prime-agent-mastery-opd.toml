@@ -1,0 +1,305 @@
+# Direct 27B-to-9B on-policy distillation smoke. The student visits the same
+# broad Prime Agent curriculum as the teacher lane; a frozen teacher scores the
+# student's action tokens on those exact states.
+
+max_steps = 8
+seq_len = 16384
+output_dir = "/ephemeral/subagent-rung/outputs/329-qwen35-9b-prime-agent-mastery-opd"
+clean_output_dir = true
+
+[deployment]
+gpus_per_node = 6
+num_train_gpus = 5
+num_infer_gpus = 1
+
+[weight_broadcast]
+type = "filesystem"
+
+[ckpt]
+interval = 2
+keep_last = 2
+keep_interval = 2
+
+[trainer.ckpt]
+weights_only = false
+
+[trainer.ckpt.weights]
+save_adapter_separately = false
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[model]
+name = "Qwen/Qwen3.5-9B"
+revision = "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[trainer.model]
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+optim_cpu_offload = true
+reshard_after_forward = true
+fused_lm_head_token_chunk_size = 1024
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+
+[trainer.model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[trainer.optim]
+type = "adamw"
+lr = 5e-7
+max_norm = 1.0
+
+[orchestrator]
+batch_size = 8
+group_size = 1
+max_off_policy_steps = 0
+max_inflight_episodes = 4
+
+[orchestrator.algo]
+type = "opd"
+
+[orchestrator.algo.teacher]
+name = "Qwen/Qwen3.5-27B"
+base_url = "http://localhost:8001/v1"
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.train.sampling]
+temperature = 0.8
+max_completion_tokens = 4096
+
+[[orchestrator.train.source]]
+name = "mastery-foundations-opd"
+ratio = 1.0
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 2
+
+[orchestrator.train.source.env.retries]
+max_retries = 0
+
+[orchestrator.train.source.env.taskset]
+id = "prime-agent-capabilities-v1"
+families = ["ipython_cell", "persistence", "subagent_lifecycle", "harness_state", "killed_child"]
+instances_per_family = 16
+instance_offset = 300
+
+[orchestrator.train.source.env.agent]
+max_turns = 12
+max_output_tokens = 12288
+max_total_tokens = 32768
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[[orchestrator.train.source]]
+name = "mastery-ownership-child-opd"
+ratio = 1.0
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 2
+
+[orchestrator.train.source.env.retries]
+max_retries = 0
+
+[orchestrator.train.source.env.taskset]
+id = "ownership-invariant-v1"
+split = "admission"
+ownership = "child"
+yield_policy = "semantic"
+instruction_level = "standard"
+instances_per_family = 16
+instance_offset = 300
+seed = 20260817
+
+[orchestrator.train.source.env.agent]
+max_turns = 8
+max_output_tokens = 12288
+max_total_tokens = 32768
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = false
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[[orchestrator.train.source]]
+name = "mastery-ownership-coordinator-opd"
+ratio = 1.0
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 2
+
+[orchestrator.train.source.env.retries]
+max_retries = 0
+
+[orchestrator.train.source.env.taskset]
+id = "ownership-invariant-v1"
+split = "admission"
+ownership = "coordinator"
+yield_policy = "semantic"
+instruction_level = "standard"
+instances_per_family = 16
+instance_offset = 300
+seed = 20260817
+
+[orchestrator.train.source.env.agent]
+max_turns = 8
+max_output_tokens = 12288
+max_total_tokens = 32768
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = false
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[[orchestrator.train.source]]
+name = "mastery-communication-opd"
+ratio = 1.0
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 3
+
+[orchestrator.train.source.env.retries]
+max_retries = 0
+
+[orchestrator.train.source.env.taskset]
+id = "subagent-communication-v1"
+split = "train"
+families = ["direct", "single", "parallel", "followup", "handshake"]
+instruction_level = "standard"
+prompt_contract = "explicit_bidirectional_v2"
+instances_per_template = 16
+instance_offset = 20300
+seed = 20260817
+reward_post_fan_in_control = true
+reward_bidirectional_control = true
+
+[orchestrator.train.source.env.agent]
+max_turns = 24
+max_output_tokens = 24576
+max_total_tokens = 65536
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[[orchestrator.train.source]]
+name = "mastery-externalization-opd"
+ratio = 1.0
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 1
+
+[orchestrator.train.source.env.retries]
+max_retries = 0
+
+[orchestrator.train.source.env.taskset]
+id = "oolong-synth-v1"
+split = "validation"
+context_len = 16384
+example_offset = 40
+num_examples = 24
+
+[orchestrator.train.source.env.agent]
+max_turns = 24
+max_input_tokens = 65536
+max_output_tokens = 24576
+max_total_tokens = 98304
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[inference]
+router = "None"
+backend_port = 8100
+
+[inference.server]
+port = 8000
+
+[inference.vllm]
+tensor_parallel_size = 1
+max_model_len = 65536
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+gpu_memory_utilization = 0.82
+max_num_seqs = 4
+mamba_ssm_cache_dtype = "float32"
+
+[inference.weight_broadcast]
+type = "filesystem"
