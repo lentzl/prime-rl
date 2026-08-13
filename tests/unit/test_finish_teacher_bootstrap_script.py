@@ -4,6 +4,7 @@ from pathlib import Path
 ROOT = Path(__file__).parents[2]
 SCRIPT = ROOT / "scripts/finish_prime_agent_teacher_bootstrap.sh"
 TRAINER_SCRIPT = ROOT / "scripts/run_prime_agent_teacher_bootstrap_online.sh"
+SETUP_SCRIPT = ROOT / "scripts/setup_prime_agent_mastery_host.sh"
 
 
 def test_finish_script_uses_only_final_verified_sources() -> None:
@@ -37,4 +38,14 @@ def test_trainer_launcher_exposes_venv_sibling_commands() -> None:
     source = TRAINER_SCRIPT.read_text()
 
     assert 'export PATH="$root/.venv/bin:$PATH"' in source
+    assert "vllm-router is missing" in source
     assert 'exec .venv/bin/sft @ "$config"' in source
+
+
+def test_host_setup_installs_only_the_pinned_router_wheel() -> None:
+    source = SETUP_SCRIPT.read_text()
+
+    assert source.count("vllm_router-0.1.26-") == 2
+    assert '"$uv" pip install --python .venv/bin/python "$router_wheel"' in source
+    assert "--extra disagg" not in source
+    assert "test -x .venv/bin/vllm-router" in source

@@ -67,6 +67,10 @@ if [[ ! -x .venv/bin/evaluator ]]; then
   echo "online evaluator is missing; run scripts/setup_prime_agent_mastery_host.sh" >&2
   exit 1
 fi
+if [[ ! -x .venv/bin/vllm-router ]]; then
+  echo "vllm-router is missing; run scripts/setup_prime_agent_mastery_host.sh" >&2
+  exit 1
+fi
 .venv/bin/python - <<'PY'
 import ownership_invariant_v1
 import prime_agent_capabilities_v1
