@@ -86,6 +86,8 @@ def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
     assert 'tool_call_parser = "qwen3_coder"' in model_launcher
     assert 'reasoning_parser = "qwen3"' in model_launcher
     assert "run_qwen35_27b_mastery_fast_screen_v1.sh" in model_launcher
+    assert "MASTERY_EVAL_DRIVER" in model_launcher
+    assert '"$eval_driver" "$model" "$label"' in model_launcher
 
 
 def test_teacher_collections_are_disjoint_and_keep_thinking_enabled() -> None:

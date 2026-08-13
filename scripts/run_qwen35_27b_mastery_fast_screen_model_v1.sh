@@ -11,11 +11,16 @@ serve_config=$run_output/inference.toml
 serve_log=$run_output/inference.log
 cuda_devices=${EVAL_CUDA_VISIBLE_DEVICES:-0,1,2,3}
 tensor_parallel_size=${EVAL_TENSOR_PARALLEL_SIZE:-4}
+eval_driver=${MASTERY_EVAL_DRIVER:-scripts/run_qwen35_27b_mastery_fast_screen_v1.sh}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
 if [[ ! -x .venv/bin/inference || ! -x .venv/bin/eval ]]; then
   echo "Prime-RL inference/eval executables are missing" >&2
+  exit 1
+fi
+if [[ ! -x "$eval_driver" ]]; then
+  echo "mastery eval driver is not executable: $eval_driver" >&2
   exit 1
 fi
 if [[ -e "$run_output" ]]; then
@@ -98,5 +103,5 @@ if ! curl -fsS http://127.0.0.1:8100/health >/dev/null; then
 fi
 
 PRIME_MASTERY_OUTPUT_ROOT=$output_root \
-  scripts/run_qwen35_27b_mastery_fast_screen_v1.sh "$model" "$label"
-echo "fast mastery screen completed: $run_output"
+  "$eval_driver" "$model" "$label"
+echo "mastery evaluation completed: $run_output"
