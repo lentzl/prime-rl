@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config=${MASTERY_GRPO_CONFIG:-$root/configs/debug/subagent-communication/316-qwen35-27b-prime-agent-mastery-grpo.toml}
-output=${FULL_WEIGHT_BALANCED_OUTPUT:-/ephemeral/subagent-rung/outputs/327-qwen35-27b-full-weight-balanced-r1}
+output=${FULL_WEIGHT_BALANCED_OUTPUT:-/ephemeral/subagent-rung/outputs/328-qwen35-27b-full-weight-balanced-r2}
 max_steps=${FULL_WEIGHT_MAX_STEPS:-2}
 
 cd "$root"
@@ -38,9 +38,10 @@ if [[ -z "$HF_TOKEN" ]]; then
   exit 1
 fi
 
-# Keep the source config's intended six GRPO groups per update. The earlier
-# qualification launcher deliberately reduced this to one group, which is not
-# representative of the broad mastery objective.
+# Keep the source config's intended six GRPO groups per update, but admit only
+# two groups concurrently. Agent deadlines begin at dispatch, so matching
+# in-flight episodes to the 24-rollout optimizer batch can starve long tasks
+# behind a four-sequence inference engine.
 rl @ "$config" \
   --max-steps "$max_steps" \
   --output-dir "$output" \
@@ -55,7 +56,8 @@ rl @ "$config" \
   --trainer.ckpt.weights.save-adapter-separately false \
   --orchestrator.eval None \
   --orchestrator.batch-size 24 \
-  --orchestrator.oversampling-factor 1.0 \
+  --orchestrator.oversampling-factor None \
+  --orchestrator.max-inflight-episodes 8 \
   --ckpt.interval 2 \
   --ckpt.keep-last 1 \
   --ckpt.keep-interval 2
