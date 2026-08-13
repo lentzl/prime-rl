@@ -254,3 +254,15 @@ def test_mastery_grpo_launcher_uses_native_rl_entrypoint() -> None:
     assert "source .env" in launcher
     assert "backup_prime_agent_adapters.py" in launcher
     assert 'rl @ "$config"' in launcher
+
+
+def test_full_weight_smoke_removes_lora_and_uses_six_trainer_ranks() -> None:
+    launcher = (ROOT / "scripts" / "run_prime_agent_full_weight_smoke.sh").read_text()
+
+    assert "nvidia-smi --query-compute-apps=pid" in launcher
+    assert "--deployment.gpus-per-node 8" in launcher
+    assert "--deployment.num-train-gpus 6" in launcher
+    assert "--deployment.num-infer-gpus 2" in launcher
+    assert "--trainer.model.lora None" in launcher
+    assert "--trainer.ckpt.weights.save-adapter-separately false" in launcher
+    assert "--orchestrator.eval None" in launcher
