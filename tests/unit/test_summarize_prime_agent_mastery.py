@@ -45,6 +45,7 @@ def test_summary_preserves_family_boundary_and_behavioral_issues() -> None:
     )
 
     assert summary["trace_count"] == 2
+    assert summary["issue_count"] == 1
     assert summary["policy_versions"] == [8]
     assert summary["environments"]["coordination"] == {
         "count": 2,
@@ -172,3 +173,14 @@ def test_policy_version_summaries_do_not_blend_checkpoints() -> None:
     assert summaries["0"]["trace_count"] == 1
     assert summaries["0"]["families"]["direct"]["means"]["answer_accuracy"] == 0.0
     assert summaries["8"]["families"]["direct"]["means"]["answer_accuracy"] == 1.0
+
+
+def test_summary_only_retains_issue_count_without_task_records() -> None:
+    summary = MODULE.summarize(
+        [trace("direct-v0", "direct", answer_accuracy=0.0)],
+        include_tasks=False,
+    )
+
+    assert summary["trace_count"] == 1
+    assert summary["issue_count"] == 1
+    assert "tasks" not in summary

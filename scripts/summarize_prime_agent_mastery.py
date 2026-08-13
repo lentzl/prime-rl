@@ -150,7 +150,7 @@ def _issues(trace: dict[str, Any]) -> list[str]:
     return issues
 
 
-def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
+def summarize(traces: list[dict[str, Any]], *, include_tasks: bool = True) -> dict[str, Any]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     tasks = []
     for trace in traces:
@@ -199,23 +199,28 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
             and not isinstance(version, bool)
         }
     )
-    return {
+    summary = {
         "trace_count": len(traces),
+        "issue_count": sum(bool(task["issues"]) for task in tasks),
         "policy_versions": policy_versions,
         "environments": environments,
         "families": families,
-        "tasks": tasks,
     }
+    if include_tasks:
+        summary["tasks"] = tasks
+    return summary
 
 
-def summarize_by_policy_version(traces: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+def summarize_by_policy_version(
+    traces: list[dict[str, Any]], *, include_tasks: bool = True
+) -> dict[str, dict[str, Any]]:
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for trace in traces:
         version = (trace.get("info") or {}).get("policy_version")
         key = str(version) if isinstance(version, int) and not isinstance(version, bool) else "unknown"
         grouped[key].append(trace)
     return {
-        key: summarize(grouped[key])
+        key: summarize(grouped[key], include_tasks=include_tasks)
         for key in sorted(grouped, key=lambda value: (value == "unknown", int(value) if value != "unknown" else 0))
     }
 
@@ -230,8 +235,8 @@ def _print(summary: dict[str, Any]) -> None:
         fields = [f"n={data['count']}", f"clean={data['clean_count']}/{data['count']}"]
         fields.extend(f"{name}={value:.3f}" for name, value in data["means"].items())
         print(f"{family}: " + " ".join(fields))
-    failures = [task for task in summary["tasks"] if task["issues"]]
-    print(f"tasks with issues: {len(failures)}/{summary['trace_count']}")
+    failures = [task for task in summary.get("tasks", []) if task["issues"]]
+    print(f"tasks with issues: {summary['issue_count']}/{summary['trace_count']}")
     for task in failures:
         print(f"  {task['name']}: {', '.join(task['issues'])}")
 
@@ -245,10 +250,15 @@ def main() -> None:
         action="store_true",
         help="report each evaluated checkpoint separately instead of blending versions",
     )
+    parser.add_argument(
+        "--summary-only",
+        action="store_true",
+        help="omit per-task records while retaining aggregate issue counts",
+    )
     args = parser.parse_args()
     traces = load_traces(args.paths)
     if args.by_policy_version:
-        summaries = summarize_by_policy_version(traces)
+        summaries = summarize_by_policy_version(traces, include_tasks=not args.summary_only)
         if args.json:
             print(json.dumps({"policy_versions": summaries}, indent=2, sort_keys=True))
         else:
@@ -257,7 +267,7 @@ def main() -> None:
                 _print(summary)
         return
 
-    summary = summarize(traces)
+    summary = summarize(traces, include_tasks=not args.summary_only)
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:

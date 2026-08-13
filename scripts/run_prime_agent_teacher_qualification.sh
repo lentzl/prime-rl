@@ -85,6 +85,6 @@ if [[ ! -e "${trace_paths[0]}" ]]; then
   exit 1
 fi
 .venv/bin/python scripts/summarize_prime_agent_mastery.py \
-  --json --by-policy-version "${trace_paths[@]}" \
+  --json --by-policy-version --summary-only "${trace_paths[@]}" \
   >"$output/qualification-summary.json"
 echo "checkpoint qualification completed: $output"
