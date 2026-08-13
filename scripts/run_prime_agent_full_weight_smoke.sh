@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config=${MASTERY_GRPO_CONFIG:-$root/configs/debug/subagent-communication/316-qwen35-27b-prime-agent-mastery-grpo.toml}
-output=${FULL_WEIGHT_SMOKE_OUTPUT:-/ephemeral/subagent-rung/outputs/317-qwen35-27b-full-weight-smoke}
+output=${FULL_WEIGHT_SMOKE_OUTPUT:-/ephemeral/subagent-rung/outputs/318-qwen35-27b-full-weight-smoke}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -41,6 +41,8 @@ rl @ "$config" \
   --trainer.model.lora None \
   --trainer.ckpt.weights.save-adapter-separately false \
   --orchestrator.eval None \
+  --orchestrator.batch-size 4 \
+  --orchestrator.oversampling-factor 1.0 \
   --ckpt.interval 1 \
   --ckpt.keep-last 1 \
   --ckpt.keep-interval 1
