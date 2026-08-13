@@ -38,7 +38,7 @@ def test_oolong_battery_leaves_room_for_the_agent_feedback_loop() -> None:
     assert limits["max_total_tokens"] >= 221_184
 
 
-def test_externalization_ramp_separates_aggregation_from_recursive_classification() -> None:
+def test_externalization_ramp_separates_aggregation_from_semantic_classification() -> None:
     labeled = load_config("332-qwen35-27b-oolong-labeled-admission.toml")
     recursive = load_config("333-qwen35-27b-oolong-recursive-admission.toml")
 
@@ -59,6 +59,24 @@ def test_externalization_ramp_separates_aggregation_from_recursive_classificatio
         "num_examples": 4,
     }
     assert recursive["env"]["agent"]["max_turns"] > labeled["env"]["agent"]["max_turns"]
+
+
+def test_oolong_scale_admission_increases_decomposition_pressure() -> None:
+    names = (
+        "334-qwen35-27b-oolong-semantic-4k-admission.toml",
+        "335-qwen35-27b-oolong-semantic-8k-admission.toml",
+    )
+    configs = [load_config(name) for name in names]
+
+    assert [config["env"]["taskset"]["context_len"] for config in configs] == [4096, 8192]
+    assert all(config["env"]["taskset"]["with_labels"] is False for config in configs)
+    assert all(config["env"]["taskset"]["num_examples"] == 4 for config in configs)
+    assert configs[1]["env"]["max_concurrent_agents"] > configs[0]["env"]["max_concurrent_agents"]
+    assert configs[1]["env"]["agent"]["max_turns"] > configs[0]["env"]["agent"]["max_turns"]
+    assert configs[1]["env"]["agent"]["max_total_tokens"] > configs[0]["env"]["agent"]["max_total_tokens"]
+
+    launcher = (ROOT / "scripts" / "run_qwen35_27b_oolong_scale_admission.sh").read_text()
+    assert all(name.removesuffix(".toml") in launcher for name in names)
 
 
 def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
