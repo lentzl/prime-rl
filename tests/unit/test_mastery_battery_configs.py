@@ -38,6 +38,48 @@ def test_oolong_battery_leaves_room_for_the_agent_feedback_loop() -> None:
     assert limits["max_total_tokens"] >= 221_184
 
 
+def test_fast_mastery_screen_is_compact_frozen_and_disjoint() -> None:
+    names = (
+        "320-qwen35-27b-mastery-fast-foundations.toml",
+        "321-qwen35-27b-mastery-fast-coordination.toml",
+        "322-qwen35-27b-mastery-fast-ownership-child.toml",
+        "323-qwen35-27b-mastery-fast-ownership-coordinator.toml",
+        "324-qwen35-27b-mastery-fast-ownership-child-xml.toml",
+        "325-qwen35-27b-mastery-fast-ownership-coordinator-xml.toml",
+        "326-qwen35-27b-mastery-fast-oolong.toml",
+    )
+    configs = [load_config(name) for name in names]
+    foundations, coordination, child_tsv, coordinator_tsv, child_xml, coordinator_xml, oolong = configs
+
+    assert sum(config["num_tasks"] for config in configs) == 21
+    assert foundations["env"]["taskset"]["instances_per_family"] == 1
+    assert coordination["env"]["taskset"]["split"] == "eval"
+    assert coordination["env"]["taskset"]["instances_per_template"] == 1
+    assert set(coordination["env"]["taskset"]["families"]) == {
+        "direct",
+        "single",
+        "parallel",
+        "followup",
+        "handshake",
+    }
+    ownership_pairs = ((child_tsv, coordinator_tsv), (child_xml, coordinator_xml))
+    assert all(child["env"]["taskset"]["ownership"] == "child" for child, _ in ownership_pairs)
+    assert all(coordinator["env"]["taskset"]["ownership"] == "coordinator" for _, coordinator in ownership_pairs)
+    assert all(
+        child["env"]["taskset"]["families"] == coordinator["env"]["taskset"]["families"]
+        for child, coordinator in ownership_pairs
+    )
+    assert {
+        child["env"]["taskset"]["families"][0] for child, _ in ownership_pairs
+    } == {"tsv_score_total", "xml_item_count"}
+    assert oolong["env"]["taskset"]["example_offset"] == 32
+    assert oolong["env"]["taskset"]["num_examples"] == 2
+    assert all(config["env"]["agent"]["harness"]["thinking"] == "high" for config in configs)
+
+    launcher = (ROOT / "scripts" / "run_qwen35_27b_mastery_fast_screen_v1.sh").read_text()
+    assert all(name.removesuffix(".toml") in launcher for name in names)
+
+
 def test_teacher_collections_are_disjoint_and_keep_thinking_enabled() -> None:
     names = (
         "278-qwen35-27b-mastery-child-teacher-collection.toml",
@@ -262,10 +304,11 @@ def test_full_weight_smoke_reserves_dense_reload_headroom() -> None:
     assert "nvidia-smi --query-compute-apps=pid" in launcher
     assert "export HF_TOKEN=${HF_TOKEN:-${HF_KEY:-}}" in launcher
     assert "--deployment.gpus-per-node 8" in launcher
-    assert "--deployment.num-train-gpus 4" in launcher
-    assert "--deployment.num-infer-gpus 4" in launcher
-    assert "--inference.vllm.tensor-parallel-size 4" in launcher
-    assert "--inference.vllm.gpu-memory-utilization 0.58" in launcher
+    assert "--deployment.num-train-gpus 6" in launcher
+    assert "--deployment.num-infer-gpus 2" in launcher
+    assert "--inference.vllm.tensor-parallel-size 2" in launcher
+    assert "--inference.vllm.gpu-memory-utilization 0.80" in launcher
+    assert "--inference.vllm.max-num-seqs 4" in launcher
     assert "--inference.vllm.enforce-eager true" in launcher
     assert "--trainer.model.lora None" in launcher
     assert "--trainer.ckpt.weights.save-adapter-separately false" in launcher

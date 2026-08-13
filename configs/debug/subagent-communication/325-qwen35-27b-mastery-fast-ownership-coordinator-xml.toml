@@ -1,0 +1,57 @@
+# Coordinator-owned XML control matched to the child-owned fast-screen decision.
+
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 1
+num_rollouts = 1
+shuffle = false
+max_concurrent = 1
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 1
+
+[env.taskset]
+id = "ownership-invariant-v1"
+split = "heldout_resource"
+ownership = "coordinator"
+yield_policy = "semantic"
+families = ["xml_item_count"]
+instances_per_family = 1
+instance_offset = 16000
+seed = 20260814
+
+[env.taskset.task]
+yield_policy = "semantic"
+
+[env.agent]
+max_turns = 8
+max_output_tokens = 24576
+max_total_tokens = 65536
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+autonomous = false
+
+[env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 300.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8100/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 0.4
+max_tokens = 4096
