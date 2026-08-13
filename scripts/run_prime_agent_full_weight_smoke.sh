@@ -23,6 +23,11 @@ fi
 set -a
 source .env
 set +a
+export HF_TOKEN=${HF_TOKEN:-${HF_KEY:-}}
+if [[ -z "$HF_TOKEN" ]]; then
+  echo "HF_TOKEN or HF_KEY is required" >&2
+  exit 1
+fi
 
 rl @ "$config" \
   --max-steps 1 \

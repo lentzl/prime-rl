@@ -260,6 +260,7 @@ def test_full_weight_smoke_removes_lora_and_uses_six_trainer_ranks() -> None:
     launcher = (ROOT / "scripts" / "run_prime_agent_full_weight_smoke.sh").read_text()
 
     assert "nvidia-smi --query-compute-apps=pid" in launcher
+    assert "export HF_TOKEN=${HF_TOKEN:-${HF_KEY:-}}" in launcher
     assert "--deployment.gpus-per-node 8" in launcher
     assert "--deployment.num-train-gpus 6" in launcher
     assert "--deployment.num-infer-gpus 2" in launcher
