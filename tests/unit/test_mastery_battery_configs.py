@@ -337,3 +337,15 @@ def test_balanced_full_weight_launcher_restores_multi_group_updates() -> None:
     assert "--orchestrator.oversampling-factor None" in launcher
     assert "--orchestrator.max-inflight-episodes 8" in launcher
     assert "--ckpt.interval 2" in launcher
+
+
+def test_balanced_full_weight_resume_restores_optimizer_and_policy_version() -> None:
+    launcher = (ROOT / "scripts" / "resume_prime_agent_full_weight_balanced_mastery.sh").read_text()
+
+    assert "checkpoints/step_${resume_step}/trainer/.metadata" in launcher
+    assert "checkpoints/step_${resume_step}/orchestrator/progress.pt" in launcher
+    assert "max_steps <= resume_step" in launcher
+    assert '--ckpt.resume-step "$resume_step"' in launcher
+    assert '--max-steps "$max_steps"' in launcher
+    assert "--orchestrator.max-inflight-episodes 8" in launcher
+    assert "refusing to resume while another GPU process is active" in launcher
