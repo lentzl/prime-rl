@@ -84,6 +84,24 @@ def test_hard_communication_supplement_targets_fresh_sparse_families() -> None:
     assert supplement["env"]["agent"]["harness"]["autonomous"] is True
 
 
+def test_corrected_bidirectional_supplements_are_disjoint_and_conditioned() -> None:
+    original = load_config("302-qwen35-27b-mastery-teacher-conditioned-bidirectional.toml")
+    handshake = load_config("304-qwen35-27b-mastery-corrected-handshake-supplement.toml")
+    followup = load_config("306-qwen35-27b-mastery-corrected-followup-supplement.toml")
+    supplements = (handshake, followup)
+
+    assert handshake["env"]["taskset"]["families"] == ["handshake"]
+    assert followup["env"]["taskset"]["families"] == ["followup"]
+    assert {config["env"]["taskset"]["instance_offset"] for config in supplements}.isdisjoint(
+        {original["env"]["taskset"]["instance_offset"]}
+    )
+    assert len({config["env"]["taskset"]["seed"] for config in supplements}) == 2
+    assert all(config["env"]["taskset"]["teacher_conditioned"] is True for config in supplements)
+    assert all(config["env"]["taskset"]["prompt_contract"] == "explicit_bidirectional_v2" for config in supplements)
+    assert all(config["env"]["agent"]["harness"]["thinking"] == "high" for config in supplements)
+    assert all(config["env"]["agent"]["harness"]["autonomous"] is True for config in supplements)
+
+
 def test_child_ownership_supplement_is_targeted_and_disjoint() -> None:
     broad = load_config("278-qwen35-27b-mastery-child-teacher-collection.toml")
     supplement = load_config("286-qwen35-27b-mastery-child-ownership-supplement.toml")
