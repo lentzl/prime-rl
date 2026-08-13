@@ -529,19 +529,21 @@ ordinary direct-task collapse, loss of persistent state, uncontrolled spawning o
 nontermination, systematic active-ownership bypass, and reasoning collapse severe
 enough to make the policy unusable as a teacher.
 
-Battery v1 builds directly on Prime's current Verifiers work. The packaged
-`prime-agent-capabilities-v1` environment promotes Prime's native ACP evidence for
-real IPython execution, persistent kernel state, subagent lifecycle and quiescence,
-continual `/refine` state, and loud cancellation into reusable evaluation tasks.
-`oolong-synth-v1` supplies natural long-context file externalization. Our
-`subagent-communication-v1` and `ownership-invariant-v1` extensions cover the
-higher-level routing, fan-out/fan-in, bidirectional messaging, and active ownership
-semantics Prime does not yet package as a training environment. This composition is
+Battery v1 builds directly on Prime's current Verifiers work. Upstream `main` packages
+the native `RLMHarness`, while Prime's staged v0.8 branches supply the native Prime
+Agent ACP harness lineage used here. Upstream does not yet package a Prime Agent
+mastery taskset. Our `prime-agent-capabilities-v1` environment promotes that harness's
+ACP evidence for real IPython execution, persistent kernel state, subagent lifecycle
+and quiescence, continual `/refine` state, and loud cancellation into reusable tasks.
+Our `oolong-synth-v1`, `subagent-communication-v1`, and `ownership-invariant-v1`
+tasksets add natural long-context externalization, routing, fan-out/fan-in,
+bidirectional messaging, and active ownership semantics. This composition is
 intentional: extend Prime's substrate instead of rebuilding the harness in a parallel
-stack.
+stack. The upstream boundary was re-audited against Verifiers `main` and the active
+v0.8 Prime Agent harness branches on 2026-08-13.
 
-The executable battery is pinned to Verifiers `21d818283`, which composes current
-upstream main `afbf16523`, Prime's staged Prime Agent harness tip `7e3bfc4a1`, and
+The executable battery is pinned to Verifiers `18cefbecd`, which composes upstream
+main `7e1c47d24`, Prime's staged Prime Agent harness tip `7e3bfc4a1`, and
 the complete staged Oolong/ACP-metadata lineage through `141d48abe`. Do not assemble
 the Oolong adapter by cherry-picking only its taskset commits: lifecycle scorers need
 the ancestry that records inbound ACP `_meta` histories. An initial ten-task 27B
