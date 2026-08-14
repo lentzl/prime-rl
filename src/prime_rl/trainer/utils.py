@@ -17,7 +17,6 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 from torch import Tensor, nn
-from torch.distributed.tensor import DTensor
 from torchtitan.distributed.utils import clip_grad_norm_ as torch_clip_grad_norm_
 from transformers.tokenization_utils import PreTrainedTokenizer
 
@@ -101,6 +100,8 @@ def clip_grad_norm_(
     else:
         grad_norm = torch_clip_grad_norm_(model.parameters(), max_norm=max_norm, ep_enabled=ep_enabled)
     return grad_norm.cuda() if grad_norm.device.type == "cpu" else grad_norm
+
+
 def get_ckpt_disk_metrics(output_dir: Path) -> dict[str, float]:
     """
     Disk usage metrics for the checkpoint directory (<output_dir>/checkpoints).
