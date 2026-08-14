@@ -74,6 +74,9 @@ type = "grpo"
 name = "qwen3.5"
 enable_thinking = true
 
+[orchestrator.train]
+source_selection = "weighted_round_robin"
+
 [orchestrator.train.sampling]
 temperature = 1.0
 max_completion_tokens = 2048
@@ -85,7 +88,7 @@ return_token_ids = true
 
 [[orchestrator.train.source]]
 name = "programmatic-memory-v2-native-grpo"
-ratio = 1.0
+ratio = 2.0
 group_size = 4
 
 [orchestrator.train.source.env]
@@ -133,7 +136,7 @@ multiplex = 128
 
 [[orchestrator.train.source]]
 name = "programmatic-memory-v2-diagnostic-sdpo"
-ratio = 2.0
+ratio = 1.0
 group_size = 4
 
 [orchestrator.train.source.algo]

@@ -190,6 +190,10 @@ class TrainConfig(BaseConfig):
     source: list[TrainSourceConfig] = Field(default_factory=list)
     """Training sources."""
 
+    source_selection: Literal["weighted_random", "weighted_round_robin"] = "weighted_random"
+    """How training sources are selected. Weighted round robin provides a
+    deterministic ratio over each complete weight cycle."""
+
     sampling: TrainSamplingConfig = TrainSamplingConfig()
     """Shared training sampling configuration."""
 

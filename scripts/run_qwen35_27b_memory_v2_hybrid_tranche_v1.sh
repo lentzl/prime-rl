@@ -3,7 +3,8 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config=${MEMORY_HYBRID_CONFIG:-$root/configs/debug/subagent-communication/345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke.toml}
-output=${MEMORY_HYBRID_OUTPUT:-/ephemeral/subagent-rung/outputs/346-qwen35-27b-memory-v2-hybrid-tranche-v1}
+output=${MEMORY_HYBRID_OUTPUT:-/ephemeral/subagent-rung/outputs/346-qwen35-27b-memory-v2-hybrid-tranche-v2}
+max_steps=${MEMORY_HYBRID_MAX_STEPS:-8}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -30,8 +31,9 @@ if [[ -z "$HF_TOKEN" ]]; then
 fi
 
 rl @ "$config" \
-  --max-steps 8 \
+  --max-steps "$max_steps" \
   --output-dir "$output" \
   --ckpt.interval 1 \
   --ckpt.keep-last 8 \
-  --ckpt.keep-interval 1
+  --ckpt.keep-interval 1 \
+  --ckpt.block-rollouts-during-save true

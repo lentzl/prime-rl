@@ -483,6 +483,11 @@ class CheckpointConfig(BaseConfig):
     weights_only: bool = False
     """Save only weight checkpoints (no optimizer/scheduler state). Much faster and smaller than full checkpoints, but cannot resume training."""
 
+    block_rollouts_during_save: bool = False
+    """Save an intermediate checkpoint before broadcasting the new policy. This
+    keeps rollout workers paused while checkpoint gathering is active, reducing
+    host-memory overlap at the cost of idle inference time."""
+
     resume_step: int | None = Field(None, ge=-1)
     """Step to resume training from. None starts from scratch; ``-1`` restarts from the latest checkpoint available."""
 

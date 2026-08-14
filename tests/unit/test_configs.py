@@ -9,10 +9,10 @@ from pydantic_config import ConfigFileError
 from prime_rl.configs.env_server import EnvServerConfig
 from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.orchestrator import OrchestratorConfig
-from prime_rl.configs.rl import RLConfig
+from prime_rl.configs.rl import RLConfig, SharedCheckpointConfig
 from prime_rl.configs.sft import SFTConfig
+from prime_rl.configs.trainer import CheckpointConfig, TrainerConfig
 from prime_rl.configs.trainer import ModelConfig as TrainerModelConfig
-from prime_rl.configs.trainer import TrainerConfig
 from prime_rl.utils.config import BaseConfig, cli, to_toml_dict
 
 # All config config classes
@@ -24,6 +24,12 @@ CONFIG_CLASSES = [
     InferenceConfig,
     EnvServerConfig,
 ]
+
+
+def test_checkpoint_rollout_blocking_is_opt_in() -> None:
+    assert CheckpointConfig().block_rollouts_during_save is False
+    assert CheckpointConfig(block_rollouts_during_save=True).block_rollouts_during_save is True
+    assert SharedCheckpointConfig().block_rollouts_during_save is None
 
 
 def get_config_files() -> list[Path]:

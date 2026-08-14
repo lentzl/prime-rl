@@ -21,7 +21,6 @@ import hashlib
 import io
 import json
 import random
-import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -548,6 +547,30 @@ def validate_row(row: dict) -> None:
     final=next(msg["content"] for msg in reversed(messages) if msg.get("role")=="assistant" and msg.get("content") is not None); assert str(final)==str(m["expected_answer"]), (final,m)
 
 
+def input_fingerprint(row: dict) -> str:
+    payload = {
+        "messages": json.loads(row["messages_json"]),
+        "tools": json.loads(row["tools"]),
+        "workspace_files": json.loads(row["workspace_files_json"]),
+    }
+    canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    return hashlib.sha256(canonical.encode()).hexdigest()
+
+
+def validate_split_disjointness(splits: dict[str, list[dict]]) -> None:
+    fingerprints = {
+        split: {input_fingerprint(row) for row in rows}
+        for split, rows in splits.items()
+    }
+    for split, rows in splits.items():
+        assert len(fingerprints[split]) == len(rows), f"duplicate full input within {split}"
+    names = sorted(splits)
+    for index, left in enumerate(names):
+        for right in names[index + 1 :]:
+            overlap = fingerprints[left] & fingerprints[right]
+            assert not overlap, f"full-input overlap between {left} and {right}: {len(overlap)}"
+
+
 def generate(seed: int, train_per_family: int, heldout_per_family: int, ood_per_family: int) -> dict[str,list[dict]]:
     root=random.Random(seed); splits={"train":[],"familiar_heldout":[],"semantic_ood":[]}; train_h=[64,128,256,512]; held_h=[96,192,384,768]; ood_h=[256,512,1024]
     for fi,family in enumerate(TRAIN_FAMILIES):
@@ -560,6 +583,7 @@ def generate(seed: int, train_per_family: int, heldout_per_family: int, ood_per_
             rng=random.Random(root.randrange(2**63)); splits["semantic_ood"].append(base_row(family(rng,"semantic_ood",i,ood_h[(i+fi)%len(ood_h)])))
     for rows in splits.values():
         for row in rows: validate_row(row)
+    validate_split_disjointness(splits)
     return splits
 
 

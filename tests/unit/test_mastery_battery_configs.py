@@ -117,11 +117,39 @@ def test_hybrid_memory_tranche_preserves_every_early_checkpoint() -> None:
     ).read_text()
 
     assert "345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke.toml" in launcher
-    assert "--max-steps 8" in launcher
+    assert "MEMORY_HYBRID_MAX_STEPS:-8" in launcher
+    assert '--max-steps "$max_steps"' in launcher
     assert "--ckpt.interval 1" in launcher
     assert "--ckpt.keep-last 8" in launcher
     assert "--ckpt.keep-interval 1" in launcher
+    assert "--ckpt.block-rollouts-during-save true" in launcher
     assert "nvidia-smi --query-compute-apps=pid" in launcher
+
+    trainer = (ROOT / "src" / "prime_rl" / "trainer" / "rl" / "train.py").read_text()
+    blocked_save = trainer.index("if checkpoint_before_broadcast else 0.0")
+    broadcast = trainer.index("# Broadcast the model just produced")
+    overlapped_save = trainer.index(
+        "if should_save_checkpoint and not checkpoint_before_broadcast"
+    )
+    assert blocked_save < broadcast < overlapped_save
+
+    resolved = cli(
+        RLConfig,
+        args=[
+            "@",
+            str(CONFIG_ROOT / "345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke.toml"),
+            "--max-steps",
+            "8",
+            "--ckpt.block-rollouts-during-save",
+            "true",
+            "--dry-run",
+        ],
+    )
+    assert resolved.max_steps == 8
+    assert resolved.trainer.ckpt is not None
+    assert resolved.trainer.ckpt.block_rollouts_during_save is True
+    assert resolved.orchestrator.train.source_selection == "weighted_round_robin"
+    assert [source.ratio for source in resolved.orchestrator.train.source] == [2.0, 1.0]
 
 
 def test_full_memory_eval_keeps_every_frozen_task_outside_training() -> None:
@@ -141,6 +169,7 @@ def test_full_memory_eval_keeps_every_frozen_task_outside_training() -> None:
         assert taskset["condition_on_demonstration"] is False
         assert taskset["causal_feedback_retries"] == 0
         assert taskset["record_causal_feedback"] is True
+        assert config["sampling"]["seed"] == 20260814
 
     launcher = (
         ROOT / "scripts" / "run_qwen35_27b_memory_v2_full_eval.sh"

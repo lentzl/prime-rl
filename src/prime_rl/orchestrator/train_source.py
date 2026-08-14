@@ -1,4 +1,4 @@
-"""TrainSource: weighted round-robin across train envs, infinite pull.
+"""TrainSource: weighted selection across train envs, infinite pull.
 
 Weights are each env's configured ``ratio`` (default 1, i.e. equal weight
 per env). An env serves the tasks the orchestrator loaded client-side: a
@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import random
 from collections.abc import Iterator
+from typing import Literal
 
 import verifiers.v1 as vf
 
@@ -17,13 +18,13 @@ from prime_rl.orchestrator.envs import TrainEnvs
 
 
 class TrainSource:
-    """``next_example()`` picks a weighted-RR env and returns its next
+    """``next_example()`` picks a weighted env and returns its next
     example. Returned dicts carry ``env_name`` + ``task``, whose data is
     shipped to the env server at dispatch.
 
     The data position round-trips through a checkpoint via ``state_dict()``
     / ``load_state_dict()``: per-env ``{epoch, cursor}`` plus the env-choice
-    RNG state, making the dispatch sequence reproducible across resumes. For
+    selector state, making the dispatch sequence reproducible across resumes. For
     a finite env, epochs are 1-indexed and seed that epoch's shuffle; for an
     infinite env the epoch stays 1 and the cursor counts generator pulls,
     replayed on restore by fast-forwarding the generator (exact iff it's
@@ -31,8 +32,14 @@ class TrainSource:
     batches), so a resume skips the tasks that were in flight at checkpoint
     time."""
 
-    def __init__(self, train_envs: TrainEnvs) -> None:
+    def __init__(
+        self,
+        train_envs: TrainEnvs,
+        *,
+        source_selection: Literal["weighted_random", "weighted_round_robin"] = "weighted_random",
+    ) -> None:
         self.rng = random.Random(42)
+        self.source_selection = source_selection
         self.envs = list(train_envs)
         if not self.envs:
             raise ValueError("TrainSource needs at least one train env")
@@ -59,6 +66,7 @@ class TrainSource:
 
         self.env_names = [e.name for e in self.envs]
         self.weights: list[float] = [float(e.config.ratio) for e in self.envs]
+        self.round_robin_current_weights = [0.0] * len(self.weights)
 
     def _shuffle(self, env_name: str) -> list[dict] | None:
         """The env's example table shuffled for its current epoch — a pure
@@ -75,11 +83,23 @@ class TrainSource:
         """Env-choice RNG state + per-env ``{epoch, cursor}``."""
         return {
             "rng": self.rng.getstate(),
+            "source_selection": self.source_selection,
+            "round_robin_current_weights": self.round_robin_current_weights,
             "envs": {name: {"epoch": self.epochs[name], "cursor": self.cursors[name]} for name in self.epochs},
         }
 
     def load_state_dict(self, state_dict: dict) -> None:
+        checkpoint_selection = state_dict.get("source_selection", "weighted_random")
+        if checkpoint_selection != self.source_selection:
+            raise ValueError(
+                "Training source selection differs from the checkpoint: "
+                f"{self.source_selection!r} != {checkpoint_selection!r}"
+            )
         self.rng.setstate(state_dict["rng"])
+        self.round_robin_current_weights = state_dict.get(
+            "round_robin_current_weights",
+            [0.0] * len(self.weights),
+        )
         for name, position in state_dict["envs"].items():
             if name not in self.base_rows:
                 continue
@@ -91,8 +111,28 @@ class TrainSource:
             else:
                 self.examples[name] = self._shuffle(name)
 
+    def _next_env_name(self) -> str:
+        if self.source_selection == "weighted_random":
+            return self.rng.choices(self.env_names, weights=self.weights, k=1)[0]
+
+        total_weight = sum(self.weights)
+        self.round_robin_current_weights = [
+            current + weight
+            for current, weight in zip(
+                self.round_robin_current_weights,
+                self.weights,
+                strict=True,
+            )
+        ]
+        selected = max(
+            range(len(self.env_names)),
+            key=self.round_robin_current_weights.__getitem__,
+        )
+        self.round_robin_current_weights[selected] -= total_weight
+        return self.env_names[selected]
+
     def next_example(self) -> dict | None:
-        env_name = self.rng.choices(self.env_names, weights=self.weights, k=1)[0]
+        env_name = self._next_env_name()
         rows = self.examples[env_name]
         cursor = self.cursors[env_name]
         if rows is None:  # infinite env: pull the next generated task

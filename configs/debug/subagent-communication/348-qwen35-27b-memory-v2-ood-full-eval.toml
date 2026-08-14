@@ -54,3 +54,4 @@ enable_thinking = true
 [sampling]
 temperature = 0.4
 max_tokens = 4096
+seed = 20260814

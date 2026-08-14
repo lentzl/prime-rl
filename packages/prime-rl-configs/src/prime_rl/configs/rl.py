@@ -110,6 +110,9 @@ class SharedCheckpointConfig(BaseConfig):
     keep_interval: int | None = Field(None, ge=1)
     """Keep checkpoints at every N steps permanently (e.g. ``keep_interval=100`` keeps step 100, 200, ...). If None, no interval-based keeping."""
 
+    block_rollouts_during_save: bool | None = None
+    """Keep rollout workers paused while the trainer saves intermediate checkpoints."""
+
 
 class SharedModelConfig(BaseConfig):
     name: str = "Qwen/Qwen3-0.6B"

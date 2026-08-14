@@ -22,6 +22,16 @@ for GRPO or for the frozen Harness Mastery battery.
 - Demonstrations contain observable assistant tool calls and answers, never
   fabricated `reasoning_content`.
 
+The frozen JSONL SHA-256 values are `9bd50adc54d472897aa385f7cc1c7c8f436abc9c1a535d6247003dc57380aaa5`
+for train, `15fc541de65494d2c866bcb3da68654bda8a7b2e526a9808f7193b21d7f4e3fc`
+for familiar heldout, and
+`0984bfe9b376fc1398a8c82547a2087fe64c4380cbd7b146d79b8766bcc9f2e0`
+for semantic OOD. An audit over canonicalized `messages_json`, `tools`, and
+`workspace_files_json` found 1,200, 300, and 96 unique full-input fingerprints,
+with zero cross-split overlap. Do not use `(family, instance)` as a global task
+identifier: familiar heldout deliberately reuses 300 train instance numbers
+with different complete inputs.
+
 ## Teacher admission
 
 The gate was preregistered while only unconditioned traces existed. Both
@@ -205,3 +215,38 @@ tokens and 3,107 SDPO tokens, with zero CE or reference-KL tokens; full-weight
 AdamW and the EMA update completed, and a stable 12-shard checkpoint was
 written. This is semantic-equivalence acceptance only. Run 345-r3's weights are
 not behavioral evidence and are not the start of the tranche.
+
+## Iterative hybrid tranche qualification
+
+Run 346-v1 started again from the untouched thinking-mode 27B revision. Its
+first update completed, but the intermediate HF weight gather overlapped with
+new policy-v1 rollout workers after broadcast. Host virtual memory reached
+91.5%, rank 0 was killed, and the incomplete `weights/step_1` had no `STABLE`
+marker. No checkpoint from this attempt is admissible.
+
+The replacement tranche opts into saving intermediate checkpoints before
+broadcast, keeping rollout workers paused during the high-memory full-weight
+gather. It also opts into deterministic weighted-round-robin source selection:
+each complete three-group update contains two native GRPO groups and one typed
+diagnostic SDPO group, rather than relying on a favorable random draw. Prime's
+default checkpoint overlap and weighted-random source selection remain
+unchanged for other runs. A two-step CUDA re-acceptance must prove that Step 1
+becomes stable before policy-v1 rollout dispatch resumes.
+
+After that gate, the replacement run performs eight full-weight updates.
+Checkpoints 1, 2, 4, and 8 are selected prospectively, not after looking at
+rewards. Qualification compares each one with the untouched base on all 300
+familiar-heldout and 96 semantic-OOD tasks, with one rollout, no demonstration,
+no feedback retry, record-only typed diagnostics, and a shared sampling seed of
+`20260814`. The historical 74-task Harness Mastery battery remains byte-for-byte
+unchanged.
+
+The combined qualification driver keeps memory and Harness Mastery outputs
+separate, writes typed failure-code/category mass, and marks a model complete
+only after both batteries and both summaries finish. It is resumable only at
+whole-model boundaries: a completed model is skipped, while a partial model
+directory is rejected rather than blended with a rerun. Promotion requires
+held-out/OOD memory transfer without a retrieval-always shortcut or systematic
+regression in foundations, direct execution, communication, ownership, or
+Oolong. Otherwise classify the checkpoint as continuation-eligible or reject
+the branch; training reward alone cannot promote it.

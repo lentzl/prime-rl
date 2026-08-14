@@ -324,7 +324,10 @@ class Orchestrator:
 
         self.lora_name = config.model.lora.name if config.model.lora else None
 
-        self.train_source = TrainSource(self.train_envs)
+        self.train_source = TrainSource(
+            self.train_envs,
+            source_selection=config.train.source_selection,
+        )
 
         if self.resume_step is not None and self.ckpt_manager is not None:
             self.ckpt_manager.load(self.progress, self.train_source, step=self.resume_step)

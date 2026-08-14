@@ -776,6 +776,50 @@ def train(config: TrainerConfig):
         current_lr = optimizer.param_groups[0]["lr"]
         forward_backward_time = time.perf_counter() - forward_backward_start_time
 
+        should_save_checkpoint = (
+            ckpt_manager is not None
+            and config.ckpt is not None
+            and config.ckpt.interval is not None
+            # The last step is written once after the loop.
+            and not is_last_step
+            and progress.step % config.ckpt.interval == 0
+        )
+
+        def save_intermediate_checkpoint() -> float:
+            assert ckpt_manager is not None
+            assert config.ckpt is not None
+            elapsed = 0.0
+            if not config.ckpt.weights_only:
+                logger.info(f"Saving checkpoint at step {progress.step}")
+                start = time.perf_counter()
+                ckpt_manager.save(
+                    progress.step,
+                    model,
+                    [optimizer],
+                    scheduler,
+                    progress,
+                    extra_state=sdpo_teacher_state,
+                )
+                elapsed += time.perf_counter() - start
+
+            ckpt_manager.maybe_clean()
+            if weight_ckpt_manager is not None:
+                logger.info(f"Saving weight checkpoint at step {progress.step}")
+                start = time.perf_counter()
+                weight_ckpt_manager.save(progress.step, model, tokenizer, processor)
+                elapsed += time.perf_counter() - start
+                weight_ckpt_manager.maybe_clean()
+            return elapsed
+
+        checkpoint_before_broadcast = (
+            should_save_checkpoint
+            and config.ckpt is not None
+            and config.ckpt.block_rollouts_during_save
+        )
+        save_ckpt_time = (
+            save_intermediate_checkpoint() if checkpoint_before_broadcast else 0.0
+        )
+
         # Broadcast the model just produced (policy v{progress.step}) so the orchestrator can
         # sample its next step from it. Skip NCCL policies beyond the configured batch lead because
         # no future rollout can consume them (the inference NCCL group is torn down after the final
@@ -806,40 +850,10 @@ def train(config: TrainerConfig):
             else:
                 broadcast_weights_time = 0
 
-        # Checkpoint the step we just finished (model = policy v{progress.step}).
-        if (
-            ckpt_manager is not None
-            and (config.ckpt and config.ckpt.interval)
-            # the last step is written once after the loop (final ckpt), so skip it here
-            and not is_last_step
-            and progress.step % config.ckpt.interval == 0
-        ):
-            save_ckpt_time = 0
-
-            if not config.ckpt.weights_only:
-                logger.info(f"Saving checkpoint at step {progress.step}")
-                save_ckpt_start_time = time.perf_counter()
-                ckpt_manager.save(
-                    progress.step,
-                    model,
-                    [optimizer],
-                    scheduler,
-                    progress,
-                    extra_state=sdpo_teacher_state,
-                )
-                save_ckpt_time += time.perf_counter() - save_ckpt_start_time
-
-            ckpt_manager.maybe_clean()
-
-            # Save weight checkpoint
-            if weight_ckpt_manager is not None:
-                logger.info(f"Saving weight checkpoint at step {progress.step}")
-                save_ckpt_start_time = time.perf_counter()
-                weight_ckpt_manager.save(progress.step, model, tokenizer, processor)
-                save_ckpt_time += time.perf_counter() - save_ckpt_start_time
-                weight_ckpt_manager.maybe_clean()
-        else:
-            save_ckpt_time = 0
+        # The default preserves checkpoint/rollout overlap. Memory-constrained
+        # jobs can save above, before broadcast, so the dispatcher stays paused.
+        if should_save_checkpoint and not checkpoint_before_broadcast:
+            save_ckpt_time = save_intermediate_checkpoint()
 
         # Optionally, dump memory snapshot
         if memory_profiler is not None:

@@ -99,6 +99,7 @@ def propagate_shared_fields(data: Any) -> Any:
     propagate("ckpt.resume_step", "trainer.ckpt.resume_step", "orchestrator.ckpt.resume_step")
     propagate("ckpt.keep_last", "trainer.ckpt.keep_last", "orchestrator.ckpt.keep_last")
     propagate("ckpt.keep_interval", "trainer.ckpt.keep_interval", "orchestrator.ckpt.keep_interval")
+    propagate("ckpt.block_rollouts_during_save", "trainer.ckpt.block_rollouts_during_save")
 
     # [wandb] leaves. (Bare empty ``[wandb]`` block enablement is at the end.)
     # ``wandb.name`` flows verbatim to both sub-configs — shared W&B mode is
