@@ -222,6 +222,16 @@ diagnostics rather than treating pristine-trace imitation as sufficient. The ret
 rung-37 2B is the bottom-up control. Comparing it with a directly distilled 2B
 separates a likely capacity boundary from a curriculum or optimization failure.
 
+The direct OPD capacity probes share
+`scripts/run_qwen35_prime_agent_opd_smoke.sh` and the same Prime Agent curriculum.
+Size-specific wrappers pin the official students at
+`Qwen/Qwen3.5-9B@c202236235762e1c871ad0ccb60c8ee5ba337b9a`,
+`Qwen/Qwen3.5-4B@851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a`, and
+`Qwen/Qwen3.5-2B@15852e8c16360a2fea060d615a32b45270f8a8fc`. Each wrapper requires the
+same qualified local 27B checkpoint and overrides only student identity and output
+location. This is prepared experiment infrastructure, not permission to distill from
+an unqualified teacher.
+
 Current status: Qwen3.5-2B has mastered useful IPython foundations. A Prime-native
 OPSD repair produced a new Stage-0 candidate at
 `37-single-path-opsd-dose-r1/weights/step_2`: it preserved task-specific paths in

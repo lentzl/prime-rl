@@ -563,9 +563,36 @@ def test_qwen35_9b_opd_smoke_uses_direct_frozen_teacher_distillation() -> None:
     assert all(source["group_size"] == 1 for source in sources.values())
     assert "pre_batch_filters" not in config["orchestrator"]
 
-    launcher = (ROOT / "scripts" / "run_qwen35_9b_prime_agent_opd_smoke.sh").read_text()
+    launcher = (ROOT / "scripts" / "run_qwen35_prime_agent_opd_smoke.sh").read_text()
     assert "PRIME_AGENT_OPD_TEACHER:?" in launcher
+    assert "PRIME_AGENT_OPD_STUDENT:?" in launcher
+    assert "PRIME_AGENT_OPD_STUDENT_REVISION:?" in launcher
     assert '[[ ! -f "$teacher/STABLE" ]]' in launcher
     assert "CUDA_VISIBLE_DEVICES=6,7 inference" in launcher
     assert "CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 rl" in launcher
+    assert '--model.name "$student"' in launcher
+    assert '--model.revision "$student_revision"' in launcher
     assert '--orchestrator.algo.teacher.name "$teacher"' in launcher
+
+
+def test_qwen35_opd_student_wrappers_pin_direct_capacity_comparison() -> None:
+    expected = {
+        "run_qwen35_9b_prime_agent_opd_smoke.sh": (
+            "Qwen/Qwen3.5-9B",
+            "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+        ),
+        "run_qwen35_4b_prime_agent_opd_smoke.sh": (
+            "Qwen/Qwen3.5-4B",
+            "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+        ),
+        "run_qwen35_2b_prime_agent_opd_smoke.sh": (
+            "Qwen/Qwen3.5-2B",
+            "15852e8c16360a2fea060d615a32b45270f8a8fc",
+        ),
+    }
+
+    for filename, (model, revision) in expected.items():
+        launcher = (ROOT / "scripts" / filename).read_text()
+        assert f"PRIME_AGENT_OPD_STUDENT={model}" in launcher
+        assert f"PRIME_AGENT_OPD_STUDENT_REVISION={revision}" in launcher
+        assert 'exec "$root/scripts/run_qwen35_prime_agent_opd_smoke.sh" "$@"' in launcher
