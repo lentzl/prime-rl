@@ -11,7 +11,7 @@ from prime_rl.configs.inference import InferenceConfig
 from prime_rl.configs.orchestrator import OrchestratorConfig
 from prime_rl.configs.rl import RLConfig, SharedCheckpointConfig
 from prime_rl.configs.sft import SFTConfig
-from prime_rl.configs.trainer import CheckpointConfig, TrainerConfig
+from prime_rl.configs.trainer import CheckpointConfig, TrainerConfig, WeightCheckpointConfig
 from prime_rl.configs.trainer import ModelConfig as TrainerModelConfig
 from prime_rl.utils.config import BaseConfig, cli, to_toml_dict
 
@@ -30,6 +30,12 @@ def test_checkpoint_rollout_blocking_is_opt_in() -> None:
     assert CheckpointConfig().block_rollouts_during_save is False
     assert CheckpointConfig(block_rollouts_during_save=True).block_rollouts_during_save is True
     assert SharedCheckpointConfig().block_rollouts_during_save is None
+
+
+def test_streaming_weight_checkpoints_require_sharded_output() -> None:
+    assert WeightCheckpointConfig(stream_shards=True).stream_shards is True
+    with pytest.raises(ValidationError, match="require save_sharded=true"):
+        WeightCheckpointConfig(stream_shards=True, save_sharded=False)
 
 
 def get_config_files() -> list[Path]:

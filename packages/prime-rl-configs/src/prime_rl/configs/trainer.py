@@ -460,11 +460,22 @@ class WeightCheckpointConfig(BaseConfig):
     save_sharded: bool = True
     """Save the weight checkpoint in sharded format."""
 
+    stream_shards: bool = False
+    """Gather and write one weight shard at a time instead of materializing the
+    complete model on the master rank. This bounds host-memory use for large
+    full-weight checkpoints and requires ``save_sharded``."""
+
     save_format: Literal["safetensors", "torch"] = "safetensors"
     """Weight checkpoint serialization format."""
 
     save_adapter_separately: bool = False
     """Save LoRA adapters separately before merging into full model weights."""
+
+    @model_validator(mode="after")
+    def validate_stream_shards(self):
+        if self.stream_shards and not self.save_sharded:
+            raise ValueError("Streaming weight checkpoints require save_sharded=true.")
+        return self
 
 
 class CheckpointConfig(BaseConfig):

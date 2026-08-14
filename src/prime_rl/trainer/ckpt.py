@@ -11,7 +11,14 @@ from typing import Any
 
 import torch
 from torch import Tensor, nn
-from torch.distributed.checkpoint.state_dict import get_state_dict, set_model_state_dict, set_state_dict
+from torch.distributed.checkpoint.state_dict import (
+    _get_fqns as get_fqns,
+)
+from torch.distributed.checkpoint.state_dict import (
+    get_state_dict,
+    set_model_state_dict,
+    set_state_dict,
+)
 from torch.distributed.checkpoint.state_dict_loader import load as dcp_load
 from torch.distributed.checkpoint.state_dict_saver import save as dcp_save
 from torch.distributed.checkpoint.stateful import Stateful
@@ -30,6 +37,7 @@ from prime_rl.trainer.optim import CPUOffloadOptimizer, FullCPUOffloadOptimizer
 from prime_rl.trainer.weights import (
     gather_weights_on_master,
     save_state_dict,
+    stream_sharded_state_dict,
 )
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
@@ -500,35 +508,7 @@ class WeightCheckpointManager:
 
                 # Save weights
                 save_state_dict(state_dict, path, self.config.save_format, self.config.save_sharded)
-
-                # Keep chat checkpoints aligned with the turn terminator used by
-                # their template. In particular, Qwen's pretrained metadata may
-                # otherwise stop on <|endoftext|> instead of <|im_end|>.
-                chat_eos_token_id = _chat_eos_token_id(tokenizer)
-                model_config = deepcopy(model.config)
-                gen_config = deepcopy(model.generation_config) if model.generation_config else None
-                export_tokenizer = deepcopy(tokenizer)
-                if chat_eos_token_id is not None:
-                    _set_numeric_eos_token_ids(model_config, chat_eos_token_id)
-                    _set_numeric_eos_token_ids(gen_config, chat_eos_token_id)
-                    export_tokenizer.eos_token = CHAT_EOS_TOKEN
-
-                # Save model config, generation arguments and tokenizer
-                model_config.save_pretrained(path)
-                if model.generation_config:
-                    # training sets use_cache=False which can conflict with
-                    # cache_implementation — save with use_cache=True without
-                    # mutating the model's config
-                    assert gen_config is not None
-                    gen_config.use_cache = True
-                    gen_config.save_pretrained(path)
-                # Processor first: it saves its own (unmodified) tokenizer, which the
-                # configured tokenizer (pad token, custom chat template) must override.
-                if processor is not None:
-                    _save_processor_metadata(processor, path)
-                export_tokenizer.save_pretrained(path)
-                if chat_eos_token_id is not None:
-                    _validate_chat_eos_metadata(path, export_tokenizer, chat_eos_token_id)
+                self.save_metadata_to_path(path, model, tokenizer, processor)
 
             if lora_state_dict is not None:
                 adapter_path = path / "lora_adapters"
@@ -546,6 +526,83 @@ class WeightCheckpointManager:
                     )
             self.logger.debug(f"Saved weight checkpoint to {path} in {time.perf_counter() - start_time:.2f} seconds")
 
+    def save_metadata_to_path(
+        self,
+        path: Path,
+        model,
+        tokenizer: PreTrainedTokenizer,
+        processor: ProcessorMixin | None = None,
+    ) -> None:
+        """Save and validate Hugging Face model metadata on the master rank."""
+        if not self.world.is_master:
+            return
+
+        # Keep chat checkpoints aligned with the turn terminator used by their
+        # template. In particular, Qwen's pretrained metadata may otherwise stop
+        # on <|endoftext|> instead of <|im_end|>.
+        chat_eos_token_id = _chat_eos_token_id(tokenizer)
+        model_config = deepcopy(model.config)
+        gen_config = deepcopy(model.generation_config) if model.generation_config else None
+        export_tokenizer = deepcopy(tokenizer)
+        if chat_eos_token_id is not None:
+            _set_numeric_eos_token_ids(model_config, chat_eos_token_id)
+            _set_numeric_eos_token_ids(gen_config, chat_eos_token_id)
+            export_tokenizer.eos_token = CHAT_EOS_TOKEN
+
+        model_config.save_pretrained(path)
+        if model.generation_config:
+            # Training sets use_cache=False which can conflict with
+            # cache_implementation; export inference-safe metadata without
+            # mutating the live model.
+            assert gen_config is not None
+            gen_config.use_cache = True
+            gen_config.save_pretrained(path)
+        if processor is not None:
+            _save_processor_metadata(processor, path)
+        export_tokenizer.save_pretrained(path)
+        if chat_eos_token_id is not None:
+            _validate_chat_eos_metadata(path, export_tokenizer, chat_eos_token_id)
+
+    def save_streamed_to_path(
+        self,
+        path: Path,
+        model: nn.Module,
+        tokenizer: PreTrainedTokenizer,
+        processor: ProcessorMixin | None = None,
+    ) -> None:
+        """Save an HF checkpoint without gathering the complete model on master."""
+        if has_lora_layers(model):
+            raise ValueError("Streaming weight checkpoints do not support LoRA layers.")
+
+        state_dict: dict[str, Tensor] = {}
+        for key, value in model.state_dict().items():
+            fqns = get_fqns(model, key)
+            if len(fqns) != 1:
+                raise ValueError(f"Expected one FQN for {key}, got {sorted(fqns)}")
+            state_dict[next(iter(fqns))] = value
+
+        if getattr(model.config, "tie_word_embeddings", False):
+            for key in getattr(model, "_tied_weights_keys", []):
+                state_dict.pop(key, None)
+
+        if isinstance(model, PreTrainedModelPrimeRL) and model.is_prime_state_dict(state_dict):
+            transform = model.convert_to_hf
+        else:
+            from transformers.core_model_loading import revert_weight_conversion
+
+            def transform(shard: dict[str, Tensor]) -> dict[str, Tensor]:
+                return revert_weight_conversion(model, shard)
+
+        stream_sharded_state_dict(
+            state_dict,
+            path,
+            is_master=self.world.is_master,
+            transform=transform,
+            save_format=self.config.save_format,
+        )
+        state_dict.clear()
+        self.save_metadata_to_path(path, model, tokenizer, processor)
+
     def save(
         self,
         step: int,
@@ -560,6 +617,15 @@ class WeightCheckpointManager:
         if self.world.is_master:
             step_path.mkdir(parents=True, exist_ok=True)
         torch.distributed.barrier()
+
+        if self.config.stream_shards:
+            self.logger.debug("Streaming weight checkpoint shards to the master rank")
+            start_time = time.perf_counter()
+            self.save_streamed_to_path(step_path, model, tokenizer, processor)
+            self.logger.debug(f"Streamed weight checkpoint in {time.perf_counter() - start_time:.2f} seconds")
+            self.mark_stable(step)
+            bisect.insort(self.ckpt_steps, step)
+            return
 
         # Gather all weights on master rank
         self.logger.debug("Gathering weights on master rank for weight checkpoint")

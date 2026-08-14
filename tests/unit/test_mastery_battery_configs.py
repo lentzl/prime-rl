@@ -122,6 +122,7 @@ def test_hybrid_memory_tranche_preserves_every_early_checkpoint() -> None:
     assert "--ckpt.interval 1" in launcher
     assert "--ckpt.keep-last 8" in launcher
     assert "--ckpt.keep-interval 1" in launcher
+    assert "--trainer.ckpt.weights.stream-shards true" in launcher
     assert "--ckpt.block-rollouts-during-save true" in launcher
     assert "nvidia-smi --query-compute-apps=pid" in launcher
 
@@ -142,12 +143,16 @@ def test_hybrid_memory_tranche_preserves_every_early_checkpoint() -> None:
             "8",
             "--ckpt.block-rollouts-during-save",
             "true",
+            "--trainer.ckpt.weights.stream-shards",
+            "true",
             "--dry-run",
         ],
     )
     assert resolved.max_steps == 8
     assert resolved.trainer.ckpt is not None
     assert resolved.trainer.ckpt.block_rollouts_during_save is True
+    assert resolved.trainer.ckpt.weights is not None
+    assert resolved.trainer.ckpt.weights.stream_shards is True
     assert resolved.orchestrator.train.source_selection == "weighted_round_robin"
     assert [source.ratio for source in resolved.orchestrator.train.source] == [2.0, 1.0]
 

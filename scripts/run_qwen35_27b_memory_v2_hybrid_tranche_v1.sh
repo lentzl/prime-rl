@@ -36,4 +36,5 @@ rl @ "$config" \
   --ckpt.interval 1 \
   --ckpt.keep-last 8 \
   --ckpt.keep-interval 1 \
+  --trainer.ckpt.weights.stream-shards true \
   --ckpt.block-rollouts-during-save true

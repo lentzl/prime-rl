@@ -251,10 +251,43 @@ ships the variable-size trainable remainder while retaining all attempted
 rollouts in the observation window. It never flushes while work is in flight,
 grouped, queued, stopped, or draining; a cohort with no trainable sample fails
 explicitly. The Linux orchestrator suite passes with 140 tests and one skip.
-The two-step CUDA acceptance must be repeated before this repair admits the
-eight-update run.
 
-After that gate, the replacement run performs eight full-weight updates.
+The second checkpoint-order attempt proved that synchrony repair on CUDA.
+Step 2 exhausted its permitted cohort with 11/12 trainable survivors, flushed
+those survivors exactly once, and completed the optimizer update without an
+off-policy replacement. It then failed in the final full-model HF gather:
+rank 0 retained the complete approximately 51 GiB export in addition to the
+persistent model and optimizer state, reached about 121 GiB RSS, and was killed
+when the 566 GiB host ran out of memory. Step 1 remained stable; Step 2 had no
+`STABLE` marker and is inadmissible.
+
+The replacement exporter preserves Prime's standard HF checkpoint format but
+bounds temporary memory to one planned shard. It derives an approximately
+5 GB shard plan from DTensor metadata, gathers only that shard to rank 0,
+applies the existing HF name and tensor transforms, writes the safetensors
+file, and releases the gathered tensors before continuing. The index and
+metadata are written only after every shard succeeds, followed by `STABLE`.
+This path is opt-in, requires sharded output, and deliberately rejects LoRA
+layers until their merge semantics are implemented. Unit coverage includes a
+real two-rank Gloo DTensor gather and exact BF16 reload, in addition to ordinary
+tensor shard/index validation. The two-step CUDA acceptance must prove both
+repeated exports before this repair admits the eight-update run.
+
+Run 346-v3 passed that gate on the 8x L40S host. Step 1 trained the complete
+8-native/4-diagnostic cohort, wrote and marked its checkpoint stable, then
+published policy v1 and resumed dispatch. Step 2 exhausted its synchronous
+cohort at 10/12 after two native trajectories reached `max_turns`, flushed once
+with zero off-policy replacements, admitted six group-valid samples, and
+completed a second finite full-weight update. Both streamed exports contain
+1,184 indexed tensors in 12 readable shards with an exact indexed size of
+54,713,457,120 bytes. Both pass multimodal processor and EOS validation with
+`<|im_end|>` ID 248046. Rank 0 peaked at 93.15 GiB RSS, approximately 28 GiB
+below the failed full gather, while minimum host-available memory remained
+60.92 GiB. Both checkpoints are stable and the trainer and orchestrator exited
+cleanly. This accepts the mechanism only; the two-step weights are not promoted
+as behavioral evidence.
+
+With that gate passed, the replacement run performs eight full-weight updates.
 Checkpoints 1, 2, 4, and 8 are selected prospectively, not after looking at
 rewards. Qualification compares each one with the untouched base on all 300
 familiar-heldout and 96 semantic-OOD tasks, with one rollout, no demonstration,

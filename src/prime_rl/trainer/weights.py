@@ -1,7 +1,9 @@
+import ctypes
+import gc
 import json
 import warnings
 from pathlib import Path
-from typing import Literal, cast
+from typing import Callable, Literal, cast
 
 import torch
 from huggingface_hub import split_torch_state_dict_into_shards
@@ -23,6 +25,15 @@ from prime_rl.trainer.lora import (
     clean_lora_state_dict,
 )
 from prime_rl.utils.logger import get_logger
+
+
+def _trim_process_memory() -> None:
+    """Return released checkpoint buffers to the OS on glibc systems."""
+    gc.collect()
+    try:
+        ctypes.CDLL("libc.so.6").malloc_trim(0)
+    except Exception as exc:
+        get_logger().debug(f"malloc_trim(0) failed: {exc!r}")
 
 
 def load_state_dict_keys(save_dir: Path) -> list[str]:
@@ -103,6 +114,71 @@ def save_state_dict(
             save_file(state_dict, save_dir / weights_name, metadata={"format": "pt"})
         else:
             torch.save(state_dict, save_dir / weights_name)
+
+
+def stream_sharded_state_dict(
+    state_dict: dict[str, Tensor],
+    save_dir: Path,
+    *,
+    is_master: bool,
+    transform: Callable[[dict[str, Tensor]], dict[str, Tensor]],
+    save_format: Literal["torch", "safetensors"] = "safetensors",
+    max_shard_size: int | str = "5GB",
+) -> None:
+    """Gather and save one Hugging Face shard at a time.
+
+    Every rank participates in each DTensor gather, while only the master keeps
+    the gathered tensors. The transform must be valid independently for each
+    planned shard.
+    """
+    weights_name = SAFE_WEIGHTS_NAME if save_format == "safetensors" else WEIGHTS_NAME
+    filename_pattern = weights_name.replace(".bin", "{suffix}.bin").replace(".safetensors", "{suffix}.safetensors")
+    state_dict_split = split_torch_state_dict_into_shards(
+        state_dict,
+        filename_pattern=filename_pattern,
+        max_shard_size=max_shard_size,
+    )
+
+    weight_map: dict[str, str] = {}
+    total_size = 0
+    if is_master:
+        save_dir.mkdir(parents=True, exist_ok=True)
+
+    for shard_file, tensor_names in state_dict_split.filename_to_tensors.items():
+        shard: dict[str, Tensor] = {}
+        for tensor_name in tensor_names:
+            value = state_dict[tensor_name]
+            if isinstance(value, DTensor):
+                value = cast(DTensor, value.to(torch.bfloat16)).full_tensor()
+            if is_master:
+                shard[tensor_name] = value.to("cpu", non_blocking=False)
+            del value
+
+        if is_master:
+            shard = transform(shard)
+            for tensor_name, value in shard.items():
+                weight_map[tensor_name] = shard_file
+                total_size += value.nbytes
+            if save_format == "safetensors":
+                save_file(
+                    {key: value.contiguous() for key, value in shard.items()},
+                    save_dir / shard_file,
+                    metadata={"format": "pt"},
+                )
+            else:
+                torch.save(shard, save_dir / shard_file)
+
+        shard.clear()
+        _trim_process_memory()
+
+    if is_master and state_dict_split.is_sharded:
+        index = {
+            "metadata": {"total_size": total_size},
+            "weight_map": weight_map,
+        }
+        index_name = SAFE_WEIGHTS_INDEX_NAME if save_format == "safetensors" else WEIGHTS_INDEX_NAME
+        with open(save_dir / index_name, "w", encoding="utf-8") as f:
+            f.write(json.dumps(index, indent=2, sort_keys=True) + "\n")
 
 
 def gather_weights_on_master(
