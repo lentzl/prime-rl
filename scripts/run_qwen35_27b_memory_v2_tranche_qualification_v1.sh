@@ -8,6 +8,7 @@ base_revision=fc05daec18b0a78c049392ed2e771dde82bdf654
 steps=(1 2 4 8)
 parallelism=${MEMORY_QUALIFICATION_PARALLELISM:-2}
 device_groups=(0,1,2,3 4,5,6,7)
+model_launcher=${MEMORY_QUALIFICATION_MODEL_LAUNCHER:-scripts/run_qwen35_27b_mastery_fast_screen_model_v1.sh}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -79,7 +80,7 @@ for ((offset = 0; offset < ${#pending[@]}; offset += parallelism)); do
       EVAL_BACKEND_PORT=$backend_port \
       EVAL_ROUTER_PORT=$router_port \
       EVAL_DATA_PARALLEL_RPC_PORT=$rpc_port \
-      scripts/run_qwen35_27b_mastery_fast_screen_model_v1.sh \
+      "$model_launcher" \
         "${models[$index]}" "${labels[$index]}" "${revisions[$index]}" &
     active_pids+=("$!")
     active_labels+=("${labels[$index]}")
