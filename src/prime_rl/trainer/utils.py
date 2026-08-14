@@ -1,13 +1,13 @@
 import gc
 import json
+import os
 import pickle
 import shutil
 import time
 from collections import defaultdict
-from collections.abc import Iterable
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 import torch
@@ -17,13 +17,17 @@ from rich.console import Console
 from rich.table import Table
 from rich.text import Text
 from torch import Tensor, nn
-from torch.distributed.tensor import DTensor
+from torchtitan.distributed.utils import clip_grad_norm_ as torch_clip_grad_norm_
 from transformers.tokenization_utils import PreTrainedTokenizer
 
 from prime_rl.trainer.world import get_world
 from prime_rl.utils.logger import get_logger
 from prime_rl.utils.pathing import get_ckpt_dir
 from prime_rl.utils.utils import format_num, format_time, get_step_path
+
+if TYPE_CHECKING:
+    from prime_rl.configs.trainer import FullOptimizerOffloadingConfig
+    from prime_rl.trainer.optim import GradientOffloadManager
 
 DEFAULT_TIMEOUT = timedelta(seconds=600)
 
@@ -55,60 +59,47 @@ class GarbageCollection:
         get_logger().info(f"[GC] collection took {time.monotonic() - begin:.2f}s")
 
 
-def _to_local_tensor(tensor: Tensor | DTensor) -> Tensor:
-    if isinstance(tensor, DTensor):
-        return tensor.to_local()
-    return tensor
+def prepare_gradient_offload(
+    manager: "GradientOffloadManager | None",
+    gradient_scale: float,
+    *,
+    overlap_optimizer: bool,
+) -> None:
+    if manager is not None:
+        manager.begin_step(gradient_scale, overlap_optimizer=overlap_optimizer)
 
 
-def count_zero_gradient_elements(parameters: Iterable[nn.Parameter]) -> tuple[Tensor, Tensor]:
-    """Count zero-gradient parameter elements on the local distributed shards.
-
-    Parameters that require gradients but did not receive one in the current step
-    are counted as fully zero. This makes inactive MoE experts visible in the
-    metric instead of silently dropping them from the count.
-    """
-
-    device = torch.device("cuda", torch.cuda.current_device()) if torch.cuda.is_available() else torch.device("cpu")
-    num_zeros = torch.zeros((), dtype=torch.long, device=device)
-    num_tracked = torch.zeros((), dtype=torch.long, device=device)
-
-    for param in parameters:
-        if not param.requires_grad:
-            continue
-
-        local_param = _to_local_tensor(param.detach())
-        if local_param.numel() == 0:
-            continue
-
-        if local_param.device != num_zeros.device:
-            num_zeros = num_zeros.to(local_param.device)
-            num_tracked = num_tracked.to(local_param.device)
-
-        local_numel = torch.tensor(local_param.numel(), dtype=torch.long, device=local_param.device)
-        num_tracked += local_numel
-
-        if param.grad is None:
-            num_zeros += local_numel
-            continue
-
-        local_grad = _to_local_tensor(param.grad.detach())
-        if local_grad.numel() != local_param.numel():
-            raise ValueError("Local gradient shape does not match the local parameter shape")
-
-        num_zeros += local_numel - torch.count_nonzero(local_grad)
-
-    return num_zeros, num_tracked
+def begin_backward(manager: "GradientOffloadManager | None", *, final_backward: bool) -> None:
+    if manager is not None:
+        manager.begin_backward(final_backward=final_backward)
 
 
-def get_zero_gradient_ratio(parameters: Iterable[nn.Parameter], dp_replicate: int = 1) -> float:
-    num_zero_grad, num_grad_elements = count_zero_gradient_elements(parameters)
-    dist.all_reduce(num_zero_grad, op=dist.ReduceOp.SUM)
-    dist.all_reduce(num_grad_elements, op=dist.ReduceOp.SUM)
-    if dp_replicate > 1:
-        num_zero_grad = torch.div(num_zero_grad, dp_replicate, rounding_mode="floor")
-        num_grad_elements = torch.div(num_grad_elements, dp_replicate, rounding_mode="floor")
-    return (num_zero_grad.float() / num_grad_elements.clamp_min(1).float()).item()
+def finish_backward(manager: "GradientOffloadManager | None", *, wait_for_copies: bool = False) -> None:
+    if manager is not None:
+        manager.finish_backward(wait_for_copies=wait_for_copies)
+
+
+@torch.no_grad()
+def scale_gradients_(manager: "GradientOffloadManager | None", model: nn.Module, factor: float) -> None:
+    if manager is not None:
+        manager.scale_(factor)
+        return
+    for param in model.parameters():
+        if param.grad is not None:
+            param.grad.mul_(factor)
+
+
+def clip_grad_norm_(
+    manager: "GradientOffloadManager | None",
+    model: nn.Module,
+    max_norm: float,
+    ep_enabled: bool,
+) -> Tensor:
+    if manager is not None:
+        grad_norm = manager.clip_grad_norm_(max_norm)
+    else:
+        grad_norm = torch_clip_grad_norm_(model.parameters(), max_norm=max_norm, ep_enabled=ep_enabled)
+    return grad_norm.cuda() if grad_norm.device.type == "cpu" else grad_norm
 
 
 def get_ckpt_disk_metrics(output_dir: Path) -> dict[str, float]:
@@ -130,6 +121,62 @@ def get_ckpt_disk_metrics(output_dir: Path) -> dict[str, float]:
     }
 
 
+def bind_process_to_gpu_numa_node() -> None:
+    """Pin this rank's CPUs to its GPU's NUMA node.
+
+    Offloaded optimizer state is pageable host memory placed by first-touch, and the
+    CPU optimizer pipeline is DRAM-bandwidth-bound; binding before the state is
+    allocated keeps slabs, OMP threads, and pinned rings local to the socket the
+    GPU hangs off. Must run before CPU optimizer state allocation and before the
+    OMP thread pool spins up.
+    """
+    import pynvml
+
+    logger = get_logger()
+    device_id = torch.cuda.current_device()
+    pynvml.nvmlInit()
+    try:
+        bus_id = pynvml.nvmlDeviceGetPciInfo(pynvml.nvmlDeviceGetHandleByIndex(device_id)).busId
+    finally:
+        pynvml.nvmlShutdown()
+    if isinstance(bus_id, bytes):
+        bus_id = bus_id.decode()
+    domain, rest = bus_id.split(":", 1)
+    sysfs_bus_id = f"{int(domain, 16):04x}:{rest}".lower()
+    numa_node = int(Path(f"/sys/bus/pci/devices/{sysfs_bus_id}/numa_node").read_text())
+    if numa_node < 0:
+        logger.warning(f"GPU {device_id} ({sysfs_bus_id}) reports no NUMA node; skipping NUMA binding")
+        return
+    cpus: set[int] = set()
+    for part in Path(f"/sys/devices/system/node/node{numa_node}/cpulist").read_text().strip().split(","):
+        if "-" in part:
+            start, end = part.split("-")
+            cpus.update(range(int(start), int(end) + 1))
+        else:
+            cpus.add(int(part))
+    os.sched_setaffinity(0, cpus)
+    logger.info(f"Bound rank with GPU {device_id} to NUMA node {numa_node} ({len(cpus)} CPUs)")
+
+
+def configure_cpu_optimizer_threads() -> None:
+    available = os.sched_getaffinity(0)
+    fair_share = (os.cpu_count() or len(available)) // get_world().local_world_size
+    threads = max(1, min(len(available), fair_share))
+    torch.set_num_threads(threads)
+    get_logger().info(
+        f"CPU optimizer uses {threads} intra-op threads "
+        f"({len(available)} CPUs in this rank's affinity mask, {get_world().local_world_size} local ranks)"
+    )
+
+
+def setup_full_cpu_optimizer_offload(config: "FullOptimizerOffloadingConfig | None") -> None:
+    if config is None:
+        return
+    if config.numa_bind:
+        bind_process_to_gpu_numa_node()
+    configure_cpu_optimizer_threads()
+
+
 def setup_torch_distributed(timeout: timedelta = DEFAULT_TIMEOUT, enable_gloo: bool = False):
     device_id = get_world().local_rank
     torch.cuda.set_device(device_id)
@@ -139,6 +186,13 @@ def setup_torch_distributed(timeout: timedelta = DEFAULT_TIMEOUT, enable_gloo: b
     if enable_gloo:
         get_logger().info("Using Gloo backend for CPU and NCCL backend for GPU")
         backend = "cpu:gloo,cuda:nccl"
+
+    # init_process_group applies `timeout` only to the default PG; device-mesh
+    # sub-groups (dp/cp/ep) are created via new_group without a timeout and fall
+    # back to torch's 10-minute module default — dist_timeout_seconds silently
+    # never reached the PGs doing the real work (watchdogs at 600s). Patch the
+    # module default so every subsequently created PG inherits it.
+    dist.distributed_c10d.default_pg_timeout = timeout
 
     dist.init_process_group(backend=backend, timeout=timeout, device_id=device_id)
 

@@ -5,7 +5,7 @@
 max_steps = 1
 seq_len = 4096
 max_train_batch_lead = 0
-output_dir = "/ephemeral/subagent-rung/outputs/344-qwen35-27b-memory-v2-failure-sdpo-smoke-r2"
+output_dir = "/ephemeral/subagent-rung/outputs/344-qwen35-27b-memory-v2-failure-sdpo-smoke-r3"
 clean_output_dir = true
 
 [deployment]
@@ -23,7 +23,8 @@ attn = "auto"
 impl = "custom"
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
-optim_cpu_offload = true
+optim_cpu_offload = false
+full_optim_cpu_offload = true
 reshard_after_forward = true
 fused_lm_head_token_chunk_size = "disabled"
 

@@ -57,10 +57,15 @@ from prime_rl.trainer.utils import (
     GarbageCollection,
     MemoryProfiler,
     Tensors,
+    begin_backward,
+    clip_grad_norm_,
     export_benchmark_json,
     filter_rl_trainer_tensor_stats_for_wandb,
-    get_zero_gradient_ratio,
+    finish_backward,
     get_ckpt_disk_metrics,
+    prepare_gradient_offload,
+    scale_gradients_,
+    setup_full_cpu_optimizer_offload,
     setup_torch_distributed,
     print_benchmark,
 )
@@ -74,7 +79,6 @@ from prime_rl.utils.config import cli
 from prime_rl.utils.process import set_proc_title
 from prime_rl.utils.utils import clean_exit, resolve_latest_ckpt_step, to_col_format
 from ring_flash_attn import substitute_hf_flash_attn
-from torchtitan.distributed.utils import clip_grad_norm_
 
 
 @clean_exit
@@ -120,6 +124,7 @@ def train(config: TrainerConfig):
     setup_torch_distributed(
         timeout=timedelta(seconds=config.dist_timeout_seconds), enable_gloo=config.model.fsdp_cpu_offload
     )
+    setup_full_cpu_optimizer_offload(config.model.full_optim_cpu_offload)
     # Configurable to support ROCm/AMD GPUs where reduced precision
     # matmul corrupts softmax over large vocabularies. Override via config
     # (e.g. matmul_precision = "highest") on ROCm.
@@ -173,11 +178,13 @@ def train(config: TrainerConfig):
     # Set up the optimizer
     logger.info(f"Initializing optimizer ({config.optim})")
 
-    optimizer = setup_optimizer(
+    optimizer, gradient_manager = setup_optimizer(
         config.optim,
         list(model.named_parameters()),
         parallel_dims,
         cpu_offload=config.model.optim_cpu_offload,
+        full_offload_config=config.model.full_optim_cpu_offload,
+        model=model,
     )
     scheduler = setup_scheduler(optimizer, config.scheduler, config.max_steps, config.optim.lr)
 
@@ -344,6 +351,11 @@ def train(config: TrainerConfig):
         if has_global_sdpo and not config.sdpo_loss.enabled:
             raise ValueError("Received SDPO samples but trainer.sdpo_loss.enabled is false")
         rl_scale, ce_scale, ref_kl_scale, sdpo_scale = (max(scale, 1) for scale in global_scales.tolist())
+        prepare_gradient_offload(
+            gradient_manager,
+            parallel_dims.fsdp_gradient_divide_factor,
+            overlap_optimizer=True,
+        )
 
         logger.debug(f"Starting forward and backward pass ({batch_size=})")
         tensors = Tensors()  # Used to accumulate tensor statistics across micro-batches and ranks for logging
@@ -625,7 +637,9 @@ def train(config: TrainerConfig):
 
             # Backward pass
             with maybe_record_function("backward"):
+                begin_backward(gradient_manager, final_backward=micro_step == len(micro_batches) - 1)
                 loss.backward()
+                finish_backward(gradient_manager)
 
             # Add relevant tensors to tensor dict for logging purposes
             entropy = out["entropy"][loss_mask].detach().to("cpu")
@@ -704,20 +718,13 @@ def train(config: TrainerConfig):
 
         # compute_loss already divided by the global token count. Undo FSDP's per-rank averaging
         # across dp_cp so the final gradient is the true per-token mean over the global batch.
-        for param in model.parameters():
-            if param.grad is not None:
-                param.grad.mul_(parallel_dims.fsdp_gradient_divide_factor)
+        if gradient_manager is None:
+            scale_gradients_(None, model, parallel_dims.fsdp_gradient_divide_factor)
 
         # Optionally, clip the gradients
         grad_norm: torch.Tensor | None = None
         if config.optim.max_norm is not None:
-            grad_norm = clip_grad_norm_(
-                model.parameters(), max_norm=config.optim.max_norm, ep_enabled=parallel_dims.ep_enabled
-            )
-            if grad_norm.device.type == "cpu":
-                grad_norm = grad_norm.to(torch.device("cuda"))
-
-        zero_grad_ratio = get_zero_gradient_ratio(model.parameters(), parallel_dims.dp_replicate)
+            grad_norm = clip_grad_norm_(gradient_manager, model, config.optim.max_norm, parallel_dims.ep_enabled)
 
         update_succeeded = optimizer_update_succeeded(grad_norm)
         if update_succeeded:
@@ -749,6 +756,10 @@ def train(config: TrainerConfig):
             )
             if not broadcast_unused:
                 broadcast_weights_start_time = time.perf_counter()
+                # The per-layer gather + fp8 conversion peaks ~50 GiB above the
+                # resident weights; release cached blocks (incl. offload-stream
+                # pools) so the broadcast gets the full headroom.
+                torch.cuda.empty_cache()
                 weight_broadcast.broadcast_weights(model, step=progress.step)
                 broadcast_weights_time = time.perf_counter() - broadcast_weights_start_time
                 # Clean up old broadcast directories (unless at ckpt interval if using filesystem weight broadcast)
@@ -838,7 +849,6 @@ def train(config: TrainerConfig):
         optim_metrics = {
             "optim/lr": current_lr,
             "optim/update_succeeded": float(update_succeeded),
-            "optim/zero_grad_ratio": zero_grad_ratio,
             "step": progress.step,
         }
         if grad_norm is not None:
@@ -883,7 +893,6 @@ def train(config: TrainerConfig):
                 mfu=mfu,
                 entropy=tensor_stats.get("entropy/all/mean", 0.0),
                 mismatch_kl=tensor_stats.get("mismatch_kl/all/mean", 0.0),
-                zero_grad_ratio=zero_grad_ratio,
             )
 
         # Send heartbeat if configured
@@ -922,6 +931,9 @@ def train(config: TrainerConfig):
         logger.info("Writing final weight checkpoint")
         weight_ckpt_manager.save(progress.step, model, tokenizer, processor)
         weight_ckpt_manager.maybe_clean()
+
+    if gradient_manager is not None:
+        gradient_manager.close()
 
     logger.info(f"Peak memory: {max(to_col_format(monitor.history)['perf/peak_memory']):.1f} GiB")
     logger.success("RL trainer finished!")
