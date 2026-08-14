@@ -33,18 +33,22 @@ from prime_rl.trainer.rl.loss import (
     setup_rl_loss_fn,
     shift_tensor_left,
     shift_tensor_right,
+    validate_global_component_scales,
 )
 from prime_rl.trainer.rl.token_export import setup_token_exporter
 from prime_rl.trainer.rl.sdpo_support import (
     active_sdpo_weight_mask,
-    gather_sdpo_student_topk_logprobs,
-    gather_sdpo_teacher_topk_logprobs,
+    align_sdpo_predictor_logprobs_to_current_tokens,
+    align_sdpo_predictor_support_to_current_tokens,
+    gather_sdpo_teacher_fused_topk_logprobs,
     pack_sdpo_teacher_span_batches,
-    select_sdpo_student_topk_support,
+    pad_sdpo_teacher_batches,
+    place_sdpo_teacher_support_on_predictors,
 )
 from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
 from prime_rl.trainer.model import (
     forward,
+    reshard_module,
     setup_tokenizer,
     setup_processor,
     setup_model,
@@ -347,10 +351,11 @@ def train(config: TrainerConfig):
         )
         dp_cp_group = parallel_dims.get_mesh("dp_cp").get_group()
         dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
-        has_global_sdpo = bool(global_scales[3] > 0)
+        raw_component_scales = validate_global_component_scales(global_scales)
+        has_global_sdpo = raw_component_scales[3] > 0
         if has_global_sdpo and not config.sdpo_loss.enabled:
             raise ValueError("Received SDPO samples but trainer.sdpo_loss.enabled is false")
-        rl_scale, ce_scale, ref_kl_scale, sdpo_scale = (max(scale, 1) for scale in global_scales.tolist())
+        rl_scale, ce_scale, ref_kl_scale, sdpo_scale = (max(scale, 1) for scale in raw_component_scales)
         prepare_gradient_offload(
             gradient_manager,
             parallel_dims.fsdp_gradient_divide_factor,
@@ -458,6 +463,7 @@ def train(config: TrainerConfig):
                 temperatures = shard_for_cp(temperatures, cp_rank=cp_rank, cp_world_size=cp_size)
 
             sdpo_topk_token_ids = None
+            sdpo_predictor_topk_token_ids = None
             sdpo_topk_logprobs = None
             if has_global_sdpo:
                 if mm_kwargs is not None:
@@ -480,15 +486,20 @@ def train(config: TrainerConfig):
                         seq_lens=seq_lens,
                         seq_lens_are_pre_shard=seq_lens_are_pre_shard,
                         routed_experts=routed_experts,
+                        support_topk=topk,
                     )
-                    support_logits = support_out.get("logits")
-                    if support_logits is None:
+                    sdpo_predictor_topk_token_ids = support_out.get("topk_token_ids")
+                    if sdpo_predictor_topk_token_ids is None:
                         raise ValueError(
-                            "SDPO top-k distillation requires trainer logits; "
-                            "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
+                            "SDPO top-k distillation requires sparse fused LM-head support; "
+                            "set trainer.model.fused_lm_head_token_chunk_size to an integer"
                         )
-                    sdpo_topk_token_ids = select_sdpo_student_topk_support(support_logits, temperatures, topk)
-                    del support_out, support_logits
+                    vocab_size = getattr(model.config, "vocab_size", None) or model.config.text_config.vocab_size
+                    sdpo_topk_token_ids = align_sdpo_predictor_support_to_current_tokens(
+                        sdpo_predictor_topk_token_ids,
+                        vocab_size,
+                    )
+                    del support_out
 
                 if config.model.lora:
                     active_loras = torch.nonzero(lora_num_tokens, as_tuple=False).flatten()
@@ -496,6 +507,13 @@ def train(config: TrainerConfig):
                         raise ValueError("SDPO teacher replay requires one active LoRA per micro batch")
 
                 teacher_batches = pack_sdpo_teacher_span_batches(sdpo_teacher_spans, config.model.seq_len)
+                teacher_batch_count = torch.tensor(len(teacher_batches), dtype=torch.int64, device="cuda")
+                dist.all_reduce(teacher_batch_count, op=dist.ReduceOp.MAX, group=dp_cp_group)
+                teacher_batches = pad_sdpo_teacher_batches(
+                    teacher_batches,
+                    int(teacher_batch_count.item()),
+                    dummy_token_id=int(input_ids[0, 0]),
+                )
                 for (
                     teacher_ids,
                     teacher_position_ids_list,
@@ -517,6 +535,22 @@ def train(config: TrainerConfig):
                         set_lora_num_tokens(teacher_lora_num_tokens)
 
                     with torch.no_grad(), maybe_record_function("sdpo_teacher"):
+                        if student_targets:
+                            student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
+                            teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
+                            support_ids = sdpo_topk_token_ids[0, student_target_tensor]
+                            teacher_predictor_support = place_sdpo_teacher_support_on_predictors(
+                                teacher_target_tensor,
+                                support_ids,
+                                teacher_input_ids.shape[1],
+                            )
+                        else:
+                            teacher_predictor_support = torch.zeros(
+                                (1, teacher_input_ids.shape[1], topk),
+                                dtype=torch.long,
+                                device="cuda",
+                            )
+
                         teacher_out = forward(
                             sdpo_teacher_model,
                             teacher_input_ids,
@@ -528,26 +562,31 @@ def train(config: TrainerConfig):
                             seq_lens=teacher_seq_lens,
                             seq_lens_are_pre_shard=False,
                             routed_experts=None,
+                            topk_token_ids=teacher_predictor_support,
                         )
-                        teacher_logits = teacher_out.get("logits")
-                        if teacher_logits is None:
+                        teacher_topk_logprobs = teacher_out.get("topk_logprobs")
+                        if teacher_topk_logprobs is None:
                             raise ValueError(
-                                "SDPO teacher replay requires trainer logits; "
-                                "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
+                                "SDPO teacher replay requires sparse fused LM-head scores; "
+                                "set trainer.model.fused_lm_head_token_chunk_size to an integer"
                             )
                         if sdpo_topk_logprobs is None:
-                            sdpo_topk_logprobs = torch.zeros_like(sdpo_topk_token_ids, dtype=teacher_logits.dtype)
+                            sdpo_topk_logprobs = torch.zeros_like(
+                                sdpo_topk_token_ids,
+                                dtype=teacher_topk_logprobs.dtype,
+                            )
                         if student_targets:
-                            student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
-                            teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
-                            support_ids = sdpo_topk_token_ids[0, student_target_tensor]
-                            teacher_scores = gather_sdpo_teacher_topk_logprobs(
-                                teacher_logits,
+                            teacher_scores = gather_sdpo_teacher_fused_topk_logprobs(
+                                teacher_topk_logprobs,
                                 teacher_target_tensor,
-                                support_ids,
+                                vocab_size,
                             )
                             sdpo_topk_logprobs[0, student_target_tensor] = teacher_scores
-                        del teacher_out, teacher_logits
+                        del teacher_out, teacher_topk_logprobs
+
+                # The LM head and final norm intentionally use no-reshard forward mode.
+                # Restore teacher shards before the post-backward EMA update.
+                reshard_module(sdpo_teacher_model)
 
                 if config.model.lora:
                     set_lora_num_tokens(lora_num_tokens)
@@ -565,22 +604,20 @@ def train(config: TrainerConfig):
                     seq_lens=seq_lens,
                     seq_lens_are_pre_shard=seq_lens_are_pre_shard,
                     routed_experts=routed_experts,
+                    topk_token_ids=sdpo_predictor_topk_token_ids,
                 )
 
             student_topk_logprobs = None
             if sdpo_topk_token_ids is not None:
-                logits = out.get("logits")
-                if logits is None:
+                predictor_topk_logprobs = out.get("topk_logprobs")
+                if predictor_topk_logprobs is None:
                     raise ValueError(
-                        "SDPO top-k distillation requires trainer logits; "
-                        "set trainer.model.fused_lm_head_token_chunk_size='disabled'"
+                        "SDPO top-k distillation requires sparse fused LM-head scores; "
+                        "set trainer.model.fused_lm_head_token_chunk_size to an integer"
                     )
-                support_mask = loss_mask if sdpo_weights is None else loss_mask & active_sdpo_weight_mask(sdpo_weights)
-                student_topk_logprobs = gather_sdpo_student_topk_logprobs(
-                    logits,
-                    temperatures,
-                    sdpo_topk_token_ids,
-                    support_mask=support_mask,
+                student_topk_logprobs = align_sdpo_predictor_logprobs_to_current_tokens(
+                    predictor_topk_logprobs,
+                    vocab_size,
                 )
 
             if out.get("logprobs") is None:
@@ -844,6 +881,15 @@ def train(config: TrainerConfig):
             "step": progress.step,
         }
         monitor.log(perf_metrics, step=progress.step)
+
+        component_token_metrics = {
+            "loss_tokens/rl": raw_component_scales[0],
+            "loss_tokens/ce": raw_component_scales[1],
+            "loss_tokens/ref_kl": raw_component_scales[2],
+            "loss_tokens/sdpo": raw_component_scales[3],
+            "step": progress.step,
+        }
+        monitor.log(component_token_metrics, step=progress.step)
 
         # Log optimizer metrics
         optim_metrics = {

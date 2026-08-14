@@ -89,6 +89,54 @@ def test_fused_lm_head_frozen_weight_backward_cpu():
     assert lm.weight.grad is None
 
 
+def test_fused_lm_head_sparse_topk_matches_full_logits_forward_and_backward_cpu():
+    torch.manual_seed(7)
+    b, s, h, v, k = 2, 4, 8, 37, 5
+    temperature = torch.rand((b, s), dtype=torch.float32) + 0.7
+    labels = torch.randint(0, v, (b, s), dtype=torch.long)
+    topk_token_ids = torch.stack([torch.randperm(v)[: b * s] for _ in range(k)], dim=-1).reshape(b, s, k)
+
+    hidden0 = torch.randn(b, s, h, dtype=torch.float32, requires_grad=True)
+    weight0 = torch.randn(v, h, dtype=torch.float32, requires_grad=True)
+    logits0 = hidden0 @ weight0.t() / temperature.unsqueeze(-1)
+    logprobs0 = logits0.log_softmax(dim=-1)
+    label_logprobs0 = torch.gather(logprobs0, -1, labels.unsqueeze(-1)).squeeze(-1)
+    topk_logprobs0 = torch.gather(logprobs0, -1, topk_token_ids)
+    loss0 = 0.25 * label_logprobs0.sum() + (topk_logprobs0 * torch.linspace(0.1, 0.5, k)).sum()
+    loss0.backward()
+
+    hidden1 = hidden0.detach().clone().requires_grad_(True)
+    weight1 = weight0.detach().clone().requires_grad_(True)
+    lm = FusedOutputLinear(in_features=h, out_features=v, chunk_size=3)
+    lm.weight = torch.nn.Parameter(weight1)
+    out = lm(hidden1, labels, temperature=temperature, topk_token_ids=topk_token_ids)
+    loss1 = 0.25 * out["logprobs"].sum() + (out["topk_logprobs"] * torch.linspace(0.1, 0.5, k)).sum()
+    loss1.backward()
+
+    torch.testing.assert_close(out["logprobs"], label_logprobs0, rtol=0, atol=1e-5)
+    torch.testing.assert_close(out["topk_logprobs"], topk_logprobs0, rtol=0, atol=1e-5)
+    torch.testing.assert_close(hidden1.grad, hidden0.grad, rtol=0, atol=1e-5)
+    torch.testing.assert_close(lm.weight.grad, weight0.grad, rtol=0, atol=1e-5)
+
+
+def test_fused_lm_head_selects_exact_topk_support_without_full_logits():
+    torch.manual_seed(11)
+    b, s, h, v, k = 2, 3, 7, 31, 4
+    hidden = torch.randn(b, s, h, dtype=torch.float32)
+    weight = torch.randn(v, h, dtype=torch.float32)
+    temperature = torch.rand((b, s), dtype=torch.float32) + 0.5
+    labels = torch.randint(0, v, (b, s), dtype=torch.long)
+
+    lm = FusedOutputLinear(in_features=h, out_features=v, chunk_size=2)
+    lm.weight = torch.nn.Parameter(weight)
+    out = lm(hidden, labels, temperature=temperature, support_topk=k)
+
+    expected_logprobs = (hidden @ weight.t() / temperature.unsqueeze(-1)).log_softmax(dim=-1)
+    expected_values, expected_ids = torch.topk(expected_logprobs, k, dim=-1)
+    assert torch.equal(out["topk_token_ids"], expected_ids)
+    torch.testing.assert_close(out["topk_logprobs"], expected_values, rtol=0, atol=1e-5)
+
+
 def test_fused_lm_head_requires_labels():
     """Test that FusedOutputLinear raises assertion error when labels is None."""
     torch.manual_seed(0)

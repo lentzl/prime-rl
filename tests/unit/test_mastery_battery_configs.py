@@ -61,6 +61,21 @@ def test_externalization_ramp_separates_aggregation_from_semantic_classification
     assert recursive["env"]["agent"]["max_turns"] > labeled["env"]["agent"]["max_turns"]
 
 
+def test_failure_sdpo_smoke_retains_prime_agent_actions_and_writes_portable_weights() -> None:
+    config = load_config("344-qwen35-27b-memory-v2-failure-sdpo-smoke.toml")
+
+    assert config["seq_len"] == config["trainer"]["model"]["seq_len"] == 12_288
+    assert config["trainer"]["model"]["fused_lm_head_token_chunk_size"] == 512
+    assert config["orchestrator"]["batch_size"] == config["deployment"]["num_train_gpus"] == 6
+    assert config["orchestrator"]["max_inflight_episodes"] == 2 * config["orchestrator"]["batch_size"]
+    assert config["orchestrator"]["train"]["source"][0]["env"]["agent"]["max_turns"] >= 12
+    assert config["seq_len"] == (
+        config["orchestrator"]["algo"]["max_reprompt_len"]
+        + config["orchestrator"]["train"]["sampling"]["max_completion_tokens"]
+    )
+    assert config["trainer"]["ckpt"]["weights_only"] is True
+
+
 def test_oolong_scale_admission_increases_decomposition_pressure() -> None:
     names = (
         "334-qwen35-27b-oolong-semantic-4k-admission.toml",

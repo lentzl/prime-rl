@@ -96,6 +96,22 @@ def shift_tensor_right(t: Float[Tensor, "batch seq"], pad_value: float | None = 
     return torch.cat([torch.full((t.shape[0], 1), pad_value, device=t.device, dtype=t.dtype), t[:, :-1]], dim=1)
 
 
+def validate_global_component_scales(global_scales: Tensor) -> tuple[int, int, int, int]:
+    """Validate global rl, ce, ref-kl, and sdpo token counts before backward."""
+    if global_scales.ndim != 1 or global_scales.numel() != 4:
+        raise ValueError("global loss-component scales must contain exactly four token counts")
+    if bool((global_scales < 0).any()):
+        raise ValueError("global loss-component token counts must be non-negative")
+
+    rl, ce, ref_kl, sdpo = (int(scale) for scale in global_scales.tolist())
+    if rl + ce + ref_kl + sdpo == 0:
+        raise ValueError(
+            "training batch has no globally active loss tokens after packing/truncation; "
+            "increase model.seq_len or repair the routed component masks"
+        )
+    return rl, ce, ref_kl, sdpo
+
+
 def _safe_mean(values: Tensor, mask: Tensor) -> Tensor:
     """Mean of values over a boolean mask; returns 0 when mask is empty."""
     denom = torch.clamp_min(mask.sum(), 1)

@@ -404,12 +404,10 @@ class RLConfig(BaseConfig):
             raise ValueError("SDPO EMA teacher training does not support FP8 quantization yet.")
         if self.trainer.model.lora is not None and self.trainer.sdpo_loss.teacher_regularization == "ema":
             raise ValueError("SDPO EMA teacher training does not support LoRA yet.")
-        if self.trainer.model.fused_lm_head_token_chunk_size != "disabled":
-            if "fused_lm_head_token_chunk_size" in self.trainer.model.model_fields_set:
-                raise ValueError(
-                    "SDPO requires trainer.model.fused_lm_head_token_chunk_size='disabled' to expose logits."
-                )
-            self.trainer.model.fused_lm_head_token_chunk_size = "disabled"
+        if self.trainer.model.fused_lm_head_token_chunk_size == "disabled":
+            raise ValueError(
+                "SDPO requires an integer trainer.model.fused_lm_head_token_chunk_size for sparse top-k scoring."
+            )
         return self
 
     @model_validator(mode="after")

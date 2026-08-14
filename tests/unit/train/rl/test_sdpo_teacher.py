@@ -1,6 +1,9 @@
 import pytest
 import torch
+import torch.distributed as dist
 from torch import nn
+from torch.distributed.device_mesh import DeviceMesh
+from torch.distributed.tensor import Shard, distribute_tensor
 
 from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
 
@@ -66,3 +69,23 @@ def test_sdpo_ema_teacher_freezes_teacher():
     assert not teacher.training
     assert all(not parameter.requires_grad for parameter in teacher.parameters())
     assert ema.teacher is teacher
+
+
+def test_sdpo_ema_teacher_updates_from_dtensor_local_shard(tmp_path):
+    store_path = tmp_path / "ema-dtensor-store"
+    dist.init_process_group("gloo", init_method=f"file://{store_path}", rank=0, world_size=1)
+    try:
+        mesh = DeviceMesh("cpu", [0])
+        teacher = nn.Linear(2, 1, bias=False)
+        student = nn.Linear(2, 1, bias=False)
+        with torch.no_grad():
+            teacher.weight.zero_()
+            student.weight.copy_(torch.tensor([[4.0, 8.0]]))
+        student.weight = nn.Parameter(distribute_tensor(student.weight.detach(), mesh, [Shard(0)]))
+
+        ema = SDPOEMATeacher(teacher, student, update_rate=0.25)
+        ema.step()
+
+        torch.testing.assert_close(teacher.weight, torch.tensor([[1.0, 2.0]]))
+    finally:
+        dist.destroy_process_group()

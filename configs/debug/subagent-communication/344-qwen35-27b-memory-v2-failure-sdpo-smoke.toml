@@ -3,9 +3,9 @@
 # condition hindsight replay only after the original attempt has failed.
 
 max_steps = 1
-seq_len = 4096
+seq_len = 12288
 max_train_batch_lead = 0
-output_dir = "/ephemeral/subagent-rung/outputs/344-qwen35-27b-memory-v2-failure-sdpo-smoke-r3"
+output_dir = "/ephemeral/subagent-rung/outputs/344-qwen35-27b-memory-v2-failure-sdpo-smoke-r11"
 clean_output_dir = true
 
 [deployment]
@@ -18,7 +18,7 @@ name = "Qwen/Qwen3.5-27B"
 revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
 
 [trainer.model]
-seq_len = 4096
+seq_len = 12288
 attn = "auto"
 impl = "custom"
 optimization_dtype = "bfloat16"
@@ -26,7 +26,7 @@ reduce_dtype = "bfloat16"
 optim_cpu_offload = false
 full_optim_cpu_offload = true
 reshard_after_forward = true
-fused_lm_head_token_chunk_size = "disabled"
+fused_lm_head_token_chunk_size = 512
 
 [trainer.model.compile]
 fullgraph = false
@@ -61,9 +61,9 @@ betas2 = 0.999
 type = "constant"
 
 [orchestrator]
-batch_size = 4
+batch_size = 6
 group_size = 1
-max_inflight_episodes = 8
+max_inflight_episodes = 12
 oversampling_factor = 2.0
 max_off_policy_steps = 0
 
@@ -75,6 +75,7 @@ include_environment_feedback = true
 require_explicit_feedback = true
 environment_feedback_only_without_solution = true
 multi_turn_replay = true
+max_reprompt_len = 10240
 
 [orchestrator.algo.renderer]
 name = "qwen3.5"
@@ -114,7 +115,7 @@ record_causal_feedback = true
 reward_shape = "dense"
 
 [orchestrator.train.source.env.agent]
-max_turns = 8
+max_turns = 12
 max_output_tokens = 8192
 max_total_tokens = 24576
 
@@ -165,7 +166,7 @@ keep_last = 1
 keep_interval = 1
 
 [trainer.ckpt]
-weights_only = false
+weights_only = true
 
 [file_monitor]
 filename = "metrics.jsonl"

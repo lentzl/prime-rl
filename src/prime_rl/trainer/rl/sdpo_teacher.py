@@ -6,6 +6,7 @@ from typing import Any
 import torch
 from torch import nn
 from torch.distributed.checkpoint.stateful import Stateful
+from torch.distributed.tensor import DTensor
 
 
 def _validate_update_rate(value: float) -> float:
@@ -37,6 +38,30 @@ def _paired_named_tensors(
     return pairs
 
 
+def _local_tensor(value: torch.Tensor) -> torch.Tensor:
+    return value.to_local() if isinstance(value, DTensor) else value
+
+
+def _paired_local_tensors(
+    teacher_tensors: list[tuple[str, torch.Tensor]],
+    student_tensors: list[tuple[str, torch.Tensor]],
+    *,
+    kind: str,
+) -> list[tuple[str, torch.Tensor, torch.Tensor]]:
+    pairs = []
+    for name, teacher_value, student_value in _paired_named_tensors(
+        teacher_tensors,
+        student_tensors,
+        kind=kind,
+    ):
+        teacher_local = _local_tensor(teacher_value)
+        student_local = _local_tensor(student_value)
+        if teacher_local.shape != student_local.shape:
+            raise ValueError(f"SDPO EMA teacher and student local shard shapes differ for {name!r}")
+        pairs.append((name, teacher_local, student_local))
+    return pairs
+
+
 class SDPOEMATeacher(Stateful):
     """Checkpointable EMA teacher bound to the trainable policy."""
 
@@ -58,11 +83,11 @@ class SDPOEMATeacher(Stateful):
 
     def sync_from_student(self) -> None:
         with torch.no_grad():
-            for _, teacher_value, student_value in _paired_named_tensors(
+            for _, teacher_value, student_value in _paired_local_tensors(
                 list(self.teacher.named_parameters()),
                 list(self.student.named_parameters()),
                 kind="parameter",
-            ) + _paired_named_tensors(
+            ) + _paired_local_tensors(
                 list(self.teacher.named_buffers()),
                 list(self.student.named_buffers()),
                 kind="buffer",
@@ -71,7 +96,7 @@ class SDPOEMATeacher(Stateful):
 
     def step(self) -> None:
         with torch.no_grad():
-            for _, teacher_value, student_value in _paired_named_tensors(
+            for _, teacher_value, student_value in _paired_local_tensors(
                 list(self.teacher.named_parameters()),
                 list(self.student.named_parameters()),
                 kind="parameter",

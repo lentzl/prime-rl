@@ -1,9 +1,13 @@
 from __future__ import annotations
 
+import math
+
 import torch
 from torch import Tensor
 
 from prime_rl.transport import SDPOTeacherSpan
+
+SDPOTeacherBatch = tuple[list[int], list[int], list[int], list[int], list[int]]
 
 
 def active_sdpo_weight_mask(weights: Tensor) -> Tensor:
@@ -14,6 +18,75 @@ def active_sdpo_weight_mask(weights: Tensor) -> Tensor:
     if bool((weights < 0).any()):
         raise ValueError("sdpo_weights must contain non-negative values")
     return weights != 0
+
+
+def align_sdpo_predictor_support_to_current_tokens(predictor_token_ids: Tensor, vocab_size: int) -> Tensor:
+    """Shift predictor-row support to the current-token convention used by RL batches."""
+    if predictor_token_ids.ndim != 3 or predictor_token_ids.shape[1] == 0 or predictor_token_ids.shape[2] == 0:
+        raise ValueError("SDPO predictor support must have shape (batch, nonempty seq, nonempty topk)")
+    if predictor_token_ids.dtype != torch.long:
+        raise ValueError("SDPO predictor support ids must use torch.long dtype")
+    if not bool(((predictor_token_ids >= 0) & (predictor_token_ids < vocab_size)).all()):
+        raise ValueError("SDPO predictor support ids must be within the model vocabulary")
+
+    topk = predictor_token_ids.shape[-1]
+    first_support = torch.arange(topk, device=predictor_token_ids.device).view(1, 1, topk)
+    first_support = first_support.expand(predictor_token_ids.shape[0], 1, topk)
+    return torch.cat([first_support, predictor_token_ids[:, :-1]], dim=1)
+
+
+def align_sdpo_predictor_logprobs_to_current_tokens(predictor_logprobs: Tensor, vocab_size: int) -> Tensor:
+    """Shift predictor-row selected log-probabilities to current-token positions."""
+    if predictor_logprobs.ndim != 3 or predictor_logprobs.shape[1] == 0 or predictor_logprobs.shape[2] == 0:
+        raise ValueError("SDPO predictor log-probabilities must have shape (batch, nonempty seq, nonempty topk)")
+    uniform = torch.full(
+        (predictor_logprobs.shape[0], 1, predictor_logprobs.shape[2]),
+        -math.log(vocab_size),
+        dtype=predictor_logprobs.dtype,
+        device=predictor_logprobs.device,
+    )
+    return torch.cat([uniform, predictor_logprobs[:, :-1]], dim=1)
+
+
+def place_sdpo_teacher_support_on_predictors(
+    positions: Tensor,
+    token_ids: Tensor,
+    teacher_seq_len: int,
+) -> Tensor:
+    """Place current-token support ids on the teacher rows that predict them."""
+    if positions.ndim != 1 or token_ids.ndim != 2 or token_ids.shape[0] != positions.shape[0]:
+        raise ValueError("SDPO teacher positions and support ids must align as (targets) and (targets, topk)")
+    if teacher_seq_len <= 0 or not bool(((positions >= 0) & (positions < teacher_seq_len)).all()):
+        raise ValueError("SDPO teacher positions must be within the teacher sequence")
+    positive_positions = positions[positions > 0]
+    if positive_positions.numel() != torch.unique(positive_positions).numel():
+        raise ValueError("SDPO teacher positions must be unique")
+
+    support = torch.zeros((1, teacher_seq_len, token_ids.shape[-1]), dtype=token_ids.dtype, device=token_ids.device)
+    positive = positions > 0
+    support[0, positions[positive] - 1] = token_ids[positive]
+    return support
+
+
+def gather_sdpo_teacher_fused_topk_logprobs(
+    predictor_logprobs: Tensor,
+    positions: Tensor,
+    vocab_size: int,
+) -> Tensor:
+    """Gather fused teacher scores at current-token target positions."""
+    if predictor_logprobs.ndim != 3 or predictor_logprobs.shape[0] != 1:
+        raise ValueError("SDPO teacher predictor log-probabilities must have shape (1, seq, topk)")
+    if positions.ndim != 1 or not bool(((positions >= 0) & (positions < predictor_logprobs.shape[1])).all()):
+        raise ValueError("SDPO teacher positions must be within the teacher sequence")
+    scores = torch.full(
+        (positions.shape[0], predictor_logprobs.shape[-1]),
+        -math.log(vocab_size),
+        dtype=predictor_logprobs.dtype,
+        device=predictor_logprobs.device,
+    )
+    positive = positions > 0
+    scores[positive] = predictor_logprobs[0, positions[positive] - 1]
+    return scores
 
 
 def gather_sdpo_student_topk_logprobs(
@@ -46,9 +119,16 @@ def gather_sdpo_student_topk_logprobs(
             raise ValueError("SDPO top-k token ids must be distinct on supported rows")
 
     scaled_logits = logits / temperatures.unsqueeze(-1)
-    left_pad = torch.zeros_like(scaled_logits[:, :1])
-    current_token_logprobs = torch.cat([left_pad, scaled_logits[:, :-1]], dim=1).log_softmax(dim=-1)
-    return torch.gather(current_token_logprobs, dim=-1, index=token_ids)
+    uniform = torch.full(
+        token_ids[:, :1].shape,
+        -math.log(logits.shape[-1]),
+        dtype=logits.dtype,
+        device=logits.device,
+    )
+    predictor_logits = scaled_logits[:, :-1]
+    selected_logits = torch.gather(predictor_logits, dim=-1, index=token_ids[:, 1:])
+    selected_logprobs = selected_logits - torch.logsumexp(predictor_logits, dim=-1, keepdim=True)
+    return torch.cat([uniform, selected_logprobs], dim=1)
 
 
 def select_sdpo_student_topk_support(logits: Tensor, temperatures: Tensor, topk: int) -> Tensor:
@@ -58,9 +138,9 @@ def select_sdpo_student_topk_support(logits: Tensor, temperatures: Tensor, topk:
         raise ValueError(f"SDPO top-k support size {topk} exceeds vocabulary size {logits.shape[-1]}")
     _validate_logits_and_temperatures(logits, temperatures)
     scaled_logits = logits / temperatures.unsqueeze(-1)
-    left_pad = torch.zeros_like(scaled_logits[:, :1])
-    current_token_logits = torch.cat([left_pad, scaled_logits[:, :-1]], dim=1)
-    return torch.topk(current_token_logits, topk, dim=-1).indices
+    first_support = torch.arange(topk, device=logits.device).view(1, 1, topk).expand(logits.shape[0], 1, topk)
+    predictor_support = torch.topk(scaled_logits[:, :-1], topk, dim=-1).indices
+    return torch.cat([first_support, predictor_support], dim=1)
 
 
 def gather_sdpo_teacher_topk_logprobs(logits: Tensor, positions: Tensor, token_ids: Tensor) -> Tensor:
@@ -72,10 +152,12 @@ def gather_sdpo_teacher_topk_logprobs(logits: Tensor, positions: Tensor, token_i
         raise ValueError("SDPO teacher positions must be within the teacher sequence")
     if not bool(((token_ids >= 0) & (token_ids < logits.shape[-1])).all()):
         raise ValueError("SDPO teacher support ids must be within the model vocabulary")
-    left_pad = torch.zeros_like(logits[:, :1])
-    current_token_logprobs = torch.cat([left_pad, logits[:, :-1]], dim=1).log_softmax(dim=-1)
-    selected_rows = current_token_logprobs[0, positions]
-    return torch.gather(selected_rows, dim=-1, index=token_ids)
+    predictor_positions = (positions - 1).clamp_min(0)
+    predictor_logits = logits[0, predictor_positions]
+    selected_logits = torch.gather(predictor_logits, dim=-1, index=token_ids)
+    selected_logprobs = selected_logits - torch.logsumexp(predictor_logits, dim=-1, keepdim=True)
+    uniform = torch.full_like(selected_logprobs, -math.log(logits.shape[-1]))
+    return torch.where((positions == 0).unsqueeze(-1), uniform, selected_logprobs)
 
 
 def pack_sdpo_teacher_spans(
@@ -104,7 +186,7 @@ def pack_sdpo_teacher_spans(
 def pack_sdpo_teacher_span_batches(
     spans: list[SDPOTeacherSpan] | None,
     max_seq_len: int,
-) -> list[tuple[list[int], list[int], list[int], list[int], list[int]]]:
+) -> list[SDPOTeacherBatch]:
     if isinstance(max_seq_len, bool) or not isinstance(max_seq_len, int) or max_seq_len <= 0:
         raise ValueError("SDPO teacher batch length must be a positive integer")
 
@@ -126,10 +208,26 @@ def pack_sdpo_teacher_span_batches(
     return batches
 
 
+def pad_sdpo_teacher_batches(
+    batches: list[SDPOTeacherBatch],
+    target_count: int,
+    *,
+    dummy_token_id: int,
+) -> list[SDPOTeacherBatch]:
+    """Pad rank-local replay so every FSDP rank runs the same teacher forwards."""
+    if isinstance(target_count, bool) or not isinstance(target_count, int) or target_count < len(batches):
+        raise ValueError("SDPO teacher target batch count must cover all local batches")
+    dummy = ([dummy_token_id], [0], [], [], [1])
+    return [*batches, *([dummy] * (target_count - len(batches)))]
+
+
 def _validate_logits_and_temperatures(logits: Tensor, temperatures: Tensor) -> None:
     if logits.ndim != 3 or temperatures.shape != logits.shape[:2]:
         raise ValueError("SDPO logits and temperatures must align as (batch, seq, vocab) and (batch, seq)")
-    if not torch.is_floating_point(logits) or not bool(torch.isfinite(logits).all()):
+    if not torch.is_floating_point(logits):
+        raise ValueError("SDPO logits must contain finite floating-point values")
+    logit_min, logit_max = torch.aminmax(logits)
+    if not bool(torch.isfinite(logit_min) & torch.isfinite(logit_max)):
         raise ValueError("SDPO logits must contain finite floating-point values")
     if not bool(torch.isfinite(temperatures).all()) or not bool((temperatures > 0).all()):
         raise ValueError("SDPO temperatures must be finite and positive")

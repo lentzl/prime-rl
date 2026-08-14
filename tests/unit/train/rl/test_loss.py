@@ -2,9 +2,27 @@ import pytest
 import torch
 
 from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig
-from prime_rl.trainer.rl.loss import LossInputs, LossOutputs, compute_entropy, compute_loss, setup_rl_loss_fn
+from prime_rl.trainer.rl.loss import (
+    LossInputs,
+    LossOutputs,
+    compute_entropy,
+    compute_loss,
+    setup_rl_loss_fn,
+    validate_global_component_scales,
+)
 
 pytestmark = [pytest.mark.gpu]
+
+
+def test_global_component_scales_accept_active_tokens() -> None:
+    scales = torch.tensor([0, 0, 0, 17], dtype=torch.int64)
+
+    assert validate_global_component_scales(scales) == (0, 0, 0, 17)
+
+
+def test_global_component_scales_reject_empty_training_batch() -> None:
+    with pytest.raises(ValueError, match="no globally active loss tokens"):
+        validate_global_component_scales(torch.zeros(4, dtype=torch.int64))
 
 
 def test_grpo_loss():
