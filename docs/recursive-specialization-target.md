@@ -1063,3 +1063,29 @@ length/turn penalty that could reward coordination shortcuts, and runs eight
 full-weight updates with dense checkpoints so each later cohort can observe updated
 weights. The exact comparison and trace hashes are recorded in
 `qwen35-27b-run328-mastery-battery-results-v1.json`.
+
+## Run 331 closes the broad-GRPO consolidation branch
+
+Run 331 corrected Run 328's short-run defect: eight full-weight BF16 AdamW
+updates produced genuinely iterative experience, with later optimizer cohorts
+containing policy versions one through six. It also removed the global
+length/turn penalty, used fresh executable task instances, and checkpointed every
+two updates. The engineering path remained healthy throughout.
+
+The frozen 74-task battery nevertheless rejected its strongest fast-screen
+checkpoint. Step 4 completed `18/74` clean versus `20/74` for the untouched 27B.
+Foundations and direct execution remained at `8/10` and `8/8`, but single-child
+protocol fell from `0.875` to `0.375`; follow-up bidirectional control fell from
+`0.318` to `0.080`; mean coordinator access to child-owned paths rose from
+`0.625` to `1.000`; child-ownership dense reward fell from `0.729` to `0.677`;
+and Oolong fell from `3/8` to `2/8`. Handshake control improved from `0.670` to
+`0.795`, but that isolated gain does not compensate for the broader regressions.
+
+Run 331 is therefore neither a teacher nor a continuation checkpoint. This is a
+stronger negative result than Run 328 because insufficient policy iteration is no
+longer a plausible explanation. The next teacher-method experiments retain the
+exact untouched thinking-mode `Qwen/Qwen3.5-27B` revision as their common start,
+and broad GRPO is deferred until successful natural behavior or trustworthy
+failure-conditioned feedback provides a better target. The exact comparison,
+training artifact hashes, rollout policy-version counts, and trace hashes are
+recorded in `qwen35-27b-run331-mastery-battery-results-v1.json`.

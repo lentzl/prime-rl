@@ -1,0 +1,112 @@
+{
+  "experiment_id": "qwen35-27b-run331-mastery-battery-v1",
+  "completed_at": "2026-08-14",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "candidate": {
+    "run": 331,
+    "checkpoint": "step_4",
+    "training": {
+      "algorithm": "grpo",
+      "precision": "bf16",
+      "optimizer": "adamw",
+      "full_weight": true,
+      "steps": 8,
+      "learning_rate": 5e-7,
+      "checkpoint_interval": 2,
+      "rollout_policy_versions_by_optimizer_step": {
+        "1": {"0": 32},
+        "2": {"0": 36, "1": 27},
+        "3": {"1": 29, "2": 13},
+        "4": {"2": 31, "3": 16},
+        "5": {"3": 28},
+        "6": {"3": 8, "4": 24, "5": 18},
+        "7": {"5": 29},
+        "8": {"5": 17, "6": 34}
+      },
+      "resolved_config_sha256": "48dc0c1bf4817b7586c9d24e2f054dd6254e4a4ea9f033922898c241b014a366",
+      "metrics_sha256": "fe9ac4a94d97aad3e7ee17c5d8ea5f19dd86fd536c75f1b3606d9e90845ef437"
+    }
+  },
+  "evaluation": {
+    "battery": "271-276-qwen35-27b-mastery-battery-v1",
+    "tasks_per_arm": 74,
+    "base_clean": 20,
+    "candidate_clean": 18,
+    "families": {
+      "foundations": {"base_clean": 8, "candidate_clean": 8, "count": 10},
+      "ownership_child": {
+        "base_strict": 0,
+        "candidate_strict": 0,
+        "count": 8,
+        "base_dense_reward": 0.7291666666666667,
+        "candidate_dense_reward": 0.6770833333333334,
+        "base_parent_path_access": 0.0,
+        "candidate_parent_path_access": 0.125
+      },
+      "ownership_coordinator": {
+        "base_strict": 1,
+        "candidate_strict": 0,
+        "count": 8,
+        "base_dense_reward": 0.6607142857142857,
+        "candidate_dense_reward": 0.625
+      },
+      "direct": {"base_clean": 8, "candidate_clean": 8, "count": 8},
+      "single": {
+        "count": 8,
+        "base_protocol_aligned": 0.875,
+        "candidate_protocol_aligned": 0.375,
+        "base_post_fan_in_control": 0.875,
+        "candidate_post_fan_in_control": 0.375
+      },
+      "parallel": {
+        "count": 8,
+        "base_protocol_aligned": 0.375,
+        "candidate_protocol_aligned": 0.25,
+        "base_post_fan_in_control": 0.375,
+        "candidate_post_fan_in_control": 0.5
+      },
+      "followup": {
+        "count": 8,
+        "base_answer_accuracy": 1.0,
+        "candidate_answer_accuracy": 1.0,
+        "base_protocol_aligned": 0.25,
+        "candidate_protocol_aligned": 0.0,
+        "base_natural_followup_causal": 0.75,
+        "candidate_natural_followup_causal": 0.75,
+        "base_bidirectional_control": 0.3181818181818182,
+        "candidate_bidirectional_control": 0.07954545454545454,
+        "base_coordinator_delegated_path_accesses": 0.625,
+        "candidate_coordinator_delegated_path_accesses": 1.0
+      },
+      "handshake": {
+        "count": 8,
+        "base_natural_followup_causal": 0.875,
+        "candidate_natural_followup_causal": 1.0,
+        "base_bidirectional_control": 0.6704545454545454,
+        "candidate_bidirectional_control": 0.7954545454545454
+      },
+      "oolong": {"base_clean": 3, "candidate_clean": 2, "count": 8}
+    },
+    "trace_sha256": {
+      "base_foundations": "8f88eaefbe5604444e6a75c2426226d877d52e5e5e9cac24f056e7086997a190",
+      "base_coordination_calibration": "fb4f0ea31abca5da9593e77290affdebc318d3e13499a048686b9cc9d7c907ce",
+      "base_coordination_heldout": "87209ec0edc2265b1e274b7086f746ddbbaaeadbaf7096c0dd9a125fd51ddadc",
+      "base_ownership_child_ood": "c197f9dbc62bd9dd5e1d241ee54c48d29d0fc720fd9745762c0e18137fa63a68",
+      "base_ownership_coordinator_ood": "e423a8b94915c9baadb4a86a5f697424ae1dba09952233c1d730f003e0a5acbc",
+      "base_oolong_ood": "f3dd864d9be85143c472e27549d75e8b8eabe0fc6ca308ed4ec7e35628bbcdf2",
+      "candidate_foundations": "55c17974801d3b6c3ec2bcc3e30cec875f986f3b10bef36140f1420db4bd9f1f",
+      "candidate_coordination_calibration": "b0bc8c4922bbd3d5dac03e83684c1eb5c53fe530b1792f4d54bac5f23e261bc8",
+      "candidate_coordination_heldout": "c112d5b4d342e8538fa3892dcf6cc03d658dfd17f3e240d0716fe279762f9aca",
+      "candidate_ownership_child_ood": "5841934231ee6e016180345863e35ef0faaf367622682ed34ad9fe685802ed87",
+      "candidate_ownership_coordinator_ood": "3e6eca11192099735131861dd434ea02c90e130c163fa206180a1c9b6548b0a7",
+      "candidate_oolong_ood": "57fba6be5b70895f5505df8c14fb23e7761d0e9d1c272c8cbc816f4621ba251a"
+    }
+  },
+  "decision": {
+    "teacher_promoted": false,
+    "continuation_checkpoint": false,
+    "next_initialization": "untouched thinking-mode Qwen3.5-27B",
+    "summary": "Run 331 was genuinely iterative, but its strongest fast-screen checkpoint did not cross the frozen 74-task boundary. Step 4 fell from the untouched base's 20/74 clean to 18/74, lost the base model's only coordinator-owned strict success, regressed child ownership, single-child protocol, follow-up bidirectional control, and Oolong, and improved only the handshake family plus parallel post-fan-in control. More broad GRPO on this reward mixture is not justified."
+  }
+}
