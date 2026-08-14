@@ -5,7 +5,7 @@ import pydantic
 import pytest
 import verifiers.v1 as vf
 from verifiers.v1.graph import MessageNode
-from verifiers.v1.types import AssistantMessage, ToolMessage, UserMessage
+from verifiers.v1.types import AssistantMessage, TextContentPart, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.orchestrator.algo import EchoAlgorithm, SDPOAlgorithm, stamp_advantages, stamp_loss_routing
@@ -573,6 +573,36 @@ def test_sdpo_preserves_explicit_environment_feedback_verbatim():
         "Solve this\nThe following is feedback from your unsuccessful earlier attempt:\n\n"
         "  compiler output\n\n\nCorrectly solve the original question."
     )
+
+
+def test_sdpo_accepts_structured_text_user_content():
+    nodes = [
+        _node(
+            UserMessage(content=[TextContentPart(text="Solve this")]),
+            parent=None,
+            sampled=False,
+            token_ids=[1, 2],
+        ),
+        _node(AssistantMessage(content="wrong"), parent=0, sampled=True, token_ids=[3, 4]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=0.0)},
+        info={"feedback": "Use the retained evidence."},
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    algo = SDPOAlgorithm(_build(type="sdpo"), MagicMock(model_name="org/model"))
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20, 21]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    teacher_messages = algo.renderer.render_ids.call_args.args[0]
+    assert teacher_messages[0]["content"].startswith("Solve this\n")
+    assert rollout.samples[0].sdpo_teacher_spans is not None
 
 
 def test_sdpo_explicit_feedback_gate_excludes_clean_multiturn_trace():
