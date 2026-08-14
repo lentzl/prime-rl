@@ -295,6 +295,12 @@ no feedback retry, record-only typed diagnostics, and a shared sampling seed of
 `20260814`. The historical 74-task Harness Mastery battery remains byte-for-byte
 unchanged.
 
+This is 2,350 one-rollout episodes across the five model candidates. The tranche
+launcher evaluates two models concurrently on disjoint four-GPU groups by default,
+with separate inference and RPC ports. Only wall-clock scheduling changes: every
+model retains the same frozen tasks, seeds, inference settings, summaries, and
+completion marker. Set `MEMORY_QUALIFICATION_PARALLELISM=1` for serial execution.
+
 The combined qualification driver keeps memory and Harness Mastery outputs
 separate, writes typed failure-code/category mass, and marks a model complete
 only after both batteries and both summaries finish. It is resumable only at

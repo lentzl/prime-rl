@@ -18,6 +18,23 @@ def test_tranche_qualification_freezes_base_and_selected_checkpoints() -> None:
     assert '[[ -f "$run_output/QUALIFICATION_COMPLETE" ]]' in launcher
 
 
+def test_tranche_qualification_uses_disjoint_gpu_groups_without_changing_battery() -> None:
+    launcher = (
+        ROOT
+        / "scripts"
+        / "run_qwen35_27b_memory_v2_tranche_qualification_v1.sh"
+    ).read_text()
+
+    assert "MEMORY_QUALIFICATION_PARALLELISM:-2" in launcher
+    assert "device_groups=(0,1,2,3 4,5,6,7)" in launcher
+    assert "EVAL_TENSOR_PARALLEL_SIZE=4" in launcher
+    assert "EVAL_CUDA_VISIBLE_DEVICES=${device_groups[$slot]}" in launcher
+    assert "EVAL_BACKEND_PORT=$backend_port" in launcher
+    assert "EVAL_ROUTER_PORT=$router_port" in launcher
+    assert "EVAL_DATA_PARALLEL_RPC_PORT=$rpc_port" in launcher
+    assert "run_qwen35_27b_memory_v2_combined_qualification.sh" in launcher
+
+
 def test_combined_driver_runs_memory_and_mastery_before_marking_complete() -> None:
     driver = (
         ROOT / "scripts" / "run_qwen35_27b_memory_v2_combined_qualification.sh"
