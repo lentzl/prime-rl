@@ -129,6 +129,10 @@ class SDPOAlgorithm(Algorithm):
         if user_index is None:
             raise ValueError("SDPO teacher reprompt requires a user message")
         question = messages[user_index].get("content")
+        if isinstance(question, list) and all(
+            isinstance(part, dict) and part.get("type") == "text" for part in question
+        ):
+            question = "\n".join(str(part.get("text", "")) for part in question)
         if not isinstance(question, str):
             raise ValueError("SDPO currently supports text-only prompts")
         solution_block = (
