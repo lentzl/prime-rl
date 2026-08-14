@@ -6,8 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import sys
 from pathlib import Path
 from typing import Any, Callable
+
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scripts.summarize_prime_agent_mastery import load_traces as load_mastery_traces
 from scripts.summarize_prime_agent_mastery import summarize as summarize_mastery

@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -11,6 +13,8 @@ from scripts.summarize_programmatic_memory_eval import (
 from scripts.summarize_programmatic_memory_eval import (
     report as report_memory,
 )
+
+ROOT = Path(__file__).parents[2]
 
 
 def _memory_trace(*, idx: int, strict: float, family: str = "latest_state") -> dict:
@@ -119,6 +123,43 @@ def test_compare_requires_exact_paired_evidence_and_reports_direction(tmp_path: 
     }
     assert candidate["memory_deltas"]["overall_means"]["strict_success"] == 0.5
     assert candidate["mastery_deltas"]["families"]["child"]["mean_deltas"]["parent_path_access"] == 1.0
+
+
+def test_compare_cli_runs_directly_outside_repository(tmp_path: Path) -> None:
+    evidence = tmp_path / "evidence"
+    _write_model(
+        evidence,
+        "base",
+        [_memory_trace(idx=0, strict=0.0)],
+        [_mastery_trace(name="child-0", path_accesses=0.0)],
+    )
+    _write_model(
+        evidence,
+        "step-1",
+        [_memory_trace(idx=0, strict=1.0)],
+        [_mastery_trace(name="child-0", path_accesses=0.0)],
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(ROOT / "scripts" / "compare_memory_v2_tranche_qualification.py"),
+            str(evidence),
+            "--labels",
+            "base",
+            "step-1",
+            "--expected-memory-count",
+            "1",
+            "--expected-mastery-count",
+            "1",
+        ],
+        cwd=tmp_path,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(result.stdout)["comparisons"]["step-1"]["memory_paired"]["overall"]["gain"] == 1
 
 
 def test_compare_fails_closed_on_incomplete_candidate(tmp_path: Path) -> None:
