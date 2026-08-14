@@ -88,7 +88,8 @@ def test_hybrid_memory_smoke_keeps_native_grpo_and_diagnostic_sdpo_disjoint() ->
     assert "algo" not in native
     assert native["env"]["taskset"]["causal_feedback_retries"] == 0
     assert native["env"]["taskset"]["record_causal_feedback"] is False
-    assert diagnostic["group_size"] == 1
+    assert diagnostic["group_size"] == native["group_size"]
+    assert config["orchestrator"]["batch_size"] % native["group_size"] == 0
     assert diagnostic["algo"]["type"] == "sdpo"
     assert diagnostic["algo"]["success_reward_threshold"] > 1.0
     assert diagnostic["algo"]["require_explicit_feedback"] is True
