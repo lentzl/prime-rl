@@ -1,0 +1,139 @@
+{
+  "experiment_id": "qwen35-27b-memory-v2-hybrid-grpo-sdpo-cuda-acceptance-v1",
+  "completed_at": "2026-08-14T05:42:19Z",
+  "decision": {
+    "cuda_acceptance_pass": true,
+    "checkpoint_promoted_as_teacher": false,
+    "checkpoint_promoted_for_continuation": false,
+    "summary": "Prime-RL trained one heterogeneous full-weight BF16 batch end to end: native no-feedback trajectories emitted ordinary GRPO tokens, diagnostic failures emitted feedback-conditioned SDPO tokens, the two routes remained component-disjoint, AdamW and EMA updates succeeded, and a stable sharded checkpoint was written. This admits a controlled multi-step hybrid tranche; one optimizer step is not behavioral evidence."
+  },
+  "source": {
+    "prime_rl_commit": "06657b72c42d93963e15e6f8ba7833c777130c43",
+    "sdpo_implementation_commit": "a8b7534b712167e07a432d53cae239295ec3d84b",
+    "verifiers_commit": "20644fea4cbe12b751058b3101dc75779e43d558",
+    "config": "configs/debug/subagent-communication/345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke.toml"
+  },
+  "model": {
+    "name": "Qwen/Qwen3.5-27B",
+    "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+    "thinking_mode": true,
+    "training": "full-weight BF16",
+    "teacher": "separate EMA copy initialized from the student",
+    "teacher_update_rate": 0.01
+  },
+  "topology": {
+    "gpu_type": "NVIDIA L40S",
+    "inference_gpus": 2,
+    "inference_tensor_parallel": 2,
+    "trainer_gpus": 6,
+    "trainer_fsdp_world_size": 6,
+    "sequence_length": 12288,
+    "fused_lm_head_token_chunk_size": 512,
+    "optimizer": "AdamW",
+    "optimizer_cpu_offload": "Prime full optimizer-in-backward native CPU offload",
+    "checkpoint": "weights-only sharded safetensors"
+  },
+  "routing": {
+    "batch_size": 12,
+    "group_size": 4,
+    "native_grpo_samples": 8,
+    "diagnostic_sdpo_samples": 4,
+    "runtime_error_rate": 0.0,
+    "truncation_rate": 0.0,
+    "trainable_rate": 1.0,
+    "native_grpo": {
+      "causal_feedback_count_mean": 0.0,
+      "strict_success_mean": 0.375,
+      "answer_correct_mean": 0.5,
+      "grounded_answer_mean": 0.5,
+      "retrieval_decision_mean": 1.0,
+      "valid_tool_behavior_mean": 1.0,
+      "no_repeated_cell_mean": 1.0,
+      "reward_min": 0.63,
+      "reward_mean": 0.83875,
+      "reward_max": 1.0,
+      "mean_turns": 3.25
+    },
+    "diagnostic_sdpo": {
+      "strict_success_mean": 0.0,
+      "answer_correct_mean": 0.0,
+      "grounded_answer_mean": 0.0,
+      "causal_feedback_count_mean": 1.0,
+      "causal_feedback_repair_mean": 0.0,
+      "retrieval_decision_mean": 1.0,
+      "bounded_retrieval_mean": 1.0,
+      "valid_tool_behavior_mean": 1.0,
+      "no_repeated_cell_mean": 1.0,
+      "reward_mean": 0.8200000000000001,
+      "mean_turns": 2.25
+    }
+  },
+  "optimizer_step": {
+    "update_succeeded": true,
+    "learning_rate": 1e-7,
+    "loss_tokens": {
+      "rl": 4083,
+      "ce": 0,
+      "ref_kl": 0,
+      "sdpo": 2165
+    },
+    "loss_mean": 0.0164533331990242,
+    "sdpo_mean": 0.19040942192077637,
+    "entropy_mean": 0.2361607849597931,
+    "mismatch_kl_mean": 0.00022017482842784375,
+    "throughput_tokens_per_second": 158.7252479002868,
+    "peak_gpu_memory_gib": 37.248046875,
+    "forward_backward_seconds": 625.8361622619996,
+    "trainer_step_seconds": 922.8286003469984,
+    "gradient_norm": null,
+    "gradient_norm_note": "Prime disables clipping and grad-norm collection when full optimizer-in-backward CPU offload is active."
+  },
+  "attempts": [
+    {
+      "run": "r1",
+      "accepted": false,
+      "gradients_started": false,
+      "cause": "A one-sample SDPO group plus four-sample GRPO groups filled all 12 dispatch slots as one complete SDPO sample, eight complete GRPO samples, and three buffered GRPO samples. With no slot for the fourth member, the batch could not become group-complete. The run was interrupted before trainer data or gradients."
+    },
+    {
+      "run": "r2",
+      "accepted": true,
+      "gradients_started": true,
+      "cause": null
+    }
+  ],
+  "checkpoint": {
+    "stable_marker": true,
+    "total_bytes": 54733722051,
+    "model_bytes": 54713606672,
+    "shard_count": 12,
+    "index_sha256": "f8f3253c04946c6f1d0f2eae72f1ad9f9d88978754709e644f418f3846db0a5c",
+    "shard_sha256": [
+      "e31f7c599894831f030b266733ec9f98b7f92a8e34cd84711ffa716849125884",
+      "a77d67fc0b3fc55855ad06d72ffb8af4773284ee18cb71d4b16786f56b945ac5",
+      "575c1c944d759c8cfc8456265415d9e887df3203ef908722910324de799bb2fc",
+      "04de24c7311b64c74f3662c4cbb06e450284d3414701631941b97213a8c1d062",
+      "eb8a3a1f539068e26ac0b8b2e948408a22eef0709b5e1a162b27c1503034b7dd",
+      "6ded3496b7a6dfb319b75754ea10ce737bc96ce36f063d28767c700fce13d607",
+      "bc3b9e035218aba748f66644fd0940ef331f82cb6d2a5375efa975b70f830a45",
+      "44b97d5a4eb6e2cd392fac980498b1d9b9ec9056246f9fdd19f15503009e5c95",
+      "fc3a4c5bffefc17553d5c94faa4aa66c90c1b58d02ace892ae23f9bf3a0192bf",
+      "403317bd6d1abdb970dd4ee61c21626625d240280f61a4a74003ac49fb5839c8",
+      "864f698f9674e5314602059502f3e062ef6cb3e675cd6dc9a58630170ef60fdb",
+      "1498809e742eb6efb9fbce5a1dded548e1436008627fe487b6baffda8f866d06"
+    ]
+  },
+  "artifacts": {
+    "metrics_jsonl_sha256": "95442bd3ef4fd14be0d318596079f80ef639ec855e252da281ae6575c6d30836",
+    "final_summary_sha256": "9a553f92943d297fc67c8c5de1eb9b4f66fbaf2ed899d597cd5d4df5a2c43f6e",
+    "trainer_log_sha256": "1b310ccb9534a4803b07c74e9fcb9e5a1eb2e79d50b286ee7fc1bc9146cb77d4",
+    "launcher_log_sha256": "8f37b98b3e117a31a9936f336ad757b214de82b8a48c91a11894d8e286df2331"
+  },
+  "validation": {
+    "focused_linux_tests": "109 passed, 1 skipped",
+    "config_specific_linux_tests": "22 passed",
+    "ruff": "passed",
+    "broad_config_discovery": "98 unrelated failures from optional reverse_text and reverse_text_v1 plugins absent in the dirty vendored Verifiers checkout; 188 runnable tests passed and 1 skipped",
+    "behavioral_claim": "none; the checkpoint exists solely to prove heterogeneous routing and the full execution path"
+  }
+}

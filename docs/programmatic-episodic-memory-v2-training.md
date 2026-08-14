@@ -163,3 +163,33 @@ failed trajectories with trustworthy causal diagnostics, and no manufactured
 target for the remainder. Exact metrics, failure history, source revisions, and
 checkpoint hashes are recorded in
 `qwen35-27b-memory-v2-failure-sdpo-cuda-acceptance-results-v1.json`.
+
+## Hybrid GRPO/SDPO CUDA acceptance
+
+Run 345-r2 qualifies both routes in one heterogeneous full-weight update from
+untouched thinking-mode Qwen3.5-27B. The batch contained eight native,
+no-feedback GRPO trajectories and four diagnostic SDPO trajectories. Every
+trajectory completed without runtime error or truncation. The diagnostic arm
+remained strict-failure-only: zero correct or grounded answers, exactly one
+answer-free causal diagnostic per trajectory, no retry, and valid bounded tool
+behavior. The native arm contained real verifier variation, including 3/8
+strict successes and rewards from `0.63` to `1.0`.
+
+Loss routing stayed disjoint. The trainer selected 4,083 ordinary RL tokens and
+2,165 SDPO tokens, with zero CE and reference-KL tokens. Full CPU-offloaded
+AdamW and the EMA teacher update completed at `1e-7`; mean loss was
+`0.016453`, mean SDPO loss `0.190409`, mismatch KL `0.000220`, throughput
+`158.73` tokens/s, and peak trainer memory `37.25` GiB. The launcher wrote a
+stable 12-shard checkpoint and exited cleanly.
+
+The first attempt exposed a configuration-level group-completion deadlock:
+mixing one-sample SDPO groups with four-sample GRPO groups could fill a
+12-sample dispatch window with an incomplete final GRPO group. Both sources now
+use four-sample groups, and the config test requires the batch size to be
+divisible by that shared group size.
+
+This promotes the heterogeneous training mechanism, not Run 345-r2's one-step
+weights. Untouched 27B remains the canonical start for the first controlled
+multi-step tranche. Exact routing metrics, source revisions, failure history,
+artifact hashes, and checkpoint hashes are recorded in
+`qwen35-27b-memory-v2-hybrid-grpo-sdpo-cuda-acceptance-results-v1.json`.
