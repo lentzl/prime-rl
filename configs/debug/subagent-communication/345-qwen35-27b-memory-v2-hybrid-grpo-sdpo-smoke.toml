@@ -1,0 +1,227 @@
+# One-step CUDA acceptance for heterogeneous Prime Agent training.
+# Native no-feedback trajectories use ordinary GRPO. A separate task source
+# records one answer-free diagnostic after failure and uses paper-faithful SDPO.
+
+max_steps = 1
+seq_len = 12288
+max_train_batch_lead = 0
+output_dir = "/ephemeral/subagent-rung/outputs/345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke-r1"
+clean_output_dir = true
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 6
+num_infer_gpus = 2
+
+[model]
+name = "Qwen/Qwen3.5-27B"
+revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
+
+[trainer.model]
+seq_len = 12288
+attn = "auto"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+optim_cpu_offload = false
+full_optim_cpu_offload = true
+reshard_after_forward = true
+fused_lm_head_token_chunk_size = 512
+
+[trainer.model.compile]
+fullgraph = false
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[trainer.model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+is_clip = 2.0
+rollout_is = "token"
+rollout_is_threshold = 2.0
+teacher_regularization = "ema"
+teacher_update_rate = 0.01
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-7
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[trainer.scheduler]
+type = "constant"
+
+[orchestrator]
+batch_size = 12
+group_size = 4
+max_inflight_episodes = 24
+oversampling_factor = 2.0
+max_off_policy_steps = 0
+
+[orchestrator.algo]
+type = "grpo"
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.train.sampling]
+temperature = 1.0
+max_completion_tokens = 2048
+
+[orchestrator.train.sampling.extra_body]
+top_k = -1
+min_p = 0.0
+return_token_ids = true
+
+[[orchestrator.train.source]]
+name = "programmatic-memory-v2-native-grpo"
+ratio = 1.0
+group_size = 4
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 1
+
+[orchestrator.train.source.env.taskset]
+id = "programmatic-episodic-memory-v2"
+dataset_path = "/ephemeral/subagent-rung/data/programmatic-episodic-memory-v2/train.jsonl"
+split = "train"
+families = ["accepted_requirement", "constraint_update", "latest_state", "multi_key_join"]
+instances_per_family = 4
+instance_offset = 10
+causal_feedback_retries = 0
+record_causal_feedback = false
+
+[orchestrator.train.source.env.taskset.task]
+reward_shape = "dense"
+
+[orchestrator.train.source.env.agent]
+max_turns = 12
+max_output_tokens = 8192
+max_total_tokens = 24576
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.retries]
+max_retries = 0
+
+[orchestrator.train.source.serve.pool]
+type = "elastic"
+multiplex = 128
+
+[[orchestrator.train.source]]
+name = "programmatic-memory-v2-diagnostic-sdpo"
+ratio = 2.0
+group_size = 1
+
+[orchestrator.train.source.algo]
+type = "sdpo"
+success_reward_threshold = 2.0
+dont_reprompt_on_self_success = true
+include_environment_feedback = true
+require_explicit_feedback = true
+environment_feedback_only_without_solution = true
+multi_turn_replay = true
+max_reprompt_len = 10240
+
+[orchestrator.train.source.algo.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 1
+
+[orchestrator.train.source.env.taskset]
+id = "programmatic-episodic-memory-v2"
+dataset_path = "/ephemeral/subagent-rung/data/programmatic-episodic-memory-v2/train.jsonl"
+split = "train"
+families = ["checkpoint_resume", "research_retraction", "provenance_conflict", "stale_note_override"]
+instances_per_family = 4
+instance_offset = 10
+causal_feedback_retries = 0
+record_causal_feedback = true
+
+[orchestrator.train.source.env.taskset.task]
+reward_shape = "dense"
+
+[orchestrator.train.source.env.agent]
+max_turns = 12
+max_output_tokens = 8192
+max_total_tokens = 24576
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.1"
+thinking = "high"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.retries]
+max_retries = 0
+
+[orchestrator.train.source.serve.pool]
+type = "elastic"
+multiplex = 128
+
+[inference]
+backend_port = 8100
+
+[inference.server]
+port = 8000
+liveness_timeout_seconds = 30.0
+
+[inference.vllm]
+max_model_len = 16384
+enforce_eager = true
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+tensor_parallel_size = 2
+data_parallel_size = 1
+data_parallel_rpc_port = 13345
+gpu_memory_utilization = 0.8
+max_num_seqs = 4
+mamba_ssm_cache_dtype = "float32"
+
+[ckpt]
+interval = 1
+keep_last = 1
+keep_interval = 1
+
+[trainer.ckpt]
+weights_only = true
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[log]
+json_logging = false

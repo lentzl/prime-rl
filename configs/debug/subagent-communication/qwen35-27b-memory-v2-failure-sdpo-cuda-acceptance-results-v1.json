@@ -74,6 +74,34 @@
     "gradient_norm": null,
     "gradient_norm_note": "Prime disables clipping and grad-norm collection when full optimizer-in-backward CPU offload is active."
   },
+  "throughput_followup": {
+    "run": "r12",
+    "completed_at": "2026-08-14T05:03:36Z",
+    "decision": "reject_active_predictor_row_mask",
+    "summary": "Restricting sparse teacher and support scoring to active SDPO predictor rows preserved a successful update and stable checkpoint but did not improve the measured bottleneck. The added LM-head interface and indexing complexity was removed; r11 remains the accepted implementation.",
+    "comparison_caveat": "r11 and r12 used independent on-policy rollouts, so token counts and trajectories differ. The result is used only to reject an optimization that showed no wall-time or memory benefit, not as a numerical equivalence comparison.",
+    "r11": {
+      "sdpo_tokens": 4733,
+      "forward_backward_seconds": 465.4596149179997,
+      "throughput_tokens_per_second": 103.26567216463627,
+      "peak_gpu_memory_gib": 37.2421875
+    },
+    "r12": {
+      "sdpo_tokens": 5143,
+      "forward_backward_seconds": 468.68586137500824,
+      "throughput_tokens_per_second": 95.92352512641274,
+      "peak_gpu_memory_gib": 37.240234375,
+      "trainer_step_seconds": 727.4929992590041,
+      "update_succeeded": true,
+      "stable_checkpoint": true
+    },
+    "artifacts": {
+      "metrics_jsonl_sha256": "a2263aab9f2a79fb0d8875f3c83ec9ca5c4d11b15e8fd9a6ffe670583a3977f7",
+      "final_summary_sha256": "e7b5aee9eb38f0687878bf40b8579ad76746e887aa9b2c873afa8e3bd947dc8e",
+      "trainer_log_sha256": "50e5e143150be1dccbae870e2486bca811d0b96142ef0d65cb4b8ccc9d804ea2",
+      "launcher_log_sha256": "69f87efb654100dbc7c4d0d79baa313d03129939d21e34e8935e4bc2d024c72e"
+    }
+  },
   "attempts": [
     {
       "run": "r3",

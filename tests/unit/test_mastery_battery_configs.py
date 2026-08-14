@@ -76,6 +76,37 @@ def test_failure_sdpo_smoke_retains_prime_agent_actions_and_writes_portable_weig
     assert config["trainer"]["ckpt"]["weights_only"] is True
 
 
+def test_hybrid_memory_smoke_keeps_native_grpo_and_diagnostic_sdpo_disjoint() -> None:
+    config_name = "345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke.toml"
+    config = load_config(config_name)
+    sources = {source["name"]: source for source in config["orchestrator"]["train"]["source"]}
+    native = sources["programmatic-memory-v2-native-grpo"]
+    diagnostic = sources["programmatic-memory-v2-diagnostic-sdpo"]
+
+    assert config["orchestrator"]["algo"]["type"] == "grpo"
+    assert native["group_size"] == 4
+    assert "algo" not in native
+    assert native["env"]["taskset"]["causal_feedback_retries"] == 0
+    assert native["env"]["taskset"]["record_causal_feedback"] is False
+    assert diagnostic["group_size"] == 1
+    assert diagnostic["algo"]["type"] == "sdpo"
+    assert diagnostic["algo"]["success_reward_threshold"] > 1.0
+    assert diagnostic["algo"]["require_explicit_feedback"] is True
+    assert diagnostic["env"]["taskset"]["causal_feedback_retries"] == 0
+    assert diagnostic["env"]["taskset"]["record_causal_feedback"] is True
+    assert config["seq_len"] == (
+        diagnostic["algo"]["max_reprompt_len"]
+        + config["orchestrator"]["train"]["sampling"]["max_completion_tokens"]
+    )
+
+    resolved = cli(RLConfig, args=["@", str(CONFIG_ROOT / config_name), "--dry-run"])
+    assert resolved.trainer.sdpo_loss.enabled is True
+
+    launcher = (ROOT / "scripts" / "run_qwen35_27b_memory_v2_hybrid_grpo_sdpo_smoke.sh").read_text()
+    assert "nvidia-smi --query-compute-apps=pid" in launcher
+    assert 'rl @ "$config"' in launcher
+
+
 def test_oolong_scale_admission_increases_decomposition_pressure() -> None:
     names = (
         "334-qwen35-27b-oolong-semantic-4k-admission.toml",
