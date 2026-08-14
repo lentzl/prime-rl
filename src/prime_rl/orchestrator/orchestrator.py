@@ -526,6 +526,7 @@ class Orchestrator:
             try:
                 episode: list[Rollout] = await asyncio.wait_for(self.dispatcher.out_q.get(), timeout=0.5)
             except asyncio.TimeoutError:
+                await self._maybe_flush_exhausted_sync_cohort()
                 continue
 
             # Every completed rollout — errored, filtered, or never batched — lands in the
@@ -566,6 +567,43 @@ class Orchestrator:
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():
                 await self.finalize_train_batch(train_batch)
+
+    async def _maybe_flush_exhausted_sync_cohort(self) -> bool:
+        """Flush a partial batch when a synchronous policy cohort cannot add replacements.
+
+        With ``max_train_batch_lead=0``, the dispatcher deliberately schedules
+        exactly one policy-sized cohort. An errored or filtered rollout can leave
+        fewer trainable survivors than ``batch_size`` after every permitted
+        attempt has finished. Waiting for another rollout would then deadlock.
+        """
+        dispatcher = self.dispatcher
+        limit = dispatcher.train_rollouts_per_policy
+        if (
+            self.draining
+            or self.stopped.is_set()
+            or limit is None
+            or dispatcher.train_rollouts_scheduled < limit
+            or dispatcher.inflight_train_count > 0
+            or any(group.kind == "train" for group in dispatcher.groups.values())
+            or not dispatcher.out_q.empty()
+            or not self.train_sink.has_pending_observations
+        ):
+            return False
+
+        current, target, unit = self.train_sink.batch_progress()
+        batch = self.train_sink.flush_partial_batch()
+        assert batch is not None
+        if not batch.samples:
+            raise RuntimeError(
+                "Synchronous policy cohort exhausted without a trainable sample; "
+                "cannot advance to the next policy."
+            )
+        get_logger().warning(
+            f"Synchronous policy cohort exhausted with {current}/{target} {unit}; "
+            "flushing the partial batch instead of waiting for an impossible replacement."
+        )
+        await self.finalize_train_batch(batch)
+        return True
 
     async def finalize_train_batch(self, batch: TrainBatch) -> None:
         """Ship one ``TrainBatch`` out to the trainer and handle the I/O

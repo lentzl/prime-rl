@@ -233,6 +233,27 @@ default checkpoint overlap and weighted-random source selection remain
 unchanged for other runs. A two-step CUDA re-acceptance must prove that Step 1
 becomes stable before policy-v1 rollout dispatch resumes.
 
+The first checkpoint-order re-acceptance established that boundary. Step 1
+dispatched exactly eight native and four diagnostic trajectories, trained on
+all 12, paused rollout dispatch, and wrote a stable 12-shard Step 1 checkpoint
+before publishing policy v1. Policy-v1 rollout dispatch resumed only after the
+`STABLE` marker existed. Rank 0 briefly reached about 121.6 GiB of host memory
+during the weight gather, but the machine remained live because no rollout
+containers overlapped the gather.
+
+Step 2 then exposed a separate strict-synchrony edge case. One of the 12
+permitted policy-v1 attempts reached the harness turn limit, leaving 11
+trainable survivors after every in-flight group had completed. The exact
+one-cohort scheduling cap correctly prohibited an off-policy replacement, but
+the sink still waited for a 12th trainable rollout and therefore could not
+advance. The orchestrator now detects only this fully exhausted, idle state and
+ships the variable-size trainable remainder while retaining all attempted
+rollouts in the observation window. It never flushes while work is in flight,
+grouped, queued, stopped, or draining; a cohort with no trainable sample fails
+explicitly. The Linux orchestrator suite passes with 140 tests and one skip.
+The two-step CUDA acceptance must be repeated before this repair admits the
+eight-update run.
+
 After that gate, the replacement run performs eight full-weight updates.
 Checkpoints 1, 2, 4, and 8 are selected prospectively, not after looking at
 rewards. Qualification compares each one with the untouched base on all 300

@@ -120,6 +120,17 @@ class TrainSink:
             counts[r.env_name] += 1
         return dict(counts)
 
+    @property
+    def has_pending_observations(self) -> bool:
+        """Whether a finalized train cohort has been observed since the last ship."""
+        return bool(self.pending_rollouts)
+
+    def flush_partial_batch(self) -> TrainBatch | None:
+        """Ship the trainable remainder of an exhausted synchronous cohort."""
+        if not self.has_pending_observations:
+            return None
+        return self.process_batch()
+
     async def add(self, episode: list[Rollout]) -> TrainBatch | None:
         """Process one episode arrival; finalize the group on the
         ``group_size``-th episode; return a ``TrainBatch`` if the finalization
