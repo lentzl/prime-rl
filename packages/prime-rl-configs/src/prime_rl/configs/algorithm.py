@@ -361,6 +361,14 @@ class SDPOAlgoConfig(BaseAlgoConfig):
     include_environment_feedback: bool = True
     """Use natural environment feedback when no successful sibling is available."""
 
+    require_explicit_feedback: bool = False
+    """Distill only rollouts carrying a non-empty ``trace.info["feedback"]``.
+
+    This admits only failures for which the environment emitted a trustworthy
+    causal diagnostic. Intermediate tool observations may still condition
+    multi-turn replay after the rollout passes this gate.
+    """
+
     environment_feedback_only_without_solution: bool = True
     """Prefer a successful sibling over environment feedback when both exist."""
 

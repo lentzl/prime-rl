@@ -59,6 +59,13 @@ class SDPOAlgorithm(Algorithm):
         if list(branch.token_ids) != list(sample.token_ids) or list(branch.sampled_mask) != list(sample.mask):
             raise ValueError("SDPO sample tokens must align with their Verifiers trace branch")
 
+        explicit_feedback = rollout.info.get("feedback")
+        if self.config.require_explicit_feedback and not (
+            isinstance(explicit_feedback, str) and explicit_feedback.strip()
+        ):
+            self._clear_target(sample)
+            return
+
         sampled_nodes = [(index, node) for index, node in enumerate(branch.nodes) if node.sampled]
         if len(sampled_nodes) != 1 and not self.config.multi_turn_replay:
             raise ValueError("SDPO currently requires single-turn rollouts")

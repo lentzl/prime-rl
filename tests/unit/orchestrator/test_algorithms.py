@@ -575,6 +575,39 @@ def test_sdpo_preserves_explicit_environment_feedback_verbatim():
     )
 
 
+def test_sdpo_explicit_feedback_gate_excludes_clean_multiturn_trace():
+    nodes = [
+        _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="inspect"), parent=0, sampled=True, token_ids=[2]),
+        _node(ToolMessage(tool_call_id="t", content="evidence"), parent=1, sampled=False, token_ids=[3]),
+        _node(AssistantMessage(content="correct"), parent=2, sampled=True, token_ids=[4]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=1.0)},
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            multi_turn_replay=True,
+            require_explicit_feedback=True,
+            success_reward_threshold=2.0,
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    assert rollout.samples[0].sdpo_teacher_spans is None
+    assert rollout.samples[0].sdpo_weights == [0.0] * len(rollout.samples[0].token_ids)
+    algo.renderer.render_ids.assert_not_called()
+
+
 def test_sdpo_clears_failed_attempt_without_hindsight():
     nodes = [
         _node(UserMessage(content="Solve this"), parent=None, sampled=False, token_ids=[1, 2]),
