@@ -80,6 +80,39 @@ def test_incomplete_audit_reports_rejection_without_crashing() -> None:
     assert report["comparison"]["conditioned_strict"] == 0.0
 
 
+def test_partial_conditioned_arm_reports_mathematical_rejection_ceiling() -> None:
+    conditioned = arm(34, 20 / 34)
+    report = MODULE.assess(
+        {
+            "familiar_unconditioned": arm(50, 0.2),
+            "familiar_conditioned": conditioned,
+            "ood_unconditioned": arm(0, 0.0, 0.0),
+            "ood_conditioned": arm(0, 0.0, 0.0),
+        }
+    )
+
+    assert report["admission_still_possible"] is False
+    assert any(
+        "familiar: conditioned strict_success can reach at most 0.720"
+        in item
+        for item in report["early_rejection_reasons"]
+    )
+
+
+def test_partial_conditioned_arm_remains_possible_above_threshold_ceiling() -> None:
+    report = MODULE.assess(
+        {
+            "familiar_unconditioned": arm(50, 0.2),
+            "familiar_conditioned": arm(34, 0.9),
+            "ood_unconditioned": arm(16, 0.2),
+            "ood_conditioned": arm(10, 0.8),
+        }
+    )
+
+    assert report["admission_still_possible"] is True
+    assert report["early_rejection_reasons"] == []
+
+
 def test_expected_value_presence_is_distinct_from_exact_output_contract() -> None:
     trace = {
         "task": {"data": {"expected_answers": ["8"]}},

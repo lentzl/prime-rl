@@ -58,8 +58,8 @@ Run the assessment with:
 ```
 
 The SDFT launcher repeats this check and refuses to train on a failed or
-incomplete admission. Plain SFT remains a valid baseline even if SDFT is not
-admitted.
+incomplete admission. The matched SFT/SDFT comparison proceeds only if the
+teacher is admitted; running only its SFT arm would answer a different question.
 
 ## Matched exposure
 
@@ -93,3 +93,23 @@ Run one lane at a time. Evaluate their epoch checkpoints on the unchanged
 familiar/OOD environment and the frozen 74-task Harness Mastery battery. Prefer
 SDFT only if it improves natural memory behavior at comparable exposure without
 retrieval shortcuts or broader harness regressions.
+
+## Admission result
+
+The exact-prefix admission rejected the untouched 27B self-teacher before any
+gradients. The unconditioned familiar arm completed all 50 traces cleanly with
+`0.200` strict success and `0.780` expected-value presence. On the exact same 34
+task/rollout identities observed before the prospective early stop, the
+conditioned policy improved strict success from `8/34` (`0.235`) to `20/34`
+(`0.588`) and expected-value presence from `27/34` (`0.794`) to `32/34`
+(`0.941`). This is real evidence that the demonstration changes the policy in a
+useful direction, but it is not a reliable teacher.
+
+With only 16 familiar traces remaining, even a perfect tail could raise strict
+success to at most `36/50` (`0.720`), answer correctness to `37/50` (`0.740`),
+and grounded correctness to `37/50` (`0.740`). All are below the preregistered
+`0.90` familiar minimum. The run therefore stopped before the OOD arms rather
+than spending compute on an already impossible admission. The matched SFT/SDFT
+jobs remain unstarted, and this outcome must not be described as an SDFT
+training failure. The exact result and trace hashes are recorded in
+`qwen35-27b-memory-v2-teacher-admission-results-v1.json`.

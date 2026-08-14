@@ -1,0 +1,93 @@
+{
+  "experiment_id": "qwen35-27b-memory-v2-teacher-admission-v1",
+  "completed_at": "2026-08-14",
+  "model": "Qwen/Qwen3.5-27B",
+  "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "thinking_mode": true,
+  "teacher_context": {
+    "method": "exact independent rendered system-token prefix",
+    "prime_rl_commit": "b87ee1fc5",
+    "verifiers_commit": "a62e77925"
+  },
+  "preregistered_gate": {
+    "familiar_core_minimum": 0.9,
+    "ood_core_minimum": 0.8,
+    "maximum_core_regression": 0.05,
+    "required_substantial_strict_gain": "absolute >= 0.08 OR (absolute >= 0.04 AND relative error reduction >= 0.50)",
+    "complete_clean_arms_required": true
+  },
+  "observed": {
+    "familiar_unconditioned_full": {
+      "count": 50,
+      "clean_count": 50,
+      "strict_success": 0.2,
+      "answer_correct": 0.2,
+      "expected_value_present": 0.78,
+      "retrieval_decision": 0.98,
+      "valid_tool_behavior": 0.98,
+      "bounded_retrieval": 0.96,
+      "persistent_index_reuse": 0.96
+    },
+    "familiar_matched_partial": {
+      "paired_task_identity_multiset": true,
+      "count_per_arm": 34,
+      "unconditioned": {
+        "strict_success": 0.23529411764705882,
+        "answer_correct": 0.23529411764705882,
+        "expected_value_present": 0.7941176470588235,
+        "retrieval_decision": 0.9705882352941176,
+        "valid_tool_behavior": 0.9705882352941176,
+        "bounded_retrieval": 0.9411764705882353,
+        "persistent_index_reuse": 0.9411764705882353
+      },
+      "conditioned": {
+        "strict_success": 0.5882352941176471,
+        "answer_correct": 0.6176470588235294,
+        "expected_value_present": 0.9411764705882353,
+        "retrieval_decision": 1.0,
+        "valid_tool_behavior": 1.0,
+        "bounded_retrieval": 1.0,
+        "persistent_index_reuse": 0.9705882352941176
+      }
+    },
+    "conditioned_family_strict": {
+      "accepted_requirement": 1.0,
+      "approval_revocation": 0.0,
+      "checkpoint_resume": 0.0,
+      "child_result_verification": 0.0,
+      "constraint_update": 1.0,
+      "context_reset_resume": 0.5,
+      "correction_aggregate": 1.0,
+      "dataset_provenance": 0.0,
+      "direct_control": 1.0,
+      "latest_state": 1.0,
+      "multi_key_join": 1.0,
+      "provenance_conflict": 0.5,
+      "repeated_lookup_index": 0.5,
+      "research_retraction": 0.0,
+      "software_debug_resolution": 1.0,
+      "stale_note_override": 0.5,
+      "successful_attempt": 1.0
+    }
+  },
+  "early_stop": {
+    "conditioned_familiar_observed": 34,
+    "conditioned_familiar_planned": 50,
+    "maximum_attainable_strict_success": 0.72,
+    "maximum_attainable_answer_correct": 0.74,
+    "maximum_attainable_grounded_answer": 0.74,
+    "reason": "All three maxima are below the preregistered familiar minimum of 0.90, so admission was mathematically impossible before OOD evaluation.",
+    "ood_arms_run": false
+  },
+  "artifacts": {
+    "unconditioned_familiar_traces_sha256": "57da1978230e56d37d6dae47e30e03fc31d925e039be17f38723e9df266400fd",
+    "conditioned_familiar_traces_sha256": "7fcb402b315652da5ed3854dae4f7748ca925cadad837f852d1ad81f5459f791",
+    "admission_report_sha256": "77ac504bab1d13493d3c3aa91f7127a38fafffa0165d466199bc302a6f990e0a"
+  },
+  "decision": {
+    "admission_pass": false,
+    "sdft_training_admitted": false,
+    "plain_sft_sdft_comparison_started": false,
+    "summary": "Exact OPSD-style demonstration conditioning provides a large paired improvement, but the self-teacher remains too unreliable to serve as a dense target. This is an admission failure, not an SDFT training result. No gradients were applied."
+  }
+}

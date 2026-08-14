@@ -98,6 +98,27 @@ def relative_error_reduction(before: float, after: float) -> float:
     return (after - before) / error
 
 
+def early_rejection_reasons(arms: dict[str, dict]) -> list[str]:
+    """Identify conditioned metrics that cannot recover before the arm is full."""
+    reasons: list[str] = []
+    thresholds = {"familiar": 0.90, "ood": 0.80}
+    for split, threshold in thresholds.items():
+        arm_name = f"{split}_conditioned"
+        expected = ARMS[arm_name][1]
+        arm = arms.get(arm_name, {"count": 0, "clean_count": 0, "means": {}})
+        observed = min(int(arm["count"]), expected)
+        remaining = expected - observed
+        for metric in CORE_METRICS:
+            score = float(arm["means"].get(metric, 0.0)) * observed
+            maximum = (score + remaining) / expected
+            if maximum < threshold:
+                reasons.append(
+                    f"{split}: conditioned {metric} can reach at most "
+                    f"{maximum:.3f}, below {threshold:.2f}"
+                )
+    return reasons
+
+
 def assess(arms: dict[str, dict]) -> dict:
     failures: list[str] = []
     for name, (_, expected) in ARMS.items():
@@ -160,9 +181,12 @@ def assess(arms: dict[str, dict]) -> dict:
             f"(absolute={absolute_gain:.3f}, error_reduction={error_reduction:.3f})"
         )
 
+    early_rejections = early_rejection_reasons(arms)
     return {
         "schema_version": 1,
         "admission_pass": not failures,
+        "admission_still_possible": not early_rejections,
+        "early_rejection_reasons": early_rejections,
         "criteria": {
             "expected_traces": {name: expected for name, (_, expected) in ARMS.items()},
             "paired_task_identity": "exact multiset match within each split",
