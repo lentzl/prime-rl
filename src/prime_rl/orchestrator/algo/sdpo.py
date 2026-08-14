@@ -59,10 +59,10 @@ class SDPOAlgorithm(Algorithm):
         if list(branch.token_ids) != list(sample.token_ids) or list(branch.sampled_mask) != list(sample.mask):
             raise ValueError("SDPO sample tokens must align with their Verifiers trace branch")
 
-        explicit_feedback = rollout.info.get("feedback")
-        if self.config.require_explicit_feedback and not (
-            isinstance(explicit_feedback, str) and explicit_feedback.strip()
-        ):
+        explicit_feedback = self._explicit_feedback(rollout)
+        if (
+            self.config.require_explicit_feedback or self.config.required_feedback_contract_schema is not None
+        ) and explicit_feedback is None:
             self._clear_target(sample)
             return
 
@@ -148,8 +148,8 @@ class SDPOAlgorithm(Algorithm):
         return prefix_ids[: self.config.max_reprompt_len]
 
     def _turn_feedback(self, rollout: Rollout, nodes: list, sampled_node_index: int, *, is_final_turn: bool) -> str:
-        explicit = rollout.info.get("feedback")
-        if is_final_turn and not self.config.multi_turn_replay and isinstance(explicit, str) and explicit.strip():
+        explicit = self._explicit_feedback(rollout)
+        if is_final_turn and not self.config.multi_turn_replay and explicit is not None:
             return explicit
         feedback: list[str] = []
         for node in nodes[sampled_node_index + 1 :]:
@@ -160,9 +160,29 @@ class SDPOAlgorithm(Algorithm):
                 feedback.append(f"{node.message.role}: {text}")
         if feedback:
             return "\n".join(feedback)
-        if is_final_turn and isinstance(explicit, str) and explicit.strip():
+        if is_final_turn and explicit is not None:
             return explicit
         return ""
+
+    def _explicit_feedback(self, rollout: Rollout) -> str | None:
+        explicit = rollout.info.get("feedback")
+        if not isinstance(explicit, str) or not explicit.strip():
+            return None
+        required_schema = self.config.required_feedback_contract_schema
+        if required_schema is None:
+            return explicit
+        contract = rollout.info.get("feedback_contract")
+        if not isinstance(contract, dict):
+            return None
+        if contract.get("schema_version") != required_schema:
+            return None
+        if contract.get("answer_free") is not True or contract.get("retryable") is not True:
+            return None
+        if not all(isinstance(contract.get(key), str) and contract[key].strip() for key in ("code", "category")):
+            return None
+        if contract.get("message") != explicit:
+            return None
+        return explicit
 
     def _demonstration(self, rollout: Rollout) -> str:
         text = "\n".join(content_text(message.content) for message in rollout.assistant_messages)

@@ -69,6 +69,11 @@ def test_echo_roles_require_at_least_one():
         _build(type="echo", roles={})
 
 
+def test_sdpo_feedback_contract_schema_must_be_nonempty():
+    with pytest.raises(ValueError, match="at least 1 character"):
+        _build(type="sdpo", required_feedback_contract_schema="")
+
+
 def test_opd_teacher_must_be_a_frozen_endpoint():
     # opd needs a teacher, and it must be frozen: a missing teacher is a
     # structural error, and "policy" can't even be set — opd.teacher is typed
@@ -626,6 +631,84 @@ def test_sdpo_explicit_feedback_gate_excludes_clean_multiturn_trace():
             multi_turn_replay=True,
             require_explicit_feedback=True,
             success_reward_threshold=2.0,
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    assert rollout.samples[0].sdpo_teacher_spans is None
+    assert rollout.samples[0].sdpo_weights == [0.0] * len(rollout.samples[0].token_ids)
+    algo.renderer.render_ids.assert_not_called()
+
+
+def _feedback_contract(*, message: str = "Use the retained evidence.") -> dict:
+    return {
+        "schema_version": "memory-feedback/v1",
+        "code": "required_history_not_retrieved",
+        "category": "retrieval",
+        "answer_free": True,
+        "retryable": True,
+        "message": message,
+    }
+
+
+def test_sdpo_typed_feedback_contract_admits_matching_diagnostic():
+    feedback = "Use the retained evidence."
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={
+            "feedback": feedback,
+            "feedback_contract": _feedback_contract(message=feedback),
+        },
+    )
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            multi_turn_replay=True,
+            success_reward_threshold=2.0,
+            required_feedback_contract_schema="memory-feedback/v1",
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.side_effect = [[20, 21], [30, 31]]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    assert rollout.samples[0].sdpo_teacher_spans is not None
+    assert len(rollout.samples[0].sdpo_teacher_spans) == 2
+    final_messages = algo.renderer.render_ids.call_args_list[-1].args[0]
+    assert feedback in final_messages[0]["content"]
+
+
+@pytest.mark.parametrize(
+    "contract",
+    [
+        None,
+        _feedback_contract() | {"schema_version": "other/v1"},
+        _feedback_contract() | {"answer_free": False},
+        _feedback_contract() | {"retryable": False},
+        _feedback_contract() | {"code": ""},
+        _feedback_contract() | {"category": ""},
+        _feedback_contract(message="different feedback"),
+    ],
+)
+def test_sdpo_typed_feedback_contract_rejects_untrusted_payload(contract):
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={
+            "feedback": "Use the retained evidence.",
+            "feedback_contract": contract,
+        },
+    )
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            multi_turn_replay=True,
+            success_reward_threshold=2.0,
+            required_feedback_contract_schema="memory-feedback/v1",
         ),
         MagicMock(model_name="org/model"),
     )

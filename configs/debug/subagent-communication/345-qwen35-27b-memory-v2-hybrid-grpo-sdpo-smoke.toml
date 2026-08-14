@@ -142,6 +142,7 @@ success_reward_threshold = 2.0
 dont_reprompt_on_self_success = true
 include_environment_feedback = true
 require_explicit_feedback = true
+required_feedback_contract_schema = "programmatic-episodic-memory-v2/causal-feedback/v1"
 environment_feedback_only_without_solution = true
 multi_turn_replay = true
 max_reprompt_len = 10240

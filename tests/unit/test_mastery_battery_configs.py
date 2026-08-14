@@ -93,6 +93,9 @@ def test_hybrid_memory_smoke_keeps_native_grpo_and_diagnostic_sdpo_disjoint() ->
     assert diagnostic["algo"]["type"] == "sdpo"
     assert diagnostic["algo"]["success_reward_threshold"] > 1.0
     assert diagnostic["algo"]["require_explicit_feedback"] is True
+    assert diagnostic["algo"]["required_feedback_contract_schema"] == (
+        "programmatic-episodic-memory-v2/causal-feedback/v1"
+    )
     assert diagnostic["env"]["taskset"]["causal_feedback_retries"] == 0
     assert diagnostic["env"]["taskset"]["record_causal_feedback"] is True
     assert config["seq_len"] == (
