@@ -369,6 +369,15 @@ class SDPOAlgoConfig(BaseAlgoConfig):
     multi-turn replay after the rollout passes this gate.
     """
 
+    required_feedback_contract_schema: str | None = Field(None, min_length=1)
+    """Require ``trace.info["feedback_contract"]`` to match this schema.
+
+    A matching contract must be answer-free, retryable, carry stable non-empty
+    ``code`` and ``category`` labels, and render exactly the explicit feedback
+    string. Setting this field also implies the explicit-feedback gate. Prime-RL
+    validates the generic contract shape without importing an environment.
+    """
+
     environment_feedback_only_without_solution: bool = True
     """Prefer a successful sibling over environment feedback when both exist."""
 
