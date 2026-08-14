@@ -113,3 +113,26 @@ than spending compute on an already impossible admission. The matched SFT/SDFT
 jobs remain unstarted, and this outcome must not be described as an SDFT
 training failure. The exact result and trace hashes are recorded in
 `qwen35-27b-memory-v2-teacher-admission-results-v1.json`.
+
+## Executable causal feedback
+
+The next environment slice gives an unsuccessful request one bounded retry
+with a diagnostic that identifies the violated retrieval, persistence,
+traceback-repair, output-contract, or event-semantics rule. The diagnostic
+never contains the expected answer. Final per-request answers and emitted
+feedback are retained in the trace so repairs and unresolved failures remain
+auditable.
+
+The four-family untouched-27B smoke completed 4/4 traces without runtime
+errors. Two tasks were native strict successes. The other two received
+answer-free feedback for missing-history, output-contract, or event-semantics
+failures; their unresolved errors remained failures rather than being promoted
+by the scorer.
+
+This smoke does **not** admit plain trajectory-level GRPO with feedback retries.
+A final repaired reward would be broadcast across the failed pre-feedback
+action as well as the repair, contrary to the preregistered routing rule. The
+training route must instead keep native-clean GRPO credit separate from
+feedback-conditioned SDPO on diagnostically understood failures. No gradients
+start until that loss routing is executable and covered by the Huebotter
+reference tests.
