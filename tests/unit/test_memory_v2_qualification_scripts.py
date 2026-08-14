@@ -92,11 +92,17 @@ def test_tranche_qualification_dispatches_every_model_to_isolated_slots(tmp_path
     }
     assert launches == {
         "base": ["0,1,2,3", "8100", "8000", "13345"],
-        "step-1": ["4,5,6,7", "8200", "8100", "13445"],
+        "step-1": ["4,5,6,7", "8300", "8200", "13445"],
         "step-2": ["0,1,2,3", "8100", "8000", "13345"],
-        "step-4": ["4,5,6,7", "8200", "8100", "13445"],
+        "step-4": ["4,5,6,7", "8300", "8200", "13445"],
         "step-8": ["0,1,2,3", "8100", "8000", "13345"],
     }
+    first_wave_service_ports = {
+        launches[label][port_index]
+        for label in ("base", "step-1")
+        for port_index in (1, 2)
+    }
+    assert len(first_wave_service_ports) == 4
     assert all((output / label / "QUALIFICATION_COMPLETE").is_file() for label in launches)
 
 

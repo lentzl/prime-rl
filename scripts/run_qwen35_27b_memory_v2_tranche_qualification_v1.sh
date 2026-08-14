@@ -9,6 +9,7 @@ steps=(1 2 4 8)
 parallelism=${MEMORY_QUALIFICATION_PARALLELISM:-2}
 device_groups=(0,1,2,3 4,5,6,7)
 model_launcher=${MEMORY_QUALIFICATION_MODEL_LAUNCHER:-scripts/run_qwen35_27b_mastery_fast_screen_model_v1.sh}
+service_port_stride=200
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -20,6 +21,21 @@ if (( parallelism < 1 || parallelism > ${#device_groups[@]} )); then
   echo "MEMORY_QUALIFICATION_PARALLELISM must be 1 or ${#device_groups[@]}" >&2
   exit 1
 fi
+declare -A reserved_ports=()
+for ((slot = 0; slot < parallelism; slot++)); do
+  slot_ports=(
+    "$((8000 + service_port_stride * slot))"
+    "$((8100 + service_port_stride * slot))"
+    "$((13345 + 100 * slot))"
+  )
+  for port in "${slot_ports[@]}"; do
+    if [[ -n "${reserved_ports[$port]+present}" ]]; then
+      echo "qualification slots must use distinct ports: $port" >&2
+      exit 1
+    fi
+    reserved_ports[$port]=1
+  done
+done
 for step in "${steps[@]}"; do
   checkpoint=$source_output/weights/step_$step
   if [[ ! -f "$checkpoint/STABLE" ]]; then
@@ -69,8 +85,8 @@ for ((offset = 0; offset < ${#pending[@]}; offset += parallelism)); do
   active_labels=()
   for ((slot = 0; slot < parallelism && offset + slot < ${#pending[@]}; slot++)); do
     index=${pending[$((offset + slot))]}
-    backend_port=$((8100 + 100 * slot))
-    router_port=$((8000 + 100 * slot))
+    backend_port=$((8100 + service_port_stride * slot))
+    router_port=$((8000 + service_port_stride * slot))
     rpc_port=$((13345 + 100 * slot))
     echo "launching qualification ${labels[$index]} on GPUs ${device_groups[$slot]}"
     PRIME_MASTERY_OUTPUT_ROOT=$output_root \
