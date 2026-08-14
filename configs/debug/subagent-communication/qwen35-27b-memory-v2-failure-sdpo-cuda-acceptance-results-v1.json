@@ -1,0 +1,156 @@
+{
+  "experiment_id": "qwen35-27b-memory-v2-failure-sdpo-cuda-acceptance-v1",
+  "completed_at": "2026-08-14T04:26:57Z",
+  "decision": {
+    "cuda_acceptance_pass": true,
+    "checkpoint_promoted_as_teacher": false,
+    "checkpoint_promoted_for_continuation": false,
+    "summary": "The exact failure-routed SDPO objective completed rollout admission, sparse student and EMA-teacher scoring, backward, full CPU-offloaded AdamW, EMA update, scheduler update, stable sharded checkpoint writing, and clean launcher shutdown. This admits the implementation for controlled hybrid training; one optimizer step is not behavioral evidence."
+  },
+  "source": {
+    "prime_rl_commit": "a8b7534b712167e07a432d53cae239295ec3d84b",
+    "prime_rl_base_with_optimizer_in_backward": "276cf060456783b4fb0f3979ebecffcddd212a17",
+    "verifiers_commit": "20644fea4cbe12b751058b3101dc75779e43d558",
+    "config": "configs/debug/subagent-communication/344-qwen35-27b-memory-v2-failure-sdpo-smoke.toml"
+  },
+  "model": {
+    "name": "Qwen/Qwen3.5-27B",
+    "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+    "thinking_mode": true,
+    "training": "full-weight BF16",
+    "teacher": "separate EMA copy initialized from the student",
+    "teacher_update_rate": 0.01
+  },
+  "topology": {
+    "gpu_type": "NVIDIA L40S",
+    "inference_gpus": 2,
+    "inference_tensor_parallel": 2,
+    "trainer_gpus": 6,
+    "trainer_fsdp_world_size": 6,
+    "sequence_length": 12288,
+    "fused_lm_head_token_chunk_size": 512,
+    "optimizer": "AdamW",
+    "optimizer_cpu_offload": "Prime full optimizer-in-backward native CPU offload",
+    "checkpoint": "weights-only sharded safetensors"
+  },
+  "routing": {
+    "environment": "programmatic-memory-v2-diagnostic-failures",
+    "samples": 6,
+    "native_clean_grpo_samples": 0,
+    "diagnostic_failure_sdpo_samples": 6,
+    "answer_correct_mean": 0.0,
+    "strict_success_mean": 0.0,
+    "causal_feedback_count_mean": 1.0,
+    "causal_feedback_repair_mean": 0.0,
+    "retrieval_decision_mean": 1.0,
+    "bounded_retrieval_mean": 1.0,
+    "valid_tool_behavior_mean": 1.0,
+    "no_repeated_cell_mean": 1.0,
+    "runtime_error_rate": 0.0,
+    "truncation_rate": 0.0,
+    "mean_turns": 3.1666666666666665,
+    "mean_reward": 0.7566666666666667
+  },
+  "optimizer_step": {
+    "update_succeeded": true,
+    "learning_rate": 1e-7,
+    "loss_tokens": {
+      "rl": 0,
+      "ce": 0,
+      "ref_kl": 0,
+      "sdpo": 4733
+    },
+    "loss_mean": 0.02395790070295334,
+    "sdpo_mean": 0.17221146821975708,
+    "entropy_mean": 0.24170133471488953,
+    "mismatch_kl_mean": 0.00021148881933186203,
+    "throughput_tokens_per_second": 103.26567216463627,
+    "peak_gpu_memory_gib": 37.2421875,
+    "forward_backward_seconds": 465.4596149179997,
+    "trainer_step_seconds": 717.1004017670057,
+    "total_sampled_tokens": 40005,
+    "input_tokens": 35272,
+    "output_tokens": 4733,
+    "gradient_norm": null,
+    "gradient_norm_note": "Prime disables clipping and grad-norm collection when full optimizer-in-backward CPU offload is active."
+  },
+  "attempts": [
+    {
+      "run": "r3",
+      "accepted": false,
+      "cause": "A 4096-token trainer sequence clipped every assistant action target, producing zero globally active loss tokens; the contemporaneous full-state checkpoint path also exceeded host memory."
+    },
+    {
+      "run": "r4",
+      "accepted": false,
+      "cause": "One of six Prime Agent rollouts reached max_turns=8, so the batch did not satisfy clean complete admission."
+    },
+    {
+      "run": "r5",
+      "accepted": false,
+      "cause": "A 9699-token teacher hindsight replay exceeded the then-configured 6144-token trainer sequence."
+    },
+    {
+      "run": "r6",
+      "accepted": false,
+      "cause": "Teacher replay materialized a full-vocabulary log-softmax and exhausted GPU memory."
+    },
+    {
+      "run": "r7",
+      "accepted": false,
+      "cause": "Whole-logit finite validation materialized an additional full-vocabulary boolean tensor and exhausted GPU memory."
+    },
+    {
+      "run": "r8",
+      "accepted": false,
+      "cause": "The compiled full-logit logsumexp path materialized an FP32 tensor of shape [1, 7006, 248320] (about 6.48 GiB) and exhausted GPU memory during backward."
+    },
+    {
+      "run": "r9",
+      "accepted": false,
+      "cause": "Exact sparse fused scoring completed forward, backward, and AdamW, but the post-step EMA update mixed an unsharded teacher tensor with a student DTensor after no-reshard LM-head execution. No checkpoint was accepted."
+    },
+    {
+      "run": "r10",
+      "accepted": false,
+      "cause": "Stopped prospectively before rollouts or gradients after identifying the teacher no-reshard lifecycle mismatch; used only to validate the corrected reshard plan."
+    },
+    {
+      "run": "r11",
+      "accepted": true,
+      "cause": null
+    }
+  ],
+  "checkpoint": {
+    "stable_marker": true,
+    "total_bytes": 54733726147,
+    "shard_count": 12,
+    "index_sha256": "f8f3253c04946c6f1d0f2eae72f1ad9f9d88978754709e644f418f3846db0a5c",
+    "shard_sha256": [
+      "d4daecdf22fafbb1bebc48f62e07734a1b44bfa4b16454ecbb4e20386c10d09f",
+      "3d4e8b05d49ff7d94e33ae25153fb4800c833a8b7d374b97ad1fbe7a59bf327c",
+      "87ee2fdb3f78287a243ee5406e1fc5b41d02e9167a6234074f5a852db1296d8a",
+      "eb05d113f4c2a6a611e4439da666c9f0d329a084c4d3395830a67998faba3d1f",
+      "be02e21f4e8dc49cb1409c1a930b12b1a0e46cdbc4d6a7f4f16cbe9c773a0e76",
+      "0b70e869b4cecddbdc472d255fda3a5cda8ef35abff4b8e2b75e84b3d74fc9bf",
+      "e0362446a5e40809f64279c67734c75e2d5d3c11b1b2606befb4a47a25a6468d",
+      "f9ac05ec89c992026b978876b35187c74f9f97589d150fc528dbee36c91a7f27",
+      "225a69d9f4252bd83a46039a082ba208e95ec9225373b78458e7ade327434750",
+      "d8c071c65155c3c0efa1a0dc2aeda8498cc126aae3f2da15978f62e365c417b1",
+      "84382a7de6664f6429d975862dbb7729b214bbdb9a34b5319500ea5923036441",
+      "589b994e516cd322f75eb51aaf57fab1d7c4c4561022bffdfce198e4f1c4186a"
+    ]
+  },
+  "artifacts": {
+    "metrics_jsonl_sha256": "8310d6c387f66fa62b2f34d8ea68903ddb9246c45404dde11adaed06a6c3943b",
+    "final_summary_sha256": "cfac37dd3a9d14205416b46bddcbb7de46b60f18d2be333ff798e7d7599d1a58",
+    "trainer_log_sha256": "69f0d83e3dcf2b11751c1573003ef918fa65fabf8bbe36231ceebdca0a505ab8",
+    "launcher_log_sha256": "b92fbe0333d5019a6b595dc2fd9a151df3274a461e6a4e78637d1f4af7c4f9c0"
+  },
+  "validation": {
+    "focused_linux_tests": "79 passed, 1 skipped",
+    "ruff": "passed",
+    "broad_config_discovery": "98 unrelated failures from optional reverse_text and reverse_text_v1 plugins absent in the dirty vendored Verifiers checkout; 155 runnable tests passed and 1 skipped",
+    "behavioral_claim": "none; the checkpoint exists solely to prove the full execution path"
+  }
+}

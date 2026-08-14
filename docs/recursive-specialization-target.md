@@ -1089,3 +1089,24 @@ and broad GRPO is deferred until successful natural behavior or trustworthy
 failure-conditioned feedback provides a better target. The exact comparison,
 training artifact hashes, rollout policy-version counts, and trace hashes are
 recorded in `qwen35-27b-run331-mastery-battery-results-v1.json`.
+
+## Failure-conditioned SDPO becomes executable
+
+Run 344-r11 closes the engineering gap left by the rejected self-teacher and
+broad-GRPO branches. Six untouched-27B trajectories entered the trainer only
+after strict failure and one answer-free causal diagnostic. Exactly 4,733 SDPO
+tokens were active; RL, CE, and reference-KL token counts were all zero. The
+full-weight BF16 step completed exact sparse student/EMA-teacher scoring,
+backward, Prime's full CPU-offloaded AdamW, shard-local EMA update, and a stable
+54.7 GB checkpoint on six trainer plus two inference L40S GPUs.
+
+This result promotes the mechanism, not the resulting weights. The one-step
+checkpoint has no behavioral qualification and must not become the 27B teacher.
+The canonical starting point remains untouched thinking-mode
+`Qwen/Qwen3.5-27B@fc05daec18b0a78c049392ed2e771dde82bdf654`. The next tranche
+combines native-clean successful trajectories under ordinary on-policy GRPO with
+diagnostically failed trajectories under feedback-conditioned SDPO. Repaired
+trajectories may not retroactively give positive GRPO credit to their failed
+pre-feedback actions, and samples without trustworthy feedback receive no
+manufactured target. Dense checkpoints must still pass the frozen 74-task
+Harness Mastery battery before teacher promotion.

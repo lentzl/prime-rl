@@ -136,3 +136,30 @@ training route must instead keep native-clean GRPO credit separate from
 feedback-conditioned SDPO on diagnostically understood failures. No gradients
 start until that loss routing is executable and covered by the Huebotter
 reference tests.
+
+## Failure-routed SDPO CUDA acceptance
+
+Run 344-r11 qualifies the exact diagnostic-failure path end to end on untouched
+thinking-mode Qwen3.5-27B. All six admitted trajectories were strict failures
+with one answer-free causal diagnostic, no feedback retry, valid bounded tool
+behavior, and no ordinary RL, CE, or reference-KL tokens. The trainer selected
+4,733 SDPO tokens and completed separate student and EMA-teacher sparse scoring,
+backward, full CPU-offloaded AdamW at `1e-7`, the EMA update, scheduler update,
+and a stable 12-shard weight checkpoint.
+
+The step remained finite: mean loss `0.023958`, mean SDPO loss `0.172211`, mean
+student/teacher mismatch KL `0.000211`, throughput `103.27` tokens/s, and peak
+trainer memory `37.24` GiB. The implementation avoids full `[sequence, vocab]`
+logits by selecting exact student top-k support and evaluating those same token
+IDs under the teacher in sequence and vocabulary chunks. Distributed replay is
+rank-aligned, and the no-reshard LM-head/final-norm state is explicitly restored
+before shard-local EMA interpolation.
+
+This is an engineering admission, not evidence that the one-step checkpoint
+learned useful memory behavior. The checkpoint is neither a teacher nor a
+continuation candidate. It admits the next controlled experiment: ordinary GRPO
+only on native-clean successful trajectories, feedback-conditioned SDPO only on
+failed trajectories with trustworthy causal diagnostics, and no manufactured
+target for the remainder. Exact metrics, failure history, source revisions, and
+checkpoint hashes are recorded in
+`qwen35-27b-memory-v2-failure-sdpo-cuda-acceptance-results-v1.json`.
