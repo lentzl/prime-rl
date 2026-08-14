@@ -1,11 +1,11 @@
 {
   "experiment_id": "qwen35-27b-memory-v2-hybrid-grpo-sdpo-cuda-acceptance-v1",
-  "completed_at": "2026-08-14T05:42:19Z",
+  "completed_at": "2026-08-14T06:30:06Z",
   "decision": {
     "cuda_acceptance_pass": true,
     "checkpoint_promoted_as_teacher": false,
     "checkpoint_promoted_for_continuation": false,
-    "summary": "Prime-RL trained one heterogeneous full-weight BF16 batch end to end: native no-feedback trajectories emitted ordinary GRPO tokens, diagnostic failures emitted feedback-conditioned SDPO tokens, the two routes remained component-disjoint, AdamW and EMA updates succeeded, and a stable sharded checkpoint was written. This admits a controlled multi-step hybrid tranche; one optimizer step is not behavioral evidence."
+    "summary": "Prime-RL trained one heterogeneous full-weight BF16 batch end to end, then reproduced the path with a fail-closed typed answer-free feedback contract: native no-feedback trajectories emitted ordinary GRPO tokens, typed diagnostic failures emitted feedback-conditioned SDPO tokens, the two routes remained component-disjoint, AdamW and EMA updates succeeded, and stable sharded checkpoints were written. This admits a controlled multi-step hybrid tranche; one optimizer step is not behavioral evidence."
   },
   "source": {
     "prime_rl_commit": "06657b72c42d93963e15e6f8ba7833c777130c43",
@@ -102,6 +102,94 @@
       "cause": null
     }
   ],
+  "typed_contract_reacceptance": {
+    "run": "r3",
+    "completed_at": "2026-08-14T06:30:06Z",
+    "accepted": true,
+    "source": {
+      "prime_rl_commit": "0a13371e71f71bc34b51b4546a8e009b85dbd6be",
+      "verifiers_commit": "3e05ba9cbb2daa3490334d81511f133454e1c79f",
+      "config": "configs/debug/subagent-communication/345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke.toml"
+    },
+    "feedback_contract": {
+      "schema": "programmatic-episodic-memory-v2/causal-feedback/v1",
+      "diagnostic_contracts": 4,
+      "native_contracts": 0,
+      "exact_schema_count": 4,
+      "answer_free_count": 4,
+      "retryable_count": 4,
+      "message_match_count": 4,
+      "code_counts": {
+        "event_semantics_mismatch": 4
+      },
+      "expected_answer_persisted": false
+    },
+    "routing": {
+      "batch_size": 12,
+      "native_grpo_samples": 8,
+      "diagnostic_sdpo_samples": 4,
+      "runtime_error_rate": 0.0,
+      "truncation_rate": 0.0,
+      "trainable_rate": 1.0,
+      "native_strict_success_mean": 0.5,
+      "native_reward_mean": 0.8600000000000001,
+      "diagnostic_strict_success_mean": 0.0,
+      "diagnostic_reward_mean": 0.8200000000000001,
+      "diagnostic_causal_feedback_count_mean": 1.0
+    },
+    "optimizer_step": {
+      "update_succeeded": true,
+      "learning_rate": 1e-7,
+      "loss_tokens": {
+        "rl": 4684,
+        "ce": 0,
+        "ref_kl": 0,
+        "sdpo": 3107
+      },
+      "loss_mean": 0.01606476679444313,
+      "sdpo_mean": 0.18270787596702576,
+      "entropy_mean": 0.20840206742286682,
+      "mismatch_kl_mean": 0.00017017126083374023,
+      "throughput_tokens_per_second": 150.66177801053863,
+      "peak_gpu_memory_gib": 37.248046875,
+      "forward_backward_seconds": 700.8280493849888,
+      "trainer_step_seconds": 1044.047125711004
+    },
+    "checkpoint": {
+      "stable_index": true,
+      "total_bytes": 54733726147,
+      "model_bytes": 54713606672,
+      "shard_count": 12,
+      "index_sha256": "f8f3253c04946c6f1d0f2eae72f1ad9f9d88978754709e644f418f3846db0a5c",
+      "shard_sha256": [
+        "13a067f4ee64c17c39619674084436ca347ea9e08bbf8bb3ac0966537a7e8f41",
+        "9810ba3884c50486009a7e7728c546f448d751bb8cd21a2946faddb37bf22722",
+        "2cb2dadf23471363fdc2191346b8a888587257271d6aafbb27eee9415d943c0a",
+        "58f3a69ea01ec984a39898bb00de0ce67cf148682cc6ce1be9761a61846637aa",
+        "930cfd343b292fa4eaf7b5b9d4769307fc63e14282308c972e37cf3da8265d8d",
+        "618035ea07bf812792f116f02607cf1707812b827d4b50c0992613f78178180d",
+        "874e0cd7c84ef43c2851bd6d8d13743b8526ea9726226d67e2d64c0c52057e8d",
+        "440d2afb42b5119fe825cd8707287b149690b6a0aec4531b155c6d71cdb36955",
+        "dc2add6e1c2ab00c1470d37f79545e427bb5b41e4257f84bd79546dd3b739acf",
+        "1e974c1dd28a057e3124633357f5b263f3fb61e22e2a31036c0c829efabf9f97",
+        "69827811e87bffe3c6f5070fc29a108ab49f47d48aca26d82b64072817d2a984",
+        "1aa73deb0c15ccde717f5f359372307b83af318bee8553a5a7b612cee6c2fed8"
+      ]
+    },
+    "artifacts": {
+      "metrics_jsonl_sha256": "4442d69431d14065cee68813a1b6da51838b828f6489bd9f65797329fbc6e50e",
+      "final_summary_sha256": "74feb8aba8e725035368ee0a32ff056f051439d1b82aa41b60d088cb0f13836d",
+      "trainer_log_sha256": "07d263573d316f852c5bba459a46eb4368707142f01b1ccfa58dcec0932e8f16",
+      "launcher_log_sha256": "6b2e252e4b6de18c01790a8934dc6fae89497ff73b3777f8905c2c62f6c25f1b"
+    },
+    "validation": {
+      "typed_verifiers_linux_tests": "35 passed",
+      "typed_prime_routing_linux_tests": "74 passed",
+      "tranche_and_eval_linux_tests": "27 passed",
+      "ruff": "passed",
+      "behavioral_claim": "none; this checkpoint confirms typed-route semantic equivalence and is not a continuation candidate"
+    }
+  },
   "checkpoint": {
     "stable_marker": true,
     "total_bytes": 54733722051,

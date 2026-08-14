@@ -193,3 +193,15 @@ weights. Untouched 27B remains the canonical start for the first controlled
 multi-step tranche. Exact routing metrics, source revisions, failure history,
 artifact hashes, and checkpoint hashes are recorded in
 `qwen35-27b-memory-v2-hybrid-grpo-sdpo-cuda-acceptance-results-v1.json`.
+
+Run 345-r3 then reproduced the same heterogeneous path after typed causal
+diagnostics were integrated into the executable environment. All four
+diagnostic trajectories carried the exact
+`programmatic-episodic-memory-v2/causal-feedback/v1` contract with
+`answer_free=true`, `retryable=true`, a stable code/category, and a rendered
+message identical to the legacy feedback string. All eight native trajectories
+remained contract-free. The fail-closed Prime router selected 4,684 ordinary RL
+tokens and 3,107 SDPO tokens, with zero CE or reference-KL tokens; full-weight
+AdamW and the EMA update completed, and a stable 12-shard checkpoint was
+written. This is semantic-equivalence acceptance only. Run 345-r3's weights are
+not behavioral evidence and are not the start of the tranche.

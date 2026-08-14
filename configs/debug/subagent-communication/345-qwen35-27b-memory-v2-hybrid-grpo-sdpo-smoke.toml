@@ -5,7 +5,7 @@
 max_steps = 1
 seq_len = 12288
 max_train_batch_lead = 0
-output_dir = "/ephemeral/subagent-rung/outputs/345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke-r2"
+output_dir = "/ephemeral/subagent-rung/outputs/345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke-r3"
 clean_output_dir = true
 
 [deployment]

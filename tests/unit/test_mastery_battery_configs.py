@@ -111,6 +111,44 @@ def test_hybrid_memory_smoke_keeps_native_grpo_and_diagnostic_sdpo_disjoint() ->
     assert 'rl @ "$config"' in launcher
 
 
+def test_hybrid_memory_tranche_preserves_every_early_checkpoint() -> None:
+    launcher = (
+        ROOT / "scripts" / "run_qwen35_27b_memory_v2_hybrid_tranche_v1.sh"
+    ).read_text()
+
+    assert "345-qwen35-27b-memory-v2-hybrid-grpo-sdpo-smoke.toml" in launcher
+    assert "--max-steps 8" in launcher
+    assert "--ckpt.interval 1" in launcher
+    assert "--ckpt.keep-last 8" in launcher
+    assert "--ckpt.keep-interval 1" in launcher
+    assert "nvidia-smi --query-compute-apps=pid" in launcher
+
+
+def test_full_memory_eval_keeps_every_frozen_task_outside_training() -> None:
+    familiar = load_config(
+        "347-qwen35-27b-memory-v2-familiar-full-eval.toml"
+    )
+    ood = load_config("348-qwen35-27b-memory-v2-ood-full-eval.toml")
+
+    assert familiar["num_tasks"] == 300
+    assert familiar["num_rollouts"] == 1
+    assert familiar["env"]["taskset"]["split"] == "familiar_heldout"
+    assert ood["num_tasks"] == 96
+    assert ood["num_rollouts"] == 1
+    assert ood["env"]["taskset"]["split"] == "semantic_ood"
+    for config in (familiar, ood):
+        taskset = config["env"]["taskset"]
+        assert taskset["condition_on_demonstration"] is False
+        assert taskset["causal_feedback_retries"] == 0
+        assert taskset["record_causal_feedback"] is True
+
+    launcher = (
+        ROOT / "scripts" / "run_qwen35_27b_memory_v2_full_eval.sh"
+    ).read_text()
+    assert "347-qwen35-27b-memory-v2-familiar-full-eval" in launcher
+    assert "348-qwen35-27b-memory-v2-ood-full-eval" in launcher
+
+
 def test_oolong_scale_admission_increases_decomposition_pressure() -> None:
     names = (
         "334-qwen35-27b-oolong-semantic-4k-admission.toml",
