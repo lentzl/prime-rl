@@ -27,7 +27,7 @@ from prime_rl.utils.pathing import get_ckpt_dir
 from prime_rl.utils.utils import format_num, format_time, get_step_path
 
 if TYPE_CHECKING:
-    from prime_rl.configs.trainer import OptimizerOffloadingConfig
+    from prime_rl.configs.trainer import FullOptimizerOffloadingConfig
     from prime_rl.trainer.optim import GradientOffloadManager
 
 DEFAULT_TIMEOUT = timedelta(seconds=600)
@@ -168,7 +168,7 @@ def configure_cpu_optimizer_threads() -> None:
     )
 
 
-def setup_cpu_optimizer_offload(config: "OptimizerOffloadingConfig | None") -> None:
+def setup_full_cpu_optimizer_offload(config: "FullOptimizerOffloadingConfig | None") -> None:
     if config is None:
         return
     if config.numa_bind:
