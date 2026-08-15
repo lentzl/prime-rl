@@ -3,15 +3,21 @@ import uuid
 
 import verifiers.v1 as vf
 
-from prime_rl.configs.orchestrator import GibberishFilterConfig, RepetitionFilterConfig
+from prime_rl.configs.orchestrator import (
+    GibberishFilterConfig,
+    RepetitionFilterConfig,
+    TrainableTokenWindowFilterConfig,
+)
 from prime_rl.orchestrator.filters import (
     GibberishFilter,
     RepetitionFilter,
+    TrainableTokenWindowFilter,
     apply_filters,
     setup_filter,
     setup_filters,
 )
 from prime_rl.orchestrator.types import Rollout
+from prime_rl.transport import TrainingSample
 
 
 def _assistant_node(token_ids: list[int], logprobs: list[float]) -> vf.MessageNode:
@@ -79,6 +85,32 @@ def _make_repetition_filter(window=5, prob_threshold=0.99, enforce=False):
     return RepetitionFilter(
         name="repetition", window=window, logprob_threshold=math.log(prob_threshold), enforce=enforce
     )
+
+
+def _attach_sample(
+    rollout: Rollout,
+    *,
+    mask: list[bool],
+    rl_weights: list[float] | None = None,
+    ce_weights: list[float] | None = None,
+    ref_kl_weights: list[float] | None = None,
+    sdpo_weights: list[float] | None = None,
+) -> Rollout:
+    length = len(mask)
+    rollout.samples = [
+        TrainingSample(
+            token_ids=list(range(length)),
+            mask=mask,
+            logprobs=[-1.0] * length,
+            temperatures=[1.0] * length,
+            env_name="test",
+            rl_weights=rl_weights,
+            ce_weights=ce_weights,
+            ref_kl_weights=ref_kl_weights,
+            sdpo_weights=sdpo_weights,
+        )
+    ]
+    return rollout
 
 
 # --- GibberishFilter tests ---
@@ -236,6 +268,68 @@ def test_setup_filter_repetition_enforce():
     config = RepetitionFilterConfig(enforce=True)
     repetition_filter = setup_filter(config, vocab_size=128_000)
     assert repetition_filter.enforce is True
+
+
+def test_setup_filter_trainable_token_window():
+    config = TrainableTokenWindowFilterConfig(max_tokens=8)
+    token_window_filter = setup_filter(config, vocab_size=128_000)
+    assert isinstance(token_window_filter, TrainableTokenWindowFilter)
+    assert token_window_filter.name == "trainable_token_window"
+    assert token_window_filter.max_tokens == 8
+    assert token_window_filter.enforce is True
+
+
+def test_trainable_token_window_detects_default_rl_beyond_limit():
+    token_window_filter = TrainableTokenWindowFilter(
+        name="trainable_token_window", max_tokens=3
+    )
+    rollout = _attach_sample(
+        _make_rollout([1], [-1.0]),
+        mask=[False, False, False, True],
+    )
+
+    assert token_window_filter.check(rollout).detected is True
+
+
+def test_trainable_token_window_ignores_inactive_tail():
+    token_window_filter = TrainableTokenWindowFilter(
+        name="trainable_token_window", max_tokens=3
+    )
+    rollout = _attach_sample(
+        _make_rollout([1], [-1.0]),
+        mask=[False, True, False, True],
+        rl_weights=[0.0, 1.0, 0.0, 0.0],
+    )
+
+    assert token_window_filter.check(rollout).detected is False
+
+
+def test_trainable_token_window_detects_explicit_component_beyond_limit():
+    token_window_filter = TrainableTokenWindowFilter(
+        name="trainable_token_window", max_tokens=3
+    )
+    rollout = _attach_sample(
+        _make_rollout([1], [-1.0]),
+        mask=[False, False, False, False],
+        rl_weights=[0.0] * 4,
+        ce_weights=[0.0, 0.0, 0.0, 0.5],
+    )
+
+    assert token_window_filter.check(rollout).detected is True
+
+
+def test_trainable_token_window_uses_routed_sdpo_weights():
+    token_window_filter = TrainableTokenWindowFilter(
+        name="trainable_token_window", max_tokens=3
+    )
+    rollout = _attach_sample(
+        _make_rollout([1], [-1.0]),
+        mask=[False, True, False, True],
+        rl_weights=[0.0] * 4,
+        sdpo_weights=[0.0, 1.0, 0.0, 0.0],
+    )
+
+    assert token_window_filter.check(rollout).detected is False
 
 
 def test_setup_filters_multiple():

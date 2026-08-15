@@ -183,7 +183,7 @@ def _make_run(tmp_path: Path) -> Path:
         run_dir / "configs" / "trainer.json",
         {
             "max_steps": 1,
-            "model": {"name": snapshot},
+            "model": {"name": snapshot, "seq_len": MODULE.TRAINING_SEQ_LEN},
             "optim": {"lr": 0},
             "ckpt": None,
             "enable_token_export": True,
@@ -194,11 +194,22 @@ def _make_run(tmp_path: Path) -> Path:
         {
             "max_steps": 1,
             "batch_size": MODULE.EXPECTED_BATCH_SIZE,
+            "seq_len": MODULE.TRAINING_SEQ_LEN,
             "model": {"name": snapshot},
             "ckpt": None,
+            "pre_batch_filters": [
+                {
+                    "type": "trainable_token_window",
+                    "enforce": True,
+                    "max_tokens": MODULE.TRAINING_SEQ_LEN,
+                }
+            ],
             "post_batch_filters": [{"type": "zero_advantage", "enforce": False}],
             "train": {
-                "sampling": {"reasoning_effort": "high"},
+                "sampling": {
+                    "reasoning_effort": "high",
+                    "max_completion_tokens": MODULE.MAX_COMPLETION_TOKENS,
+                },
                 "source": sources,
             },
         },
@@ -311,6 +322,8 @@ def test_validator_reconstructs_component_counts_from_stable_exports(tmp_path: P
     [
         ("nonzero_lr", "learning rate is not zero"),
         ("drops_zero_advantage", "must retain zero-advantage groups"),
+        ("no_token_window", "must enforce a trainable-token window"),
+        ("overlong_trainable", "has trainable tokens beyond"),
         ("no_sdpo_tokens", "RL and SDPO token mass must both be positive"),
         ("no_rl_tokens", "RL and SDPO token mass must both be positive"),
         ("competing_loss", "expected loss_tokens/ce=0"),
@@ -334,6 +347,23 @@ def test_validator_fails_closed(tmp_path: Path, mutation: str, message: str) -> 
         config = json.loads(path.read_text())
         config["post_batch_filters"][0]["enforce"] = True
         _write_json(path, config)
+    elif mutation == "no_token_window":
+        path = run_dir / "configs" / "orchestrator.json"
+        config = json.loads(path.read_text())
+        config["pre_batch_filters"] = []
+        _write_json(path, config)
+    elif mutation == "overlong_trainable":
+        trace_path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
+        traces = [json.loads(line) for line in trace_path.read_text().splitlines()]
+        trace = next(
+            item for item in traces if item["info"]["env_name"] in MODULE.RETENTION_ENVS
+        )
+        node = trace["nodes"][-1]
+        extra = MODULE.TRAINING_SEQ_LEN + 1 - sum(len(item["token_ids"]) for item in trace["nodes"])
+        node["token_ids"].extend([123] * extra)
+        node["mask"].extend([True] * extra)
+        node["logprobs"].extend([-0.1] * extra)
+        trace_path.write_text("".join(json.dumps(item) + "\n" for item in traces))
     elif mutation in {
         "no_sdpo_tokens",
         "no_rl_tokens",

@@ -35,6 +35,8 @@ EXPECTED_RATIOS = {
     "communication-causal-retention": 4.0,
 }
 EXPECTED_BATCH_SIZE = 16
+TRAINING_SEQ_LEN = 8192
+MAX_COMPLETION_TOKENS = 1024
 
 
 class AuditFailure(ValueError):
@@ -99,12 +101,36 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
         raise AuditFailure("resolved trainer must enable token export")
     if orchestrator.get("batch_size") != EXPECTED_BATCH_SIZE:
         raise AuditFailure(f"resolved batch size must be {EXPECTED_BATCH_SIZE}")
+    if trainer.get("model", {}).get("seq_len") != TRAINING_SEQ_LEN:
+        raise AuditFailure(f"resolved trainer sequence length must be {TRAINING_SEQ_LEN}")
+    if orchestrator.get("seq_len") != TRAINING_SEQ_LEN:
+        raise AuditFailure(f"resolved orchestrator sequence length must be {TRAINING_SEQ_LEN}")
     if trainer.get("ckpt") is not None:
         raise AuditFailure("resolved trainer unexpectedly enables checkpointing")
     if orchestrator.get("ckpt") is not None:
         raise AuditFailure("resolved orchestrator unexpectedly enables checkpointing")
     if orchestrator.get("train", {}).get("sampling", {}).get("reasoning_effort") != "high":
         raise AuditFailure("resolved train sampling does not use high reasoning effort")
+    if (
+        orchestrator.get("train", {}).get("sampling", {}).get("max_completion_tokens")
+        != MAX_COMPLETION_TOKENS
+    ):
+        raise AuditFailure(
+            f"resolved train sampling must cap each completion at {MAX_COMPLETION_TOKENS} tokens"
+        )
+    pre_filters = orchestrator.get("pre_batch_filters")
+    token_window = next(
+        (item for item in pre_filters or [] if item.get("type") == "trainable_token_window"),
+        None,
+    )
+    if (
+        token_window is None
+        or token_window.get("enforce") is not True
+        or token_window.get("max_tokens") != TRAINING_SEQ_LEN
+    ):
+        raise AuditFailure(
+            "resolved audit must enforce a trainable-token window equal to the trainer sequence length"
+        )
     post_filters = orchestrator.get("post_batch_filters")
     zero_advantage = next(
         (item for item in post_filters or [] if item.get("type") == "zero_advantage"),
@@ -284,7 +310,28 @@ def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]
         family = task_data.get("family")
         if env_name == "communication-causal-retention" and isinstance(family, str):
             causal_families[family] += 1
-        typed.append(vf.WireTrace.model_validate(record))
+        trace = vf.WireTrace.model_validate(record)
+        branches = list(iter_trainable_branches(trace))
+        active_masks = (
+            keep_first_coordinator_tool_call(trace)
+            if env_name == DIAGNOSTIC_ENV
+            else [mask for _, mask in branches]
+        )
+        if len(active_masks) != len(branches):
+            raise AuditFailure(f"effective trace {index} has misaligned training masks")
+        for branch_index, ((branch, _), active_mask) in enumerate(
+            zip(branches, active_masks, strict=True)
+        ):
+            if len(active_mask) != len(branch.token_ids):
+                raise AuditFailure(
+                    f"effective trace {index} branch {branch_index} has an invalid training mask"
+                )
+            if any(active_mask[TRAINING_SEQ_LEN:]):
+                raise AuditFailure(
+                    f"effective trace {index} branch {branch_index} has trainable tokens "
+                    f"beyond the {TRAINING_SEQ_LEN}-token trainer window"
+                )
+        typed.append(trace)
 
     missing = EXPECTED_ENVS - counts.keys()
     if missing:

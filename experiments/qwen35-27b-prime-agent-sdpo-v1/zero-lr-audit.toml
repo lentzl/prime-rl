@@ -74,6 +74,23 @@ max_off_policy_steps = 0
 [orchestrator.algo]
 type = "grpo"
 
+[[orchestrator.pre_batch_filters]]
+type = "gibberish"
+enforce = false
+
+[[orchestrator.pre_batch_filters]]
+type = "repetition"
+enforce = false
+
+[[orchestrator.pre_batch_filters]]
+type = "zero_advantage"
+enforce = false
+
+[[orchestrator.pre_batch_filters]]
+type = "trainable_token_window"
+max_tokens = 8192
+enforce = true
+
 [[orchestrator.post_batch_filters]]
 type = "gibberish"
 enforce = false
@@ -93,7 +110,7 @@ enable_thinking = true
 [orchestrator.train.sampling]
 temperature = 1.0
 reasoning_effort = "high"
-max_completion_tokens = 2048
+max_completion_tokens = 1024
 
 [orchestrator.train.sampling.extra_body]
 top_k = -1

@@ -110,6 +110,34 @@ class ZeroAdvantageFilter:
         return FilterResult(detected=False)
 
 
+@dataclass
+class TrainableTokenWindowFilter:
+    """Flags rollouts whose trainer-bound loss signal would be truncated."""
+
+    name: str
+    max_tokens: int
+    enforce: bool = True
+
+    def check(self, rollout: Rollout) -> FilterResult:
+        for sample in rollout.samples:
+            for index in range(self.max_tokens, len(sample.token_ids)):
+                # An absent rl stream means the sample mask selects RL tokens.
+                rl_active = sample.mask[index] and (
+                    sample.rl_weights is None or sample.rl_weights[index] != 0
+                )
+                component_active = any(
+                    weights is not None and weights[index] != 0
+                    for weights in (
+                        sample.ce_weights,
+                        sample.ref_kl_weights,
+                        sample.sdpo_weights,
+                    )
+                )
+                if rl_active or component_active:
+                    return FilterResult(detected=True)
+        return FilterResult(detected=False)
+
+
 def setup_filter(config: FilterConfig, vocab_size: int) -> RolloutFilter:
     """Create a RolloutFilter from a filter config."""
     if config.type == "gibberish":
@@ -129,6 +157,12 @@ def setup_filter(config: FilterConfig, vocab_size: int) -> RolloutFilter:
     elif config.type == "zero_advantage":
         return ZeroAdvantageFilter(
             name="zero_advantage",
+            enforce=config.enforce,
+        )
+    elif config.type == "trainable_token_window":
+        return TrainableTokenWindowFilter(
+            name="trainable_token_window",
+            max_tokens=config.max_tokens,
             enforce=config.enforce,
         )
     raise ValueError(f"Unknown filter type: {config.type}")

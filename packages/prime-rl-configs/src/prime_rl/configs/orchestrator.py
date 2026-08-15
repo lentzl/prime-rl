@@ -343,8 +343,21 @@ class ZeroAdvantageFilterConfig(BaseConfig):
     """When True, skip detected rollouts entirely so they are not sent to the trainer. When False, only track detection metrics."""
 
 
+class TrainableTokenWindowFilterConfig(BaseConfig):
+    type: Literal["trainable_token_window"] = "trainable_token_window"
+
+    enforce: bool = True
+    """When True, skip rollouts whose trainer-bound loss signal extends beyond the window."""
+
+    max_tokens: int = Field(ge=1)
+    """Maximum sample length within which every active loss-component token must fit."""
+
+
 FilterConfig: TypeAlias = Annotated[
-    GibberishFilterConfig | RepetitionFilterConfig | ZeroAdvantageFilterConfig,
+    GibberishFilterConfig
+    | RepetitionFilterConfig
+    | ZeroAdvantageFilterConfig
+    | TrainableTokenWindowFilterConfig,
     Field(discriminator="type"),
 ]
 
