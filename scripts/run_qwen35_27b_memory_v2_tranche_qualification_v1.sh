@@ -69,50 +69,74 @@ for index in "${!models[@]}"; do
 done
 
 active_pids=()
+active_labels=()
 cleanup() {
   trap - EXIT INT TERM
   for pid in "${active_pids[@]}"; do
-    kill "$pid" 2>/dev/null || true
+    [[ -n "$pid" ]] && kill "$pid" 2>/dev/null || true
   done
   for pid in "${active_pids[@]}"; do
-    wait "$pid" 2>/dev/null || true
+    [[ -n "$pid" ]] && wait "$pid" 2>/dev/null || true
   done
 }
 trap cleanup EXIT INT TERM
 
-for ((offset = 0; offset < ${#pending[@]}; offset += parallelism)); do
-  active_pids=()
-  active_labels=()
-  for ((slot = 0; slot < parallelism && offset + slot < ${#pending[@]}; slot++)); do
-    index=${pending[$((offset + slot))]}
-    backend_port=$((8100 + service_port_stride * slot))
-    router_port=$((8000 + service_port_stride * slot))
-    rpc_port=$((13345 + 100 * slot))
-    echo "launching qualification ${labels[$index]} on GPUs ${device_groups[$slot]}"
-    PRIME_MASTERY_OUTPUT_ROOT=$output_root \
-      MASTERY_EVAL_DRIVER=scripts/run_qwen35_27b_memory_v2_combined_qualification.sh \
-      EVAL_CUDA_VISIBLE_DEVICES=${device_groups[$slot]} \
-      EVAL_TENSOR_PARALLEL_SIZE=4 \
-      EVAL_BACKEND_PORT=$backend_port \
-      EVAL_ROUTER_PORT=$router_port \
-      EVAL_DATA_PARALLEL_RPC_PORT=$rpc_port \
-      "$model_launcher" \
-        "${models[$index]}" "${labels[$index]}" "${revisions[$index]}" &
-    active_pids+=("$!")
-    active_labels+=("${labels[$index]}")
-  done
+launch_slot() {
+  local slot=$1
+  local index=$2
+  local backend_port=$((8100 + service_port_stride * slot))
+  local router_port=$((8000 + service_port_stride * slot))
+  local rpc_port=$((13345 + 100 * slot))
 
-  failed=0
-  for index in "${!active_pids[@]}"; do
-    if ! wait "${active_pids[$index]}"; then
-      echo "qualification failed: ${active_labels[$index]}" >&2
-      failed=1
+  echo "launching qualification ${labels[$index]} on GPUs ${device_groups[$slot]}"
+  PRIME_MASTERY_OUTPUT_ROOT=$output_root \
+    MASTERY_EVAL_DRIVER=scripts/run_qwen35_27b_memory_v2_combined_qualification.sh \
+    EVAL_CUDA_VISIBLE_DEVICES=${device_groups[$slot]} \
+    EVAL_TENSOR_PARALLEL_SIZE=4 \
+    EVAL_BACKEND_PORT=$backend_port \
+    EVAL_ROUTER_PORT=$router_port \
+    EVAL_DATA_PARALLEL_RPC_PORT=$rpc_port \
+    "$model_launcher" \
+      "${models[$index]}" "${labels[$index]}" "${revisions[$index]}" &
+  active_pids[$slot]=$!
+  active_labels[$slot]=${labels[$index]}
+}
+
+next_pending=0
+for ((slot = 0; slot < parallelism && next_pending < ${#pending[@]}; slot++)); do
+  launch_slot "$slot" "${pending[$next_pending]}"
+  next_pending=$((next_pending + 1))
+done
+
+while :; do
+  active=0
+  progressed=0
+  for ((slot = 0; slot < parallelism; slot++)); do
+    pid=${active_pids[$slot]:-}
+    [[ -n "$pid" ]] || continue
+    active=$((active + 1))
+    if kill -0 "$pid" 2>/dev/null; then
+      continue
+    fi
+
+    if ! wait "$pid"; then
+      echo "qualification failed: ${active_labels[$slot]}" >&2
+      exit 1
+    fi
+    active_pids[$slot]=
+    active_labels[$slot]=
+    active=$((active - 1))
+    progressed=1
+
+    if (( next_pending < ${#pending[@]} )); then
+      launch_slot "$slot" "${pending[$next_pending]}"
+      next_pending=$((next_pending + 1))
+      active=$((active + 1))
     fi
   done
-  active_pids=()
-  if (( failed )); then
-    exit 1
-  fi
+
+  (( active > 0 )) || break
+  (( progressed > 0 )) || sleep 1
 done
 
 trap - EXIT INT TERM

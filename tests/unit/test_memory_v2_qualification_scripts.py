@@ -90,13 +90,12 @@ def test_tranche_qualification_dispatches_every_model_to_isolated_slots(tmp_path
         for line in log.read_text(encoding="utf-8").splitlines()
         if (fields := line.split("|"))
     }
-    assert launches == {
-        "base": ["0,1,2,3", "8100", "8000", "13345"],
-        "step-1": ["4,5,6,7", "8300", "8200", "13445"],
-        "step-2": ["0,1,2,3", "8100", "8000", "13345"],
-        "step-4": ["4,5,6,7", "8300", "8200", "13445"],
-        "step-8": ["0,1,2,3", "8100", "8000", "13345"],
+    assert set(launches) == {"base", "step-1", "step-2", "step-4", "step-8"}
+    slots = {
+        ("0,1,2,3", "8100", "8000", "13345"),
+        ("4,5,6,7", "8300", "8200", "13445"),
     }
+    assert all(tuple(fields) in slots for fields in launches.values())
     first_wave_service_ports = {
         launches[label][port_index]
         for label in ("base", "step-1")
@@ -104,6 +103,58 @@ def test_tranche_qualification_dispatches_every_model_to_isolated_slots(tmp_path
     }
     assert len(first_wave_service_ports) == 4
     assert all((output / label / "QUALIFICATION_COMPLETE").is_file() for label in launches)
+
+
+def test_tranche_qualification_refills_a_slot_without_a_wave_barrier(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    output = tmp_path / "output"
+    for step in (1, 2, 4, 8):
+        checkpoint = source / "weights" / f"step_{step}"
+        checkpoint.mkdir(parents=True)
+        (checkpoint / "STABLE").touch()
+
+    bin_dir = tmp_path / "bin"
+    bin_dir.mkdir()
+    nvidia_smi = bin_dir / "nvidia-smi"
+    nvidia_smi.write_text("#!/usr/bin/env bash\n", encoding="utf-8")
+    nvidia_smi.chmod(0o755)
+
+    log = tmp_path / "events.txt"
+    model_launcher = tmp_path / "model-launcher.sh"
+    model_launcher.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -euo pipefail\n"
+        'printf "start %s\\n" "$2" >>"$QUALIFICATION_TEST_LOG"\n'
+        'if [[ "$2" == step-1 ]]; then sleep 2; else sleep 0.1; fi\n'
+        'mkdir -p "$PRIME_MASTERY_OUTPUT_ROOT/$2"\n'
+        'touch "$PRIME_MASTERY_OUTPUT_ROOT/$2/QUALIFICATION_COMPLETE"\n'
+        'printf "end %s\\n" "$2" >>"$QUALIFICATION_TEST_LOG"\n',
+        encoding="utf-8",
+    )
+    model_launcher.chmod(0o755)
+
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{bin_dir}:{env['PATH']}",
+            "MEMORY_TRANCHE_OUTPUT": str(source),
+            "MEMORY_QUALIFICATION_OUTPUT": str(output),
+            "MEMORY_QUALIFICATION_PARALLELISM": "2",
+            "MEMORY_QUALIFICATION_MODEL_LAUNCHER": str(model_launcher),
+            "QUALIFICATION_TEST_LOG": str(log),
+        }
+    )
+    subprocess.run(
+        [str(ROOT / "scripts" / "run_qwen35_27b_memory_v2_tranche_qualification_v1.sh")],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    events = log.read_text(encoding="utf-8").splitlines()
+    assert events.index("start step-2") < events.index("end step-1")
 
 
 def test_combined_driver_runs_memory_and_mastery_before_marking_complete() -> None:
