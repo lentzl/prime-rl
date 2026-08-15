@@ -39,17 +39,23 @@ if "ckpt" in config:
     raise SystemExit("zero-LR audit must omit checkpoint configuration")
 if not config.get("trainer", {}).get("enable_token_export"):
     raise SystemExit("zero-LR audit must enable token export")
+if config.get("orchestrator", {}).get("batch_size") != 16:
+    raise SystemExit("zero-LR audit must use the 16-trace mechanism batch")
 sources = config.get("orchestrator", {}).get("train", {}).get("source", [])
 expected = {
-    "ownership-child-diagnostic-sdpo": ("sdpo", 1),
-    "ownership-coordinator-retention": ("grpo", 2),
-    "communication-direct-retention": ("grpo", 2),
-    "communication-single-retention": ("grpo", 2),
-    "communication-parallel-retention": ("grpo", 2),
-    "communication-causal-retention": ("grpo", 2),
+    "ownership-child-diagnostic-sdpo": ("sdpo", 1, 4.0),
+    "ownership-coordinator-retention": ("grpo", 2, 2.0),
+    "communication-direct-retention": ("grpo", 2, 2.0),
+    "communication-single-retention": ("grpo", 2, 2.0),
+    "communication-parallel-retention": ("grpo", 2, 1.0),
+    "communication-causal-retention": ("grpo", 2, 4.0),
 }
 actual = {
-    source.get("name"): (source.get("algo", {}).get("type"), source.get("group_size"))
+    source.get("name"): (
+        source.get("algo", {}).get("type"),
+        source.get("group_size"),
+        source.get("ratio"),
+    )
     for source in sources
 }
 if actual != expected:

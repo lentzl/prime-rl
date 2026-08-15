@@ -12,6 +12,11 @@ handshake behavior.
 with `lr = 0`, creates no checkpoint, and proves that genuine on-policy failures can
 flow through feedback admission, teacher replay, token filtering, and the analytic
 SDPO loss alongside group-relative RL before any parameter-changing run is considered.
+Its fixed-seed 16-trace batch is the minimum complete screen: four diagnostic traces,
+one two-rollout group from each ordinary retention source, and two causal groups so
+both follow-up and handshake remain represented. The nonuniform source ratios exist
+only to make that exact audit allocation deterministic; they are not proposed as a
+training curriculum.
 
 The launcher validates the completed run before returning success and writes
 `AUDIT.json` plus `AUDIT.txt` into the run directory. A passing verdict requires

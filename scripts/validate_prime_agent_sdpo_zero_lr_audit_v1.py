@@ -27,10 +27,14 @@ RETENTION_ENVS = {
 }
 EXPECTED_ENVS = {DIAGNOSTIC_ENV, *RETENTION_ENVS}
 EXPECTED_RATIOS = {
-    name: 2.0 if name == "communication-causal-retention" else 1.0
-    for name in EXPECTED_ENVS
+    DIAGNOSTIC_ENV: 4.0,
+    "ownership-coordinator-retention": 2.0,
+    "communication-direct-retention": 2.0,
+    "communication-single-retention": 2.0,
+    "communication-parallel-retention": 1.0,
+    "communication-causal-retention": 4.0,
 }
-EXPECTED_BATCH_SIZE = 32
+EXPECTED_BATCH_SIZE = 16
 
 
 class AuditFailure(ValueError):

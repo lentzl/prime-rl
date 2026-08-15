@@ -64,7 +64,7 @@ betas2 = 0.999
 type = "constant"
 
 [orchestrator]
-batch_size = 32
+batch_size = 16
 group_size = 1
 max_inflight_episodes = 32
 oversampling_factor = 1.0
@@ -89,7 +89,7 @@ return_token_ids = true
 
 [[orchestrator.train.source]]
 name = "ownership-child-diagnostic-sdpo"
-ratio = 1.0
+ratio = 4.0
 group_size = 1
 
 [orchestrator.train.source.algo]
@@ -156,7 +156,7 @@ multiplex = 128
 
 [[orchestrator.train.source]]
 name = "ownership-coordinator-retention"
-ratio = 1.0
+ratio = 2.0
 group_size = 2
 
 [orchestrator.train.source.algo]
@@ -205,7 +205,7 @@ multiplex = 128
 
 [[orchestrator.train.source]]
 name = "communication-direct-retention"
-ratio = 1.0
+ratio = 2.0
 group_size = 2
 
 [orchestrator.train.source.algo]
@@ -251,7 +251,7 @@ multiplex = 128
 
 [[orchestrator.train.source]]
 name = "communication-single-retention"
-ratio = 1.0
+ratio = 2.0
 group_size = 2
 
 [orchestrator.train.source.algo]
@@ -343,7 +343,7 @@ multiplex = 128
 
 [[orchestrator.train.source]]
 name = "communication-causal-retention"
-ratio = 2.0
+ratio = 4.0
 group_size = 2
 
 [orchestrator.train.source.algo]
