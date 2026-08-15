@@ -89,3 +89,44 @@ def test_validity_gate_rejects_harness_errors() -> None:
 
     with pytest.raises(SystemExit, match="trace-with-harness-error"):
         MODULE.require_valid_traces([trace])
+
+
+def test_validity_gate_scores_model_rollout_budget_exhaustion() -> None:
+    trace = _trace("oolong-200", "oolong", reward=0.0)
+    trace.update(
+        ok=False,
+        stop_condition="error",
+        errors=[
+            {
+                "type": "HarnessError",
+                "message": "agent timeout: rollout exceeded its 1200s budget",
+            }
+        ],
+    )
+
+    MODULE.require_valid_traces([trace])
+    summary = MODULE.summarize([trace])
+
+    assert summary["issue_count"] == 1
+    assert summary["tasks"][0]["issues"] == ["trace-error"]
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Prime Agent artifact install failed",
+        "container disappeared during rollout",
+        "agent timeout: setup exceeded its 300s budget",
+    ],
+)
+def test_validity_gate_still_rejects_non_behavioral_harness_failures(message: str) -> None:
+    trace = _trace("invalid-runtime", "oolong", reward=0.0)
+    trace.update(
+        ok=False,
+        id="invalid-runtime",
+        stop_condition="error",
+        errors=[{"type": "HarnessError", "message": message}],
+    )
+
+    with pytest.raises(SystemExit, match="invalid-runtime"):
+        MODULE.require_valid_traces([trace])

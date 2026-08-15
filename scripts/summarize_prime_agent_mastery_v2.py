@@ -169,10 +169,25 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
 
 
 def require_valid_traces(traces: list[dict[str, Any]]) -> None:
+    def is_behavioral_timeout(trace: dict[str, Any]) -> bool:
+        errors = trace.get("errors")
+        if trace.get("stop_condition") != "error" or not isinstance(errors, list) or not errors:
+            return False
+        return all(
+            isinstance(error, dict)
+            and error.get("type") == "HarnessError"
+            and str(error.get("message", "")).startswith(
+                "agent timeout: rollout exceeded its "
+            )
+            and str(error.get("message", "")).endswith(" budget")
+            for error in errors
+        )
+
     invalid = [
         str(trace.get("id") or trace.get("task", {}).get("data", {}).get("name"))
         for trace in traces
-        if trace.get("ok") is not True or trace.get("errors")
+        if (trace.get("ok") is not True or trace.get("errors"))
+        and not is_behavioral_timeout(trace)
     ]
     if invalid:
         preview = ", ".join(invalid[:8])
