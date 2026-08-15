@@ -35,8 +35,8 @@ if config.get("max_steps") != 1:
     raise SystemExit("zero-LR audit must run exactly one step")
 if config.get("trainer", {}).get("optim", {}).get("lr") != 0.0:
     raise SystemExit("zero-LR audit refuses a nonzero learning rate")
-if config.get("ckpt", {}).get("interval") is not None:
-    raise SystemExit("zero-LR audit must not write a checkpoint")
+if "ckpt" in config:
+    raise SystemExit("zero-LR audit must omit checkpoint configuration")
 if not config.get("trainer", {}).get("enable_token_export"):
     raise SystemExit("zero-LR audit must enable token export")
 sources = config.get("orchestrator", {}).get("train", {}).get("source", [])

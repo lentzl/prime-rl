@@ -19,7 +19,7 @@ def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
     assert config.trainer.optim.lr == 0.0
     assert config.trainer.enable_token_export is True
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
-    assert config.ckpt is not None and config.ckpt.interval is None
+    assert config.ckpt is None
     assert config.model.name == "Qwen/Qwen3.5-27B"
     assert config.run.name == config.run.dir == "zero-lr-audit"
     assert config.clean is True
@@ -62,7 +62,7 @@ def test_zero_lr_audit_launcher_fails_closed() -> None:
     assert "refusing to launch while another GPU process is active" in launcher
     assert "zero-LR audit must run exactly one step" in launcher
     assert "zero-LR audit refuses a nonzero learning rate" in launcher
-    assert "zero-LR audit must not write a checkpoint" in launcher
+    assert "zero-LR audit must omit checkpoint configuration" in launcher
     assert "SDPO_AUDIT_DRY_RUN" in launcher
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
     assert "snapshot_download" in launcher

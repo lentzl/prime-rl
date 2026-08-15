@@ -406,8 +406,6 @@ gpu_memory_utilization = 0.8
 max_num_seqs = 8
 mamba_ssm_cache_dtype = "float32"
 
-[ckpt]
-
 [file_monitor]
 filename = "metrics.jsonl"
 

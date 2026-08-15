@@ -184,7 +184,7 @@ def _make_run(tmp_path: Path) -> Path:
             "max_steps": 1,
             "model": {"name": snapshot},
             "optim": {"lr": 0},
-            "ckpt": {"interval": None},
+            "ckpt": None,
             "enable_token_export": True,
         },
     )
@@ -194,7 +194,7 @@ def _make_run(tmp_path: Path) -> Path:
             "max_steps": 1,
             "batch_size": MODULE.EXPECTED_BATCH_SIZE,
             "model": {"name": snapshot},
-            "ckpt": {"interval": None},
+            "ckpt": None,
             "train": {
                 "sampling": {"reasoning_effort": "high"},
                 "source": sources,

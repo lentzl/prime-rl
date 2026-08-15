@@ -91,9 +91,9 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
         raise AuditFailure("resolved trainer must enable token export")
     if orchestrator.get("batch_size") != EXPECTED_BATCH_SIZE:
         raise AuditFailure(f"resolved batch size must be {EXPECTED_BATCH_SIZE}")
-    if trainer.get("ckpt", {}).get("interval") is not None:
+    if trainer.get("ckpt") is not None:
         raise AuditFailure("resolved trainer unexpectedly enables checkpointing")
-    if orchestrator.get("ckpt", {}).get("interval") is not None:
+    if orchestrator.get("ckpt") is not None:
         raise AuditFailure("resolved orchestrator unexpectedly enables checkpointing")
     if orchestrator.get("train", {}).get("sampling", {}).get("reasoning_effort") != "high":
         raise AuditFailure("resolved train sampling does not use high reasoning effort")
