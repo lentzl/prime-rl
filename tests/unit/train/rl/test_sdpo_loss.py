@@ -87,6 +87,16 @@ def test_student_selected_support_is_scored_at_matching_teacher_positions():
     torch.testing.assert_close(actual, expected)
 
 
+def test_student_support_membership_is_invariant_to_positive_temperature():
+    logits = torch.tensor([[[1.0, 3.0, 2.0], [5.0, 0.0, 4.0], [2.0, 1.0, 6.0]]])
+    temperatures = torch.tensor([[0.25, 2.0, 10.0]])
+
+    actual = select_sdpo_student_topk_support(logits, temperatures, topk=2)
+    expected_next = torch.topk(logits, 2, dim=-1).indices
+
+    torch.testing.assert_close(actual[:, 1:], expected_next[:, :-1])
+
+
 def test_teacher_spans_pack_with_independent_positions():
     packed = pack_sdpo_teacher_spans(
         [

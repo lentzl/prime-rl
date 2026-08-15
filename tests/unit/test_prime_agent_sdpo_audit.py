@@ -23,6 +23,7 @@ def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
     assert config.trainer.optim.lr == 0.0
     assert config.trainer.enable_token_export is True
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+    assert config.trainer.model.fsdp_cpu_offload is True
     assert config.ckpt is None
     assert config.model.name == "Qwen/Qwen3.5-27B"
     assert config.run.name == config.run.dir == "zero-lr-audit"

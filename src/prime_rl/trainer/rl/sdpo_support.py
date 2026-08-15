@@ -57,10 +57,11 @@ def select_sdpo_student_topk_support(logits: Tensor, temperatures: Tensor, topk:
     if topk > logits.shape[-1]:
         raise ValueError(f"SDPO top-k support size {topk} exceeds vocabulary size {logits.shape[-1]}")
     _validate_logits_and_temperatures(logits, temperatures)
-    scaled_logits = logits / temperatures.unsqueeze(-1)
-    left_pad = torch.zeros_like(scaled_logits[:, :1])
-    current_token_logits = torch.cat([left_pad, scaled_logits[:, :-1]], dim=1)
-    return torch.topk(current_token_logits, topk, dim=-1).indices
+    # Positive temperature scaling preserves top-k membership. Select directly
+    # from logits so large vocabularies do not require another full-size tensor.
+    next_token_support = torch.topk(logits, topk, dim=-1).indices
+    first_token_support = torch.topk(torch.zeros_like(logits[:, :1]), topk, dim=-1).indices
+    return torch.cat([first_token_support, next_token_support[:, :-1]], dim=1)
 
 
 def gather_sdpo_teacher_topk_logprobs(logits: Tensor, positions: Tensor, token_ids: Tensor) -> Tensor:
@@ -129,7 +130,12 @@ def pack_sdpo_teacher_span_batches(
 def _validate_logits_and_temperatures(logits: Tensor, temperatures: Tensor) -> None:
     if logits.ndim != 3 or temperatures.shape != logits.shape[:2]:
         raise ValueError("SDPO logits and temperatures must align as (batch, seq, vocab) and (batch, seq)")
-    if not torch.is_floating_point(logits) or not bool(torch.isfinite(logits).all()):
+    if not torch.is_floating_point(logits) or not _all_finite_in_chunks(logits):
         raise ValueError("SDPO logits must contain finite floating-point values")
     if not bool(torch.isfinite(temperatures).all()) or not bool((temperatures > 0).all()):
         raise ValueError("SDPO temperatures must be finite and positive")
+
+
+def _all_finite_in_chunks(tensor: Tensor, chunk_elements: int = 16 * 1024 * 1024) -> bool:
+    flat = tensor.reshape(-1)
+    return all(bool(torch.isfinite(chunk).all()) for chunk in flat.split(chunk_elements))
