@@ -14,3 +14,10 @@ through the standard sampling `reasoning_effort` field.
 Do not edit these files while comparing model sizes or checkpoints. Create a new
 versioned battery instead. V1 and v2 scores are not directly interchangeable; v1 is
 the historical Prime Agent 0.7.1 boundary and v2 is the frozen 0.7.3 boundary.
+
+V2 is a frozen regression comparator, not the complete Stage-0 teacher-promotion
+gate. Its matched ownership arms test useful versus unnecessary delegation, and its
+follow-up and handshake arms test causal bidirectional control. Malformed child
+results, delayed replies, and recoverable messaging faults require a separate,
+versioned resilience suite. A checkpoint must pass both the frozen comparator and
+that resilience suite before it can be called the canonical teacher.
