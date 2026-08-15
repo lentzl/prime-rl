@@ -26,6 +26,7 @@ from prime_rl.utils.cp import (
 )
 from prime_rl.utils.logger import format_time, setup_logger
 from prime_rl.trainer.rl.loss import (
+    attach_zero_loss_to_model_output,
     chunked_entropy,
     chunked_selective_log_softmax,
     compute_loss,
@@ -40,6 +41,7 @@ from prime_rl.trainer.rl.sdpo_support import (
     gather_sdpo_student_topk_logprobs,
     gather_sdpo_teacher_topk_logprobs,
     pack_sdpo_teacher_span_batches,
+    pad_sdpo_teacher_span_batches,
     select_sdpo_student_topk_support,
 )
 from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
@@ -335,6 +337,17 @@ def train(config: TrainerConfig):
             device="cuda",
         )
         dp_cp_group = parallel_dims.get_mesh("dp_cp").get_group()
+        batch_counts = [
+            torch.zeros(1, dtype=torch.int64, device="cuda") for _ in range(dist.get_world_size(dp_cp_group))
+        ]
+        dist.all_gather(
+            batch_counts,
+            torch.tensor([batch_size], dtype=torch.int64, device="cuda"),
+            group=dp_cp_group,
+        )
+        batch_count_values = [int(count.item()) for count in batch_counts]
+        if len(set(batch_count_values)) != 1:
+            raise RuntimeError(f"FSDP ranks received different microbatch counts: {batch_count_values}")
         dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
         has_global_sdpo = bool(global_scales[3] > 0)
         if has_global_sdpo and not config.sdpo_loss.enabled:
@@ -479,6 +492,9 @@ def train(config: TrainerConfig):
                         raise ValueError("SDPO teacher replay requires one active LoRA per micro batch")
 
                 teacher_batches = pack_sdpo_teacher_span_batches(sdpo_teacher_spans, config.model.seq_len)
+                teacher_batch_count = torch.tensor(len(teacher_batches), dtype=torch.int64, device="cuda")
+                dist.all_reduce(teacher_batch_count, op=dist.ReduceOp.MAX, group=dp_cp_group)
+                teacher_batches = pad_sdpo_teacher_span_batches(teacher_batches, int(teacher_batch_count.item()))
                 for (
                     teacher_ids,
                     teacher_position_ids_list,
@@ -614,6 +630,7 @@ def train(config: TrainerConfig):
                 ref_kl_scale=ref_kl_scale,
                 sdpo_scale=sdpo_scale,
             )
+            loss = attach_zero_loss_to_model_output(loss, out)
 
             # Backward pass
             with maybe_record_function("backward"):

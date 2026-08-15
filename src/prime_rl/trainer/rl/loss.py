@@ -133,6 +133,18 @@ def chunked_entropy(logits: Tensor, temperatures: Tensor, chunk_size: int = 64) 
     return output.reshape(temperatures.shape)
 
 
+def attach_zero_loss_to_model_output(loss: Tensor, model_output: dict[str, Tensor | None]) -> Tensor:
+    """Keep zero-loss micro batches connected to every model backward path."""
+    anchor = model_output.get("logits")
+    if anchor is None:
+        anchor = model_output.get("logprobs")
+    if anchor is None:
+        raise ValueError("Model output must contain logits or logprobs to anchor backward")
+    if anchor.numel() == 0:
+        raise ValueError("Model output anchor must not be empty")
+    return loss + anchor.reshape(-1)[0] * 0.0
+
+
 @jaxtyped(typechecker=typechecker)
 @torch.compile(dynamic=True)
 def compute_entropy(shifted_logits: Float[Tensor, "batch seq vocab"]) -> Float[Tensor, "batch seq"]:

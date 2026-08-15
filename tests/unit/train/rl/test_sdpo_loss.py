@@ -14,6 +14,7 @@ from prime_rl.trainer.rl.sdpo_support import (
     gather_sdpo_teacher_topk_logprobs,
     pack_sdpo_teacher_span_batches,
     pack_sdpo_teacher_spans,
+    pad_sdpo_teacher_span_batches,
     select_sdpo_student_topk_support,
 )
 from prime_rl.transport import SDPOTeacherSpan
@@ -192,6 +193,23 @@ def test_teacher_span_batch_rejects_one_replay_larger_than_model_context():
 
     with pytest.raises(ValueError, match="teacher span has 5 tokens"):
         pack_sdpo_teacher_span_batches([span], max_seq_len=4)
+
+
+def test_teacher_span_batches_pad_to_distributed_forward_count():
+    batches = [([1, 2], [0, 1], [2], [1], [7])]
+
+    padded = pad_sdpo_teacher_span_batches(batches, target_count=3)
+
+    assert padded == [
+        ([1, 2], [0, 1], [2], [1], [7]),
+        ([1], [0], [1], [], []),
+        ([1], [0], [1], [], []),
+    ]
+
+
+def test_teacher_span_batches_reject_smaller_distributed_target():
+    with pytest.raises(ValueError, match="smaller than local count"):
+        pad_sdpo_teacher_span_batches([([1], [0], [1], [], [])], target_count=0)
 
 
 def test_sdpo_component_composes_with_prime_loss_and_backpropagates():

@@ -2,9 +2,26 @@ import pytest
 import torch
 
 from prime_rl.configs.trainer import CustomLossConfig, DefaultLossConfig
-from prime_rl.trainer.rl.loss import LossInputs, LossOutputs, compute_entropy, compute_loss, setup_rl_loss_fn
+from prime_rl.trainer.rl.loss import (
+    LossInputs,
+    LossOutputs,
+    attach_zero_loss_to_model_output,
+    compute_entropy,
+    compute_loss,
+    setup_rl_loss_fn,
+)
 
 pytestmark = [pytest.mark.gpu]
+
+
+def test_zero_loss_anchor_reaches_model_output_with_zero_gradient():
+    logits = torch.randn(2, 3, 5, device="cuda", requires_grad=True)
+
+    loss = attach_zero_loss_to_model_output(logits.new_zeros(()), {"logits": logits})
+    loss.backward()
+
+    assert logits.grad is not None
+    assert torch.equal(logits.grad, torch.zeros_like(logits.grad))
 
 
 def test_grpo_loss():

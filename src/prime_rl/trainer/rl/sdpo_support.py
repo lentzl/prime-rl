@@ -156,6 +156,16 @@ def pack_sdpo_teacher_span_batches(
     return batches
 
 
+def pad_sdpo_teacher_span_batches(
+    batches: list[tuple[list[int], list[int], list[int], list[int], list[int]]],
+    target_count: int,
+) -> list[tuple[list[int], list[int], list[int], list[int], list[int]]]:
+    """Pad teacher replay so every FSDP rank executes the same forwards."""
+    if target_count < len(batches):
+        raise ValueError(f"SDPO teacher batch target {target_count} is smaller than local count {len(batches)}")
+    return [*batches, *(pack_sdpo_teacher_spans(None) for _ in range(target_count - len(batches)))]
+
+
 def _validate_logits_and_temperatures(logits: Tensor, temperatures: Tensor) -> None:
     if logits.ndim != 3 or temperatures.shape != logits.shape[:2]:
         raise ValueError("SDPO logits and temperatures must align as (batch, seq, vocab) and (batch, seq)")
