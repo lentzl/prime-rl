@@ -69,6 +69,13 @@ def test_mastery_v2_launcher_records_the_exact_software_and_model_revisions() ->
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
     assert "sha256sum" in launcher
     assert "EVAL_CLIENT_BASE_URL" in launcher
+    assert '--run.name "$name"' in launcher
+    assert '--run.dir "$name"' in launcher
+    assert "summarize_prime_agent_mastery_v2.py" in launcher
+    assert "expected_count" in launcher
+    assert '--expected-count "$expected_count"' in launcher
+    assert "SUMMARY.txt" in launcher
+    assert "SUMMARY.json" in launcher
 
 
 def test_mastery_v2_model_launcher_is_revision_pinned_and_fail_closed() -> None:

@@ -20,6 +20,13 @@ configs=(
 if [[ -n "${MASTERY_CONFIGS:-}" ]]; then
   read -ra configs <<<"$MASTERY_CONFIGS"
 fi
+config_paths=()
+for name in "${configs[@]}"; do
+  config_paths+=("$experiment/${name}.toml")
+done
+expected_count=$(
+  awk -F' = ' '/^num_tasks = / {sum += $2} END {print sum}' "${config_paths[@]}"
+)
 
 cd "$root"
 if [[ ! -x "$eval_bin" ]]; then
@@ -36,14 +43,25 @@ mkdir -p "$output_root"
   sha256sum "$experiment"/*.toml
 } >"$output_root/VERSIONS.txt"
 
+trace_dirs=()
 for name in "${configs[@]}"; do
   args=(
     "$eval_bin" @ "$experiment/${name}.toml"
     --model "$model"
-    --output-dir "$output_root/$name"
+    --output-dir "$output_root"
+    --run.name "$name"
+    --run.dir "$name"
   )
   if [[ -n "$client_base_url" ]]; then
     args+=(--client.base-url "$client_base_url")
   fi
   "${args[@]}"
+  trace_dirs+=("$output_root/$name")
 done
+
+python scripts/summarize_prime_agent_mastery_v2.py "${trace_dirs[@]}" \
+  --expected-count "$expected_count" \
+  >"$output_root/SUMMARY.txt"
+python scripts/summarize_prime_agent_mastery_v2.py "${trace_dirs[@]}" --json \
+  --expected-count "$expected_count" \
+  >"$output_root/SUMMARY.json"
