@@ -219,6 +219,17 @@ scores back to the original student positions. One individual replay must
 still fit `model.seq_len` because its prefix is the conditioning context for
 its sampled completion.
 
+An optional `orchestrator.algo.filter` imports a rollout-level token filter with
+the same one-mask-per-trainable-branch contract as ECHO. It can narrow SDPO to
+one causally responsible action while preserving the complete sampled response
+as teacher context; it cannot make context or environment tokens trainable.
+Multi-agent traces are processed branch by branch. Rollout-level explicit
+feedback is routed only to the unique branch whose opening user prompt matches
+the served task prompt, and ambiguous multi-branch matches receive no target.
+Set `require_explicit_feedback = true` and
+`required_feedback_contract_schema = "..."` to admit only exact, answer-free,
+retryable environment contracts with stable `code` and `category` fields.
+
 The orchestrator stamps each sample's component membership as per-token weight streams (`rl_weights` / `ce_weights` / `ref_kl_weights` / `sdpo_weights` on the wire): a weight scales that component's per-token loss, `0.0` leaves the token out of the component entirely (mask *and* denominator), and components may overlap on the same token — their gradients sum. Each $N$ is the global (all-reduced) count of that component's member tokens, so the components don't dilute each other. Tokens of different components normally pack freely into the same micro batch; SDPO samples are isolated while their feedback-conditioned replay context is evaluated. A plain GRPO run ships no weight streams at all (absent streams mean rl weight 1.0 on every trainable token — the unchanged hot path).
 
 ### Default RL Loss
