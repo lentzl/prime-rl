@@ -29,10 +29,16 @@ def _make_update_run(tmp_path: Path) -> tuple[Path, Path]:
         {
             "name": MODULE.ZERO.DIAGNOSTIC_ENV,
             "group_size": 1,
+            "ratio": MODULE.ZERO.EXPECTED_RATIOS[MODULE.ZERO.DIAGNOSTIC_ENV],
             "algo": {"type": "sdpo"},
         },
         *[
-            {"name": name, "group_size": 2, "algo": {"type": "grpo"}}
+            {
+                "name": name,
+                "group_size": 2,
+                "ratio": MODULE.ZERO.EXPECTED_RATIOS[name],
+                "algo": {"type": "grpo"},
+            }
             for name in sorted(MODULE.ZERO.RETENTION_ENVS)
         ],
     ]

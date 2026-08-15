@@ -1,4 +1,8 @@
+import random
+from collections import Counter
 from pathlib import Path
+
+from subagent_communication_v1.taskset import SubagentCommunicationTaskset
 
 from prime_rl.configs.rl import RLConfig
 from prime_rl.utils.config import cli
@@ -53,7 +57,42 @@ def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
         "followup",
         "handshake",
     )
+    assert sources["communication-causal-retention"].ratio == 2.0
     assert config.orchestrator.train.sampling.reasoning_effort == "high"
+
+
+def test_zero_lr_audit_fixed_seed_allocates_both_causal_families() -> None:
+    config = cli(RLConfig, args=["@", str(CONFIG), "--dry-run"])
+    configured_sources = config.orchestrator.train.source
+    rng = random.Random(42)
+    allocation: Counter[str] = Counter()
+    remaining = config.orchestrator.batch_size
+    while remaining > 0:
+        source = rng.choices(
+            configured_sources,
+            weights=[candidate.ratio for candidate in configured_sources],
+            k=1,
+        )[0]
+        assert source.group_size <= remaining
+        allocation[source.name] += source.group_size
+        remaining -= source.group_size
+
+    assert allocation == {
+        "ownership-child-diagnostic-sdpo": 4,
+        "ownership-coordinator-retention": 10,
+        "communication-direct-retention": 2,
+        "communication-single-retention": 4,
+        "communication-parallel-retention": 8,
+        "communication-causal-retention": 4,
+    }
+    causal = next(
+        source
+        for source in configured_sources
+        if source.name == "communication-causal-retention"
+    )
+    tasks = SubagentCommunicationTaskset(causal.env.taskset).load()
+    random.Random(1).shuffle(tasks)
+    assert {task.data.family for task in tasks[:2]} == {"followup", "handshake"}
 
 
 def test_zero_lr_audit_launcher_fails_closed() -> None:

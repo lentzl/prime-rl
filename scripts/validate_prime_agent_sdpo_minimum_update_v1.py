@@ -81,12 +81,23 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
         raise UpdateFailure("minimum update must save orchestrator progress")
     sources = orchestrator.get("train", {}).get("source", [])
     routing = {
-        source.get("name"): (source.get("algo", {}).get("type"), source.get("group_size"))
+        source.get("name"): (
+            source.get("algo", {}).get("type"),
+            source.get("group_size"),
+            source.get("ratio"),
+        )
         for source in sources
     }
     expected_routing = {
-        ZERO.DIAGNOSTIC_ENV: ("sdpo", 1),
-        **{name: ("grpo", 2) for name in ZERO.RETENTION_ENVS},
+        ZERO.DIAGNOSTIC_ENV: (
+            "sdpo",
+            1,
+            ZERO.EXPECTED_RATIOS[ZERO.DIAGNOSTIC_ENV],
+        ),
+        **{
+            name: ("grpo", 2, ZERO.EXPECTED_RATIOS[name])
+            for name in ZERO.RETENTION_ENVS
+        },
     }
     if routing != expected_routing:
         raise UpdateFailure(f"minimum update source routing changed: {routing}")

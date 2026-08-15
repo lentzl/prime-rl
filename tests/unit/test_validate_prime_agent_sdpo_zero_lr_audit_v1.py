@@ -24,6 +24,7 @@ def _source(name: str, algo: str, group_size: int) -> dict:
     source = {
         "name": name,
         "group_size": group_size,
+        "ratio": MODULE.EXPECTED_RATIOS[name],
         "algo": {"type": algo},
         "env": {"taskset": {}},
     }

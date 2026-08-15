@@ -26,6 +26,10 @@ RETENTION_ENVS = {
     "communication-causal-retention",
 }
 EXPECTED_ENVS = {DIAGNOSTIC_ENV, *RETENTION_ENVS}
+EXPECTED_RATIOS = {
+    name: 2.0 if name == "communication-causal-retention" else 1.0
+    for name in EXPECTED_ENVS
+}
 EXPECTED_BATCH_SIZE = 32
 
 
@@ -111,6 +115,8 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
             raise AuditFailure(f"{name} must use {expected_algo}")
         if source.get("group_size") != expected_group:
             raise AuditFailure(f"{name} must use group_size={expected_group}")
+        if source.get("ratio") != EXPECTED_RATIOS[name]:
+            raise AuditFailure(f"{name} must use ratio={EXPECTED_RATIOS[name]:g}")
     diagnostic = by_name[DIAGNOSTIC_ENV]
     algo = diagnostic["algo"]
     taskset = diagnostic.get("env", {}).get("taskset", {})
