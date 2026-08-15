@@ -240,6 +240,17 @@ def _trace_env(trace: dict[str, Any], index: int) -> str:
     return info["env_name"]
 
 
+def _has_diagnostic_feedback(info: dict[str, Any]) -> bool:
+    feedback = info.get("feedback")
+    contract = info.get("feedback_contract")
+    return (
+        isinstance(feedback, str)
+        and bool(feedback.strip())
+        and isinstance(contract, dict)
+        and contract.get("schema_version") == FEEDBACK_SCHEMA
+    )
+
+
 def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]:
     path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
     records = _read_jsonl(path)
@@ -251,6 +262,7 @@ def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]
     resource_families: Counter[str] = Counter()
     phrasing_variants: Counter[int] = Counter()
     causal_families: Counter[str] = Counter()
+    diagnostic_zero_target_successes = 0
     typed: list[vf.WireTrace] = []
     for index, record in enumerate(records):
         if record.get("run", {}).get("type") != "train" or record.get("run", {}).get("step") != 1:
@@ -268,33 +280,38 @@ def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]
         task_data = record.get("task", {}).get("data", {})
         if env_name == DIAGNOSTIC_ENV:
             feedback = info.get("feedback")
-            if not isinstance(feedback, str) or not feedback.strip() or not isinstance(contract, dict):
-                raise AuditFailure(f"diagnostic trace {index} has no explicit typed feedback")
-            required = {
-                "schema_version": FEEDBACK_SCHEMA,
-                "answer_free": True,
-                "retryable": True,
-                "turn_index": 0,
-                "ownership": "child",
-            }
-            if any(contract.get(key) != value for key, value in required.items()):
-                raise AuditFailure(f"diagnostic trace {index} has an invalid feedback contract")
-            if contract.get("message") not in (None, feedback):
-                raise AuditFailure(f"diagnostic trace {index} feedback text disagrees with its contract")
-            if record.get("metrics", {}).get("strict_success") != 0:
-                raise AuditFailure(f"diagnostic trace {index} is not a diagnosed failure")
-            code = contract.get("code")
-            family = contract.get("family")
-            phrasing = task_data.get("phrasing_variant")
-            if not isinstance(code, str) or not code:
-                raise AuditFailure(f"diagnostic trace {index} lacks a stable feedback code")
-            if not isinstance(family, str) or family != task_data.get("resource_family"):
-                raise AuditFailure(f"diagnostic trace {index} has inconsistent resource-family evidence")
-            if not isinstance(phrasing, int):
-                raise AuditFailure(f"diagnostic trace {index} lacks a phrasing variant")
-            codes[code] += 1
-            resource_families[family] += 1
-            phrasing_variants[phrasing] += 1
+            if feedback is not None or contract is not None:
+                if not _has_diagnostic_feedback(info):
+                    raise AuditFailure(f"diagnostic trace {index} has malformed typed feedback")
+                required = {
+                    "schema_version": FEEDBACK_SCHEMA,
+                    "answer_free": True,
+                    "retryable": True,
+                    "turn_index": 0,
+                    "ownership": "child",
+                }
+                if any(contract.get(key) != value for key, value in required.items()):
+                    raise AuditFailure(f"diagnostic trace {index} has an invalid feedback contract")
+                if contract.get("message") not in (None, feedback):
+                    raise AuditFailure(f"diagnostic trace {index} feedback text disagrees with its contract")
+                if record.get("metrics", {}).get("strict_success") != 0:
+                    raise AuditFailure(f"diagnostic trace {index} is not a diagnosed failure")
+                code = contract.get("code")
+                family = contract.get("family")
+                phrasing = task_data.get("phrasing_variant")
+                if not isinstance(code, str) or not code:
+                    raise AuditFailure(f"diagnostic trace {index} lacks a stable feedback code")
+                if not isinstance(family, str) or family != task_data.get("resource_family"):
+                    raise AuditFailure(f"diagnostic trace {index} has inconsistent resource-family evidence")
+                if not isinstance(phrasing, int):
+                    raise AuditFailure(f"diagnostic trace {index} lacks a phrasing variant")
+                codes[code] += 1
+                resource_families[family] += 1
+                phrasing_variants[phrasing] += 1
+            elif record.get("metrics", {}).get("strict_success") == 1:
+                diagnostic_zero_target_successes += 1
+            else:
+                raise AuditFailure(f"diagnostic trace {index} is neither a diagnosed failure nor a strict success")
         elif isinstance(contract, dict) and contract.get("schema_version") == FEEDBACK_SCHEMA:
             raise AuditFailure(f"typed ownership feedback leaked into retention trace {index}")
 
@@ -303,9 +320,12 @@ def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]
             causal_families[family] += 1
         trace = vf.WireTrace.model_validate(record)
         branches = list(iter_trainable_branches(trace))
-        active_masks = (
-            keep_first_coordinator_tool_call(trace) if env_name == DIAGNOSTIC_ENV else [mask for _, mask in branches]
-        )
+        if env_name == DIAGNOSTIC_ENV and _has_diagnostic_feedback(info):
+            active_masks = keep_first_coordinator_tool_call(trace)
+        elif env_name == DIAGNOSTIC_ENV:
+            active_masks = [[False] * len(branch.token_ids) for branch, _ in branches]
+        else:
+            active_masks = [mask for _, mask in branches]
         if len(active_masks) != len(branches):
             raise AuditFailure(f"effective trace {index} has misaligned training masks")
         for branch_index, ((branch, _), active_mask) in enumerate(zip(branches, active_masks, strict=True)):
@@ -335,6 +355,7 @@ def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]
             "resource_families": dict(resource_families),
             "phrasing_variants": dict(phrasing_variants),
             "causal_families": dict(causal_families),
+            "diagnostic_zero_target_successes": diagnostic_zero_target_successes,
         },
         typed,
     )
@@ -405,10 +426,17 @@ def _validate_token_routing(run_dir: Path, traces: list[vf.WireTrace]) -> dict[s
     coordinator_zero_sdpo_continuations = 0
     child_sdpo_samples = 0
     retention_rl_samples = 0
+    diagnostic_zero_target_traces = 0
     for trace in traces:
         env_name = trace.info["env_name"]
         branches = list(iter_trainable_branches(trace))
-        expected_masks = keep_first_coordinator_tool_call(trace) if env_name == DIAGNOSTIC_ENV else None
+        has_diagnostic_feedback = env_name == DIAGNOSTIC_ENV and _has_diagnostic_feedback(trace.info)
+        if has_diagnostic_feedback:
+            expected_masks = keep_first_coordinator_tool_call(trace)
+        elif env_name == DIAGNOSTIC_ENV:
+            expected_masks = [[False] * len(branch.token_ids) for branch, _ in branches]
+        else:
+            expected_masks = None
         trace_coordinator_sdpo_samples = 0
         if expected_masks is not None and len(expected_masks) != len(branches):
             raise AuditFailure("diagnostic filter and trainable branches are misaligned")
@@ -451,11 +479,15 @@ def _validate_token_routing(run_dir: Path, traces: list[vf.WireTrace]) -> dict[s
                 if not any(rl_active):
                     raise AuditFailure(f"GRPO retention sample has no RL token mass in {env_name}")
                 retention_rl_samples += 1
-        if env_name == DIAGNOSTIC_ENV and trace_coordinator_sdpo_samples != 1:
+        if has_diagnostic_feedback and trace_coordinator_sdpo_samples != 1:
             raise AuditFailure(
                 f"diagnostic trace {trace.id} must route SDPO to exactly one causal coordinator branch; "
                 f"found {trace_coordinator_sdpo_samples}"
             )
+        if env_name == DIAGNOSTIC_ENV and not has_diagnostic_feedback:
+            if trace_coordinator_sdpo_samples != 0:
+                raise AuditFailure(f"diagnostic success trace {trace.id} received an SDPO target")
+            diagnostic_zero_target_traces += 1
 
     leftovers = sum(len(records) for records in by_sample.values())
     if leftovers or consumed != len(export_records):
@@ -470,6 +502,7 @@ def _validate_token_routing(run_dir: Path, traces: list[vf.WireTrace]) -> dict[s
         "coordinator_sdpo_samples": coordinator_sdpo_samples,
         "coordinator_zero_sdpo_continuations": coordinator_zero_sdpo_continuations,
         "child_zero_sdpo_samples": child_sdpo_samples,
+        "diagnostic_zero_target_traces": diagnostic_zero_target_traces,
         "retention_rl_samples": retention_rl_samples,
     }
 

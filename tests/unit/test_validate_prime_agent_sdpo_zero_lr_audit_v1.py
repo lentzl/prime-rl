@@ -49,6 +49,7 @@ def _trace(
     resource_family: str = "json_sum",
     phrasing_variant: int = 0,
     family: str | None = None,
+    diagnosed: bool = True,
 ) -> vf.Trace:
     base = 1000 + index * 20
     task_data = vf.WireTaskData(
@@ -128,7 +129,7 @@ def _trace(
     feedback = "Repair the observed ownership decision."
     info = {"env_name": env_name}
     metrics = {}
-    if env_name == MODULE.DIAGNOSTIC_ENV:
+    if env_name == MODULE.DIAGNOSTIC_ENV and diagnosed:
         info.update(
             feedback=feedback,
             feedback_contract={
@@ -144,6 +145,8 @@ def _trace(
             },
         )
         metrics["strict_success"] = 0
+    elif env_name == MODULE.DIAGNOSTIC_ENV:
+        metrics["strict_success"] = 1
     return vf.Trace(
         run=vf.TrainRunInfo(id="run", step=1),
         task=vf.TraceTask(type="Task", data=task_data),
@@ -160,7 +163,11 @@ def _trace(
 def _export_records(trace: vf.Trace) -> list[dict]:
     env_name = trace.info["env_name"]
     branches = list(MODULE.iter_trainable_branches(trace))
-    expected = MODULE.keep_first_coordinator_tool_call(trace) if env_name == MODULE.DIAGNOSTIC_ENV else None
+    expected = (
+        MODULE.keep_first_coordinator_tool_call(trace)
+        if env_name == MODULE.DIAGNOSTIC_ENV and MODULE._has_diagnostic_feedback(trace.info)
+        else None
+    )
     records = []
     for branch_index, (branch, mask) in enumerate(branches):
         length = len(branch.token_ids)
@@ -256,10 +263,10 @@ def _make_run(tmp_path: Path) -> Path:
     metrics_path.write_text("".join(json.dumps(record) + "\n" for record in metrics))
 
     trace_specs = [
-        (MODULE.DIAGNOSTIC_ENV, "required_delegation_missing", "json_sum", 0, None),
-        (MODULE.DIAGNOSTIC_ENV, "child_handle_not_retained", "csv_amount_total", 1, None),
-        (MODULE.DIAGNOSTIC_ENV, "required_delegation_missing", "text_keyword_count", 0, None),
-        (MODULE.DIAGNOSTIC_ENV, "child_handle_not_retained", "markdown_heading_count", 1, None),
+        (MODULE.DIAGNOSTIC_ENV, "required_delegation_missing", "json_sum", 0, None, True),
+        (MODULE.DIAGNOSTIC_ENV, "child_handle_not_retained", "csv_amount_total", 1, None, True),
+        (MODULE.DIAGNOSTIC_ENV, "required_delegation_missing", "text_keyword_count", 0, None, True),
+        (MODULE.DIAGNOSTIC_ENV, "", "markdown_heading_count", 1, None, False),
     ]
     retention = cycle(
         [
@@ -273,7 +280,7 @@ def _make_run(tmp_path: Path) -> Path:
     )
     while len(trace_specs) < MODULE.EXPECTED_BATCH_SIZE:
         env_name, family = next(retention)
-        trace_specs.append((env_name, "", "json_sum", 0, family))
+        trace_specs.append((env_name, "", "json_sum", 0, family, False))
 
     traces = [
         _trace(
@@ -283,8 +290,9 @@ def _make_run(tmp_path: Path) -> Path:
             resource_family=resource_family,
             phrasing_variant=phrasing,
             family=family,
+            diagnosed=diagnosed,
         )
-        for index, (env_name, code, resource_family, phrasing, family) in enumerate(trace_specs)
+        for index, (env_name, code, resource_family, phrasing, family, diagnosed) in enumerate(trace_specs)
     ]
     trace_path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
     trace_path.parent.mkdir(parents=True, exist_ok=True)
@@ -306,9 +314,11 @@ def test_validator_accepts_complete_mixed_zero_lr_mechanism_audit(tmp_path: Path
     assert report["metrics"]["sdpo_tokens"] == 128
     assert report["metrics"]["aggregate_trainable_fraction"] == 1
     assert report["traces"]["count"] == MODULE.EXPECTED_BATCH_SIZE
-    assert report["token_routing"]["coordinator_sdpo_samples"] == 4
-    assert report["token_routing"]["coordinator_zero_sdpo_continuations"] == 4
+    assert report["traces"]["diagnostic_zero_target_successes"] == 1
+    assert report["token_routing"]["coordinator_sdpo_samples"] == 3
+    assert report["token_routing"]["coordinator_zero_sdpo_continuations"] == 5
     assert report["token_routing"]["child_zero_sdpo_samples"] == 4
+    assert report["token_routing"]["diagnostic_zero_target_traces"] == 1
     assert report["model_artifacts_written"] is False
 
 
