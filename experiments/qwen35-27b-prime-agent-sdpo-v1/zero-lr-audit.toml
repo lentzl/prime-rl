@@ -28,7 +28,7 @@ impl = "custom"
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
 fsdp_cpu_offload = true
-optim_cpu_offload = true
+optim_cpu_offload = false
 reshard_after_forward = true
 fused_lm_head_token_chunk_size = "disabled"
 
