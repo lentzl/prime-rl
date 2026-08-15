@@ -74,6 +74,19 @@ def test_sdpo_feedback_contract_schema_must_be_nonempty():
         _build(type="sdpo", required_feedback_contract_schema="")
 
 
+def test_sdpo_accepts_action_filter_config():
+    config = _build(
+        type="sdpo",
+        filter={
+            "import_path": "subagent_communication_v1.taskset.keep_first_coordinator_tool_call",
+            "kwargs": {"start_token_id": 10, "end_token_id": 11},
+        },
+    )
+
+    assert config.filter.import_path.endswith("keep_first_coordinator_tool_call")
+    assert config.filter.kwargs == {"start_token_id": 10, "end_token_id": 11}
+
+
 def test_opd_teacher_must_be_a_frozen_endpoint():
     # opd needs a teacher, and it must be frozen: a missing teacher is a
     # structural error, and "policy" can't even be set — opd.teacher is typed
@@ -643,8 +656,8 @@ def test_sdpo_explicit_feedback_gate_excludes_clean_multiturn_trace():
     algo.renderer.render_ids.assert_not_called()
 
 
-def _feedback_contract(*, message: str = "Use the retained evidence.") -> dict:
-    return {
+def _feedback_contract(*, message: str = "Use the retained evidence.", turn_index: int | None = None) -> dict:
+    contract = {
         "schema_version": "memory-feedback/v1",
         "code": "required_history_not_retrieved",
         "category": "retrieval",
@@ -652,6 +665,9 @@ def _feedback_contract(*, message: str = "Use the retained evidence.") -> dict:
         "retryable": True,
         "message": message,
     }
+    if turn_index is not None:
+        contract["turn_index"] = turn_index
+    return contract
 
 
 def test_sdpo_typed_feedback_contract_admits_matching_diagnostic():
@@ -741,6 +757,144 @@ def test_sdpo_clears_failed_attempt_without_hindsight():
 
     assert rollout.samples[0].sdpo_teacher_spans is None
     assert rollout.samples[0].sdpo_weights == [0.0] * len(rollout.samples[0].token_ids)
+    algo.renderer.render_ids.assert_not_called()
+
+
+def test_sdpo_filter_selects_only_requested_action_tokens():
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={
+            "feedback": "Use the observed evidence.",
+            "feedback_contract": _feedback_contract(message="Use the observed evidence."),
+        },
+    )
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            multi_turn_replay=True,
+            success_reward_threshold=2.0,
+            required_feedback_contract_schema="memory-feedback/v1",
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.filter_fn = lambda _: [[False, False, False, False, False, False, True, False]]
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20, 21]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0]
+    assert sample.sdpo_teacher_spans == [
+        SDPOTeacherSpan(
+            prefix_ids=[20, 21],
+            completion_ids=[7, 8],
+            student_positions=[6],
+            target_offsets=[0],
+        )
+    ]
+
+
+def test_sdpo_typed_turn_index_overrides_incidental_tool_feedback():
+    feedback = "Repair the first ownership decision."
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={
+            "feedback": feedback,
+            "feedback_contract": _feedback_contract(message=feedback, turn_index=0),
+        },
+    )
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            multi_turn_replay=True,
+            success_reward_threshold=2.0,
+            required_feedback_contract_schema="memory-feedback/v1",
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.filter_fn = lambda _: [[False, False, True, True, False, False, False, False]]
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20, 21]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    teacher_messages = algo.renderer.render_ids.call_args.args[0]
+    assert feedback in teacher_messages[0]["content"]
+    assert "tool: T" not in teacher_messages[0]["content"]
+    assert rollout.samples[0].sdpo_weights == [0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0]
+
+
+def _two_branch_feedback_rollout(*, task_prompt: str = "coordinate") -> Rollout:
+    feedback = "Keep the child-owned resource outside coordinator code."
+    nodes = [
+        _node(UserMessage(content="coordinate"), parent=None, sampled=False, token_ids=[1]),
+        _node(AssistantMessage(content="coordinator action"), parent=0, sampled=True, token_ids=[2, 3]),
+        _node(UserMessage(content="[task from parent] child work"), parent=None, sampled=False, token_ids=[4]),
+        _node(AssistantMessage(content="child action"), parent=2, sampled=True, token_ids=[5, 6]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=task_prompt)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=0.0)},
+        info={
+            "feedback": feedback,
+            "feedback_contract": _feedback_contract(message=feedback),
+        },
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    return rollout
+
+
+def test_sdpo_multibranch_feedback_targets_only_coordinator_branch():
+    rollout = _two_branch_feedback_rollout()
+    assert len(rollout.samples) == 2
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            success_reward_threshold=2.0,
+            required_feedback_contract_schema="memory-feedback/v1",
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.filter_fn = lambda _: [
+        [False, True, True],
+        [False, False, False],
+    ]
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20, 21]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    coordinator, child = rollout.samples
+    assert coordinator.sdpo_weights == [0.0, 1.0, 1.0]
+    assert coordinator.sdpo_teacher_spans is not None
+    assert child.sdpo_weights == [0.0, 0.0, 0.0]
+    assert child.sdpo_teacher_spans is None
+
+
+def test_sdpo_multibranch_feedback_fails_closed_without_unique_coordinator_prompt():
+    rollout = _two_branch_feedback_rollout(task_prompt="different task prompt")
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            success_reward_threshold=2.0,
+            required_feedback_contract_schema="memory-feedback/v1",
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.filter_fn = lambda _: [
+        [False, True, True],
+        [False, False, False],
+    ]
+    algo.renderer = MagicMock()
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    assert all(sample.sdpo_teacher_spans is None for sample in rollout.samples)
+    assert all(sample.sdpo_weights == [0.0] * len(sample.token_ids) for sample in rollout.samples)
     algo.renderer.render_ids.assert_not_called()
 
 

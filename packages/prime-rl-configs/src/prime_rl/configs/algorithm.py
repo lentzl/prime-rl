@@ -152,6 +152,23 @@ class EchoFilterConfig(BaseConfig):
     """Kwargs forwarded to the filter."""
 
 
+class SDPOFilterConfig(BaseConfig):
+    """User-supplied per-token filter narrowing SDPO action targets.
+
+    The callable is imported at startup and invoked once per rollout as
+    ``filter_fn(rollout, **kwargs) -> list[list[bool]]``: one keep-mask per
+    trainable branch, each spanning that branch's token sequence. A filter can
+    only remove sampled action tokens from SDPO; it cannot make context or
+    environment tokens trainable.
+    """
+
+    import_path: str
+    """Import path to the filter callable."""
+
+    kwargs: dict[str, Any] = Field(default_factory=dict)
+    """Kwargs forwarded to the filter."""
+
+
 # ---------------------------------------------------------------------------
 # The algorithms (a discriminated union keyed on ``type``)
 # ---------------------------------------------------------------------------
@@ -388,6 +405,9 @@ class SDPOAlgoConfig(BaseAlgoConfig):
     Each turn is supervised only by feedback observed before the next sampled
     turn; rollout-level feedback is reserved for the final turn.
     """
+
+    filter: SDPOFilterConfig | None = None
+    """Optional filter narrowing SDPO to causally responsible action tokens."""
 
     max_reprompt_len: int = Field(10240, ge=1)
     """Maximum rendered teacher-prefix length before appending the original response."""
