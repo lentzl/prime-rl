@@ -284,6 +284,7 @@ def test_validator_accepts_complete_mixed_zero_lr_mechanism_audit(tmp_path: Path
     assert report["verdict"] == "pass"
     assert report["metrics"]["rl_tokens"] == 256
     assert report["metrics"]["sdpo_tokens"] == 128
+    assert report["metrics"]["aggregate_trainable_fraction"] == 1
     assert report["traces"]["count"] == MODULE.EXPECTED_BATCH_SIZE
     assert report["token_routing"]["child_zero_sdpo_samples"] == 4
     assert report["model_artifacts_written"] is False
@@ -313,6 +314,7 @@ def test_validator_reconstructs_component_counts_from_stable_exports(tmp_path: P
         ("no_sdpo_tokens", "RL and SDPO token mass must both be positive"),
         ("no_rl_tokens", "RL and SDPO token mass must both be positive"),
         ("competing_loss", "expected loss_tokens/ce=0"),
+        ("no_aggregate_trainable", "aggregate trainable fraction must be in"),
         ("zero_gradient", "gradient norm must be positive"),
         ("bad_contract", "invalid feedback contract"),
         ("sdpo_leak", "SDPO leaked into GRPO retention source"),
@@ -332,7 +334,13 @@ def test_validator_fails_closed(tmp_path: Path, mutation: str, message: str) -> 
         config = json.loads(path.read_text())
         config["post_batch_filters"][0]["enforce"] = True
         _write_json(path, config)
-    elif mutation in {"no_sdpo_tokens", "no_rl_tokens", "competing_loss", "zero_gradient"}:
+    elif mutation in {
+        "no_sdpo_tokens",
+        "no_rl_tokens",
+        "competing_loss",
+        "zero_gradient",
+        "no_aggregate_trainable",
+    }:
         path = run_dir / "metrics.jsonl"
         records = [json.loads(line) for line in path.read_text().splitlines()]
         key, value = {
@@ -340,6 +348,7 @@ def test_validator_fails_closed(tmp_path: Path, mutation: str, message: str) -> 
             "no_rl_tokens": ("loss_tokens/rl", 0),
             "competing_loss": ("loss_tokens/ce", 1),
             "zero_gradient": ("optim/grad_norm", 0),
+            "no_aggregate_trainable": ("train/agg/effective/agent/is_trainable/mean", 0),
         }[mutation]
         next(record for record in records if key in record)[key] = value
         path.write_text("".join(json.dumps(record) + "\n" for record in records))

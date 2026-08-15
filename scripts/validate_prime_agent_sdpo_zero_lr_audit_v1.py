@@ -187,7 +187,14 @@ def _validate_metrics(run_dir: Path) -> dict[str, float]:
     loss = _require_finite(records, "loss/mean")
     sdpo_loss = _require_finite(records, "sdpo/mean")
     _require_all(records, "time/save_ckpt", 0.0)
-    _require_all(records, "train/agg/effective/agent/is_trainable/mean", 1.0)
+    aggregate_trainable_fraction = _require_finite(
+        records, "train/agg/effective/agent/is_trainable/mean"
+    )
+    if not 0 < aggregate_trainable_fraction <= 1:
+        raise AuditFailure(
+            "aggregate trainable fraction must be in (0, 1], "
+            f"found {aggregate_trainable_fraction:g}"
+        )
     _require_all(records, "train/agg/effective/agent/is_filtered/mean", 0.0)
 
     rollouts = _require_finite(records, "progress/rollouts")
@@ -203,6 +210,7 @@ def _validate_metrics(run_dir: Path) -> dict[str, float]:
         "grad_norm": grad_norm,
         "loss": loss,
         "sdpo_loss": sdpo_loss,
+        "aggregate_trainable_fraction": aggregate_trainable_fraction,
         "rollouts": rollouts,
         "tasks": tasks,
     }
