@@ -13,7 +13,8 @@ tensor_parallel_size=${EVAL_TENSOR_PARALLEL_SIZE:-4}
 backend_port=${EVAL_BACKEND_PORT:-8100}
 router_port=${EVAL_ROUTER_PORT:-8000}
 data_parallel_rpc_port=${EVAL_DATA_PARALLEL_RPC_PORT:-13345}
-eval_driver=scripts/run_qwen35_27b_prime_agent_mastery_battery_v2.sh
+eval_driver=${EVAL_DRIVER:-scripts/run_qwen35_27b_prime_agent_mastery_battery_v2.sh}
+eval_experiment=${EVAL_EXPERIMENT_DIR:-experiments/qwen35-27b-prime-agent-mastery-v2}
 inference_bin=${INFERENCE_BIN:-$root/.venv/bin/inference}
 eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
 nvidia_smi_bin=${NVIDIA_SMI_BIN:-nvidia-smi}
@@ -41,7 +42,7 @@ if [[ -z "$revision" ]]; then
 fi
 mapfile -t prime_agent_versions < <(
   awk -F'"' '/^version = / {print $2}' \
-    "$root"/experiments/qwen35-27b-prime-agent-mastery-v2/*.toml \
+    "$root"/"$eval_experiment"/*.toml \
     | sort -u
 )
 if [[ ${#prime_agent_versions[@]} -ne 1 ]]; then
