@@ -26,7 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from collections import defaultdict
+from collections import defaultdict, deque
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Literal
@@ -145,6 +145,7 @@ class RolloutDispatcher:
         self.max_off_policy_steps = max_off_policy_steps
         self.train_rollouts_per_policy = train_rollouts_per_policy
         self.train_rollouts_scheduled = 0
+        self.replacement_train_envs: deque[str] = deque()
 
         self.max_inflight = max_inflight_episodes
         self.inflight_permits = 0
@@ -206,10 +207,12 @@ class RolloutDispatcher:
         """Whether a train group still needs members to reach its configured size."""
         return any(group.kind == "train" and group.rollouts_to_schedule > 0 for group in self.groups.values())
 
-    def return_train_rollout_slots(self, count: int) -> None:
-        """Return rejected rollouts to a synchronous policy cohort's budget."""
+    def return_train_rollout_slots(self, count: int, env_names: list[str] | None = None) -> None:
+        """Return rejected slots and prioritize replacement groups from their sources."""
         if count < 0:
             raise ValueError("returned train rollout slots must be non-negative")
+        if env_names:
+            self.replacement_train_envs.extend(env_names)
         if self.train_rollouts_per_policy is not None:
             self.train_rollouts_scheduled = max(0, self.train_rollouts_scheduled - count)
 
@@ -325,6 +328,7 @@ class RolloutDispatcher:
     async def on_new_version(self, step: int) -> None:
         """Reset a synchronous cohort after the new policy is live."""
         self.train_rollouts_scheduled = 0
+        self.replacement_train_envs.clear()
 
     async def fill_inflight(self) -> None:
         """Schedule new rollouts up to ``max_inflight``, honoring
@@ -396,10 +400,12 @@ class RolloutDispatcher:
         a ``GroupState``. Returns ``None`` if the source is empty."""
         if kind == "train":
             source = self.train_source
+            replacement_env = self.replacement_train_envs.popleft() if self.replacement_train_envs else None
         else:
             assert self.eval_source is not None
             source = self.eval_source
-        example = source.next_example()
+            replacement_env = None
+        example = source.next_example(replacement_env) if kind == "train" else source.next_example()
         if example is None:
             return None
 

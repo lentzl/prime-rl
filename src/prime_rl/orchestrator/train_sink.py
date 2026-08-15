@@ -96,6 +96,7 @@ class TrainSink:
         # Number of synchronous scheduler slots needed to replace groups that
         # admitted fewer rollouts than their episode count.
         self.train_rollout_replacements = 0
+        self.train_rollout_replacement_envs: list[str] = []
 
     def group_size_for(self, env_name: str) -> int:
         return self.train_envs.get(env_name).config.group_size
@@ -191,7 +192,11 @@ class TrainSink:
         # Untrainable traces carry no samples and must not skew the group baseline.
         survivors = [r for r in survivors if r.agent.trainable]
         if not survivors:
-            self.record_batch_admission(expected_rollouts=expected_rollouts, admitted_rollouts=0)
+            self.record_batch_admission(
+                env_name=env_name,
+                expected_rollouts=expected_rollouts,
+                admitted_rollouts=0,
+            )
             get_logger().debug(
                 f"Finished group | env={env_name} task_idx={task_idx} | "
                 f"rollouts={len(group)} (errored={num_errored}) | dropped: no trainable survivors"
@@ -217,6 +222,9 @@ class TrainSink:
         admitted_rollouts = 0
         for r in survivors:
             self.pre_filter_seen += 1
+            if not r.is_filtered and not r.is_trainable:
+                r.filter_results["trainable_signal"] = True
+                r.is_filtered = True
             if r.is_filtered:
                 self.pre_filter_dropped += 1
                 num_filtered += 1
@@ -233,6 +241,7 @@ class TrainSink:
             if self.token_batch_size is not None:
                 self.pending_tokens += payload_tokens(r)
         self.record_batch_admission(
+            env_name=env_name,
             expected_rollouts=expected_rollouts,
             admitted_rollouts=admitted_rollouts,
         )
@@ -293,12 +302,23 @@ class TrainSink:
         self.pre_filter_dropped = 0
         self.pre_filter_dropped_by_name.clear()
 
-    def record_batch_admission(self, *, expected_rollouts: int, admitted_rollouts: int) -> None:
+    def record_batch_admission(
+        self,
+        *,
+        env_name: str,
+        expected_rollouts: int,
+        admitted_rollouts: int,
+    ) -> None:
         """Record the episode-to-batch deficit of one finalized group."""
-        self.train_rollout_replacements += max(0, expected_rollouts - admitted_rollouts)
+        deficit = max(0, expected_rollouts - admitted_rollouts)
+        self.train_rollout_replacements += deficit
+        if deficit:
+            self.train_rollout_replacement_envs.append(env_name)
 
-    def take_train_rollout_replacements(self) -> int:
-        """Return and clear synchronous scheduler slots needed by the batch."""
+    def take_train_rollout_replacements(self) -> tuple[int, list[str]]:
+        """Return and clear scheduler slots and source-specific replacement groups."""
         count = self.train_rollout_replacements
+        env_names = self.train_rollout_replacement_envs
         self.train_rollout_replacements = 0
-        return count
+        self.train_rollout_replacement_envs = []
+        return count, env_names

@@ -91,8 +91,12 @@ class TrainSource:
             else:
                 self.examples[name] = self._shuffle(name)
 
-    def next_example(self) -> dict | None:
-        env_name = self.rng.choices(self.env_names, weights=self.weights, k=1)[0]
+    def next_example(self, env_name: str | None = None) -> dict | None:
+        """Return the next task, optionally from a specific replacement source."""
+        if env_name is None:
+            env_name = self.rng.choices(self.env_names, weights=self.weights, k=1)[0]
+        elif env_name not in self.examples:
+            raise ValueError(f"unknown train environment requested for replacement: {env_name}")
         rows = self.examples[env_name]
         cursor = self.cursors[env_name]
         if rows is None:  # infinite env: pull the next generated task
