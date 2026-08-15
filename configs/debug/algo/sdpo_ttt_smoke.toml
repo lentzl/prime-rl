@@ -67,4 +67,6 @@ type = "constant"
 [ckpt]
 
 [inference]
+
+[inference.vllm]
 gpu_memory_utilization = 0.5

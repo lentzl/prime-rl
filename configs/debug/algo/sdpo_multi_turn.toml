@@ -64,4 +64,6 @@ max_norm = 1.0
 [ckpt]
 
 [inference]
+
+[inference.vllm]
 gpu_memory_utilization = 0.5
