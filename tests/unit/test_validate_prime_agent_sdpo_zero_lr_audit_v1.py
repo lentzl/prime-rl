@@ -196,6 +196,7 @@ def _make_run(tmp_path: Path) -> Path:
             "batch_size": MODULE.EXPECTED_BATCH_SIZE,
             "model": {"name": snapshot},
             "ckpt": None,
+            "post_batch_filters": [{"type": "zero_advantage", "enforce": False}],
             "train": {
                 "sampling": {"reasoning_effort": "high"},
                 "source": sources,
@@ -308,6 +309,7 @@ def test_validator_reconstructs_component_counts_from_stable_exports(tmp_path: P
     ("mutation", "message"),
     [
         ("nonzero_lr", "learning rate is not zero"),
+        ("drops_zero_advantage", "must retain zero-advantage groups"),
         ("no_sdpo_tokens", "RL and SDPO token mass must both be positive"),
         ("no_rl_tokens", "RL and SDPO token mass must both be positive"),
         ("competing_loss", "expected loss_tokens/ce=0"),
@@ -324,6 +326,11 @@ def test_validator_fails_closed(tmp_path: Path, mutation: str, message: str) -> 
         path = run_dir / "configs" / "trainer.json"
         config = json.loads(path.read_text())
         config["optim"]["lr"] = 1e-7
+        _write_json(path, config)
+    elif mutation == "drops_zero_advantage":
+        path = run_dir / "configs" / "orchestrator.json"
+        config = json.loads(path.read_text())
+        config["post_batch_filters"][0]["enforce"] = True
         _write_json(path, config)
     elif mutation in {"no_sdpo_tokens", "no_rl_tokens", "competing_loss", "zero_gradient"}:
         path = run_dir / "metrics.jsonl"

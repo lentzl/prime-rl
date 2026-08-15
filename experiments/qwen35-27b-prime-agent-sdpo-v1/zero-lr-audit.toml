@@ -74,6 +74,18 @@ max_off_policy_steps = 0
 [orchestrator.algo]
 type = "grpo"
 
+[[orchestrator.post_batch_filters]]
+type = "gibberish"
+enforce = false
+
+[[orchestrator.post_batch_filters]]
+type = "repetition"
+enforce = false
+
+[[orchestrator.post_batch_filters]]
+type = "zero_advantage"
+enforce = false
+
 [orchestrator.renderer]
 name = "qwen3.5"
 enable_thinking = true

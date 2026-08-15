@@ -105,6 +105,13 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
         raise AuditFailure("resolved orchestrator unexpectedly enables checkpointing")
     if orchestrator.get("train", {}).get("sampling", {}).get("reasoning_effort") != "high":
         raise AuditFailure("resolved train sampling does not use high reasoning effort")
+    post_filters = orchestrator.get("post_batch_filters")
+    zero_advantage = next(
+        (item for item in post_filters or [] if item.get("type") == "zero_advantage"),
+        None,
+    )
+    if zero_advantage is None or zero_advantage.get("enforce") is not False:
+        raise AuditFailure("resolved audit must retain zero-advantage groups")
 
     sources = orchestrator.get("train", {}).get("source")
     if not isinstance(sources, list):
