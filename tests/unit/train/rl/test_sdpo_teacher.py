@@ -1,6 +1,13 @@
+import os
+import tempfile
+
 import pytest
 import torch
+import torch.distributed as dist
+import torch.multiprocessing as mp
 from torch import nn
+from torch.distributed.device_mesh import init_device_mesh
+from torch.distributed.tensor import Shard, distribute_tensor
 
 from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
 
@@ -10,6 +17,38 @@ class ModuleWithBuffer(nn.Module):
         super().__init__()
         self.linear = nn.Linear(2, 1)
         self.register_buffer("scale", torch.zeros(1))
+
+
+def _run_materialized_teacher_update(rank: int, world_size: int, rendezvous_path: str) -> None:
+    dist.init_process_group(
+        "gloo",
+        init_method=f"file://{rendezvous_path}",
+        rank=rank,
+        world_size=world_size,
+    )
+    try:
+        teacher = nn.Linear(2, 2, bias=False)
+        student = nn.Linear(2, 2, bias=False)
+        mesh = init_device_mesh("cpu", (world_size,))
+        student.weight = nn.Parameter(
+            distribute_tensor(
+                torch.tensor([[2.0, 4.0], [6.0, 8.0]]),
+                mesh,
+                [Shard(0)],
+            )
+        )
+        with torch.no_grad():
+            teacher.weight.zero_()
+
+        ema = SDPOEMATeacher(teacher, student, update_rate=0.25)
+        ema.step()
+
+        torch.testing.assert_close(
+            teacher.weight,
+            torch.tensor([[0.5, 1.0], [1.5, 2.0]]),
+        )
+    finally:
+        dist.destroy_process_group()
 
 
 def test_sdpo_ema_teacher_syncs_state_and_only_averages_parameters():
@@ -66,3 +105,10 @@ def test_sdpo_ema_teacher_freezes_teacher():
     assert not teacher.training
     assert all(not parameter.requires_grad for parameter in teacher.parameters())
     assert ema.teacher is teacher
+
+
+def test_sdpo_ema_teacher_updates_materialized_teacher_from_dtensor_student():
+    handle, path = tempfile.mkstemp()
+    os.close(handle)
+    os.unlink(path)
+    mp.spawn(_run_materialized_teacher_update, args=(2, path), nprocs=2, join=True)

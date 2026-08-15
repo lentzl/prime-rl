@@ -6,6 +6,7 @@ from typing import Any
 import torch
 from torch import nn
 from torch.distributed.checkpoint.stateful import Stateful
+from torch.distributed.tensor import DTensor
 
 
 def _validate_update_rate(value: float) -> float:
@@ -35,6 +36,15 @@ def _paired_named_tensors(
             raise ValueError(f"SDPO EMA teacher and student shapes differ for {teacher_name!r}")
         pairs.append((teacher_name, teacher_value, student_value))
     return pairs
+
+
+def _match_teacher_tensor(student_value: torch.Tensor, teacher_value: torch.Tensor) -> torch.Tensor:
+    if isinstance(teacher_value, DTensor) or not isinstance(student_value, DTensor):
+        value = student_value
+    else:
+        local_value = student_value.to_local()
+        value = local_value if local_value.shape == teacher_value.shape else student_value.full_tensor()
+    return value.to(device=teacher_value.device, dtype=teacher_value.dtype)
 
 
 class SDPOEMATeacher(Stateful):
@@ -67,7 +77,7 @@ class SDPOEMATeacher(Stateful):
                 list(self.student.named_buffers()),
                 kind="buffer",
             ):
-                teacher_value.copy_(student_value.to(device=teacher_value.device, dtype=teacher_value.dtype))
+                teacher_value.copy_(_match_teacher_tensor(student_value, teacher_value))
 
     def step(self) -> None:
         with torch.no_grad():
@@ -76,5 +86,7 @@ class SDPOEMATeacher(Stateful):
                 list(self.student.named_parameters()),
                 kind="parameter",
             ):
-                student_value = student_value.to(device=teacher_value.device, dtype=teacher_value.dtype)
-                teacher_value.lerp_(student_value, self.update_rate)
+                teacher_value.lerp_(
+                    _match_teacher_tensor(student_value, teacher_value),
+                    self.update_rate,
+                )
