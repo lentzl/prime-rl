@@ -7,7 +7,6 @@ label=${2:-untouched-base}
 revision=${3:-fc05daec18b0a78c049392ed2e771dde82bdf654}
 output_root=${PRIME_MASTERY_OUTPUT_ROOT:-/ephemeral/evals/qwen35-27b-prime-agent-mastery-v2}
 run_output=$output_root/$label
-serve_config=$run_output/inference.toml
 serve_log=$run_output/inference.log
 cuda_devices=${EVAL_CUDA_VISIBLE_DEVICES:-0,1,2,3}
 tensor_parallel_size=${EVAL_TENSOR_PARALLEL_SIZE:-4}
@@ -15,10 +14,14 @@ backend_port=${EVAL_BACKEND_PORT:-8100}
 router_port=${EVAL_ROUTER_PORT:-8000}
 data_parallel_rpc_port=${EVAL_DATA_PARALLEL_RPC_PORT:-13345}
 eval_driver=scripts/run_qwen35_27b_prime_agent_mastery_battery_v2.sh
+inference_bin=${INFERENCE_BIN:-$root/.venv/bin/inference}
+eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
+nvidia_smi_bin=${NVIDIA_SMI_BIN:-nvidia-smi}
+dry_run=${BASELINE_DRY_RUN:-false}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
-if [[ ! -x .venv/bin/inference || ! -x .venv/bin/eval ]]; then
+if [[ ! -x "$inference_bin" || ! -x "$eval_bin" ]]; then
   echo "Prime-RL inference/eval executables are missing" >&2
   exit 1
 fi
@@ -40,7 +43,7 @@ if [[ ${#eval_devices[@]} -ne $tensor_parallel_size ]]; then
   exit 1
 fi
 for device in "${eval_devices[@]}"; do
-  if [[ -n "$(nvidia-smi --id="$device" --query-compute-apps=pid --format=csv,noheader)" ]]; then
+  if [[ -n "$("$nvidia_smi_bin" --id="$device" --query-compute-apps=pid --format=csv,noheader)" ]]; then
     echo "refusing to launch while another GPU process is active on device $device" >&2
     exit 1
   fi
@@ -57,7 +60,16 @@ if [[ -f .env ]]; then
 fi
 export HF_TOKEN=${HF_TOKEN:-${HF_KEY:-}}
 export PRIME_API_KEY=${PRIME_API_KEY:-${PIT_KEY:-local-eval}}
-mkdir -p "$run_output"
+if [[ "$dry_run" == true ]]; then
+  serve_config=$(mktemp "${TMPDIR:-/tmp}/qwen35-27b-mastery-v2.XXXXXX")
+  cleanup_preflight() {
+    rm -f "$serve_config"
+  }
+  trap cleanup_preflight EXIT
+else
+  mkdir -p "$run_output"
+  serve_config=$run_output/inference.toml
+fi
 
 cat >"$serve_config" <<EOF
 backend_port = $backend_port
@@ -89,8 +101,8 @@ log_data = false
 interval = 10.0
 EOF
 
-if [[ "${BASELINE_DRY_RUN:-false}" == true ]]; then
-  inference @ "$serve_config" --dry-run true
+if [[ "$dry_run" == true ]]; then
+  "$inference_bin" @ "$serve_config" --dry-run true
   echo "baseline launch preflight passed: $run_output"
   exit 0
 fi
@@ -110,7 +122,7 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-CUDA_VISIBLE_DEVICES=$cuda_devices inference @ "$serve_config" >"$serve_log" 2>&1 &
+CUDA_VISIBLE_DEVICES=$cuda_devices "$inference_bin" @ "$serve_config" >"$serve_log" 2>&1 &
 inference_pid=$!
 for _ in $(seq 1 480); do
   if ! kill -0 "$inference_pid" 2>/dev/null; then

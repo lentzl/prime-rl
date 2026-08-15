@@ -1,3 +1,5 @@
+import os
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -22,10 +24,14 @@ def test_mastery_v2_is_a_frozen_74_task_official_harness_battery() -> None:
     configs = [_load(name) for name in CONFIG_NAMES]
 
     assert sum(config["num_tasks"] for config in configs) == 74
-    assert all(config["env"]["agent"]["harness"] == {
-        "id": "prime_agent",
-        "version": "0.7.3",
-    } for config in configs)
+    assert all(
+        config["env"]["agent"]["harness"]
+        == {
+            "id": "prime_agent",
+            "version": "0.7.3",
+        }
+        for config in configs
+    )
     assert all(config["sampling"]["reasoning_effort"] == "high" for config in configs)
     assert all("thinking" not in config["env"]["agent"]["harness"] for config in configs)
     assert all("autonomous" not in config["env"]["agent"]["harness"] for config in configs)
@@ -33,9 +39,7 @@ def test_mastery_v2_is_a_frozen_74_task_official_harness_battery() -> None:
 
 
 def test_mastery_v2_preserves_the_historical_slice_boundaries() -> None:
-    foundations, calibration, heldout, child, coordinator, oolong = (
-        _load(name) for name in CONFIG_NAMES
-    )
+    foundations, calibration, heldout, child, coordinator, oolong = (_load(name) for name in CONFIG_NAMES)
 
     assert foundations["env"]["taskset"] == {
         "id": "prime-agent-foundations-v2",
@@ -79,9 +83,7 @@ def test_mastery_v2_launcher_records_the_exact_software_and_model_revisions() ->
 
 
 def test_mastery_v2_model_launcher_is_revision_pinned_and_fail_closed() -> None:
-    launcher = (
-        ROOT / "scripts" / "run_qwen35_27b_prime_agent_mastery_baseline_v2.sh"
-    ).read_text()
+    launcher = (ROOT / "scripts" / "run_qwen35_27b_prime_agent_mastery_baseline_v2.sh").read_text()
 
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
     assert "refusing to overwrite mastery output" in launcher
@@ -89,8 +91,9 @@ def test_mastery_v2_model_launcher_is_revision_pinned_and_fail_closed() -> None:
     assert "CUDA device count must equal tensor parallel size" in launcher
     assert '[[ ! -f "$model/STABLE" ]]' in launcher
     assert "BASELINE_DRY_RUN" in launcher
+    assert 'mktemp "${TMPDIR:-/tmp}/qwen35-27b-mastery-v2.XXXXXX"' in launcher
     assert 'revision = "$revision"' in launcher
-    assert 'max_model_len = 65536' in launcher
+    assert "max_model_len = 65536" in launcher
     assert 'tool_call_parser = "qwen3_coder"' in launcher
     assert 'reasoning_parser = "qwen3"' in launcher
     assert "run_qwen35_27b_prime_agent_mastery_battery_v2.sh" in launcher
@@ -98,3 +101,38 @@ def test_mastery_v2_model_launcher_is_revision_pinned_and_fail_closed() -> None:
     assert 'kill "$eval_pid"' in launcher
     assert 'kill "$inference_pid"' in launcher
     assert 'wait -n -p completed_pid "$inference_pid" "$eval_pid"' in launcher
+
+
+def test_mastery_v2_dry_run_leaves_production_output_absent(tmp_path: Path) -> None:
+    launcher = ROOT / "scripts" / "run_qwen35_27b_prime_agent_mastery_baseline_v2.sh"
+    fake_inference = tmp_path / "inference"
+    fake_eval = tmp_path / "eval"
+    fake_nvidia_smi = tmp_path / "nvidia-smi"
+    seen_config = tmp_path / "seen-config"
+    fake_inference.write_text('#!/bin/sh\ntest "$1" = @\ntest -f "$2"\nprintf "%s" "$2" > "$SEEN_CONFIG"\n')
+    fake_eval.write_text("#!/bin/sh\nexit 0\n")
+    fake_nvidia_smi.write_text("#!/bin/sh\nexit 0\n")
+    for executable in (fake_inference, fake_eval, fake_nvidia_smi):
+        executable.chmod(0o755)
+
+    output_root = tmp_path / "production"
+    env = os.environ | {
+        "BASELINE_DRY_RUN": "true",
+        "PRIME_MASTERY_OUTPUT_ROOT": str(output_root),
+        "INFERENCE_BIN": str(fake_inference),
+        "EVAL_BIN": str(fake_eval),
+        "NVIDIA_SMI_BIN": str(fake_nvidia_smi),
+        "SEEN_CONFIG": str(seen_config),
+    }
+    subprocess.run(
+        [str(launcher), "Qwen/Qwen3.5-27B", "untouched-base"],
+        cwd=ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    temporary_config = Path(seen_config.read_text())
+    assert not temporary_config.exists()
+    assert not (output_root / "untouched-base").exists()
