@@ -204,10 +204,7 @@ class RolloutDispatcher:
     @property
     def has_open_train_group(self) -> bool:
         """Whether a train group still needs members to reach its configured size."""
-        return any(
-            group.kind == "train" and group.rollouts_to_schedule > 0
-            for group in self.groups.values()
-        )
+        return any(group.kind == "train" and group.rollouts_to_schedule > 0 for group in self.groups.values())
 
     def return_train_rollout_slots(self, count: int) -> None:
         """Return rejected rollouts to a synchronous policy cohort's budget."""
