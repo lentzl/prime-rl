@@ -26,7 +26,7 @@ optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
 optim_cpu_offload = true
 reshard_after_forward = true
-fused_lm_head_token_chunk_size = 512
+fused_lm_head_token_chunk_size = "disabled"
 
 [trainer.model.compile]
 fullgraph = false

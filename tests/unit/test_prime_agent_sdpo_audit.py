@@ -16,6 +16,7 @@ def test_zero_lr_audit_exercises_exact_typed_feedback_without_moving_weights() -
     assert config.max_steps == 1
     assert config.max_train_batch_lead == 0
     assert config.trainer.optim.lr == 0.0
+    assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
     assert config.ckpt is not None and config.ckpt.interval is None
     assert config.model.name == "Qwen/Qwen3.5-27B"
     assert config.run.name == config.run.dir == "zero-lr-audit"
