@@ -12,6 +12,7 @@ weights=/ephemeral/outputs/qwen35-27b-prime-agent-sdpo-v1/minimum-update/weights
 candidate_mastery=/ephemeral/evals/qwen35-27b-prime-agent-mastery-v2/minimum-update/SUMMARY.json
 candidate_resilience=/ephemeral/evals/qwen35-27b-prime-agent-resilience-v1/minimum-update/SUMMARY.json
 sequence_dir=/ephemeral/evals/qwen35-27b-prime-agent-teacher-candidate-v1
+comparison=$sequence_dir/COMPARISON.json
 
 cd "$root"
 if [[ ! -s "$base_mastery" ]]; then
@@ -30,6 +31,7 @@ for executable in .venv/bin/python .venv/bin/ruff .venv/bin/pytest; do
 done
 
 .venv/bin/ruff check \
+  scripts/compare_prime_agent_teacher_candidate_v1.py \
   scripts/validate_prime_agent_sdpo_zero_lr_audit_v1.py \
   scripts/validate_prime_agent_sdpo_minimum_update_v1.py \
   tests/unit/test_prime_agent_sdpo_audit.py \
@@ -38,6 +40,7 @@ done
   tests/unit/test_mastery_battery_v2.py \
   tests/unit/test_prime_agent_resilience_battery_v1.py
 .venv/bin/pytest -q \
+  tests/unit/test_compare_prime_agent_teacher_candidate_v1.py \
   tests/unit/test_prime_agent_sdpo_audit.py \
   tests/unit/test_validate_prime_agent_sdpo_zero_lr_audit_v1.py \
   tests/unit/test_prime_agent_sdpo_minimum_update.py \
@@ -111,6 +114,14 @@ if [[ ! -s "$candidate_resilience" ]]; then
 fi
 
 mkdir -p "$sequence_dir"
+.venv/bin/python scripts/compare_prime_agent_teacher_candidate_v1.py \
+  --base-mastery "$base_mastery" \
+  --candidate-mastery "$candidate_mastery" \
+  --base-resilience "$base_resilience" \
+  --candidate-resilience "$candidate_resilience" \
+  --output "$comparison" \
+  >"$sequence_dir/COMPARISON.txt"
+
 {
   printf 'completed_at=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"
@@ -122,6 +133,7 @@ mkdir -p "$sequence_dir"
   printf 'update=%s\n' "$update"
   printf 'candidate_mastery=%s\n' "$candidate_mastery"
   printf 'candidate_resilience=%s\n' "$candidate_resilience"
+  printf 'comparison=%s\n' "$comparison"
 } >"$sequence_dir/COMPLETE.txt"
 
 echo "teacher-candidate sequence completed: $sequence_dir/COMPLETE.txt"

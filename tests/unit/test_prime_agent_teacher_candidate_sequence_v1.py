@@ -19,4 +19,6 @@ def test_teacher_candidate_sequence_is_fail_closed_and_complete() -> None:
     assert script.count("run_qwen35_27b_prime_agent_mastery_baseline_v2.sh") == 3
     assert "zero-LR audit report is not a matching pass" in script
     assert "validate_prime_agent_sdpo_minimum_update_v1.py" in script
+    assert "compare_prime_agent_teacher_candidate_v1.py" in script
+    assert "COMPARISON.json" in script
     assert "COMPLETE.txt" in script
