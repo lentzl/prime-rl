@@ -7,21 +7,33 @@ ROOT = Path(__file__).parents[2]
 CONFIG = ROOT / "experiments" / "qwen35-27b-prime-agent-sdpo-v1" / "zero-lr-audit.toml"
 
 
-def test_zero_lr_audit_exercises_exact_typed_feedback_without_moving_weights() -> None:
+def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
     config = cli(RLConfig, args=["@", str(CONFIG), "--dry-run"])
-    source = config.orchestrator.train.source[0]
-    taskset = source.env.taskset
-    algo = config.orchestrator.algo
+    sources = {source.name: source for source in config.orchestrator.train.source}
+    diagnostic = sources["ownership-child-diagnostic-sdpo"]
+    taskset = diagnostic.env.taskset
+    algo = diagnostic.algo
 
     assert config.max_steps == 1
     assert config.max_train_batch_lead == 0
     assert config.trainer.optim.lr == 0.0
+    assert config.trainer.enable_token_export is True
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
     assert config.ckpt is not None and config.ckpt.interval is None
     assert config.model.name == "Qwen/Qwen3.5-27B"
     assert config.run.name == config.run.dir == "zero-lr-audit"
     assert config.clean is True
-    assert algo.type == "sdpo"
+    assert config.orchestrator.batch_size == 32
+    assert config.orchestrator.algo.type == "grpo"
+    assert set(sources) == {
+        "ownership-child-diagnostic-sdpo",
+        "ownership-coordinator-retention",
+        "communication-direct-retention",
+        "communication-single-retention",
+        "communication-parallel-retention",
+        "communication-causal-retention",
+    }
+    assert algo is not None and algo.type == "sdpo"
     assert algo.require_explicit_feedback is True
     assert algo.required_feedback_contract_schema == ("prime-agent/ownership-decision-feedback/v1")
     assert algo.multi_turn_replay is True
@@ -31,7 +43,16 @@ def test_zero_lr_audit_exercises_exact_typed_feedback_without_moving_weights() -
     assert taskset.ownership == "child"
     assert taskset.instruction_level == "standard"
     assert taskset.record_causal_feedback is True
-    assert source.env.agent.harness.version == "0.7.2-beta.495.1.97b994c"
+    assert diagnostic.group_size == 1
+    for name, source in sources.items():
+        assert source.env.agent.harness.version == "0.7.2-beta.495.1.97b994c"
+        if name != diagnostic.name:
+            assert source.algo is not None and source.algo.type == "grpo"
+            assert source.group_size == 2
+    assert sources["communication-causal-retention"].env.taskset.families == (
+        "followup",
+        "handshake",
+    )
     assert config.orchestrator.train.sampling.reasoning_effort == "high"
 
 
