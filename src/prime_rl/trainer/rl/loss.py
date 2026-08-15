@@ -59,6 +59,78 @@ def selective_log_softmax(
     return torch.gather(logprobs, dim=-1, index=index.unsqueeze(-1)).squeeze(-1)
 
 
+class _ChunkedSelectiveLogSoftmax(torch.autograd.Function):
+    @staticmethod
+    def forward(
+        ctx,
+        logits: Tensor,
+        index: Tensor,
+        temperatures: Tensor,
+        chunk_size: int,
+    ) -> Tensor:
+        flat_logits = logits.reshape(-1, logits.shape[-1])
+        flat_index = index.reshape(-1)
+        flat_temperatures = temperatures.reshape(-1)
+        output = logits.new_empty(flat_index.shape)
+        for start in range(0, len(flat_index), chunk_size):
+            end = min(start + chunk_size, len(flat_index))
+            scaled = flat_logits[start:end] / flat_temperatures[start:end].unsqueeze(-1)
+            output[start:end] = torch.gather(
+                scaled.log_softmax(dim=-1),
+                dim=-1,
+                index=flat_index[start:end].unsqueeze(-1),
+            ).squeeze(-1)
+        ctx.save_for_backward(logits, index, temperatures)
+        ctx.chunk_size = chunk_size
+        return output.reshape(index.shape)
+
+    @staticmethod
+    def backward(ctx, grad_output: Tensor) -> tuple[Tensor, None, None, None]:
+        logits, index, temperatures = ctx.saved_tensors
+        flat_logits = logits.reshape(-1, logits.shape[-1])
+        flat_index = index.reshape(-1)
+        flat_temperatures = temperatures.reshape(-1)
+        flat_grad_output = grad_output.reshape(-1)
+        grad_logits = torch.empty_like(flat_logits)
+        for start in range(0, len(flat_index), ctx.chunk_size):
+            end = min(start + ctx.chunk_size, len(flat_index))
+            inv_temperature = flat_temperatures[start:end].reciprocal().unsqueeze(-1)
+            scaled = flat_logits[start:end] * inv_temperature
+            grad_chunk = -scaled.softmax(dim=-1) * flat_grad_output[start:end].unsqueeze(-1)
+            grad_chunk.scatter_add_(
+                dim=-1,
+                index=flat_index[start:end].unsqueeze(-1),
+                src=flat_grad_output[start:end].unsqueeze(-1),
+            )
+            grad_logits[start:end] = (grad_chunk * inv_temperature).to(grad_logits.dtype)
+        return grad_logits.reshape(logits.shape), None, None, None
+
+
+def chunked_selective_log_softmax(
+    logits: Tensor,
+    index: Tensor,
+    temperatures: Tensor,
+    chunk_size: int = 64,
+) -> Tensor:
+    """Compute selected tempered log probabilities without a full softmax copy."""
+    if logits.ndim != 3 or index.shape != logits.shape[:2] or temperatures.shape != logits.shape[:2]:
+        raise ValueError("logits, indices, and temperatures must align")
+    return _ChunkedSelectiveLogSoftmax.apply(logits, index, temperatures, chunk_size)
+
+
+def chunked_entropy(logits: Tensor, temperatures: Tensor, chunk_size: int = 64) -> Tensor:
+    """Compute entropy in bounded token chunks; entropy is diagnostic-only."""
+    flat_logits = logits.detach().reshape(-1, logits.shape[-1])
+    flat_temperatures = temperatures.reshape(-1)
+    output = logits.new_empty(flat_temperatures.shape)
+    for start in range(0, len(flat_temperatures), chunk_size):
+        end = min(start + chunk_size, len(flat_temperatures))
+        scaled = flat_logits[start:end] / flat_temperatures[start:end].unsqueeze(-1)
+        probabilities = scaled.softmax(dim=-1)
+        output[start:end] = torch.logsumexp(scaled, dim=-1) - torch.sum(probabilities * scaled, dim=-1)
+    return output.reshape(temperatures.shape)
+
+
 @jaxtyped(typechecker=typechecker)
 @torch.compile(dynamic=True)
 def compute_entropy(shifted_logits: Float[Tensor, "batch seq vocab"]) -> Float[Tensor, "batch seq"]:

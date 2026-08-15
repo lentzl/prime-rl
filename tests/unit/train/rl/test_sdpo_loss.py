@@ -2,7 +2,12 @@ import pytest
 import torch
 
 from prime_rl.configs.trainer import DefaultLossConfig, SDPOComponentConfig
-from prime_rl.trainer.rl.loss import compute_loss, setup_rl_loss_fn
+from prime_rl.trainer.rl.loss import (
+    chunked_entropy,
+    chunked_selective_log_softmax,
+    compute_loss,
+    setup_rl_loss_fn,
+)
 from prime_rl.trainer.rl.sdpo_loss import SDPOLossConfig, compute_rollout_is_weights, compute_sdpo_loss
 from prime_rl.trainer.rl.sdpo_support import (
     gather_sdpo_student_topk_logprobs,
@@ -67,6 +72,38 @@ def test_student_support_logprobs_use_the_distribution_that_predicted_each_token
     actual = gather_sdpo_student_topk_logprobs(logits, torch.ones(1, 3), token_ids)
     shifted_logits = torch.cat([torch.zeros(1, 1, 3), logits[:, :-1]], dim=1)
     expected = torch.gather(shifted_logits.log_softmax(dim=-1), dim=-1, index=token_ids)
+
+    torch.testing.assert_close(actual, expected)
+
+
+def test_chunked_selective_log_softmax_matches_full_tempered_gradient():
+    logits = torch.randn(2, 5, 7, requires_grad=True)
+    reference_logits = logits.detach().clone().requires_grad_()
+    labels = torch.randint(0, 7, (2, 5))
+    temperatures = torch.rand(2, 5) + 0.5
+    grad = torch.randn(2, 5)
+
+    actual = chunked_selective_log_softmax(logits, labels, temperatures, chunk_size=3)
+    expected = torch.gather(
+        (reference_logits / temperatures.unsqueeze(-1)).log_softmax(dim=-1),
+        dim=-1,
+        index=labels.unsqueeze(-1),
+    ).squeeze(-1)
+    actual.backward(grad)
+    expected.backward(grad)
+
+    torch.testing.assert_close(actual, expected)
+    torch.testing.assert_close(logits.grad, reference_logits.grad)
+
+
+def test_chunked_entropy_matches_full_tempered_entropy():
+    logits = torch.randn(2, 5, 7)
+    temperatures = torch.rand(2, 5) + 0.5
+    scaled = logits / temperatures.unsqueeze(-1)
+    probabilities = scaled.softmax(dim=-1)
+    expected = torch.logsumexp(scaled, dim=-1) - torch.sum(probabilities * scaled, dim=-1)
+
+    actual = chunked_entropy(logits, temperatures, chunk_size=3)
 
     torch.testing.assert_close(actual, expected)
 

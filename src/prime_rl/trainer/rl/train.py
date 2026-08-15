@@ -26,10 +26,10 @@ from prime_rl.utils.cp import (
 )
 from prime_rl.utils.logger import format_time, setup_logger
 from prime_rl.trainer.rl.loss import (
-    compute_entropy,
+    chunked_entropy,
+    chunked_selective_log_softmax,
     compute_loss,
     compute_importance_ratio_and_mismatch_kl,
-    selective_log_softmax,
     setup_rl_loss_fn,
     shift_tensor_left,
     shift_tensor_right,
@@ -569,10 +569,8 @@ def train(config: TrainerConfig):
                 # VanillaOutputLinear was used - need to compute logprobs externally with per-token temps
                 assert out.get("logits") is not None, "Logits must be provided to compute logprobs"
                 logits = out["logits"]
-                # Per-token temperature scaling: temperatures is [batch, seq], logits is [batch, seq, vocab]
-                scaled_logits = logits / temperatures.unsqueeze(-1)
-                out["logprobs"] = selective_log_softmax(scaled_logits, labels)
-                out["entropy"] = compute_entropy(scaled_logits)
+                out["logprobs"] = chunked_selective_log_softmax(logits, labels, temperatures)
+                out["entropy"] = chunked_entropy(logits, temperatures)
             # else: FusedOutputLinear was used - logprobs already computed with per-token temperatures
 
             if cp_enabled:

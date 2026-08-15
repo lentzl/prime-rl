@@ -31,8 +31,8 @@ def gather_sdpo_student_topk_logprobs(
         raise ValueError("SDPO top-k token ids must have shape (batch, seq, topk)")
     if token_ids.dtype == torch.bool or torch.is_floating_point(token_ids) or torch.is_complex(token_ids):
         raise ValueError("SDPO top-k token ids must use an integer dtype")
-    if not bool(torch.isfinite(logits).all()) or not bool(torch.isfinite(temperatures).all()):
-        raise ValueError("SDPO logits and temperatures must be finite")
+    if not bool(torch.isfinite(temperatures).all()):
+        raise ValueError("SDPO temperatures must be finite")
     if not bool((temperatures > 0).all()):
         raise ValueError("SDPO temperatures must be positive")
     if not bool(((token_ids >= 0) & (token_ids < logits.shape[-1])).all()):
@@ -44,11 +44,34 @@ def gather_sdpo_student_topk_logprobs(
         sorted_ids = selected.sort(dim=-1).values
         if selected.numel() and bool((sorted_ids[:, 1:] == sorted_ids[:, :-1]).any()):
             raise ValueError("SDPO top-k token ids must be distinct on supported rows")
+    else:
+        support_mask = torch.ones(logits.shape[:2], dtype=torch.bool, device=logits.device)
 
-    scaled_logits = logits / temperatures.unsqueeze(-1)
-    left_pad = torch.zeros_like(scaled_logits[:, :1])
-    current_token_logprobs = torch.cat([left_pad, scaled_logits[:, :-1]], dim=1).log_softmax(dim=-1)
-    return torch.gather(current_token_logprobs, dim=-1, index=token_ids)
+    result = logits.new_zeros(token_ids.shape)
+    batch_positions = torch.nonzero(support_mask, as_tuple=False)
+    if not len(batch_positions):
+        return result
+
+    batch_ids, positions = batch_positions.unbind(dim=1)
+    first_token = positions == 0
+    if bool(first_token.any()):
+        result[batch_ids[first_token], positions[first_token]] = -torch.log(
+            logits.new_tensor(float(logits.shape[-1]))
+        )
+
+    predicted = ~first_token
+    if bool(predicted.any()):
+        predicted_batches = batch_ids[predicted]
+        predicted_positions = positions[predicted]
+        source_positions = predicted_positions - 1
+        selected_logits = logits[predicted_batches, source_positions]
+        if not _all_finite_in_chunks(selected_logits):
+            raise ValueError("SDPO logits and temperatures must be finite")
+        scaled_logits = selected_logits / temperatures[predicted_batches, source_positions].unsqueeze(-1)
+        selected_ids = token_ids[predicted_batches, predicted_positions]
+        selected_logprobs = torch.gather(scaled_logits.log_softmax(dim=-1), dim=-1, index=selected_ids)
+        result[predicted_batches, predicted_positions] = selected_logprobs
+    return result
 
 
 def select_sdpo_student_topk_support(logits: Tensor, temperatures: Tensor, topk: int) -> Tensor:
@@ -73,10 +96,15 @@ def gather_sdpo_teacher_topk_logprobs(logits: Tensor, positions: Tensor, token_i
         raise ValueError("SDPO teacher positions must be within the teacher sequence")
     if not bool(((token_ids >= 0) & (token_ids < logits.shape[-1])).all()):
         raise ValueError("SDPO teacher support ids must be within the model vocabulary")
-    left_pad = torch.zeros_like(logits[:, :1])
-    current_token_logprobs = torch.cat([left_pad, logits[:, :-1]], dim=1).log_softmax(dim=-1)
-    selected_rows = current_token_logprobs[0, positions]
-    return torch.gather(selected_rows, dim=-1, index=token_ids)
+    result = logits.new_empty(token_ids.shape)
+    first_token = positions == 0
+    if bool(first_token.any()):
+        result[first_token] = -torch.log(logits.new_tensor(float(logits.shape[-1])))
+    predicted = ~first_token
+    if bool(predicted.any()):
+        selected_rows = logits[0, positions[predicted] - 1].log_softmax(dim=-1)
+        result[predicted] = torch.gather(selected_rows, dim=-1, index=token_ids[predicted])
+    return result
 
 
 def pack_sdpo_teacher_spans(
