@@ -69,3 +69,25 @@ def test_mastery_v2_launcher_records_the_exact_software_and_model_revisions() ->
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
     assert "sha256sum" in launcher
     assert "EVAL_CLIENT_BASE_URL" in launcher
+
+
+def test_mastery_v2_model_launcher_is_revision_pinned_and_fail_closed() -> None:
+    launcher = (
+        ROOT / "scripts" / "run_qwen35_27b_prime_agent_mastery_baseline_v2.sh"
+    ).read_text()
+
+    assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
+    assert "refusing to overwrite mastery output" in launcher
+    assert "refusing to launch while another GPU process is active" in launcher
+    assert "CUDA device count must equal tensor parallel size" in launcher
+    assert '[[ ! -f "$model/STABLE" ]]' in launcher
+    assert "BASELINE_DRY_RUN" in launcher
+    assert 'revision = "$revision"' in launcher
+    assert 'max_model_len = 65536' in launcher
+    assert 'tool_call_parser = "qwen3_coder"' in launcher
+    assert 'reasoning_parser = "qwen3"' in launcher
+    assert "run_qwen35_27b_prime_agent_mastery_battery_v2.sh" in launcher
+    assert "MODEL_REVISION=$revision" in launcher
+    assert 'kill "$eval_pid"' in launcher
+    assert 'kill "$inference_pid"' in launcher
+    assert 'wait -n -p completed_pid "$inference_pid" "$eval_pid"' in launcher
