@@ -29,3 +29,17 @@ learning rate, and no checkpoint or model-weight artifact. Stable token exports 
 matched one-to-one with reconstructed Verifiers branches to prove that SDPO reaches
 only the first serialized coordinator tool call, child branches receive zero SDPO,
 and retention sources receive only GRPO.
+
+## PCIe-only runtime qualification
+
+The experiment launchers keep NCCL P2P disabled but enable SHM by default. This
+combination is required on the tested eight-L40S host: CUDA peer reads and writes
+are unsupported, while the six-rank SHM path completes the audit's exact
+383,418,612-element BF16 FSDP reduce-scatter in 0.48-0.90 seconds. Disabling both
+P2P and SHM forced NCCL onto its socket transport; four ranks stalled in that
+collective until the one-hour process-group timeout while two ranks reached the
+following barrier.
+
+Run `scripts/probe_nccl_reduce_scatter.py` under `torchrun` before reusing this
+configuration on a different GPU topology. The launch defaults remain explicitly
+overridable through `NCCL_P2P_DISABLE` and `NCCL_SHM_DISABLE`.

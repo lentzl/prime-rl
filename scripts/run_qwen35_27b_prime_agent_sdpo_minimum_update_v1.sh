@@ -9,6 +9,10 @@ run_dir=/ephemeral/outputs/qwen35-27b-prime-agent-sdpo-v1/minimum-update
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
+# These PCIe-only L40S hosts lack CUDA peer access, while their SHM transport
+# passes the full-size FSDP reduce-scatter probe. Avoid the socket fallback.
+export NCCL_P2P_DISABLE=${NCCL_P2P_DISABLE:-1}
+export NCCL_SHM_DISABLE=${NCCL_SHM_DISABLE:-0}
 if [[ ! -x .venv/bin/rl || ! -x .venv/bin/vllm-router ]]; then
   echo "Prime-RL training executables are missing" >&2
   exit 1

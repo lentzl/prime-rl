@@ -9,6 +9,10 @@ curl_bin=${CURL_BIN:-curl}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
+# These PCIe-only L40S hosts lack CUDA peer access, while their SHM transport
+# passes the full-size FSDP reduce-scatter probe. Avoid the socket fallback.
+export NCCL_P2P_DISABLE=${NCCL_P2P_DISABLE:-1}
+export NCCL_SHM_DISABLE=${NCCL_SHM_DISABLE:-0}
 if [[ ! -x .venv/bin/rl || ! -x .venv/bin/inference || ! -x .venv/bin/env-server ]]; then
   echo "Prime-RL training executables are missing" >&2
   exit 1
