@@ -76,6 +76,19 @@ def test_student_support_logprobs_use_the_distribution_that_predicted_each_token
     torch.testing.assert_close(actual, expected)
 
 
+def test_student_support_logprobs_promote_bfloat16_logits_with_float_temperatures():
+    logits = torch.tensor(
+        [[[1.0, 2.0, 3.0], [3.0, 2.0, 1.0], [0.0, 2.0, 1.0]]],
+        dtype=torch.bfloat16,
+    )
+    token_ids = torch.tensor([[[0, 1], [2, 1], [0, 2]]])
+
+    actual = gather_sdpo_student_topk_logprobs(logits, torch.ones(1, 3), token_ids)
+
+    assert actual.dtype == torch.float32
+    assert torch.isfinite(actual).all()
+
+
 def test_chunked_selective_log_softmax_matches_full_tempered_gradient():
     logits = torch.randn(2, 5, 7, requires_grad=True)
     reference_logits = logits.detach().clone().requires_grad_()

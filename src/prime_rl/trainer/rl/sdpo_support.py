@@ -47,7 +47,8 @@ def gather_sdpo_student_topk_logprobs(
     else:
         support_mask = torch.ones(logits.shape[:2], dtype=torch.bool, device=logits.device)
 
-    result = logits.new_zeros(token_ids.shape)
+    result_dtype = torch.promote_types(logits.dtype, temperatures.dtype)
+    result = torch.zeros(token_ids.shape, dtype=result_dtype, device=logits.device)
     batch_positions = torch.nonzero(support_mask, as_tuple=False)
     if not len(batch_positions):
         return result
