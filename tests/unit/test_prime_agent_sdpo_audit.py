@@ -23,14 +23,10 @@ def test_zero_lr_audit_exercises_exact_typed_feedback_without_moving_weights() -
     assert config.clean is True
     assert algo.type == "sdpo"
     assert algo.require_explicit_feedback is True
-    assert algo.required_feedback_contract_schema == (
-        "prime-agent/ownership-decision-feedback/v1"
-    )
+    assert algo.required_feedback_contract_schema == ("prime-agent/ownership-decision-feedback/v1")
     assert algo.multi_turn_replay is True
     assert algo.filter is not None
-    assert algo.filter.import_path == (
-        "subagent_communication_v1.taskset.keep_first_coordinator_tool_call"
-    )
+    assert algo.filter.import_path == ("subagent_communication_v1.taskset.keep_first_coordinator_tool_call")
     assert taskset.id == "ownership-invariant-v1"
     assert taskset.ownership == "child"
     assert taskset.instruction_level == "standard"
@@ -40,9 +36,7 @@ def test_zero_lr_audit_exercises_exact_typed_feedback_without_moving_weights() -
 
 
 def test_zero_lr_audit_launcher_fails_closed() -> None:
-    launcher = (
-        ROOT / "scripts" / "run_qwen35_27b_prime_agent_sdpo_zero_lr_audit_v1.sh"
-    ).read_text()
+    launcher = (ROOT / "scripts" / "run_qwen35_27b_prime_agent_sdpo_zero_lr_audit_v1.sh").read_text()
 
     assert "refusing to launch while another GPU process is active" in launcher
     assert "zero-LR audit must run exactly one step" in launcher
@@ -53,3 +47,5 @@ def test_zero_lr_audit_launcher_fails_closed() -> None:
     assert "snapshot_download" in launcher
     assert '"$(basename "$model_snapshot")" != "$model_revision"' in launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in launcher
+    assert "validate_prime_agent_sdpo_zero_lr_audit_v1.py" in launcher
+    assert '--output "$run_dir/AUDIT.json"' in launcher

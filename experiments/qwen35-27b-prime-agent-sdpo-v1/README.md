@@ -9,3 +9,10 @@ the SDPO loss to the first serialized coordinator tool call.
 with `lr = 0`, creates no checkpoint, and proves that genuine on-policy failures can
 flow through feedback admission, teacher replay, token filtering, and the analytic
 SDPO loss before any parameter-changing run is considered.
+
+The launcher validates the completed run before returning success and writes
+`AUDIT.json` plus `AUDIT.txt` into the run directory. A passing verdict requires
+the pinned model revision across all resolved services, typed answer-free feedback
+on every effective failure trace, positive finite SDPO gradients with no competing
+loss component, a successful optimizer step at exactly zero learning rate, and no
+checkpoint or model-weight artifact.

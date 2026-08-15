@@ -63,3 +63,9 @@ if [[ "${SDPO_AUDIT_DRY_RUN:-false}" == true ]]; then
 fi
 
 rl @ "$config" --model.name "$model_snapshot"
+
+run_dir=/ephemeral/outputs/qwen35-27b-prime-agent-sdpo-v1/zero-lr-audit
+.venv/bin/python scripts/validate_prime_agent_sdpo_zero_lr_audit_v1.py \
+  "$run_dir" \
+  --expected-revision "$model_revision" \
+  --output "$run_dir/AUDIT.json" | tee "$run_dir/AUDIT.txt"
