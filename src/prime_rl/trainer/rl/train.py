@@ -349,6 +349,10 @@ def train(config: TrainerConfig):
         if len(set(batch_count_values)) != 1:
             raise RuntimeError(f"FSDP ranks received different microbatch counts: {batch_count_values}")
         dist.all_reduce(global_scales, op=dist.ReduceOp.SUM, group=dp_cp_group)
+        component_token_metrics = {
+            f"loss_tokens/{name}": int(count)
+            for name, count in zip(("rl", "ce", "ref_kl", "sdpo"), global_scales.tolist(), strict=True)
+        }
         has_global_sdpo = bool(global_scales[3] > 0)
         if has_global_sdpo and not config.sdpo_loss.enabled:
             raise ValueError("Received SDPO samples but trainer.sdpo_loss.enabled is false")
@@ -850,6 +854,9 @@ def train(config: TrainerConfig):
         if grad_norm is not None:
             optim_metrics["optim/grad_norm"] = grad_norm.item()
         monitor.log(optim_metrics, step=progress.step)
+
+        component_token_metrics["step"] = progress.step
+        monitor.log(component_token_metrics, step=progress.step)
 
         # Compute derived metrics
         entropy_mean = tensor_stats.get("entropy/all/mean", 0.0)

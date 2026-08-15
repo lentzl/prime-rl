@@ -153,14 +153,24 @@ def _validate_metrics(run_dir: Path) -> dict[str, float]:
     if steps != {1}:
         raise AuditFailure(f"expected metrics for exactly step 1, found {sorted(steps)}")
 
-    rl_tokens = _require_finite(records, "loss_tokens/rl")
-    sdpo_tokens = _require_finite(records, "loss_tokens/sdpo")
+    exported_counts = _exported_component_token_counts(run_dir)
+
+    def component_tokens(name: str) -> float:
+        key = f"loss_tokens/{name}"
+        if any(key in record for record in records):
+            return _require_finite(records, key)
+        return float(exported_counts[name])
+
+    rl_tokens = component_tokens("rl")
+    sdpo_tokens = component_tokens("sdpo")
     if rl_tokens <= 0 or sdpo_tokens <= 0:
         raise AuditFailure(
             f"RL and SDPO token mass must both be positive, found {rl_tokens:g}/{sdpo_tokens:g}"
         )
-    for key in ("loss_tokens/ce", "loss_tokens/ref_kl"):
-        _require_all(records, key, 0.0)
+    for name in ("ce", "ref_kl"):
+        value = component_tokens(name)
+        if value != 0:
+            raise AuditFailure(f"expected loss_tokens/{name}=0, found {value:g}")
 
     _require_all(records, "optim/lr", 0.0)
     _require_all(records, "optim/update_succeeded", 1.0)
@@ -301,6 +311,22 @@ def _active_component(record: dict[str, Any], name: str) -> list[bool]:
             raise AuditFailure(f"token export has a nonnumeric {name} value")
         active.append(keep and float(default if weight is None else weight) != 0.0)
     return active
+
+
+def _exported_component_token_counts(run_dir: Path) -> dict[str, int]:
+    export_dir = run_dir / "token_exports" / "step_1"
+    if not (export_dir / "STABLE").is_file():
+        raise AuditFailure(f"token export is not stable: {export_dir}")
+    counts = {name: 0 for name in ("rl", "ce", "ref_kl", "sdpo")}
+    records = []
+    for path in sorted(export_dir.glob("rank_*.jsonl")):
+        records.extend(_read_jsonl(path))
+    if not records:
+        raise AuditFailure("token export contains no records")
+    for record in records:
+        for name in counts:
+            counts[name] += sum(_active_component(record, f"{name}_weights"))
+    return counts
 
 
 def _is_child_branch(branch: vf.Branch) -> bool:

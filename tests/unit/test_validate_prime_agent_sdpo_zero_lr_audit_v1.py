@@ -288,6 +288,22 @@ def test_validator_accepts_complete_mixed_zero_lr_mechanism_audit(tmp_path: Path
     assert report["model_artifacts_written"] is False
 
 
+def test_validator_reconstructs_component_counts_from_stable_exports(tmp_path: Path) -> None:
+    run_dir = _make_run(tmp_path)
+    metrics_path = run_dir / "metrics.jsonl"
+    records = [json.loads(line) for line in metrics_path.read_text().splitlines()]
+    for record in records:
+        for key in tuple(record):
+            if key.startswith("loss_tokens/"):
+                del record[key]
+    metrics_path.write_text("".join(json.dumps(record) + "\n" for record in records))
+
+    report = MODULE.validate(run_dir)
+
+    assert report["metrics"]["rl_tokens"] > 0
+    assert report["metrics"]["sdpo_tokens"] > 0
+
+
 @pytest.mark.parametrize(
     ("mutation", "message"),
     [
