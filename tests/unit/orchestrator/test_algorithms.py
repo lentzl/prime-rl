@@ -5,7 +5,7 @@ import pydantic
 import pytest
 import verifiers.v1 as vf
 from verifiers.v1.graph import MessageNode
-from verifiers.v1.types import AssistantMessage, TextContentPart, ToolMessage, UserMessage
+from verifiers.v1.types import AssistantMessage, TextContentPart, ToolCall, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.orchestrator.algo import EchoAlgorithm, SDPOAlgorithm, stamp_advantages, stamp_loss_routing
@@ -896,6 +896,64 @@ def test_sdpo_multibranch_feedback_fails_closed_without_unique_coordinator_promp
     assert all(sample.sdpo_teacher_spans is None for sample in rollout.samples)
     assert all(sample.sdpo_weights == [0.0] * len(sample.token_ids) for sample in rollout.samples)
     algo.renderer.render_ids.assert_not_called()
+
+
+def test_sdpo_configured_prime_agent_filter_selects_serialized_coordinator_tool_call():
+    feedback = "Repair the first ownership decision."
+    nodes = [
+        _node(UserMessage(content="coordinate"), parent=None, sampled=False, token_ids=[1]),
+        _node(
+            AssistantMessage(
+                content="",
+                tool_calls=[ToolCall(id="spawn", name="ipython", arguments='{"code":"spawn"}')],
+            ),
+            parent=0,
+            sampled=True,
+            token_ids=[90, 248058, 91, 248059, 92],
+        ),
+        _node(UserMessage(content="[task from parent] child work"), parent=None, sampled=False, token_ids=[4]),
+        _node(AssistantMessage(content="child action"), parent=2, sampled=True, token_ids=[5, 6]),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt="coordinate")),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        rewards={"reward": vf.Reward(score=0.0)},
+        info={
+            "feedback": feedback,
+            "feedback_contract": _feedback_contract(message=feedback, turn_index=0),
+        },
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            success_reward_threshold=2.0,
+            required_feedback_contract_schema="memory-feedback/v1",
+            filter={
+                "import_path": "subagent_communication_v1.taskset.keep_first_coordinator_tool_call"
+            },
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20, 21]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    coordinator, child = rollout.samples
+    assert coordinator.sdpo_weights == [0.0, 0.0, 1.0, 1.0, 1.0, 0.0]
+    assert coordinator.sdpo_teacher_spans == [
+        SDPOTeacherSpan(
+            prefix_ids=[20, 21],
+            completion_ids=[90, 248058, 91, 248059, 92],
+            student_positions=[2, 3, 4],
+            target_offsets=[1, 2, 3],
+        )
+    ]
+    assert child.sdpo_weights == [0.0, 0.0, 0.0]
+    assert child.sdpo_teacher_spans is None
 
 
 def test_echo_weights_only_content_tokens_when_is_content_present():
