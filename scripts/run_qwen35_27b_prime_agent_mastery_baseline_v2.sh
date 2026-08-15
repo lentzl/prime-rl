@@ -61,9 +61,11 @@ fi
 export HF_TOKEN=${HF_TOKEN:-${HF_KEY:-}}
 export PRIME_API_KEY=${PRIME_API_KEY:-${PIT_KEY:-local-eval}}
 if [[ "$dry_run" == true ]]; then
-  serve_config=$(mktemp "${TMPDIR:-/tmp}/qwen35-27b-mastery-v2.XXXXXX")
+  preflight_dir=$(mktemp -d "${TMPDIR:-/tmp}/qwen35-27b-mastery-v2.XXXXXX")
+  serve_config=$preflight_dir/inference.toml
   cleanup_preflight() {
     rm -f "$serve_config"
+    rmdir "$preflight_dir"
   }
   trap cleanup_preflight EXIT
 else

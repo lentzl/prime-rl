@@ -91,7 +91,8 @@ def test_mastery_v2_model_launcher_is_revision_pinned_and_fail_closed() -> None:
     assert "CUDA device count must equal tensor parallel size" in launcher
     assert '[[ ! -f "$model/STABLE" ]]' in launcher
     assert "BASELINE_DRY_RUN" in launcher
-    assert 'mktemp "${TMPDIR:-/tmp}/qwen35-27b-mastery-v2.XXXXXX"' in launcher
+    assert 'mktemp -d "${TMPDIR:-/tmp}/qwen35-27b-mastery-v2.XXXXXX"' in launcher
+    assert "serve_config=$preflight_dir/inference.toml" in launcher
     assert 'revision = "$revision"' in launcher
     assert "max_model_len = 65536" in launcher
     assert 'tool_call_parser = "qwen3_coder"' in launcher
@@ -109,7 +110,10 @@ def test_mastery_v2_dry_run_leaves_production_output_absent(tmp_path: Path) -> N
     fake_eval = tmp_path / "eval"
     fake_nvidia_smi = tmp_path / "nvidia-smi"
     seen_config = tmp_path / "seen-config"
-    fake_inference.write_text('#!/bin/sh\ntest "$1" = @\ntest -f "$2"\nprintf "%s" "$2" > "$SEEN_CONFIG"\n')
+    fake_inference.write_text(
+        '#!/bin/sh\ntest "$1" = @\ntest -f "$2"\ncase "$2" in *.toml) ;; *) exit 1 ;; esac\n'
+        'printf "%s" "$2" > "$SEEN_CONFIG"\n'
+    )
     fake_eval.write_text("#!/bin/sh\nexit 0\n")
     fake_nvidia_smi.write_text("#!/bin/sh\nexit 0\n")
     for executable in (fake_inference, fake_eval, fake_nvidia_smi):
@@ -135,4 +139,5 @@ def test_mastery_v2_dry_run_leaves_production_output_absent(tmp_path: Path) -> N
 
     temporary_config = Path(seen_config.read_text())
     assert not temporary_config.exists()
+    assert not temporary_config.parent.exists()
     assert not (output_root / "untouched-base").exists()
