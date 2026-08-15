@@ -292,7 +292,7 @@ def test_per_env_sdpo_algorithm_enables_trainer_runtime():
                         {
                             "name": "sdpo-env",
                             "env": {
-                                "taskset": {"id": "reverse-text-v1"},
+                                "taskset": {"id": "reverse-text"},
                                 "agent": {
                                     "harness": {"id": "null"},
                                     "runtime": {"type": "subprocess"},
