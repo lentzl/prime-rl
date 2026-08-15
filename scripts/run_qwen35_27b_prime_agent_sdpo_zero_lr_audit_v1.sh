@@ -46,6 +46,11 @@ if not config.get("trainer", {}).get("enable_token_export"):
 if config.get("orchestrator", {}).get("batch_size") != 16:
     raise SystemExit("zero-LR audit must use the 16-trace mechanism batch")
 if (
+    config.get("seq_len") != 8192
+    or config.get("trainer", {}).get("model", {}).get("seq_len") != 8192
+):
+    raise SystemExit("zero-LR audit must use the qualified 8192-token L40S pack ceiling")
+if (
     config.get("orchestrator", {}).get("max_inflight_episodes") != 8
     or config.get("orchestrator", {}).get("oversampling_factor") != 0.5
 ):

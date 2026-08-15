@@ -19,6 +19,8 @@ def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
     algo = diagnostic.algo
 
     assert config.max_steps == 1
+    assert config.seq_len == 8192
+    assert config.trainer.model.seq_len == 8192
     assert config.max_train_batch_lead == 0
     assert config.trainer.optim.lr == 0.0
     assert config.trainer.enable_token_export is True
@@ -114,6 +116,7 @@ def test_zero_lr_audit_launcher_fails_closed() -> None:
     assert "zero-LR audit refuses a nonzero learning rate" in launcher
     assert "zero-LR audit must omit checkpoint configuration" in launcher
     assert "zero-LR audit must use the 16-trace mechanism batch" in launcher
+    assert "qualified 8192-token L40S pack ceiling" in launcher
     assert "zero-LR audit must cap concurrency at eight episodes" in launcher
     assert "SDPO_AUDIT_DRY_RUN" in launcher
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
