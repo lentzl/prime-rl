@@ -95,7 +95,7 @@ def test_teacher_spans_pack_with_independent_positions():
         ]
     )
 
-    assert packed == ([1, 2, 3, 4, 6, 7], [0, 1, 2, 3, 0, 1], [3, 5], [5, 9])
+    assert packed == ([1, 2, 3, 4, 6, 7], [0, 1, 2, 3, 0, 1], [4, 2], [3, 5], [5, 9])
 
 
 def test_teacher_spans_split_into_bounded_batches_without_reordering_targets():
@@ -108,8 +108,8 @@ def test_teacher_spans_split_into_bounded_batches_without_reordering_targets():
     batches = pack_sdpo_teacher_span_batches(spans, max_seq_len=5)
 
     assert batches == [
-        ([1, 2, 3, 4], [0, 1, 2, 3], [3], [5]),
-        ([6, 7, 8, 9, 10], [0, 1, 0, 1, 2], [1, 4], [9, 12]),
+        ([1, 2, 3, 4], [0, 1, 2, 3], [4], [3], [5]),
+        ([6, 7, 8, 9, 10], [0, 1, 0, 1, 2], [2, 3], [1, 4], [9, 12]),
     ]
 
 

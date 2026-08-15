@@ -80,9 +80,10 @@ def gather_sdpo_teacher_topk_logprobs(logits: Tensor, positions: Tensor, token_i
 
 def pack_sdpo_teacher_spans(
     spans: list[SDPOTeacherSpan] | None,
-) -> tuple[list[int], list[int], list[int], list[int]]:
+) -> tuple[list[int], list[int], list[int], list[int], list[int]]:
     input_ids: list[int] = []
     position_ids: list[int] = []
+    seq_lens: list[int] = []
     teacher_positions: list[int] = []
     student_positions: list[int] = []
     for span in spans or []:
@@ -90,22 +91,24 @@ def pack_sdpo_teacher_spans(
         sequence_start = len(input_ids)
         input_ids.extend(sequence)
         position_ids.extend(range(len(sequence)))
+        seq_lens.append(len(sequence))
         teacher_positions.extend(sequence_start + len(span.prefix_ids) + offset for offset in span.target_offsets)
         student_positions.extend(span.student_positions)
     if not input_ids:
         input_ids = [1]
         position_ids = [0]
-    return input_ids, position_ids, teacher_positions, student_positions
+        seq_lens = [1]
+    return input_ids, position_ids, seq_lens, teacher_positions, student_positions
 
 
 def pack_sdpo_teacher_span_batches(
     spans: list[SDPOTeacherSpan] | None,
     max_seq_len: int,
-) -> list[tuple[list[int], list[int], list[int], list[int]]]:
+) -> list[tuple[list[int], list[int], list[int], list[int], list[int]]]:
     if isinstance(max_seq_len, bool) or not isinstance(max_seq_len, int) or max_seq_len <= 0:
         raise ValueError("SDPO teacher batch length must be a positive integer")
 
-    batches: list[tuple[list[int], list[int], list[int], list[int]]] = []
+    batches: list[tuple[list[int], list[int], list[int], list[int], list[int]]] = []
     current: list[SDPOTeacherSpan] = []
     current_len = 0
     for span in spans or []:
