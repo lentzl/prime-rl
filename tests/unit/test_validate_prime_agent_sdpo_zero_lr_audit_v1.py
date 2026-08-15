@@ -308,7 +308,8 @@ def test_validator_reconstructs_component_counts_from_stable_exports(tmp_path: P
     [
         ("nonzero_lr", "learning rate is not zero"),
         ("drops_zero_advantage", "must retain zero-advantage groups"),
-        ("no_token_window", "must enforce a trainable-token window"),
+        ("no_token_window", "has no pre-batch filters"),
+        ("late_token_window", "must first enforce a trainable-token window"),
         ("overlong_trainable", "has trainable tokens beyond"),
         ("no_sdpo_tokens", "RL and SDPO token mass must both be positive"),
         ("no_rl_tokens", "RL and SDPO token mass must both be positive"),
@@ -337,6 +338,11 @@ def test_validator_fails_closed(tmp_path: Path, mutation: str, message: str) -> 
         path = run_dir / "configs" / "orchestrator.json"
         config = json.loads(path.read_text())
         config["pre_batch_filters"] = []
+        _write_json(path, config)
+    elif mutation == "late_token_window":
+        path = run_dir / "configs" / "orchestrator.json"
+        config = json.loads(path.read_text())
+        config["pre_batch_filters"].insert(0, {"type": "gibberish", "enforce": False})
         _write_json(path, config)
     elif mutation == "overlong_trainable":
         trace_path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"

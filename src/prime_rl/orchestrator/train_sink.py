@@ -93,6 +93,9 @@ class TrainSink:
         self.pre_filter_seen = 0
         self.pre_filter_dropped = 0
         self.pre_filter_dropped_by_name: dict[str, int] = {}
+        # Number of synchronous scheduler slots needed to replace groups that
+        # admitted fewer rollouts than their episode count.
+        self.train_rollout_replacements = 0
 
     def group_size_for(self, env_name: str) -> int:
         return self.train_envs.get(env_name).config.group_size
@@ -182,11 +185,13 @@ class TrainSink:
         task_idx = group[0].task.data.idx
         survivors = [r for r in group if not r.has_error]
         num_errored = len(group) - len(survivors)
+        expected_rollouts = self.group_size_for(env_name)
 
         env = self.train_envs.get(env_name)
         # Untrainable traces carry no samples and must not skew the group baseline.
         survivors = [r for r in survivors if r.agent.trainable]
         if not survivors:
+            self.record_batch_admission(expected_rollouts=expected_rollouts, admitted_rollouts=0)
             get_logger().debug(
                 f"Finished group | env={env_name} task_idx={task_idx} | "
                 f"rollouts={len(group)} (errored={num_errored}) | dropped: no trainable survivors"
@@ -209,6 +214,7 @@ class TrainSink:
             apply_filters(self.pre_filters, survivors)
         filtered_by_name: dict[str, int] = {}
         num_filtered = 0
+        admitted_rollouts = 0
         for r in survivors:
             self.pre_filter_seen += 1
             if r.is_filtered:
@@ -223,8 +229,13 @@ class TrainSink:
             r.filter_results = {}
             r.is_filtered = False
             self.pending_batch.append(r)
+            admitted_rollouts += 1
             if self.token_batch_size is not None:
                 self.pending_tokens += payload_tokens(r)
+        self.record_batch_admission(
+            expected_rollouts=expected_rollouts,
+            admitted_rollouts=admitted_rollouts,
+        )
 
         # Per-group summary. One line per finalized group; per-filter
         # detection breakdown lives at debug level in ``apply_filters``
@@ -281,3 +292,13 @@ class TrainSink:
         self.pre_filter_seen = 0
         self.pre_filter_dropped = 0
         self.pre_filter_dropped_by_name.clear()
+
+    def record_batch_admission(self, *, expected_rollouts: int, admitted_rollouts: int) -> None:
+        """Record the episode-to-batch deficit of one finalized group."""
+        self.train_rollout_replacements += max(0, expected_rollouts - admitted_rollouts)
+
+    def take_train_rollout_replacements(self) -> int:
+        """Return and clear synchronous scheduler slots needed by the batch."""
+        count = self.train_rollout_replacements
+        self.train_rollout_replacements = 0
+        return count

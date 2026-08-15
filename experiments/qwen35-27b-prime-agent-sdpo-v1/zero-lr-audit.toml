@@ -75,6 +75,11 @@ max_off_policy_steps = 0
 type = "grpo"
 
 [[orchestrator.pre_batch_filters]]
+type = "trainable_token_window"
+max_tokens = 8192
+enforce = true
+
+[[orchestrator.pre_batch_filters]]
 type = "gibberish"
 enforce = false
 
@@ -85,11 +90,6 @@ enforce = false
 [[orchestrator.pre_batch_filters]]
 type = "zero_advantage"
 enforce = false
-
-[[orchestrator.pre_batch_filters]]
-type = "trainable_token_window"
-max_tokens = 8192
-enforce = true
 
 [[orchestrator.post_batch_filters]]
 type = "gibberish"

@@ -559,6 +559,9 @@ class Orchestrator:
                 continue
 
             train_batch = await self.train_sink.add(episode)
+            replacements = self.train_sink.take_train_rollout_replacements()
+            if train_batch is None and replacements:
+                self.dispatcher.return_train_rollout_slots(replacements)
             # In drain mode any late-arriving train batch is dropped — we
             # don't want to ship past ``max_steps``
             if train_batch is not None and not self.draining and not self.stopped.is_set():

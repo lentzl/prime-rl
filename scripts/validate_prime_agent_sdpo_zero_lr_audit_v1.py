@@ -114,16 +114,21 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
     if orchestrator.get("train", {}).get("sampling", {}).get("max_completion_tokens") != MAX_COMPLETION_TOKENS:
         raise AuditFailure(f"resolved train sampling must cap each completion at {MAX_COMPLETION_TOKENS} tokens")
     pre_filters = orchestrator.get("pre_batch_filters")
+    if not isinstance(pre_filters, list) or not pre_filters:
+        raise AuditFailure("resolved audit has no pre-batch filters")
     token_window = next(
-        (item for item in pre_filters or [] if item.get("type") == "trainable_token_window"),
+        (item for item in pre_filters if item.get("type") == "trainable_token_window"),
         None,
     )
     if (
         token_window is None
+        or pre_filters[0] is not token_window
         or token_window.get("enforce") is not True
         or token_window.get("max_tokens") != TRAINING_SEQ_LEN
     ):
-        raise AuditFailure("resolved audit must enforce a trainable-token window equal to the trainer sequence length")
+        raise AuditFailure(
+            "resolved audit must first enforce a trainable-token window equal to the trainer sequence length"
+        )
     post_filters = orchestrator.get("post_batch_filters")
     zero_advantage = next(
         (item for item in post_filters or [] if item.get("type") == "zero_advantage"),

@@ -202,6 +202,21 @@ class RolloutDispatcher:
         return max(0, min(self.available_permits, remaining))
 
     @property
+    def has_open_train_group(self) -> bool:
+        """Whether a train group still needs members to reach its configured size."""
+        return any(
+            group.kind == "train" and group.rollouts_to_schedule > 0
+            for group in self.groups.values()
+        )
+
+    def return_train_rollout_slots(self, count: int) -> None:
+        """Return rejected rollouts to a synchronous policy cohort's budget."""
+        if count < 0:
+            raise ValueError("returned train rollout slots must be non-negative")
+        if self.train_rollouts_per_policy is not None:
+            self.train_rollouts_scheduled = max(0, self.train_rollouts_scheduled - count)
+
+    @property
     def inflight_by_env(self) -> dict[tuple[RolloutKind, str], int]:
         counts: dict[tuple[RolloutKind, str], int] = defaultdict(int)
         for meta in self.inflight.values():
@@ -340,7 +355,9 @@ class RolloutDispatcher:
             else:  # PREFER_TRAIN — respects the orchestrator's dispatch gate
                 if not self.dispatch_allowed.is_set():
                     return
-                if self.available_train_permits <= 0:
+                # Once a group opens, finish it atomically even if its last
+                # member crosses the nominal per-policy rollout budget.
+                if self.available_train_permits <= 0 and not self.has_open_train_group:
                     return
                 scheduled = await self.try_schedule("train")
                 if not scheduled:

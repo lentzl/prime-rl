@@ -36,7 +36,8 @@ def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
     assert config.orchestrator.oversampling_factor == 0.5
     assert config.orchestrator.algo.type == "grpo"
     assert config.orchestrator.train.sampling.max_completion_tokens == 1024
-    token_window = next(filt for filt in config.orchestrator.pre_batch_filters if filt.type == "trainable_token_window")
+    token_window = config.orchestrator.pre_batch_filters[0]
+    assert token_window.type == "trainable_token_window"
     assert token_window.enforce is True
     assert token_window.max_tokens == config.trainer.model.seq_len
     assert set(sources) == {
