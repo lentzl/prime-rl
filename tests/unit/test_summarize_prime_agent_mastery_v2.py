@@ -72,11 +72,15 @@ def test_load_traces_accepts_direct_and_enveloped_records(tmp_path: Path) -> Non
 
 def test_oolong_family_is_recovered_from_the_task_type() -> None:
     trace = _trace("unknown", "unused")
-    trace["task"] = {"type": "OolongSynthTask", "data": {"name": None}}
+    trace["task"] = {
+        "type": "OolongSynthTask",
+        "data": {"name": None, "idx": 203},
+    }
 
     summary = MODULE.summarize([trace])
 
     assert summary["tasks"][0]["family"] == "oolong"
+    assert summary["tasks"][0]["name"] == "idx-203"
 
 
 def test_validity_gate_rejects_harness_errors() -> None:

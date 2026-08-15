@@ -51,8 +51,11 @@ done
   tests/unit/test_mastery_battery_v2.py \
   tests/unit/test_prime_agent_resilience_battery_v1.py \
   tests/unit/test_prime_agent_teacher_candidate_sequence_v1.py \
-  tests/unit/test_summarize_prime_agent_mastery_v2.py \
-  deps/verifiers/tests/v1/test_prime_agent_resilience.py
+  tests/unit/test_summarize_prime_agent_mastery_v2.py
+(
+  cd deps/verifiers
+  "$root/.venv/bin/pytest" -q tests/v1/test_prime_agent_resilience.py
+)
 
 wait_for_idle_gpus() {
   local attempts=0

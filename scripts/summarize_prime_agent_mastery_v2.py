@@ -74,6 +74,16 @@ def _family(trace: dict[str, Any]) -> str:
     return str(name).split("-", 1)[0] if name else "unknown"
 
 
+def _task_name(trace: dict[str, Any]) -> str:
+    data = trace.get("task", {}).get("data", {})
+    name = data.get("name")
+    if name:
+        return str(name)
+    if data.get("idx") is not None:
+        return f"idx-{data['idx']}"
+    return str(trace.get("id") or "unknown")
+
+
 def _issues(trace: dict[str, Any]) -> list[str]:
     family = _family(trace)
     metrics = trace.get("metrics", {})
@@ -130,11 +140,10 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
     for trace in traces:
         family = _family(trace)
         grouped[family].append(trace)
-        data = trace.get("task", {}).get("data", {})
         rewards = [_score(value) for value in trace.get("rewards", {}).values()]
         tasks.append(
             {
-                "name": data.get("name") or "unknown",
+                "name": _task_name(trace),
                 "family": family,
                 "reward": sum(score for score in rewards if score is not None),
                 "issues": _issues(trace),
@@ -184,7 +193,7 @@ def require_valid_traces(traces: list[dict[str, Any]]) -> None:
         )
 
     invalid = [
-        str(trace.get("id") or trace.get("task", {}).get("data", {}).get("name"))
+        str(trace.get("id") or _task_name(trace))
         for trace in traces
         if (trace.get("ok") is not True or trace.get("errors"))
         and not is_behavioral_timeout(trace)
