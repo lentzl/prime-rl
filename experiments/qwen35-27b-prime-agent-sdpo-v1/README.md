@@ -30,6 +30,28 @@ matched one-to-one with reconstructed Verifiers branches to prove that SDPO reac
 only the first serialized coordinator tool call, child branches receive zero SDPO,
 and retention sources receive only GRPO.
 
+## Invalid first nonzero attempt
+
+The first `1e-7` full-weight launch completed its optimizer step but is not an
+experimental candidate. Numerically it was healthy (`loss=0.0060`, mismatch
+`KL=0.0002`, gradient norm `10.625`, peak memory `43.2 GiB`), and one strict
+diagnostic success correctly emitted no feedback contract and received zero SDPO
+weight. The original validator incorrectly rejected that valid zero-target case;
+commit `199dc9ac6` now distinguishes diagnosed failures from strict successes and
+requires the latter to remain entirely unweighted.
+
+The repaired validator then found the actual invalidation: both sampled parallel
+rollouts had active branches beyond the qualified 8,192-token trainer window, so
+the enforcing window filter removed them. The 16-rollout trainer cohort therefore
+contained no parallel-retention signal. The checkpoint was rejected before any
+behavioral evaluation and must not be promoted or used as a starting point.
+
+Commit `a01d59f26` closes the admission gap generically. A rollout with no nonzero
+loss-component signal no longer consumes a trainer batch slot, and a rejected group
+is refilled from the same source instead of the global weighted sampler. A fresh
+zero-LR audit on that scheduler is required before repeating the nonzero update; the
+completed optimizer step above cannot substitute for it.
+
 ## PCIe-only runtime qualification
 
 The experiment launchers keep NCCL P2P disabled but enable SHM by default. This
