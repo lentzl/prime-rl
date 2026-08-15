@@ -1,0 +1,55 @@
+# Familiar training-template calibration slice (20 tasks).
+
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 20
+num_rollouts = 1
+shuffle = false
+max_concurrent = 4
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 3
+
+[env.taskset]
+id = "subagent-communication-v1"
+split = "train"
+families = ["direct", "single", "parallel", "followup", "handshake"]
+instruction_level = "standard"
+prompt_contract = "explicit_bidirectional_v2"
+instances_per_template = 1
+instance_offset = 12000
+seed = 20260814
+reward_post_fan_in_control = true
+reward_bidirectional_control = true
+
+[env.agent]
+max_turns = 24
+max_output_tokens = 24576
+max_total_tokens = 98304
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.3"
+
+[env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8100/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 0.4
+reasoning_effort = "high"
+max_tokens = 4096

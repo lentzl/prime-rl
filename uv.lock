@@ -99,6 +99,7 @@ members = [
     "papersearchqa",
     "patterned-needle-in-haystack",
     "pinchbench",
+    "prime-agent-foundations-v2",
     "prime-rl",
     "programbench-env",
     "programmatic-episodic-memory-v2",
@@ -4799,6 +4800,17 @@ wheels = [
 ]
 
 [[package]]
+name = "prime-agent-foundations-v2"
+version = "0.1.0"
+source = { editable = "deps/verifiers/environments/prime_agent_foundations_v2" }
+dependencies = [
+    { name = "verifiers" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "verifiers" }]
+
+[[package]]
 name = "prime-evals"
 version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
@@ -7587,6 +7599,7 @@ examples = [
     { name = "oolong-synth-v1", editable = "deps/verifiers/environments/oolong_synth_v1" },
     { name = "openenv-wordle", editable = "deps/verifiers/environments/openenv_wordle" },
     { name = "ownership-invariant-v1", editable = "deps/verifiers/environments/ownership_invariant_v1" },
+    { name = "prime-agent-foundations-v2", editable = "deps/verifiers/environments/prime_agent_foundations_v2" },
     { name = "programmatic-episodic-memory-v2", editable = "deps/verifiers/environments/programmatic_episodic_memory_v2" },
     { name = "proposer-solver", editable = "deps/verifiers/environments/proposer_solver" },
     { name = "reverse-text", editable = "deps/verifiers/environments/reverse_text" },
