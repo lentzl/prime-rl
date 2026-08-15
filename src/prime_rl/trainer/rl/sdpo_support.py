@@ -57,7 +57,7 @@ def gather_sdpo_student_topk_logprobs(
     first_token = positions == 0
     if bool(first_token.any()):
         result[batch_ids[first_token], positions[first_token]] = -torch.log(
-            logits.new_tensor(float(logits.shape[-1]))
+            result.new_tensor(float(logits.shape[-1]))
         )
 
     predicted = ~first_token
