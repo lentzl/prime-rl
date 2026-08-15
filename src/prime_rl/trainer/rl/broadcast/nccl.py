@@ -26,7 +26,7 @@ from prime_rl.utils.vlm import get_layer_prefix
 
 def broadcast_integer(integer: int, communicator: PyNcclCommunicator) -> None:
     """Broadcast an integer to a process group using NCCL communicator."""
-    integer_tensor = torch.tensor([integer], dtype=torch.long).cuda()
+    integer_tensor = torch.tensor([integer], dtype=torch.long, device=communicator.device)
     communicator.broadcast(integer_tensor, src=0)
 
 
@@ -50,16 +50,16 @@ def broadcast_state_dict(state_dict: dict[str, Tensor], communicator: PyNcclComm
 
     # Send metadata
     state = pickle.dumps(metadata)
-    size_tensor = torch.tensor([len(state)], dtype=torch.long).cuda()
+    size_tensor = torch.tensor([len(state)], dtype=torch.long, device=communicator.device)
     communicator.broadcast(size_tensor, src=0)
-    state_tensor = torch.ByteTensor(list(state)).cuda()
+    state_tensor = torch.tensor(list(state), dtype=torch.uint8, device=communicator.device)
     communicator.broadcast(state_tensor, src=0)
 
     # Concatenate and broadcast tensors grouped by dtype
     for dtype, items in dtype_groups.items():
         # Flatten all tensors and concatenate
         flat_tensors = [value.flatten() for _, value in items]
-        concatenated = torch.cat(flat_tensors)
+        concatenated = torch.cat(flat_tensors).to(communicator.device)
         communicator.broadcast(concatenated, src=0)
         del concatenated
         # Clean up individual tensors
