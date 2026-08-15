@@ -100,6 +100,29 @@ def _trace(
                     mask=[True, True],
                     logprobs=[-0.2, -0.2],
                 ),
+                MessageNode(
+                    parent=None,
+                    message=UserMessage(content=f"task {index} continuation"),
+                    token_ids=[base + 7],
+                    mask=[False],
+                ),
+                MessageNode(
+                    parent=4,
+                    sampled=True,
+                    message=AssistantMessage(
+                        content="",
+                        tool_calls=[
+                            ToolCall(
+                                id=f"continuation-{index}",
+                                name="ipython",
+                                arguments='{"code":"consume child reply"}',
+                            )
+                        ],
+                    ),
+                    token_ids=[base + 8, 248058, base + 9, 248059, base + 10],
+                    mask=[True] * 5,
+                    logprobs=[-0.3] * 5,
+                ),
             ]
         )
     feedback = "Repair the observed ownership decision."
@@ -283,6 +306,8 @@ def test_validator_accepts_complete_mixed_zero_lr_mechanism_audit(tmp_path: Path
     assert report["metrics"]["sdpo_tokens"] == 128
     assert report["metrics"]["aggregate_trainable_fraction"] == 1
     assert report["traces"]["count"] == MODULE.EXPECTED_BATCH_SIZE
+    assert report["token_routing"]["coordinator_sdpo_samples"] == 4
+    assert report["token_routing"]["coordinator_zero_sdpo_continuations"] == 4
     assert report["token_routing"]["child_zero_sdpo_samples"] == 4
     assert report["model_artifacts_written"] is False
 

@@ -402,12 +402,14 @@ def _validate_token_routing(run_dir: Path, traces: list[vf.WireTrace]) -> dict[s
 
     consumed = 0
     coordinator_sdpo_samples = 0
+    coordinator_zero_sdpo_continuations = 0
     child_sdpo_samples = 0
     retention_rl_samples = 0
     for trace in traces:
         env_name = trace.info["env_name"]
         branches = list(iter_trainable_branches(trace))
         expected_masks = keep_first_coordinator_tool_call(trace) if env_name == DIAGNOSTIC_ENV else None
+        trace_coordinator_sdpo_samples = 0
         if expected_masks is not None and len(expected_masks) != len(branches):
             raise AuditFailure("diagnostic filter and trainable branches are misaligned")
         for branch_index, (branch, trainable_mask) in enumerate(branches):
@@ -438,15 +440,22 @@ def _validate_token_routing(run_dir: Path, traces: list[vf.WireTrace]) -> dict[s
                     if any(sdpo_active):
                         raise AuditFailure(f"child branch received SDPO weight in trace {trace.id}")
                 else:
-                    coordinator_sdpo_samples += 1
-                    if not any(sdpo_active):
-                        raise AuditFailure(f"diagnostic coordinator has no causal SDPO tokens in trace {trace.id}")
+                    if any(sdpo_active):
+                        coordinator_sdpo_samples += 1
+                        trace_coordinator_sdpo_samples += 1
+                    else:
+                        coordinator_zero_sdpo_continuations += 1
             else:
                 if any(sdpo_active):
                     raise AuditFailure(f"SDPO leaked into GRPO retention source {env_name}")
                 if not any(rl_active):
                     raise AuditFailure(f"GRPO retention sample has no RL token mass in {env_name}")
                 retention_rl_samples += 1
+        if env_name == DIAGNOSTIC_ENV and trace_coordinator_sdpo_samples != 1:
+            raise AuditFailure(
+                f"diagnostic trace {trace.id} must route SDPO to exactly one causal coordinator branch; "
+                f"found {trace_coordinator_sdpo_samples}"
+            )
 
     leftovers = sum(len(records) for records in by_sample.values())
     if leftovers or consumed != len(export_records):
@@ -459,6 +468,7 @@ def _validate_token_routing(run_dir: Path, traces: list[vf.WireTrace]) -> dict[s
     return {
         "export_records": len(export_records),
         "coordinator_sdpo_samples": coordinator_sdpo_samples,
+        "coordinator_zero_sdpo_continuations": coordinator_zero_sdpo_continuations,
         "child_zero_sdpo_samples": child_sdpo_samples,
         "retention_rl_samples": retention_rl_samples,
     }
