@@ -37,7 +37,7 @@ mkdir -p "$output_root"
 {
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"
   printf 'verifiers_commit=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
-  printf 'prime_agent_version=0.7.3\n'
+  printf 'prime_agent_version=0.7.2-beta.495.1.97b994c\n'
   printf 'model=%s\n' "$model"
   printf 'model_revision=%s\n' "${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}"
   sha256sum "$experiment"/*.toml
@@ -56,6 +56,11 @@ for name in "${configs[@]}"; do
     args+=(--client.base-url "$client_base_url")
   fi
   "${args[@]}"
+  config_count=$(awk -F' = ' '/^num_tasks = / {print $2; exit}' "$experiment/${name}.toml")
+  python scripts/summarize_prime_agent_mastery_v2.py "$output_root/$name" \
+    --expected-count "$config_count" \
+    --require-valid-traces \
+    >/dev/null
   trace_dirs+=("$output_root/$name")
 done
 

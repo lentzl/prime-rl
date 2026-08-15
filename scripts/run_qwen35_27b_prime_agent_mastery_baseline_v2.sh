@@ -17,12 +17,18 @@ eval_driver=scripts/run_qwen35_27b_prime_agent_mastery_battery_v2.sh
 inference_bin=${INFERENCE_BIN:-$root/.venv/bin/inference}
 eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
 nvidia_smi_bin=${NVIDIA_SMI_BIN:-nvidia-smi}
+router_bin=${VLLM_ROUTER_BIN:-$root/.venv/bin/vllm-router}
+curl_bin=${CURL_BIN:-curl}
 dry_run=${BASELINE_DRY_RUN:-false}
 
 cd "$root"
-export PATH="$root/.venv/bin:$PATH"
+export PATH="$(dirname "$router_bin"):$root/.venv/bin:$PATH"
 if [[ ! -x "$inference_bin" || ! -x "$eval_bin" ]]; then
   echo "Prime-RL inference/eval executables are missing" >&2
+  exit 1
+fi
+if [[ ! -x "$router_bin" ]]; then
+  echo "vllm-router is missing; install Prime-RL with its disagg or all extras" >&2
   exit 1
 fi
 if [[ ! -x "$eval_driver" ]]; then
@@ -31,6 +37,26 @@ if [[ ! -x "$eval_driver" ]]; then
 fi
 if [[ -z "$revision" ]]; then
   echo "a pinned model revision is required" >&2
+  exit 1
+fi
+mapfile -t prime_agent_versions < <(
+  awk -F'"' '/^version = / {print $2}' \
+    "$root"/experiments/qwen35-27b-prime-agent-mastery-v2/*.toml \
+    | sort -u
+)
+if [[ ${#prime_agent_versions[@]} -ne 1 ]]; then
+  echo "mastery configs must pin exactly one Prime Agent version" >&2
+  exit 1
+fi
+prime_agent_version=${prime_agent_versions[0]}
+prime_agent_release_base=https://pub-728493de92a943e2a9b2d17b4719f318.r2.dev
+if ! checksums=$("$curl_bin" -fsSL \
+  "$prime_agent_release_base/releases/v$prime_agent_version/SHA256SUMS"); then
+  echo "Prime Agent artifact is unavailable: $prime_agent_version" >&2
+  exit 1
+fi
+if ! grep -Eq "[[:space:]]prime-agent-$prime_agent_version\\.tgz$" <<<"$checksums"; then
+  echo "Prime Agent checksum manifest lacks its package: $prime_agent_version" >&2
   exit 1
 fi
 if [[ -e "$run_output" ]]; then
@@ -131,12 +157,12 @@ for _ in $(seq 1 480); do
     echo "inference exited before becoming healthy; see $serve_log" >&2
     exit 1
   fi
-  if curl -fsS "http://127.0.0.1:$backend_port/health" >/dev/null; then
+  if "$curl_bin" -fsS "http://127.0.0.1:$backend_port/health" >/dev/null; then
     break
   fi
   sleep 1
 done
-if ! curl -fsS "http://127.0.0.1:$backend_port/health" >/dev/null; then
+if ! "$curl_bin" -fsS "http://127.0.0.1:$backend_port/health" >/dev/null; then
   echo "inference did not become healthy within 480 seconds; see $serve_log" >&2
   exit 1
 fi

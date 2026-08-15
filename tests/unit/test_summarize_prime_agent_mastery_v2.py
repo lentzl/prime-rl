@@ -2,6 +2,8 @@ import importlib.util
 import json
 from pathlib import Path
 
+import pytest
+
 SCRIPT = Path(__file__).parents[2] / "scripts" / "summarize_prime_agent_mastery_v2.py"
 SPEC = importlib.util.spec_from_file_location("summarize_prime_agent_mastery_v2", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
@@ -63,9 +65,7 @@ def test_load_traces_accepts_direct_and_enveloped_records(tmp_path: Path) -> Non
     direct = _trace("direct-v0", "direct")
     enveloped = _trace("parallel-v0", "parallel")
     path = tmp_path / "traces.jsonl"
-    path.write_text(
-        json.dumps(direct) + "\n" + json.dumps({"traces": [enveloped]}) + "\n"
-    )
+    path.write_text(json.dumps(direct) + "\n" + json.dumps({"traces": [enveloped]}) + "\n")
 
     assert MODULE.load_traces([path]) == [direct, enveloped]
 
@@ -77,3 +77,15 @@ def test_oolong_family_is_recovered_from_the_task_type() -> None:
     summary = MODULE.summarize([trace])
 
     assert summary["tasks"][0]["family"] == "oolong"
+
+
+def test_validity_gate_rejects_harness_errors() -> None:
+    trace = _trace("child-v0", "child")
+    trace.update(
+        ok=False,
+        id="trace-with-harness-error",
+        errors=[{"type": "HarnessError", "message": "install failed"}],
+    )
+
+    with pytest.raises(SystemExit, match="trace-with-harness-error"):
+        MODULE.require_valid_traces([trace])

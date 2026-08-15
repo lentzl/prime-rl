@@ -51,9 +51,7 @@ def load_traces(paths: Iterable[Path]) -> list[dict[str, Any]]:
                 elif isinstance(envelope.get("task"), dict):
                     traces.append(envelope)
                 else:
-                    raise SystemExit(
-                        f"{path}:{line_number}: expected a trace record or traces list"
-                    )
+                    raise SystemExit(f"{path}:{line_number}: expected a trace record or traces list")
     return traces
 
 
@@ -82,15 +80,9 @@ def _issues(trace: dict[str, Any]) -> list[str]:
     issues = []
     if not trace.get("ok", True):
         errors = "\n".join(
-            str(error.get("message", ""))
-            for error in trace.get("errors", [])
-            if isinstance(error, dict)
+            str(error.get("message", "")) for error in trace.get("errors", []) if isinstance(error, dict)
         ).lower()
-        issue = (
-            "no-visible-reply"
-            if "acp agent produced no visible reply" in errors
-            else "trace-error"
-        )
+        issue = "no-visible-reply" if "acp agent produced no visible reply" in errors else "trace-error"
         issues.append(issue)
     checks = {
         "answer": _score(metrics.get("answer_accuracy")),
@@ -98,9 +90,7 @@ def _issues(trace: dict[str, Any]) -> list[str]:
         "clean": _score(metrics.get("clean_protocol_aligned")),
         "strict": _score(metrics.get("strict_success")),
     }
-    issues.extend(
-        label for label, score in checks.items() if score is not None and score < 1.0
-    )
+    issues.extend(label for label, score in checks.items() if score is not None and score < 1.0)
     if family in {"followup", "handshake"}:
         for label, metric in (
             ("causal", "natural_followup_causal"),
@@ -157,12 +147,7 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
         means = {}
         for metric in METRICS:
             values = [
-                score
-                for trace in family_traces
-                if (
-                    score := _score(trace.get("metrics", {}).get(metric))
-                )
-                is not None
+                score for trace in family_traces if (score := _score(trace.get("metrics", {}).get(metric))) is not None
             ]
             if values:
                 means[metric] = fmean(values)
@@ -170,11 +155,7 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
             "count": len(family_traces),
             "clean_count": sum(not _issues(trace) for trace in family_traces),
             "mean_reward": fmean(
-                sum(
-                    score
-                    for value in trace.get("rewards", {}).values()
-                    if (score := _score(value)) is not None
-                )
+                sum(score for value in trace.get("rewards", {}).values() if (score := _score(value)) is not None)
                 for trace in family_traces
             ),
             "means": means,
@@ -187,6 +168,18 @@ def summarize(traces: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def require_valid_traces(traces: list[dict[str, Any]]) -> None:
+    invalid = [
+        str(trace.get("id") or trace.get("task", {}).get("data", {}).get("name"))
+        for trace in traces
+        if trace.get("ok") is not True or trace.get("errors")
+    ]
+    if invalid:
+        preview = ", ".join(invalid[:8])
+        suffix = "" if len(invalid) <= 8 else f" (+{len(invalid) - 8} more)"
+        raise SystemExit(f"found {len(invalid)} invalid trace(s): {preview}{suffix}")
+
+
 def _print(summary: dict[str, Any]) -> None:
     print(f"traces: {summary['trace_count']}")
     for family, data in summary["families"].items():
@@ -195,9 +188,7 @@ def _print(summary: dict[str, Any]) -> None:
             f"clean={data['clean_count']}/{data['count']}",
             f"reward={data['mean_reward']:.3f}",
         ]
-        fields.extend(
-            f"{name}={value:.3f}" for name, value in data["means"].items()
-        )
+        fields.extend(f"{name}={value:.3f}" for name, value in data["means"].items())
         print(f"{family}: " + " ".join(fields))
     failures = [task for task in summary["tasks"] if task["issues"]]
     print(f"tasks with issues: {summary['issue_count']}/{summary['trace_count']}")
@@ -210,12 +201,14 @@ def main() -> None:
     parser.add_argument("paths", nargs="+", type=Path)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--expected-count", type=int)
+    parser.add_argument("--require-valid-traces", action="store_true")
     args = parser.parse_args()
-    summary = summarize(load_traces(args.paths))
+    traces = load_traces(args.paths)
+    if args.require_valid_traces:
+        require_valid_traces(traces)
+    summary = summarize(traces)
     if args.expected_count is not None and summary["trace_count"] != args.expected_count:
-        raise SystemExit(
-            f"expected {args.expected_count} traces, found {summary['trace_count']}"
-        )
+        raise SystemExit(f"expected {args.expected_count} traces, found {summary['trace_count']}")
     if args.json:
         print(json.dumps(summary, indent=2, sort_keys=True))
     else:

@@ -128,7 +128,7 @@ max_total_tokens = 24576
 
 [orchestrator.train.source.env.agent.harness]
 id = "prime_agent"
-version = "0.7.3"
+version = "0.7.2-beta.495.1.97b994c"
 
 [orchestrator.train.source.env.agent.runtime]
 type = "docker"

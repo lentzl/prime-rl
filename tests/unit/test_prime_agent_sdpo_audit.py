@@ -31,7 +31,7 @@ def test_zero_lr_audit_exercises_exact_typed_feedback_without_moving_weights() -
     assert taskset.ownership == "child"
     assert taskset.instruction_level == "standard"
     assert taskset.record_causal_feedback is True
-    assert source.env.agent.harness.version == "0.7.3"
+    assert source.env.agent.harness.version == "0.7.2-beta.495.1.97b994c"
     assert config.orchestrator.train.sampling.reasoning_effort == "high"
 
 
