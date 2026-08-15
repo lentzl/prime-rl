@@ -4,7 +4,6 @@ from itertools import cycle
 from pathlib import Path
 
 import pytest
-
 import verifiers.v1 as vf
 from verifiers.v1.graph import MessageNode
 from verifiers.v1.types import AssistantMessage, ToolCall, UserMessage
