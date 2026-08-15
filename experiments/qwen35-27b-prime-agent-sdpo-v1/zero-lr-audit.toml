@@ -66,8 +66,8 @@ type = "constant"
 [orchestrator]
 batch_size = 16
 group_size = 1
-max_inflight_episodes = 32
-oversampling_factor = 1.0
+max_inflight_episodes = 8
+oversampling_factor = 0.5
 max_off_policy_steps = 0
 
 [orchestrator.algo]

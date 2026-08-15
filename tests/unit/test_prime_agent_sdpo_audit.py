@@ -28,6 +28,8 @@ def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
     assert config.run.name == config.run.dir == "zero-lr-audit"
     assert config.clean is True
     assert config.orchestrator.batch_size == 16
+    assert config.orchestrator.max_inflight_episodes == 8
+    assert config.orchestrator.oversampling_factor == 0.5
     assert config.orchestrator.algo.type == "grpo"
     assert set(sources) == {
         "ownership-child-diagnostic-sdpo",
@@ -110,6 +112,7 @@ def test_zero_lr_audit_launcher_fails_closed() -> None:
     assert "zero-LR audit refuses a nonzero learning rate" in launcher
     assert "zero-LR audit must omit checkpoint configuration" in launcher
     assert "zero-LR audit must use the 16-trace mechanism batch" in launcher
+    assert "zero-LR audit must cap concurrency at eight episodes" in launcher
     assert "SDPO_AUDIT_DRY_RUN" in launcher
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
     assert "snapshot_download" in launcher

@@ -41,6 +41,11 @@ if not config.get("trainer", {}).get("enable_token_export"):
     raise SystemExit("zero-LR audit must enable token export")
 if config.get("orchestrator", {}).get("batch_size") != 16:
     raise SystemExit("zero-LR audit must use the 16-trace mechanism batch")
+if (
+    config.get("orchestrator", {}).get("max_inflight_episodes") != 8
+    or config.get("orchestrator", {}).get("oversampling_factor") != 0.5
+):
+    raise SystemExit("zero-LR audit must cap concurrency at eight episodes")
 sources = config.get("orchestrator", {}).get("train", {}).get("source", [])
 expected = {
     "ownership-child-diagnostic-sdpo": ("sdpo", 1, 4.0),
