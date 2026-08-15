@@ -310,3 +310,40 @@ held-out/OOD memory transfer without a retrieval-always shortcut or systematic
 regression in foundations, direct execution, communication, ownership, or
 Oolong. Otherwise classify the checkpoint as continuation-eligible or reject
 the branch; training reward alone cannot promote it.
+
+## Eight-update result
+
+The complete qualification rejects the hybrid tranche. All five candidates produced
+exactly 396 frozen memory traces and 74 frozen Harness Mastery traces, and the final
+comparator found no typed-contract violations.
+
+| Model | Familiar memory | Semantic OOD | Harness clean | Child strict | Coordinator strict | Oolong clean |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| untouched base | 48/300 | 6/96 | 20/74 | 0/8 | 1/8 | 3/8 |
+| step 1 | 55/300 | 8/96 | 18/74 | 2/8 | 0/8 | 0/8 |
+| step 2 | 54/300 | 6/96 | 22/74 | 0/8 | 0/8 | 3/8 |
+| step 4 | 53/300 | 4/96 | 23/74 | 2/8 | 2/8 | 3/8 |
+| step 8 | 55/300 | 5/96 | 17/74 | 0/8 | 0/8 | 1/8 |
+
+The familiar-memory gain never broadened. Step 8's seven paired gains were exactly
+four `latest_state`, one `correction_aggregate`, and two `successful_attempt` cases,
+with no gains in any other familiar family. Step 1 briefly gained two OOD cases, but
+both belonged to `ood_temporal_window` and coincided with loss of the base model's
+only coordinator strict success, all three Oolong successes, and substantial parallel
+and follow-up control. Steps 2, 4, and 8 had respectively zero, minus two, and minus
+one net OOD transfer relative to base.
+
+Step 4's aggregate harness peak is not a continuation signal. It introduced additional
+coordinator access to child-owned paths and reduced both parallel protocol alignment
+and post-fan-in control from `0.75` to `0.25`. Step 8 then lost both ownership gains,
+reduced follow-up and handshake causal completion, and finished only 17 harness cases
+cleanly. Direct execution remained 8/8 at every checkpoint, so this is selective
+interference rather than global collapse.
+
+Classification: **branch rejected**. No checkpoint is a teacher, continuation point,
+HF publication candidate, or valid OPD source. The next teacher-method experiment must
+start again from the pinned untouched thinking-mode 27B and change the source of policy
+information or the objective; another dose, learning-rate search, or extension of the
+same eight-family GRPO/diagnostic-SDPO mixture is not justified. Exact aggregate values
+and evidence hashes are recorded in
+`qwen35-27b-memory-v2-hybrid-tranche-qualification-results-v1.json`.

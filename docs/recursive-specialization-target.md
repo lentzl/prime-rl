@@ -1120,3 +1120,29 @@ trajectories may not retroactively give positive GRPO credit to their failed
 pre-feedback actions, and samples without trustworthy feedback receive no
 manufactured target. Dense checkpoints must still pass the frozen 74-task
 Harness Mastery battery before teacher promotion.
+
+## Run 346 closes the Memory V2 hybrid branch
+
+Run 346 completed eight genuinely iterative full-weight BF16 AdamW updates from the
+exact untouched thinking-mode 27B. Every update used a fixed two-native-GRPO to
+one-typed-failure-SDPO group ratio, and checkpoints 1, 2, 4, and 8 all passed stable
+sharded export and reload validation. The subsequent frozen qualification comprised
+2,350 traces: 300 familiar memory, 96 semantic-OOD memory, and 74 Harness Mastery
+tasks for each of base and the four prospective checkpoints.
+
+The mechanism learned, but only narrowly. Step 1 reached 63/396 memory successes
+versus base's 54/396; its two OOD gains were both in one temporal-window family and
+its harness score fell from 20/74 to 18/74, including coordinator 1/8 to 0/8 and
+Oolong 3/8 to 0/8. Step 2 had zero net OOD transfer. Step 4 peaked at 23/74 harness
+clean but lost two OOD cases, introduced child-owned path leakage, and cut parallel
+protocol and fan-in control from 0.75 to 0.25. Step 8 returned to the same seven
+familiar gains as step 1, lost one OOD case without gaining any, and fell to 17/74
+harness clean with child and coordinator strict both 0/8 and Oolong 1/8.
+
+This is a branch rejection, not a request for a longer schedule. No Run 346 checkpoint
+is a teacher, continuation checkpoint, publication candidate, or OPD source. The
+canonical initialization remains untouched
+`Qwen/Qwen3.5-27B@fc05daec18b0a78c049392ed2e771dde82bdf654`. The next Stage-0
+intervention must change the source of policy information or the learning objective
+rather than repeat the same memory mixture. The complete ledger and evidence hashes
+are in `qwen35-27b-memory-v2-hybrid-tranche-qualification-results-v1.json`.

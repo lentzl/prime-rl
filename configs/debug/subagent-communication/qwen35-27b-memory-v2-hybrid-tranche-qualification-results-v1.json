@@ -1,0 +1,133 @@
+{
+  "experiment_id": "qwen35-27b-memory-v2-hybrid-tranche-qualification-v1",
+  "completed_at": "2026-08-15",
+  "base_model": "Qwen/Qwen3.5-27B",
+  "base_revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+  "training": {
+    "run": 346,
+    "output": "/ephemeral/subagent-rung/outputs/346-qwen35-27b-memory-v2-hybrid-tranche-v2",
+    "full_weight": true,
+    "precision": "bf16",
+    "optimizer": "adamw",
+    "learning_rate": 1e-7,
+    "updates": 8,
+    "checkpoint_steps": [1, 2, 4, 8],
+    "per_update_source_mix": {
+      "native_grpo_groups": 2,
+      "typed_failure_sdpo_groups": 1,
+      "group_size": 4
+    },
+    "feedback_schema": "programmatic-episodic-memory-v2/causal-feedback/v1"
+  },
+  "evaluation": {
+    "root": "/ephemeral/subagent-rung/evals/349-qwen35-27b-memory-v2-tranche-qualification-v1",
+    "memory_tasks_per_model": 396,
+    "harness_mastery_tasks_per_model": 74,
+    "models": {
+      "base": {
+        "memory_familiar_strict": 48,
+        "memory_ood_strict": 6,
+        "memory_overall_strict": 54,
+        "harness_clean": 20,
+        "child_strict": 0,
+        "coordinator_strict": 1,
+        "direct_clean": 8,
+        "oolong_clean": 3
+      },
+      "step-1": {
+        "memory_familiar_strict": 55,
+        "memory_ood_strict": 8,
+        "memory_overall_strict": 63,
+        "memory_paired_gains": 9,
+        "memory_paired_losses": 0,
+        "harness_clean": 18,
+        "child_strict": 2,
+        "coordinator_strict": 0,
+        "direct_clean": 8,
+        "oolong_clean": 0
+      },
+      "step-2": {
+        "memory_familiar_strict": 54,
+        "memory_ood_strict": 6,
+        "memory_overall_strict": 60,
+        "memory_paired_gains": 7,
+        "memory_paired_losses": 1,
+        "harness_clean": 22,
+        "child_strict": 0,
+        "coordinator_strict": 0,
+        "direct_clean": 8,
+        "oolong_clean": 3
+      },
+      "step-4": {
+        "memory_familiar_strict": 53,
+        "memory_ood_strict": 4,
+        "memory_overall_strict": 57,
+        "memory_paired_gains": 5,
+        "memory_paired_losses": 2,
+        "harness_clean": 23,
+        "child_strict": 2,
+        "coordinator_strict": 2,
+        "direct_clean": 8,
+        "oolong_clean": 3
+      },
+      "step-8": {
+        "memory_familiar_strict": 55,
+        "memory_ood_strict": 5,
+        "memory_overall_strict": 60,
+        "memory_paired_gains": 7,
+        "memory_paired_losses": 1,
+        "harness_clean": 17,
+        "child_strict": 0,
+        "coordinator_strict": 0,
+        "direct_clean": 8,
+        "oolong_clean": 1
+      }
+    },
+    "familiar_gain_families": {
+      "correction_aggregate": 1,
+      "latest_state": 4,
+      "successful_attempt": 2
+    },
+    "hashes": {
+      "comparison": "f8082425dd3eb020378070523b90912438fb225445dbce2cb57adfa0154de7e2",
+      "base": {
+        "memory_summary": "20c0dab0f9ce5610c06de0ed754d51db5a6852e0da093bee25cf824eb1fc58f9",
+        "mastery_summary": "837029cf9b55065c49bf27fe74153185db5509a8fcac25c3033cd2dee140f047",
+        "memory_trace_set": "b0f76dfe7e2e4bc78268043337ef32f6b263ed344cdc39be6946a800d1df47a8",
+        "mastery_trace_set": "05670ed6d316756dd180c780251e180e4fbd450cd2802fa3ffe16c191caa9938"
+      },
+      "step-1": {
+        "memory_summary": "3ae386b6615d29a7ac3f75dc52d99c15a431a37c96104a4b874cb476de91da46",
+        "mastery_summary": "c44da51b1550deea72ec31b7e7818e28ecc20bcc4e231a64ecc0044188d3acff",
+        "memory_trace_set": "99971a8f8371353d40ff9c1f8b3c9bf939be0448caf712f58cb164d49f4a21f7",
+        "mastery_trace_set": "0a263878b7056c6c6b2a28a0d66e8e0f0b2dd5ed8353652ec6681277bf936ef7"
+      },
+      "step-2": {
+        "memory_summary": "8ed7dee230202756cd5a35765cb7039845be838b36c533cfba16918156ebb4f6",
+        "mastery_summary": "3cb6701888af7f702ff285c4b038d9dba2ec421ad2bfe44ba29ae91936beaf59",
+        "memory_trace_set": "9078f71ae2b0437eb409887bf03c74de518f2c1dcc2f49ac64b7d8ee5ae981f3",
+        "mastery_trace_set": "29d39001f114001fc5017936f0f314a4c913b3a7bb63b85f3faf7cd678b0deae"
+      },
+      "step-4": {
+        "memory_summary": "a8a8ed60e1d9afc67bf57c5a09e030ddcf64ff97e0220ef8f5b08f57f61221be",
+        "mastery_summary": "bd35fc2f72d86ae21339e9381713e2be6b3613f1fe5086fe4fee28031bd2003c",
+        "memory_trace_set": "360c11d9757f08213221f9ec211b8e6b6d2d2b37993a2643692c37561c4475a6",
+        "mastery_trace_set": "7eba85e28384583deb7758cabd88bf8fa14d849a6383274ed33711795a71c125"
+      },
+      "step-8": {
+        "memory_summary": "a58a8db1952394c3310cf1a6c291514885a4216fa0467658a79e1a05132a5adf",
+        "mastery_summary": "e3d019d72555fd137d13cd8f12a7f2983989832c93bf0c4eb744df2f068d9839",
+        "memory_trace_set": "317487ced2dbc37d5181452a8ce86257690327979cf450210aec392bbc9b46b3",
+        "mastery_trace_set": "f11285c9881f35ed049039b2ad6023b5076c33238bab94c08b93e967b1355896"
+      }
+    }
+  },
+  "decision": {
+    "teacher_promoted": false,
+    "continuation_checkpoint": false,
+    "launch_opd": false,
+    "next_initialization": "Qwen/Qwen3.5-27B@fc05daec18b0a78c049392ed2e771dde82bdf654",
+    "classification": "BRANCH_REJECTED",
+    "summary": "Eight iterative full-weight updates learned a narrow familiar-memory policy but did not broaden semantic transfer. Step 1's two OOD gains were confined to one temporal-window family and coincided with broad Harness Mastery regressions. Steps 2, 4, and 8 had no positive OOD net transfer; Step 4's apparent harness peak introduced child-owned path leakage and collapsed parallel control, while Step 8 regressed to 17/74 clean. No checkpoint is a valid 27B teacher or OPD source. Do not continue the same source mix, schedule, or objective from these weights."
+  }
+}
