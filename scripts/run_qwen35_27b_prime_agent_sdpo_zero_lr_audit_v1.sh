@@ -3,6 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config=${SDPO_ZERO_LR_CONFIG:-$root/experiments/qwen35-27b-prime-agent-sdpo-v1/zero-lr-audit.toml}
+model_revision=${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
@@ -42,11 +43,23 @@ if [[ -z "$HF_TOKEN" ]]; then
   echo "HF_TOKEN or HF_KEY is required" >&2
   exit 1
 fi
+model_snapshot=$(
+  .venv/bin/python - "$model_revision" <<'PY'
+import sys
+from huggingface_hub import snapshot_download
+
+print(snapshot_download("Qwen/Qwen3.5-27B", revision=sys.argv[1]))
+PY
+)
+if [[ "$(basename "$model_snapshot")" != "$model_revision" ]]; then
+  echo "resolved model snapshot does not match the pinned revision" >&2
+  exit 1
+fi
 
 if [[ "${SDPO_AUDIT_DRY_RUN:-false}" == true ]]; then
-  rl @ "$config" --dry-run
+  rl @ "$config" --model.name "$model_snapshot" --dry-run
   echo "zero-LR SDPO audit preflight passed"
   exit 0
 fi
 
-rl @ "$config"
+rl @ "$config" --model.name "$model_snapshot"

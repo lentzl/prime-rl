@@ -8,7 +8,7 @@ from pydantic_config import ConfigFileError
 
 from prime_rl.configs.env_server import EnvServerConfig
 from prime_rl.configs.inference import InferenceConfig
-from prime_rl.configs.orchestrator import OrchestratorConfig
+from prime_rl.configs.orchestrator import OrchestratorConfig, TrainSamplingConfig
 from prime_rl.configs.rl import RLConfig
 from prime_rl.configs.sft import SFTConfig
 from prime_rl.configs.trainer import ModelConfig as TrainerModelConfig
@@ -232,6 +232,22 @@ def test_sdpo_algorithm_enables_exact_feedback_trainer_runtime():
     assert config.trainer.sdpo_loss.teacher_regularization == "ema"
     assert config.trainer.sdpo_loss.teacher_update_rate == 0.01
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
+
+
+def test_train_sampling_forwards_reasoning_effort_to_verifiers() -> None:
+    sampling = TrainSamplingConfig(
+        temperature=0.7,
+        reasoning_effort="high",
+        max_completion_tokens=512,
+    )
+
+    assert sampling.to_sampling_args() == {
+        "temperature": 0.7,
+        "top_p": 1.0,
+        "logprobs": True,
+        "reasoning_effort": "high",
+        "max_completion_tokens": 512,
+    }
 
 
 def test_sdpo_debug_config_disables_thinking_for_student_and_teacher():

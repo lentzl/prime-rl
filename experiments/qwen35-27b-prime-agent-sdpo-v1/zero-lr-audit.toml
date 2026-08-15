@@ -3,8 +3,12 @@
 max_steps = 1
 seq_len = 12288
 max_train_batch_lead = 0
-output_dir = "/ephemeral/outputs/qwen35-27b-prime-agent-sdpo-v1/zero-lr-audit"
-clean_output_dir = true
+output_dir = "/ephemeral/outputs/qwen35-27b-prime-agent-sdpo-v1"
+clean = true
+
+[run]
+name = "zero-lr-audit"
+dir = "zero-lr-audit"
 
 [deployment]
 gpus_per_node = 8
@@ -13,7 +17,6 @@ num_infer_gpus = 2
 
 [model]
 name = "Qwen/Qwen3.5-27B"
-revision = "fc05daec18b0a78c049392ed2e771dde82bdf654"
 
 [trainer.model]
 seq_len = 12288
@@ -21,8 +24,7 @@ attn = "auto"
 impl = "custom"
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
-optim_cpu_offload = false
-full_optim_cpu_offload = true
+optim_cpu_offload = true
 reshard_after_forward = true
 fused_lm_head_token_chunk_size = 512
 

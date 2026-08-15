@@ -49,6 +49,9 @@ class TrainSamplingConfig(BaseConfig):
     temperature: float = Field(1.0, ge=0, le=2.0)
     """Sampling temperature."""
 
+    reasoning_effort: str | None = None
+    """Provider reasoning effort forwarded through Verifiers when set."""
+
     max_completion_tokens: int | None = None
     """Maximum output tokens per turn. If None, generates until max context length or EOS."""
 
@@ -64,6 +67,8 @@ class TrainSamplingConfig(BaseConfig):
             "top_p": 1.0,
             "logprobs": True,
         }
+        if self.reasoning_effort is not None:
+            args["reasoning_effort"] = self.reasoning_effort
         if self.max_completion_tokens is not None:
             args["max_completion_tokens"] = self.max_completion_tokens
 
