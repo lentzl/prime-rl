@@ -71,7 +71,8 @@ class _ChunkedSelectiveLogSoftmax(torch.autograd.Function):
         flat_logits = logits.reshape(-1, logits.shape[-1])
         flat_index = index.reshape(-1)
         flat_temperatures = temperatures.reshape(-1)
-        output = logits.new_empty(flat_index.shape)
+        output_dtype = torch.promote_types(logits.dtype, temperatures.dtype)
+        output = torch.empty(flat_index.shape, dtype=output_dtype, device=logits.device)
         for start in range(0, len(flat_index), chunk_size):
             end = min(start + chunk_size, len(flat_index))
             scaled = flat_logits[start:end] / flat_temperatures[start:end].unsqueeze(-1)
@@ -100,7 +101,7 @@ class _ChunkedSelectiveLogSoftmax(torch.autograd.Function):
             grad_chunk.scatter_add_(
                 dim=-1,
                 index=flat_index[start:end].unsqueeze(-1),
-                src=flat_grad_output[start:end].unsqueeze(-1),
+                src=flat_grad_output[start:end].to(grad_chunk.dtype).unsqueeze(-1),
             )
             grad_logits[start:end] = (grad_chunk * inv_temperature).to(grad_logits.dtype)
         return grad_logits.reshape(logits.shape), None, None, None
@@ -122,7 +123,8 @@ def chunked_entropy(logits: Tensor, temperatures: Tensor, chunk_size: int = 64) 
     """Compute entropy in bounded token chunks; entropy is diagnostic-only."""
     flat_logits = logits.detach().reshape(-1, logits.shape[-1])
     flat_temperatures = temperatures.reshape(-1)
-    output = logits.new_empty(flat_temperatures.shape)
+    output_dtype = torch.promote_types(logits.dtype, temperatures.dtype)
+    output = torch.empty(flat_temperatures.shape, dtype=output_dtype, device=logits.device)
     for start in range(0, len(flat_temperatures), chunk_size):
         end = min(start + chunk_size, len(flat_temperatures))
         scaled = flat_logits[start:end] / flat_temperatures[start:end].unsqueeze(-1)

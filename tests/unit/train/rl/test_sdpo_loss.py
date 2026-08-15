@@ -121,6 +121,20 @@ def test_chunked_entropy_matches_full_tempered_entropy():
     torch.testing.assert_close(actual, expected)
 
 
+def test_chunked_statistics_promote_bfloat16_logits_with_float_temperatures():
+    logits = torch.randn(1, 3, 5, dtype=torch.bfloat16, requires_grad=True)
+    labels = torch.tensor([[1, 2, 3]])
+    temperatures = torch.ones(1, 3)
+
+    logprobs = chunked_selective_log_softmax(logits, labels, temperatures, chunk_size=2)
+    entropy = chunked_entropy(logits, temperatures, chunk_size=2)
+    logprobs.sum().backward()
+
+    assert logprobs.dtype == entropy.dtype == torch.float32
+    assert logits.grad is not None
+    assert torch.isfinite(logits.grad).all()
+
+
 def test_student_selected_support_is_scored_at_matching_teacher_positions():
     student_logits = torch.tensor([[[0.0, 3.0, 1.0], [2.0, 0.0, 1.0], [1.0, 2.0, 0.0]]])
     support_ids = select_sdpo_student_topk_support(student_logits, torch.ones(1, 3), topk=2)
