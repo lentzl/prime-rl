@@ -34,11 +34,13 @@ done
   scripts/compare_prime_agent_teacher_candidate_v1.py \
   scripts/validate_prime_agent_sdpo_zero_lr_audit_v1.py \
   scripts/validate_prime_agent_sdpo_minimum_update_v1.py \
+  tests/unit/test_compare_prime_agent_teacher_candidate_v1.py \
   tests/unit/test_prime_agent_sdpo_audit.py \
   tests/unit/test_validate_prime_agent_sdpo_zero_lr_audit_v1.py \
   tests/unit/test_prime_agent_sdpo_minimum_update.py \
   tests/unit/test_mastery_battery_v2.py \
-  tests/unit/test_prime_agent_resilience_battery_v1.py
+  tests/unit/test_prime_agent_resilience_battery_v1.py \
+  tests/unit/test_prime_agent_teacher_candidate_sequence_v1.py
 .venv/bin/pytest -q \
   tests/unit/test_compare_prime_agent_teacher_candidate_v1.py \
   tests/unit/test_prime_agent_sdpo_audit.py \
@@ -46,6 +48,7 @@ done
   tests/unit/test_prime_agent_sdpo_minimum_update.py \
   tests/unit/test_mastery_battery_v2.py \
   tests/unit/test_prime_agent_resilience_battery_v1.py \
+  tests/unit/test_prime_agent_teacher_candidate_sequence_v1.py \
   deps/verifiers/tests/v1/test_prime_agent_resilience.py
 
 wait_for_idle_gpus() {
