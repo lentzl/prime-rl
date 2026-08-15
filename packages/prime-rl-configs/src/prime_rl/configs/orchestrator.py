@@ -354,10 +354,7 @@ class TrainableTokenWindowFilterConfig(BaseConfig):
 
 
 FilterConfig: TypeAlias = Annotated[
-    GibberishFilterConfig
-    | RepetitionFilterConfig
-    | ZeroAdvantageFilterConfig
-    | TrainableTokenWindowFilterConfig,
+    GibberishFilterConfig | RepetitionFilterConfig | ZeroAdvantageFilterConfig | TrainableTokenWindowFilterConfig,
     Field(discriminator="type"),
 ]
 

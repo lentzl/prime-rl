@@ -36,11 +36,7 @@ def test_zero_lr_audit_mixes_exact_typed_sdpo_with_grpo_retention() -> None:
     assert config.orchestrator.oversampling_factor == 0.5
     assert config.orchestrator.algo.type == "grpo"
     assert config.orchestrator.train.sampling.max_completion_tokens == 1024
-    token_window = next(
-        filt
-        for filt in config.orchestrator.pre_batch_filters
-        if filt.type == "trainable_token_window"
-    )
+    token_window = next(filt for filt in config.orchestrator.pre_batch_filters if filt.type == "trainable_token_window")
     assert token_window.enforce is True
     assert token_window.max_tokens == config.trainer.model.seq_len
     assert set(sources) == {
@@ -106,11 +102,7 @@ def test_zero_lr_audit_fixed_seed_allocates_both_causal_families() -> None:
         "communication-parallel-retention": 2,
         "communication-causal-retention": 4,
     }
-    causal = next(
-        source
-        for source in configured_sources
-        if source.name == "communication-causal-retention"
-    )
+    causal = next(source for source in configured_sources if source.name == "communication-causal-retention")
     tasks = SubagentCommunicationTaskset(causal.env.taskset).load()
     random.Random(1).shuffle(tasks)
     assert {task.data.family for task in tasks[:2]} == {"followup", "handshake"}

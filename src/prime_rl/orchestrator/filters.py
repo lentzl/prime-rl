@@ -122,9 +122,7 @@ class TrainableTokenWindowFilter:
         for sample in rollout.samples:
             for index in range(self.max_tokens, len(sample.token_ids)):
                 # An absent rl stream means the sample mask selects RL tokens.
-                rl_active = sample.mask[index] and (
-                    sample.rl_weights is None or sample.rl_weights[index] != 0
-                )
+                rl_active = sample.mask[index] and (sample.rl_weights is None or sample.rl_weights[index] != 0)
                 component_active = any(
                     weights is not None and weights[index] != 0
                     for weights in (

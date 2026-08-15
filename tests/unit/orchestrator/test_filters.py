@@ -280,9 +280,7 @@ def test_setup_filter_trainable_token_window():
 
 
 def test_trainable_token_window_detects_default_rl_beyond_limit():
-    token_window_filter = TrainableTokenWindowFilter(
-        name="trainable_token_window", max_tokens=3
-    )
+    token_window_filter = TrainableTokenWindowFilter(name="trainable_token_window", max_tokens=3)
     rollout = _attach_sample(
         _make_rollout([1], [-1.0]),
         mask=[False, False, False, True],
@@ -292,9 +290,7 @@ def test_trainable_token_window_detects_default_rl_beyond_limit():
 
 
 def test_trainable_token_window_ignores_inactive_tail():
-    token_window_filter = TrainableTokenWindowFilter(
-        name="trainable_token_window", max_tokens=3
-    )
+    token_window_filter = TrainableTokenWindowFilter(name="trainable_token_window", max_tokens=3)
     rollout = _attach_sample(
         _make_rollout([1], [-1.0]),
         mask=[False, True, False, True],
@@ -305,9 +301,7 @@ def test_trainable_token_window_ignores_inactive_tail():
 
 
 def test_trainable_token_window_detects_explicit_component_beyond_limit():
-    token_window_filter = TrainableTokenWindowFilter(
-        name="trainable_token_window", max_tokens=3
-    )
+    token_window_filter = TrainableTokenWindowFilter(name="trainable_token_window", max_tokens=3)
     rollout = _attach_sample(
         _make_rollout([1], [-1.0]),
         mask=[False, False, False, False],
@@ -319,9 +313,7 @@ def test_trainable_token_window_detects_explicit_component_beyond_limit():
 
 
 def test_trainable_token_window_uses_routed_sdpo_weights():
-    token_window_filter = TrainableTokenWindowFilter(
-        name="trainable_token_window", max_tokens=3
-    )
+    token_window_filter = TrainableTokenWindowFilter(name="trainable_token_window", max_tokens=3)
     rollout = _attach_sample(
         _make_rollout([1], [-1.0]),
         mask=[False, True, False, True],

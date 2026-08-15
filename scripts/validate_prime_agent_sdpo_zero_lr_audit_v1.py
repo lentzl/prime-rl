@@ -111,13 +111,8 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
         raise AuditFailure("resolved orchestrator unexpectedly enables checkpointing")
     if orchestrator.get("train", {}).get("sampling", {}).get("reasoning_effort") != "high":
         raise AuditFailure("resolved train sampling does not use high reasoning effort")
-    if (
-        orchestrator.get("train", {}).get("sampling", {}).get("max_completion_tokens")
-        != MAX_COMPLETION_TOKENS
-    ):
-        raise AuditFailure(
-            f"resolved train sampling must cap each completion at {MAX_COMPLETION_TOKENS} tokens"
-        )
+    if orchestrator.get("train", {}).get("sampling", {}).get("max_completion_tokens") != MAX_COMPLETION_TOKENS:
+        raise AuditFailure(f"resolved train sampling must cap each completion at {MAX_COMPLETION_TOKENS} tokens")
     pre_filters = orchestrator.get("pre_batch_filters")
     token_window = next(
         (item for item in pre_filters or [] if item.get("type") == "trainable_token_window"),
@@ -128,9 +123,7 @@ def _validate_configs(run_dir: Path, expected_revision: str) -> dict[str, str]:
         or token_window.get("enforce") is not True
         or token_window.get("max_tokens") != TRAINING_SEQ_LEN
     ):
-        raise AuditFailure(
-            "resolved audit must enforce a trainable-token window equal to the trainer sequence length"
-        )
+        raise AuditFailure("resolved audit must enforce a trainable-token window equal to the trainer sequence length")
     post_filters = orchestrator.get("post_batch_filters")
     zero_advantage = next(
         (item for item in post_filters or [] if item.get("type") == "zero_advantage"),
@@ -197,9 +190,7 @@ def _validate_metrics(run_dir: Path) -> dict[str, float]:
     rl_tokens = component_tokens("rl")
     sdpo_tokens = component_tokens("sdpo")
     if rl_tokens <= 0 or sdpo_tokens <= 0:
-        raise AuditFailure(
-            f"RL and SDPO token mass must both be positive, found {rl_tokens:g}/{sdpo_tokens:g}"
-        )
+        raise AuditFailure(f"RL and SDPO token mass must both be positive, found {rl_tokens:g}/{sdpo_tokens:g}")
     for name in ("ce", "ref_kl"):
         value = component_tokens(name)
         if value != 0:
@@ -213,14 +204,9 @@ def _validate_metrics(run_dir: Path) -> dict[str, float]:
     loss = _require_finite(records, "loss/mean")
     sdpo_loss = _require_finite(records, "sdpo/mean")
     _require_all(records, "time/save_ckpt", 0.0)
-    aggregate_trainable_fraction = _require_finite(
-        records, "train/agg/effective/agent/is_trainable/mean"
-    )
+    aggregate_trainable_fraction = _require_finite(records, "train/agg/effective/agent/is_trainable/mean")
     if not 0 < aggregate_trainable_fraction <= 1:
-        raise AuditFailure(
-            "aggregate trainable fraction must be in (0, 1], "
-            f"found {aggregate_trainable_fraction:g}"
-        )
+        raise AuditFailure(f"aggregate trainable fraction must be in (0, 1], found {aggregate_trainable_fraction:g}")
     _require_all(records, "train/agg/effective/agent/is_filtered/mean", 0.0)
 
     rollouts = _require_finite(records, "progress/rollouts")
@@ -313,19 +299,13 @@ def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]
         trace = vf.WireTrace.model_validate(record)
         branches = list(iter_trainable_branches(trace))
         active_masks = (
-            keep_first_coordinator_tool_call(trace)
-            if env_name == DIAGNOSTIC_ENV
-            else [mask for _, mask in branches]
+            keep_first_coordinator_tool_call(trace) if env_name == DIAGNOSTIC_ENV else [mask for _, mask in branches]
         )
         if len(active_masks) != len(branches):
             raise AuditFailure(f"effective trace {index} has misaligned training masks")
-        for branch_index, ((branch, _), active_mask) in enumerate(
-            zip(branches, active_masks, strict=True)
-        ):
+        for branch_index, ((branch, _), active_mask) in enumerate(zip(branches, active_masks, strict=True)):
             if len(active_mask) != len(branch.token_ids):
-                raise AuditFailure(
-                    f"effective trace {index} branch {branch_index} has an invalid training mask"
-                )
+                raise AuditFailure(f"effective trace {index} branch {branch_index} has an invalid training mask")
             if any(active_mask[TRAINING_SEQ_LEN:]):
                 raise AuditFailure(
                     f"effective trace {index} branch {branch_index} has trainable tokens "
@@ -339,13 +319,9 @@ def _validate_traces(run_dir: Path) -> tuple[dict[str, Any], list[vf.WireTrace]]
     if len(codes) < 2:
         raise AuditFailure(f"diagnostic source needs at least two feedback codes, found {dict(codes)}")
     if len(resource_families) < 2 or len(phrasing_variants) < 2:
-        raise AuditFailure(
-            "diagnostic source needs at least two resource families and two phrasing variants"
-        )
+        raise AuditFailure("diagnostic source needs at least two resource families and two phrasing variants")
     if set(causal_families) != {"followup", "handshake"}:
-        raise AuditFailure(
-            f"causal retention must include followup and handshake, found {dict(causal_families)}"
-        )
+        raise AuditFailure(f"causal retention must include followup and handshake, found {dict(causal_families)}")
     return (
         {
             "count": len(records),
@@ -433,9 +409,7 @@ def _validate_token_routing(run_dir: Path, traces: list[vf.WireTrace]) -> dict[s
             key = (env_name, tuple(branch.token_ids))
             candidates = by_sample.get(key)
             if not candidates:
-                raise AuditFailure(
-                    f"no token export matches {env_name} trace {trace.id} branch {branch_index}"
-                )
+                raise AuditFailure(f"no token export matches {env_name} trace {trace.id} branch {branch_index}")
             record = candidates.pop()
             consumed += 1
             if record.get("loss_mask") != trainable_mask:

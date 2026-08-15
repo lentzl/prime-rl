@@ -32,9 +32,7 @@ def _source(name: str, algo: str, group_size: int) -> dict:
         source["algo"].update(
             require_explicit_feedback=True,
             required_feedback_contract_schema=MODULE.FEEDBACK_SCHEMA,
-            filter={
-                "import_path": "subagent_communication_v1.taskset.keep_first_coordinator_tool_call"
-            },
+            filter={"import_path": "subagent_communication_v1.taskset.keep_first_coordinator_tool_call"},
         )
         source["env"]["taskset"] = {
             "ownership": "child",
@@ -139,11 +137,7 @@ def _trace(
 def _export_records(trace: vf.Trace) -> list[dict]:
     env_name = trace.info["env_name"]
     branches = list(MODULE.iter_trainable_branches(trace))
-    expected = (
-        MODULE.keep_first_coordinator_tool_call(trace)
-        if env_name == MODULE.DIAGNOSTIC_ENV
-        else None
-    )
+    expected = MODULE.keep_first_coordinator_tool_call(trace) if env_name == MODULE.DIAGNOSTIC_ENV else None
     records = []
     for branch_index, (branch, mask) in enumerate(branches):
         length = len(branch.token_ids)
@@ -154,17 +148,11 @@ def _export_records(trace: vf.Trace) -> list[dict]:
                 "env_name": env_name,
                 "token_ids": branch.token_ids,
                 "loss_mask": mask,
-                "rl_weights": (
-                    [0.0] * length
-                    if env_name == MODULE.DIAGNOSTIC_ENV
-                    else [1.0] * length
-                ),
+                "rl_weights": ([0.0] * length if env_name == MODULE.DIAGNOSTIC_ENV else [1.0] * length),
                 "ce_weights": [0.0] * length,
                 "ref_kl_weights": [0.0] * length,
                 "sdpo_weights": (
-                    [float(value) for value in expected[branch_index]]
-                    if expected is not None
-                    else [0.0] * length
+                    [float(value) for value in expected[branch_index]] if expected is not None else [0.0] * length
                 ),
             }
         )
@@ -282,9 +270,7 @@ def _make_run(tmp_path: Path) -> Path:
     export_dir = run_dir / "token_exports" / "step_1"
     export_dir.mkdir(parents=True)
     records = [record for trace in traces for record in _export_records(trace)]
-    (export_dir / "rank_0.jsonl").write_text(
-        "".join(json.dumps(record) + "\n" for record in records)
-    )
+    (export_dir / "rank_0.jsonl").write_text("".join(json.dumps(record) + "\n" for record in records))
     (export_dir / "STABLE").touch()
     return run_dir
 
@@ -355,9 +341,7 @@ def test_validator_fails_closed(tmp_path: Path, mutation: str, message: str) -> 
     elif mutation == "overlong_trainable":
         trace_path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
         traces = [json.loads(line) for line in trace_path.read_text().splitlines()]
-        trace = next(
-            item for item in traces if item["info"]["env_name"] in MODULE.RETENTION_ENVS
-        )
+        trace = next(item for item in traces if item["info"]["env_name"] in MODULE.RETENTION_ENVS)
         node = trace["nodes"][-1]
         extra = MODULE.TRAINING_SEQ_LEN + 1 - sum(len(item["token_ids"]) for item in trace["nodes"])
         node["token_ids"].extend([123] * extra)
