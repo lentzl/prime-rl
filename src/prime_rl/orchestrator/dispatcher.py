@@ -131,6 +131,7 @@ class RolloutDispatcher:
         policy: Policy,
         max_inflight_episodes: int,
         train_rollouts_per_policy: int | None,
+        train_source_minimums: dict[str, int],
         tasks_per_minute: float | None,
         max_off_policy_steps: int,
     ) -> None:
@@ -145,6 +146,8 @@ class RolloutDispatcher:
         self.max_off_policy_steps = max_off_policy_steps
         self.train_rollouts_per_policy = train_rollouts_per_policy
         self.train_rollouts_scheduled = 0
+        self.train_source_minimums = train_source_minimums
+        self.minimum_train_envs: deque[str] = deque(self._minimum_source_groups())
         self.replacement_train_envs: deque[str] = deque()
 
         self.max_inflight = max_inflight_episodes
@@ -215,6 +218,13 @@ class RolloutDispatcher:
             self.replacement_train_envs.extend(env_names)
         if self.train_rollouts_per_policy is not None:
             self.train_rollouts_scheduled = max(0, self.train_rollouts_scheduled - count)
+
+    def _minimum_source_groups(self) -> list[str]:
+        groups: list[str] = []
+        for env_name, minimum in self.train_source_minimums.items():
+            group_size = self.train_envs.get(env_name).config.group_size
+            groups.extend([env_name] * ((minimum + group_size - 1) // group_size))
+        return groups
 
     @property
     def inflight_by_env(self) -> dict[tuple[RolloutKind, str], int]:
@@ -328,6 +338,7 @@ class RolloutDispatcher:
     async def on_new_version(self, step: int) -> None:
         """Reset a synchronous cohort after the new policy is live."""
         self.train_rollouts_scheduled = 0
+        self.minimum_train_envs = deque(self._minimum_source_groups())
         self.replacement_train_envs.clear()
 
     async def fill_inflight(self) -> None:
@@ -400,7 +411,10 @@ class RolloutDispatcher:
         a ``GroupState``. Returns ``None`` if the source is empty."""
         if kind == "train":
             source = self.train_source
-            replacement_env = self.replacement_train_envs.popleft() if self.replacement_train_envs else None
+            if self.minimum_train_envs:
+                replacement_env = self.minimum_train_envs.popleft()
+            else:
+                replacement_env = self.replacement_train_envs.popleft() if self.replacement_train_envs else None
         else:
             assert self.eval_source is not None
             source = self.eval_source

@@ -234,6 +234,32 @@ def test_sdpo_algorithm_enables_exact_feedback_trainer_runtime():
     assert config.trainer.model.fused_lm_head_token_chunk_size == "disabled"
 
 
+def test_batch_source_minimums_require_known_sources_and_synchronous_rollout_batching():
+    base = {
+        "renderer": {"name": "qwen3"},
+        "batch_size": 4,
+        "max_train_batch_lead": 0,
+        "train": {
+            "source": [
+                {"name": "direct", "env": {"taskset": {"id": "reverse-text"}}},
+                {"name": "parallel", "env": {"taskset": {"id": "reverse-text"}}},
+            ]
+        },
+    }
+
+    config = OrchestratorConfig.model_validate(base | {"batch_source_minimums": {"direct": 1, "parallel": 1}})
+    assert config.batch_source_minimums == {"direct": 1, "parallel": 1}
+
+    with pytest.raises(ValidationError, match="unknown training sources"):
+        OrchestratorConfig.model_validate(base | {"batch_source_minimums": {"missing": 1}})
+    with pytest.raises(ValidationError, match="max_train_batch_lead=0"):
+        OrchestratorConfig.model_validate(
+            base | {"max_train_batch_lead": 1, "batch_source_minimums": {"direct": 1}}
+        )
+    with pytest.raises(ValidationError, match="exceed batch_size"):
+        OrchestratorConfig.model_validate(base | {"batch_source_minimums": {"direct": 3, "parallel": 2}})
+
+
 def test_train_sampling_forwards_reasoning_effort_to_verifiers() -> None:
     sampling = TrainSamplingConfig(
         temperature=0.7,

@@ -45,6 +45,16 @@ if not config.get("trainer", {}).get("enable_token_export"):
     raise SystemExit("zero-LR audit must enable token export")
 if config.get("orchestrator", {}).get("batch_size") != 16:
     raise SystemExit("zero-LR audit must use the 16-trace mechanism batch")
+required_sources = config.get("orchestrator", {}).get("batch_source_minimums", {})
+if required_sources != {
+    "ownership-child-diagnostic-sdpo": 4,
+    "ownership-coordinator-retention": 2,
+    "communication-direct-retention": 2,
+    "communication-single-retention": 2,
+    "communication-parallel-retention": 2,
+    "communication-causal-retention": 4,
+}:
+    raise SystemExit(f"zero-LR audit must require every mixed training source: {required_sources}")
 if (
     config.get("seq_len") != 8192
     or config.get("trainer", {}).get("model", {}).get("seq_len") != 8192

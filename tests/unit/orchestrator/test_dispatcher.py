@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from prime_rl.orchestrator.dispatcher import DispatcherMode, RolloutDispatcher
+from prime_rl.orchestrator.metrics import TrainRollouts
 from prime_rl.orchestrator.train_sink import TrainSink
 from prime_rl.orchestrator.types import GroupState
 
@@ -16,6 +17,8 @@ def _dispatcher(*, scheduled: int, limit: int = 16) -> RolloutDispatcher:
     dispatcher.inflight_permits = 0
     dispatcher.train_rollouts_per_policy = limit
     dispatcher.train_rollouts_scheduled = scheduled
+    dispatcher.train_source_minimums = {}
+    dispatcher.minimum_train_envs = deque()
     dispatcher.replacement_train_envs = deque()
     dispatcher.groups = {}
     return dispatcher
@@ -123,3 +126,74 @@ def test_replacement_group_uses_the_source_that_lost_admission():
     assert group is not None and group.env_name == "parallel"
     assert requested == ["parallel"]
     assert not dispatcher.replacement_train_envs
+
+
+def test_minimum_source_group_is_scheduled_before_weighted_sampling():
+    dispatcher = _dispatcher(scheduled=0)
+    dispatcher.policy = SimpleNamespace(version=0)
+    requested = []
+
+    class Source:
+        def next_example(self, env_name=None):
+            requested.append(env_name)
+            return {"env_name": env_name or "weighted", "task": object()}
+
+    class Envs:
+        def get(self, env_name):
+            return SimpleNamespace(config=SimpleNamespace(group_size=1))
+
+    dispatcher.train_source = Source()
+    dispatcher.minimum_train_envs.extend(["direct", "parallel"])
+
+    first = dispatcher.next_fresh_group("train", Envs(), available_permits=8)
+    second = dispatcher.next_fresh_group("train", Envs(), available_permits=8)
+    weighted = dispatcher.next_fresh_group("train", Envs(), available_permits=8)
+
+    assert [first.env_name, second.env_name, weighted.env_name] == ["direct", "parallel", "weighted"]
+    assert requested == ["direct", "parallel", None]
+
+
+def test_new_policy_reseeds_minimum_source_groups():
+    dispatcher = _dispatcher(scheduled=16)
+    dispatcher.train_source_minimums = {"direct": 1, "parallel": 3}
+    dispatcher.train_envs = SimpleNamespace(
+        get=lambda env_name: SimpleNamespace(config=SimpleNamespace(group_size=2))
+    )
+    dispatcher.minimum_train_envs.extend(["stale"])
+    dispatcher.replacement_train_envs.extend(["stale"])
+
+    asyncio.run(dispatcher.on_new_version(1))
+
+    assert dispatcher.train_rollouts_scheduled == 0
+    assert list(dispatcher.minimum_train_envs) == ["direct", "parallel", "parallel"]
+    assert not dispatcher.replacement_train_envs
+
+
+def test_train_sink_waits_for_source_minimum_and_selects_it_into_cohort():
+    sink = object.__new__(TrainSink)
+    sink.batch_size = 3
+    sink.token_batch_size = None
+    sink.batch_source_minimums = {"direct": 1}
+    sink.post_filters = []
+
+    def rollout(env_name):
+        return SimpleNamespace(env_name=env_name, has_error=False, is_filtered=False, samples=[env_name])
+
+    first = rollout("parallel")
+    second = rollout("parallel")
+    third = rollout("single")
+    sink.pending_batch = [first, second, third]
+
+    assert sink.source_minimums_met() is False
+
+    direct = rollout("direct")
+    sink.pending_batch.append(direct)
+    sink.pending_rollouts = TrainRollouts(sink.pending_batch.copy())
+    assert sink.source_minimums_met() is True
+
+    batch = sink.process_batch()
+
+    assert batch.samples == ["parallel", "parallel", "direct"]
+    assert batch.rollouts.rollouts == [first, second, direct]
+    assert sink.pending_batch == [third]
+    assert sink.pending_rollouts.rollouts == [third]

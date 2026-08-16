@@ -52,6 +52,23 @@ is refilled from the same source instead of the global weighted sampler. A fresh
 zero-LR audit on that scheduler is required before repeating the nonzero update; the
 completed optimizer step above cannot substitute for it.
 
+## Invalid second zero-LR audit
+
+The source-refill audit completed a healthy full backward pass (`loss=0.0006`,
+mismatch `KL=0.0002`, gradient norm `10.25`, peak memory `42.9 GiB`) and recovered
+valid parallel-retention signal. It was still rejected because direct-retention
+groups repeatedly produced no nonzero GRPO signal, while already in-flight valid
+causal and parallel groups filled the 16 admitted slots before the queued direct
+replacement could enter the cohort. No model artifact was written.
+
+The follow-up introduces opt-in `orchestrator.batch_source_minimums`. Synchronous
+rollout batches schedule the declared source groups before weighted sampling, wait
+until every minimum is admitted, and reserve those rollouts when selecting the fixed
+batch. Admitted overflow remains associated with a future trainer batch so exported
+tokens and effective traces stay one-to-one. The audit declares its complete fixed
+allocation (4 diagnostic, 2 each ordinary retention source, and 4 causal) rather
+than relying on ratios to approximate it.
+
 ## PCIe-only runtime qualification
 
 The experiment launchers keep NCCL P2P disabled but enable SHM by default. This

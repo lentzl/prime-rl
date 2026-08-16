@@ -489,6 +489,11 @@ class OrchestratorConfig(BaseConfig):
     batch_size: int | None = Field(None, ge=1)
     """Samples to train on per step (rollout-based batching). Set this OR ``token_batch_size``."""
 
+    batch_source_minimums: dict[str, Annotated[int, Field(ge=1)]] = Field(default_factory=dict)
+    """Minimum admitted rollouts from named training sources in every batch. This opt-in
+    constraint is available for synchronous rollout-based batching, where it also prioritizes
+    one or more source groups before weighted sampling fills the rest of the policy cohort."""
+
     token_batch_size: int | None = Field(None, ge=1)
     """Tokens to train on per step (token-based batching). Set this OR ``batch_size``."""
 
@@ -654,6 +659,23 @@ class OrchestratorConfig(BaseConfig):
             if "group_size" not in env_cfg.model_fields_set:
                 env_cfg.group_size = self.group_size
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_batch_source_minimums(self):
+        if not self.batch_source_minimums:
+            return self
+        if self.token_batch_size is not None:
+            raise ValueError("batch_source_minimums requires rollout-based batch_size")
+        if self.max_train_batch_lead != 0:
+            raise ValueError("batch_source_minimums requires max_train_batch_lead=0")
+        source_names = {source.resolved_name for source in self.train.source}
+        unknown = self.batch_source_minimums.keys() - source_names
+        if unknown:
+            raise ValueError(f"batch_source_minimums names unknown training sources: {sorted(unknown)}")
+        assert self.batch_size is not None
+        if sum(self.batch_source_minimums.values()) > self.batch_size:
+            raise ValueError("batch_source_minimums exceed batch_size")
         return self
 
     @model_validator(mode="after")

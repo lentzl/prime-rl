@@ -71,6 +71,14 @@ max_inflight_episodes = 8
 oversampling_factor = 0.5
 max_off_policy_steps = 0
 
+[orchestrator.batch_source_minimums]
+ownership-child-diagnostic-sdpo = 4
+ownership-coordinator-retention = 2
+communication-direct-retention = 2
+communication-single-retention = 2
+communication-parallel-retention = 2
+communication-causal-retention = 4
+
 [orchestrator.algo]
 type = "grpo"
 

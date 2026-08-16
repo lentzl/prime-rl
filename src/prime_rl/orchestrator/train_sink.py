@@ -69,6 +69,7 @@ class TrainSink:
         self.mm_token_type_ids_mapping = mm_token_type_ids_mapping
         self.batch_size = batch_size
         self.token_batch_size = token_batch_size
+        self.batch_source_minimums = config.batch_source_minimums
         self.pre_filters = pre_filters
         self.post_filters = post_filters
 
@@ -124,6 +125,10 @@ class TrainSink:
             counts[r.env_name] += 1
         return dict(counts)
 
+    def source_minimums_met(self) -> bool:
+        counts = self.pending_batch_by_env()
+        return all(counts.get(env_name, 0) >= minimum for env_name, minimum in self.batch_source_minimums.items())
+
     async def add(self, episode: list[Rollout]) -> TrainBatch | None:
         """Process one episode arrival; finalize the group on the
         ``group_size``-th episode; return a ``TrainBatch`` if the finalization
@@ -146,7 +151,7 @@ class TrainSink:
             if self.batch_size is not None
             else self.pending_tokens >= (self.token_batch_size or 0)
         )
-        if ready:
+        if ready and self.source_minimums_met():
             return self.process_batch()
         return None
 
@@ -264,8 +269,21 @@ class TrainSink:
         trainer-bound ``TrainingSample`` list. Overflow stays for the next
         batch."""
         if self.batch_size is not None:
-            cohort = self.pending_batch[: self.batch_size]
-            self.pending_batch = self.pending_batch[self.batch_size :]
+            selected: set[int] = set()
+            for env_name, minimum in self.batch_source_minimums.items():
+                matching = [i for i, rollout in enumerate(self.pending_batch) if rollout.env_name == env_name]
+                if len(matching) < minimum:
+                    raise RuntimeError(f"batch source minimum was not met for {env_name!r}")
+                selected.update(matching[:minimum])
+            for index in range(len(self.pending_batch)):
+                if len(selected) >= self.batch_size:
+                    break
+                selected.add(index)
+            selected_indices = sorted(selected)
+            cohort = [self.pending_batch[index] for index in selected_indices]
+            self.pending_batch = [
+                rollout for index, rollout in enumerate(self.pending_batch) if index not in selected
+            ]
         else:
             assert self.token_batch_size is not None
             cut = 0
@@ -286,15 +304,25 @@ class TrainSink:
         # advantage stream and loss routing on each sample. Filtered rollouts don't ship.
         samples: list[TrainingSample] = [sample for r in cohort if not r.is_filtered for sample in r.samples]
 
-        # ``rollouts`` is the observation window — every rollout of every group finalized since the
-        # last ship (errored + filtered + survivors) — while ``samples`` is the shipped cohort's
-        # trainable payload. ``rollouts.effective`` / ``rollouts.metrics`` derive the clean subset +
-        # metric views on demand. Reset the window only when the batch actually ships (non-empty
-        # samples) — an empty batch is dropped unlogged by the orchestrator, so keep accumulating its
-        # finalized groups (and any overflow) into the next shipped batch's window.
-        rollouts = self.pending_rollouts
+        # The observation window contains the shipped cohort plus rejected rollouts seen while it
+        # formed. Admitted overflow remains pending so the effective traces stay one-to-one with the
+        # trainer payload; rejected rollouts are reported once in the current window.
+        cohort_ids = {id(rollout) for rollout in cohort}
+        rollouts = TrainRollouts(
+            [
+                rollout
+                for rollout in self.pending_rollouts
+                if id(rollout) in cohort_ids or rollout.has_error or rollout.is_filtered
+            ]
+        )
         if samples:
-            self.pending_rollouts = TrainRollouts()
+            self.pending_rollouts = TrainRollouts(
+                [
+                    rollout
+                    for rollout in self.pending_rollouts
+                    if id(rollout) not in cohort_ids and not rollout.has_error and not rollout.is_filtered
+                ]
+            )
         return TrainBatch(rollouts=rollouts, samples=samples)
 
     def reset_pre_filter_stats(self) -> None:

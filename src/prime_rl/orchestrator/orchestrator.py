@@ -404,6 +404,7 @@ class Orchestrator:
             policy=self.policy,
             max_inflight_episodes=config.max_inflight_episodes,
             train_rollouts_per_policy=config.batch_size if config.max_train_batch_lead == 0 else None,
+            train_source_minimums=config.batch_source_minimums,
             tasks_per_minute=config.tasks_per_minute,
             max_off_policy_steps=config.max_off_policy_steps,
         )
