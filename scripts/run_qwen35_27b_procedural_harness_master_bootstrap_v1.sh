@@ -10,6 +10,7 @@ cd "$root"
 export PATH="$root/.venv/bin:$HOME/.local/bin:$PATH"
 export NCCL_P2P_DISABLE=${NCCL_P2P_DISABLE:-1}
 export NCCL_SHM_DISABLE=${NCCL_SHM_DISABLE:-0}
+export VLLM_USE_FLASHINFER_SAMPLER=${VLLM_USE_FLASHINFER_SAMPLER:-0}
 if [[ ! -x .venv/bin/rl || ! -x .venv/bin/inference || ! -x .venv/bin/env-server ]]; then
   echo "Prime-RL training executables are missing" >&2
   exit 1

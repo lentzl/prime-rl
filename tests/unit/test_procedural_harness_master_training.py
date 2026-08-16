@@ -117,5 +117,6 @@ def test_bootstrap_launcher_fails_closed() -> None:
     assert "refusing to launch while another GPU process is active" in launcher
     assert "Qwen/Qwen3.5-27B" in launcher
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
+    assert "VLLM_USE_FLASHINFER_SAMPLER" in launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in launcher
     assert "PROCEDURAL_HARNESS_TRAIN_DRY_RUN" in launcher

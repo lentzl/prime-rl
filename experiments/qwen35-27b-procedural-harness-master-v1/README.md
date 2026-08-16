@@ -46,3 +46,7 @@ automatically selects hard reward when any delegated group has hard-gate
 variance. It selects constrained shaping only when the hard groups are
 homogeneous and at least one delegated group has measured bootstrap-progress
 variance.
+
+The launcher disables FlashInfer sampling JIT because the retained Prime host
+ships CUDA runtime libraries but no `nvcc`; vLLM then uses its prebuilt sampling
+path for integrated training inference.
