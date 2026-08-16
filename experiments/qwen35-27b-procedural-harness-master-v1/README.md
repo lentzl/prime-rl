@@ -144,6 +144,8 @@ group is eligible for hard GRPO; an all-fail rung is reward-disconnected and
 must bootstrap only its missing causal transition before admission is repeated.
 Promotion is cumulative, and the frozen broad VALID/OOD batteries remain the
 external target throughout the ramp.
+Candidate gates set `HARNESS_ACTION_ADMISSION_START_INDEX` to a fresh generated
+index disjoint from both the untouched admission and the active training stream.
 
 Live trace review also found that Prime Agent's runtime notice
 `RLM child completed without sending a reply` was being classified as an

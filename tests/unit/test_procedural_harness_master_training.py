@@ -215,6 +215,8 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "num_rollouts = 8" in admission_config
     assert 'curriculum_rung = "atomic_state"' in admission_config
     assert "classify_curriculum_rung_admission" in admission_launcher
+    assert "HARNESS_ACTION_ADMISSION_START_INDEX" in admission_launcher
+    assert 'r"^start_index = [0-9]+$"' in admission_launcher
     assert "select_curriculum_rung_admission" in train_launcher
     assert "curriculum admission must contain eight error-free episodes" in selector
     assert 'status != "trainable"' in selector
