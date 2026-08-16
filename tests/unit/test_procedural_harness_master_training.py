@@ -149,4 +149,7 @@ def test_checkpoint_battery_evaluates_untouched_and_every_stable_step() -> None:
     assert 'model.safetensors.index.json' in launcher
     assert "refusing to evaluate while another GPU process is active" in launcher
     assert "compare_procedural_harness_master_checkpoints_v1.py" in launcher
+    assert "eval_experiment=experiments/qwen35-27b-procedural-harness-master-v1" in launcher
+    assert 'EVAL_EXPERIMENT_DIR="$eval_experiment"' in launcher
+    assert 'EVAL_EXPERIMENT_DIR="$experiment"' not in launcher
     assert "PRIME_MASTERY_OUTPUT_ROOT" in baseline

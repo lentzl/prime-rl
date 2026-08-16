@@ -3,6 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 experiment=$root/experiments/qwen35-27b-procedural-harness-master-v1
+eval_experiment=experiments/qwen35-27b-procedural-harness-master-v1
 train_run=${1:-/ephemeral/outputs/qwen35-27b-procedural-harness-master-v1/bootstrap-grpo}
 label=${2:-checkpoint-battery-r1}
 evaluation_root=${PROCEDURAL_HARNESS_OUTPUT_ROOT:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1}/$label
@@ -84,7 +85,7 @@ for index in "${!models[@]}"; do
   candidate=${labels[$index]}
   PRIME_MASTERY_OUTPUT_ROOT="$evaluation_root" \
     EVAL_DRIVER="$eval_driver" \
-    EVAL_EXPERIMENT_DIR="$experiment" \
+    EVAL_EXPERIMENT_DIR="$eval_experiment" \
     EVAL_CUDA_VISIBLE_DEVICES="${EVAL_CUDA_VISIBLE_DEVICES:-0,1,2,3}" \
     EVAL_TENSOR_PARALLEL_SIZE="${EVAL_TENSOR_PARALLEL_SIZE:-4}" \
     "$server_driver" "$model" "$candidate" "$model_revision"
