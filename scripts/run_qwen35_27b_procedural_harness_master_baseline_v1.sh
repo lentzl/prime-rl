@@ -11,6 +11,13 @@ client_base_url=${EVAL_CLIENT_BASE_URL:-}
 configs=(valid-baseline ood-baseline)
 
 cd "$root"
+uv_bin=${UV_BIN:-$(command -v uv || true)}
+if [[ -z "$uv_bin" ]]; then
+  echo "uv executable not found" >&2
+  exit 1
+fi
+"$uv_bin" pip install --python "$root/.venv/bin/python" --no-deps --editable \
+  "$root/deps/verifiers/environments/procedural_harness_master_v1" >/dev/null
 mkdir -p "$output_root"
 {
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"

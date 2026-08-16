@@ -45,7 +45,6 @@ dependencies = [
     "msgspec>=0.18",
     "torchao>=0.17.0",
     "modelexpress==0.3.0",
-    "procedural-harness-master-v1",
 ]
 
 [project.scripts]
@@ -156,11 +155,6 @@ members = [
 # tau2-synth and tau3-bench pin `tau2` forks/revs that conflict with the
 # canonical tau2-bench; a workspace shares one lock, so these can't coexist.
 exclude = [
-    # This package requires released verifiers>=0.2.0, while this branch pins
-    # the vendored official-stack development revision.
-    "deps/prime-envs/environments/math/aime24",
-    "deps/prime-envs/environments/math/aime25",
-    "deps/prime-envs/environments/math/aime26",
     "deps/prime-envs/environments/tool_use/tau2_synth",
     "deps/prime-envs/environments/tool_use/tau3_bench",
 ]
@@ -215,7 +209,6 @@ prime-rl-configs = { path = "packages/prime-rl-configs", editable = true }
 verifiers = { path = "deps/verifiers", editable = true }
 renderers = { path = "deps/renderers", editable = true }
 prime-pydantic-config = { path = "deps/pydantic-config", editable = true }
-procedural-harness-master-v1 = { path = "deps/verifiers/environments/procedural_harness_master_v1", editable = true }
 torch = { index = "pytorch-cu128" }
 torchvision = { index = "pytorch-cu128" }
 torchaudio = { index = "pytorch-cu128" }
