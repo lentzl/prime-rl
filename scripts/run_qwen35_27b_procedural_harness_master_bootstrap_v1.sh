@@ -54,11 +54,11 @@ if [[ ! -f "$config" ]]; then
 fi
 .venv/bin/python - "$config" "$mode" <<'PY'
 import sys
-import tomllib
+from pathlib import Path
 
-with open(sys.argv[1], "rb") as handle:
-    config = tomllib.load(handle)
-actual = config["orchestrator"]["train"]["source"][0]["env"]["taskset"]["task"]["reward_mode"]
+from scripts.summarize_procedural_harness_master_v1 import configured_reward_mode
+
+actual = configured_reward_mode(Path(sys.argv[1]))
 expected = "hard" if sys.argv[2] == "hard" else "bootstrap"
 if actual != expected:
     raise SystemExit(f"selected {expected} reward but config uses {actual}")

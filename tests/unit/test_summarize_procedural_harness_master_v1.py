@@ -1,9 +1,16 @@
 import json
+from pathlib import Path
 
 import pytest
 
 import scripts.summarize_procedural_harness_master_v1 as summary_module
-from scripts.summarize_procedural_harness_master_v1 import select_training_mode, summarize
+from scripts.summarize_procedural_harness_master_v1 import (
+    configured_reward_mode,
+    select_training_mode,
+    summarize,
+)
+
+ROOT = Path(__file__).parents[2]
 
 
 def _trace(
@@ -164,3 +171,10 @@ def test_training_mode_rejects_incomplete_admission() -> None:
 
     with pytest.raises(ValueError, match="48 error-free episodes"):
         select_training_mode(report)
+
+
+def test_training_config_reward_mode_honors_hard_default_and_shaped_override() -> None:
+    experiment = ROOT / "experiments" / "qwen35-27b-procedural-harness-master-v1"
+
+    assert configured_reward_mode(experiment / "bootstrap-grpo.toml") == "hard"
+    assert configured_reward_mode(experiment / "bootstrap-shaped-grpo.toml") == "bootstrap"

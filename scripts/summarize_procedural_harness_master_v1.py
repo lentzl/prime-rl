@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import copy
 import json
+import tomllib
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
@@ -179,6 +180,14 @@ def select_training_mode(report: dict[str, Any]) -> tuple[str, list[str]]:
     if not bootstrap_families:
         raise ValueError("no non-direct informative hard or bootstrap comparison group")
     return "bootstrap", bootstrap_families
+
+
+def configured_reward_mode(path: Path) -> str:
+    """Read the explicit task reward, including the task model's hard default."""
+    with path.open("rb") as handle:
+        config = tomllib.load(handle)
+    taskset = config["orchestrator"]["train"]["source"][0]["env"]["taskset"]
+    return taskset.get("task", {}).get("reward_mode", "hard")
 
 
 def main() -> None:
