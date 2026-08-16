@@ -30,6 +30,7 @@ def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
     assert config.orchestrator.batch_size == 16
     assert config.orchestrator.group_size == 8
     assert config.orchestrator.max_inflight_episodes == 8
+    assert config.orchestrator.oversampling_factor == 0.5
     assert config.orchestrator.max_off_policy_steps == 0
     assert config.orchestrator.algo.type == "grpo"
     assert source.algo is not None and source.algo.type == "grpo"

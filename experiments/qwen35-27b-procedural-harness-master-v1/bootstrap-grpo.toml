@@ -65,7 +65,7 @@ save_format = "safetensors"
 batch_size = 16
 group_size = 8
 max_inflight_episodes = 8
-oversampling_factor = 2.0
+oversampling_factor = 0.5
 max_off_policy_steps = 0
 
 [orchestrator.algo]
