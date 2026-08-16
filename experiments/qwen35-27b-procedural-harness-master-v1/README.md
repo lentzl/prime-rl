@@ -15,6 +15,12 @@ The primary reward is `harness_score`, a hard conjunction of exact answer,
 required atoms, forbidden-atom absence, ordering, and cardinality. Dense metrics
 exist only to diagnose why the hard gate failed.
 
+Delegated episodes run Prime Agent in its native autonomous mode with a
+task-specific completion gate. The gate keeps the ACP session alive until the
+generated child-message counts and final JSON key/type shape are present; it
+does not contain expected values or score policy invariants. Exact correctness
+remains exclusively verifier-side in `harness_score`.
+
 `train-admission.toml` samples eight independent rollouts for one fresh
 TRAIN-GEN task from each V1 family. It is not an evaluation split. Its purpose
 is to measure whether the untouched policy supplies at least one hard-gate

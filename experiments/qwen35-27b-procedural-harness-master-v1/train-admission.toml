@@ -26,6 +26,12 @@ max_total_tokens = 131072
 [env.agent.harness]
 id = "prime_agent"
 version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.procedural-harness-master/completion_gate.py"]
+autonomous_max_continuations = 8
+autonomous_max_turns = 32
+autonomous_max_tokens = 131072
+autonomous_timeout_ms = 1800000
 
 [env.agent.runtime]
 type = "docker"

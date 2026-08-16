@@ -45,6 +45,10 @@ def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
         "verify",
     }
     assert source.env.agent.harness.version == "0.7.2-beta.495.1.97b994c"
+    assert source.env.agent.harness.autonomous is True
+    assert source.env.agent.harness.gates == [
+        "python /workspace/.procedural-harness-master/completion_gate.py"
+    ]
     assert config.orchestrator.renderer.enable_thinking is True
     assert config.inference is not None
     assert config.inference.vllm.max_model_len == 32768
