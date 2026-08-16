@@ -48,6 +48,7 @@ from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
 from prime_rl.trainer.model import (
     forward,
     setup_tokenizer,
+    setup_processor,
     setup_model,
     is_tt_moe_model,
     get_load_balance_stats,
@@ -157,6 +158,7 @@ def train(config: TrainerConfig):
 
     logger.info(f"Initializing tokenizer ({config.tokenizer})")
     tokenizer = setup_tokenizer(config.tokenizer)
+    processor = setup_processor(config.model) if weight_ckpt_manager is not None else None
 
     if config.model.vlm is not None and not getattr(model, "supports_packed_multimodal_training", False):
         raise ValueError("Packed multimodal training requires model support")
@@ -797,7 +799,7 @@ def train(config: TrainerConfig):
             if weight_ckpt_manager is not None:
                 logger.info(f"Saving weight checkpoint at step {progress.step}")
                 save_ckpt_start_time = time.perf_counter()
-                weight_ckpt_manager.save(progress.step, model, tokenizer)
+                weight_ckpt_manager.save(progress.step, model, tokenizer, processor)
                 save_ckpt_time += time.perf_counter() - save_ckpt_start_time
                 weight_ckpt_manager.maybe_clean()
         else:
@@ -932,7 +934,7 @@ def train(config: TrainerConfig):
 
     if weight_ckpt_manager is not None:
         logger.info("Writing final weight checkpoint")
-        weight_ckpt_manager.save(progress.step, model, tokenizer)
+        weight_ckpt_manager.save(progress.step, model, tokenizer, processor)
         weight_ckpt_manager.maybe_clean()
 
     logger.info(f"Peak memory: {max_peak_memory:.1f} GiB")
