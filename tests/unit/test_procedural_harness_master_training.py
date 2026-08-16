@@ -92,7 +92,8 @@ def test_admission_screen_is_disjoint_from_bootstrap_window() -> None:
 def test_bootstrap_launcher_fails_closed() -> None:
     launcher = LAUNCHER.read_text()
 
-    assert "untouched-admission-r3" in launcher
+    assert "untouched-admission-r4" in launcher
+    assert "untouched-admission-r3" not in launcher
     assert "untouched-admission-r2" not in launcher
     assert "no non-direct informative hard-reward comparison group" in launcher
     assert "refusing to launch while another GPU process is active" in launcher
