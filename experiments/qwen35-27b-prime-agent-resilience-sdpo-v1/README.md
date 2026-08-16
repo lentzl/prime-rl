@@ -30,3 +30,11 @@ This audit is retained as method evidence only. The procedural Harness Master be
 supersedes the proposed isolated mixed update as the next weight-changing objective.
 Any later reuse must restart from untouched 27B and route failure-local SDPO inside a
 generated end-to-end cohort whose conjunctive HarnessScore is the promotion target.
+
+The strict remote audit completed all four effective rollouts and the optimizer step
+at zero learning rate, but it did **not** pass this validator. Five trainer ranks wrote
+token exports while rank 2 never wrote its shard or the collective `STABLE` marker;
+the trainer remained resident after the orchestrator exited and was terminated to
+free the GPUs. Therefore this run proves that failure-local traces can reach the
+trainer, but does not prove one-to-one stable token routing and is recorded as a
+failed mechanism audit, not positive evidence for a weight-changing run.
