@@ -12,6 +12,7 @@ CONFIG = (
 )
 SHAPED_CONFIG = CONFIG.with_name("bootstrap-shaped-grpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
+SUMMARIZER = ROOT / "scripts" / "summarize_procedural_harness_master_v1.py"
 
 
 def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
@@ -103,12 +104,14 @@ def test_admission_screen_is_disjoint_from_bootstrap_window() -> None:
 
 def test_bootstrap_launcher_fails_closed() -> None:
     launcher = LAUNCHER.read_text()
+    selector = SUMMARIZER.read_text()
 
     assert "untouched-admission-r4" in launcher
     assert "untouched-admission-r3" not in launcher
     assert "untouched-admission-r2" not in launcher
-    assert "admission must contain 48 error-free episodes" in launcher
-    assert "no non-direct informative hard or bootstrap comparison group" in launcher
+    assert "select_training_mode" in launcher
+    assert "admission must contain 48 error-free episodes" in selector
+    assert "no non-direct informative hard or bootstrap comparison group" in selector
     assert "bootstrap-shaped-grpo.toml" in launcher
     assert 'mode=${selection%%|*}' in launcher
     assert "refusing to launch while another GPU process is active" in launcher
