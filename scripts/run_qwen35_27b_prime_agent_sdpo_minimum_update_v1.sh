@@ -88,6 +88,9 @@ fi
 
 "${args[@]}"
 
+.venv/bin/python scripts/finalize_hf_processor_metadata.py \
+  "$model_snapshot" \
+  "$run_dir/weights/step_1"
 .venv/bin/python scripts/validate_prime_agent_sdpo_minimum_update_v1.py \
   "$run_dir" \
   --expected-revision "$model_revision" \

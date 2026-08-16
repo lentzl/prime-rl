@@ -149,6 +149,11 @@ def _validate_weights(run_dir: Path) -> Path:
     safetensors = [path for path in weights.rglob("*.safetensors") if path.is_file()]
     if not safetensors:
         raise UpdateFailure(f"minimum update weight snapshot has no safetensors: {weights}")
+    config = _read_json(weights / "config.json")
+    if config.get("vision_config"):
+        for name in ("preprocessor_config.json", "video_preprocessor_config.json"):
+            if not (weights / name).is_file():
+                raise UpdateFailure(f"multimodal weight snapshot lacks {name}: {weights}")
     checkpoint_files = (
         [path for path in (run_dir / "checkpoints").rglob("*") if path.is_file()]
         if (run_dir / "checkpoints").exists()

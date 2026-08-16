@@ -84,6 +84,14 @@ def _make_update_run(tmp_path: Path) -> tuple[Path, Path]:
     weights.mkdir(parents=True)
     (weights / "STABLE").touch()
     (weights / "model.safetensors").write_bytes(b"weights")
+    _write_json(
+        weights / "config.json",
+        {
+            "architectures": ["Qwen3_5ForConditionalGeneration"],
+            "model_type": "qwen3_5",
+            "vision_config": {},
+        },
+    )
     audit_report = tmp_path / "AUDIT.json"
     _write_json(
         audit_report,
@@ -141,6 +149,7 @@ def test_minimum_update_launcher_fails_closed() -> None:
     assert "--trainer.ckpt.weights-only true" in launcher
     assert "SDPO_MINIMUM_UPDATE_DRY_RUN" in launcher
     assert "validate_prime_agent_sdpo_minimum_update_v1.py" in launcher
+    assert "finalize_hf_processor_metadata.py" in launcher
     assert '--output "$run_dir/UPDATE.json"' in launcher
 
 
@@ -166,6 +175,7 @@ def test_validator_accepts_minimum_update_artifacts(tmp_path: Path, monkeypatch)
         ("optimizer_state", "trainer optimizer state"),
         ("missing_stable", "no stable weight snapshot"),
         ("wrong_lr", "learning rate must be"),
+        ("missing_processor_metadata", "lacks preprocessor_config.json"),
     ],
 )
 def test_validator_rejects_invalid_update_artifacts(
@@ -178,6 +188,11 @@ def test_validator_rejects_invalid_update_artifacts(
         state.write_bytes(b"state")
     elif mutation == "missing_stable":
         (run_dir / "weights" / "step_1" / "STABLE").unlink()
+    elif mutation == "missing_processor_metadata":
+        weights = run_dir / "weights" / "step_1"
+        config = json.loads((weights / "config.json").read_text())
+        config["vision_config"] = {"model_type": "qwen3_5_vision_encoder"}
+        _write_json(weights / "config.json", config)
     else:
         trainer_path = run_dir / "configs" / "trainer.json"
         trainer = json.loads(trainer_path.read_text())

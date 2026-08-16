@@ -32,10 +32,12 @@ done
 
 .venv/bin/ruff check \
   scripts/compare_prime_agent_teacher_candidate_v1.py \
+  scripts/finalize_hf_processor_metadata.py \
   scripts/summarize_prime_agent_mastery_v2.py \
   scripts/validate_prime_agent_sdpo_zero_lr_audit_v1.py \
   scripts/validate_prime_agent_sdpo_minimum_update_v1.py \
   tests/unit/test_compare_prime_agent_teacher_candidate_v1.py \
+  tests/unit/test_finalize_hf_processor_metadata.py \
   tests/unit/test_prime_agent_sdpo_audit.py \
   tests/unit/test_validate_prime_agent_sdpo_zero_lr_audit_v1.py \
   tests/unit/test_prime_agent_sdpo_minimum_update.py \
@@ -45,6 +47,7 @@ done
   tests/unit/test_summarize_prime_agent_mastery_v2.py
 .venv/bin/pytest -q \
   tests/unit/test_compare_prime_agent_teacher_candidate_v1.py \
+  tests/unit/test_finalize_hf_processor_metadata.py \
   tests/unit/test_prime_agent_sdpo_audit.py \
   tests/unit/test_validate_prime_agent_sdpo_zero_lr_audit_v1.py \
   tests/unit/test_prime_agent_sdpo_minimum_update.py \
@@ -101,6 +104,10 @@ if [[ ! -s "$update" ]]; then
     bash scripts/run_qwen35_27b_prime_agent_sdpo_minimum_update_v1.sh
   bash scripts/run_qwen35_27b_prime_agent_sdpo_minimum_update_v1.sh
 fi
+.venv/bin/python scripts/finalize_hf_processor_metadata.py \
+  "$(.venv/bin/python -c 'import json,sys; print(json.load(open(sys.argv[1]))["model"]["name"])' \
+    /ephemeral/outputs/qwen35-27b-prime-agent-sdpo-v1/minimum-update/configs/trainer.json)" \
+  "$weights"
 .venv/bin/python scripts/validate_prime_agent_sdpo_minimum_update_v1.py \
   "$(dirname "$update")" \
   --expected-revision "$revision" \
