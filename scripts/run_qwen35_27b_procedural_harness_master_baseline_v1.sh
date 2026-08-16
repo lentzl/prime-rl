@@ -48,8 +48,8 @@ for name in "${configs[@]}"; do
   "${args[@]}"
   trace_dirs+=("$output_root/$name")
   "$root/.venv/bin/python" scripts/summarize_procedural_harness_master_v1.py \
-    "$output_root/$name" --output "$output_root/$name/SUMMARY.json" >/dev/null
+    "$output_root/$name" --rescore --output "$output_root/$name/SUMMARY.json" >/dev/null
 done
 
 "$root/.venv/bin/python" scripts/summarize_procedural_harness_master_v1.py \
-  "${trace_dirs[@]}" --output "$output_root/SUMMARY.json"
+  "${trace_dirs[@]}" --rescore --output "$output_root/SUMMARY.json"

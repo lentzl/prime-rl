@@ -1,5 +1,6 @@
 import json
 
+import scripts.summarize_procedural_harness_master_v1 as summary_module
 from scripts.summarize_procedural_harness_master_v1 import summarize
 
 
@@ -32,6 +33,7 @@ def test_summarize_flattens_episode_envelopes(tmp_path) -> None:
 
     report = summarize([run])
 
+    assert report["rescored"] is False
     assert report["episodes"] == 2
     assert report["harness"] == {"episodes": 2, "passed": 1, "rate": 0.5}
     assert report["by_family"]["direct"]["rate"] == 1.0
@@ -59,6 +61,7 @@ def test_summarize_identifies_informative_grpo_groups(tmp_path) -> None:
 
     report = summarize([run])
 
+    assert report["rescored"] is False
     assert report["comparison_groups"] == {
         "groups": 2,
         "informative": 1,
@@ -67,3 +70,22 @@ def test_summarize_identifies_informative_grpo_groups(tmp_path) -> None:
     }
     assert report["by_family_groups"]["single"]["informative"] == 1
     assert report["by_family_groups"]["direct"]["all_pass"] == 1
+
+
+def test_summarize_uses_rescored_hard_gate_when_requested(tmp_path, monkeypatch) -> None:
+    run = tmp_path / "rescored"
+    run.mkdir()
+    (run / "traces.jsonl").write_text(
+        json.dumps({"id": "a", "traces": [_trace("single", 0.0)]}) + "\n"
+    )
+
+    def pass_trace(trace):
+        trace["rewards"]["harness_score"]["score"] = 1.0
+        return trace
+
+    monkeypatch.setattr(summary_module, "_rescore", pass_trace)
+
+    report = summarize([run], rescore=True)
+
+    assert report["rescored"] is True
+    assert report["harness"]["passed"] == 1

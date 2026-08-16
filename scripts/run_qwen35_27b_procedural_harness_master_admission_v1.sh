@@ -42,4 +42,5 @@ mkdir -p "$output_root"
 
 "$root/.venv/bin/python" scripts/summarize_procedural_harness_master_v1.py \
   "$output_root/train-admission" \
+  --rescore \
   --output "$output_root/train-admission/SUMMARY.json"

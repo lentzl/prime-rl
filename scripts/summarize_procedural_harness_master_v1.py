@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 from collections import defaultdict
 from pathlib import Path
@@ -30,8 +31,29 @@ def _score(trace: dict[str, Any], name: str, collection: str) -> float:
     return float(value) if isinstance(value, (int, float)) else 0.0
 
 
-def summarize(paths: list[Path]) -> dict[str, Any]:
+def _rescore(trace: dict[str, Any]) -> dict[str, Any]:
+    import verifiers.v1 as vf
+    from procedural_harness_master_v1.taskset import (
+        ProceduralHarnessMasterData,
+        _contract_behavior,
+    )
+
+    rescored = copy.deepcopy(trace)
+    data = ProceduralHarnessMasterData.model_validate(trace["task"]["data"])
+    behavior = _contract_behavior(vf.Trace.model_validate(trace), data)
+    rescored.setdefault("metrics", {}).update(behavior)
+    reward = rescored.setdefault("rewards", {}).setdefault("harness_score", {})
+    if isinstance(reward, dict):
+        reward["score"] = behavior["harness_score"]
+    else:
+        rescored["rewards"]["harness_score"] = behavior["harness_score"]
+    return rescored
+
+
+def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
     rows = [trace for path in paths for trace in _traces(path)]
+    if rescore:
+        rows = [_rescore(trace) for trace in rows]
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
     task_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
     task_families: dict[str, str] = {}
@@ -82,6 +104,7 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
         family_task_groups[task_families[task_key]].append(values)
 
     return {
+        "rescored": rescore,
         "episodes": len(rows),
         "harness": cohort(rows),
         "by_family": {family: cohort(values) for family, values in sorted(grouped.items())},
@@ -101,8 +124,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("paths", nargs="+", type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument("--rescore", action="store_true")
     args = parser.parse_args()
-    rendered = json.dumps(summarize(args.paths), indent=2, sort_keys=True)
+    rendered = json.dumps(summarize(args.paths, rescore=args.rescore), indent=2, sort_keys=True)
     if args.output:
         args.output.write_text(rendered + "\n")
     print(rendered)
