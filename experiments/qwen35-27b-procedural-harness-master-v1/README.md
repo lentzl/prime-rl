@@ -34,3 +34,10 @@ with eight on-policy attempts per fresh TRAIN-GEN task. The only reward is the
 conjunctive executable `harness_score`; homogeneous groups are rejected before
 training. The launcher refuses to start unless the admission screen contains
 at least one informative non-direct comparison group.
+
+`bootstrap-shaped-grpo.toml` is the fail-closed fallback when every delegated
+hard-reward group is homogeneous. It preserves the same full-weight run but adds
+at most `0.1 * bootstrap_progress`, where progress is multiplicative across exact
+answer, zero forbidden actions, required atoms, ordering, and cardinality. Any
+forbidden control action receives no shaping. This config may bootstrap policy
+variance, but only the hard VALID/OOD score can promote its checkpoints.

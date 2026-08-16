@@ -10,6 +10,7 @@ CONFIG = (
     / "qwen35-27b-procedural-harness-master-v1"
     / "bootstrap-grpo.toml"
 )
+SHAPED_CONFIG = CONFIG.with_name("bootstrap-shaped-grpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 
 
@@ -76,6 +77,17 @@ def test_bootstrap_uses_only_the_executable_environment_reward() -> None:
     assert "harness_contract" in taskset
     assert "sdpo" not in config.lower()
     assert "lora" not in config.lower()
+
+
+def test_constrained_bootstrap_is_isolated_from_hard_reward_run() -> None:
+    hard = cli(RLConfig, args=["@", str(CONFIG), "--dry-run"])
+    shaped = cli(RLConfig, args=["@", str(SHAPED_CONFIG), "--dry-run"])
+
+    assert hard.orchestrator.train.source[0].env.task.reward_mode == "hard"
+    assert shaped.orchestrator.train.source[0].env.task.reward_mode == "bootstrap"
+    assert shaped.run.name == "bootstrap-shaped-grpo"
+    assert shaped.trainer.model.lora is None
+    assert shaped.trainer.optim.lr == hard.trainer.optim.lr
 
 
 def test_admission_screen_is_disjoint_from_bootstrap_window() -> None:
