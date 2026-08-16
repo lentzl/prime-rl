@@ -24,6 +24,11 @@ if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
   exit 1
 fi
 
+# The base lock keeps FlashAttention optional; hydrate its pinned wheel without
+# removing editable task environments from an already prepared machine.
+uv sync --frozen --inexact --extra flash-attn >/dev/null
+.venv/bin/python -c "import prime_rl.trainer.model"
+
 selection=$(
   .venv/bin/python - "$admission_summary" <<'PY'
 import json
