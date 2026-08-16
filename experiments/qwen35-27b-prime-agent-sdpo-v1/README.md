@@ -114,3 +114,38 @@ following barrier.
 Run `scripts/probe_nccl_reduce_scatter.py` under `torchrun` before reusing this
 configuration on a different GPU topology. The launch defaults remain explicitly
 overridable through `NCCL_P2P_DISABLE` and `NCCL_SHM_DISABLE`.
+
+## First qualified nonzero update
+
+The first source-complete `1e-7` full-weight update from the untouched pinned 27B
+snapshot passed its mechanism and artifact validators. Its exact effective cohort
+contained four diagnostic SDPO traces, two each of coordinator, direct, single, and
+parallel retention, and four causal retention traces. The BF16 AdamW step processed
+21,791 RL tokens and 503 SDPO tokens with loss `0.0069`, mismatch KL `0.0002`,
+gradient norm `17.5`, and peak memory `42.5 GiB`. The resulting 51 GiB sharded
+checkpoint is valid method evidence.
+
+The checkpoint is not a teacher candidate. The unchanged 74-task mastery and
+12-task resilience gates classified it `BRANCH-REJECTED`. Direct behavior remained
+clean at 8/8 and Oolong remained 3/8. Single answer/protocol alignment improved from
+3/8 to 6/8, parallel answer accuracy from 2/8 to 3/8, and follow-up answer accuracy
+from 0/8 to 3/8. Those partial gains came with hard regressions: child and
+coordinator strict ownership each fell from 1/8 to 0/8, handshake answer/protocol
+alignment fell from 5/8 and 8/8 to 2/8 and 5/8, both child-result-delivery foundation
+tasks became unclean, and child-owned path leakage increased. Resilience remained
+0/12 strict. Mastery issue count rose from 51 to 55.
+
+Trace inspection showed a broader interventionist shift rather than corrupted
+weights. For example, a lost child-owned case copied the delegated path into
+coordinator code, while failed result-delivery cases introduced polling or API
+introspection after spawn. Because the comparison uses one temperature-0.4 sample
+per task, a paired 66-task non-Oolong replication was launched before selecting a
+new curriculum. The original frozen results remain authoritative; the replication
+estimates evaluation variance and cannot retroactively promote this branch.
+
+The first evaluation startup also exposed an export-completeness bug. Prime-RL's
+weights-only checkpoint included model and tokenizer files but omitted Qwen3.5's
+image/video processor metadata. `finalize_hf_processor_metadata.py` now copies the
+immutable processor files from the pinned source snapshot, constructs the local
+`AutoProcessor`, and runs before artifact validation. The validator rejects any
+future multimodal checkpoint without both processor configurations.
