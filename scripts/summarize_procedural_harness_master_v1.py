@@ -13,7 +13,14 @@ def _traces(path: Path) -> list[dict[str, Any]]:
     trace_file = path / "traces.jsonl" if path.is_dir() else path
     if not trace_file.is_file():
         raise ValueError(f"missing traces: {trace_file}")
-    return [json.loads(line) for line in trace_file.read_text().splitlines() if line.strip()]
+    traces = []
+    for line in trace_file.read_text().splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        nested = record.get("traces")
+        traces.extend(nested if isinstance(nested, list) else [record])
+    return traces
 
 
 def _score(trace: dict[str, Any], name: str, collection: str) -> float:
