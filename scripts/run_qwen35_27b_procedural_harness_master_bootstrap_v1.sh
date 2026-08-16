@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-config=${PROCEDURAL_HARNESS_TRAIN_CONFIG:-$root/experiments/qwen35-27b-procedural-harness-master-v1/bootstrap-grpo.toml}
+experiment=$root/experiments/qwen35-27b-procedural-harness-master-v1
 admission_summary=${PROCEDURAL_HARNESS_ADMISSION_SUMMARY:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1/untouched-admission-r4/train-admission/SUMMARY.json}
 model_revision=${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}
 
@@ -14,10 +14,6 @@ if [[ ! -x .venv/bin/rl || ! -x .venv/bin/inference || ! -x .venv/bin/env-server
   echo "Prime-RL training executables are missing" >&2
   exit 1
 fi
-if [[ ! -f "$config" ]]; then
-  echo "procedural training config does not exist: $config" >&2
-  exit 1
-fi
 if [[ ! -f "$admission_summary" ]]; then
   echo "procedural admission summary does not exist: $admission_summary" >&2
   exit 1
@@ -27,23 +23,46 @@ if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
   exit 1
 fi
 
-admitted_families=$(
+selection=$(
   .venv/bin/python - "$admission_summary" <<'PY'
 import json
 import sys
 
-report = json.load(open(sys.argv[1]))
-families = sorted(
-    family
-    for family, values in report.get("by_family_groups", {}).items()
-    if family != "direct" and values.get("informative", 0) > 0
-)
-if not families:
-    raise SystemExit("no non-direct informative hard-reward comparison group")
-print(",".join(families))
+from scripts.summarize_procedural_harness_master_v1 import select_training_mode
+
+with open(sys.argv[1]) as handle:
+    report = json.load(handle)
+try:
+    mode, families = select_training_mode(report)
+except ValueError as error:
+    raise SystemExit(str(error)) from error
+print(mode + "|" + ",".join(families))
 PY
 )
-printf 'admitted hard-reward families: %s\n' "$admitted_families"
+mode=${selection%%|*}
+admitted_families=${selection#*|}
+if [[ "$mode" == hard ]]; then
+  default_config=$experiment/bootstrap-grpo.toml
+else
+  default_config=$experiment/bootstrap-shaped-grpo.toml
+fi
+config=${PROCEDURAL_HARNESS_TRAIN_CONFIG:-$default_config}
+if [[ ! -f "$config" ]]; then
+  echo "procedural training config does not exist: $config" >&2
+  exit 1
+fi
+.venv/bin/python - "$config" "$mode" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as handle:
+    config = tomllib.load(handle)
+actual = config["orchestrator"]["train"]["source"][0]["env"]["taskset"]["task"]["reward_mode"]
+expected = "hard" if sys.argv[2] == "hard" else "bootstrap"
+if actual != expected:
+    raise SystemExit(f"selected {expected} reward but config uses {actual}")
+PY
+printf 'selected %s reward from admission; informative families: %s\n' "$mode" "$admitted_families"
 
 for package in subagent_communication_v1 procedural_harness_master_v1; do
   uv pip install --python "$root/.venv/bin/python" --no-deps --editable \

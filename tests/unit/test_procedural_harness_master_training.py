@@ -107,7 +107,10 @@ def test_bootstrap_launcher_fails_closed() -> None:
     assert "untouched-admission-r4" in launcher
     assert "untouched-admission-r3" not in launcher
     assert "untouched-admission-r2" not in launcher
-    assert "no non-direct informative hard-reward comparison group" in launcher
+    assert "admission must contain 48 error-free episodes" in launcher
+    assert "no non-direct informative hard or bootstrap comparison group" in launcher
+    assert "bootstrap-shaped-grpo.toml" in launcher
+    assert 'mode=${selection%%|*}' in launcher
     assert "refusing to launch while another GPU process is active" in launcher
     assert "Qwen/Qwen3.5-27B" in launcher
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher

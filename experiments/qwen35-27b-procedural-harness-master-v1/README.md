@@ -41,3 +41,8 @@ at most `0.1 * bootstrap_progress`, where progress is multiplicative across exac
 answer, zero forbidden actions, required atoms, ordering, and cardinality. Any
 forbidden control action receives no shaping. This config may bootstrap policy
 variance, but only the hard VALID/OOD score can promote its checkpoints.
+The shared launcher requires a complete, rescored, error-free admission and
+automatically selects hard reward when any delegated group has hard-gate
+variance. It selects constrained shaping only when the hard groups are
+homogeneous and at least one delegated group has measured bootstrap-progress
+variance.

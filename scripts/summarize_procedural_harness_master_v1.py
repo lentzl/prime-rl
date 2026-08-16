@@ -9,6 +9,8 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
+ADMISSION_FAMILIES = {"direct", "single", "parallel", "mixed", "followup", "verify"}
+
 
 def _traces(path: Path) -> list[dict[str, Any]]:
     trace_file = path / "traces.jsonl" if path.is_dir() else path
@@ -77,6 +79,7 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
             "ordering_satisfied",
             "cardinality_exact",
             "required_atoms_fraction",
+            "bootstrap_progress",
         ):
             diagnostics[key] += _score(trace, key, "metrics")
 
@@ -99,6 +102,22 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
             "all_fail": sum(passed == 0 for passed in pass_counts),
         }
 
+    def progress_groups(groups: list[list[dict[str, Any]]]) -> dict[str, int]:
+        scores = [
+            [_score(trace, "bootstrap_progress", "metrics") for trace in values]
+            for values in groups
+        ]
+        informative = [
+            any(abs(value - values[0]) > 1e-12 for value in values[1:])
+            for values in scores
+        ]
+        return {
+            "groups": len(groups),
+            "informative": sum(informative),
+            "homogeneous": len(groups) - sum(informative),
+            "all_zero": sum(all(value == 0.0 for value in values) for values in scores),
+        }
+
     family_task_groups: dict[str, list[list[dict[str, Any]]]] = defaultdict(list)
     for task_key, values in task_groups.items():
         family_task_groups[task_families[task_key]].append(values)
@@ -113,11 +132,53 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
             family: comparison_groups(values)
             for family, values in sorted(family_task_groups.items())
         },
+        "bootstrap_comparison_groups": progress_groups(list(task_groups.values())),
+        "by_family_bootstrap_groups": {
+            family: progress_groups(values)
+            for family, values in sorted(family_task_groups.items())
+        },
         "diagnostic_means": {
             key: value / len(rows) if rows else 0.0 for key, value in sorted(diagnostics.items())
         },
         "errors": sum(bool(trace.get("error") or trace.get("errors")) for trace in rows),
     }
+
+
+def select_training_mode(report: dict[str, Any]) -> tuple[str, list[str]]:
+    """Choose the strongest reward with measured within-group policy signal."""
+    by_family = report.get("by_family", {})
+    hard_groups = report.get("by_family_groups", {})
+    bootstrap_groups = report.get("by_family_bootstrap_groups", {})
+    if not report.get("rescored"):
+        raise ValueError("admission summary must be generated with --rescore")
+    if report.get("episodes") != 48 or report.get("errors") != 0:
+        raise ValueError("admission must contain 48 error-free episodes")
+    if set(by_family) != ADMISSION_FAMILIES:
+        raise ValueError("admission summary does not contain exactly the six expected families")
+    for family in sorted(ADMISSION_FAMILIES):
+        if by_family[family].get("episodes") != 8:
+            raise ValueError(f"admission family {family} does not contain eight rollouts")
+        if hard_groups.get(family, {}).get("groups") != 1:
+            raise ValueError(f"admission family {family} is not one comparison group")
+        if bootstrap_groups.get(family, {}).get("groups") != 1:
+            raise ValueError(f"admission family {family} lacks bootstrap diagnostics")
+
+    hard_families = sorted(
+        family
+        for family, values in hard_groups.items()
+        if family != "direct" and values.get("informative", 0) > 0
+    )
+    if hard_families:
+        return "hard", hard_families
+
+    bootstrap_families = sorted(
+        family
+        for family, values in bootstrap_groups.items()
+        if family != "direct" and values.get("informative", 0) > 0
+    )
+    if not bootstrap_families:
+        raise ValueError("no non-direct informative hard or bootstrap comparison group")
+    return "bootstrap", bootstrap_families
 
 
 def main() -> None:
