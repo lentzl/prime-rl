@@ -43,6 +43,18 @@ now emit the forbidden `poll` atom and prevent both initial and post-follow-up
 waits from being classified as harness-native yield. Runs used for optimization
 must use `207c0d5b` or later.
 
+Verifier revision `073c224b` resolves Python aliases before classifying calls.
+The sleep-fixed launch exposed this through
+`from agent_message import list_agents` followed by `await list_agents()` in a
+later persistent IPython cell. The unqualified call escaped the literal
+`agent_message.list_agents` check and incorrectly received bootstrap reward.
+The launch was stopped at batch 0/16 with no optimizer step or checkpoint and
+is not evidence. The verifier now carries import, `from`-import, `as`, and
+simple assignment aliases across coordinator cells. Replaying the exact live
+trace changes its no-forbidden-actions gate from one to zero and its bootstrap
+reward from `0.017857` to zero. Runs used for optimization must use `073c224b`
+or later.
+
 The initial baseline uses 24 episodes per split. That covers each VALID family
 four times and each OOD family three times while keeping time-to-first signal
 short. Later promotion evaluations can increase `count` without changing split
