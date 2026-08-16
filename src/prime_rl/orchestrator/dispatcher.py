@@ -219,6 +219,13 @@ class RolloutDispatcher:
         if self.train_rollouts_per_policy is not None:
             self.train_rollouts_scheduled = max(0, self.train_rollouts_scheduled - count)
 
+    def mark_train_sources_satisfied(self, env_names: set[str]) -> None:
+        """Drop queued minimum and replacement groups for sources whose batch quota is met."""
+        if not env_names:
+            return
+        self.minimum_train_envs = deque(env for env in self.minimum_train_envs if env not in env_names)
+        self.replacement_train_envs = deque(env for env in self.replacement_train_envs if env not in env_names)
+
     def _minimum_source_groups(self) -> list[str]:
         groups: list[str] = []
         for env_name, minimum in self.train_source_minimums.items():

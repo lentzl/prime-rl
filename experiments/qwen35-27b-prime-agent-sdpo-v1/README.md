@@ -69,6 +69,16 @@ tokens and effective traces stay one-to-one. The audit declares its complete fix
 allocation (4 diagnostic, 2 each ordinary retention source, and 4 causal) rather
 than relying on ratios to approximate it.
 
+The first runtime of that allocation was stopped before its backward pass after it
+revealed a second accounting edge. A source could reach its quota while replacements
+requested by earlier filtered groups were still queued or in flight; those valid but
+now-superfluous rollouts could exhaust the synchronous scheduler budget before a
+different missing source ran. TrainSink now reports satisfied sources so Dispatcher
+can remove stale queued work. If a nominally full buffer still lacks a quota, the sink
+reopens only enough slots for one fresh group from that source. Focused replacement
+requests remain bounded while already-running trajectories are retained as observable
+overflow rather than silently discarded.
+
 ## PCIe-only runtime qualification
 
 The experiment launchers keep NCCL P2P disabled but enable SHM by default. This

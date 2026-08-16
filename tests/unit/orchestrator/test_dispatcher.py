@@ -49,6 +49,17 @@ def test_return_train_rollout_slots_rejects_negative_count():
         dispatcher.return_train_rollout_slots(-1)
 
 
+def test_satisfied_source_removes_queued_minimum_and_replacement_groups():
+    dispatcher = _dispatcher(scheduled=12)
+    dispatcher.minimum_train_envs.extend(["direct", "parallel", "direct"])
+    dispatcher.replacement_train_envs.extend(["causal", "direct"])
+
+    dispatcher.mark_train_sources_satisfied({"direct"})
+
+    assert list(dispatcher.minimum_train_envs) == ["parallel"]
+    assert list(dispatcher.replacement_train_envs) == ["causal"]
+
+
 def test_open_train_group_can_finish_after_budget_is_exhausted():
     dispatcher = _dispatcher(scheduled=16)
     dispatcher.groups[uuid.uuid4()] = GroupState(
@@ -94,6 +105,7 @@ def test_fill_inflight_finishes_open_group_after_budget_is_exhausted():
 
 def test_train_sink_records_only_batch_admission_deficit():
     sink = object.__new__(TrainSink)
+    sink.batch_source_minimums = {}
     sink.train_rollout_replacements = 0
     sink.train_rollout_replacement_envs = []
 
@@ -102,6 +114,39 @@ def test_train_sink_records_only_batch_admission_deficit():
 
     assert sink.take_train_rollout_replacements() == (1, ["parallel"])
     assert sink.take_train_rollout_replacements() == (0, [])
+
+
+def test_full_batch_reopens_only_missing_source_quota_once():
+    sink = object.__new__(TrainSink)
+    sink.batch_source_minimums = {"coordinator": 2, "causal": 4}
+    sink.pending_batch = [SimpleNamespace(env_name="causal") for _ in range(16)]
+    sink.train_rollout_replacements = 0
+    sink.train_rollout_replacement_envs = []
+    sink.source_replacements_outstanding = set()
+    sink.train_envs = SimpleNamespace(
+        get=lambda env_name: SimpleNamespace(config=SimpleNamespace(group_size=2))
+    )
+
+    sink.record_missing_source_minimum_replacements()
+    sink.record_missing_source_minimum_replacements()
+
+    assert sink.take_train_rollout_replacements() == (2, ["coordinator"])
+    assert sink.source_replacements_outstanding == {"coordinator"}
+
+
+def test_met_source_quota_suppresses_stale_group_replacement():
+    sink = object.__new__(TrainSink)
+    sink.batch_source_minimums = {"causal": 4}
+    sink.pending_batch = [SimpleNamespace(env_name="causal") for _ in range(4)]
+    sink.train_rollout_replacements = 0
+    sink.train_rollout_replacement_envs = []
+    sink.source_replacements_outstanding = {"causal"}
+    sink.satisfied_train_sources = set()
+
+    sink.record_batch_admission(env_name="causal", expected_rollouts=2, admitted_rollouts=1)
+
+    assert sink.take_train_rollout_replacements() == (0, [])
+    assert sink.take_satisfied_train_sources() == {"causal"}
 
 
 def test_replacement_group_uses_the_source_that_lost_admission():

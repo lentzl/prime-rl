@@ -98,6 +98,8 @@ class TrainSink:
         # admitted fewer rollouts than their episode count.
         self.train_rollout_replacements = 0
         self.train_rollout_replacement_envs: list[str] = []
+        self.source_replacements_outstanding: set[str] = set()
+        self.satisfied_train_sources: set[str] = set()
 
     def group_size_for(self, env_name: str) -> int:
         return self.train_envs.get(env_name).config.group_size
@@ -151,8 +153,10 @@ class TrainSink:
             if self.batch_size is not None
             else self.pending_tokens >= (self.token_batch_size or 0)
         )
-        if ready and self.source_minimums_met():
-            return self.process_batch()
+        if ready:
+            if self.source_minimums_met():
+                return self.process_batch()
+            self.record_missing_source_minimum_replacements()
         return None
 
     async def process_rollout(self, rollout: Rollout) -> None:
@@ -188,6 +192,7 @@ class TrainSink:
         for r in group:
             self.pending_rollouts.append(r)
         env_name = group[0].env_name
+        self.source_replacements_outstanding.discard(env_name)
         task_idx = group[0].task.data.idx
         survivors = [r for r in group if not r.has_error]
         num_errored = len(group) - len(survivors)
@@ -339,9 +344,37 @@ class TrainSink:
     ) -> None:
         """Record the episode-to-batch deficit of one finalized group."""
         deficit = max(0, expected_rollouts - admitted_rollouts)
+        minimum = self.batch_source_minimums.get(env_name)
+        if minimum is not None:
+            admitted = self.pending_batch_by_env().get(env_name, 0)
+            if admitted >= minimum:
+                self.satisfied_train_sources.add(env_name)
+                return
+            if deficit and env_name not in self.source_replacements_outstanding:
+                self.train_rollout_replacements += min(deficit, minimum - admitted)
+                self.train_rollout_replacement_envs.append(env_name)
+                self.source_replacements_outstanding.add(env_name)
+            return
         self.train_rollout_replacements += deficit
         if deficit:
             self.train_rollout_replacement_envs.append(env_name)
+
+    def record_missing_source_minimum_replacements(self) -> None:
+        """Reopen synchronous slots when a full buffer still lacks a required source."""
+        counts = self.pending_batch_by_env()
+        for env_name, minimum in self.batch_source_minimums.items():
+            missing = minimum - counts.get(env_name, 0)
+            if missing <= 0 or env_name in self.source_replacements_outstanding:
+                continue
+            group_size = self.group_size_for(env_name)
+            self.train_rollout_replacements += min(missing, group_size)
+            self.train_rollout_replacement_envs.append(env_name)
+            self.source_replacements_outstanding.add(env_name)
+
+    def take_satisfied_train_sources(self) -> set[str]:
+        env_names = self.satisfied_train_sources
+        self.satisfied_train_sources = set()
+        return env_names
 
     def take_train_rollout_replacements(self) -> tuple[int, list[str]]:
         """Return and clear scheduler slots and source-specific replacement groups."""

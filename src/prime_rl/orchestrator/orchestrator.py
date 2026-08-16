@@ -560,6 +560,7 @@ class Orchestrator:
                 continue
 
             train_batch = await self.train_sink.add(episode)
+            self.dispatcher.mark_train_sources_satisfied(self.train_sink.take_satisfied_train_sources())
             replacements, replacement_envs = self.train_sink.take_train_rollout_replacements()
             if train_batch is None and replacements:
                 self.dispatcher.return_train_rollout_slots(replacements, replacement_envs)
