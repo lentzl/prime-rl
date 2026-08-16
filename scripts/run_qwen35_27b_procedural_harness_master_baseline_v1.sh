@@ -16,8 +16,10 @@ if [[ -z "$uv_bin" ]]; then
   echo "uv executable not found" >&2
   exit 1
 fi
-"$uv_bin" pip install --python "$root/.venv/bin/python" --no-deps --editable \
-  "$root/deps/verifiers/environments/procedural_harness_master_v1" >/dev/null
+for package in subagent_communication_v1 procedural_harness_master_v1; do
+  "$uv_bin" pip install --python "$root/.venv/bin/python" --no-deps --editable \
+    "$root/deps/verifiers/environments/$package" >/dev/null
+done
 mkdir -p "$output_root"
 {
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"
