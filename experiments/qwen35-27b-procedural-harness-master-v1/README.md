@@ -23,6 +23,15 @@ invalid for promotion or further training. Its raw checkpoint is retained only
 as a diagnostic artifact. All admission and training selection must be
 rescored or rerun on `4f8293ac` or later.
 
+Verifier revision `528e064d` repairs two additional natural-trajectory
+classifications found before the corrected launch produced an optimizer step.
+An awaited `agent_message.send(...)` remains successful when a later print in
+the same cell hides the send result, provided the cell has no traceback. A
+child request such as "Please provide the multiplier" is also equivalent to
+the generator's canonical "need multiplier" message. Replaying the observed
+trajectory on this revision changes it from partial shaping to a full hard-gate
+success. Runs used for optimization must use `528e064d` or later.
+
 The initial baseline uses 24 episodes per split. That covers each VALID family
 four times and each OOD family three times while keeping time-to-first signal
 short. Later promotion evaluations can increase `count` without changing split
