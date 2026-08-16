@@ -159,6 +159,8 @@ exclude = [
     # This package requires released verifiers>=0.2.0, while this branch pins
     # the vendored official-stack development revision.
     "deps/prime-envs/environments/math/aime24",
+    "deps/prime-envs/environments/math/aime25",
+    "deps/prime-envs/environments/math/aime26",
     "deps/prime-envs/environments/tool_use/tau2_synth",
     "deps/prime-envs/environments/tool_use/tau3_bench",
 ]
