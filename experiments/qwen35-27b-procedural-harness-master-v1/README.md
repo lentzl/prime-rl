@@ -12,6 +12,17 @@ including booleans, and verification prompts state that the digest is evidence
 rather than the final computed result. Admission and promotion evidence from the
 older generator is not reused.
 
+Verifier revision `4f8293ac` also closes a bootstrap-reward loophole found in
+the first full-weight launch. Calls to `agent_message.list_messages`,
+`agent_message.list_agents`, `agent_message.recv`, and `rlm.list_subagents`
+were already treated as polling positions for yield/order detection, but were
+marked only as child discovery rather than the contract's forbidden `poll`
+atom. Two live trajectories therefore received shaped reward for explicitly
+polling after spawn. The launch was stopped after one optimizer step and is
+invalid for promotion or further training. Its raw checkpoint is retained only
+as a diagnostic artifact. All admission and training selection must be
+rescored or rerun on `4f8293ac` or later.
+
 The initial baseline uses 24 episodes per split. That covers each VALID family
 four times and each OOD family three times while keeping time-to-first signal
 short. Later promotion evaluations can increase `count` without changing split
