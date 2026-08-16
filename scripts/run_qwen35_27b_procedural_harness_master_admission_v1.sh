@@ -12,6 +12,9 @@ client_base_url=${EVAL_CLIENT_BASE_URL:-http://127.0.0.1:8100/v1}
 
 cd "$root"
 uv_bin=${UV_BIN:-$(command -v uv || true)}
+if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
+  uv_bin="$HOME/.local/bin/uv"
+fi
 if [[ -z "$uv_bin" ]]; then
   echo "uv executable not found" >&2
   exit 1

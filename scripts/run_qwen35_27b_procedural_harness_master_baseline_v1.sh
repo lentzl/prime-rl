@@ -12,6 +12,9 @@ configs=(valid-baseline ood-baseline)
 
 cd "$root"
 uv_bin=${UV_BIN:-$(command -v uv || true)}
+if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
+  uv_bin="$HOME/.local/bin/uv"
+fi
 if [[ -z "$uv_bin" ]]; then
   echo "uv executable not found" >&2
   exit 1

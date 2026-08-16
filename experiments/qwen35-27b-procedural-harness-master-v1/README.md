@@ -21,3 +21,10 @@ is to measure whether the untouched policy supplies at least one hard-gate
 success and one failure in a GRPO comparison group. Families with homogeneous
 groups carry no hard-reward policy-gradient signal and must not silently enter
 the first optimization batch.
+
+`bootstrap-grpo.toml` is the first benchmark-directed weight update. It uses
+four synchronous full-weight BF16 AdamW steps from the untouched pinned 27B,
+with eight on-policy attempts per fresh TRAIN-GEN task. The only reward is the
+conjunctive executable `harness_score`; homogeneous groups are rejected before
+training. The launcher refuses to start unless the admission screen contains
+at least one informative non-direct comparison group.
