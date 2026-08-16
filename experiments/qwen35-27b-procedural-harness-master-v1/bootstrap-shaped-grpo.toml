@@ -63,9 +63,9 @@ save_format = "safetensors"
 
 [orchestrator]
 batch_size = 16
-group_size = 16
+group_size = 8
 max_inflight_episodes = 8
-oversampling_factor = 3.0
+oversampling_factor = 0.5
 max_off_policy_steps = 0
 
 [orchestrator.algo]
@@ -105,7 +105,7 @@ return_token_ids = true
 [[orchestrator.train.source]]
 name = "procedural-harness-master-bootstrap"
 ratio = 1.0
-group_size = 16
+group_size = 8
 
 [orchestrator.train.source.algo]
 type = "grpo"

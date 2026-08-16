@@ -56,7 +56,7 @@ the first optimization batch.
 
 `bootstrap-grpo.toml` is the first benchmark-directed weight update. It uses
 four synchronous full-weight BF16 AdamW steps from the untouched pinned 27B,
-with sixteen on-policy attempts per fresh TRAIN-GEN task. The only reward is the
+with eight on-policy attempts per fresh TRAIN-GEN task. The only reward is the
 conjunctive executable `harness_score`; homogeneous groups are rejected before
 training. The launcher refuses to start unless the admission screen contains
 at least one informative non-direct comparison group.
@@ -75,18 +75,16 @@ variance. For the first update it narrows the generated training stream to the
 families that demonstrated within-group signal; promotion still evaluates all
 families on the frozen broad splits.
 
-The first launch on the repaired natural-message verifier used eight-sibling
-groups and `oversampling_factor=0.5`. It produced two complete homogeneous-zero
-groups before entering its third and final allowed group. At that point a
-16-sample optimizer batch was mathematically unreachable even if the final
-group contained a clean trajectory, because one varied eight-sibling group can
-contribute only eight trainable samples. The run was stopped before an optimizer
-step and is not evidence. Both bootstrap configs now use one sixteen-sibling
-group per optimizer batch and allow up to four groups through
-`oversampling_factor=3.0`. Eight episodes remain concurrently active to respect
-the two-GPU recursive inference envelope. This changes only on-policy search
-geometry: the reward, frozen admission evidence, task family selector, and
-promotion gates remain unchanged.
+The first launch on the repaired natural-message verifier was stopped after two
+homogeneous-zero groups because `oversampling_factor=0.5` was mistakenly read as
+a finite allowance of 24 raw rollouts. In Prime-RL it only derives the eight
+in-flight episode permits. When the enforced zero-advantage filter rejects a
+group, `TrainSink` reports its admission deficit and `RolloutDispatcher` returns
+those slots to the synchronous policy budget, prioritizing a fresh replacement
+group from the same source. Sampling can therefore continue until two varied
+eight-sibling groups fill the 16-rollout optimizer batch. The stopped run
+produced no optimizer step and is not evidence. The bootstrap configs retain
+eight active episodes to respect the two-GPU recursive inference envelope.
 
 Inference reserves 80% of each of its two L40S GPUs. This leaves room for the
 largest full-weight NCCL staging bucket while retaining enough KV cache for the
