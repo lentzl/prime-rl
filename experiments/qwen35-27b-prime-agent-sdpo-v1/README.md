@@ -87,6 +87,20 @@ an already-open group: it may open that bounded group after the nominal policy b
 is exhausted. Ordinary weighted work remains capped, while a rejected source cannot
 be permanently starved by unrelated overflow.
 
+## Qualified zero-LR audit
+
+The first source-complete audit on commit `6ddefc170` passed. Its effective cohort
+matched the declared 4/2/2/2/2/4 source allocation exactly and included both causal
+families. The full-weight BF16 step completed with loss `0.0066686`, SDPO loss
+`0.2775186`, mismatch KL `0.0002`, gradient norm `8.5`, and peak memory `43.0 GiB`.
+The trainer exported 19,252 RL tokens and 294 SDPO tokens across 45 branch samples.
+Validation reconstructed every effective Verifiers trace one-to-one: four coordinator
+samples received causal SDPO, three child samples received zero SDPO, and 38 retention
+samples received RL without CE, reference-KL, or SDPO leakage. No model artifact was
+written because the learning rate was zero. This report is the prerequisite for the
+fresh `1e-7` full-weight candidate update; it is mechanism evidence, not a capability
+claim.
+
 ## PCIe-only runtime qualification
 
 The experiment launchers keep NCCL P2P disabled but enable SHM by default. This
