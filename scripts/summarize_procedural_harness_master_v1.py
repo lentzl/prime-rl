@@ -33,10 +33,21 @@ def _score(trace: dict[str, Any], name: str, collection: str) -> float:
 def summarize(paths: list[Path]) -> dict[str, Any]:
     rows = [trace for path in paths for trace in _traces(path)]
     grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    task_groups: dict[str, list[dict[str, Any]]] = defaultdict(list)
+    task_families: dict[str, str] = {}
     diagnostics = defaultdict(float)
     for trace in rows:
         data = trace.get("task", {}).get("data", {})
-        grouped[str(data.get("family", "unknown"))].append(trace)
+        family = str(data.get("family", "unknown"))
+        task_key = str(
+            data.get("episode_id")
+            or trace.get("task", {}).get("key")
+            or trace.get("task", {}).get("hash")
+            or trace.get("id")
+        )
+        grouped[family].append(trace)
+        task_groups[task_key].append(trace)
+        task_families[task_key] = family
         for key in (
             "final_answer_exact",
             "all_required_atoms",
@@ -51,10 +62,34 @@ def summarize(paths: list[Path]) -> dict[str, Any]:
         passed = sum(_score(trace, "harness_score", "rewards") == 1.0 for trace in values)
         return {"episodes": len(values), "passed": passed, "rate": passed / len(values) if values else 0.0}
 
+    def comparison_groups(groups: list[list[dict[str, Any]]]) -> dict[str, int]:
+        pass_counts = [cohort(values)["passed"] for values in groups]
+        return {
+            "groups": len(groups),
+            "informative": sum(
+                0 < passed < len(values)
+                for passed, values in zip(pass_counts, groups)
+            ),
+            "all_pass": sum(
+                passed == len(values)
+                for passed, values in zip(pass_counts, groups)
+            ),
+            "all_fail": sum(passed == 0 for passed in pass_counts),
+        }
+
+    family_task_groups: dict[str, list[list[dict[str, Any]]]] = defaultdict(list)
+    for task_key, values in task_groups.items():
+        family_task_groups[task_families[task_key]].append(values)
+
     return {
         "episodes": len(rows),
         "harness": cohort(rows),
         "by_family": {family: cohort(values) for family, values in sorted(grouped.items())},
+        "comparison_groups": comparison_groups(list(task_groups.values())),
+        "by_family_groups": {
+            family: comparison_groups(values)
+            for family, values in sorted(family_task_groups.items())
+        },
         "diagnostic_means": {
             key: value / len(rows) if rows else 0.0 for key, value in sorted(diagnostics.items())
         },

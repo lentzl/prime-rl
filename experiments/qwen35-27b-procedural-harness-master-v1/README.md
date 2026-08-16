@@ -14,3 +14,10 @@ indices or the generator seed.
 The primary reward is `harness_score`, a hard conjunction of exact answer,
 required atoms, forbidden-atom absence, ordering, and cardinality. Dense metrics
 exist only to diagnose why the hard gate failed.
+
+`train-admission.toml` samples eight independent rollouts for one fresh
+TRAIN-GEN task from each V1 family. It is not an evaluation split. Its purpose
+is to measure whether the untouched policy supplies at least one hard-gate
+success and one failure in a GRPO comparison group. Families with homogeneous
+groups carry no hard-reward policy-gradient signal and must not silently enter
+the first optimization batch.
