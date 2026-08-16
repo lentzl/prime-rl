@@ -53,5 +53,6 @@ The launcher disables FlashInfer sampling JIT because the retained Prime host
 ships CUDA runtime libraries but no `nvcc`; vLLM then uses its prebuilt sampling
 path for integrated training inference.
 It also hydrates Prime-RL's lock-pinned `flash-attn` extra with `--inexact` and
-imports the trainer before launch, so a fresh runtime-only CUDA host does not
-fail after admission merely because the optional prebuilt wheel was omitted.
+restores the pinned Prime router wheel when absent. It imports the trainer before
+launch, so a fresh runtime-only CUDA host does not fail after admission merely
+because optional prebuilt wheels were omitted.

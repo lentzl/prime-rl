@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 experiment=$root/experiments/qwen35-27b-procedural-harness-master-v1
-admission_summary=${PROCEDURAL_HARNESS_ADMISSION_SUMMARY:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1/untouched-admission-r4/train-admission/SUMMARY.json}
+admission_summary=${PROCEDURAL_HARNESS_ADMISSION_SUMMARY:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1/untouched-admission-r5/train-admission/SUMMARY.json}
 model_revision=${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}
 
 cd "$root"
@@ -27,6 +27,11 @@ fi
 # The base lock keeps FlashAttention optional; hydrate its pinned wheel without
 # removing editable task environments from an already prepared machine.
 uv sync --frozen --inexact --extra flash-attn >/dev/null
+if [[ ! -x .venv/bin/vllm-router ]]; then
+  uv pip install --python "$root/.venv/bin/python" --no-deps \
+    "vllm-router @ https://github.com/PrimeIntellect-ai/router/releases/download/v0.2.0/vllm_router-0.2.0-cp38-abi3-manylinux_2_28_x86_64.whl" \
+    >/dev/null
+fi
 .venv/bin/python -c "import prime_rl.trainer.model"
 
 selection=$(

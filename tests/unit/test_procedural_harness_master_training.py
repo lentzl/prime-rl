@@ -106,7 +106,8 @@ def test_bootstrap_launcher_fails_closed() -> None:
     launcher = LAUNCHER.read_text()
     selector = SUMMARIZER.read_text()
 
-    assert "untouched-admission-r4" in launcher
+    assert "untouched-admission-r5" in launcher
+    assert "untouched-admission-r4" not in launcher
     assert "untouched-admission-r3" not in launcher
     assert "untouched-admission-r2" not in launcher
     assert "select_training_mode" in launcher
@@ -122,6 +123,7 @@ def test_bootstrap_launcher_fails_closed() -> None:
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher
     assert "VLLM_USE_FLASHINFER_SAMPLER" in launcher
     assert "uv sync --frozen --inexact --extra flash-attn" in launcher
+    assert "vllm_router-0.2.0-cp38-abi3-manylinux_2_28_x86_64.whl" in launcher
     assert 'python -c "import prime_rl.trainer.model"' in launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in launcher
     assert "PROCEDURAL_HARNESS_TRAIN_DRY_RUN" in launcher
