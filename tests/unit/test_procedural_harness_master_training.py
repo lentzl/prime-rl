@@ -114,6 +114,9 @@ def test_bootstrap_launcher_fails_closed() -> None:
     assert "no non-direct informative hard or bootstrap comparison group" in selector
     assert "bootstrap-shaped-grpo.toml" in launcher
     assert 'mode=${selection%%|*}' in launcher
+    assert 'config=$resolved_config' in launcher
+    assert 'families = sys.argv[3].split(",")' in launcher
+    assert 'r"^families = \\[.*\\]$"' in launcher
     assert "refusing to launch while another GPU process is active" in launcher
     assert "Qwen/Qwen3.5-27B" in launcher
     assert "fc05daec18b0a78c049392ed2e771dde82bdf654" in launcher

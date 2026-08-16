@@ -65,6 +65,29 @@ if actual != expected:
 PY
 printf 'selected %s reward from admission; informative families: %s\n' "$mode" "$admitted_families"
 
+resolved_config=$(mktemp --suffix=.toml)
+trap 'rm -f "$resolved_config"' EXIT
+.venv/bin/python - "$config" "$resolved_config" "$admitted_families" <<'PY'
+import json
+import re
+import sys
+from pathlib import Path
+
+source = Path(sys.argv[1]).read_text()
+families = sys.argv[3].split(",")
+rendered, replacements = re.subn(
+    r"^families = \[.*\]$",
+    "families = " + json.dumps(families),
+    source,
+    count=1,
+    flags=re.MULTILINE,
+)
+if replacements != 1:
+    raise SystemExit("procedural training config must contain one families list")
+Path(sys.argv[2]).write_text(rendered)
+PY
+config=$resolved_config
+
 for package in subagent_communication_v1 procedural_harness_master_v1; do
   uv pip install --python "$root/.venv/bin/python" --no-deps --editable \
     "$root/deps/verifiers/environments/$package" >/dev/null

@@ -45,7 +45,9 @@ The shared launcher requires a complete, rescored, error-free admission and
 automatically selects hard reward when any delegated group has hard-gate
 variance. It selects constrained shaping only when the hard groups are
 homogeneous and at least one delegated group has measured bootstrap-progress
-variance.
+variance. For the first update it narrows the generated training stream to the
+families that demonstrated within-group signal; promotion still evaluates all
+families on the frozen broad splits.
 
 The launcher disables FlashInfer sampling JIT because the retained Prime host
 ships CUDA runtime libraries but no `nvcc`; vLLM then uses its prebuilt sampling
