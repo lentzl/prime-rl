@@ -32,6 +32,17 @@ the generator's canonical "need multiplier" message. Replaying the observed
 trajectory on this revision changes it from partial shaping to a full hard-gate
 success. Runs used for optimization must use `528e064d` or later.
 
+Verifier revision `207c0d5b` closes the same polling loophole for fixed waits.
+The first replacement-sampling launch admitted a partially successful sibling
+that sent the requested follow-up value but then waited for the child with
+`asyncio.sleep(...)` calls. Because sleep was not recorded as polling, the
+trajectory incorrectly retained the no-forbidden-actions gate and received
+bootstrap reward. The run was stopped at batch 4/16 before any optimizer step
+or checkpoint and is not evidence. Calls named `sleep` or ending in `.sleep`
+now emit the forbidden `poll` atom and prevent both initial and post-follow-up
+waits from being classified as harness-native yield. Runs used for optimization
+must use `207c0d5b` or later.
+
 The initial baseline uses 24 episodes per split. That covers each VALID family
 four times and each OOD family three times while keeping time-to-first signal
 short. Later promotion evaluations can increase `count` without changing split
