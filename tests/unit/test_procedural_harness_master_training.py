@@ -54,6 +54,7 @@ def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
     assert config.orchestrator.renderer.enable_thinking is True
     assert config.inference is not None
     assert config.inference.vllm.max_model_len == 32768
+    assert config.inference.vllm.gpu_memory_utilization == 0.80
 
     filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
     assert filters["trainable_token_window"].enforce is True

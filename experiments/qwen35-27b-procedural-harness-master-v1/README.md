@@ -49,6 +49,10 @@ variance. For the first update it narrows the generated training stream to the
 families that demonstrated within-group signal; promotion still evaluates all
 families on the frozen broad splits.
 
+Inference reserves 80% of each of its two L40S GPUs. This leaves room for the
+largest full-weight NCCL staging bucket while retaining enough KV cache for the
+eight concurrent, short bootstrap rollouts.
+
 The launcher disables FlashInfer sampling JIT because the retained Prime host
 ships CUDA runtime libraries but no `nvcc`; vLLM then uses its prebuilt sampling
 path for integrated training inference.

@@ -176,7 +176,7 @@ reasoning_parser = "qwen3"
 tensor_parallel_size = 2
 data_parallel_size = 1
 data_parallel_rpc_port = 13345
-gpu_memory_utilization = 0.92
+gpu_memory_utilization = 0.80
 max_num_seqs = 16
 mamba_ssm_cache_dtype = "float32"
 
