@@ -56,7 +56,7 @@ the first optimization batch.
 
 `bootstrap-grpo.toml` is the first benchmark-directed weight update. It uses
 four synchronous full-weight BF16 AdamW steps from the untouched pinned 27B,
-with eight on-policy attempts per fresh TRAIN-GEN task. The only reward is the
+with sixteen on-policy attempts per fresh TRAIN-GEN task. The only reward is the
 conjunctive executable `harness_score`; homogeneous groups are rejected before
 training. The launcher refuses to start unless the admission screen contains
 at least one informative non-direct comparison group.
@@ -74,6 +74,19 @@ homogeneous and at least one delegated group has measured bootstrap-progress
 variance. For the first update it narrows the generated training stream to the
 families that demonstrated within-group signal; promotion still evaluates all
 families on the frozen broad splits.
+
+The first launch on the repaired natural-message verifier used eight-sibling
+groups and `oversampling_factor=0.5`. It produced two complete homogeneous-zero
+groups before entering its third and final allowed group. At that point a
+16-sample optimizer batch was mathematically unreachable even if the final
+group contained a clean trajectory, because one varied eight-sibling group can
+contribute only eight trainable samples. The run was stopped before an optimizer
+step and is not evidence. Both bootstrap configs now use one sixteen-sibling
+group per optimizer batch and allow up to four groups through
+`oversampling_factor=3.0`. Eight episodes remain concurrently active to respect
+the two-GPU recursive inference envelope. This changes only on-policy search
+geometry: the reward, frozen admission evidence, task family selector, and
+promotion gates remain unchanged.
 
 Inference reserves 80% of each of its two L40S GPUs. This leaves room for the
 largest full-weight NCCL staging bucket while retaining enough KV cache for the

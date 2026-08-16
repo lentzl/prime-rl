@@ -36,13 +36,13 @@ def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
     assert config.trainer.ckpt.weights_only is True
     assert config.trainer.ckpt.interval == 1
     assert config.orchestrator.batch_size == 16
-    assert config.orchestrator.group_size == 8
+    assert config.orchestrator.group_size == 16
     assert config.orchestrator.max_inflight_episodes == 8
-    assert config.orchestrator.oversampling_factor == 0.5
+    assert config.orchestrator.oversampling_factor == 3.0
     assert config.orchestrator.max_off_policy_steps == 0
     assert config.orchestrator.algo.type == "grpo"
     assert source.algo is not None and source.algo.type == "grpo"
-    assert source.group_size == 8
+    assert source.group_size == 16
     assert source.env.taskset.split == "train_gen"
     assert source.env.taskset.start_index == 200000
     assert set(source.env.taskset.families) == {
@@ -96,6 +96,8 @@ def test_constrained_bootstrap_is_isolated_from_hard_reward_run() -> None:
     assert shaped.run.name == "bootstrap-shaped-grpo"
     assert shaped.trainer.model.lora is None
     assert shaped.trainer.optim.lr == hard.trainer.optim.lr
+    assert shaped.orchestrator.group_size == 16
+    assert shaped.orchestrator.oversampling_factor == 3.0
 
 
 def test_admission_screen_is_disjoint_from_bootstrap_window() -> None:
@@ -106,7 +108,8 @@ def test_admission_screen_is_disjoint_from_bootstrap_window() -> None:
     taskset = config.orchestrator.train.source[0].env.taskset
 
     assert admission_start + admission_count <= taskset.start_index
-    assert admission_rollouts == config.orchestrator.group_size
+    assert admission_rollouts == 8
+    assert config.orchestrator.group_size == 2 * admission_rollouts
 
 
 def test_bootstrap_launcher_fails_closed() -> None:
