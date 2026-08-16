@@ -2,14 +2,14 @@ model = "Qwen/Qwen3.5-27B"
 num_tasks = 6
 num_rollouts = 8
 shuffle = false
-max_concurrent = 8
+max_concurrent = 4
 verbose = false
 rich = false
 server = false
 push = false
 
 [env]
-max_concurrent_agents = 8
+max_concurrent_agents = 4
 
 [env.taskset]
 id = "procedural-harness-master-v1"
