@@ -6,7 +6,8 @@ experiment="$root/experiments/qwen35-27b-procedural-harness-master-v1"
 config=${PROCEDURAL_HARNESS_ADMISSION_CONFIG:-$experiment/train-admission.toml}
 model=${1:-Qwen/Qwen3.5-27B}
 label=${2:-untouched}
-output_root=${PROCEDURAL_HARNESS_OUTPUT_ROOT:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1}/${label}
+evaluation_root=${PROCEDURAL_HARNESS_OUTPUT_ROOT:-${PRIME_MASTERY_OUTPUT_ROOT:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1}}
+output_root=$evaluation_root/$label
 eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
 client_base_url=${EVAL_CLIENT_BASE_URL:-http://127.0.0.1:8100/v1}
 

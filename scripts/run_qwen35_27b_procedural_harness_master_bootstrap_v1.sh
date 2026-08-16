@@ -3,7 +3,7 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 experiment=$root/experiments/qwen35-27b-procedural-harness-master-v1
-admission_summary=${PROCEDURAL_HARNESS_ADMISSION_SUMMARY:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1/untouched-admission-r5/train-admission/SUMMARY.json}
+admission_summary=${PROCEDURAL_HARNESS_ADMISSION_SUMMARY:-/ephemeral/evals/qwen35-27b-procedural-harness-master-v1/untouched-admission-v2-r1/train-admission/SUMMARY.json}
 model_revision=${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}
 
 cd "$root"

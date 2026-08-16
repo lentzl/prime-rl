@@ -13,6 +13,12 @@ CONFIG = (
 SHAPED_CONFIG = CONFIG.with_name("bootstrap-shaped-grpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 SUMMARIZER = ROOT / "scripts" / "summarize_procedural_harness_master_v1.py"
+BASELINE = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_baseline_v1.sh"
+CHECKPOINT_BATTERY = (
+    ROOT
+    / "scripts"
+    / "run_qwen35_27b_procedural_harness_master_checkpoint_battery_v1.sh"
+)
 
 
 def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
@@ -107,7 +113,8 @@ def test_bootstrap_launcher_fails_closed() -> None:
     launcher = LAUNCHER.read_text()
     selector = SUMMARIZER.read_text()
 
-    assert "untouched-admission-r5" in launcher
+    assert "untouched-admission-v2-r1" in launcher
+    assert "untouched-admission-r5" not in launcher
     assert "untouched-admission-r4" not in launcher
     assert "untouched-admission-r3" not in launcher
     assert "untouched-admission-r2" not in launcher
@@ -128,3 +135,18 @@ def test_bootstrap_launcher_fails_closed() -> None:
     assert 'python -c "import prime_rl.trainer.model"' in launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in launcher
     assert "PROCEDURAL_HARNESS_TRAIN_DRY_RUN" in launcher
+
+
+def test_checkpoint_battery_evaluates_untouched_and_every_stable_step() -> None:
+    launcher = CHECKPOINT_BATTERY.read_text()
+    baseline = BASELINE.read_text()
+
+    assert 'tomllib.load(handle)["max_steps"]' in launcher
+    assert 'models+=("$model_snapshot")' in launcher
+    assert 'labels+=("untouched")' in launcher
+    assert 'for step in $(seq 1 "$max_steps")' in launcher
+    assert 'if [[ ! -f "$weights/STABLE" ]]' in launcher
+    assert 'model.safetensors.index.json' in launcher
+    assert "refusing to evaluate while another GPU process is active" in launcher
+    assert "compare_procedural_harness_master_checkpoints_v1.py" in launcher
+    assert "PRIME_MASTERY_OUTPUT_ROOT" in baseline

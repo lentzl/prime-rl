@@ -6,6 +6,12 @@ frozen VALID-GEN and OOD-GEN indices. Training will then consume fresh,
 non-overlapping TRAIN-GEN windows and promotion will depend on transfer back to
 the frozen splits.
 
+Generator `2026-08-16.v2` preserves V1's task assignments while repairing the
+verification contract: completion gates validate each final JSON field's type,
+including booleans, and verification prompts state that the digest is evidence
+rather than the final computed result. Admission and promotion evidence from the
+older generator is not reused.
+
 The initial baseline uses 24 episodes per split. That covers each VALID family
 four times and each OOD family three times while keeping time-to-first signal
 short. Later promotion evaluations can increase `count` without changing split
@@ -60,3 +66,10 @@ It also hydrates Prime-RL's lock-pinned `flash-attn` extra with `--inexact` and
 restores the pinned Prime router wheel when absent. It imports the trainer before
 launch, so a fresh runtime-only CUDA host does not fail after admission merely
 because optional prebuilt wheels were omitted.
+
+After training, the checkpoint-battery launcher refuses partial exports and
+evaluates the untouched pinned checkpoint plus every stable training step on the
+same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes
+this first screen only when combined hard passes improve and neither split
+regresses. That screen nominates a checkpoint for a larger replicated promotion
+evaluation; it does not promote a model from one stochastic draw.
