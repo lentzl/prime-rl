@@ -83,8 +83,8 @@ def test_constrained_bootstrap_is_isolated_from_hard_reward_run() -> None:
     hard = cli(RLConfig, args=["@", str(CONFIG), "--dry-run"])
     shaped = cli(RLConfig, args=["@", str(SHAPED_CONFIG), "--dry-run"])
 
-    assert hard.orchestrator.train.source[0].env.task.reward_mode == "hard"
-    assert shaped.orchestrator.train.source[0].env.task.reward_mode == "bootstrap"
+    assert hard.orchestrator.train.source[0].env.taskset.task.reward_mode == "hard"
+    assert shaped.orchestrator.train.source[0].env.taskset.task.reward_mode == "bootstrap"
     assert shaped.run.name == "bootstrap-shaped-grpo"
     assert shaped.trainer.model.lora is None
     assert shaped.trainer.optim.lr == hard.trainer.optim.lr

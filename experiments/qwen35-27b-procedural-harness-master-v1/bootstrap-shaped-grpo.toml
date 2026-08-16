@@ -113,7 +113,7 @@ type = "grpo"
 [orchestrator.train.source.env]
 max_concurrent_agents = 8
 
-[orchestrator.train.source.env.task]
+[orchestrator.train.source.env.taskset.task]
 reward_mode = "bootstrap"
 
 [orchestrator.train.source.env.taskset]
@@ -185,4 +185,3 @@ filename = "metrics.jsonl"
 
 [log]
 json_logging = false
-
