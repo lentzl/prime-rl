@@ -210,6 +210,11 @@ class RolloutDispatcher:
         """Whether a train group still needs members to reach its configured size."""
         return any(group.kind == "train" and group.rollouts_to_schedule > 0 for group in self.groups.values())
 
+    @property
+    def has_pending_train_replacement(self) -> bool:
+        """Whether source-specific rejected-slot work still needs a fresh group."""
+        return bool(self.replacement_train_envs)
+
     def return_train_rollout_slots(self, count: int, env_names: list[str] | None = None) -> None:
         """Return rejected slots and prioritize replacement groups from their sources."""
         if count < 0:
@@ -376,7 +381,11 @@ class RolloutDispatcher:
                     return
                 # Once a group opens, finish it atomically even if its last
                 # member crosses the nominal per-policy rollout budget.
-                if self.available_train_permits <= 0 and not self.has_open_train_group:
+                if (
+                    self.available_train_permits <= 0
+                    and not self.has_open_train_group
+                    and not self.has_pending_train_replacement
+                ):
                     return
                 scheduled = await self.try_schedule("train")
                 if not scheduled:

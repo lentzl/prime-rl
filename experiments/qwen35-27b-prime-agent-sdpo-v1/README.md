@@ -79,6 +79,14 @@ reopens only enough slots for one fresh group from that source. Focused replacem
 requests remain bounded while already-running trajectories are retained as observable
 overflow rather than silently discarded.
 
+A second pre-backward runtime reached 15 admitted rollouts with every quota except
+coordinator retention satisfied. A valid parallel overflow had consumed the globally
+returned coordinator slots, leaving the coordinator replacement queued behind a zero
+synchronous budget. Dispatcher now treats an explicit source-replacement queue like
+an already-open group: it may open that bounded group after the nominal policy budget
+is exhausted. Ordinary weighted work remains capped, while a rejected source cannot
+be permanently starved by unrelated overflow.
+
 ## PCIe-only runtime qualification
 
 The experiment launchers keep NCCL P2P disabled but enable SHM by default. This

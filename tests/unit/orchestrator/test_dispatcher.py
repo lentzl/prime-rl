@@ -103,6 +103,29 @@ def test_fill_inflight_finishes_open_group_after_budget_is_exhausted():
     assert calls == 1
 
 
+def test_fill_inflight_opens_source_replacement_after_budget_is_exhausted():
+    dispatcher = _dispatcher(scheduled=16)
+    dispatcher.replacement_train_envs.append("coordinator")
+    dispatcher.mode = DispatcherMode.PREFER_TRAIN
+    dispatcher.dispatch_allowed = asyncio.Event()
+    dispatcher.dispatch_allowed.set()
+    dispatcher.train_scheduling_disabled = False
+    calls = 0
+
+    async def schedule_replacement(kind):
+        nonlocal calls
+        assert kind == "train"
+        calls += 1
+        dispatcher.replacement_train_envs.clear()
+        return True
+
+    dispatcher.try_schedule = schedule_replacement
+
+    asyncio.run(dispatcher.fill_inflight())
+
+    assert calls == 1
+
+
 def test_train_sink_records_only_batch_admission_deficit():
     sink = object.__new__(TrainSink)
     sink.batch_source_minimums = {}
