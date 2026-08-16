@@ -121,6 +121,36 @@ restores the pinned Prime router wheel when absent. It imports the trainer befor
 launch, so a fresh runtime-only CUDA host does not fail after admission merely
 because optional prebuilt wheels were omitted.
 
+## Reward-connectivity ramp
+
+The alias-fixed full-composition hard-GRPO admission was stopped at exactly 32
+fresh trajectories before any optimizer step. It produced zero hard passes and
+no checkpoint: final answers were often correct (`0.8125`), but all 32 traces
+performed forbidden control behavior, required-atom coverage averaged `0.65625`,
+and ordering passed only `0.0625`. This is a disconnected hard-reward basin, not
+training evidence, so repeating full-composition GRPO is rejected.
+
+The main training program now keeps the full benchmark unchanged while crossing
+the reward-connectivity threshold through strict harness-action rungs:
+
+1. `atomic_state`: persistent coordinator action across two IPython calls.
+2. `atomic_send`: one child, retained handle, passive yield, explicit delivery.
+3. `atomic_followup`: retained state and two causal resume/message cycles.
+4. `atomic_parallel`: two children spawned before yield and explicit fan-in.
+
+Each untouched/current-policy admission is eight fresh rollouts of one rung. An
+all-pass rung is already mastered and advances without optimization; a mixed
+group is eligible for hard GRPO; an all-fail rung is reward-disconnected and
+must bootstrap only its missing causal transition before admission is repeated.
+Promotion is cumulative, and the frozen broad VALID/OOD batteries remain the
+external target throughout the ramp.
+
+Live trace review also found that Prime Agent's runtime notice
+`RLM child completed without sending a reply` was being classified as an
+explicit child result. The verifier now accepts only real `agent_message`
+deliveries, benchmark-injected failures, and visible child failure transitions;
+completion notices cannot satisfy message or cardinality atoms.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes

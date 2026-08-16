@@ -11,6 +11,12 @@ from pathlib import Path
 from typing import Any
 
 ADMISSION_FAMILIES = {"direct", "single", "parallel", "mixed", "followup", "verify"}
+CURRICULUM_RUNGS = {
+    "atomic_state",
+    "atomic_send",
+    "atomic_followup",
+    "atomic_parallel",
+}
 
 
 def _traces(path: Path) -> list[dict[str, Any]]:
@@ -92,26 +98,14 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
         pass_counts = [cohort(values)["passed"] for values in groups]
         return {
             "groups": len(groups),
-            "informative": sum(
-                0 < passed < len(values)
-                for passed, values in zip(pass_counts, groups)
-            ),
-            "all_pass": sum(
-                passed == len(values)
-                for passed, values in zip(pass_counts, groups)
-            ),
+            "informative": sum(0 < passed < len(values) for passed, values in zip(pass_counts, groups)),
+            "all_pass": sum(passed == len(values) for passed, values in zip(pass_counts, groups)),
             "all_fail": sum(passed == 0 for passed in pass_counts),
         }
 
     def progress_groups(groups: list[list[dict[str, Any]]]) -> dict[str, int]:
-        scores = [
-            [_score(trace, "bootstrap_progress", "metrics") for trace in values]
-            for values in groups
-        ]
-        informative = [
-            any(abs(value - values[0]) > 1e-12 for value in values[1:])
-            for values in scores
-        ]
+        scores = [[_score(trace, "bootstrap_progress", "metrics") for trace in values] for values in groups]
+        informative = [any(abs(value - values[0]) > 1e-12 for value in values[1:]) for values in scores]
         return {
             "groups": len(groups),
             "informative": sum(informative),
@@ -130,17 +124,13 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
         "by_family": {family: cohort(values) for family, values in sorted(grouped.items())},
         "comparison_groups": comparison_groups(list(task_groups.values())),
         "by_family_groups": {
-            family: comparison_groups(values)
-            for family, values in sorted(family_task_groups.items())
+            family: comparison_groups(values) for family, values in sorted(family_task_groups.items())
         },
         "bootstrap_comparison_groups": progress_groups(list(task_groups.values())),
         "by_family_bootstrap_groups": {
-            family: progress_groups(values)
-            for family, values in sorted(family_task_groups.items())
+            family: progress_groups(values) for family, values in sorted(family_task_groups.items())
         },
-        "diagnostic_means": {
-            key: value / len(rows) if rows else 0.0 for key, value in sorted(diagnostics.items())
-        },
+        "diagnostic_means": {key: value / len(rows) if rows else 0.0 for key, value in sorted(diagnostics.items())},
         "errors": sum(bool(trace.get("error") or trace.get("errors")) for trace in rows),
     }
 
@@ -165,21 +155,49 @@ def select_training_mode(report: dict[str, Any]) -> tuple[str, list[str]]:
             raise ValueError(f"admission family {family} lacks bootstrap diagnostics")
 
     hard_families = sorted(
-        family
-        for family, values in hard_groups.items()
-        if family != "direct" and values.get("informative", 0) > 0
+        family for family, values in hard_groups.items() if family != "direct" and values.get("informative", 0) > 0
     )
     if hard_families:
         return "hard", hard_families
 
     bootstrap_families = sorted(
-        family
-        for family, values in bootstrap_groups.items()
-        if family != "direct" and values.get("informative", 0) > 0
+        family for family, values in bootstrap_groups.items() if family != "direct" and values.get("informative", 0) > 0
     )
     if not bootstrap_families:
         raise ValueError("no non-direct informative hard or bootstrap comparison group")
     return "bootstrap", bootstrap_families
+
+
+def classify_curriculum_rung_admission(report: dict[str, Any], rung: str) -> str:
+    """Classify a rung as mastered, trainable, or reward-disconnected."""
+    if rung not in CURRICULUM_RUNGS:
+        raise ValueError(f"unknown harness-action curriculum rung: {rung}")
+    if not report.get("rescored"):
+        raise ValueError("curriculum admission must be generated with --rescore")
+    if report.get("episodes") != 8 or report.get("errors") != 0:
+        raise ValueError("curriculum admission must contain eight error-free episodes")
+    by_family = report.get("by_family", {})
+    groups = report.get("by_family_groups", {})
+    if set(by_family) != {rung} or by_family[rung].get("episodes") != 8:
+        raise ValueError(f"curriculum admission must contain only eight {rung} episodes")
+    group = groups.get(rung, {})
+    if group.get("groups") != 1:
+        raise ValueError(f"curriculum rung {rung} is not one comparison group")
+    if group.get("informative") == 1:
+        return "trainable"
+    if group.get("all_pass") == 1:
+        return "mastered"
+    if group.get("all_fail") == 1:
+        return "disconnected"
+    raise ValueError(f"curriculum rung {rung} has inconsistent comparison-group counts")
+
+
+def select_curriculum_rung_admission(report: dict[str, Any], rung: str) -> str:
+    """Require hard-reward variance before launching GRPO for a rung."""
+    status = classify_curriculum_rung_admission(report, rung)
+    if status != "trainable":
+        raise ValueError(f"curriculum rung {rung} is {status}, not hard-GRPO trainable")
+    return rung
 
 
 def configured_reward_mode(path: Path) -> str:
