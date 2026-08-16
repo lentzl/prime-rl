@@ -143,6 +143,25 @@ per task, a paired 66-task non-Oolong replication was launched before selecting 
 new curriculum. The original frozen results remain authoritative; the replication
 estimates evaluation variance and cannot retroactively promote this branch.
 
+The paired replication showed that the original ownership rejection was partly
+confounded by baseline variance. Across two 66-task non-Oolong draws, untouched
+issue counts were 46 and 50 while candidate counts were 50 and 48. Untouched child
+and coordinator strict ownership were each 1/8 then 0/8; candidate child ownership
+was 0/8 then 1/8 and coordinator ownership was 0/8 then 2/8. The candidate therefore
+does not demonstrate a reliable ownership loss. Its negative control effects were
+more repeatable: foundations were 10/10 and 8/10 clean for untouched versus 8/10
+and 7/10 for the candidate, and candidate handshake answer/protocol alignment was
+2/8 and 5/8 in both draws versus untouched 5/8 and 8/8, then 4/8 and 7/8. The
+checkpoint remains non-promotable and must not seed a continuation.
+
+The next method test starts again from untouched 27B. It isolates multi-turn SDPO
+conditioned on the real tool errors and child messages already observed by the
+resilience environment. Only after a zero-LR token-routing audit proves that those
+observations target the corresponding failed transitions will that signal enter a
+broader mixed curriculum. The future mixture must also retain foundations explicitly
+and split follow-up from handshake so a combined causal source cannot underrepresent
+either family.
+
 The first evaluation startup also exposed an export-completeness bug. Prime-RL's
 weights-only checkpoint included model and tokenizer files but omitted Qwen3.5's
 image/video processor metadata. `finalize_hf_processor_metadata.py` now copies the
