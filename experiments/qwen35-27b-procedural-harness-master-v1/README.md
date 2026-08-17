@@ -147,6 +147,23 @@ external target throughout the ramp.
 Candidate gates set `HARNESS_ACTION_ADMISSION_START_INDEX` to a fresh generated
 index disjoint from both the untouched admission and the active training stream.
 
+Curriculum contract `2026-08-17.harness-actions-v2` clarifies that
+`atomic_state` returns the original retained value as `marker` and the computed
+sum as `result`. The hidden oracle already required that distinction, but the
+V1 public prompt did not state it. Episode seeds and executable contracts are
+unchanged. On the same R5 checkpoint and task seed, the ambiguous prompt scored
+`7/8` despite perfect state/action metrics; the clarified prompt scored `8/8`
+with every hard component at `1.0`.
+
+The valid one-step `atomic_send` lineage currently reads: untouched `4/8`; R2
+`3/8`; R3 `5/8`; R4b `6/8`; R5 `6/8`. Their accepted training batches scored
+`0.625`, `0.500`, `0.5625`, and `0.6875`, respectively, with no rollout errors,
+truncation, or off-policy samples. The first R4 attempt stalled at `15/16`
+rollouts before any optimizer step because the environment-level deadline was
+missing; it has no checkpoint and is not evidence. R5 preserves mastered
+`atomic_state`, but `atomic_send` remains a mixed hard-reward group and has not
+earned promotion.
+
 Live trace review also found that Prime Agent's runtime notice
 `RLM child completed without sending a reply` was being classified as an
 explicit child result. The verifier now accepts only real `agent_message`
