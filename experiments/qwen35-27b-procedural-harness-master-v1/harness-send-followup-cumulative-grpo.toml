@@ -68,6 +68,10 @@ max_inflight_episodes = 8
 oversampling_factor = 0.25
 max_off_policy_steps = 0
 
+[orchestrator.batch_source_minimums]
+"atomic-send-retention" = 16
+"atomic-followup-target" = 16
+
 [orchestrator.algo]
 type = "grpo"
 

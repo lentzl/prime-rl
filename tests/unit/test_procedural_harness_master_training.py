@@ -276,6 +276,10 @@ def test_send_followup_cumulative_grpo_preserves_the_prerequisite_in_the_batch()
     assert config.orchestrator.batch_size == 32
     assert config.orchestrator.group_size == 8
     assert config.orchestrator.oversampling_factor == 0.25
+    assert config.orchestrator.batch_source_minimums == {
+        "atomic-send-retention": 16,
+        "atomic-followup-target": 16,
+    }
     assert config.orchestrator.renderer.enable_thinking is True
     assert set(sources) == {"atomic-send-retention", "atomic-followup-target"}
     assert {source.ratio for source in sources.values()} == {1.0}
