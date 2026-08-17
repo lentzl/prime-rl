@@ -171,6 +171,20 @@ fresh. Later restarts must set `HARNESS_ACTION_TRAIN_START_INDEX` to a disjoint
 window. This keeps hard GRPO on-policy while preventing repeated one-step runs
 from collapsing semantic diversity around the first accepted task groups.
 
+Fresh-window R6 trained on `1001000..1001511` and scored `13/16` in its
+accepted batch, but the disjoint send gate remained `6/8`. R7 used
+`1002000..1002511`, scored `10/16` in training, and improved the next send gate
+to `7/8` while retaining state at `8/8`. R8 then used
+`1003000..1003511`, scored `6/16`, and regressed its fresh send gate to `5/8`.
+R8 is rejected and descendants must branch from R7. Near this boundary, a
+single two-group update at `5e-7` is too noisy for reliable promotion. The
+launcher therefore supports validated `HARNESS_ACTION_BATCH_SIZE` and
+`HARNESS_ACTION_TRAIN_LR` overrides so stabilization runs can use more
+independent groups and a smaller update without changing the hard reward.
+The launcher derives `oversampling_factor = 8 / batch_size`, preserving the
+two-GPU limit of eight concurrent recursive episodes even when more groups are
+accumulated for one optimizer batch.
+
 Live trace review also found that Prime Agent's runtime notice
 `RLM child completed without sending a reply` was being classified as an
 explicit child result. The verifier now accepts only real `agent_message`

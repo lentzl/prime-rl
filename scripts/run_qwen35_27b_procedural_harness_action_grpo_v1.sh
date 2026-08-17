@@ -11,6 +11,8 @@ model_repo=${HARNESS_ACTION_MODEL_REPO:-Qwen/Qwen3.5-27B}
 model_revision=${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}
 train_start_index=${HARNESS_ACTION_TRAIN_START_INDEX:-1000000}
 train_count=${HARNESS_ACTION_TRAIN_COUNT:-512}
+train_lr=${HARNESS_ACTION_TRAIN_LR:-5e-7}
+batch_size=${HARNESS_ACTION_BATCH_SIZE:-16}
 
 case "$rung" in
   atomic_state|atomic_send|atomic_followup|atomic_parallel) ;;
@@ -101,19 +103,30 @@ fi
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT
-.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" <<'PY'
+.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" "$train_lr" "$batch_size" <<'PY'
+import math
 import re
 import sys
 from pathlib import Path
 
 source = Path(sys.argv[1]).read_text()
 run_name = f"{sys.argv[3].replace('_', '-')}-grpo-{sys.argv[4]}"
+learning_rate = float(sys.argv[7])
+batch_size = int(sys.argv[8])
+if not math.isfinite(learning_rate) or learning_rate <= 0:
+    raise SystemExit(f"training learning rate must be positive and finite: {sys.argv[7]}")
+if batch_size <= 0 or batch_size % 8:
+    raise SystemExit(f"training batch size must be a positive multiple of group size 8: {batch_size}")
+oversampling_factor = 8 / batch_size
 patterns = (
     (r'^curriculum_rung = "[^"]+"$', f'curriculum_rung = "{sys.argv[3]}"'),
     (r'^name = "atomic-state-grpo"$', f'name = "{run_name}"'),
     (r'^dir = "atomic-state-grpo"$', f'dir = "{run_name}"'),
     (r'^start_index = [0-9]+$', f'start_index = {sys.argv[5]}'),
     (r'^count = [0-9]+$', f'count = {sys.argv[6]}'),
+    (r'^lr = [^\n]+$', f'lr = {learning_rate}'),
+    (r'^batch_size = [0-9]+$', f'batch_size = {batch_size}'),
+    (r'^oversampling_factor = [^\n]+$', f'oversampling_factor = {oversampling_factor}'),
 )
 for pattern, replacement in patterns:
     source, count = re.subn(pattern, replacement, source, count=1, flags=re.MULTILINE)
