@@ -2,6 +2,10 @@ from pathlib import Path
 
 from prime_rl.configs.rl import RLConfig
 from prime_rl.utils.config import cli
+from scripts.audit_procedural_harness_event_control_support_v1 import (
+    summarize_support,
+    validate_support,
+)
 from scripts.summarize_procedural_harness_master_v1 import (
     classify_curriculum_rung_admission,
     select_curriculum_rung_admission,
@@ -20,6 +24,9 @@ ACTION_GATE_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_acti
 ACTION_TRAIN_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_grpo_v1.sh"
 CUMULATIVE_ACTION_TRAIN_LAUNCHER = (
     ROOT / "scripts" / "run_qwen35_27b_procedural_harness_send_followup_cumulative_grpo_v1.sh"
+)
+EVENT_CONTROL_TRAIN_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_procedural_harness_send_followup_event_control_grpo_v1.sh"
 )
 FOLLOWUP_SDPO_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_followup_sdpo_v1.sh"
 FOLLOWUP_FEEDBACK_AUDIT = ROOT / "scripts" / "audit_procedural_harness_followup_feedback_v1.py"
@@ -284,9 +291,7 @@ def test_send_followup_cumulative_grpo_preserves_the_prerequisite_in_the_batch()
     assert set(sources) == {"atomic-send-retention", "atomic-followup-target"}
     assert {source.ratio for source in sources.values()} == {1.0}
     assert {source.group_size for source in sources.values()} == {8}
-    assert {
-        source.env.taskset.curriculum_rung for source in sources.values()
-    } == {"atomic_send", "atomic_followup"}
+    assert {source.env.taskset.curriculum_rung for source in sources.values()} == {"atomic_send", "atomic_followup"}
     assert len({source.env.taskset.start_index for source in sources.values()}) == 2
     assert all(source.algo is not None and source.algo.type == "grpo" for source in sources.values())
     assert all(source.env.taskset.task.reward_mode == "hard" for source in sources.values())
@@ -312,6 +317,46 @@ def test_send_followup_cumulative_launcher_fails_closed_on_both_admissions() -> 
     assert 'rl @ "$resolved_config" --model.name "$model_snapshot"' in launcher
 
 
+def test_event_control_ramp_is_isolated_and_requires_measured_support() -> None:
+    launcher = CUMULATIVE_ACTION_TRAIN_LAUNCHER.read_text()
+    wrapper = EVENT_CONTROL_TRAIN_LAUNCHER.read_text()
+
+    assert "HARNESS_CUMULATIVE_FOLLOWUP_REWARD_MODE" in launcher
+    assert "HARNESS_CUMULATIVE_FOLLOWUP_SUPPORT_TRACES" in launcher
+    assert "audit_procedural_harness_event_control_support_v1.py" in launcher
+    assert 'reward_mode = "event_control"' in launcher
+    assert "HARNESS_CUMULATIVE_FOLLOWUP_REWARD_MODE=event_control" in wrapper
+    assert '"event-control-$label"' in wrapper
+    assert "HARNESS_CUMULATIVE_SEND_START_INDEX:-1500000" in wrapper
+    assert "HARNESS_CUMULATIVE_FOLLOWUP_START_INDEX:-1600000" in wrapper
+
+
+def test_event_control_support_audit_requires_disconnected_informative_groups() -> None:
+    traces = []
+    for group_id, scores in (("a", (0.0, 0.5)), ("b", (0.0, 0.75))):
+        for score in scores:
+            traces.append(
+                {
+                    "ok": True,
+                    "info": {"env_name": "atomic-followup-target", "group_id": group_id},
+                    "metrics": {"event_control_progress": score},
+                    "rewards": {"harness_score": {"score": 0.0}},
+                }
+            )
+
+    report = summarize_support(traces, env_name="atomic-followup-target", group_size=2)
+    validate_support(report, min_episodes=4, min_informative_groups=2)
+
+    traces[0]["rewards"]["harness_score"]["score"] = 1.0
+    report = summarize_support(traces, env_name="atomic-followup-target", group_size=2)
+    try:
+        validate_support(report, min_episodes=4, min_informative_groups=2)
+    except ValueError as error:
+        assert "hard-disconnected" in str(error)
+    else:
+        raise AssertionError("hard-connected support was accepted")
+
+
 def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     config = cli(RLConfig, args=["@", str(FOLLOWUP_SDPO_CONFIG), "--dry-run"])
     source = config.orchestrator.train.source[0]
@@ -332,14 +377,8 @@ def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     assert source.algo is not None and source.algo.type == "sdpo"
     assert source.algo.multi_turn_replay is True
     assert source.algo.require_explicit_feedback is True
-    assert (
-        source.algo.required_feedback_contract_schema
-        == "prime-agent/procedural-followup-feedback/v1"
-    )
-    assert (
-        source.algo.filter.import_path
-        == "procedural_harness_master_v1.taskset.keep_followup_feedback_response"
-    )
+    assert source.algo.required_feedback_contract_schema == "prime-agent/procedural-followup-feedback/v1"
+    assert source.algo.filter.import_path == "procedural_harness_master_v1.taskset.keep_followup_feedback_response"
     assert source.env.taskset.curriculum_rung == "atomic_followup"
     assert source.env.taskset.record_causal_feedback is True
     assert source.env.taskset.task.reward_mode == "hard"

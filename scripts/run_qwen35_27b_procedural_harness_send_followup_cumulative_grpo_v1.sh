@@ -13,6 +13,8 @@ send_start_index=${HARNESS_CUMULATIVE_SEND_START_INDEX:-1300000}
 followup_start_index=${HARNESS_CUMULATIVE_FOLLOWUP_START_INDEX:-1400000}
 train_lr=${HARNESS_CUMULATIVE_TRAIN_LR:-1.25e-7}
 batch_size=${HARNESS_CUMULATIVE_BATCH_SIZE:-32}
+followup_reward_mode=${HARNESS_CUMULATIVE_FOLLOWUP_REWARD_MODE:-hard}
+followup_support_traces=${HARNESS_CUMULATIVE_FOLLOWUP_SUPPORT_TRACES:-}
 
 cd "$root"
 export PATH="$root/.venv/bin:$HOME/.local/bin:$PATH"
@@ -42,6 +44,18 @@ done
 if [[ "$send_start_index" == "$followup_start_index" ]]; then
   echo "send and follow-up training windows must be disjoint" >&2
   exit 1
+fi
+if [[ "$followup_reward_mode" != hard && "$followup_reward_mode" != event_control ]]; then
+  echo "unsupported cumulative follow-up reward mode: $followup_reward_mode" >&2
+  exit 1
+fi
+if [[ "$followup_reward_mode" == event_control ]]; then
+  if [[ -z "$followup_support_traces" || ! -f "$followup_support_traces" ]]; then
+    echo "event-control follow-up support traces do not exist: $followup_support_traces" >&2
+    exit 1
+  fi
+  "$root/.venv/bin/python" scripts/audit_procedural_harness_event_control_support_v1.py \
+    "$followup_support_traces" >/dev/null
 fi
 if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
   echo "refusing to launch while another GPU process is active" >&2
@@ -101,7 +115,7 @@ fi
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT
-.venv/bin/python - "$template" "$resolved_config" "$run_label" "$send_start_index" "$followup_start_index" "$train_lr" "$batch_size" <<'PY'
+.venv/bin/python - "$template" "$resolved_config" "$run_label" "$send_start_index" "$followup_start_index" "$train_lr" "$batch_size" "$followup_reward_mode" <<'PY'
 import math
 import re
 import sys
@@ -111,6 +125,7 @@ source = Path(sys.argv[1]).read_text()
 run_name = f"send-followup-cumulative-grpo-{sys.argv[3]}"
 learning_rate = float(sys.argv[6])
 batch_size = int(sys.argv[7])
+followup_reward_mode = sys.argv[8]
 if not math.isfinite(learning_rate) or learning_rate <= 0:
     raise SystemExit(f"cumulative training learning rate must be positive and finite: {sys.argv[6]}")
 if batch_size <= 0 or batch_size % 8:
@@ -129,12 +144,21 @@ for expected, replacement in replacements:
     source, count = re.subn(f"^{re.escape(expected)}$", replacement, source, count=1, flags=re.MULTILINE)
     if count != 1:
         raise SystemExit(f"cumulative training config did not contain exactly one {expected!r}")
+if followup_reward_mode == "event_control":
+    marker = 'curriculum_rung = "atomic_followup"'
+    replacement = (
+        f'{marker}\n\n[orchestrator.train.source.env.taskset.task]\n'
+        'reward_mode = "event_control"'
+    )
+    source, count = source.replace(marker, replacement), source.count(marker)
+    if count != 1:
+        raise SystemExit("cumulative training config did not contain one follow-up rung")
 Path(sys.argv[2]).write_text(source)
 PY
 
 if [[ "${HARNESS_CUMULATIVE_TRAIN_DRY_RUN:-false}" == true ]]; then
   rl @ "$resolved_config" --model.name "$model_snapshot" --dry-run
-  echo "send/follow-up cumulative hard-GRPO preflight passed"
+  echo "send/follow-up cumulative $followup_reward_mode GRPO preflight passed"
   exit 0
 fi
 
