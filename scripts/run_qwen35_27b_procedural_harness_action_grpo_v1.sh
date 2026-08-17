@@ -9,6 +9,8 @@ run_label=${2:-r1}
 admission_summary=${HARNESS_ACTION_ADMISSION_SUMMARY:-/ephemeral/evals/qwen35-27b-procedural-harness-action-ramp-v1/untouched-$rung/train-admission/SUMMARY.json}
 model_repo=${HARNESS_ACTION_MODEL_REPO:-Qwen/Qwen3.5-27B}
 model_revision=${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}
+train_start_index=${HARNESS_ACTION_TRAIN_START_INDEX:-1000000}
+train_count=${HARNESS_ACTION_TRAIN_COUNT:-512}
 
 case "$rung" in
   atomic_state|atomic_send|atomic_followup|atomic_parallel) ;;
@@ -30,6 +32,14 @@ if [[ ! -f "$template" ]]; then
 fi
 if [[ ! -f "$admission_summary" ]]; then
   echo "harness-action admission summary does not exist: $admission_summary" >&2
+  exit 1
+fi
+if [[ ! "$train_start_index" =~ ^[0-9]+$ ]]; then
+  echo "harness-action training start index must be non-negative: $train_start_index" >&2
+  exit 1
+fi
+if [[ ! "$train_count" =~ ^[1-9][0-9]*$ ]]; then
+  echo "harness-action training count must be positive: $train_count" >&2
   exit 1
 fi
 if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
@@ -91,7 +101,7 @@ fi
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT
-.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" <<'PY'
+.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -102,6 +112,8 @@ patterns = (
     (r'^curriculum_rung = "[^"]+"$', f'curriculum_rung = "{sys.argv[3]}"'),
     (r'^name = "atomic-state-grpo"$', f'name = "{run_name}"'),
     (r'^dir = "atomic-state-grpo"$', f'dir = "{run_name}"'),
+    (r'^start_index = [0-9]+$', f'start_index = {sys.argv[5]}'),
+    (r'^count = [0-9]+$', f'count = {sys.argv[6]}'),
 )
 for pattern, replacement in patterns:
     source, count = re.subn(pattern, replacement, source, count=1, flags=re.MULTILINE)

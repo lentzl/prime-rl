@@ -222,6 +222,12 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert 'status != "trainable"' in selector
     assert "HARNESS_ACTION_MODEL_PATH" in train_launcher
     assert "HARNESS_ACTION_MODEL_REPO" in train_launcher
+    assert "HARNESS_ACTION_TRAIN_START_INDEX" in train_launcher
+    assert "HARNESS_ACTION_TRAIN_COUNT" in train_launcher
+    assert "training start index must be non-negative" in train_launcher
+    assert "training count must be positive" in train_launcher
+    assert "r'^start_index = [0-9]+$'" in train_launcher
+    assert "r'^count = [0-9]+$'" in train_launcher
     assert "refusing to launch while another GPU process is active" in train_launcher
     assert "bootstrap-shaped-grpo" not in train_launcher
     assert "HARNESS_ACTION_TRAIN_DRY_RUN" in train_launcher

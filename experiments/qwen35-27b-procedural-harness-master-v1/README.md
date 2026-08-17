@@ -164,6 +164,13 @@ missing; it has no checkpoint and is not evidence. R5 preserves mastered
 `atomic_state`, but `atomic_send` remains a mixed hard-reward group and has not
 earned promotion.
 
+R2 through R5 restarted from the config's same `1000000..1000511` TRAIN-GEN
+window. Prime-RL deterministically reshuffles a finite taskset from epoch one,
+so each restart began from the same prompt sequence even though completions were
+fresh. Later restarts must set `HARNESS_ACTION_TRAIN_START_INDEX` to a disjoint
+window. This keeps hard GRPO on-policy while preventing repeated one-step runs
+from collapsing semantic diversity around the first accepted task groups.
+
 Live trace review also found that Prime Agent's runtime notice
 `RLM child completed without sending a reply` was being classified as an
 explicit child result. The verifier now accepts only real `agent_message`
