@@ -22,6 +22,7 @@ count = 1
 start_index = 900000
 master_seed = 20260816
 curriculum_rung = "atomic_state"
+record_causal_feedback = false
 
 [env.agent]
 max_turns = 16

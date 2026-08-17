@@ -9,6 +9,7 @@ model=${2:-Qwen/Qwen3.5-27B}
 label=${3:-untouched-$rung}
 evaluation_root=${PROCEDURAL_HARNESS_OUTPUT_ROOT:-${PRIME_MASTERY_OUTPUT_ROOT:-/ephemeral/evals/qwen35-27b-procedural-harness-action-ramp-v1}}
 start_index=${HARNESS_ACTION_ADMISSION_START_INDEX:-900000}
+record_causal_feedback=${HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK:-false}
 
 case "$rung" in
   atomic_state|atomic_send|atomic_followup|atomic_parallel) ;;
@@ -22,10 +23,14 @@ if [[ ! "$start_index" =~ ^[0-9]+$ ]]; then
   echo "harness-action admission start index must be non-negative: $start_index" >&2
   exit 1
 fi
+if [[ "$record_causal_feedback" != true && "$record_causal_feedback" != false ]]; then
+  echo "HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK must be true or false: $record_causal_feedback" >&2
+  exit 1
+fi
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT
-"$root/.venv/bin/python" - "$template" "$resolved_config" "$rung" "$start_index" <<'PY'
+"$root/.venv/bin/python" - "$template" "$resolved_config" "$rung" "$start_index" "$record_causal_feedback" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -49,6 +54,15 @@ rendered, replacements = re.subn(
 )
 if replacements != 1:
     raise SystemExit("admission config must contain one start_index")
+rendered, replacements = re.subn(
+    r"^record_causal_feedback = (?:true|false)$",
+    f"record_causal_feedback = {sys.argv[5]}",
+    rendered,
+    count=1,
+    flags=re.MULTILINE,
+)
+if replacements != 1:
+    raise SystemExit("admission config must contain one record_causal_feedback")
 Path(sys.argv[2]).write_text(rendered)
 PY
 

@@ -795,6 +795,59 @@ def test_sdpo_filter_selects_only_requested_action_tokens():
     ]
 
 
+def test_sdpo_routes_typed_followup_feedback_only_to_target_response():
+    feedback = "Reply causally to the explicit child request."
+    rollout = _two_turn_rollout(
+        reward=0.0,
+        info={
+            "feedback": feedback,
+            "feedback_contract": {
+                "schema_version": "prime-agent/procedural-followup-feedback/v1",
+                "code": "reply_to_child_request",
+                "category": "bidirectional_control",
+                "answer_free": True,
+                "retryable": True,
+                "turn_index": 1,
+                "target_node_index": 3,
+                "message": feedback,
+            },
+        },
+    )
+    algo = SDPOAlgorithm(
+        _build(
+            type="sdpo",
+            multi_turn_replay=True,
+            success_reward_threshold=2.0,
+            require_explicit_feedback=True,
+            required_feedback_contract_schema=(
+                "prime-agent/procedural-followup-feedback/v1"
+            ),
+            filter={
+                "import_path": (
+                    "procedural_harness_master_v1.taskset."
+                    "keep_followup_feedback_response"
+                )
+            },
+        ),
+        MagicMock(model_name="org/model"),
+    )
+    algo.renderer = MagicMock()
+    algo.renderer.render_ids.return_value = [20, 21]
+
+    asyncio.run(algo.finalize_group([rollout]))
+
+    sample = rollout.samples[0]
+    assert sample.sdpo_weights == [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 1.0]
+    assert sample.sdpo_teacher_spans == [
+        SDPOTeacherSpan(
+            prefix_ids=[20, 21],
+            completion_ids=[7, 8],
+            student_positions=[6, 7],
+            target_offsets=[0, 1],
+        )
+    ]
+
+
 def test_sdpo_typed_turn_index_overrides_incidental_tool_feedback():
     feedback = "Repair the first ownership decision."
     rollout = _two_turn_rollout(

@@ -12,9 +12,13 @@ CONFIG = ROOT / "experiments" / "qwen35-27b-procedural-harness-master-v1" / "boo
 SHAPED_CONFIG = CONFIG.with_name("bootstrap-shaped-grpo.toml")
 ACTION_CONFIG = CONFIG.with_name("harness-action-grpo.toml")
 ACTION_ADMISSION_CONFIG = CONFIG.with_name("harness-action-admission.toml")
+FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
+ACTION_GATE_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_gate_battery_v1.sh"
 ACTION_TRAIN_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_grpo_v1.sh"
+FOLLOWUP_SDPO_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_followup_sdpo_v1.sh"
+FOLLOWUP_FEEDBACK_AUDIT = ROOT / "scripts" / "audit_procedural_harness_followup_feedback_v1.py"
 SUMMARIZER = ROOT / "scripts" / "summarize_procedural_harness_master_v1.py"
 BASELINE = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_baseline_v1.sh"
 CHECKPOINT_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_checkpoint_battery_v1.sh"
@@ -201,6 +205,8 @@ def test_harness_action_ramp_is_full_weight_hard_grpo() -> None:
     assert source.env.agent.max_turns == 16
     assert source.env.agent.harness.autonomous_max_turns == 16
     assert source.env.agent.timeout.rollout == 900.0
+    assert source.serve.pool.type == "static"
+    assert source.serve.pool.num_workers == 1
     filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
     assert filters["zero_advantage"].enforce is True
 
@@ -214,8 +220,10 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "num_tasks = 1" in admission_config
     assert "num_rollouts = 8" in admission_config
     assert 'curriculum_rung = "atomic_state"' in admission_config
+    assert "record_causal_feedback = false" in admission_config
     assert "classify_curriculum_rung_admission" in admission_launcher
     assert "HARNESS_ACTION_ADMISSION_START_INDEX" in admission_launcher
+    assert "HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK" in admission_launcher
     assert 'r"^start_index = [0-9]+$"' in admission_launcher
     assert "select_curriculum_rung_admission" in train_launcher
     assert "curriculum admission must contain eight error-free episodes" in selector
@@ -240,3 +248,74 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "bootstrap-shaped-grpo" not in train_launcher
     assert "HARNESS_ACTION_TRAIN_DRY_RUN" in train_launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in train_launcher
+
+
+def test_harness_action_gate_battery_is_disjoint_and_cumulative() -> None:
+    launcher = ACTION_GATE_BATTERY.read_text()
+
+    assert "HARNESS_ACTION_GATE_START_INDEX" in launcher
+    assert "rungs=(atomic_state atomic_send atomic_followup)" in launcher
+    assert "gate_start=$((start_index + offset * 1000))" in launcher
+    assert "HARNESS_ACTION_ADMISSION_START_INDEX=$gate_start" in launcher
+    assert '"$label-$rung-gate-r1"' in launcher
+
+
+def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
+    config = cli(RLConfig, args=["@", str(FOLLOWUP_SDPO_CONFIG), "--dry-run"])
+    source = config.orchestrator.train.source[0]
+
+    assert config.max_steps == 4
+    assert config.max_train_batch_lead == 0
+    assert config.trainer.model.lora is None
+    assert config.trainer.model.optimization_dtype == "bfloat16"
+    assert config.trainer.enable_token_export is True
+    assert config.trainer.optim.type == "adamw"
+    assert config.trainer.optim.lr == 2.5e-7
+    assert config.trainer.sdpo_loss is not None
+    assert config.trainer.sdpo_loss.teacher_regularization == "ema"
+    assert config.orchestrator.batch_size == 16
+    assert config.orchestrator.group_size == 1
+    assert config.orchestrator.max_inflight_episodes == 8
+    assert source.group_size == 1
+    assert source.algo is not None and source.algo.type == "sdpo"
+    assert source.algo.multi_turn_replay is True
+    assert source.algo.require_explicit_feedback is True
+    assert (
+        source.algo.required_feedback_contract_schema
+        == "prime-agent/procedural-followup-feedback/v1"
+    )
+    assert (
+        source.algo.filter.import_path
+        == "procedural_harness_master_v1.taskset.keep_followup_feedback_response"
+    )
+    assert source.env.taskset.curriculum_rung == "atomic_followup"
+    assert source.env.taskset.record_causal_feedback is True
+    assert source.env.taskset.task.reward_mode == "hard"
+    filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
+    assert filters["zero_advantage"].enforce is False
+
+
+def test_followup_sdpo_launcher_requires_disconnection_and_feedback_audit() -> None:
+    launcher = FOLLOWUP_SDPO_LAUNCHER.read_text()
+    auditor = FOLLOWUP_FEEDBACK_AUDIT.read_text()
+
+    assert 'classify_curriculum_rung_admission(admission, "atomic_followup")' in launcher
+    assert '!= "disconnected"' in launcher
+    assert "HARNESS_FOLLOWUP_FEEDBACK_AUDIT" in launcher
+    assert 'audit.get("active_feedback_traces", 0) < 2' in launcher
+    assert 'audit.get("structural_routing_verified") is not True' in launcher
+    assert 'audit.get("routing_contract") != "one-mask-per-trainable-branch"' in launcher
+    assert 'audit.get("answer_free") is not True' in launcher
+    assert 'audit.get("failure_local") is not True' in launcher
+    assert "HARNESS_ACTION_MODEL_PATH" in launcher
+    assert "HARNESS_FOLLOWUP_TRAIN_START_INDEX" in launcher
+    assert "HARNESS_FOLLOWUP_TRAIN_COUNT" in launcher
+    assert "HARNESS_FOLLOWUP_TRAIN_LR" in launcher
+    assert "HARNESS_FOLLOWUP_BATCH_SIZE" in launcher
+    assert "refusing to launch while another GPU process is active" in launcher
+    assert "HARNESS_FOLLOWUP_SDPO_DRY_RUN" in launcher
+    assert 'rl @ "$resolved_config" --model.name "$model_snapshot"' in launcher
+    assert "keep_followup_feedback_response" in auditor
+    assert "iter_trainable_branches" in auditor
+    assert "feedback_contract_payload" in auditor
+    assert "feedback leaks an answer value" in auditor

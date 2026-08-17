@@ -1,4 +1,4 @@
-# Full-weight hard-GRPO rung update for executable Prime Agent actions.
+# Full-weight failure-local SDPO bootstrap for bidirectional follow-up.
 
 max_steps = 4
 seq_len = 8192
@@ -7,8 +7,8 @@ output_dir = "/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1"
 clean = true
 
 [run]
-name = "atomic-state-grpo"
-dir = "atomic-state-grpo"
+name = "atomic-followup-sdpo"
+dir = "atomic-followup-sdpo"
 
 [deployment]
 gpus_per_node = 8
@@ -17,6 +17,9 @@ num_infer_gpus = 2
 
 [model]
 name = "Qwen/Qwen3.5-27B"
+
+[trainer]
+enable_token_export = true
 
 [trainer.model]
 seq_len = 8192
@@ -41,9 +44,18 @@ targets = ["norm"]
 pin_memory = true
 max_inflight_activations = 5
 
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+is_clip = 2.0
+rollout_is = "token"
+rollout_is_threshold = 2.0
+teacher_regularization = "ema"
+teacher_update_rate = 0.01
+
 [trainer.optim]
 type = "adamw"
-lr = 5e-7
+lr = 2.5e-7
 weight_decay = 0.01
 max_norm = 1.0
 betas1 = 0.9
@@ -63,7 +75,7 @@ save_format = "safetensors"
 
 [orchestrator]
 batch_size = 16
-group_size = 8
+group_size = 1
 max_inflight_episodes = 8
 oversampling_factor = 0.5
 max_off_policy_steps = 0
@@ -78,7 +90,7 @@ enforce = true
 
 [[orchestrator.pre_batch_filters]]
 type = "zero_advantage"
-enforce = true
+enforce = false
 
 [[orchestrator.pre_batch_filters]]
 type = "gibberish"
@@ -103,12 +115,27 @@ min_p = 0.0
 return_token_ids = true
 
 [[orchestrator.train.source]]
-name = "procedural-harness-action-ramp"
+name = "procedural-followup-feedback-sdpo"
 ratio = 1.0
-group_size = 8
+group_size = 1
 
 [orchestrator.train.source.algo]
-type = "grpo"
+type = "sdpo"
+success_reward_threshold = 2.0
+dont_reprompt_on_self_success = true
+include_environment_feedback = true
+require_explicit_feedback = true
+required_feedback_contract_schema = "prime-agent/procedural-followup-feedback/v1"
+environment_feedback_only_without_solution = true
+multi_turn_replay = true
+max_reprompt_len = 8192
+
+[orchestrator.train.source.algo.filter]
+import_path = "procedural_harness_master_v1.taskset.keep_followup_feedback_response"
+
+[orchestrator.train.source.algo.renderer]
+name = "qwen3.5"
+enable_thinking = true
 
 [orchestrator.train.source.env]
 max_concurrent_agents = 8
@@ -121,9 +148,10 @@ finalize = 60.0
 id = "procedural-harness-master-v1"
 split = "train_gen"
 count = 512
-start_index = 1000000
+start_index = 1100000
 master_seed = 20260816
-curriculum_rung = "atomic_state"
+curriculum_rung = "atomic_followup"
+record_causal_feedback = true
 
 [orchestrator.train.source.env.agent]
 max_turns = 16
@@ -154,8 +182,8 @@ scoring = 60.0
 max_retries = 0
 
 [orchestrator.train.source.serve.pool]
-type = "static"
-num_workers = 1
+type = "elastic"
+multiplex = 128
 
 [orchestrator.ckpt]
 interval = 1
