@@ -113,6 +113,10 @@ type = "grpo"
 [orchestrator.train.source.env]
 max_concurrent_agents = 8
 
+[orchestrator.train.source.env.timeout]
+episode = 900.0
+finalize = 60.0
+
 [orchestrator.train.source.env.taskset]
 id = "procedural-harness-master-v1"
 split = "train_gen"

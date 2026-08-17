@@ -153,6 +153,13 @@ explicit child result. The verifier now accepts only real `agent_message`
 deliveries, benchmark-injected failures, and visible child failure transitions;
 completion notices cannot satisfy message or cardinality atoms.
 
+The action-ramp configs also set a 900-second environment-level episode
+deadline. The agent-level rollout budget only advances while a Prime Agent
+segment is active; it does not bound environment-side waiting after the
+coordinator yields. Without the outer deadline, one missing child delivery can
+leave a GRPO comparison group in flight indefinitely even though the model and
+container are idle.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes

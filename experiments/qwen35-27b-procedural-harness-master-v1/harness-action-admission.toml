@@ -11,6 +11,10 @@ push = false
 [env]
 max_concurrent_agents = 8
 
+[env.timeout]
+episode = 900.0
+finalize = 60.0
+
 [env.taskset]
 id = "procedural-harness-master-v1"
 split = "train_gen"
