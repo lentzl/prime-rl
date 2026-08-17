@@ -11,12 +11,16 @@ ROOT = Path(__file__).parents[2]
 CONFIG = ROOT / "experiments" / "qwen35-27b-procedural-harness-master-v1" / "bootstrap-grpo.toml"
 SHAPED_CONFIG = CONFIG.with_name("bootstrap-shaped-grpo.toml")
 ACTION_CONFIG = CONFIG.with_name("harness-action-grpo.toml")
+CUMULATIVE_ACTION_CONFIG = CONFIG.with_name("harness-send-followup-cumulative-grpo.toml")
 ACTION_ADMISSION_CONFIG = CONFIG.with_name("harness-action-admission.toml")
 FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
 ACTION_GATE_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_gate_battery_v1.sh"
 ACTION_TRAIN_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_grpo_v1.sh"
+CUMULATIVE_ACTION_TRAIN_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_procedural_harness_send_followup_cumulative_grpo_v1.sh"
+)
 FOLLOWUP_SDPO_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_followup_sdpo_v1.sh"
 FOLLOWUP_FEEDBACK_AUDIT = ROOT / "scripts" / "audit_procedural_harness_followup_feedback_v1.py"
 SUMMARIZER = ROOT / "scripts" / "summarize_procedural_harness_master_v1.py"
@@ -258,6 +262,50 @@ def test_harness_action_gate_battery_is_disjoint_and_cumulative() -> None:
     assert "gate_start=$((start_index + offset * 1000))" in launcher
     assert "HARNESS_ACTION_ADMISSION_START_INDEX=$gate_start" in launcher
     assert '"$label-$rung-gate-r1"' in launcher
+
+
+def test_send_followup_cumulative_grpo_preserves_the_prerequisite_in_the_batch() -> None:
+    config = cli(RLConfig, args=["@", str(CUMULATIVE_ACTION_CONFIG), "--dry-run"])
+    sources = {source.name: source for source in config.orchestrator.train.source}
+
+    assert config.trainer.model.lora is None
+    assert config.trainer.model.optimization_dtype == "bfloat16"
+    assert config.trainer.optim.type == "adamw"
+    assert config.trainer.optim.lr == 1.25e-7
+    assert config.orchestrator.algo.type == "grpo"
+    assert config.orchestrator.batch_size == 32
+    assert config.orchestrator.group_size == 8
+    assert config.orchestrator.oversampling_factor == 0.25
+    assert config.orchestrator.renderer.enable_thinking is True
+    assert set(sources) == {"atomic-send-retention", "atomic-followup-target"}
+    assert {source.ratio for source in sources.values()} == {1.0}
+    assert {source.group_size for source in sources.values()} == {8}
+    assert {
+        source.env.taskset.curriculum_rung for source in sources.values()
+    } == {"atomic_send", "atomic_followup"}
+    assert len({source.env.taskset.start_index for source in sources.values()}) == 2
+    assert all(source.algo is not None and source.algo.type == "grpo" for source in sources.values())
+    assert all(source.env.taskset.task.reward_mode == "hard" for source in sources.values())
+    assert all(source.serve.pool.type == "static" for source in sources.values())
+    assert all(source.serve.pool.num_workers == 1 for source in sources.values())
+
+
+def test_send_followup_cumulative_launcher_fails_closed_on_both_admissions() -> None:
+    launcher = CUMULATIVE_ACTION_TRAIN_LAUNCHER.read_text()
+
+    assert "HARNESS_CUMULATIVE_SEND_ADMISSION_SUMMARY" in launcher
+    assert "HARNESS_CUMULATIVE_FOLLOWUP_ADMISSION_SUMMARY" in launcher
+    assert 'for path, rung in zip(sys.argv[1:], ("atomic_send", "atomic_followup"), strict=True)' in launcher
+    assert "select_curriculum_rung_admission(report, rung)" in launcher
+    assert "send and follow-up training windows must be disjoint" in launcher
+    assert "HARNESS_CUMULATIVE_SEND_START_INDEX" in launcher
+    assert "HARNESS_CUMULATIVE_FOLLOWUP_START_INDEX" in launcher
+    assert "HARNESS_CUMULATIVE_TRAIN_LR" in launcher
+    assert "HARNESS_CUMULATIVE_BATCH_SIZE" in launcher
+    assert "refusing to launch while another GPU process is active" in launcher
+    assert "HARNESS_ACTION_MODEL_PATH is not a stable checkpoint" in launcher
+    assert "HARNESS_CUMULATIVE_TRAIN_DRY_RUN" in launcher
+    assert 'rl @ "$resolved_config" --model.name "$model_snapshot"' in launcher
 
 
 def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
