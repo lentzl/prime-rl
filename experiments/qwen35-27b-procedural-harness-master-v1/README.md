@@ -203,6 +203,15 @@ coordinator yields. Without the outer deadline, one missing child delivery can
 leave a GRPO comparison group in flight indefinitely even though the model and
 container are idle.
 
+Do not run Prime-RL's pytest suite on a host with active training. Its global
+test fixture intentionally executes `pkill -f torchrun` before each test module
+to remove CI zombies, including unrelated live trainers on the same machine.
+An `atomic_child_request` optimizer attempt was invalidated this way after
+rollout collection but before checkpoint export; it produced no weights and is
+not training evidence. Run tests before launch or on another host. During a
+live run, limit checks to commands that do not load `tests/conftest.py`, such as
+shell syntax checks, Ruff, or direct standalone scripts.
+
 Episode containers use the experiment's pinned Prime Agent runtime image rather
 than installing Node and Prime Agent from the network during every setup. Build
 it with `scripts/build_prime_agent_runtime_image_v1.sh`; the builder verifies
