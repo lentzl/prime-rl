@@ -22,6 +22,7 @@ count = 1
 start_index = 3100000
 master_seed = 20260816
 curriculum_rung = "natural_n1"
+private_payload_mode = "finding_card"
 record_causal_feedback = false
 
 [env.agent]
