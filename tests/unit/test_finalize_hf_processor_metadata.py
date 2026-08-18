@@ -55,6 +55,18 @@ def test_finalize_preserves_checkpoint_owned_metadata(tmp_path: Path) -> None:
 def test_finalize_rejects_incomplete_multimodal_source(tmp_path: Path) -> None:
     source, destination = _make_model_dirs(tmp_path)
     (source / "preprocessor_config.json").unlink()
+    (source / "video_preprocessor_config.json").unlink()
 
-    with pytest.raises(MODULE.MetadataFailure, match="no preprocessor_config"):
+    with pytest.raises(MODULE.MetadataFailure, match="no processor metadata"):
         MODULE.finalize(source, destination)
+
+
+def test_finalize_accepts_consolidated_processor_metadata(tmp_path: Path) -> None:
+    source, destination = _make_model_dirs(tmp_path)
+    (source / "preprocessor_config.json").unlink()
+    (source / "video_preprocessor_config.json").unlink()
+    _write_json(source / "processor_config.json", {"processor_class": "Qwen3VLProcessor"})
+
+    files = MODULE.finalize(source, destination)
+
+    assert files == ["processor_config.json"]

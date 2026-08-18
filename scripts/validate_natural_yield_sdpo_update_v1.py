@@ -8,6 +8,10 @@ import math
 from pathlib import Path
 from typing import Any
 
+from procedural_harness_master_v1.taskset import (
+    ProceduralHarnessMasterData,
+    _natural_yield_feedback_diagnostic,
+)
 from transformers import AutoTokenizer
 
 from prime_rl.trainer.ckpt import (
@@ -139,6 +143,29 @@ def _validate_weights(run_dir: Path) -> Path:
     return weights
 
 
+def _validate_pristine_prefixes(run_dir: Path, traces: list[Any]) -> None:
+    records = _read_jsonl(
+        run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
+    )
+    if len(records) != len(traces):
+        raise UpdateFailure("pristine-prefix audit trace count changed")
+    for index, (record, trace) in enumerate(zip(records, traces, strict=True)):
+        task_data = ProceduralHarnessMasterData.model_validate(
+            record.get("task", {}).get("data", {})
+        )
+        diagnostic = _natural_yield_feedback_diagnostic(trace, task_data)
+        contract = record.get("info", {}).get("feedback_contract", {})
+        if (
+            diagnostic is None
+            or diagnostic.target_node_index != contract.get("target_node_index")
+            or diagnostic.spawn_node_index
+            != contract.get("evidence", {}).get("spawn_node_index")
+        ):
+            raise UpdateFailure(
+                f"effective trace {index} does not have a pristine delegation prefix"
+            )
+
+
 def validate(
     run_dir: Path,
     prerequisite: Path,
@@ -147,6 +174,7 @@ def validate(
     _validate_prerequisite(prerequisite, expected_model_path)
     _validate_configs(run_dir, expected_model_path)
     traces = zero._validate_traces(run_dir)
+    _validate_pristine_prefixes(run_dir, traces)
     routing = zero._validate_token_routing(run_dir, traces)
     expected_tokens = sum(
         sum(

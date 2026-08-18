@@ -52,8 +52,8 @@ def finalize(source: Path, destination: Path) -> list[str]:
             shutil.copy2(source_path, destination_path)
         copied.append(name)
 
-    if is_multimodal and "preprocessor_config.json" not in copied:
-        raise MetadataFailure("multimodal checkpoint has no preprocessor_config.json")
+    if is_multimodal and not copied:
+        raise MetadataFailure("multimodal checkpoint has no processor metadata")
     return copied
 
 

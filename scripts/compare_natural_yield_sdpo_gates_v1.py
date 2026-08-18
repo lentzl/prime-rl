@@ -11,6 +11,7 @@ from scripts.summarize_procedural_harness_master_v1 import _traces
 
 GATES = {
     "natural_yield": "natural-yield",
+    "natural_yield_local_work": "natural-yield-local-work",
     "atomic_state": "atomic-state",
     "atomic_send": "atomic-send",
 }
@@ -81,11 +82,22 @@ def compare(root: Path, base_label: str, candidate_label: str) -> dict[str, Any]
     prerequisites_retained = all(
         gates[name]["delta_passed"] >= 0 for name in ("atomic_state", "atomic_send")
     )
+    local_work = gates["natural_yield_local_work"]
+    anti_overgeneralization_retained = (
+        local_work["delta_passed"] >= 0
+        and local_work["diagnostic_deltas"].get("local_work_before_yield", 0.0)
+        >= 0
+    )
     exact_not_regressed = (
         gates["natural_yield"]["diagnostic_deltas"].get("final_answer_exact", 0.0)
         >= 0
     )
-    eligible = target_improved and prerequisites_retained and exact_not_regressed
+    eligible = (
+        target_improved
+        and prerequisites_retained
+        and anti_overgeneralization_retained
+        and exact_not_regressed
+    )
     return {
         "schema_version": "prime-agent/natural-yield-sdpo-gates/v1",
         "base": base_label,
@@ -93,6 +105,7 @@ def compare(root: Path, base_label: str, candidate_label: str) -> dict[str, Any]
         "decision": {
             "target_improved": target_improved,
             "prerequisites_retained": prerequisites_retained,
+            "anti_overgeneralization_retained": anti_overgeneralization_retained,
             "target_exact_answer_not_regressed": exact_not_regressed,
             "eligible_for_independent_replication": eligible,
             "promoted": False,

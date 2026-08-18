@@ -14,6 +14,7 @@ def _write_gate(
     passed: int,
     *,
     exact: float = 1.0,
+    local_work_before_yield: float = 1.0,
     task_index: int = 1,
 ) -> None:
     gate = root / f"{label}-{suffix}" / "train-admission"
@@ -23,7 +24,10 @@ def _write_gate(
         "episodes": 8,
         "errors": 0,
         "harness": {"episodes": 8, "passed": passed, "rate": passed / 8},
-        "diagnostic_means": {"final_answer_exact": exact},
+        "diagnostic_means": {
+            "final_answer_exact": exact,
+            "local_work_before_yield": local_work_before_yield,
+        },
     }
     (gate / "SUMMARY.json").write_text(json.dumps(summary))
     task = {
@@ -47,6 +51,7 @@ def _write_battery(
 ) -> None:
     families = {
         "natural_yield": "natural_n1",
+        "natural_yield_local_work": "natural_n1",
         "atomic_state": "atomic_state",
         "atomic_send": "atomic_send",
     }
@@ -68,12 +73,22 @@ def test_comparison_authorizes_replication_only_after_target_gain_and_retention(
     _write_battery(
         tmp_path,
         "r7",
-        {"natural_yield": 0, "atomic_state": 8, "atomic_send": 5},
+        {
+            "natural_yield": 0,
+            "natural_yield_local_work": 2,
+            "atomic_state": 8,
+            "atomic_send": 5,
+        },
     )
     _write_battery(
         tmp_path,
         "candidate",
-        {"natural_yield": 2, "atomic_state": 8, "atomic_send": 6},
+        {
+            "natural_yield": 2,
+            "natural_yield_local_work": 2,
+            "atomic_state": 8,
+            "atomic_send": 6,
+        },
     )
 
     report = compare(tmp_path, "r7", "candidate")
@@ -84,12 +99,22 @@ def test_comparison_authorizes_replication_only_after_target_gain_and_retention(
 
 
 def test_comparison_rejects_prerequisite_or_exact_answer_regression(tmp_path: Path) -> None:
-    scores = {"natural_yield": 0, "atomic_state": 8, "atomic_send": 5}
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
     _write_battery(tmp_path, "r7", scores)
     _write_battery(
         tmp_path,
         "candidate",
-        {"natural_yield": 2, "atomic_state": 8, "atomic_send": 4},
+        {
+            "natural_yield": 2,
+            "natural_yield_local_work": 2,
+            "atomic_state": 8,
+            "atomic_send": 4,
+        },
         exact=0.75,
     )
 
@@ -102,9 +127,39 @@ def test_comparison_rejects_prerequisite_or_exact_answer_regression(tmp_path: Pa
 
 
 def test_comparison_fails_closed_on_different_task_draw(tmp_path: Path) -> None:
-    scores = {"natural_yield": 0, "atomic_state": 8, "atomic_send": 5}
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
     _write_battery(tmp_path, "r7", scores)
     _write_battery(tmp_path, "candidate", scores, changed_gate="natural_yield")
 
     with pytest.raises(ValueError, match="task specifications differ"):
         compare(tmp_path, "r7", "candidate")
+
+
+def test_comparison_rejects_premature_yield_regression(tmp_path: Path) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "r7", scores)
+    _write_battery(tmp_path, "candidate", scores)
+    gate = (
+        tmp_path
+        / "candidate-natural-yield-local-work"
+        / "train-admission"
+        / "SUMMARY.json"
+    )
+    summary = json.loads(gate.read_text())
+    summary["diagnostic_means"]["local_work_before_yield"] = 0.75
+    gate.write_text(json.dumps(summary))
+
+    report = compare(tmp_path, "r7", "candidate")
+
+    assert report["decision"]["anti_overgeneralization_retained"] is False
+    assert report["decision"]["eligible_for_independent_replication"] is False
