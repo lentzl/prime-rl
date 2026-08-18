@@ -179,7 +179,8 @@ accepted batch, but the disjoint send gate remained `6/8`. R7 used
 `1002000..1002511`, scored `10/16` in training, and improved the next send gate
 to `7/8` while retaining state at `8/8`. R8 then used
 `1003000..1003511`, scored `6/16`, and regressed its fresh send gate to `5/8`.
-R8 is rejected and descendants must branch from R7. Near this boundary, a
+This `atomic-send-grpo-r8` checkpoint is rejected and descendants must branch
+from R7. Near this boundary, a
 single two-group update at `5e-7` is too noisy for reliable promotion. The
 launcher therefore supports validated `HARNESS_ACTION_BATCH_SIZE` and
 `HARNESS_ACTION_TRAIN_LR` overrides so stabilization runs can use more
@@ -261,6 +262,40 @@ the episode deadline. The final R2 follow-up replicate completed all eight
 episodes without errors under the watchdog. Gate batteries may also select a
 comma-separated subset through `HARNESS_ACTION_GATE_RUNGS` while preserving
 the canonical per-rung task-index offsets.
+
+An exact eight-episode, 840-second watchdog reproduction closed normally after
+the detached-descendant repair. Evaluator RSS stayed between 165 and 167 MiB,
+the external 512 MiB guard never fired, all eight traces serialized as
+`ok=true` without trace errors, and no containers or GPU processes remained.
+Five episodes ended at `max_turns`, three at `user_closed`, and all eight hard
+scores were zero; this diagnostic task window is not promotion evidence. Some
+timed-out streaming requests logged `Cannot call write() after write_eof()` in
+the interception server even though their enclosing traces finalized cleanly.
+That separate stream-close race remains an infrastructure diagnostic. A prior
+attempt in which the evaluator reached roughly 426 GiB RSS is excluded and was
+not reproduced under either a one-episode probe, a short eight-episode probe,
+or this exact-duration run.
+
+The later `atomic-child-request-grpo-r8-retry1` checkpoint is a distinct,
+rejected R7 descendant despite the reused short `R8` label. It applied one
+full-weight BF16 AdamW hard-GRPO step at `2.5e-7` to 32 trainable
+`atomic_child_request` trajectories, with training reward `25/32`, loss
+`0.0002`, entropy `0.3242`, mismatch KL `0.0003`, and gradient norm `0.6406`.
+Its stable 12-shard export passed EOS validation. On the exact same frozen draw,
+R7 versus this candidate scored state `8/8` versus `8/8`, send `5/8` versus
+`3/8`, and child request `6/8` versus `4/8`, all without runtime errors. The
+candidate therefore regressed both its trained target and a prerequisite and
+is rejected without another optimizer step. R7 remains canonical. Future
+interventions use globally unique rung labels; full checkpoint slugs remain the
+authoritative identity for these historical runs.
+
+The protected R7 checkpoint is preserved in the private Hugging Face repository
+[`R7 Hugging Face repository`](https://huggingface.co/lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818).
+It is a complete full-weight export, not an adapter: 12 safetensors shards,
+tokenizer and processor metadata, resolved run configs, a stable marker, and
+validated `<|im_end|>` EOS metadata are present. The model card records the
+exact producing Prime-RL and Verifiers revisions. R7 is a protected research
+branch point, not yet a mastered Prime Agent teacher.
 
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
