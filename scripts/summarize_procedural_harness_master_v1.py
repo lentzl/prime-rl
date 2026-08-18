@@ -14,6 +14,7 @@ ADMISSION_FAMILIES = {"direct", "single", "parallel", "mixed", "followup", "veri
 CURRICULUM_RUNGS = {
     "atomic_state",
     "atomic_send",
+    "atomic_child_request",
     "atomic_followup",
     "atomic_parallel",
 }

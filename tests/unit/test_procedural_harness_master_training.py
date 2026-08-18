@@ -174,13 +174,14 @@ def test_checkpoint_battery_evaluates_untouched_and_every_stable_step() -> None:
 
 
 def test_curriculum_admission_requires_one_informative_hard_group() -> None:
+    rung = "atomic_child_request"
     report = {
         "rescored": True,
         "episodes": 8,
         "errors": 0,
-        "by_family": {"atomic_send": {"episodes": 8, "passed": 3, "rate": 0.375}},
+        "by_family": {rung: {"episodes": 8, "passed": 3, "rate": 0.375}},
         "by_family_groups": {
-            "atomic_send": {
+            rung: {
                 "groups": 1,
                 "informative": 1,
                 "all_pass": 0,
@@ -189,15 +190,15 @@ def test_curriculum_admission_requires_one_informative_hard_group() -> None:
         },
     }
 
-    assert select_curriculum_rung_admission(report, "atomic_send") == "atomic_send"
+    assert select_curriculum_rung_admission(report, rung) == rung
 
-    report["by_family_groups"]["atomic_send"]["informative"] = 0
-    report["by_family_groups"]["atomic_send"]["all_fail"] = 1
-    assert classify_curriculum_rung_admission(report, "atomic_send") == "disconnected"
+    report["by_family_groups"][rung]["informative"] = 0
+    report["by_family_groups"][rung]["all_fail"] = 1
+    assert classify_curriculum_rung_admission(report, rung) == "disconnected"
 
-    report["by_family_groups"]["atomic_send"]["all_fail"] = 0
-    report["by_family_groups"]["atomic_send"]["all_pass"] = 1
-    assert classify_curriculum_rung_admission(report, "atomic_send") == "mastered"
+    report["by_family_groups"][rung]["all_fail"] = 0
+    report["by_family_groups"][rung]["all_pass"] = 1
+    assert classify_curriculum_rung_admission(report, rung) == "mastered"
 
 
 def test_harness_action_ramp_is_full_weight_hard_grpo() -> None:
