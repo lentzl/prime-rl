@@ -450,3 +450,15 @@ must change the curriculum distribution: a broader semantically varied,
 natural executable ramp should repeatedly exercise complete event-driven
 parent/child policies while R7 and this frozen action battery remain protected
 controls.
+
+`natural-composition-admission.toml` remeasures that connectivity before any
+broader update. It runs R7 on the same six-task, eight-sibling task bank used by
+the final untouched-27B admission: one `direct`, `single`, `parallel`, `mixed`,
+`followup`, and `verify` group. The prompts use the benchmark's ordinary
+ownership language and complete task semantics rather than atomic API
+instructions. The first comparison is deliberately exact-draw so changes can
+be attributed to R7; any trainable source will then move to disjoint fresh
+indices. Hard-success variance determines the next algorithm: mixed native
+groups can support broad hard GRPO or successful-sibling SDPO, while
+homogeneous-zero families require a curriculum-distribution bridge rather than
+another blind optimizer step.
