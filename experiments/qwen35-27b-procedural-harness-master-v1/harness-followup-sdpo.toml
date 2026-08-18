@@ -182,8 +182,8 @@ scoring = 60.0
 max_retries = 0
 
 [orchestrator.train.source.serve.pool]
-type = "elastic"
-multiplex = 128
+type = "static"
+num_workers = 1
 
 [orchestrator.ckpt]
 interval = 1

@@ -382,6 +382,8 @@ def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     assert source.env.taskset.curriculum_rung == "atomic_followup"
     assert source.env.taskset.record_causal_feedback is True
     assert source.env.taskset.task.reward_mode == "hard"
+    assert source.serve.pool.type == "static"
+    assert source.serve.pool.num_workers == 1
     filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
     assert filters["zero_advantage"].enforce is False
 
