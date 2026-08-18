@@ -1,6 +1,6 @@
 # Full-weight failure-local SDPO bootstrap for bidirectional follow-up.
 
-max_steps = 4
+max_steps = 1
 seq_len = 8192
 max_train_batch_lead = 0
 output_dir = "/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1"
@@ -170,7 +170,7 @@ autonomous_timeout_ms = 900000
 
 [orchestrator.train.source.env.agent.runtime]
 type = "docker"
-image = "python:3.11-slim"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
 
 [orchestrator.train.source.env.agent.timeout]
 setup = 300.0

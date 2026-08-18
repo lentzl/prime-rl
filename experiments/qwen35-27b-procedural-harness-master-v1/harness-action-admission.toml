@@ -41,7 +41,7 @@ autonomous_timeout_ms = 900000
 
 [env.agent.runtime]
 type = "docker"
-image = "python:3.11-slim"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
 
 [env.agent.timeout]
 setup = 300.0

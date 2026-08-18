@@ -198,6 +198,15 @@ coordinator yields. Without the outer deadline, one missing child delivery can
 leave a GRPO comparison group in flight indefinitely even though the model and
 container are idle.
 
+Episode containers use the experiment's pinned Prime Agent runtime image rather
+than installing Node and Prime Agent from the network during every setup. Build
+it with `scripts/build_prime_agent_runtime_image_v1.sh`; the builder verifies
+the exact Node and Prime Agent versions in a fresh container. This keeps a
+transient npm or package-host outage from entering the rollout cohort as a model
+failure. The failure-local follow-up SDPO bootstrap is intrinsically one step:
+it collects four admitted response transitions, performs one full-weight
+update, and then returns control to the frozen cumulative gates.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes

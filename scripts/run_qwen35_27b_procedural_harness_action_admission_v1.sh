@@ -27,6 +27,7 @@ if [[ "$record_causal_feedback" != true && "$record_causal_feedback" != false ]]
   echo "HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK must be true or false: $record_causal_feedback" >&2
   exit 1
 fi
+"$root/scripts/build_prime_agent_runtime_image_v1.sh" >/dev/null
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT

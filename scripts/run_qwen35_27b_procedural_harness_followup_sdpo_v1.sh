@@ -26,6 +26,7 @@ for path in "$template" "$admission_summary" "$feedback_audit"; do
     exit 1
   fi
 done
+"$root/scripts/build_prime_agent_runtime_image_v1.sh" >/dev/null
 if [[ ! "$train_start_index" =~ ^[0-9]+$ ]]; then
   echo "follow-up SDPO start index must be non-negative: $train_start_index" >&2
   exit 1

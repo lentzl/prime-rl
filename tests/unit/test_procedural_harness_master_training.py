@@ -30,6 +30,8 @@ EVENT_CONTROL_TRAIN_LAUNCHER = (
 )
 FOLLOWUP_SDPO_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_followup_sdpo_v1.sh"
 FOLLOWUP_FEEDBACK_AUDIT = ROOT / "scripts" / "audit_procedural_harness_followup_feedback_v1.py"
+PRIME_AGENT_RUNTIME_BUILDER = ROOT / "scripts" / "build_prime_agent_runtime_image_v1.sh"
+PRIME_AGENT_RUNTIME_DOCKERFILE = CONFIG.with_name("prime-agent-runtime.Dockerfile")
 SUMMARIZER = ROOT / "scripts" / "summarize_procedural_harness_master_v1.py"
 BASELINE = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_baseline_v1.sh"
 CHECKPOINT_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_checkpoint_battery_v1.sh"
@@ -235,6 +237,11 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "classify_curriculum_rung_admission" in admission_launcher
     assert "HARNESS_ACTION_ADMISSION_START_INDEX" in admission_launcher
     assert "HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK" in admission_launcher
+    assert "build_prime_agent_runtime_image_v1.sh" in admission_launcher
+    assert (
+        'image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"'
+        in admission_config
+    )
     assert 'r"^start_index = [0-9]+$"' in admission_launcher
     assert "select_curriculum_rung_admission" in train_launcher
     assert "curriculum admission must contain eight error-free episodes" in selector
@@ -259,6 +266,21 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "bootstrap-shaped-grpo" not in train_launcher
     assert "HARNESS_ACTION_TRAIN_DRY_RUN" in train_launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in train_launcher
+
+
+def test_prime_agent_runtime_image_pins_the_episode_dependencies() -> None:
+    builder = PRIME_AGENT_RUNTIME_BUILDER.read_text()
+    dockerfile = PRIME_AGENT_RUNTIME_DOCKERFILE.read_text()
+
+    assert "NODE_VERSION=22.19.0" in dockerfile
+    assert "PRIME_AGENT_VERSION=0.7.2-beta.495.1.97b994c" in dockerfile
+    assert "/var/tmp/vf-node" in dockerfile
+    assert "/var/tmp/vf-prime-agent/${PRIME_AGENT_VERSION}" in dockerfile
+    assert "PRIME_AGENT_BOOTSTRAP_KERNEL_ON_INSTALL=0" in dockerfile
+    assert 'prime-agent" --version 2>&1)' in dockerfile
+    assert 'docker image inspect "$image"' in builder
+    assert 'docker run --rm "$image"' in builder
+    assert "prime-agent --version 2>&1" in builder
 
 
 def test_harness_action_gate_battery_is_disjoint_and_cumulative() -> None:
@@ -361,7 +383,7 @@ def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     config = cli(RLConfig, args=["@", str(FOLLOWUP_SDPO_CONFIG), "--dry-run"])
     source = config.orchestrator.train.source[0]
 
-    assert config.max_steps == 4
+    assert config.max_steps == 1
     assert config.max_train_batch_lead == 0
     assert config.trainer.model.lora is None
     assert config.trainer.model.optimization_dtype == "bfloat16"
@@ -382,6 +404,9 @@ def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     assert source.env.taskset.curriculum_rung == "atomic_followup"
     assert source.env.taskset.record_causal_feedback is True
     assert source.env.taskset.task.reward_mode == "hard"
+    assert source.env.agent.runtime.image == (
+        "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
+    )
     assert source.serve.pool.type == "static"
     assert source.serve.pool.num_workers == 1
     filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
@@ -407,6 +432,7 @@ def test_followup_sdpo_launcher_requires_disconnection_and_feedback_audit() -> N
     assert "HARNESS_FOLLOWUP_BATCH_SIZE" in launcher
     assert "refusing to launch while another GPU process is active" in launcher
     assert "HARNESS_FOLLOWUP_SDPO_DRY_RUN" in launcher
+    assert "build_prime_agent_runtime_image_v1.sh" in launcher
     assert 'rl @ "$resolved_config" --model.name "$model_snapshot"' in launcher
     assert "keep_followup_feedback_response" in auditor
     assert "iter_trainable_branches" in auditor
