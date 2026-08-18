@@ -310,6 +310,31 @@ fresh bank preserves state and send while improving child request; follow-up is
 measured as a downstream control. Otherwise R9 is rejected and R7 remains
 canonical.
 
+The valid `atomic-child-request-success-sft-r9-retry1` run collected 16
+distinct hard successes from 25 R7 attempts. Every admitted trace had the
+exact final answer, all required atoms, no forbidden atoms, correct ordering,
+and exact cardinality; the batch covered explicit, `natural_a`, and
+`natural_b` instruction styles. The full-weight BF16 AdamW step completed with
+loss `0.0049`, entropy `0.2941`, gradient norm `2.1406`, and learning rate
+`1e-7`. Its stable 12-shard export passed the ChatML EOS validation. An earlier
+launch is excluded because the default `0.9` vLLM reservation exhausted memory
+during the startup broadcast before any rollout or optimizer step. The template
+now reserves `0.8` and caps inference at 16 sequences.
+
+On the exact paired generated bank beginning at index `2600000`, R7 versus R9
+scored state `8/8` versus `8/8`, send `3/8` versus `8/8`, child request `5/8`
+versus `4/8`, and follow-up `0/8` versus `0/8`, with zero rollout errors. The
+send gain was complete across every diagnostic, but the trained target lost one
+hard pass: child-request final-answer exactness fell from `1.0` to `0.75`,
+required-atom coverage from `0.9792` to `0.8750`, and ordering from `0.8750` to
+`0.7500`. R9 therefore fails the predeclared target-improvement rule and is not
+replicated or promoted; R7 remains canonical. The result is still causal
+evidence that rejection-conditioned CE can consolidate a native communication
+action. Because each child-request trace contains both coordinator and child
+tokens, the large send gain may reflect an easier child-side signal while the
+full coordinator request/resume transition remains underweighted. A follow-up
+should test that attribution directly rather than repeat the same CE step.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes
