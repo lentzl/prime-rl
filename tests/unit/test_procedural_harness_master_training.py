@@ -676,6 +676,9 @@ def test_natural_yield_update_requires_audit_and_runs_frozen_postflight() -> Non
     assert "validate_natural_yield_sdpo_update_v1" in launcher
     assert '"$postflight" "$model_snapshot" "$weights"' in launcher
     assert 'for item in "r7:$base_model" "candidate:$candidate_model"' in postflight
+    assert "TRAINING_SOURCE_COMMIT" in postflight
+    assert "prime_rl_source_commit" in postflight
+    assert "prime_rl_workspace_head" in postflight
     assert "compare_natural_yield_sdpo_gates_v1" in postflight
     assert "eligible_for_independent_replication" in (
         ROOT / "scripts" / "compare_natural_yield_sdpo_gates_v1.py"

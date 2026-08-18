@@ -8,6 +8,7 @@ evaluation_root=${NATURAL_YIELD_POSTFLIGHT_ROOT:-/ephemeral/evals/qwen35-27b-nat
 server_driver=$root/scripts/run_qwen35_27b_prime_agent_mastery_baseline_v2.sh
 gate_driver=$root/scripts/run_qwen35_27b_natural_yield_sdpo_gate_battery_v1.sh
 model_revision=${MODEL_REVISION:-8f0568faed72d0db2e2258c18b1aabdcefd680cc}
+source_commit=${TRAINING_SOURCE_COMMIT:-$(git -C "$root" rev-parse HEAD)}
 
 cd "$root"
 for model in "$base_model" "$candidate_model"; do
@@ -27,7 +28,8 @@ fi
 
 mkdir -p "$evaluation_root"
 {
-  printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"
+  printf 'prime_rl_source_commit=%s\n' "$source_commit"
+  printf 'prime_rl_workspace_head=%s\n' "$(git rev-parse HEAD)"
   printf 'verifiers_commit=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
   printf 'base_model=%s\n' "$base_model"
   printf 'candidate_model=%s\n' "$candidate_model"
