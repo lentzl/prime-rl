@@ -26,6 +26,7 @@ FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 NATURAL_YIELD_SDPO_AUDIT_CONFIG = CONFIG.with_name(
     "natural-yield-sdpo-zero-lr.toml"
 )
+NATURAL_YIELD_SDPO_UPDATE_CONFIG = CONFIG.with_name("natural-yield-sdpo-update.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
 NATURAL_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_natural_policy_admission_v1.sh"
@@ -46,6 +47,12 @@ NATURAL_YIELD_SDPO_AUDIT_LAUNCHER = (
 )
 NATURAL_YIELD_SDPO_AUDIT_VALIDATOR = (
     ROOT / "scripts" / "validate_natural_yield_sdpo_zero_lr_v1.py"
+)
+NATURAL_YIELD_SDPO_UPDATE_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_update_v1.sh"
+)
+NATURAL_YIELD_SDPO_POSTFLIGHT = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_postflight_v1.sh"
 )
 FOLLOWUP_FEEDBACK_AUDIT = ROOT / "scripts" / "audit_procedural_harness_followup_feedback_v1.py"
 PRIME_AGENT_RUNTIME_BUILDER = ROOT / "scripts" / "build_prime_agent_runtime_image_v1.sh"
@@ -627,6 +634,52 @@ def test_natural_yield_sdpo_audit_launcher_is_non_destructive() -> None:
     assert 'mechanism": "natural-yield-feedback-conditioned-sdpo-zero-lr"' in validator
     assert "keep_natural_yield_feedback_response" in validator
     assert "_validate_no_model_artifacts" in validator
+
+
+def test_natural_yield_sdpo_update_is_minimal_full_weight_learning() -> None:
+    config = cli(
+        RLConfig, args=["@", str(NATURAL_YIELD_SDPO_UPDATE_CONFIG), "--dry-run"]
+    )
+    source = config.orchestrator.train.source[0]
+
+    assert config.max_steps == 1
+    assert config.max_train_batch_lead == 0
+    assert config.trainer.model.lora is None
+    assert config.trainer.model.optimization_dtype == "bfloat16"
+    assert config.trainer.optim.type == "adamw"
+    assert config.trainer.optim.lr == 5e-8
+    assert config.trainer.ckpt is not None
+    assert config.trainer.ckpt.weights_only is True
+    assert config.orchestrator.ckpt is not None
+    assert config.orchestrator.batch_size == 4
+    assert config.orchestrator.group_size == 1
+    assert source.algo is not None and source.algo.type == "sdpo"
+    assert source.algo.multi_turn_replay is False
+    assert source.algo.required_feedback_contract_schema == (
+        "prime-agent/natural-yield-feedback/v1"
+    )
+    assert source.env.taskset.curriculum_rung == "natural_n1"
+    assert source.env.taskset.private_payload_mode == "finding_card"
+    assert source.env.taskset.start_index == 3400000
+
+
+def test_natural_yield_update_requires_audit_and_runs_frozen_postflight() -> None:
+    launcher = NATURAL_YIELD_SDPO_UPDATE_LAUNCHER.read_text()
+    postflight = NATURAL_YIELD_SDPO_POSTFLIGHT.read_text()
+
+    assert "zero-lr-audit/AUDIT.json" in launcher
+    assert "refusing to overwrite natural-yield update" in launcher
+    assert "NATURAL_YIELD_SDPO_UPDATE_DRY_RUN" in launcher
+    assert "mktemp -d /tmp/natural-yield-sdpo-update-dry-run" in launcher
+    assert '--output-dir "$dry_run_root"' in launcher
+    assert "finalize_hf_processor_metadata.py" in launcher
+    assert "validate_natural_yield_sdpo_update_v1" in launcher
+    assert '"$postflight" "$model_snapshot" "$weights"' in launcher
+    assert 'for item in "r7:$base_model" "candidate:$candidate_model"' in postflight
+    assert "compare_natural_yield_sdpo_gates_v1" in postflight
+    assert "eligible_for_independent_replication" in (
+        ROOT / "scripts" / "compare_natural_yield_sdpo_gates_v1.py"
+    ).read_text()
 
 
 def test_followup_sdpo_launcher_requires_disconnection_and_feedback_audit() -> None:
