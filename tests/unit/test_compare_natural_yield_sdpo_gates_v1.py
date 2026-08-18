@@ -15,6 +15,7 @@ def _write_gate(
     *,
     exact: float = 1.0,
     local_work_before_yield: float = 1.0,
+    premature_yield_before_local_work: float = 0.0,
     task_index: int = 1,
 ) -> None:
     gate = root / f"{label}-{suffix}" / "train-admission"
@@ -27,6 +28,7 @@ def _write_gate(
         "diagnostic_means": {
             "final_answer_exact": exact,
             "local_work_before_yield": local_work_before_yield,
+            "premature_yield_before_local_work": premature_yield_before_local_work,
         },
     }
     (gate / "SUMMARY.json").write_text(json.dumps(summary))
@@ -156,7 +158,7 @@ def test_comparison_rejects_premature_yield_regression(tmp_path: Path) -> None:
         / "SUMMARY.json"
     )
     summary = json.loads(gate.read_text())
-    summary["diagnostic_means"]["local_work_before_yield"] = 0.75
+    summary["diagnostic_means"]["premature_yield_before_local_work"] = 0.25
     gate.write_text(json.dumps(summary))
 
     report = compare(tmp_path, "r7", "candidate")

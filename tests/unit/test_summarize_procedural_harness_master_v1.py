@@ -33,6 +33,7 @@ def _trace(
             "required_atoms_fraction": score,
             "bootstrap_progress": score if bootstrap_progress is None else bootstrap_progress,
             "local_work_before_yield": score,
+            "premature_yield_before_local_work": 1.0 - score,
         },
         "errors": [],
     }
@@ -53,6 +54,7 @@ def test_summarize_flattens_episode_envelopes(tmp_path) -> None:
     assert report["episodes"] == 2
     assert report["harness"] == {"episodes": 2, "passed": 1, "rate": 0.5}
     assert report["diagnostic_means"]["local_work_before_yield"] == 0.5
+    assert report["diagnostic_means"]["premature_yield_before_local_work"] == 0.5
     assert report["by_family"]["direct"]["rate"] == 1.0
     assert report["by_family"]["parallel"]["rate"] == 0.0
     assert report["comparison_groups"] == {

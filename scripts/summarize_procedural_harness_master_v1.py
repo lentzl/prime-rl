@@ -90,6 +90,7 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
             "required_atoms_fraction",
             "bootstrap_progress",
             "local_work_before_yield",
+            "premature_yield_before_local_work",
         ):
             diagnostics[key] += _score(trace, key, "metrics")
 

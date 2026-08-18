@@ -87,6 +87,10 @@ def compare(root: Path, base_label: str, candidate_label: str) -> dict[str, Any]
         local_work["delta_passed"] >= 0
         and local_work["diagnostic_deltas"].get("local_work_before_yield", 0.0)
         >= 0
+        and local_work["diagnostic_deltas"].get(
+            "premature_yield_before_local_work", 0.0
+        )
+        <= 0
     )
     exact_not_regressed = (
         gates["natural_yield"]["diagnostic_deltas"].get("final_answer_exact", 0.0)
