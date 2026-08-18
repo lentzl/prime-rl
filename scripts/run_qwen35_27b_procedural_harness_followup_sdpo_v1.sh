@@ -146,3 +146,10 @@ if [[ "${HARNESS_FOLLOWUP_SDPO_DRY_RUN:-false}" == true ]]; then
 fi
 
 rl @ "$resolved_config" --model.name "$model_snapshot"
+
+run_dir=/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1/$run_name
+weights=$run_dir/weights/step_1
+.venv/bin/python scripts/finalize_hf_processor_metadata.py "$model_snapshot" "$weights"
+.venv/bin/python scripts/validate_procedural_harness_followup_sdpo_update_v1.py \
+  "$run_dir" \
+  --output "$run_dir/UPDATE.json"

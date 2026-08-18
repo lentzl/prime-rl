@@ -207,6 +207,22 @@ failure. The failure-local follow-up SDPO bootstrap is intrinsically one step:
 it collects four admitted response transitions, performs one full-weight
 update, and then returns control to the frozen cumulative gates.
 
+Failure-local SDPO R2 is a mechanically valid but non-promoted descendant of
+R7. It selected one answer-free `reply_to_child_request` response from each of
+four accepted traces (447 tokens total) and applied one full-weight BF16 AdamW
+step at `1.25e-7`. The update validator independently matched all 447 selected
+tokens to the trainer's SDPO stream, found zero RL, CE, or reference-KL token
+mass, and measured a positive `10.8125` gradient norm. On a frozen generated
+draw, R2 scored state `8/8`, send `6/8`, and follow-up `0/8`. R7 scored `8/8`,
+`2/8`, and `0/8` on those exact task indices. The paired send improvement is
+evidence that the narrow update moved harness behavior, but it did not cross
+the natural follow-up boundary. R7 therefore remains canonical while R2 is
+retained only as an experimental branch pending replicated paired screens. An
+earlier apparent R2 state score of `0/8` is invalid and excluded: the gate was
+started without an inference server and all episodes failed with HTTP 503.
+Checkpoint gates now bootstrap their own server when no endpoint is supplied,
+and direct local admission refuses to run against an unhealthy endpoint.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes

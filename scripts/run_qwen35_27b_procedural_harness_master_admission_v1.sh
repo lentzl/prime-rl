@@ -10,6 +10,7 @@ evaluation_root=${PROCEDURAL_HARNESS_OUTPUT_ROOT:-${PRIME_MASTERY_OUTPUT_ROOT:-/
 output_root=$evaluation_root/$label
 eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
 client_base_url=${EVAL_CLIENT_BASE_URL:-http://127.0.0.1:8100/v1}
+client_health_url=${EVAL_CLIENT_HEALTH_URL:-${client_base_url%/v1}/health}
 
 cd "$root"
 uv_bin=${UV_BIN:-$(command -v uv || true)}
@@ -24,6 +25,12 @@ for package in subagent_communication_v1 procedural_harness_master_v1; do
   "$uv_bin" pip install --python "$root/.venv/bin/python" --no-deps --editable \
     "$root/deps/verifiers/environments/$package" >/dev/null
 done
+if [[ "$client_base_url" == http://127.0.0.1:* || "$client_base_url" == http://localhost:* ]]; then
+  if ! curl -fsS "$client_health_url" >/dev/null; then
+    echo "local evaluation endpoint is not healthy: $client_health_url" >&2
+    exit 1
+  fi
+fi
 mkdir -p "$output_root"
 {
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"

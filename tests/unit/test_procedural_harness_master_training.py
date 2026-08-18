@@ -21,6 +21,7 @@ FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
 ACTION_GATE_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_gate_battery_v1.sh"
+MASTER_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_admission_v1.sh"
 ACTION_TRAIN_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_grpo_v1.sh"
 CUMULATIVE_ACTION_TRAIN_LAUNCHER = (
     ROOT / "scripts" / "run_qwen35_27b_procedural_harness_send_followup_cumulative_grpo_v1.sh"
@@ -438,3 +439,15 @@ def test_followup_sdpo_launcher_requires_disconnection_and_feedback_audit() -> N
     assert "iter_trainable_branches" in auditor
     assert "feedback_contract_payload" in auditor
     assert "feedback leaks an answer value" in auditor
+
+
+def test_action_gate_battery_bootstraps_and_health_checks_local_inference() -> None:
+    battery = ACTION_GATE_BATTERY.read_text()
+    admission = MASTER_ADMISSION_LAUNCHER.read_text()
+
+    assert "run_qwen35_27b_prime_agent_mastery_baseline_v2.sh" in battery
+    assert 'if [[ -z "$client_base_url" ]]' in battery
+    assert "EVAL_DRIVER=" in battery
+    assert "EVAL_EXPERIMENT_DIR=experiments/qwen35-27b-procedural-harness-master-v1" in battery
+    assert "EVAL_CLIENT_HEALTH_URL" in admission
+    assert "local evaluation endpoint is not healthy" in admission
