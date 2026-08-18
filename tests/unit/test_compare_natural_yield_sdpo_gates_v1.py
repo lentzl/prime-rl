@@ -165,3 +165,33 @@ def test_comparison_rejects_premature_yield_regression(tmp_path: Path) -> None:
 
     assert report["decision"]["anti_overgeneralization_retained"] is False
     assert report["decision"]["eligible_for_independent_replication"] is False
+
+
+@pytest.mark.parametrize(
+    "diagnostic",
+    ["local_work_before_yield", "premature_yield_before_local_work"],
+)
+def test_comparison_fails_closed_when_local_work_diagnostic_is_missing(
+    tmp_path: Path,
+    diagnostic: str,
+) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "r7", scores)
+    _write_battery(tmp_path, "candidate", scores)
+    gate = (
+        tmp_path
+        / "candidate-natural-yield-local-work"
+        / "train-admission"
+        / "SUMMARY.json"
+    )
+    summary = json.loads(gate.read_text())
+    del summary["diagnostic_means"][diagnostic]
+    gate.write_text(json.dumps(summary))
+
+    with pytest.raises(ValueError, match=f"missing diagnostics: {diagnostic}"):
+        compare(tmp_path, "r7", "candidate")

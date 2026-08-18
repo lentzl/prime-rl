@@ -16,6 +16,11 @@ GATES = {
     "atomic_send": "atomic-send",
 }
 
+LOCAL_WORK_DIAGNOSTICS = {
+    "local_work_before_yield",
+    "premature_yield_before_local_work",
+}
+
 
 class ComparisonFailure(ValueError):
     """The gate evidence cannot support a same-draw comparison."""
@@ -83,6 +88,15 @@ def compare(root: Path, base_label: str, candidate_label: str) -> dict[str, Any]
         gates[name]["delta_passed"] >= 0 for name in ("atomic_state", "atomic_send")
     )
     local_work = gates["natural_yield_local_work"]
+    for label in ("base", "candidate"):
+        missing = LOCAL_WORK_DIAGNOSTICS - set(
+            local_work[label]["diagnostic_means"]
+        )
+        if missing:
+            rendered = ", ".join(sorted(missing))
+            raise ComparisonFailure(
+                f"{label} local-work gate is missing diagnostics: {rendered}"
+            )
     anti_overgeneralization_retained = (
         local_work["delta_passed"] >= 0
         and local_work["diagnostic_deltas"].get("local_work_before_yield", 0.0)
