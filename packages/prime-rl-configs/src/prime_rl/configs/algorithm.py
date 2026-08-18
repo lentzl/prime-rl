@@ -434,6 +434,11 @@ class SFTAlgoConfig(BaseAlgoConfig):
 
     action_loss_type: ClassVar[ActionLossType] = "ce"
 
+    sampled_session_scope: Literal["all", "root"] = "all"
+    """Which intercepted client sessions contribute sampled-token CE. ``all``
+    preserves ordinary SFT behavior. ``root`` trains only the primary graph
+    root's client session and requires explicit per-call session lineage."""
+
     @model_validator(mode="after")
     def require_frozen_source(self):
         """sft's teacher is the model it samples from — ``sampling.source`` must

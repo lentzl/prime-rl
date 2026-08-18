@@ -287,11 +287,15 @@ def test_success_sft_is_one_step_rejection_conditioned_self_imitation() -> None:
 
     assert config.max_steps == 1
     assert config.max_train_batch_lead == 0
+    assert config.trainer.enable_token_export is True
+    assert config.trainer.file_monitor is not None
+    assert config.trainer.file_monitor.filename == "metrics.jsonl"
     assert config.trainer.model.lora is None
     assert config.trainer.model.optimization_dtype == "bfloat16"
     assert config.trainer.optim.type == "adamw"
     assert config.trainer.optim.lr == 1e-7
     assert config.orchestrator.algo.type == "sft"
+    assert config.orchestrator.algo.sampled_session_scope == "all"
     assert config.orchestrator.any_policy_sourced is False
     assert sampling_source.name == "__MANAGED_R7_ENDPOINT__"
     assert sampling_source.base_url == "http://127.0.0.1:8000/v1"
@@ -333,6 +337,8 @@ def test_success_sft_launcher_keeps_the_managed_teacher_frozen_for_collection() 
     assert "HARNESS_SUCCESS_TRAIN_COUNT" in launcher
     assert "HARNESS_SUCCESS_TRAIN_LR" in launcher
     assert "HARNESS_SUCCESS_BATCH_SIZE" in launcher
+    assert "HARNESS_SUCCESS_SESSION_SCOPE" in launcher
+    assert "HARNESS_SUCCESS_SESSION_SCOPE must be all or root" in launcher
     assert "success-SFT learning rate must be positive and finite" in launcher
     assert "success-SFT batch size must be positive" in launcher
     assert "oversampling_factor = 8 / batch_size" in launcher
@@ -340,6 +346,7 @@ def test_success_sft_launcher_keeps_the_managed_teacher_frozen_for_collection() 
     assert "refusing to launch while another GPU process is active" in launcher
     assert "HARNESS_SUCCESS_SFT_DRY_RUN" in launcher
     assert 'name = {json.dumps(sys.argv[9])}' in launcher
+    assert "sampled_session_scope" in launcher
     assert 'rl @ "$resolved_config" --model.name "$model_snapshot"' in launcher
 
 

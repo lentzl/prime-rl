@@ -8,7 +8,13 @@ from verifiers.v1.graph import MessageNode
 from verifiers.v1.types import AssistantMessage, TextContentPart, ToolCall, ToolMessage, UserMessage
 
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
-from prime_rl.orchestrator.algo import EchoAlgorithm, SDPOAlgorithm, stamp_advantages, stamp_loss_routing
+from prime_rl.orchestrator.algo import (
+    EchoAlgorithm,
+    SDPOAlgorithm,
+    SFTDistillAlgorithm,
+    stamp_advantages,
+    stamp_loss_routing,
+)
 from prime_rl.orchestrator.trajectories import trace_to_samples
 from prime_rl.orchestrator.types import Rollout
 from prime_rl.transport.types import SDPOTeacherSpan, TrainingSample
@@ -100,6 +106,106 @@ def test_opd_teacher_must_be_a_frozen_endpoint():
 def test_sft_requires_teacher():
     with pytest.raises(ValueError, match="needs a teacher to sample rollouts from"):
         _build(type="sft")
+
+
+def test_sft_sampled_session_scope_defaults_to_all() -> None:
+    config = _build(type="sft", sampling={"source": FROZEN})
+
+    assert config.sampled_session_scope == "all"
+
+
+def _multi_session_rollout(*, include_lineage: bool = True) -> Rollout:
+    nodes = [
+        _node(UserMessage(content="root"), parent=None, sampled=False, token_ids=[1]),
+        _node(
+            AssistantMessage(content="spawn"),
+            parent=0,
+            sampled=True,
+            token_ids=[2, 3],
+            logprobs=[-0.1, -0.2],
+        ),
+        _node(UserMessage(content="reply"), parent=1, sampled=False, token_ids=[4]),
+        _node(
+            AssistantMessage(content="answer"),
+            parent=2,
+            sampled=True,
+            token_ids=[5, 6],
+            logprobs=[-0.3, -0.4],
+        ),
+        _node(UserMessage(content="child"), parent=None, sampled=False, token_ids=[7]),
+        _node(
+            AssistantMessage(content="send"),
+            parent=4,
+            sampled=True,
+            token_ids=[8, 9],
+            logprobs=[-0.5, -0.6],
+        ),
+    ]
+    calls = [
+        vf.ModelCall(node=1, client_session_id="parent" if include_lineage else None),
+        vf.ModelCall(node=3, client_session_id="parent" if include_lineage else None),
+        vf.ModelCall(node=5, client_session_id="child" if include_lineage else None),
+    ]
+    rollout = Rollout(
+        task=vf.TraceTask(type="Task", data=vf.TaskData(idx=0, prompt=None)),
+        agent=vf.AgentInfo(config=vf.AgentConfig()),
+        nodes=nodes,
+        calls=calls,
+        rewards={"reward": vf.Reward(score=1.0)},
+        env_name="test-env",
+    )
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    return rollout
+
+
+def test_sft_root_session_scope_trains_only_primary_agent_tokens() -> None:
+    rollout = _multi_session_rollout()
+    algorithm = SFTDistillAlgorithm(
+        _build(
+            type="sft",
+            sampling={"source": FROZEN},
+            sampled_session_scope="root",
+        ),
+        MagicMock(),
+    )
+
+    asyncio.run(algorithm.finalize_rollout(rollout))
+    asyncio.run(algorithm.finalize_group([rollout]))
+
+    assert len(rollout.samples) == 1
+    assert rollout.samples[0].token_ids == [1, 2, 3, 4, 5, 6]
+    assert rollout.samples[0].ce_weights == [0.0, 1.0, 1.0, 0.0, 1.0, 1.0]
+
+
+def test_sft_root_session_scope_fails_closed_without_lineage() -> None:
+    rollout = _multi_session_rollout(include_lineage=False)
+    algorithm = SFTDistillAlgorithm(
+        _build(
+            type="sft",
+            sampling={"source": FROZEN},
+            sampled_session_scope="root",
+        ),
+        MagicMock(),
+    )
+
+    with pytest.raises(ValueError, match="exactly one client session"):
+        asyncio.run(algorithm.finalize_rollout(rollout))
+
+
+def test_sft_root_session_scope_fails_closed_on_conflicting_lineage() -> None:
+    rollout = _multi_session_rollout()
+    rollout.calls.append(vf.ModelCall(node=1, client_session_id="other"))
+    algorithm = SFTDistillAlgorithm(
+        _build(
+            type="sft",
+            sampling={"source": FROZEN},
+            sampled_session_scope="root",
+        ),
+        MagicMock(),
+    )
+
+    with pytest.raises(ValueError, match="exactly one client session for every model-call node"):
+        asyncio.run(algorithm.finalize_rollout(rollout))
 
 
 def test_rl_loss_type_incompatible_with_frozen_sampling():

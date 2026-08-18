@@ -13,10 +13,15 @@ train_start_index=${HARNESS_SUCCESS_TRAIN_START_INDEX:-2400000}
 train_count=${HARNESS_SUCCESS_TRAIN_COUNT:-512}
 train_lr=${HARNESS_SUCCESS_TRAIN_LR:-1e-7}
 batch_size=${HARNESS_SUCCESS_BATCH_SIZE:-16}
+session_scope=${HARNESS_SUCCESS_SESSION_SCOPE:-all}
 
 case "$rung" in
   atomic_send|atomic_child_request) ;;
   *) echo "unsupported success-SFT rung: $rung" >&2; exit 1 ;;
+esac
+case "$session_scope" in
+  all|root) ;;
+  *) echo "HARNESS_SUCCESS_SESSION_SCOPE must be all or root: $session_scope" >&2; exit 1 ;;
 esac
 
 cd "$root"
@@ -102,7 +107,7 @@ fi
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT
-.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" "$train_lr" "$batch_size" "$model_snapshot" <<'PY'
+.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" "$train_lr" "$batch_size" "$model_snapshot" "$session_scope" <<'PY'
 import json
 import math
 import re
@@ -128,6 +133,7 @@ patterns = (
     (r'^batch_size = [0-9]+$', f'batch_size = {batch_size}'),
     (r'^oversampling_factor = [^\n]+$', f'oversampling_factor = {oversampling_factor}'),
     (r'^name = "__MANAGED_R7_ENDPOINT__"$', f'name = {json.dumps(sys.argv[9])}'),
+    (r'^sampled_session_scope = "(?:all|root)"$', f'sampled_session_scope = "{sys.argv[10]}"'),
 )
 for pattern, replacement in patterns:
     source, count = re.subn(pattern, replacement, source, count=1, flags=re.MULTILINE)

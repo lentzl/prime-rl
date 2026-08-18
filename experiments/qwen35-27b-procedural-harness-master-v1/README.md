@@ -335,6 +335,48 @@ tokens, the large send gain may reflect an easier child-side signal while the
 full coordinator request/resume transition remains underweighted. A follow-up
 should test that attribution directly rather than repeat the same CE step.
 
+R10 tested that attribution from the protected R7 source. Prime Agent's
+existing session-affinity header provides an opaque, stable identifier for each
+agent session. A successful runtime lineage probe recorded one identifier on
+all five coordinator model calls and a different identifier on both child
+calls; both matched the actual parent/child runtime metadata. Verifiers now
+records that client-supplied identifier without forwarding client routing
+headers to the model provider. Prime-RL's opt-in
+`sampled_session_scope = "root"` SFT mode uses it to retain only the primary
+trace-root session and fails closed when call lineage or branch/sample
+alignment is missing or ambiguous. Ordinary SFT retains its previous `all`
+default.
+
+The valid `atomic-child-request-success-sft-r10-root-session-r1` run collected
+16 distinct hard successes from 21 fresh R7 attempts. Every admitted trajectory
+had hard reward `1.0`; no handcrafted or golden target was introduced. Exact
+re-rendering showed that mixed-role routing would train 56 samples and 12,293
+action tokens. Root-session routing instead trained 40 samples and 9,789
+coordinator tokens while removing all 16 child-only samples and all 2,504 child
+tokens. The one full-weight BF16 AdamW CE step at `1e-7` completed with loss
+`0.0077`, entropy `0.3216`, gradient norm `3.2500`, and peak allocated memory
+of 32.5 GiB. Its stable 12-shard export passed the ChatML EOS validation.
+
+On the same frozen generated bank beginning at index `2600000`, R7 versus R10
+scored state `8/8` versus `8/8`, send `3/8` versus `3/8`, child request `5/8`
+versus `4/8`, and follow-up `0/8` versus `0/8`. All 32 R10 episodes completed
+without rollout errors. Child-request all-required coverage fell from `0.875`
+to `0.750`, ordering from `0.875` to `0.750`, final-answer exactness from
+`1.0` to `0.875`, and no-forbidden coverage from `0.750` to `0.625`. The
+candidate therefore fails the predeclared target-improvement rule and is not
+promoted or uploaded; R7 remains canonical. The eight-episode draw is not
+evidence of broad harm, but it is sufficient to reject the candidate under the
+frozen rule.
+
+Together, R9 and R10 support a narrower causal conclusion. Mixed-role CE can
+strongly consolidate the child-side send action, but that gain disappears when
+child-session tokens are removed, while full-response coordinator CE still
+does not improve the longer event-control transition. Root-only routing still
+trained substantial free-form reasoning and visible-text spans around the
+sparse contract actions. A bounded action-local coordinator probe can test
+that remaining token-dilution confound; repeating broad successful-trace CE or
+the rejected hard-GRPO dose cannot.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes
