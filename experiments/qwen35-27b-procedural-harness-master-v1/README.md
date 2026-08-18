@@ -184,6 +184,8 @@ single two-group update at `5e-7` is too noisy for reliable promotion. The
 launcher therefore supports validated `HARNESS_ACTION_BATCH_SIZE` and
 `HARNESS_ACTION_TRAIN_LR` overrides so stabilization runs can use more
 independent groups and a smaller update without changing the hard reward.
+`HARNESS_ACTION_MAX_STEPS` can cap an intervention at one checkpoint before a
+fresh promotion gate rather than accumulating several updates near a boundary.
 The launcher derives `oversampling_factor = 8 / batch_size`, preserving the
 two-GPU limit of eight concurrent recursive episodes even when more groups are
 accumulated for one optimizer batch.

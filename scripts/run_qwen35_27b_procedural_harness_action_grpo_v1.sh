@@ -13,6 +13,7 @@ train_start_index=${HARNESS_ACTION_TRAIN_START_INDEX:-1000000}
 train_count=${HARNESS_ACTION_TRAIN_COUNT:-512}
 train_lr=${HARNESS_ACTION_TRAIN_LR:-5e-7}
 batch_size=${HARNESS_ACTION_BATCH_SIZE:-16}
+max_steps=${HARNESS_ACTION_MAX_STEPS:-4}
 
 case "$rung" in
   atomic_state|atomic_send|atomic_child_request|atomic_followup|atomic_parallel) ;;
@@ -42,6 +43,10 @@ if [[ ! "$train_start_index" =~ ^[0-9]+$ ]]; then
 fi
 if [[ ! "$train_count" =~ ^[1-9][0-9]*$ ]]; then
   echo "harness-action training count must be positive: $train_count" >&2
+  exit 1
+fi
+if [[ ! "$max_steps" =~ ^[1-9][0-9]*$ ]]; then
+  echo "harness-action max steps must be positive: $max_steps" >&2
   exit 1
 fi
 if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
@@ -103,7 +108,7 @@ fi
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT
-.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" "$train_lr" "$batch_size" <<'PY'
+.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" "$train_lr" "$batch_size" "$max_steps" <<'PY'
 import math
 import re
 import sys
@@ -113,12 +118,14 @@ source = Path(sys.argv[1]).read_text()
 run_name = f"{sys.argv[3].replace('_', '-')}-grpo-{sys.argv[4]}"
 learning_rate = float(sys.argv[7])
 batch_size = int(sys.argv[8])
+max_steps = int(sys.argv[9])
 if not math.isfinite(learning_rate) or learning_rate <= 0:
     raise SystemExit(f"training learning rate must be positive and finite: {sys.argv[7]}")
 if batch_size <= 0 or batch_size % 8:
     raise SystemExit(f"training batch size must be a positive multiple of group size 8: {batch_size}")
 oversampling_factor = 8 / batch_size
 patterns = (
+    (r"^max_steps = [0-9]+$", f"max_steps = {max_steps}"),
     (r'^curriculum_rung = "[^"]+"$', f'curriculum_rung = "{sys.argv[3]}"'),
     (r'^name = "atomic-state-grpo"$', f'name = "{run_name}"'),
     (r'^dir = "atomic-state-grpo"$', f'dir = "{run_name}"'),

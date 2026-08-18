@@ -259,8 +259,11 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "HARNESS_ACTION_TRAIN_COUNT" in train_launcher
     assert "HARNESS_ACTION_TRAIN_LR" in train_launcher
     assert "HARNESS_ACTION_BATCH_SIZE" in train_launcher
+    assert "HARNESS_ACTION_MAX_STEPS" in train_launcher
     assert "training start index must be non-negative" in train_launcher
     assert "training count must be positive" in train_launcher
+    assert "harness-action max steps must be positive" in train_launcher
+    assert 'r"^max_steps = [0-9]+$"' in train_launcher
     assert "r'^start_index = [0-9]+$'" in train_launcher
     assert "r'^count = [0-9]+$'" in train_launcher
     assert "training learning rate must be positive and finite" in train_launcher
