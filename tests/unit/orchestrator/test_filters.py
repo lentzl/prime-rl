@@ -5,11 +5,13 @@ import verifiers.v1 as vf
 
 from prime_rl.configs.orchestrator import (
     GibberishFilterConfig,
+    MinimumRewardFilterConfig,
     RepetitionFilterConfig,
     TrainableTokenWindowFilterConfig,
 )
 from prime_rl.orchestrator.filters import (
     GibberishFilter,
+    MinimumRewardFilter,
     RepetitionFilter,
     TrainableTokenWindowFilter,
     apply_filters,
@@ -268,6 +270,23 @@ def test_setup_filter_repetition_enforce():
     config = RepetitionFilterConfig(enforce=True)
     repetition_filter = setup_filter(config, vocab_size=128_000)
     assert repetition_filter.enforce is True
+
+
+def test_setup_filter_minimum_reward():
+    config = MinimumRewardFilterConfig(threshold=1.0)
+    minimum_reward_filter = setup_filter(config, vocab_size=128_000)
+    assert isinstance(minimum_reward_filter, MinimumRewardFilter)
+    assert minimum_reward_filter.name == "minimum_reward"
+    assert minimum_reward_filter.threshold == 1.0
+    assert minimum_reward_filter.enforce is True
+
+
+def test_minimum_reward_rejects_only_scores_below_threshold():
+    minimum_reward_filter = MinimumRewardFilter(name="minimum_reward", threshold=1.0)
+
+    assert minimum_reward_filter.check(_make_rollout([1], [-1.0], reward=0.999)).detected is True
+    assert minimum_reward_filter.check(_make_rollout([1], [-1.0], reward=1.0)).detected is False
+    assert minimum_reward_filter.check(_make_rollout([1], [-1.0], reward=1.1)).detected is False
 
 
 def test_setup_filter_trainable_token_window():

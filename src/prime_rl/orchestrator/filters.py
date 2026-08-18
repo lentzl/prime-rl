@@ -111,6 +111,18 @@ class ZeroAdvantageFilter:
 
 
 @dataclass
+class MinimumRewardFilter:
+    """Flags rollouts whose aggregate reward is below an inclusive floor."""
+
+    name: str
+    threshold: float
+    enforce: bool = True
+
+    def check(self, rollout: Rollout) -> FilterResult:
+        return FilterResult(detected=rollout.reward < self.threshold)
+
+
+@dataclass
 class TrainableTokenWindowFilter:
     """Flags rollouts whose trainer-bound loss signal would be truncated."""
 
@@ -155,6 +167,12 @@ def setup_filter(config: FilterConfig, vocab_size: int) -> RolloutFilter:
     elif config.type == "zero_advantage":
         return ZeroAdvantageFilter(
             name="zero_advantage",
+            enforce=config.enforce,
+        )
+    elif config.type == "minimum_reward":
+        return MinimumRewardFilter(
+            name="minimum_reward",
+            threshold=config.threshold,
             enforce=config.enforce,
         )
     elif config.type == "trainable_token_window":

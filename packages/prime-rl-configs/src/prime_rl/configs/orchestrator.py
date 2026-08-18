@@ -343,6 +343,16 @@ class ZeroAdvantageFilterConfig(BaseConfig):
     """When True, skip detected rollouts entirely so they are not sent to the trainer. When False, only track detection metrics."""
 
 
+class MinimumRewardFilterConfig(BaseConfig):
+    type: Literal["minimum_reward"] = "minimum_reward"
+
+    enforce: bool = True
+    """When True, skip rollouts below ``threshold``. When False, only track detection metrics."""
+
+    threshold: float = Field(allow_inf_nan=False)
+    """Minimum aggregate rollout reward admitted to training, inclusive."""
+
+
 class TrainableTokenWindowFilterConfig(BaseConfig):
     type: Literal["trainable_token_window"] = "trainable_token_window"
 
@@ -354,7 +364,11 @@ class TrainableTokenWindowFilterConfig(BaseConfig):
 
 
 FilterConfig: TypeAlias = Annotated[
-    GibberishFilterConfig | RepetitionFilterConfig | ZeroAdvantageFilterConfig | TrainableTokenWindowFilterConfig,
+    GibberishFilterConfig
+    | RepetitionFilterConfig
+    | ZeroAdvantageFilterConfig
+    | MinimumRewardFilterConfig
+    | TrainableTokenWindowFilterConfig,
     Field(discriminator="type"),
 ]
 

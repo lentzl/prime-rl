@@ -297,6 +297,19 @@ validated `<|im_end|>` EOS metadata are present. The model card records the
 exact producing Prime-RL and Verifiers revisions. R7 is a protected research
 branch point, not yet a mastered Prime Agent teacher.
 
+`harness-success-sft.toml` defines the next globally unique R9 intervention.
+It samples fresh `atomic_child_request` trajectories from protected R7, rejects
+every rollout whose executable hard reward is below `1.0`, and applies one
+full-weight CE step at `1e-7` to 16 naturally sampled successes. It introduces
+no handcrafted policy trace or answer target. The managed two-GPU endpoint
+serves both the trainable initialization and the nominally frozen SFT source;
+`max_steps=1` with `max_train_batch_lead=0` ensures the complete teacher batch
+is collected before the only update can change that endpoint. This arrangement
+must not be extended to multiple steps. R9 is promoted only if an exact paired
+fresh bank preserves state and send while improving child request; follow-up is
+measured as a downstream control. Otherwise R9 is rejected and R7 remains
+canonical.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes

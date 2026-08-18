@@ -15,6 +15,7 @@ ROOT = Path(__file__).parents[2]
 CONFIG = ROOT / "experiments" / "qwen35-27b-procedural-harness-master-v1" / "bootstrap-grpo.toml"
 SHAPED_CONFIG = CONFIG.with_name("bootstrap-shaped-grpo.toml")
 ACTION_CONFIG = CONFIG.with_name("harness-action-grpo.toml")
+SUCCESS_SFT_CONFIG = CONFIG.with_name("harness-success-sft.toml")
 CUMULATIVE_ACTION_CONFIG = CONFIG.with_name("harness-send-followup-cumulative-grpo.toml")
 ACTION_ADMISSION_CONFIG = CONFIG.with_name("harness-action-admission.toml")
 FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
@@ -23,6 +24,7 @@ ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harnes
 ACTION_GATE_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_gate_battery_v1.sh"
 MASTER_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_admission_v1.sh"
 ACTION_TRAIN_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_grpo_v1.sh"
+SUCCESS_SFT_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_success_sft_v1.sh"
 CUMULATIVE_ACTION_TRAIN_LAUNCHER = (
     ROOT / "scripts" / "run_qwen35_27b_procedural_harness_send_followup_cumulative_grpo_v1.sh"
 )
@@ -276,6 +278,67 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "bootstrap-shaped-grpo" not in train_launcher
     assert "HARNESS_ACTION_TRAIN_DRY_RUN" in train_launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in train_launcher
+
+
+def test_success_sft_is_one_step_rejection_conditioned_self_imitation() -> None:
+    config = cli(RLConfig, args=["@", str(SUCCESS_SFT_CONFIG), "--dry-run"])
+    source = config.orchestrator.train.source[0]
+    sampling_source = config.orchestrator.algo.sampling.source
+
+    assert config.max_steps == 1
+    assert config.max_train_batch_lead == 0
+    assert config.trainer.model.lora is None
+    assert config.trainer.model.optimization_dtype == "bfloat16"
+    assert config.trainer.optim.type == "adamw"
+    assert config.trainer.optim.lr == 1e-7
+    assert config.orchestrator.algo.type == "sft"
+    assert config.orchestrator.any_policy_sourced is False
+    assert sampling_source.name == "__MANAGED_R7_ENDPOINT__"
+    assert sampling_source.base_url == "http://127.0.0.1:8000/v1"
+    assert source.algo is not None and source.algo.type == "sft"
+    assert source.algo.sampling.source == sampling_source
+    assert config.orchestrator.batch_size == 16
+    assert config.orchestrator.group_size == 1
+    assert config.orchestrator.max_inflight_episodes == 8
+    assert source.group_size == 1
+    assert source.env.taskset.curriculum_rung == "atomic_child_request"
+    assert source.env.taskset.start_index == 2400000
+    assert source.env.taskset.task.reward_mode == "hard"
+    assert source.env.agent.harness.process_timeout_ms == 840_000
+    assert config.inference is not None
+    assert config.inference.vllm.tensor_parallel_size == 2
+    filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
+    assert filters["minimum_reward"].threshold == 1.0
+    assert filters["minimum_reward"].enforce is True
+    assert "zero_advantage" not in filters
+
+
+def test_success_sft_launcher_keeps_the_managed_teacher_frozen_for_collection() -> None:
+    config = SUCCESS_SFT_CONFIG.read_text()
+    launcher = SUCCESS_SFT_LAUNCHER.read_text()
+
+    assert "max_steps = 1" in config
+    assert "max_train_batch_lead = 0" in config
+    assert 'type = "minimum_reward"' in config
+    assert "threshold = 1.0" in config
+    assert "__MANAGED_R7_ENDPOINT__" in config
+    assert "HARNESS_SUCCESS_ADMISSION_SUMMARY" in launcher
+    assert "select_curriculum_rung_admission" in launcher
+    assert "HARNESS_SUCCESS_MODEL_PATH" in launcher
+    assert "HARNESS_SUCCESS_MODEL_REPO" in launcher
+    assert "HARNESS_SUCCESS_MODEL_REVISION" in launcher
+    assert "HARNESS_SUCCESS_TRAIN_START_INDEX" in launcher
+    assert "HARNESS_SUCCESS_TRAIN_COUNT" in launcher
+    assert "HARNESS_SUCCESS_TRAIN_LR" in launcher
+    assert "HARNESS_SUCCESS_BATCH_SIZE" in launcher
+    assert "success-SFT learning rate must be positive and finite" in launcher
+    assert "success-SFT batch size must be positive" in launcher
+    assert "oversampling_factor = 8 / batch_size" in launcher
+    assert "HARNESS_SUCCESS_MODEL_PATH is not a stable full-weight checkpoint" in launcher
+    assert "refusing to launch while another GPU process is active" in launcher
+    assert "HARNESS_SUCCESS_SFT_DRY_RUN" in launcher
+    assert 'name = {json.dumps(sys.argv[9])}' in launcher
+    assert 'rl @ "$resolved_config" --model.name "$model_snapshot"' in launcher
 
 
 def test_prime_agent_runtime_image_pins_the_episode_dependencies() -> None:
