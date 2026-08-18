@@ -12,7 +12,7 @@ start_index=${HARNESS_ACTION_ADMISSION_START_INDEX:-900000}
 record_causal_feedback=${HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK:-false}
 
 case "$rung" in
-  atomic_state|atomic_send|atomic_followup|atomic_parallel) ;;
+  atomic_state|atomic_send|atomic_child_request|atomic_followup|atomic_parallel) ;;
   *) echo "unknown harness-action rung: $rung" >&2; exit 1 ;;
 esac
 if [[ ! -f "$template" ]]; then

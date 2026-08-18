@@ -38,6 +38,7 @@ autonomous_max_continuations = 4
 autonomous_max_turns = 16
 autonomous_max_tokens = 65536
 autonomous_timeout_ms = 900000
+process_timeout_ms = 840000
 
 [env.agent.runtime]
 type = "docker"

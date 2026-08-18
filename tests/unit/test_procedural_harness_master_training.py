@@ -72,6 +72,7 @@ def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
     assert source.env.agent.harness.version == "0.7.2-beta.495.1.97b994c"
     assert source.env.agent.harness.autonomous is True
     assert source.env.agent.harness.gates == ["python /workspace/.procedural-harness-master/completion_gate.py"]
+    assert source.env.agent.harness.process_timeout_ms == 1_740_000
     assert config.orchestrator.renderer.enable_thinking is True
     assert config.inference is not None
     assert config.inference.vllm.max_model_len == 32768
@@ -218,6 +219,7 @@ def test_harness_action_ramp_is_full_weight_hard_grpo() -> None:
     assert source.env.taskset.task.reward_mode == "hard"
     assert source.env.agent.max_turns == 16
     assert source.env.agent.harness.autonomous_max_turns == 16
+    assert source.env.agent.harness.process_timeout_ms == 840_000
     assert source.env.agent.timeout.rollout == 900.0
     assert source.serve.pool.type == "static"
     assert source.serve.pool.num_workers == 1
@@ -235,6 +237,9 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "num_rollouts = 8" in admission_config
     assert 'curriculum_rung = "atomic_state"' in admission_config
     assert "record_causal_feedback = false" in admission_config
+    assert "process_timeout_ms = 840000" in admission_config
+    assert "atomic_child_request" in admission_launcher
+    assert "atomic_child_request" in train_launcher
     assert "classify_curriculum_rung_admission" in admission_launcher
     assert "HARNESS_ACTION_ADMISSION_START_INDEX" in admission_launcher
     assert "HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK" in admission_launcher
@@ -288,7 +293,7 @@ def test_harness_action_gate_battery_is_disjoint_and_cumulative() -> None:
     launcher = ACTION_GATE_BATTERY.read_text()
 
     assert "HARNESS_ACTION_GATE_START_INDEX" in launcher
-    assert "rungs=(atomic_state atomic_send atomic_followup)" in launcher
+    assert "rungs=(atomic_state atomic_send atomic_followup atomic_child_request)" in launcher
     assert "gate_start=$((start_index + offset * 1000))" in launcher
     assert "HARNESS_ACTION_ADMISSION_START_INDEX=$gate_start" in launcher
     assert '"$label-$rung-gate-r1"' in launcher
@@ -318,6 +323,7 @@ def test_send_followup_cumulative_grpo_preserves_the_prerequisite_in_the_batch()
     assert len({source.env.taskset.start_index for source in sources.values()}) == 2
     assert all(source.algo is not None and source.algo.type == "grpo" for source in sources.values())
     assert all(source.env.taskset.task.reward_mode == "hard" for source in sources.values())
+    assert all(source.env.agent.harness.process_timeout_ms == 840_000 for source in sources.values())
     assert all(source.serve.pool.type == "static" for source in sources.values())
     assert all(source.serve.pool.num_workers == 1 for source in sources.values())
 
@@ -405,6 +411,7 @@ def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     assert source.env.taskset.curriculum_rung == "atomic_followup"
     assert source.env.taskset.record_causal_feedback is True
     assert source.env.taskset.task.reward_mode == "hard"
+    assert source.env.agent.harness.process_timeout_ms == 840_000
     assert source.env.agent.runtime.image == (
         "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
     )
@@ -449,5 +456,8 @@ def test_action_gate_battery_bootstraps_and_health_checks_local_inference() -> N
     assert 'if [[ -z "$client_base_url" ]]' in battery
     assert "EVAL_DRIVER=" in battery
     assert "EVAL_EXPERIMENT_DIR=experiments/qwen35-27b-procedural-harness-master-v1" in battery
+    assert "HARNESS_ACTION_GATE_RUNGS" in battery
+    assert 'IFS=, read -ra selected_rungs <<<"$requested_rungs"' in battery
+    assert 'gate_start=$((start_index + offset * 1000))' in battery
     assert "EVAL_CLIENT_HEALTH_URL" in admission
     assert "local evaluation endpoint is not healthy" in admission

@@ -135,8 +135,10 @@ the reward-connectivity threshold through strict harness-action rungs:
 
 1. `atomic_state`: persistent coordinator action across two IPython calls.
 2. `atomic_send`: one child, retained handle, passive yield, explicit delivery.
-3. `atomic_followup`: retained state and two causal resume/message cycles.
-4. `atomic_parallel`: two children spawned before yield and explicit fan-in.
+3. `atomic_child_request`: encode a request protocol in the initial child
+   prompt, retain its handle, yield, and accept the explicit request.
+4. `atomic_followup`: retained state and two causal resume/message cycles.
+5. `atomic_parallel`: two children spawned before yield and explicit fan-in.
 
 Each untouched/current-policy admission is eight fresh rollouts of one rung. An
 all-pass rung is already mastered and advances without optimization; a mixed
@@ -147,7 +149,8 @@ external target throughout the ramp.
 Candidate gates set `HARNESS_ACTION_ADMISSION_START_INDEX` to a fresh generated
 index disjoint from both the untouched admission and the active training stream.
 
-Curriculum contract `2026-08-17.harness-actions-v2` clarifies that
+Curriculum contract `2026-08-18.harness-actions-v3` retains the frozen V2
+assignments and adds the `atomic_child_request` prefix rung. V2 clarified that
 `atomic_state` returns the original retained value as `marker` and the computed
 sum as `result`. The hidden oracle already required that distinction, but the
 V1 public prompt did not state it. Episode seeds and executable contracts are
@@ -222,6 +225,31 @@ earlier apparent R2 state score of `0/8` is invalid and excluded: the gate was
 started without an inference server and all episodes failed with HTTP 503.
 Checkpoint gates now bootstrap their own server when no endpoint is supplied,
 and direct local admission refuses to run against an unhealthy endpoint.
+
+A second frozen draw replicated the direction of the send effect but rejected
+R2 as a follow-up base. On exact task indices, R7 versus R2 scored send `4/8`
+versus `5/8` and follow-up `0/8` versus `0/8`, both with zero rollout errors.
+Across the two paired draws, send is therefore R7 `6/16` versus R2 `11/16`:
+both produced exact final answers in all 16 episodes, while all required atoms
+and ordering rose from `7/16` to `11/16`. Follow-up remained disconnected at
+`0/16` for both. R2 had no all-required or ordered follow-up trajectories and
+did not improve the aggregate required-atom or final-answer diagnostics. The
+failure-local update learned a transferable part of explicit sending, but not
+the complete request/reply/yield/resume transition it was intended to unlock.
+Repeating the same reply-only target is therefore rejected; R7 remains the
+canonical branch point for a more finely connected follow-up curriculum.
+
+Two intermediate R2 replication attempts are excluded. The first completed
+only seven send episodes before one Prime Agent process ignored the episode
+deadline; the second completed seven follow-up episodes before the same idle
+orphan recurred. Updating to upstream ACP `0.12.1` fixed notification ordering
+but did not bound this process failure. The Verifiers fork now exposes an
+opt-in `process_timeout_ms` that wraps Prime Agent with GNU `timeout`, and all
+procedural configs reserve 60 seconds between that hard process deadline and
+the episode deadline. The final R2 follow-up replicate completed all eight
+episodes without errors under the watchdog. Gate batteries may also select a
+comma-separated subset through `HARNESS_ACTION_GATE_RUNGS` while preserving
+the canonical per-rung task-index offsets.
 
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the

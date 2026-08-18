@@ -138,6 +138,7 @@ autonomous_max_continuations = 8
 autonomous_max_turns = 32
 autonomous_max_tokens = 131072
 autonomous_timeout_ms = 1800000
+process_timeout_ms = 1740000
 
 [orchestrator.train.source.env.agent.runtime]
 type = "docker"

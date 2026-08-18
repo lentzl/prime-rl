@@ -15,7 +15,7 @@ train_lr=${HARNESS_ACTION_TRAIN_LR:-5e-7}
 batch_size=${HARNESS_ACTION_BATCH_SIZE:-16}
 
 case "$rung" in
-  atomic_state|atomic_send|atomic_followup|atomic_parallel) ;;
+  atomic_state|atomic_send|atomic_child_request|atomic_followup|atomic_parallel) ;;
   *) echo "unknown harness-action rung: $rung" >&2; exit 1 ;;
 esac
 
