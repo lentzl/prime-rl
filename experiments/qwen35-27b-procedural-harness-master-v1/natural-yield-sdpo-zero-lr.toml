@@ -1,0 +1,204 @@
+# Zero-learning-rate audit of failure-local SDPO at the natural N1 yield boundary.
+
+max_steps = 1
+seq_len = 8192
+max_train_batch_lead = 0
+output_dir = "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1"
+clean = true
+
+[run]
+name = "zero-lr-audit"
+dir = "zero-lr-audit"
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 6
+num_infer_gpus = 2
+
+[model]
+name = "lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818"
+
+[trainer]
+enable_token_export = true
+
+[trainer.model]
+seq_len = 8192
+attn = "auto"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+fsdp_cpu_offload = true
+optim_cpu_offload = false
+reshard_after_forward = true
+fused_lm_head_token_chunk_size = "disabled"
+
+[trainer.model.compile]
+fullgraph = false
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[trainer.model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[trainer.sdpo_loss]
+distillation_topk = 20
+alpha = 1.0
+is_clip = 2.0
+rollout_is = "token"
+rollout_is_threshold = 2.0
+teacher_regularization = "ema"
+teacher_update_rate = 0.01
+
+[trainer.optim]
+type = "adamw"
+lr = 0.0
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[trainer.scheduler]
+type = "constant"
+
+[orchestrator]
+batch_size = 4
+group_size = 1
+max_inflight_episodes = 8
+oversampling_factor = 2.0
+max_off_policy_steps = 0
+
+[orchestrator.algo]
+type = "grpo"
+
+[[orchestrator.pre_batch_filters]]
+type = "trainable_token_window"
+max_tokens = 8192
+enforce = true
+
+[[orchestrator.pre_batch_filters]]
+type = "zero_advantage"
+enforce = false
+
+[[orchestrator.pre_batch_filters]]
+type = "gibberish"
+enforce = false
+
+[[orchestrator.pre_batch_filters]]
+type = "repetition"
+enforce = false
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.train.sampling]
+temperature = 1.0
+reasoning_effort = "high"
+max_completion_tokens = 1536
+
+[orchestrator.train.sampling.extra_body]
+top_k = -1
+min_p = 0.0
+return_token_ids = true
+
+[[orchestrator.train.source]]
+name = "natural-yield-feedback-sdpo"
+ratio = 1.0
+group_size = 1
+
+[orchestrator.train.source.algo]
+type = "sdpo"
+success_reward_threshold = 2.0
+dont_reprompt_on_self_success = true
+include_environment_feedback = true
+require_explicit_feedback = true
+required_feedback_contract_schema = "prime-agent/natural-yield-feedback/v1"
+environment_feedback_only_without_solution = true
+multi_turn_replay = false
+max_reprompt_len = 8192
+
+[orchestrator.train.source.algo.filter]
+import_path = "procedural_harness_master_v1.taskset.keep_natural_yield_feedback_response"
+
+[orchestrator.train.source.algo.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 8
+
+[orchestrator.train.source.env.timeout]
+episode = 1200.0
+finalize = 60.0
+
+[orchestrator.train.source.env.taskset]
+id = "procedural-harness-master-v1"
+split = "train_gen"
+count = 512
+start_index = 3200000
+master_seed = 20260816
+curriculum_rung = "natural_n1"
+private_payload_mode = "finding_card"
+record_causal_feedback = true
+
+[orchestrator.train.source.env.agent]
+max_turns = 24
+max_output_tokens = 24576
+max_total_tokens = 98304
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.procedural-harness-master/completion_gate.py"]
+autonomous_max_continuations = 8
+autonomous_max_turns = 24
+autonomous_max_tokens = 98304
+autonomous_timeout_ms = 1200000
+process_timeout_ms = 1140000
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.retries]
+max_retries = 0
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[inference]
+backend_port = 8100
+
+[inference.server]
+port = 8000
+liveness_timeout_seconds = 30.0
+
+[inference.vllm]
+max_model_len = 32768
+enforce_eager = true
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+tensor_parallel_size = 2
+data_parallel_size = 1
+data_parallel_rpc_port = 13345
+gpu_memory_utilization = 0.80
+max_num_seqs = 16
+mamba_ssm_cache_dtype = "float32"
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[log]
+json_logging = false

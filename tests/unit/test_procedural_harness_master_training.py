@@ -23,6 +23,9 @@ ACTION_ADMISSION_CONFIG = CONFIG.with_name("harness-action-admission.toml")
 NATURAL_ADMISSION_CONFIG = CONFIG.with_name("natural-policy-admission.toml")
 NATURAL_PROBE_CONFIG = CONFIG.with_name("natural-policy-connectivity-probe.toml")
 FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
+NATURAL_YIELD_SDPO_AUDIT_CONFIG = CONFIG.with_name(
+    "natural-yield-sdpo-zero-lr.toml"
+)
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
 NATURAL_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_natural_policy_admission_v1.sh"
@@ -38,6 +41,12 @@ EVENT_CONTROL_TRAIN_LAUNCHER = (
     ROOT / "scripts" / "run_qwen35_27b_procedural_harness_send_followup_event_control_grpo_v1.sh"
 )
 FOLLOWUP_SDPO_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_followup_sdpo_v1.sh"
+NATURAL_YIELD_SDPO_AUDIT_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_zero_lr_v1.sh"
+)
+NATURAL_YIELD_SDPO_AUDIT_VALIDATOR = (
+    ROOT / "scripts" / "validate_natural_yield_sdpo_zero_lr_v1.py"
+)
 FOLLOWUP_FEEDBACK_AUDIT = ROOT / "scripts" / "audit_procedural_harness_followup_feedback_v1.py"
 PRIME_AGENT_RUNTIME_BUILDER = ROOT / "scripts" / "build_prime_agent_runtime_image_v1.sh"
 PRIME_AGENT_RUNTIME_DOCKERFILE = CONFIG.with_name("prime-agent-runtime.Dockerfile")
@@ -557,6 +566,67 @@ def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     assert source.serve.pool.num_workers == 1
     filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
     assert filters["zero_advantage"].enforce is False
+
+
+def test_natural_yield_sdpo_audit_is_zero_lr_and_failure_local() -> None:
+    config = cli(
+        RLConfig, args=["@", str(NATURAL_YIELD_SDPO_AUDIT_CONFIG), "--dry-run"]
+    )
+    source = config.orchestrator.train.source[0]
+
+    assert config.max_steps == 1
+    assert config.max_train_batch_lead == 0
+    assert config.ckpt is None
+    assert config.trainer.ckpt is None
+    assert config.trainer.model.lora is None
+    assert config.trainer.model.optimization_dtype == "bfloat16"
+    assert config.trainer.enable_token_export is True
+    assert config.trainer.optim.type == "adamw"
+    assert config.trainer.optim.lr == 0.0
+    assert config.trainer.sdpo_loss is not None
+    assert config.trainer.sdpo_loss.teacher_regularization == "ema"
+    assert config.orchestrator.batch_size == 4
+    assert config.orchestrator.group_size == 1
+    assert config.orchestrator.max_inflight_episodes == 8
+    assert source.group_size == 1
+    assert source.algo is not None and source.algo.type == "sdpo"
+    assert source.algo.multi_turn_replay is False
+    assert source.algo.require_explicit_feedback is True
+    assert source.algo.required_feedback_contract_schema == (
+        "prime-agent/natural-yield-feedback/v1"
+    )
+    assert source.algo.filter.import_path == (
+        "procedural_harness_master_v1.taskset.keep_natural_yield_feedback_response"
+    )
+    assert source.env.taskset.curriculum_rung == "natural_n1"
+    assert source.env.taskset.private_payload_mode == "finding_card"
+    assert source.env.taskset.record_causal_feedback is True
+    assert source.env.taskset.task.reward_mode == "hard"
+    assert source.env.agent.harness.process_timeout_ms == 1_140_000
+    assert source.env.agent.runtime.image == (
+        "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
+    )
+    assert source.serve.pool.type == "static"
+    assert source.serve.pool.num_workers == 1
+
+
+def test_natural_yield_sdpo_audit_launcher_is_non_destructive() -> None:
+    launcher = NATURAL_YIELD_SDPO_AUDIT_LAUNCHER.read_text()
+    validator = NATURAL_YIELD_SDPO_AUDIT_VALIDATOR.read_text()
+
+    assert "refusing to launch while another GPU process is active" in launcher
+    assert "NATURAL_YIELD_SDPO_AUDIT_DRY_RUN" in launcher
+    assert "mktemp -d /tmp/natural-yield-sdpo-dry-run" in launcher
+    assert '--output-dir "$dry_run_root"' in launcher
+    assert "--run.dir preflight" in launcher
+    assert "atomic-send-grpo-r7/weights/step_1" in launcher
+    assert "8f0568faed72d0db2e2258c18b1aabdcefd680cc" in launcher
+    assert 'python -m "$validator_module"' in launcher
+    assert "validate_prime_agent_sdpo_zero_lr_audit_v1.py" in launcher
+    assert '--expected-model-path "$model_snapshot"' in launcher
+    assert 'mechanism": "natural-yield-feedback-conditioned-sdpo-zero-lr"' in validator
+    assert "keep_natural_yield_feedback_response" in validator
+    assert "_validate_no_model_artifacts" in validator
 
 
 def test_followup_sdpo_launcher_requires_disconnection_and_feedback_audit() -> None:

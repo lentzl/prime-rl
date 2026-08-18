@@ -1,0 +1,104 @@
+{
+  "schema_version": "prime-agent/natural-yield-sdpo-zero-lr-results/v1",
+  "recorded_at": "2026-08-19",
+  "status": "mechanism_validated_no_weight_update",
+  "source": {
+    "model": "lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818",
+    "revision": "8f0568faed72d0db2e2258c18b1aabdcefd680cc",
+    "remote_path": "/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1/atomic-send-grpo-r7/weights/step_1",
+    "role": "canonical_r7"
+  },
+  "runtime": {
+    "prime_agent": "0.7.2-beta.495.1.97b994c",
+    "node": "22.19.0",
+    "hardware": "8x NVIDIA L40S",
+    "training_gpus": 6,
+    "inference_gpus": 2
+  },
+  "mechanism": {
+    "name": "natural-yield-feedback-conditioned-sdpo-zero-lr",
+    "feedback_schema": "prime-agent/natural-yield-feedback/v1",
+    "feedback_code": "tool_call_after_delegation",
+    "learning_rate": 0.0,
+    "optimizer": "adamw",
+    "optimization_dtype": "bfloat16",
+    "teacher_regularization": "ema",
+    "distillation_topk": 20,
+    "batch_size": 4,
+    "group_size": 1,
+    "max_steps": 1,
+    "checkpointing": false,
+    "config": "experiments/qwen35-27b-procedural-harness-master-v1/natural-yield-sdpo-zero-lr.toml",
+    "launcher": "scripts/run_qwen35_27b_natural_yield_sdpo_zero_lr_v1.sh",
+    "validator": "scripts/validate_natural_yield_sdpo_zero_lr_v1.py"
+  },
+  "authoritative_reproduction": {
+    "remote_run_dir": "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/zero-lr-audit",
+    "remote_launcher_log": "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/zero-lr-audit-repro-launcher.log",
+    "remote_audit": "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/zero-lr-audit/AUDIT.json",
+    "raw_rollouts": 10,
+    "effective_traces": 4,
+    "rollout_errors": 0,
+    "truncations": 0,
+    "collection_seconds": 989.9490760450135,
+    "trainer_step_seconds": 2103.0248502489994,
+    "metrics": {
+      "loss": 0.005602622404694557,
+      "sdpo_loss": 0.11596743017435074,
+      "mismatch_kl": 0.00026368029648438096,
+      "gradient_norm": 9.4375,
+      "sdpo_tokens": 632,
+      "rl_tokens": 0,
+      "ce_tokens": 0,
+      "reference_kl_tokens": 0,
+      "throughput_tokens_per_second": 140.06656975021286,
+      "peak_memory_gib": 41.77734375,
+      "update_succeeded": true
+    },
+    "token_routing": {
+      "coordinator_active_samples": 4,
+      "child_zero_sdpo_samples": 4,
+      "export_records": 15,
+      "effective_branch_export_matching": "one_to_one"
+    },
+    "model_artifacts_written": false,
+    "validator_verdict": "pass"
+  },
+  "prior_supporting_run": {
+    "raw_rollouts": 7,
+    "effective_traces": 4,
+    "sdpo_tokens": 744,
+    "coordinator_active_samples": 4,
+    "child_zero_sdpo_samples": 4,
+    "export_records": 16,
+    "model_artifacts_written": false,
+    "validator_verdict_before_artifact_loss": "pass",
+    "authoritative": false,
+    "reason": "A later launcher dry-run inherited clean=true and deleted the run directory. The run is retained only as supporting reproducibility evidence, not as the primary audit."
+  },
+  "operational_repairs": [
+    {
+      "failure": "Invoking the validator by file path prevented imports from the sibling scripts package.",
+      "repair": "Invoke the validator as a module and preflight both validator source files."
+    },
+    {
+      "failure": "A dry-run inherited the real output directory and clean=true, deleting the first validated audit artifacts.",
+      "repair": "Override dry-run output and run directories with a temporary path and remove only that path on exit.",
+      "verification": "A Linux sentinel test proved that dry-run preserves the real audit directory and removes its temporary preflight directory."
+    }
+  ],
+  "conclusion": {
+    "proven": [
+      "The natural-yield diagnostic admits typed answer-free failures from real Prime Agent trajectories.",
+      "Exactly one failed post-spawn coordinator response per admitted trace receives SDPO mass.",
+      "Child branches and RL, CE, and reference-KL components receive zero loss mass.",
+      "The full-weight BF16 EMA-teacher SDPO forward/backward/update path completes with a finite nonzero gradient.",
+      "The launcher and validator reproduce the audit without writing or deleting model artifacts."
+    ],
+    "not_proven": [
+      "No behavioral learning or regression claim can be made because the learning rate was zero.",
+      "The audit does not promote a new checkpoint or replace canonical R7."
+    ],
+    "next_falsifiable_step": "Run one minimal nonzero full-weight update from canonical R7 under the same typed contract, then compare against R7 on frozen same-draw natural-yield and prerequisite harness gates."
+  }
+}
