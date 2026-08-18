@@ -307,6 +307,7 @@ def test_success_sft_is_one_step_rejection_conditioned_self_imitation() -> None:
     assert source.env.agent.harness.process_timeout_ms == 840_000
     assert config.inference is not None
     assert config.inference.vllm.tensor_parallel_size == 2
+    assert config.inference.vllm.gpu_memory_utilization == 0.8
     filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
     assert filters["minimum_reward"].threshold == 1.0
     assert filters["minimum_reward"].enforce is True

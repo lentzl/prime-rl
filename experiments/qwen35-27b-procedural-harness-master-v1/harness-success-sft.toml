@@ -172,6 +172,7 @@ liveness_timeout_seconds = 30.0
 
 [inference.vllm]
 max_model_len = 32768
+gpu_memory_utilization = 0.8
 enforce_eager = true
 tool_call_parser = "qwen3_coder"
 reasoning_parser = "qwen3"
