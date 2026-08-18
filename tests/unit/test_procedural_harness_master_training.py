@@ -8,6 +8,7 @@ from scripts.audit_procedural_harness_event_control_support_v1 import (
 )
 from scripts.summarize_procedural_harness_master_v1 import (
     classify_curriculum_rung_admission,
+    classify_natural_curriculum_admission,
     select_curriculum_rung_admission,
 )
 
@@ -18,9 +19,11 @@ ACTION_CONFIG = CONFIG.with_name("harness-action-grpo.toml")
 SUCCESS_SFT_CONFIG = CONFIG.with_name("harness-success-sft.toml")
 CUMULATIVE_ACTION_CONFIG = CONFIG.with_name("harness-send-followup-cumulative-grpo.toml")
 ACTION_ADMISSION_CONFIG = CONFIG.with_name("harness-action-admission.toml")
+NATURAL_ADMISSION_CONFIG = CONFIG.with_name("natural-policy-admission.toml")
 FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
+NATURAL_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_natural_policy_admission_v1.sh"
 ACTION_GATE_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_gate_battery_v1.sh"
 MASTER_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_admission_v1.sh"
 ACTION_TRAIN_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_grpo_v1.sh"
@@ -247,10 +250,7 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "HARNESS_ACTION_ADMISSION_START_INDEX" in admission_launcher
     assert "HARNESS_ACTION_RECORD_CAUSAL_FEEDBACK" in admission_launcher
     assert "build_prime_agent_runtime_image_v1.sh" in admission_launcher
-    assert (
-        'image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"'
-        in admission_config
-    )
+    assert 'image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"' in admission_config
     assert 'r"^start_index = [0-9]+$"' in admission_launcher
     assert "select_curriculum_rung_admission" in train_launcher
     assert "curriculum admission must contain eight error-free episodes" in selector
@@ -278,6 +278,37 @@ def test_harness_action_launchers_are_variance_gated_and_cumulative() -> None:
     assert "bootstrap-shaped-grpo" not in train_launcher
     assert "HARNESS_ACTION_TRAIN_DRY_RUN" in train_launcher
     assert 'rl @ "$config" --model.name "$model_snapshot"' in train_launcher
+
+
+def test_natural_policy_admission_is_eight_diverse_hard_reward_groups() -> None:
+    config = NATURAL_ADMISSION_CONFIG.read_text()
+    launcher = NATURAL_ADMISSION_LAUNCHER.read_text()
+
+    assert "num_tasks = 8" in config
+    assert "num_rollouts = 8" in config
+    assert "count = 8" in config
+    assert 'curriculum_rung = "natural_n1"' in config
+    assert "record_causal_feedback = false" in config
+    assert "natural_n1|natural_n2" in launcher
+    assert "NATURAL_POLICY_RUNG" in launcher
+    assert "classify_natural_curriculum_admission" in launcher
+    assert "NATURAL_POLICY_ADMISSION_START_INDEX" in launcher
+    assert "build_prime_agent_runtime_image_v1.sh" in launcher
+    assert "PROCEDURAL_HARNESS_ADMISSION_CONFIG" in launcher
+    assert (
+        classify_natural_curriculum_admission(
+            {
+                "rescored": True,
+                "episodes": 64,
+                "errors": 0,
+                "by_family": {"natural_n1": {"episodes": 64, "passed": 16, "rate": 0.25}},
+                "by_family_groups": {"natural_n1": {"groups": 8, "informative": 4}},
+                "by_family_group_sizes": {"natural_n1": [8] * 8},
+            },
+            "natural_n1",
+        )
+        == "trainable"
+    )
 
 
 def test_success_sft_is_one_step_rejection_conditioned_self_imitation() -> None:
@@ -347,7 +378,7 @@ def test_success_sft_launcher_keeps_the_managed_teacher_frozen_for_collection() 
     assert "HARNESS_SUCCESS_MODEL_PATH is not a stable full-weight checkpoint" in launcher
     assert "refusing to launch while another GPU process is active" in launcher
     assert "HARNESS_SUCCESS_SFT_DRY_RUN" in launcher
-    assert 'name = {json.dumps(sys.argv[9])}' in launcher
+    assert "name = {json.dumps(sys.argv[9])}" in launcher
     assert "sampled_session_scope" in launcher
     assert 'rl @ "$resolved_config" --model.name "$model_snapshot"' in launcher
 
@@ -490,9 +521,7 @@ def test_followup_sdpo_bootstraps_only_the_typed_failed_transition() -> None:
     assert source.env.taskset.record_causal_feedback is True
     assert source.env.taskset.task.reward_mode == "hard"
     assert source.env.agent.harness.process_timeout_ms == 840_000
-    assert source.env.agent.runtime.image == (
-        "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
-    )
+    assert source.env.agent.runtime.image == ("rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0")
     assert source.serve.pool.type == "static"
     assert source.serve.pool.num_workers == 1
     filters = {item.type: item for item in config.orchestrator.pre_batch_filters}
@@ -536,6 +565,6 @@ def test_action_gate_battery_bootstraps_and_health_checks_local_inference() -> N
     assert "EVAL_EXPERIMENT_DIR=experiments/qwen35-27b-procedural-harness-master-v1" in battery
     assert "HARNESS_ACTION_GATE_RUNGS" in battery
     assert 'IFS=, read -ra selected_rungs <<<"$requested_rungs"' in battery
-    assert 'gate_start=$((start_index + offset * 1000))' in battery
+    assert "gate_start=$((start_index + offset * 1000))" in battery
     assert "EVAL_CLIENT_HEALTH_URL" in admission
     assert "local evaluation endpoint is not healthy" in admission

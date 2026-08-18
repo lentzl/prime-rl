@@ -5,6 +5,7 @@ import pytest
 
 import scripts.summarize_procedural_harness_master_v1 as summary_module
 from scripts.summarize_procedural_harness_master_v1 import (
+    classify_natural_curriculum_admission,
     configured_reward_mode,
     select_training_mode,
     summarize,
@@ -42,9 +43,7 @@ def test_summarize_flattens_episode_envelopes(tmp_path) -> None:
         {"id": "a", "traces": [_trace("direct", 1.0)]},
         {"id": "b", "traces": [_trace("parallel", 0.0)]},
     ]
-    (run / "traces.jsonl").write_text(
-        "".join(json.dumps(episode) + "\n" for episode in episodes)
-    )
+    (run / "traces.jsonl").write_text("".join(json.dumps(episode) + "\n" for episode in episodes))
 
     report = summarize([run])
 
@@ -76,9 +75,7 @@ def test_summarize_identifies_informative_grpo_groups(tmp_path) -> None:
         {"id": "b0", "traces": [_trace("direct", 1.0, "direct-1")]},
         {"id": "b1", "traces": [_trace("direct", 1.0, "direct-1")]},
     ]
-    (run / "traces.jsonl").write_text(
-        "".join(json.dumps(episode) + "\n" for episode in episodes)
-    )
+    (run / "traces.jsonl").write_text("".join(json.dumps(episode) + "\n" for episode in episodes))
 
     report = summarize([run])
 
@@ -100,9 +97,7 @@ def test_summarize_identifies_bootstrap_signal_in_hard_failure_group(tmp_path) -
         {"id": "a0", "traces": [_trace("single", 0.0, "single-1", 0.25)]},
         {"id": "a1", "traces": [_trace("single", 0.0, "single-1", 0.50)]},
     ]
-    (run / "traces.jsonl").write_text(
-        "".join(json.dumps(episode) + "\n" for episode in episodes)
-    )
+    (run / "traces.jsonl").write_text("".join(json.dumps(episode) + "\n" for episode in episodes))
 
     report = summarize([run])
 
@@ -118,9 +113,7 @@ def test_summarize_identifies_bootstrap_signal_in_hard_failure_group(tmp_path) -
 def test_summarize_uses_rescored_hard_gate_when_requested(tmp_path, monkeypatch) -> None:
     run = tmp_path / "rescored"
     run.mkdir()
-    (run / "traces.jsonl").write_text(
-        json.dumps({"id": "a", "traces": [_trace("single", 0.0)]}) + "\n"
-    )
+    (run / "traces.jsonl").write_text(json.dumps({"id": "a", "traces": [_trace("single", 0.0)]}) + "\n")
 
     def pass_trace(trace):
         trace["rewards"]["harness_score"]["score"] = 1.0
@@ -141,12 +134,8 @@ def _admission_report() -> dict:
         "episodes": 48,
         "errors": 0,
         "by_family": {family: {"episodes": 8} for family in families},
-        "by_family_groups": {
-            family: {"groups": 1, "informative": 0} for family in families
-        },
-        "by_family_bootstrap_groups": {
-            family: {"groups": 1, "informative": 0} for family in families
-        },
+        "by_family_groups": {family: {"groups": 1, "informative": 0} for family in families},
+        "by_family_bootstrap_groups": {family: {"groups": 1, "informative": 0} for family in families},
     }
 
 
@@ -178,3 +167,49 @@ def test_training_config_reward_mode_honors_hard_default_and_shaped_override() -
 
     assert configured_reward_mode(experiment / "bootstrap-grpo.toml") == "hard"
     assert configured_reward_mode(experiment / "bootstrap-shaped-grpo.toml") == "bootstrap"
+
+
+def _natural_admission_report(passed: int, informative: int) -> dict:
+    rung = "natural_n1"
+    return {
+        "rescored": True,
+        "episodes": 64,
+        "errors": 0,
+        "by_family": {rung: {"episodes": 64, "passed": passed, "rate": passed / 64}},
+        "by_family_groups": {
+            rung: {
+                "groups": 8,
+                "informative": informative,
+                "all_pass": 0,
+                "all_fail": 8 - informative,
+            }
+        },
+        "by_family_group_sizes": {rung: [8] * 8},
+    }
+
+
+@pytest.mark.parametrize(
+    ("passed", "informative", "expected"),
+    [
+        (0, 0, "disconnected"),
+        (8, 3, "connected_needs_tuning"),
+        (16, 4, "trainable"),
+        (38, 8, "trainable"),
+        (39, 8, "connected_needs_tuning"),
+        (52, 8, "mastered"),
+    ],
+)
+def test_natural_admission_classifier_preserves_the_informative_band(
+    passed: int, informative: int, expected: str
+) -> None:
+    assert (
+        classify_natural_curriculum_admission(_natural_admission_report(passed, informative), "natural_n1") == expected
+    )
+
+
+def test_natural_admission_classifier_rejects_uneven_groups() -> None:
+    report = _natural_admission_report(16, 4)
+    report["by_family_group_sizes"]["natural_n1"] = [7, 8, 8, 8, 8, 8, 8, 9]
+
+    with pytest.raises(ValueError, match="must each contain eight rollouts"):
+        classify_natural_curriculum_admission(report, "natural_n1")

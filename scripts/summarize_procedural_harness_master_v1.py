@@ -18,6 +18,7 @@ CURRICULUM_RUNGS = {
     "atomic_followup",
     "atomic_parallel",
 }
+NATURAL_CURRICULUM_RUNGS = {"natural_n1", "natural_n2"}
 
 
 def _traces(path: Path) -> list[dict[str, Any]]:
@@ -124,8 +125,12 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
         "harness": cohort(rows),
         "by_family": {family: cohort(values) for family, values in sorted(grouped.items())},
         "comparison_groups": comparison_groups(list(task_groups.values())),
+        "comparison_group_sizes": sorted(len(values) for values in task_groups.values()),
         "by_family_groups": {
             family: comparison_groups(values) for family, values in sorted(family_task_groups.items())
+        },
+        "by_family_group_sizes": {
+            family: sorted(len(group) for group in values) for family, values in sorted(family_task_groups.items())
         },
         "bootstrap_comparison_groups": progress_groups(list(task_groups.values())),
         "by_family_bootstrap_groups": {
@@ -191,6 +196,35 @@ def classify_curriculum_rung_admission(report: dict[str, Any], rung: str) -> str
     if group.get("all_fail") == 1:
         return "disconnected"
     raise ValueError(f"curriculum rung {rung} has inconsistent comparison-group counts")
+
+
+def classify_natural_curriculum_admission(report: dict[str, Any], rung: str) -> str:
+    """Classify an eight-group natural-policy screen without weakening hard reward."""
+    if rung not in NATURAL_CURRICULUM_RUNGS:
+        raise ValueError(f"unknown natural curriculum rung: {rung}")
+    if not report.get("rescored"):
+        raise ValueError("natural admission must be generated with --rescore")
+    if report.get("episodes") != 64 or report.get("errors") != 0:
+        raise ValueError("natural admission must contain 64 error-free episodes")
+    by_family = report.get("by_family", {})
+    groups = report.get("by_family_groups", {}).get(rung, {})
+    if set(by_family) != {rung} or by_family[rung].get("episodes") != 64:
+        raise ValueError(f"natural admission must contain only 64 {rung} episodes")
+    if groups.get("groups") != 8:
+        raise ValueError(f"natural curriculum rung {rung} must contain eight groups")
+    if report.get("by_family_group_sizes", {}).get(rung) != [8] * 8:
+        raise ValueError(f"natural curriculum rung {rung} groups must each contain eight rollouts")
+
+    passed = int(by_family[rung].get("passed", 0))
+    rate = float(by_family[rung].get("rate", 0.0))
+    informative = int(groups.get("informative", 0))
+    if passed == 0:
+        return "disconnected"
+    if rate >= 0.8:
+        return "mastered"
+    if 0.2 <= rate <= 0.6 and informative >= 4:
+        return "trainable"
+    return "connected_needs_tuning"
 
 
 def select_curriculum_rung_admission(report: dict[str, Any], rung: str) -> str:
