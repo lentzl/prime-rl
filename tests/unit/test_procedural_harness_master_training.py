@@ -8,6 +8,7 @@ from scripts.audit_procedural_harness_event_control_support_v1 import (
 )
 from scripts.summarize_procedural_harness_master_v1 import (
     classify_curriculum_rung_admission,
+    classify_natural_connectivity_probe,
     classify_natural_curriculum_admission,
     select_curriculum_rung_admission,
 )
@@ -20,10 +21,12 @@ SUCCESS_SFT_CONFIG = CONFIG.with_name("harness-success-sft.toml")
 CUMULATIVE_ACTION_CONFIG = CONFIG.with_name("harness-send-followup-cumulative-grpo.toml")
 ACTION_ADMISSION_CONFIG = CONFIG.with_name("harness-action-admission.toml")
 NATURAL_ADMISSION_CONFIG = CONFIG.with_name("natural-policy-admission.toml")
+NATURAL_PROBE_CONFIG = CONFIG.with_name("natural-policy-connectivity-probe.toml")
 FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
 NATURAL_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_natural_policy_admission_v1.sh"
+NATURAL_PROBE_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_natural_policy_connectivity_probe_v1.sh"
 ACTION_GATE_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_gate_battery_v1.sh"
 MASTER_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_admission_v1.sh"
 ACTION_TRAIN_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_grpo_v1.sh"
@@ -308,6 +311,34 @@ def test_natural_policy_admission_is_eight_diverse_hard_reward_groups() -> None:
             "natural_n1",
         )
         == "trainable"
+    )
+
+
+def test_natural_policy_probe_is_one_strict_connectivity_group() -> None:
+    config = NATURAL_PROBE_CONFIG.read_text()
+    launcher = NATURAL_PROBE_LAUNCHER.read_text()
+
+    assert "num_tasks = 1" in config
+    assert "num_rollouts = 8" in config
+    assert "count = 1" in config
+    assert 'curriculum_rung = "natural_n1"' in config
+    assert "record_causal_feedback = false" in config
+    assert "classify_natural_connectivity_probe" in launcher
+    assert "NATURAL_POLICY_PROBE_START_INDEX" in launcher
+    assert "build_prime_agent_runtime_image_v1.sh" in launcher
+    assert (
+        classify_natural_connectivity_probe(
+            {
+                "rescored": True,
+                "episodes": 8,
+                "errors": 0,
+                "by_family": {"natural_n1": {"episodes": 8, "passed": 2, "rate": 0.25}},
+                "by_family_groups": {"natural_n1": {"groups": 1, "informative": 1}},
+                "by_family_group_sizes": {"natural_n1": [8]},
+            },
+            "natural_n1",
+        )
+        == "connected_expand_admission"
     )
 
 

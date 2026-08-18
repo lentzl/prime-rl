@@ -5,6 +5,7 @@ import pytest
 
 import scripts.summarize_procedural_harness_master_v1 as summary_module
 from scripts.summarize_procedural_harness_master_v1 import (
+    classify_natural_connectivity_probe,
     classify_natural_curriculum_admission,
     configured_reward_mode,
     select_training_mode,
@@ -213,3 +214,31 @@ def test_natural_admission_classifier_rejects_uneven_groups() -> None:
 
     with pytest.raises(ValueError, match="must each contain eight rollouts"):
         classify_natural_curriculum_admission(report, "natural_n1")
+
+
+@pytest.mark.parametrize(
+    ("passed", "expected"),
+    [
+        (0, "disconnected"),
+        (1, "connected_expand_admission"),
+        (7, "connected_expand_admission"),
+        (8, "saturated"),
+    ],
+)
+def test_natural_connectivity_probe_classifies_one_strict_group(passed: int, expected: str) -> None:
+    report = _natural_admission_report(passed, int(0 < passed < 8))
+    report["episodes"] = 8
+    report["by_family"]["natural_n1"] = {
+        "episodes": 8,
+        "passed": passed,
+        "rate": passed / 8,
+    }
+    report["by_family_groups"]["natural_n1"] = {
+        "groups": 1,
+        "informative": int(0 < passed < 8),
+        "all_pass": int(passed == 8),
+        "all_fail": int(passed == 0),
+    }
+    report["by_family_group_sizes"]["natural_n1"] = [8]
+
+    assert classify_natural_connectivity_probe(report, "natural_n1") == expected

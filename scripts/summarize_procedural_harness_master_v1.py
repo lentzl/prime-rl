@@ -227,6 +227,31 @@ def classify_natural_curriculum_admission(report: dict[str, Any], rung: str) -> 
     return "connected_needs_tuning"
 
 
+def classify_natural_connectivity_probe(report: dict[str, Any], rung: str) -> str:
+    """Classify one strict eight-rollout group before paying for broad admission."""
+    if rung not in NATURAL_CURRICULUM_RUNGS:
+        raise ValueError(f"unknown natural curriculum rung: {rung}")
+    if not report.get("rescored"):
+        raise ValueError("natural connectivity probe must be generated with --rescore")
+    if report.get("episodes") != 8 or report.get("errors") != 0:
+        raise ValueError("natural connectivity probe must contain eight error-free episodes")
+    by_family = report.get("by_family", {})
+    groups = report.get("by_family_groups", {}).get(rung, {})
+    if set(by_family) != {rung} or by_family[rung].get("episodes") != 8:
+        raise ValueError(f"natural connectivity probe must contain only eight {rung} episodes")
+    if groups.get("groups") != 1:
+        raise ValueError(f"natural connectivity probe {rung} must contain one group")
+    if report.get("by_family_group_sizes", {}).get(rung) != [8]:
+        raise ValueError(f"natural connectivity probe {rung} must contain eight rollouts")
+
+    passed = int(by_family[rung].get("passed", 0))
+    if passed == 0:
+        return "disconnected"
+    if passed == 8:
+        return "saturated"
+    return "connected_expand_admission"
+
+
 def select_curriculum_rung_admission(report: dict[str, Any], rung: str) -> str:
     """Require hard-reward variance before launching GRPO for a rung."""
     status = classify_curriculum_rung_admission(report, rung)
