@@ -14,6 +14,7 @@ train_count=${HARNESS_SUCCESS_TRAIN_COUNT:-512}
 train_lr=${HARNESS_SUCCESS_TRAIN_LR:-1e-7}
 batch_size=${HARNESS_SUCCESS_BATCH_SIZE:-16}
 session_scope=${HARNESS_SUCCESS_SESSION_SCOPE:-all}
+filter_import_path=${HARNESS_SUCCESS_FILTER_IMPORT_PATH:-}
 
 case "$rung" in
   atomic_send|atomic_child_request) ;;
@@ -107,7 +108,7 @@ fi
 
 resolved_config=$(mktemp --suffix=.toml)
 trap 'rm -f "$resolved_config"' EXIT
-.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" "$train_lr" "$batch_size" "$model_snapshot" "$session_scope" <<'PY'
+.venv/bin/python - "$template" "$resolved_config" "$rung" "$run_label" "$train_start_index" "$train_count" "$train_lr" "$batch_size" "$model_snapshot" "$session_scope" "$filter_import_path" <<'PY'
 import json
 import math
 import re
@@ -139,6 +140,11 @@ for pattern, replacement in patterns:
     source, count = re.subn(pattern, replacement, source, count=1, flags=re.MULTILINE)
     if count != 1:
         raise SystemExit(f"success-SFT config did not match {pattern}")
+if sys.argv[11]:
+    source += (
+        "\n[orchestrator.algo.filter]\n"
+        f"import_path = {json.dumps(sys.argv[11])}\n"
+    )
 Path(sys.argv[2]).write_text(source)
 PY
 

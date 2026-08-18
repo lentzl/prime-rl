@@ -112,6 +112,19 @@ def test_sft_sampled_session_scope_defaults_to_all() -> None:
     config = _build(type="sft", sampling={"source": FROZEN})
 
     assert config.sampled_session_scope == "all"
+    assert config.filter is None
+
+
+def test_sft_accepts_branch_aligned_token_filter() -> None:
+    config = _build(
+        type="sft",
+        sampling={"source": FROZEN},
+        filter={"import_path": "test_module.keep_actions", "kwargs": {"limit": 3}},
+    )
+
+    assert config.filter is not None
+    assert config.filter.import_path == "test_module.keep_actions"
+    assert config.filter.kwargs == {"limit": 3}
 
 
 def _multi_session_rollout(*, include_lineage: bool = True) -> Rollout:
@@ -175,6 +188,41 @@ def test_sft_root_session_scope_trains_only_primary_agent_tokens() -> None:
     assert len(rollout.samples) == 1
     assert rollout.samples[0].token_ids == [1, 2, 3, 4, 5, 6]
     assert rollout.samples[0].ce_weights == [0.0, 1.0, 1.0, 0.0, 1.0, 1.0]
+
+
+def test_sft_root_session_scope_composes_with_token_filter() -> None:
+    rollout = _multi_session_rollout()
+    algorithm = SFTDistillAlgorithm(
+        _build(
+            type="sft",
+            sampling={"source": FROZEN},
+            sampled_session_scope="root",
+        ),
+        MagicMock(),
+    )
+    algorithm.filter_fn = lambda _: [
+        [False, True, False, False, False, True],
+        [False, True, True],
+    ]
+
+    asyncio.run(algorithm.finalize_rollout(rollout))
+    asyncio.run(algorithm.finalize_group([rollout]))
+
+    assert len(rollout.samples) == 1
+    assert rollout.samples[0].token_ids == [1, 2, 3, 4, 5, 6]
+    assert rollout.samples[0].ce_weights == [0.0, 1.0, 0.0, 0.0, 0.0, 1.0]
+
+
+def test_sft_filter_fails_closed_on_invalid_branch_shape() -> None:
+    rollout = _multi_session_rollout()
+    algorithm = SFTDistillAlgorithm(
+        _build(type="sft", sampling={"source": FROZEN}),
+        MagicMock(),
+    )
+    algorithm.filter_fn = lambda _: [[True]]
+
+    with pytest.raises(ValueError, match="one keep-mask per trainable branch"):
+        asyncio.run(algorithm.finalize_rollout(rollout))
 
 
 def test_sft_root_session_scope_fails_closed_without_lineage() -> None:

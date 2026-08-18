@@ -339,6 +339,8 @@ def test_success_sft_launcher_keeps_the_managed_teacher_frozen_for_collection() 
     assert "HARNESS_SUCCESS_BATCH_SIZE" in launcher
     assert "HARNESS_SUCCESS_SESSION_SCOPE" in launcher
     assert "HARNESS_SUCCESS_SESSION_SCOPE must be all or root" in launcher
+    assert "HARNESS_SUCCESS_FILTER_IMPORT_PATH" in launcher
+    assert "[orchestrator.algo.filter]" in launcher
     assert "success-SFT learning rate must be positive and finite" in launcher
     assert "success-SFT batch size must be positive" in launcher
     assert "oversampling_factor = 8 / batch_size" in launcher

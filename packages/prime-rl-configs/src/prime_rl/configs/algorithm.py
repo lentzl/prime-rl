@@ -169,6 +169,23 @@ class SDPOFilterConfig(BaseConfig):
     """Kwargs forwarded to the filter."""
 
 
+class SFTFilterConfig(BaseConfig):
+    """User-supplied per-token filter narrowing sampled SFT targets.
+
+    The callable is imported at startup and invoked once per rollout as
+    ``filter_fn(rollout, **kwargs) -> list[list[bool]]``: one keep-mask per
+    trainable branch, each spanning that branch's token sequence. A filter can
+    only remove sampled action tokens from SFT; it cannot make context or
+    environment tokens trainable.
+    """
+
+    import_path: str
+    """Import path to the filter callable."""
+
+    kwargs: dict[str, Any] = Field(default_factory=dict)
+    """Kwargs forwarded to the filter."""
+
+
 # ---------------------------------------------------------------------------
 # The algorithms (a discriminated union keyed on ``type``)
 # ---------------------------------------------------------------------------
@@ -438,6 +455,9 @@ class SFTAlgoConfig(BaseAlgoConfig):
     """Which intercepted client sessions contribute sampled-token CE. ``all``
     preserves ordinary SFT behavior. ``root`` trains only the primary graph
     root's client session and requires explicit per-call session lineage."""
+
+    filter: SFTFilterConfig | None = None
+    """Optional filter narrowing sampled SFT action targets."""
 
     @model_validator(mode="after")
     def require_frozen_source(self):
