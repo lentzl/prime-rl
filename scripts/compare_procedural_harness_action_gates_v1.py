@@ -7,7 +7,10 @@ import json
 from pathlib import Path
 from typing import Any
 
-from scripts.summarize_procedural_harness_master_v1 import _traces
+if __package__:
+    from .summarize_procedural_harness_master_v1 import _traces
+else:
+    from summarize_procedural_harness_master_v1 import _traces
 
 REQUIRED_RUNGS = (
     "atomic_state",

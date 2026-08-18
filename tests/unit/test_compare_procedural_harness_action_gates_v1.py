@@ -1,4 +1,6 @@
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -93,3 +95,19 @@ def test_action_gate_comparison_rejects_prerequisite_regression(tmp_path: Path) 
     assert report["screen"]["target_improved"] is True
     assert report["screen"]["prerequisites_retained"] is False
     assert report["screen"]["pass"] is False
+
+
+def test_action_gate_comparator_runs_as_a_script(tmp_path: Path) -> None:
+    for rung in REQUIRED_RUNGS:
+        _write_gate(tmp_path, "base", rung, 4)
+        _write_gate(tmp_path, "candidate", rung, 5)
+
+    script = Path(__file__).parents[2] / "scripts" / "compare_procedural_harness_action_gates_v1.py"
+    result = subprocess.run(
+        [sys.executable, str(script), str(tmp_path), "base", "candidate"],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(result.stdout)["candidate"] == "candidate"

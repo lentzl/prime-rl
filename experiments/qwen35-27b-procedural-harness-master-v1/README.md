@@ -410,3 +410,43 @@ same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes
 this first screen only when combined hard passes improve and neither split
 regresses. That screen nominates a checkpoint for a larger replicated promotion
 evaluation; it does not promote a model from one stochastic draw.
+
+The repaired low-dose action-local probe,
+`atomic-child-request-success-sft-r12-causal-lowdose-retry1`, is mechanically
+valid. Starting again from protected R7, it admitted 16 executable native hard
+successes with 16 distinct trace and episode IDs, 15 unique prompts, all three
+instruction styles, five child names, and varied task values. Exact replay and
+the stable trainer export agreed on 32 root samples and 2,239 active CE tokens.
+Every active token belonged to one of three whitelisted native spans: the
+successful state/spawn/prompt/handle action, its no-tool passive-yield response,
+or the final post-request response. All included their sampled turn-ending
+token. The export contained zero child, reasoning, polling, failed-spawn,
+status, unrelated-tool, RL, reference-KL, or SDPO tokens.
+
+R12 applied one full-weight BF16 AdamW step at `5e-8`. It completed with loss
+`0.0066`, entropy `0.2426`, gradient norm `6.6563`, and peak allocated memory
+of 34.5 GiB. Its stable 12-shard checkpoint passed index and ChatML EOS
+validation. Thus R12 is the requested causal test of token dilution, unlike
+the invalid R11 attempt.
+
+On the exact same frozen generated bank beginning at index `2600000`, R7 versus
+R12 scored state `8/8` versus `8/8`, send `3/8` versus `1/8`, child request
+`5/8` versus `4/8`, and follow-up `0/8` versus `0/8`. Child-request final-answer
+exactness stayed at `1.0`, but all-required and ordering each fell from `0.875`
+to `0.500`, required-atom coverage fell from `0.9792` to `0.8333`, and
+bootstrap progress fell from `0.6667` to `0.5167`. Send all-required and
+ordering each fell from `0.375` to `0.250`. All 32 candidate episodes completed
+without evaluation errors. R12 therefore fails both the target-improvement and
+prerequisite-retention rules; it is not replicated, promoted, or uploaded. R7
+remains canonical.
+
+R12 closes the surgical atomic self-imitation family under its predeclared
+stopping rule. Hard GRPO regressed the target, mixed-role successful-trace CE
+learned the easier child-side send action, root-only full-response CE did not
+improve coordinator control, and the clean action-local root update still
+regressed both child request and send. Further LR, role, or mask micro-slicing
+would no longer test a specific unresolved confound. The next intervention
+must change the curriculum distribution: a broader semantically varied,
+natural executable ramp should repeatedly exercise complete event-driven
+parent/child policies while R7 and this frozen action battery remain protected
+controls.
