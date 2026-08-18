@@ -377,6 +377,33 @@ sparse contract actions. A bounded action-local coordinator probe can test
 that remaining token-dilution confound; repeating broad successful-trace CE or
 the rejected hard-GRPO dose cannot.
 
+The first action-local attempt,
+`atomic-child-request-success-sft-r11-action-local-r1`, is invalidated before
+behavioral gating. It collected 16 hard-success R7 trajectories from 25 fresh
+attempts and mechanically completed one full-weight BF16 AdamW step at `1e-7`
+with loss `0.0071`, entropy `0.2522`, gradient norm `3.9375`, and a stable
+12-shard export. The authoritative token export contained 32 records and 3,327
+active CE tokens, with no RL, reference-KL, or SDPO signal. Decoding every
+active span revealed that the selector retained every coordinator tool call
+before the child request. Consequently it reinforced failed duplicate spawn
+signatures, redundant status cells, polling/listening calls, and early result
+construction alongside the intended action. R11 therefore does not test the
+predeclared causal intervention and is neither evaluated nor promoted. Its
+checkpoint is disposable; R7 remains canonical.
+
+The repaired selector is fail-closed. An eligible native trace must contain a
+single minimal coordinator cell that directly assigns the required state and a
+successful named `rlm(...)` handle with the inline child-to-parent request
+protocol, followed by a sampled no-tool yield response and the final visible
+response after the child request. Failed attempts can remain context but get no
+CE; intervening tool calls, status computation, polling, reasoning, child
+tokens, and completion-gate retries are excluded. Replaying the repaired mask
+over the exact R11 batch admits only two clean trajectories and 273 tokens, one
+`explicit` and one `natural_b`, which demonstrates that replacement collection
+is necessary rather than silently training the contaminated batch. The next
+valid probe starts again from R7, collects 16 eligible native trajectories, and
+uses the strategist's lower `5e-8` dose before the frozen paired gate.
+
 After training, the checkpoint-battery launcher refuses partial exports and
 evaluates the untouched pinned checkpoint plus every stable training step on the
 same frozen 24-task VALID-GEN and 24-task OOD-GEN screens. A checkpoint passes
