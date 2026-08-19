@@ -5,6 +5,7 @@ import pytest
 
 from scripts.compare_natural_yield_sdpo_gates_v1 import GATES, compare
 from scripts.compare_natural_yield_sdpo_target_gates_v1 import compare_target
+from scripts.compare_prime_agent_runtime_natural_yield_v1 import compare_runtimes
 
 
 def _write_gate(
@@ -21,6 +22,7 @@ def _write_gate(
     task_index: int = 1,
     max_concurrent: int = 1,
     client_base_url: str = "http://127.0.0.1:8100/v1",
+    runtime_version: str = "0.7.2-test.old",
 ) -> None:
     gate = root / f"{label}-{suffix}" / "train-admission"
     gate.mkdir(parents=True)
@@ -57,6 +59,20 @@ def _write_gate(
                 "output_dir": str(root / label),
                 "max_concurrent": max_concurrent,
                 "client": {"base_url": client_base_url, "type": "eval"},
+                "env": {
+                    "agent": {
+                        "harness": {
+                            "id": "prime_agent",
+                            "version": runtime_version,
+                        },
+                        "runtime": {
+                            "type": "docker",
+                            "image": (
+                                f"rlm-prime-agent-runtime:{runtime_version}-node22.19.0"
+                            ),
+                        },
+                    }
+                },
                 "sampling": {"temperature": 1.0},
             }
         )
@@ -70,6 +86,7 @@ def _write_battery(
     *,
     exact: float = 1.0,
     changed_gate: str | None = None,
+    runtime_version: str = "0.7.2-test.old",
 ) -> None:
     families = {
         "natural_yield": "natural_n1",
@@ -86,6 +103,7 @@ def _write_battery(
             scores[name],
             exact=exact if name == "natural_yield" else 1.0,
             task_index=2 if name == changed_gate else 1,
+            runtime_version=runtime_version,
         )
 
 
@@ -330,3 +348,84 @@ def test_target_comparison_rejects_exact_answer_regression(tmp_path: Path) -> No
     assert report["decision"]["target_improved"] is True
     assert report["decision"]["target_exact_answer_not_regressed"] is False
     assert report["decision"]["eligible_for_retention_gates"] is False
+
+
+def test_runtime_comparison_authorizes_replication_after_causal_gain(
+    tmp_path: Path,
+) -> None:
+    base_scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "old", base_scores, runtime_version="0.7.2-test.old")
+    _write_battery(
+        tmp_path,
+        "current",
+        {
+            **base_scores,
+            "natural_yield": 2,
+            "atomic_send": 6,
+        },
+        runtime_version="0.7.3-test.current",
+    )
+
+    report = compare_runtimes(
+        tmp_path,
+        "old",
+        "current",
+        expected_base_version="0.7.2-test.old",
+        expected_candidate_version="0.7.3-test.current",
+    )
+
+    assert report["decision"]["current_runtime_connects_natural_yield"] is True
+    assert report["decision"]["prerequisites_retained"] is True
+    assert report["decision"]["spawn_then_local_work_retained"] is True
+    assert report["decision"]["eligible_for_current_runtime_replication"] is True
+    assert report["decision"]["weights_changed"] is False
+
+
+def test_runtime_comparison_rejects_non_runtime_config_difference(
+    tmp_path: Path,
+) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "old", scores, runtime_version="0.7.2-test.old")
+    _write_battery(
+        tmp_path,
+        "current",
+        scores,
+        runtime_version="0.7.3-test.current",
+    )
+    config = (
+        tmp_path
+        / "current-natural-yield"
+        / "train-admission"
+        / "configs"
+        / "eval.json"
+    )
+    resolved = json.loads(config.read_text())
+    resolved["max_concurrent"] = 2
+    config.write_text(json.dumps(resolved))
+
+    with pytest.raises(ValueError, match="differ beyond Prime Agent runtime identity"):
+        compare_runtimes(tmp_path, "old", "current")
+
+
+def test_runtime_comparison_requires_distinct_versions(tmp_path: Path) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "old", scores)
+    _write_battery(tmp_path, "current", scores)
+
+    with pytest.raises(ValueError, match="same Prime Agent version"):
+        compare_runtimes(tmp_path, "old", "current")

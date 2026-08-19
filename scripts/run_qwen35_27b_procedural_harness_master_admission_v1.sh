@@ -29,6 +29,21 @@ if [[ -n "$eval_virtual_memory_limit_kib" ]]; then
   fi
   ulimit -v "$eval_virtual_memory_limit_kib"
 fi
+prime_agent_version=$("$root/.venv/bin/python" - "$config" <<'PY'
+import sys
+import tomllib
+
+with open(sys.argv[1], "rb") as handle:
+    config = tomllib.load(handle)
+try:
+    version = config["env"]["agent"]["harness"]["version"]
+except (KeyError, TypeError) as error:
+    raise SystemExit("admission config does not pin a Prime Agent version") from error
+if not isinstance(version, str) or not version:
+    raise SystemExit("admission config has an invalid Prime Agent version")
+print(version)
+PY
+)
 for package in subagent_communication_v1 procedural_harness_master_v1; do
   "$uv_bin" pip install --python "$root/.venv/bin/python" --no-deps --editable \
     "$root/deps/verifiers/environments/$package" >/dev/null
@@ -43,7 +58,7 @@ mkdir -p "$output_root"
 {
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"
   printf 'verifiers_commit=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
-  printf 'prime_agent_version=0.7.2-beta.495.1.97b994c\n'
+  printf 'prime_agent_version=%s\n' "$prime_agent_version"
   printf 'model=%s\n' "$model"
   printf 'model_revision=%s\n' "${MODEL_REVISION:-fc05daec18b0a78c049392ed2e771dde82bdf654}"
   sha256sum "$config"

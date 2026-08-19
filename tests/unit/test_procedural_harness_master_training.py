@@ -26,6 +26,11 @@ NATURAL_PROBE_CONFIG = CONFIG.with_name("natural-policy-connectivity-probe.toml"
 BOUNDED_NATURAL_PROBE_CONFIG = CONFIG.with_name(
     "natural-policy-connectivity-bounded-gate.toml"
 )
+CURRENT_RUNTIME_CONFIG_DIR = CONFIG.parent / "current-runtime-v1"
+CURRENT_RUNTIME_NATURAL_CONFIG = (
+    CURRENT_RUNTIME_CONFIG_DIR / "natural-policy-connectivity-bounded-gate.toml"
+)
+CURRENT_RUNTIME_ACTION_CONFIG = CURRENT_RUNTIME_CONFIG_DIR / "harness-action-admission.toml"
 FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 NATURAL_YIELD_SDPO_AUDIT_CONFIG = CONFIG.with_name(
     "natural-yield-sdpo-zero-lr.toml"
@@ -72,6 +77,9 @@ NATURAL_YIELD_SDPO_CUMULATIVE_LAUNCHER = (
 )
 NATURAL_YIELD_SDPO_CUMULATIVE_VALIDATOR = (
     ROOT / "scripts" / "validate_natural_yield_sdpo_cumulative_v1.py"
+)
+PRIME_AGENT_RUNTIME_COMPARISON_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_prime_agent_runtime_comparison_v1.sh"
 )
 NATURAL_YIELD_SDPO_POSTFLIGHT = (
     ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_postflight_v1.sh"
@@ -697,6 +705,45 @@ def test_natural_yield_teacher_admission_is_eight_state_and_zero_update() -> Non
     assert "TEACHER_SAMPLING_EXPECTED_STATE_COUNT:-8" in sampling_launcher
     assert "-m scripts.sample_natural_yield_sdpo_teacher_replays_v1" in sampling_launcher
     assert "-m scripts.decide_natural_yield_sdpo_teacher_admission_v1" in sampling_launcher
+
+
+def test_current_prime_agent_runtime_comparison_changes_only_runtime_identity() -> None:
+    old_natural = tomllib.loads(BOUNDED_NATURAL_PROBE_CONFIG.read_text())
+    current_natural = tomllib.loads(CURRENT_RUNTIME_NATURAL_CONFIG.read_text())
+    old_action = tomllib.loads(ACTION_ADMISSION_CONFIG.read_text())
+    current_action = tomllib.loads(CURRENT_RUNTIME_ACTION_CONFIG.read_text())
+
+    for old, current in (
+        (old_natural, current_natural),
+        (old_action, current_action),
+    ):
+        assert old["env"]["agent"]["harness"]["version"] == (
+            "0.7.2-beta.495.1.97b994c"
+        )
+        assert current["env"]["agent"]["harness"]["version"] == (
+            "0.7.3-beta.518.1.f8f0036"
+        )
+        old["env"]["agent"]["harness"]["version"] = "<VERSION>"
+        current["env"]["agent"]["harness"]["version"] = "<VERSION>"
+        old["env"]["agent"]["runtime"]["image"] = "<IMAGE>"
+        current["env"]["agent"]["runtime"]["image"] = "<IMAGE>"
+        old["client"]["base_url"] = "<ENDPOINT>"
+        current["client"]["base_url"] = "<ENDPOINT>"
+        assert current == old
+
+    launcher = PRIME_AGENT_RUNTIME_COMPARISON_LAUNCHER.read_text()
+    assert "0.7.2-beta.495.1.97b994c" in launcher
+    assert "0.7.3-beta.518.1.f8f0036" in launcher
+    assert "7ca44937f" in launcher
+    assert "run_arm old-runtime" in launcher
+    assert "run_arm current-runtime" in launcher
+    assert "compare_prime_agent_runtime_natural_yield_v1" in launcher
+    assert "historical Prime Agent image unexpectedly contains" in launcher
+    assert "current Prime Agent image does not contain" in launcher
+
+    admission_launcher = MASTER_ADMISSION_LAUNCHER.read_text()
+    assert 'config["env"]["agent"]["harness"]["version"]' in admission_launcher
+    assert "printf 'prime_agent_version=%s\\n'" in admission_launcher
 
 
 def test_natural_yield_sdpo_update_is_minimal_full_weight_learning() -> None:

@@ -1,0 +1,61 @@
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 1
+num_rollouts = 8
+shuffle = false
+max_concurrent = 8
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 8
+
+[env.timeout]
+episode = 900.0
+finalize = 60.0
+
+[env.taskset]
+id = "procedural-harness-master-v1"
+split = "train_gen"
+count = 1
+start_index = 900000
+master_seed = 20260816
+curriculum_rung = "atomic_state"
+record_causal_feedback = false
+
+[env.agent]
+max_turns = 16
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.3-beta.518.1.f8f0036"
+autonomous = true
+gates = ["python /workspace/.procedural-harness-master/completion_gate.py"]
+autonomous_max_continuations = 4
+autonomous_max_turns = 16
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 900000
+process_timeout_ms = 840000
+
+[env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.3-beta.518.1.f8f0036-node22.19.0"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8200/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 1.0
+reasoning_effort = "high"
+max_tokens = 2048
