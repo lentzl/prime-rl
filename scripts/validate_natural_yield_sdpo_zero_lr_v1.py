@@ -144,8 +144,15 @@ def _is_child_branch(branch: vf.Branch) -> bool:
     )
 
 
-def _validate_traces(run_dir: Path) -> list[vf.WireTrace]:
-    path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
+def _validate_traces(run_dir: Path, step: int = 1) -> list[vf.WireTrace]:
+    path = (
+        run_dir
+        / "rollouts"
+        / f"step_{step}"
+        / "train"
+        / "effective"
+        / "traces.jsonl"
+    )
     records = _read_jsonl(path)
     if len(records) != EXPECTED_BATCH_SIZE:
         raise AuditFailure(
@@ -212,9 +219,9 @@ def _validate_traces(run_dir: Path) -> list[vf.WireTrace]:
 
 
 def _validate_token_routing(
-    run_dir: Path, traces: list[vf.WireTrace]
+    run_dir: Path, traces: list[vf.WireTrace], step: int = 1
 ) -> dict[str, int]:
-    export_dir = run_dir / "token_exports" / "step_1"
+    export_dir = run_dir / "token_exports" / f"step_{step}"
     if not (export_dir / "STABLE").is_file():
         raise AuditFailure(f"token export is not stable: {export_dir}")
     exports = [
@@ -226,7 +233,7 @@ def _validate_token_routing(
         list
     )
     for index, record in enumerate(exports):
-        if record.get("schema_version") != 1 or record.get("step") != 1:
+        if record.get("schema_version") != 1 or record.get("step") != step:
             raise AuditFailure(f"token export {index} has the wrong schema or step")
         token_ids = record.get("token_ids")
         if record.get("env_name") != ENV_NAME or not isinstance(token_ids, list):

@@ -377,8 +377,10 @@ def _active_component(record: dict[str, Any], name: str) -> list[bool]:
     return active
 
 
-def _exported_component_token_counts(run_dir: Path) -> dict[str, int]:
-    export_dir = run_dir / "token_exports" / "step_1"
+def _exported_component_token_counts(
+    run_dir: Path, step: int = 1
+) -> dict[str, int]:
+    export_dir = run_dir / "token_exports" / f"step_{step}"
     if not (export_dir / "STABLE").is_file():
         raise AuditFailure(f"token export is not stable: {export_dir}")
     counts = {name: 0 for name in ("rl", "ce", "ref_kl", "sdpo")}

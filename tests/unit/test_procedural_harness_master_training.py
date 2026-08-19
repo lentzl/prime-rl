@@ -31,6 +31,9 @@ NATURAL_YIELD_SDPO_AUDIT_CONFIG = CONFIG.with_name(
     "natural-yield-sdpo-zero-lr.toml"
 )
 NATURAL_YIELD_SDPO_UPDATE_CONFIG = CONFIG.with_name("natural-yield-sdpo-update.toml")
+NATURAL_YIELD_SDPO_CUMULATIVE_CONFIG = CONFIG.with_name(
+    "natural-yield-sdpo-cumulative.toml"
+)
 LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_bootstrap_v1.sh"
 ACTION_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_action_admission_v1.sh"
 NATURAL_ADMISSION_LAUNCHER = ROOT / "scripts" / "run_qwen35_27b_natural_policy_admission_v1.sh"
@@ -54,6 +57,12 @@ NATURAL_YIELD_SDPO_AUDIT_VALIDATOR = (
 )
 NATURAL_YIELD_SDPO_UPDATE_LAUNCHER = (
     ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_update_v1.sh"
+)
+NATURAL_YIELD_SDPO_CUMULATIVE_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_cumulative_v1.sh"
+)
+NATURAL_YIELD_SDPO_CUMULATIVE_VALIDATOR = (
+    ROOT / "scripts" / "validate_natural_yield_sdpo_cumulative_v1.py"
 )
 NATURAL_YIELD_SDPO_POSTFLIGHT = (
     ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_postflight_v1.sh"
@@ -708,6 +717,46 @@ def test_natural_yield_update_requires_audit_and_runs_frozen_postflight() -> Non
     assert "eligible_for_independent_replication" in (
         ROOT / "scripts" / "compare_natural_yield_sdpo_gates_v1.py"
     ).read_text()
+
+
+def test_natural_yield_cumulative_run_preserves_every_low_dose_step() -> None:
+    config = cli(
+        RLConfig,
+        args=["@", str(NATURAL_YIELD_SDPO_CUMULATIVE_CONFIG), "--dry-run"],
+    )
+    source = config.orchestrator.train.source[0]
+    launcher = NATURAL_YIELD_SDPO_CUMULATIVE_LAUNCHER.read_text()
+    validator = NATURAL_YIELD_SDPO_CUMULATIVE_VALIDATOR.read_text()
+
+    assert config.max_steps == 4
+    assert config.max_train_batch_lead == 0
+    assert config.trainer.model.lora is None
+    assert config.trainer.model.optimization_dtype == "bfloat16"
+    assert config.trainer.optim.type == "adamw"
+    assert config.trainer.optim.lr == 5e-8
+    assert config.trainer.scheduler.type == "constant"
+    assert config.trainer.ckpt is not None
+    assert config.trainer.ckpt.interval == 1
+    assert config.trainer.ckpt.keep_last == 4
+    assert config.trainer.ckpt.weights_only is True
+    assert config.orchestrator.ckpt is not None
+    assert config.orchestrator.ckpt.interval == 1
+    assert config.orchestrator.ckpt.keep_last == 4
+    assert config.orchestrator.batch_size == 4
+    assert config.orchestrator.group_size == 1
+    assert source.algo is not None and source.algo.type == "sdpo"
+    assert source.algo.required_feedback_contract_schema == (
+        "prime-agent/natural-yield-feedback/v1"
+    )
+    assert source.env.taskset.start_index == 3_600_000
+    assert source.env.taskset.record_causal_feedback is True
+    assert "NATURAL_YIELD_SDPO_CUMULATIVE_DRY_RUN" in launcher
+    assert "natural-yield-sdpo-cumulative-dry-run" in launcher
+    assert "for step in 1 2 3 4" in launcher
+    assert "CUMULATIVE_UPDATE.json" in launcher
+    assert "EXPECTED_STEPS = (1, 2, 3, 4)" in validator
+    assert "zero._validate_traces(run_dir, step)" in validator
+    assert "zero._validate_token_routing(run_dir, traces, step)" in validator
 
 
 def test_followup_sdpo_launcher_requires_disconnection_and_feedback_audit() -> None:

@@ -121,8 +121,8 @@ def _validate_metrics(run_dir: Path, expected_tokens: int) -> dict[str, float]:
     return values
 
 
-def _validate_weights(run_dir: Path) -> Path:
-    weights = run_dir / "weights" / "step_1"
+def _validate_weights(run_dir: Path, step: int = 1) -> Path:
+    weights = run_dir / "weights" / f"step_{step}"
     if not (weights / "STABLE").is_file():
         raise UpdateFailure(f"weight export is not stable: {weights}")
     if not list(weights.glob("*.safetensors")):
@@ -143,9 +143,16 @@ def _validate_weights(run_dir: Path) -> Path:
     return weights
 
 
-def _validate_pristine_prefixes(run_dir: Path, traces: list[Any]) -> None:
+def _validate_pristine_prefixes(
+    run_dir: Path, traces: list[Any], step: int = 1
+) -> None:
     records = _read_jsonl(
-        run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
+        run_dir
+        / "rollouts"
+        / f"step_{step}"
+        / "train"
+        / "effective"
+        / "traces.jsonl"
     )
     if len(records) != len(traces):
         raise UpdateFailure("pristine-prefix audit trace count changed")
