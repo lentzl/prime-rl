@@ -85,6 +85,7 @@ def _write_battery(
     scores: dict[str, int],
     *,
     exact: float = 1.0,
+    local_work_exact: float = 1.0,
     changed_gate: str | None = None,
     runtime_version: str = "0.7.2-test.old",
 ) -> None:
@@ -101,7 +102,13 @@ def _write_battery(
             suffix,
             families[name],
             scores[name],
-            exact=exact if name == "natural_yield" else 1.0,
+            exact=(
+                exact
+                if name == "natural_yield"
+                else local_work_exact
+                if name == "natural_yield_local_work"
+                else 1.0
+            ),
             task_index=2 if name == changed_gate else 1,
             runtime_version=runtime_version,
         )
@@ -382,6 +389,9 @@ def test_runtime_comparison_authorizes_replication_after_causal_gain(
     assert report["decision"]["current_runtime_connects_natural_yield"] is True
     assert report["decision"]["prerequisites_retained"] is True
     assert report["decision"]["spawn_then_local_work_retained"] is True
+    assert report["decision"][
+        "spawn_then_local_work_exact_answer_not_regressed"
+    ] is True
     assert report["decision"]["eligible_for_current_runtime_replication"] is True
     assert report["decision"]["weights_changed"] is False
 
@@ -415,6 +425,34 @@ def test_runtime_comparison_rejects_non_runtime_config_difference(
 
     with pytest.raises(ValueError, match="differ beyond Prime Agent runtime identity"):
         compare_runtimes(tmp_path, "old", "current")
+
+
+def test_runtime_comparison_rejects_local_work_exact_answer_regression(
+    tmp_path: Path,
+) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "old", scores, runtime_version="0.7.2-test.old")
+    _write_battery(
+        tmp_path,
+        "current",
+        {**scores, "natural_yield": 2},
+        local_work_exact=0.875,
+        runtime_version="0.7.3-test.current",
+    )
+
+    report = compare_runtimes(tmp_path, "old", "current")
+
+    assert report["decision"]["current_runtime_connects_natural_yield"] is True
+    assert report["decision"][
+        "spawn_then_local_work_exact_answer_not_regressed"
+    ] is False
+    assert report["decision"]["spawn_then_local_work_retained"] is False
+    assert report["decision"]["eligible_for_current_runtime_replication"] is False
 
 
 def test_runtime_comparison_requires_distinct_versions(tmp_path: Path) -> None:

@@ -1,3 +1,5 @@
+import json
+import stat
 import tomllib
 from pathlib import Path
 
@@ -7,6 +9,7 @@ from scripts.audit_procedural_harness_event_control_support_v1 import (
     summarize_support,
     validate_support,
 )
+from scripts.summarize_natural_yield_scaffold_v1 import summarize as summarize_scaffold
 from scripts.summarize_procedural_harness_master_v1 import (
     classify_curriculum_rung_admission,
     classify_natural_connectivity_probe,
@@ -80,6 +83,15 @@ NATURAL_YIELD_SDPO_CUMULATIVE_VALIDATOR = (
 )
 PRIME_AGENT_RUNTIME_COMPARISON_LAUNCHER = (
     ROOT / "scripts" / "run_qwen35_27b_prime_agent_runtime_comparison_v1.sh"
+)
+NATURAL_YIELD_SCAFFOLD_ADMISSION_CONFIG = CONFIG.with_name(
+    "natural-yield-scaffold-admission.toml"
+)
+NATURAL_YIELD_SCAFFOLD_ADMISSION_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_scaffold_admission_v1.sh"
+)
+NATURAL_YIELD_SCAFFOLD_POSTFLIGHT = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_scaffold_postflight_v1.sh"
 )
 NATURAL_YIELD_SDPO_POSTFLIGHT = (
     ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_postflight_v1.sh"
@@ -744,6 +756,83 @@ def test_current_prime_agent_runtime_comparison_changes_only_runtime_identity() 
     admission_launcher = MASTER_ADMISSION_LAUNCHER.read_text()
     assert 'config["env"]["agent"]["harness"]["version"]' in admission_launcher
     assert "printf 'prime_agent_version=%s\\n'" in admission_launcher
+
+
+def test_natural_yield_scaffold_y0_summary_is_fail_closed(tmp_path: Path) -> None:
+    rows = []
+    families = ("audit", "review", "release")
+    for index in range(8):
+        rows.append(
+            {
+                "task": {
+                    "data": {
+                        "generation_metadata": {
+                            "graph_variant": "child_plus_private_state",
+                            "semantic_family": families[index % len(families)],
+                        }
+                    }
+                },
+                "info": {
+                    "natural_yield_scaffold": {
+                        "schema_version": "prime-agent/natural-yield-scaffold/v1",
+                        "fired": True,
+                    }
+                },
+                "metrics": {"forbidden_post_spawn_tool_before_child": 0.0},
+                "rewards": {"harness_score": 1.0 if index < 4 else 0.0},
+                "errors": [],
+            }
+        )
+    rows.append(
+        {
+            "task": {
+                "data": {
+                    "generation_metadata": {
+                        "graph_variant": "child_plus_local_work_and_private_state"
+                    }
+                }
+            },
+            "info": {},
+            "metrics": {"premature_yield_before_local_work": 0.0},
+            "rewards": {"harness_score": 1.0},
+            "errors": [],
+        }
+    )
+    trace_file = tmp_path / "traces.jsonl"
+    trace_file.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+
+    report = summarize_scaffold(trace_file, rescore=False)
+
+    assert report["admission"]["y0_connected"] is True
+    assert report["scaffolded"]["hard_successes"] == 4
+    assert report["scaffolded"]["no_forbidden_post_spawn_tool"] == 8
+    assert report["local_work_control"]["scaffold_fires"] == 0
+    rows[0]["errors"] = ["rollout failed"]
+    trace_file.write_text("".join(f"{json.dumps(row)}\n" for row in rows))
+    assert summarize_scaffold(trace_file, rescore=False)["errors"] == 1
+
+
+def test_natural_yield_scaffold_launchers_preserve_native_evaluation() -> None:
+    config = tomllib.loads(NATURAL_YIELD_SCAFFOLD_ADMISSION_CONFIG.read_text())
+    admission = NATURAL_YIELD_SCAFFOLD_ADMISSION_LAUNCHER.read_text()
+    postflight = NATURAL_YIELD_SCAFFOLD_POSTFLIGHT.read_text()
+
+    assert config["num_tasks"] == 8
+    assert config["num_rollouts"] == 8
+    assert config["env"]["taskset"]["curriculum_rung"] == "natural_n1"
+    assert config["env"]["taskset"]["record_causal_feedback"] is False
+    assert "export PROCEDURAL_NATURAL_YIELD_SCAFFOLD=1" in admission
+    assert "SCAFFOLD_SUMMARY.json" in admission
+    assert 'report["admission"]["y0_connected"]' in admission
+    assert "unset PROCEDURAL_NATURAL_YIELD_SCAFFOLD" in postflight
+    assert "Y3 invalid: constrained-yield scaffold is still enabled" in postflight
+    for launcher in (
+        NATURAL_YIELD_SCAFFOLD_ADMISSION_LAUNCHER,
+        ROOT / "scripts" / "run_qwen35_27b_natural_yield_scaffold_harvest_v1.sh",
+        ROOT / "scripts" / "run_qwen35_27b_natural_yield_scaffold_sft_v1.sh",
+        NATURAL_YIELD_SCAFFOLD_POSTFLIGHT,
+    ):
+        assert launcher.stat().st_mode & stat.S_IXUSR
 
 
 def test_natural_yield_sdpo_update_is_minimal_full_weight_learning() -> None:
