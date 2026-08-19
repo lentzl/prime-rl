@@ -1,0 +1,196 @@
+{
+  "schema_version": "prime-agent/natural-yield-sdpo-cumulative-results/v1",
+  "recorded_at": "2026-08-19",
+  "status": "formulation_rejected_canonical_r7_retained",
+  "source": {
+    "model": "lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818",
+    "revision": "8f0568faed72d0db2e2258c18b1aabdcefd680cc",
+    "remote_path": "/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1/atomic-send-grpo-r7/weights/step_1",
+    "role": "canonical_r7"
+  },
+  "update": {
+    "remote_run_dir": "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/cumulative-r1",
+    "training_source_commit": "0d998e78e",
+    "validator_source_commit": "0105ff7eb",
+    "mechanism": "natural-yield-feedback-conditioned-sdpo-cumulative-update",
+    "feedback_schema": "prime-agent/natural-yield-feedback/v1",
+    "feedback_code": "tool_call_after_delegation",
+    "optimizer": "adamw",
+    "optimization_dtype": "bfloat16",
+    "teacher_regularization": "ema",
+    "learning_rate_per_step": 5e-8,
+    "steps": 4,
+    "effective_traces_per_step": 4,
+    "total_effective_traces": 16,
+    "validator_report_sha256": "b5f0ce127cfb89643f41fa515661d2a3b0bd4ddd8db2eb3f5b0fe2b9ec867688",
+    "validator_verdict": "pass",
+    "step_metrics": {
+      "1": {
+        "loss": 0.004819345660507679,
+        "sdpo_loss": 0.0976027101278305,
+        "gradient_norm": 7.1875,
+        "sdpo_tokens": 863,
+        "rl_tokens": 0,
+        "ce_tokens": 0,
+        "reference_kl_tokens": 0,
+        "export_records": 17,
+        "coordinator_active_samples": 4,
+        "child_zero_sdpo_samples": 4,
+        "stable_checkpoint": true
+      },
+      "2": {
+        "loss": 0.004804359283298254,
+        "sdpo_loss": 0.07810886204242706,
+        "gradient_norm": 8.625,
+        "sdpo_tokens": 929,
+        "rl_tokens": 0,
+        "ce_tokens": 0,
+        "reference_kl_tokens": 0,
+        "export_records": 15,
+        "coordinator_active_samples": 4,
+        "child_zero_sdpo_samples": 4,
+        "stable_checkpoint": true
+      },
+      "3": {
+        "loss": 0.006850819103419781,
+        "sdpo_loss": 0.11294948309659958,
+        "gradient_norm": 11.375,
+        "sdpo_tokens": 548,
+        "rl_tokens": 0,
+        "ce_tokens": 0,
+        "reference_kl_tokens": 0,
+        "export_records": 14,
+        "coordinator_active_samples": 4,
+        "child_zero_sdpo_samples": 4,
+        "stable_checkpoint": true
+      },
+      "4": {
+        "loss": 0.005146462004631758,
+        "sdpo_loss": 0.08222480118274689,
+        "gradient_norm": 7.5,
+        "sdpo_tokens": 678,
+        "rl_tokens": 0,
+        "ce_tokens": 0,
+        "reference_kl_tokens": 0,
+        "export_records": 13,
+        "coordinator_active_samples": 4,
+        "child_zero_sdpo_samples": 4,
+        "stable_checkpoint": true
+      }
+    }
+  },
+  "validator_correction": {
+    "original_status": "post_training_validator_rejected_valid_truncation",
+    "failure": "The audit required full branch token identity even though Prime-RL right-truncates at 8192 tokens and drops branches with no sampled tokens in that window.",
+    "observed_case": {
+      "trace_id": "3b1a6140afd348b5a193ed7146330002",
+      "branch_index": 2,
+      "wire_tokens": 8586,
+      "exported_tokens": 8192,
+      "exported_prefix_exact": true
+    },
+    "repair": "Compare the trainer-visible 8192-token prefix and omit only branches whose sampled loss mask is entirely outside the trainer window.",
+    "verification": "Seven focused natural-yield Linux tests and the complete four-step real-run validator passed after the correction."
+  },
+  "bounded_target_matrix": {
+    "root": "/ephemeral/evals/qwen35-27b-natural-yield-sdpo-v1/cumulative-r1-targets",
+    "task_index": 3500000,
+    "task_rollouts_per_model": 8,
+    "config": "experiments/qwen35-27b-procedural-harness-master-v1/natural-policy-connectivity-bounded-gate.toml",
+    "r7_resolved_config_sha256": "93d5b533db95daf7817ad70be4cc0c5e9e92fb8a43bae73c93406cb3c1c65158",
+    "normalized_config_signature": "cc768ce64f88c1aaf05a4878a8ea95143a5ac0836a4588989317faf84235e224",
+    "collection_source": {
+      "prime_rl_commit": "08b126ee9c6c4e399fc0c62f151cba7aa72f0bc7",
+      "verifiers_commit": "307e42f3a70d779545ef0c6f0ede1ef91c65e4d7"
+    },
+    "comparison_source_commit": "b0b12dd925705f2143eb11ea036a350c3ded1a87",
+    "runtime_controls": {
+      "max_concurrent_per_model": 1,
+      "max_concurrent_agents": 1,
+      "max_turns": 16,
+      "episode_timeout_seconds": 480,
+      "rollout_timeout_seconds": 480,
+      "eval_virtual_memory_limit_kib": 100663296
+    },
+    "models": {
+      "r7": {
+        "errors": 0,
+        "hard_passed": 0,
+        "final_answer_exact": 1.0,
+        "forbidden_post_spawn_tool_before_child": 0.875,
+        "no_forbidden_atoms": 0.125,
+        "ordering_satisfied": 0.0,
+        "required_atoms_fraction": 0.6875
+      },
+      "step1": {
+        "errors": 0,
+        "hard_passed": 0,
+        "final_answer_exact": 0.875,
+        "forbidden_post_spawn_tool_before_child": 1.0,
+        "no_forbidden_atoms": 0.0,
+        "ordering_satisfied": 0.0,
+        "required_atoms_fraction": 0.625
+      },
+      "step2": {
+        "errors": 0,
+        "hard_passed": 0,
+        "final_answer_exact": 1.0,
+        "forbidden_post_spawn_tool_before_child": 0.75,
+        "no_forbidden_atoms": 0.25,
+        "ordering_satisfied": 0.0,
+        "required_atoms_fraction": 0.6875
+      },
+      "step4": {
+        "errors": 0,
+        "hard_passed": 0,
+        "final_answer_exact": 1.0,
+        "forbidden_post_spawn_tool_before_child": 0.875,
+        "no_forbidden_atoms": 0.125,
+        "ordering_satisfied": 0.0,
+        "required_atoms_fraction": 0.7083333333333334
+      }
+    },
+    "deltas_vs_r7": {
+      "step1": {
+        "hard_passed": 0,
+        "final_answer_exact": -0.125,
+        "forbidden_post_spawn_tool_before_child": 0.125
+      },
+      "step2": {
+        "hard_passed": 0,
+        "final_answer_exact": 0.0,
+        "forbidden_post_spawn_tool_before_child": -0.125
+      },
+      "step4": {
+        "hard_passed": 0,
+        "final_answer_exact": 0.0,
+        "forbidden_post_spawn_tool_before_child": 0.0
+      }
+    }
+  },
+  "decision": {
+    "material_forbidden_transition_reduction_required": 0.25,
+    "qualifying_steps": [],
+    "retention_gates_run": false,
+    "retention_gates_omission_reason": "No checkpoint produced a hard success or the predeclared two-of-eight forbidden-transition reduction without exact-answer regression.",
+    "eligible_for_independent_replication": false,
+    "promoted": false,
+    "canonical_model": "r7",
+    "candidate_disposition": "reject_all_cumulative_checkpoints_and_do_not_continue"
+  },
+  "conclusion": {
+    "proven": [
+      "Four cumulative full-weight failure-local SDPO updates were mechanically valid and used fresh admitted failures at every step.",
+      "The cumulative dose produced no hard natural-yield success at steps one, two, or four on the frozen target draw.",
+      "Step two reduced the exact forbidden transition by only one of eight traces, below the predeclared two-of-eight threshold, and the effect disappeared by step four.",
+      "Step one regressed exact final answers and worsened the forbidden transition; later cumulative dose did not form a monotonic bridge.",
+      "No cumulative checkpoint justifies retention testing, replication, promotion, or continuation."
+    ],
+    "not_proven": [
+      "This result does not show that all feedback-conditioned distillation is ineffective; it rejects this feedback contract, teacher construction, dose, and causal target combination.",
+      "This result does not establish a Qwen capacity limit because untouched 122B showed the same disconnected event-control prior.",
+      "This result does not test a teacher distribution independently admitted to produce the desired no-tool yield on the same failed states."
+    ],
+    "next_falsifiable_step": "Keep R7 canonical and audit the feedback-conditioned teacher distribution on the exact post-spawn failed states. Require direct evidence that the teacher assigns materially higher probability to a valid no-tool yield before defining a new optimizer update; otherwise change the source or representation of successful-policy information rather than increasing dose."
+  }
+}
