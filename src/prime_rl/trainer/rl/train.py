@@ -42,6 +42,8 @@ from prime_rl.trainer.rl.sdpo_support import (
     gather_sdpo_teacher_topk_logprobs,
     pack_sdpo_teacher_span_batches,
     pad_sdpo_teacher_span_batches,
+    sdpo_teacher_support_available,
+    select_sdpo_teacher_topk_support,
     select_sdpo_student_topk_support,
 )
 from prime_rl.trainer.rl.sdpo_teacher import SDPOEMATeacher
@@ -462,6 +464,8 @@ def train(config: TrainerConfig):
 
             sdpo_topk_token_ids = None
             sdpo_topk_logprobs = None
+            sdpo_teacher_support_token_ids = None
+            sdpo_teacher_support_logprobs = None
             if has_global_sdpo:
                 if mm_kwargs is not None:
                     raise NotImplementedError(
@@ -541,6 +545,11 @@ def train(config: TrainerConfig):
                             )
                         if sdpo_topk_logprobs is None:
                             sdpo_topk_logprobs = torch.zeros_like(sdpo_topk_token_ids, dtype=teacher_logits.dtype)
+                        if config.enable_sdpo_support_export and sdpo_teacher_support_token_ids is None:
+                            sdpo_teacher_support_token_ids = torch.zeros_like(sdpo_topk_token_ids)
+                            sdpo_teacher_support_logprobs = torch.zeros_like(
+                                sdpo_topk_token_ids, dtype=teacher_logits.dtype
+                            )
                         if student_targets:
                             student_target_tensor = torch.tensor(student_targets, dtype=torch.long, device="cuda")
                             teacher_target_tensor = torch.tensor(teacher_targets, dtype=torch.long, device="cuda")
@@ -551,10 +560,28 @@ def train(config: TrainerConfig):
                                 support_ids,
                             )
                             sdpo_topk_logprobs[0, student_target_tensor] = teacher_scores
+                            if config.enable_sdpo_support_export:
+                                teacher_support_ids, teacher_support_scores = select_sdpo_teacher_topk_support(
+                                    teacher_logits,
+                                    teacher_target_tensor,
+                                    topk,
+                                )
+                                assert sdpo_teacher_support_token_ids is not None
+                                assert sdpo_teacher_support_logprobs is not None
+                                sdpo_teacher_support_token_ids[0, student_target_tensor] = teacher_support_ids
+                                sdpo_teacher_support_logprobs[0, student_target_tensor] = teacher_support_scores
                         del teacher_out, teacher_logits
 
                 if config.model.lora:
                     set_lora_num_tokens(lora_num_tokens)
+
+            export_sdpo_support = (
+                config.enable_sdpo_support_export
+                and sdpo_teacher_support_available(
+                    sdpo_teacher_support_token_ids,
+                    sdpo_teacher_support_logprobs,
+                )
+            )
 
             # Forward pass with per-token temperatures
             with maybe_record_function("forward"), maybe_activation_offloading(config.model.ac_offloading):
@@ -572,6 +599,7 @@ def train(config: TrainerConfig):
                 )
 
             student_topk_logprobs = None
+            student_teacher_support_logprobs = None
             if sdpo_topk_token_ids is not None:
                 logits = out.get("logits")
                 if logits is None:
@@ -586,6 +614,14 @@ def train(config: TrainerConfig):
                     sdpo_topk_token_ids,
                     support_mask=support_mask,
                 )
+                if export_sdpo_support:
+                    assert sdpo_teacher_support_token_ids is not None
+                    student_teacher_support_logprobs = gather_sdpo_student_topk_logprobs(
+                        logits,
+                        temperatures,
+                        sdpo_teacher_support_token_ids,
+                        support_mask=support_mask,
+                    )
 
             if out.get("logprobs") is None:
                 # VanillaOutputLinear was used - need to compute logprobs externally with per-token temps
@@ -691,6 +727,18 @@ def train(config: TrainerConfig):
                 out,
                 sequence_lengths,
                 config.loss,
+                sdpo_topk_token_ids=sdpo_topk_token_ids if export_sdpo_support else None,
+                student_topk_logprobs=student_topk_logprobs if export_sdpo_support else None,
+                teacher_topk_logprobs=sdpo_topk_logprobs if export_sdpo_support else None,
+                teacher_support_token_ids=sdpo_teacher_support_token_ids
+                if export_sdpo_support
+                else None,
+                student_teacher_support_logprobs=student_teacher_support_logprobs
+                if export_sdpo_support
+                else None,
+                teacher_support_logprobs=sdpo_teacher_support_logprobs
+                if export_sdpo_support
+                else None,
             )
 
             if is_tt_moe_model(model):

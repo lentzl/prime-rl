@@ -366,6 +366,17 @@ def test_trainer_enable_token_export_cli_flag():
     assert cli(TrainerConfig, args=["--enable-token-export"]).enable_token_export
 
 
+def test_trainer_sdpo_support_export_requires_token_export_and_no_cp():
+    with pytest.raises(ValidationError, match="requires enable_token_export"):
+        TrainerConfig(enable_sdpo_support_export=True)
+
+    with pytest.raises(ValidationError, match="does not support context parallelism"):
+        TrainerConfig(enable_token_export=True, enable_sdpo_support_export=True, model={"cp": 2})
+
+    config = TrainerConfig(enable_token_export=True, enable_sdpo_support_export=True)
+    assert config.enable_sdpo_support_export
+
+
 def test_single_node_auto_inference_ports_follow_server_port():
     config = RLConfig.model_validate(
         {

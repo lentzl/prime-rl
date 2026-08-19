@@ -30,6 +30,9 @@ FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 NATURAL_YIELD_SDPO_AUDIT_CONFIG = CONFIG.with_name(
     "natural-yield-sdpo-zero-lr.toml"
 )
+NATURAL_YIELD_TEACHER_ADMISSION_CONFIG = CONFIG.with_name(
+    "natural-yield-sdpo-teacher-admission.toml"
+)
 NATURAL_YIELD_SDPO_UPDATE_CONFIG = CONFIG.with_name("natural-yield-sdpo-update.toml")
 NATURAL_YIELD_SDPO_CUMULATIVE_CONFIG = CONFIG.with_name(
     "natural-yield-sdpo-cumulative.toml"
@@ -54,6 +57,12 @@ NATURAL_YIELD_SDPO_AUDIT_LAUNCHER = (
 )
 NATURAL_YIELD_SDPO_AUDIT_VALIDATOR = (
     ROOT / "scripts" / "validate_natural_yield_sdpo_zero_lr_v1.py"
+)
+NATURAL_YIELD_TEACHER_ADMISSION_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_teacher_distribution_audit_v1.sh"
+)
+NATURAL_YIELD_TEACHER_SAMPLING_LAUNCHER = (
+    ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_teacher_sampling_audit_v1.sh"
 )
 NATURAL_YIELD_SDPO_UPDATE_LAUNCHER = (
     ROOT / "scripts" / "run_qwen35_27b_natural_yield_sdpo_update_v1.sh"
@@ -665,6 +674,29 @@ def test_natural_yield_sdpo_audit_launcher_is_non_destructive() -> None:
     assert 'mechanism": "natural-yield-feedback-conditioned-sdpo-zero-lr"' in validator
     assert "keep_natural_yield_feedback_response" in validator
     assert "_validate_no_model_artifacts" in validator
+
+
+def test_natural_yield_teacher_admission_is_eight_state_and_zero_update() -> None:
+    config = cli(
+        RLConfig,
+        args=["@", str(NATURAL_YIELD_TEACHER_ADMISSION_CONFIG), "--dry-run"],
+    )
+    source = config.orchestrator.train.source[0]
+    distribution_launcher = NATURAL_YIELD_TEACHER_ADMISSION_LAUNCHER.read_text()
+    sampling_launcher = NATURAL_YIELD_TEACHER_SAMPLING_LAUNCHER.read_text()
+
+    assert config.trainer.optim.lr == 0.0
+    assert config.trainer.enable_sdpo_support_export is True
+    assert config.orchestrator.batch_size == 8
+    assert config.orchestrator.oversampling_factor == 4.0
+    assert config.orchestrator.max_inflight_episodes == 32
+    assert source.env.taskset.start_index == 3_400_000
+    assert source.env.taskset.count == 1024
+    assert "natural-yield-sdpo-teacher-admission.toml" in distribution_launcher
+    assert "TEACHER_SAMPLING_SAMPLES_PER_ARM:-8" in sampling_launcher
+    assert "TEACHER_SAMPLING_EXPECTED_STATE_COUNT:-8" in sampling_launcher
+    assert "-m scripts.sample_natural_yield_sdpo_teacher_replays_v1" in sampling_launcher
+    assert "-m scripts.decide_natural_yield_sdpo_teacher_admission_v1" in sampling_launcher
 
 
 def test_natural_yield_sdpo_update_is_minimal_full_weight_learning() -> None:

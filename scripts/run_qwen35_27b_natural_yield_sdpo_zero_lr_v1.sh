@@ -3,11 +3,12 @@ set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 config=${NATURAL_YIELD_SDPO_AUDIT_CONFIG:-$root/experiments/qwen35-27b-procedural-harness-master-v1/natural-yield-sdpo-zero-lr.toml}
-run_dir=/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/zero-lr-audit
+run_name=${NATURAL_YIELD_SDPO_AUDIT_RUN_NAME:-zero-lr-audit}
+run_dir=/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/$run_name
 local_r7=${HARNESS_ACTION_MODEL_PATH:-/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1/atomic-send-grpo-r7/weights/step_1}
 model_repo=${HARNESS_ACTION_MODEL_REPO:-lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818}
 model_revision=${MODEL_REVISION:-8f0568faed72d0db2e2258c18b1aabdcefd680cc}
-validator_module=scripts.validate_natural_yield_sdpo_zero_lr_v1
+validator_module=${NATURAL_YIELD_SDPO_AUDIT_VALIDATOR_MODULE:-scripts.validate_natural_yield_sdpo_zero_lr_v1}
 validator_helper=scripts/validate_prime_agent_sdpo_zero_lr_audit_v1.py
 
 cd "$root"
@@ -20,7 +21,8 @@ if [[ ! -f "$config" ]]; then
   echo "natural-yield zero-LR config does not exist: $config" >&2
   exit 1
 fi
-if [[ ! -f "scripts/validate_natural_yield_sdpo_zero_lr_v1.py" || ! -f "$validator_helper" ]]; then
+validator_source=${validator_module//./\/}.py
+if [[ ! -f "$validator_source" || ! -f "$validator_helper" ]]; then
   echo "natural-yield zero-LR validator sources are incomplete" >&2
   exit 1
 fi
@@ -77,7 +79,7 @@ if [[ "${NATURAL_YIELD_SDPO_AUDIT_DRY_RUN:-false}" == true ]]; then
   exit 0
 fi
 
-rl @ "$config" --model.name "$model_snapshot"
+rl @ "$config" --model.name "$model_snapshot" --run.dir "$run_name"
 
 .venv/bin/python -m "$validator_module" \
   "$run_dir" \

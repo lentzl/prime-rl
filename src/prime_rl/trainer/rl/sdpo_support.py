@@ -6,6 +6,19 @@ from torch import Tensor
 from prime_rl.transport import SDPOTeacherSpan
 
 
+def sdpo_teacher_support_available(
+    token_ids: Tensor | None,
+    logprobs: Tensor | None,
+) -> bool:
+    """Return whether this microbatch has teacher-owned support to export."""
+
+    if token_ids is None and logprobs is None:
+        return False
+    if token_ids is None or logprobs is None:
+        raise ValueError("SDPO teacher support ids and logprobs must be present together")
+    return True
+
+
 def active_sdpo_weight_mask(weights: Tensor) -> Tensor:
     if weights.dtype == torch.bool or torch.is_complex(weights):
         raise ValueError("sdpo_weights must contain finite non-negative numeric values")
@@ -106,6 +119,26 @@ def gather_sdpo_teacher_topk_logprobs(logits: Tensor, positions: Tensor, token_i
         selected_rows = logits[0, positions[predicted] - 1].log_softmax(dim=-1)
         result[predicted] = torch.gather(selected_rows, dim=-1, index=token_ids[predicted])
     return result
+
+
+def select_sdpo_teacher_topk_support(logits: Tensor, positions: Tensor, topk: int) -> tuple[Tensor, Tensor]:
+    if logits.ndim != 3 or logits.shape[0] != 1:
+        raise ValueError("SDPO teacher logits must have shape (1, seq, vocab)")
+    if positions.ndim != 1:
+        raise ValueError("SDPO teacher positions must be one-dimensional")
+    if isinstance(topk, bool) or not isinstance(topk, int) or topk <= 0:
+        raise ValueError("SDPO teacher top-k support size must be a positive integer")
+    if topk > logits.shape[-1]:
+        raise ValueError(f"SDPO teacher top-k support size {topk} exceeds vocabulary size {logits.shape[-1]}")
+    if not bool(((positions > 0) & (positions < logits.shape[1])).all()):
+        raise ValueError("SDPO teacher support positions must be predicted tokens within the teacher sequence")
+
+    selected_logits = logits[0, positions - 1]
+    if not _all_finite_in_chunks(selected_logits):
+        raise ValueError("SDPO teacher logits must be finite")
+    values, token_ids = torch.topk(selected_logits, topk, dim=-1)
+    logprobs = values - torch.logsumexp(selected_logits, dim=-1, keepdim=True)
+    return token_ids, logprobs
 
 
 def pack_sdpo_teacher_spans(

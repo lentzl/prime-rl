@@ -15,7 +15,9 @@ from prime_rl.trainer.rl.sdpo_support import (
     pack_sdpo_teacher_span_batches,
     pack_sdpo_teacher_spans,
     pad_sdpo_teacher_span_batches,
+    sdpo_teacher_support_available,
     select_sdpo_student_topk_support,
+    select_sdpo_teacher_topk_support,
 )
 from prime_rl.transport import SDPOTeacherSpan
 from tests.unit.train.rl.sdpo_reference_cases import (
@@ -66,6 +68,14 @@ def test_topk_sdpo_loss_backpropagates_through_student_distribution():
     assert torch.count_nonzero(student_topk.grad) > 0
 
 
+def test_teacher_support_export_allows_globally_empty_microbatch():
+    assert sdpo_teacher_support_available(None, None) is False
+    values = torch.zeros(1, 2, 3)
+    assert sdpo_teacher_support_available(values.long(), values) is True
+    with pytest.raises(ValueError, match="present together"):
+        sdpo_teacher_support_available(values.long(), None)
+
+
 def test_student_support_logprobs_use_the_distribution_that_predicted_each_token():
     logits = torch.tensor([[[1.0, 2.0, 3.0], [3.0, 2.0, 1.0], [0.0, 2.0, 1.0]]])
     token_ids = torch.tensor([[[0, 1], [2, 1], [0, 2]]])
@@ -75,6 +85,17 @@ def test_student_support_logprobs_use_the_distribution_that_predicted_each_token
     expected = torch.gather(shifted_logits.log_softmax(dim=-1), dim=-1, index=token_ids)
 
     torch.testing.assert_close(actual, expected)
+
+
+def test_teacher_topk_support_uses_the_distribution_that_predicted_each_token():
+    logits = torch.tensor([[[1.0, 2.0, 3.0], [3.0, 2.0, 1.0], [0.0, 2.0, 1.0]]])
+
+    token_ids, logprobs = select_sdpo_teacher_topk_support(logits, torch.tensor([1, 2]), topk=2)
+
+    expected_rows = logits[0, torch.tensor([0, 1])].log_softmax(dim=-1)
+    expected_values, expected_ids = torch.topk(expected_rows, 2, dim=-1)
+    assert torch.equal(token_ids, expected_ids)
+    torch.testing.assert_close(logprobs, expected_values)
 
 
 def test_student_support_logprobs_promote_bfloat16_logits_with_float_temperatures():

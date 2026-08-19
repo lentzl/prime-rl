@@ -1,0 +1,123 @@
+{
+  "schema_version": "prime-agent/natural-yield-sdpo-teacher-admission-results/v1",
+  "recorded_at": "2026-08-19",
+  "status": "teacher_rejected_no_gradient_canonical_r7_retained",
+  "source": {
+    "model": "lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818",
+    "revision": "8f0568faed72d0db2e2258c18b1aabdcefd680cc",
+    "remote_path": "/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1/atomic-send-grpo-r7/weights/step_1",
+    "role": "canonical_r7"
+  },
+  "audit": {
+    "remote_run_dir": "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/teacher-admission-v2-r1",
+    "mechanism": "paired_zero_update_feedback_conditioned_teacher_admission",
+    "learning_rate": 0.0,
+    "model_artifacts_written": false,
+    "fresh_clean_states": 8,
+    "semantic_families": [
+      "capacity_review",
+      "compliance_review",
+      "incident_triage",
+      "ledger_reconciliation",
+      "sensor_calibration"
+    ],
+    "phrasing_variants": [
+      "explicit",
+      "natural_a",
+      "natural_b"
+    ],
+    "rollout_errors": 0,
+    "rollout_truncations": 0,
+    "coordinator_active_samples": 8,
+    "child_zero_sdpo_samples": 8,
+    "export_records": 32,
+    "artifacts": {
+      "AUDIT.json": "c5aca7585602c580b00a8a299413e5622ac1c3e4a051ebdaa7e64e78f1faffce",
+      "TEACHER_SAMPLING.json": "7192780119312a4f34ff8bab40b49b931d073185e164c17f76727abecc8dd1cc",
+      "TEACHER_ADMISSION.json": "72b9b035d17b821868ee7e5d183852bb6efbeeabc7903e31b32d2a62d89d4845",
+      "final_summary.json": "ad01dbefa746bb4fa17cd8e83f003746931316c3aef14efcbd7eb682ad998c6e"
+    }
+  },
+  "distributional_gate": {
+    "thresholds": {
+      "positive_away_from_tool_shift_rate_min": 0.75,
+      "mean_away_from_tool_log_odds_shift_strictly_positive": true
+    },
+    "observed": {
+      "positive_away_from_tool_shift_rate": 0.75,
+      "mean_away_from_tool_log_odds_shift": 2.6255785780920466,
+      "teacher_non_tool_argmax_rate": 0.0,
+      "teacher_top1_covered_by_student_support_rate": 1.0,
+      "teacher_tool_probability_min": 0.9985430042003595,
+      "teacher_tool_probability_max": 0.9999982118638471
+    },
+    "passed": true,
+    "interpretation": "The formal secondary gate passed, but the teacher still selected the tool marker as top-1 in all eight states. One large log-odds shift arose at a student probability rounded to 1.0, so behavioral sampling remained decisive."
+  },
+  "behavioral_gate": {
+    "sampling": {
+      "samples_per_arm_per_state": 8,
+      "samples_per_arm": 64,
+      "temperature": 1.0,
+      "max_tokens": 1536,
+      "seed": 20260819
+    },
+    "thresholds": {
+      "conditioned_valid_yield_rate_min": 0.3,
+      "absolute_valid_yield_gain_min": 0.2,
+      "states_with_distributed_gain_min": 4
+    },
+    "unconditioned": {
+      "valid_passive_yield": 2,
+      "forbidden_tool_action": 62,
+      "premature_finalization": 0,
+      "other_invalid_no_tool": 0,
+      "valid_yield_rate": 0.03125
+    },
+    "conditioned": {
+      "valid_passive_yield": 3,
+      "forbidden_tool_action": 61,
+      "premature_finalization": 0,
+      "other_invalid_no_tool": 0,
+      "valid_yield_rate": 0.046875
+    },
+    "absolute_valid_yield_gain": 0.015625,
+    "states_with_conditioned_yield_and_forbidden_tool_reduction": 1,
+    "passed": false,
+    "manual_yield_review": "All five classified yields were genuine stopped no-tool waiting responses; the rejection is not a classifier artifact."
+  },
+  "validator_corrections": [
+    {
+      "failure": "The offline distribution validator divided by zero when a measured tool probability was exactly 1.0.",
+      "repair": "Clamp only the log-odds diagnostic to [1e-12, 1-1e-12], retain original probabilities in the report, and reject non-finite or out-of-range inputs.",
+      "effect_on_data": "The completed distributed export was revalidated in place; no trajectories were recollected and no weights changed."
+    },
+    {
+      "failure": "The first sampling launcher invocation omitted the repository root from Python module search paths.",
+      "repair": "Invoke both sampling and decision scripts with python -m.",
+      "effect_on_data": "The failed invocation produced no samples. The corrected launch used the same frozen states, decoding settings, and seeds."
+    }
+  ],
+  "decision": {
+    "behavioral_pass": false,
+    "distributional_pass": true,
+    "teacher_update_authorized": false,
+    "gradient_applied": false,
+    "canonical_model": "r7",
+    "next_action": "change_teacher_source_or_representation_without_gradient"
+  },
+  "conclusion": {
+    "proven": [
+      "Feedback conditioning did not create the predeclared behavioral basin of valid passive yields on eight fresh clean post-spawn states.",
+      "Conditioning increased sampled valid yield by only one of 64 continuations and concentrated all three conditioned yields in one state.",
+      "The conditioned teacher still produced forbidden tool actions in 61 of 64 continuations and retained the tool marker as top-1 in all eight first-decision distributions.",
+      "The current feedback-conditioned R7 self-teacher is not admitted for another natural-yield SDPO update."
+    ],
+    "not_proven": [
+      "This does not reject SDPO for other feedback contracts or successful-policy sources.",
+      "This does not establish a model-capacity limit.",
+      "This does not test a teacher or representation independently demonstrated to generate valid passive yields on the same states."
+    ],
+    "next_falsifiable_step": "Keep R7 canonical and evaluate a changed source or representation of successful passive-yield policy information on these frozen states. Require the same dual behavioral and distributional admission before any new optimizer step."
+  }
+}

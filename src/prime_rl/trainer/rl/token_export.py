@@ -47,9 +47,25 @@ class TokenExporter:
         model_output: Mapping[str, Tensor],
         sequence_lengths: list[int],
         loss_config: Any,
+        *,
+        sdpo_topk_token_ids: Tensor | None = None,
+        student_topk_logprobs: Tensor | None = None,
+        teacher_topk_logprobs: Tensor | None = None,
+        teacher_support_token_ids: Tensor | None = None,
+        student_teacher_support_logprobs: Tensor | None = None,
+        teacher_support_logprobs: Tensor | None = None,
     ) -> None:
         columns = _export_columns(micro_batch, model_output, loss_config)
         _check_lengths(columns)
+        sdpo_support = _sparse_sdpo_support(
+            micro_batch,
+            sdpo_topk_token_ids=sdpo_topk_token_ids,
+            student_topk_logprobs=student_topk_logprobs,
+            teacher_topk_logprobs=teacher_topk_logprobs,
+            teacher_support_token_ids=teacher_support_token_ids,
+            student_teacher_support_logprobs=student_teacher_support_logprobs,
+            teacher_support_logprobs=teacher_support_logprobs,
+        )
         file_key = (step, self.rank)
 
         start = 0
@@ -57,17 +73,25 @@ class TokenExporter:
             raw_end = start + length
             end = _trim_padding(columns, start, raw_end)
             if end > start and any(columns["loss_mask"][start:end]):
+                record = {
+                    "schema_version": SCHEMA_VERSION,
+                    "step": step,
+                    "rank": self.rank,
+                    "micro_step": micro_step,
+                    "micro_sequence_idx": micro_sequence_idx,
+                    "export_sequence_idx": self._sequences_by_file.get(file_key, 0),
+                    "env_name": _first_non_empty(columns["env_names"][start:end]),
+                    **_slice_columns(columns, start, end),
+                }
+                if sdpo_support is not None:
+                    record["sdpo_support"] = _slice_sdpo_support(sdpo_support, start, end)
+                    record["sdpo_teacher_replays"] = _slice_sdpo_teacher_replays(
+                        micro_batch.get("sdpo_teacher_spans"),
+                        start,
+                        end,
+                    )
                 self._write(
-                    {
-                        "schema_version": SCHEMA_VERSION,
-                        "step": step,
-                        "rank": self.rank,
-                        "micro_step": micro_step,
-                        "micro_sequence_idx": micro_sequence_idx,
-                        "export_sequence_idx": self._sequences_by_file.get(file_key, 0),
-                        "env_name": _first_non_empty(columns["env_names"][start:end]),
-                        **_slice_columns(columns, start, end),
-                    },
+                    record,
                     step,
                 )
                 self._sequences_by_file[file_key] = self._sequences_by_file.get(file_key, 0) + 1
@@ -202,6 +226,152 @@ def _compute_export_tensors(
             fields["is_masked_high"] = loss_mask & positive_advantages & invalid_high
             fields["is_masked_low"] = loss_mask & negative_advantages & invalid_low
     return fields
+
+
+def _sparse_sdpo_support(
+    micro_batch: Mapping[str, Any],
+    *,
+    sdpo_topk_token_ids: Tensor | None,
+    student_topk_logprobs: Tensor | None,
+    teacher_topk_logprobs: Tensor | None,
+    teacher_support_token_ids: Tensor | None,
+    student_teacher_support_logprobs: Tensor | None,
+    teacher_support_logprobs: Tensor | None,
+) -> list[dict[str, Any]] | None:
+    tensors = (
+        sdpo_topk_token_ids,
+        student_topk_logprobs,
+        teacher_topk_logprobs,
+        teacher_support_token_ids,
+        student_teacher_support_logprobs,
+        teacher_support_logprobs,
+    )
+    if all(tensor is None for tensor in tensors):
+        return None
+    if any(tensor is None for tensor in tensors):
+        raise ValueError("SDPO support export requires token ids and both student and teacher logprobs")
+
+    assert sdpo_topk_token_ids is not None
+    assert student_topk_logprobs is not None
+    assert teacher_topk_logprobs is not None
+    assert teacher_support_token_ids is not None
+    assert student_teacher_support_logprobs is not None
+    assert teacher_support_logprobs is not None
+    seq_len = micro_batch["input_ids"].numel()
+    expected_prefix = (1, seq_len)
+    if sdpo_topk_token_ids.ndim != 3 or sdpo_topk_token_ids.shape[:2] != expected_prefix:
+        raise ValueError("SDPO support token ids must have shape (1, seq, topk)")
+    if student_topk_logprobs.shape != sdpo_topk_token_ids.shape:
+        raise ValueError("SDPO student top-k logprobs must align with support token ids")
+    if teacher_topk_logprobs.shape != sdpo_topk_token_ids.shape:
+        raise ValueError("SDPO teacher top-k logprobs must align with support token ids")
+    for name, tensor in (
+        ("teacher support token ids", teacher_support_token_ids),
+        ("student logprobs on teacher support", student_teacher_support_logprobs),
+        ("teacher support logprobs", teacher_support_logprobs),
+    ):
+        if tensor.shape != sdpo_topk_token_ids.shape:
+            raise ValueError(f"SDPO {name} must align with student support token ids")
+
+    weights = micro_batch.get("sdpo_weights")
+    if weights is None:
+        if micro_batch.get("sdpo_teacher_spans"):
+            raise ValueError("SDPO teacher spans require sdpo_weights")
+        # Every rank participates in global SDPO teacher collectives. A rank
+        # without a local SDPO sample therefore receives support tensors but
+        # has no sparse positions to export.
+        return []
+    active = micro_batch["loss_mask"].reshape(-1) & (weights.reshape(-1) != 0)
+    positions = torch.nonzero(active, as_tuple=False).flatten()
+    if not len(positions):
+        return []
+
+    selected_ids = sdpo_topk_token_ids[0, positions]
+    selected_student = student_topk_logprobs[0, positions]
+    selected_teacher = teacher_topk_logprobs[0, positions]
+    selected_teacher_ids = teacher_support_token_ids[0, positions]
+    selected_student_on_teacher = student_teacher_support_logprobs[0, positions]
+    selected_teacher_support = teacher_support_logprobs[0, positions]
+    if not all(
+        bool(torch.isfinite(values).all())
+        for values in (selected_student, selected_teacher, selected_student_on_teacher, selected_teacher_support)
+    ):
+        raise ValueError("SDPO support export logprobs must be finite on active tokens")
+
+    position_values = _tensor_to_ints(positions)
+    token_id_values = selected_ids.detach().to(device="cpu").tolist()
+    student_values = selected_student.detach().to(dtype=torch.float32, device="cpu").tolist()
+    teacher_values = selected_teacher.detach().to(dtype=torch.float32, device="cpu").tolist()
+    teacher_id_values = selected_teacher_ids.detach().to(device="cpu").tolist()
+    student_on_teacher_values = (
+        selected_student_on_teacher.detach().to(dtype=torch.float32, device="cpu").tolist()
+    )
+    teacher_support_values = selected_teacher_support.detach().to(dtype=torch.float32, device="cpu").tolist()
+    return [
+        {
+            "position": position,
+            "student_support": {
+                "token_ids": [int(token_id) for token_id in token_ids],
+                "student_logprobs": [_json_float(value) for value in student_logprobs],
+                "teacher_logprobs": [_json_float(value) for value in teacher_logprobs],
+            },
+            "teacher_support": {
+                "token_ids": [int(token_id) for token_id in teacher_ids],
+                "student_logprobs": [_json_float(value) for value in student_on_teacher],
+                "teacher_logprobs": [_json_float(value) for value in teacher_support],
+            },
+        }
+        for (
+            position,
+            token_ids,
+            student_logprobs,
+            teacher_logprobs,
+            teacher_ids,
+            student_on_teacher,
+            teacher_support,
+        ) in zip(
+            position_values,
+            token_id_values,
+            student_values,
+            teacher_values,
+            teacher_id_values,
+            student_on_teacher_values,
+            teacher_support_values,
+            strict=True,
+        )
+    ]
+
+
+def _slice_sdpo_support(
+    support: list[dict[str, Any]], start: int, end: int
+) -> list[dict[str, Any]]:
+    return [
+        {**entry, "position": entry["position"] - start}
+        for entry in support
+        if start <= entry["position"] < end
+    ]
+
+
+def _slice_sdpo_teacher_replays(spans: Sequence[Any] | None, start: int, end: int) -> list[dict[str, Any]]:
+    result = []
+    for span in spans or []:
+        positions = list(span.student_positions)
+        if not positions:
+            continue
+        selected = [start <= position < end for position in positions]
+        if any(selected) and not all(selected):
+            raise ValueError("one SDPO teacher replay cannot span packed sequences")
+        if not any(selected):
+            continue
+        result.append(
+            {
+                "prefix_ids": list(span.prefix_ids),
+                "completion_ids": list(span.completion_ids),
+                "student_positions": [position - start for position in positions],
+                "target_offsets": list(span.target_offsets),
+            }
+        )
+    return result
 
 
 def _tensor_to_ints(tensor: Tensor) -> list[int]:

@@ -34,7 +34,12 @@ TRAINING_SEQ_LEN = 8192
 MAX_COMPLETION_TOKENS = 1536
 
 
-def _validate_configs(run_dir: Path, expected_model_path: str) -> None:
+def _validate_configs(
+    run_dir: Path,
+    expected_model_path: str,
+    *,
+    expected_batch_size: int = EXPECTED_BATCH_SIZE,
+) -> None:
     trainer = _read_json(run_dir / "configs" / "trainer.json")
     orchestrator = _read_json(run_dir / "configs" / "orchestrator.json")
     inference = _read_json(run_dir / "configs" / "inference.json")
@@ -51,8 +56,10 @@ def _validate_configs(run_dir: Path, expected_model_path: str) -> None:
         raise AuditFailure("resolved trainer sequence length is not 8192")
     if orchestrator.get("seq_len") != TRAINING_SEQ_LEN:
         raise AuditFailure("resolved orchestrator sequence length is not 8192")
-    if orchestrator.get("batch_size") != EXPECTED_BATCH_SIZE:
-        raise AuditFailure("resolved audit batch size is not four")
+    if orchestrator.get("batch_size") != expected_batch_size:
+        raise AuditFailure(
+            f"resolved audit batch size is not {expected_batch_size}"
+        )
 
     train = orchestrator.get("train", {})
     sampling = train.get("sampling", {})
@@ -144,7 +151,12 @@ def _is_child_branch(branch: vf.Branch) -> bool:
     )
 
 
-def _validate_traces(run_dir: Path, step: int = 1) -> list[vf.WireTrace]:
+def _validate_traces(
+    run_dir: Path,
+    step: int = 1,
+    *,
+    expected_batch_size: int = EXPECTED_BATCH_SIZE,
+) -> list[vf.WireTrace]:
     path = (
         run_dir
         / "rollouts"
@@ -154,9 +166,9 @@ def _validate_traces(run_dir: Path, step: int = 1) -> list[vf.WireTrace]:
         / "traces.jsonl"
     )
     records = _read_jsonl(path)
-    if len(records) != EXPECTED_BATCH_SIZE:
+    if len(records) != expected_batch_size:
         raise AuditFailure(
-            f"expected exactly {EXPECTED_BATCH_SIZE} effective traces, found {len(records)}"
+            f"expected exactly {expected_batch_size} effective traces, found {len(records)}"
         )
     traces = []
     for index, record in enumerate(records):
@@ -219,7 +231,11 @@ def _validate_traces(run_dir: Path, step: int = 1) -> list[vf.WireTrace]:
 
 
 def _validate_token_routing(
-    run_dir: Path, traces: list[vf.WireTrace], step: int = 1
+    run_dir: Path,
+    traces: list[vf.WireTrace],
+    step: int = 1,
+    *,
+    expected_batch_size: int = EXPECTED_BATCH_SIZE,
 ) -> dict[str, int]:
     export_dir = run_dir / "token_exports" / f"step_{step}"
     if not (export_dir / "STABLE").is_file():
@@ -291,7 +307,7 @@ def _validate_token_routing(
         raise AuditFailure(
             "effective trace branches and token exports are not one-to-one"
         )
-    if coordinator_active != EXPECTED_BATCH_SIZE or child_zero == 0:
+    if coordinator_active != expected_batch_size or child_zero == 0:
         raise AuditFailure("routing audit did not cover every coordinator and child branch")
     return {
         "export_records": len(exports),

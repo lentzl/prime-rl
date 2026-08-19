@@ -1,4 +1,4 @@
-# Zero-learning-rate audit of failure-local SDPO at the natural N1 yield boundary.
+# Zero-update teacher admission audit over eight fresh natural N1 failures.
 
 max_steps = 1
 seq_len = 8192
@@ -7,8 +7,8 @@ output_dir = "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1"
 clean = true
 
 [run]
-name = "zero-lr-audit"
-dir = "zero-lr-audit"
+name = "teacher-admission-v1"
+dir = "teacher-admission-v1"
 
 [deployment]
 gpus_per_node = 8
@@ -66,10 +66,10 @@ betas2 = 0.999
 type = "constant"
 
 [orchestrator]
-batch_size = 4
+batch_size = 8
 group_size = 1
-max_inflight_episodes = 8
-oversampling_factor = 2.0
+max_inflight_episodes = 32
+oversampling_factor = 4.0
 max_off_policy_steps = 0
 
 [orchestrator.algo]
@@ -130,7 +130,7 @@ name = "qwen3.5"
 enable_thinking = true
 
 [orchestrator.train.source.env]
-max_concurrent_agents = 8
+max_concurrent_agents = 32
 
 [orchestrator.train.source.env.timeout]
 episode = 1200.0
@@ -139,8 +139,8 @@ finalize = 60.0
 [orchestrator.train.source.env.taskset]
 id = "procedural-harness-master-v1"
 split = "train_gen"
-count = 512
-start_index = 3200000
+count = 1024
+start_index = 3400000
 master_seed = 20260816
 curriculum_rung = "natural_n1"
 private_payload_mode = "finding_card"
@@ -195,7 +195,7 @@ tensor_parallel_size = 2
 data_parallel_size = 1
 data_parallel_rpc_port = 13345
 gpu_memory_utilization = 0.80
-max_num_seqs = 16
+max_num_seqs = 32
 mamba_ssm_cache_dtype = "float32"
 
 [file_monitor]
