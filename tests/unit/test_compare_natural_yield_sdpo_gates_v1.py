@@ -16,6 +16,7 @@ def _write_gate(
     exact: float = 1.0,
     local_work_before_yield: float = 1.0,
     premature_yield_before_local_work: float = 0.0,
+    forbidden_post_spawn_tool_before_child: float = 1.0,
     task_index: int = 1,
     max_concurrent: int = 1,
 ) -> None:
@@ -30,6 +31,9 @@ def _write_gate(
             "final_answer_exact": exact,
             "local_work_before_yield": local_work_before_yield,
             "premature_yield_before_local_work": premature_yield_before_local_work,
+            "forbidden_post_spawn_tool_before_child": (
+                forbidden_post_spawn_tool_before_child
+            ),
         },
     }
     (gate / "SUMMARY.json").write_text(json.dumps(summary))
@@ -141,6 +145,32 @@ def test_comparison_rejects_prerequisite_or_exact_answer_regression(tmp_path: Pa
     assert report["decision"]["eligible_for_independent_replication"] is False
 
 
+def test_comparison_accepts_material_target_transition_reduction(tmp_path: Path) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "r7", scores)
+    _write_battery(tmp_path, "candidate", scores)
+    gate = (
+        tmp_path
+        / "candidate-natural-yield"
+        / "train-admission"
+        / "SUMMARY.json"
+    )
+    summary = json.loads(gate.read_text())
+    summary["diagnostic_means"]["forbidden_post_spawn_tool_before_child"] = 0.75
+    gate.write_text(json.dumps(summary))
+
+    report = compare(tmp_path, "r7", "candidate")
+
+    assert report["decision"]["target_hard_improved"] is False
+    assert report["decision"]["target_forbidden_transition_reduced_materially"] is True
+    assert report["decision"]["eligible_for_independent_replication"] is True
+
+
 def test_comparison_fails_closed_on_different_task_draw(tmp_path: Path) -> None:
     scores = {
         "natural_yield": 0,
@@ -231,4 +261,27 @@ def test_comparison_fails_closed_when_local_work_diagnostic_is_missing(
     gate.write_text(json.dumps(summary))
 
     with pytest.raises(ValueError, match=f"missing diagnostics: {diagnostic}"):
+        compare(tmp_path, "r7", "candidate")
+
+
+def test_comparison_fails_closed_when_target_diagnostic_is_missing(
+    tmp_path: Path,
+) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "r7", scores)
+    _write_battery(tmp_path, "candidate", scores)
+    gate = tmp_path / "candidate-natural-yield" / "train-admission" / "SUMMARY.json"
+    summary = json.loads(gate.read_text())
+    del summary["diagnostic_means"]["forbidden_post_spawn_tool_before_child"]
+    gate.write_text(json.dumps(summary))
+
+    with pytest.raises(
+        ValueError,
+        match="missing diagnostics: forbidden_post_spawn_tool_before_child",
+    ):
         compare(tmp_path, "r7", "candidate")

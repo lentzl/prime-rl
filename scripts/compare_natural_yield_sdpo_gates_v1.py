@@ -21,6 +21,8 @@ LOCAL_WORK_DIAGNOSTICS = {
     "local_work_before_yield",
     "premature_yield_before_local_work",
 }
+TARGET_DIAGNOSTICS = {"forbidden_post_spawn_tool_before_child"}
+MATERIAL_FORBIDDEN_TRANSITION_REDUCTION = 0.25
 
 
 class ComparisonFailure(ValueError):
@@ -96,7 +98,22 @@ def compare(root: Path, base_label: str, candidate_label: str) -> dict[str, Any]
             },
         }
 
-    target_improved = gates["natural_yield"]["delta_passed"] > 0
+    target = gates["natural_yield"]
+    for label in ("base", "candidate"):
+        missing = TARGET_DIAGNOSTICS - set(target[label]["diagnostic_means"])
+        if missing:
+            rendered = ", ".join(sorted(missing))
+            raise ComparisonFailure(
+                f"{label} natural-yield gate is missing diagnostics: {rendered}"
+            )
+    target_hard_improved = target["delta_passed"] > 0
+    target_forbidden_transition_reduced_materially = (
+        target["diagnostic_deltas"]["forbidden_post_spawn_tool_before_child"]
+        <= -MATERIAL_FORBIDDEN_TRANSITION_REDUCTION
+    )
+    target_improved = (
+        target_hard_improved or target_forbidden_transition_reduced_materially
+    )
     prerequisites_retained = all(
         gates[name]["delta_passed"] >= 0 for name in ("atomic_state", "atomic_send")
     )
@@ -135,6 +152,10 @@ def compare(root: Path, base_label: str, candidate_label: str) -> dict[str, Any]
         "candidate": candidate_label,
         "decision": {
             "target_improved": target_improved,
+            "target_hard_improved": target_hard_improved,
+            "target_forbidden_transition_reduced_materially": (
+                target_forbidden_transition_reduced_materially
+            ),
             "prerequisites_retained": prerequisites_retained,
             "anti_overgeneralization_retained": anti_overgeneralization_retained,
             "target_exact_answer_not_regressed": exact_not_regressed,

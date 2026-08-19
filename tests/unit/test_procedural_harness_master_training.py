@@ -1,3 +1,4 @@
+import tomllib
 from pathlib import Path
 
 from prime_rl.configs.rl import RLConfig
@@ -22,6 +23,9 @@ CUMULATIVE_ACTION_CONFIG = CONFIG.with_name("harness-send-followup-cumulative-gr
 ACTION_ADMISSION_CONFIG = CONFIG.with_name("harness-action-admission.toml")
 NATURAL_ADMISSION_CONFIG = CONFIG.with_name("natural-policy-admission.toml")
 NATURAL_PROBE_CONFIG = CONFIG.with_name("natural-policy-connectivity-probe.toml")
+BOUNDED_NATURAL_PROBE_CONFIG = CONFIG.with_name(
+    "natural-policy-connectivity-bounded-gate.toml"
+)
 FOLLOWUP_SDPO_CONFIG = CONFIG.with_name("harness-followup-sdpo.toml")
 NATURAL_YIELD_SDPO_AUDIT_CONFIG = CONFIG.with_name(
     "natural-yield-sdpo-zero-lr.toml"
@@ -356,6 +360,24 @@ def test_natural_policy_probe_is_one_strict_connectivity_group() -> None:
         )
         == "connected_expand_admission"
     )
+
+
+def test_natural_policy_bounded_gate_caps_host_exposure() -> None:
+    config = tomllib.loads(BOUNDED_NATURAL_PROBE_CONFIG.read_text())
+    launcher = MASTER_ADMISSION_LAUNCHER.read_text()
+
+    assert config["num_tasks"] == 1
+    assert config["num_rollouts"] == 8
+    assert config["max_concurrent"] == 1
+    assert config["env"]["max_concurrent_agents"] == 1
+    assert config["env"]["timeout"]["episode"] == 480.0
+    assert config["env"]["agent"]["max_turns"] == 16
+    assert config["env"]["agent"]["timeout"]["rollout"] == 480.0
+    assert config["env"]["agent"]["harness"]["autonomous_timeout_ms"] == 480_000
+    assert config["env"]["agent"]["harness"]["process_timeout_ms"] == 450_000
+    assert "EVAL_VIRTUAL_MEMORY_LIMIT_KIB" in launcher
+    assert 'ulimit -v "$eval_virtual_memory_limit_kib"' in launcher
+    assert "evaluation virtual-memory limit must be a positive integer" in launcher
 
 
 def test_success_sft_is_one_step_rejection_conditioned_self_imitation() -> None:

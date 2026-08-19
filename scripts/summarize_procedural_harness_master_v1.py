@@ -91,6 +91,7 @@ def summarize(paths: list[Path], *, rescore: bool = False) -> dict[str, Any]:
             "bootstrap_progress",
             "local_work_before_yield",
             "premature_yield_before_local_work",
+            "forbidden_post_spawn_tool_before_child",
         ):
             diagnostics[key] += _score(trace, key, "metrics")
 
