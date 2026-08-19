@@ -250,17 +250,24 @@ def _validate_token_routing(
         for branch_index, ((branch, trainable_mask), expected) in enumerate(
             zip(branches, expected_masks, strict=True)
         ):
-            candidates = by_sample.get((ENV_NAME, tuple(branch.token_ids)))
+            token_ids = branch.token_ids[:TRAINING_SEQ_LEN]
+            visible_trainable_mask = trainable_mask[:TRAINING_SEQ_LEN]
+            visible_expected = expected[:TRAINING_SEQ_LEN]
+            # The trainer right-truncates branches and drops samples with no
+            # sampled tokens left in its sequence window before token export.
+            if not any(visible_trainable_mask):
+                continue
+            candidates = by_sample.get((ENV_NAME, tuple(token_ids)))
             if not candidates:
                 raise AuditFailure(
                     f"no token export matches trace {trace.id} branch {branch_index}"
                 )
             record = candidates.pop()
             consumed += 1
-            if record.get("loss_mask") != trainable_mask:
+            if record.get("loss_mask") != visible_trainable_mask:
                 raise AuditFailure(f"trainer changed trace {trace.id}'s sampled mask")
             sdpo = _active_component(record, "sdpo_weights")
-            if sdpo != expected:
+            if sdpo != visible_expected:
                 raise AuditFailure(f"SDPO mask differs from trace target in {trace.id}")
             if any(
                 any(_active_component(record, f"{name}_weights"))
