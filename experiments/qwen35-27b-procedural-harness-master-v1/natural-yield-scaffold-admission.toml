@@ -1,0 +1,62 @@
+model = "Qwen/Qwen3.5-27B"
+num_tasks = 8
+num_rollouts = 8
+shuffle = false
+max_concurrent = 4
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 4
+
+[env.timeout]
+episode = 600.0
+finalize = 60.0
+
+[env.taskset]
+id = "procedural-harness-master-v1"
+split = "train_gen"
+count = 8
+start_index = 3500000
+master_seed = 20260816
+curriculum_rung = "natural_n1"
+private_payload_mode = "finding_card"
+record_causal_feedback = false
+
+[env.agent]
+max_turns = 16
+max_output_tokens = 24576
+max_total_tokens = 65536
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.procedural-harness-master/completion_gate.py"]
+autonomous_max_continuations = 6
+autonomous_max_turns = 16
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 600000
+process_timeout_ms = 570000
+
+[env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 600.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8200/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+temperature = 1.0
+reasoning_effort = "high"
+max_tokens = 3072
