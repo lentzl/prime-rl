@@ -1,0 +1,150 @@
+{
+  "schema_version": "prime-agent/natural-yield-sdpo-low-dose-results/v1",
+  "recorded_at": "2026-08-19",
+  "status": "candidate_rejected_canonical_r7_retained",
+  "source": {
+    "model": "lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818",
+    "revision": "8f0568faed72d0db2e2258c18b1aabdcefd680cc",
+    "remote_path": "/ephemeral/outputs/qwen35-27b-procedural-harness-action-ramp-v1/atomic-send-grpo-r7/weights/step_1",
+    "role": "canonical_r7"
+  },
+  "update": {
+    "remote_run_dir": "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/low-dose-r1",
+    "candidate_path": "/ephemeral/outputs/qwen35-27b-natural-yield-sdpo-v1/low-dose-r1/weights/step_1",
+    "training_source_commit": "2f2b64b403ac982108af822a214fac648caae412",
+    "mechanism": "natural-yield-feedback-conditioned-sdpo-low-dose-update",
+    "feedback_schema": "prime-agent/natural-yield-feedback/v1",
+    "feedback_code": "tool_call_after_delegation",
+    "optimizer": "adamw",
+    "optimization_dtype": "bfloat16",
+    "teacher_regularization": "ema",
+    "distillation_topk": 20,
+    "learning_rate": 5e-8,
+    "max_steps": 1,
+    "batch_size": 4,
+    "group_size": 1,
+    "effective_traces": 4,
+    "metrics": {
+      "loss": 0.00792346429079771,
+      "sdpo_loss": 0.14067676663398743,
+      "gradient_norm": 11.125,
+      "sdpo_tokens": 674,
+      "rl_tokens": 0,
+      "ce_tokens": 0,
+      "reference_kl_tokens": 0
+    },
+    "token_routing": {
+      "coordinator_active_samples": 4,
+      "child_zero_sdpo_samples": 4,
+      "export_records": 17
+    },
+    "validator_verdict": "pass",
+    "stable_checkpoint": true
+  },
+  "invalid_original_postflight": {
+    "root": "/ephemeral/evals/qwen35-27b-natural-yield-sdpo-v1/low-dose-r1-gates",
+    "status": "invalid_host_oom_no_summary",
+    "completed_candidate_target_traces": 6,
+    "unfinished_candidate_target_traces": 2,
+    "completed_trace_bytes": 353209,
+    "kernel_oom": {
+      "process": "eval",
+      "pid": 3317660,
+      "anon_rss_kib": 579361168,
+      "observed_at_utc": "2026-08-19T00:02:19Z"
+    },
+    "partial_candidate_diagnostics": {
+      "episodes": 6,
+      "errors": 0,
+      "hard_passed": 0,
+      "final_answer_exact": 1.0,
+      "all_required_atoms": 0.16666666666666666,
+      "no_forbidden_atoms": 0.5,
+      "ordering_satisfied": 0.0,
+      "required_atoms_fraction": 0.8055555555555555
+    },
+    "interpretation": "The six traces are supporting behavioral evidence only. The run cannot support a paired decision because Linux killed the evaluator before all eight traces and the authoritative summary were produced."
+  },
+  "bounded_target_reproduction": {
+    "root": "/ephemeral/evals/qwen35-27b-natural-yield-sdpo-v1/low-dose-r1-gates-bounded-v2",
+    "task_index": 3500000,
+    "task_rollouts_per_model": 8,
+    "config": "experiments/qwen35-27b-procedural-harness-master-v1/natural-policy-connectivity-bounded-gate.toml",
+    "resolved_config_sha256": "6ca09d4d60ef1b5a0376b3f80a47f1c8c5f0baa5dbce7a06088d72735dba6151",
+    "runtime_controls": {
+      "max_concurrent": 1,
+      "max_concurrent_agents": 1,
+      "max_turns": 16,
+      "episode_timeout_seconds": 480,
+      "rollout_timeout_seconds": 480,
+      "eval_virtual_memory_limit_kib": 100663296
+    },
+    "collection_source": {
+      "prime_rl_evaluation_commit": "97ce89e4d",
+      "verifiers_evaluation_commit": "69a0a6bec84c678f3c59450949ac3698ea3f6ff5"
+    },
+    "rescore_source": {
+      "prime_rl_commit": "986ed0cc21670406a29078b317881dcbcf541966",
+      "verifiers_commit": "307e42f3a70d779545ef0c6f0ede1ef91c65e4d7",
+      "metric": "forbidden_post_spawn_tool_before_child"
+    },
+    "r7": {
+      "episodes": 8,
+      "errors": 0,
+      "hard_passed": 0,
+      "final_answer_exact": 0.875,
+      "all_required_atoms": 0.0,
+      "no_forbidden_atoms": 0.0,
+      "ordering_satisfied": 0.0,
+      "cardinality_exact": 0.875,
+      "required_atoms_fraction": 0.6458333333333334,
+      "forbidden_post_spawn_tool_before_child": 1.0
+    },
+    "candidate": {
+      "episodes": 8,
+      "errors": 0,
+      "hard_passed": 0,
+      "final_answer_exact": 0.75,
+      "all_required_atoms": 0.0,
+      "no_forbidden_atoms": 0.0,
+      "ordering_satisfied": 0.0,
+      "cardinality_exact": 0.875,
+      "required_atoms_fraction": 0.6666666666666666,
+      "forbidden_post_spawn_tool_before_child": 1.0
+    },
+    "deltas_candidate_minus_r7": {
+      "hard_passed": 0,
+      "final_answer_exact": -0.125,
+      "all_required_atoms": 0.0,
+      "no_forbidden_atoms": 0.0,
+      "ordering_satisfied": 0.0,
+      "cardinality_exact": 0.0,
+      "required_atoms_fraction": 0.02083333333333326,
+      "forbidden_post_spawn_tool_before_child": 0.0
+    }
+  },
+  "decision": {
+    "target_hard_improved": false,
+    "target_forbidden_transition_reduced_materially": false,
+    "target_exact_answer_not_regressed": false,
+    "retention_gates_run": false,
+    "retention_gates_omission_reason": "The predeclared target criterion failed, so the candidate could not become replication-eligible regardless of retention results.",
+    "eligible_for_independent_replication": false,
+    "promoted": false,
+    "canonical_model": "r7",
+    "candidate_disposition": "reject_and_do_not_continue"
+  },
+  "conclusion": {
+    "proven": [
+      "The one-step full-weight low-dose update was mechanically valid and carried nonzero failure-local SDPO gradients.",
+      "The bounded paired evaluator can preserve long event-control failures without host-wide memory exhaustion.",
+      "On a fresh eight-rollout matched task, the update produced neither a hard natural-yield success nor any reduction in the exact post-spawn tool-action failure rate.",
+      "The candidate regressed exact final answers by one of eight samples on the target draw."
+    ],
+    "not_proven": [
+      "This result does not show that failure-local SDPO is ineffective at larger cumulative dose or with a broader fresh failure distribution.",
+      "This result does not establish a model-capacity limit; the same transition was disconnected in the larger 122B diagnostic model."
+    ],
+    "next_falsifiable_step": "Return to canonical R7. Do not tune this one-step dose blindly; require a separately specified cumulative or more diverse failure-local bridge with frozen target and retention gates before another weight update."
+  }
+}
