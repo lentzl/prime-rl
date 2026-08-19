@@ -17,6 +17,7 @@ def _write_gate(
     local_work_before_yield: float = 1.0,
     premature_yield_before_local_work: float = 0.0,
     task_index: int = 1,
+    max_concurrent: int = 1,
 ) -> None:
     gate = root / f"{label}-{suffix}" / "train-admission"
     gate.mkdir(parents=True)
@@ -41,6 +42,18 @@ def _write_gate(
     }
     traces = [{"task": {"data": task}} for _ in range(8)]
     (gate / "traces.jsonl").write_text(json.dumps({"traces": traces}) + "\n")
+    configs = gate / "configs"
+    configs.mkdir()
+    (configs / "eval.json").write_text(
+        json.dumps(
+            {
+                "model": f"/models/{label}",
+                "output_dir": str(root / label),
+                "max_concurrent": max_concurrent,
+                "sampling": {"temperature": 1.0},
+            }
+        )
+    )
 
 
 def _write_battery(
@@ -139,6 +152,30 @@ def test_comparison_fails_closed_on_different_task_draw(tmp_path: Path) -> None:
     _write_battery(tmp_path, "candidate", scores, changed_gate="natural_yield")
 
     with pytest.raises(ValueError, match="task specifications differ"):
+        compare(tmp_path, "r7", "candidate")
+
+
+def test_comparison_fails_closed_on_different_runtime_config(tmp_path: Path) -> None:
+    scores = {
+        "natural_yield": 0,
+        "natural_yield_local_work": 2,
+        "atomic_state": 8,
+        "atomic_send": 5,
+    }
+    _write_battery(tmp_path, "r7", scores)
+    _write_battery(tmp_path, "candidate", scores)
+    config = (
+        tmp_path
+        / "candidate-natural-yield"
+        / "train-admission"
+        / "configs"
+        / "eval.json"
+    )
+    resolved = json.loads(config.read_text())
+    resolved["max_concurrent"] = 2
+    config.write_text(json.dumps(resolved))
+
+    with pytest.raises(ValueError, match="resolved evaluation configs differ"):
         compare(tmp_path, "r7", "candidate")
 
 

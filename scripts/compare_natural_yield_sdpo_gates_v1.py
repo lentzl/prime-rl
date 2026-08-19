@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -51,9 +52,19 @@ def _read_gate(root: Path, label: str, suffix: str) -> dict[str, Any]:
     signatures = {_task_signature(trace) for trace in traces}
     if len(signatures) != 1:
         raise ComparisonFailure(f"gate contains multiple task specifications: {run}")
+    config_path = run / "configs" / "eval.json"
+    if not config_path.is_file():
+        raise ComparisonFailure(f"missing resolved evaluation config: {config_path}")
+    config = json.loads(config_path.read_text())
+    for key in ("model", "output_dir"):
+        config.pop(key, None)
+    config_signature = hashlib.sha256(
+        json.dumps(config, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
     harness = summary.get("harness", {})
     return {
         "task_signature": signatures.pop(),
+        "config_signature": config_signature,
         "passed": harness.get("passed"),
         "rate": harness.get("rate"),
         "diagnostic_means": summary.get("diagnostic_means", {}),
@@ -67,6 +78,8 @@ def compare(root: Path, base_label: str, candidate_label: str) -> dict[str, Any]
         candidate = _read_gate(root, candidate_label, suffix)
         if base["task_signature"] != candidate["task_signature"]:
             raise ComparisonFailure(f"{name} task specifications differ")
+        if base["config_signature"] != candidate["config_signature"]:
+            raise ComparisonFailure(f"{name} resolved evaluation configs differ")
         diagnostic_keys = sorted(
             set(base["diagnostic_means"]) | set(candidate["diagnostic_means"])
         )

@@ -11,6 +11,7 @@ output_root=$evaluation_root/$label
 eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
 client_base_url=${EVAL_CLIENT_BASE_URL:-http://127.0.0.1:8100/v1}
 client_health_url=${EVAL_CLIENT_HEALTH_URL:-${client_base_url%/v1}/health}
+eval_virtual_memory_limit_kib=${EVAL_VIRTUAL_MEMORY_LIMIT_KIB:-}
 
 cd "$root"
 uv_bin=${UV_BIN:-$(command -v uv || true)}
@@ -20,6 +21,13 @@ fi
 if [[ -z "$uv_bin" ]]; then
   echo "uv executable not found" >&2
   exit 1
+fi
+if [[ -n "$eval_virtual_memory_limit_kib" ]]; then
+  if [[ ! "$eval_virtual_memory_limit_kib" =~ ^[1-9][0-9]*$ ]]; then
+    echo "evaluation virtual-memory limit must be a positive integer in KiB" >&2
+    exit 1
+  fi
+  ulimit -v "$eval_virtual_memory_limit_kib"
 fi
 for package in subagent_communication_v1 procedural_harness_master_v1; do
   "$uv_bin" pip install --python "$root/.venv/bin/python" --no-deps --editable \
