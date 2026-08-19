@@ -1,0 +1,192 @@
+# Distill only the model-generated no-tool yield turn from verified scaffolded natural N1 successes.
+# Collection is scaffolded by PROCEDURAL_NATURAL_YIELD_SCAFFOLD=1 in the launcher.
+# Promotion/evaluation MUST run with that environment variable absent.
+max_steps = 1
+seq_len = 8192
+max_train_batch_lead = 0
+output_dir = "/ephemeral/outputs/qwen35-27b-natural-yield-scaffold-v1"
+clean = true
+
+[run]
+name = "natural-yield-scaffold-sft-y2"
+dir = "natural-yield-scaffold-sft-y2"
+
+[deployment]
+gpus_per_node = 8
+num_train_gpus = 6
+num_infer_gpus = 2
+
+[model]
+name = "Qwen/Qwen3.5-27B"
+
+[trainer]
+enable_token_export = true
+
+[trainer.model]
+seq_len = 8192
+attn = "auto"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+fsdp_cpu_offload = true
+optim_cpu_offload = false
+reshard_after_forward = true
+fused_lm_head_token_chunk_size = "disabled"
+
+[trainer.model.compile]
+fullgraph = false
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[trainer.model.ac_offloading]
+pin_memory = true
+max_inflight_activations = 5
+
+[trainer.optim]
+type = "adamw"
+lr = 2.5e-8
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[trainer.scheduler]
+type = "constant"
+
+[trainer.ckpt]
+interval = 1
+keep_last = 1
+weights_only = true
+
+[trainer.ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[orchestrator]
+batch_size = 16
+group_size = 1
+max_inflight_episodes = 8
+oversampling_factor = 2.0
+max_off_policy_steps = 0
+
+[orchestrator.algo]
+type = "sft"
+sampled_session_scope = "root"
+
+[orchestrator.algo.filter]
+import_path = "procedural_harness_master_v1.natural_yield_scaffold.keep_scaffolded_natural_yield_response"
+
+[orchestrator.algo.sampling.source]
+name = "__MANAGED_R7_ENDPOINT__"
+base_url = "http://127.0.0.1:8000/v1"
+
+[[orchestrator.pre_batch_filters]]
+type = "trainable_token_window"
+max_tokens = 8192
+enforce = true
+
+[[orchestrator.pre_batch_filters]]
+type = "minimum_reward"
+threshold = 1.0
+enforce = true
+
+[[orchestrator.pre_batch_filters]]
+type = "gibberish"
+enforce = false
+
+[[orchestrator.pre_batch_filters]]
+type = "repetition"
+enforce = false
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = true
+
+[orchestrator.train.sampling]
+temperature = 1.0
+reasoning_effort = "high"
+max_completion_tokens = 1536
+
+[[orchestrator.train.source]]
+name = "natural-yield-scaffold-sft"
+ratio = 1.0
+group_size = 1
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 8
+
+[orchestrator.train.source.env.timeout]
+episode = 900.0
+finalize = 60.0
+
+[orchestrator.train.source.env.taskset]
+id = "procedural-harness-master-v1"
+split = "train_gen"
+count = 1024
+start_index = 3520000
+master_seed = 20260816
+curriculum_rung = "natural_n1"
+private_payload_mode = "finding_card"
+record_causal_feedback = false
+
+[orchestrator.train.source.env.agent]
+max_turns = 16
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.procedural-harness-master/completion_gate.py"]
+autonomous_max_continuations = 6
+autonomous_max_turns = 16
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 900000
+process_timeout_ms = 840000
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.retries]
+max_retries = 0
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[orchestrator.ckpt]
+interval = 1
+keep_last = 1
+wait_for_weights_timeout = 3600
+
+[inference]
+backend_port = 8100
+
+[inference.server]
+port = 8000
+liveness_timeout_seconds = 30.0
+
+[inference.vllm]
+max_model_len = 32768
+gpu_memory_utilization = 0.8
+max_num_seqs = 16
+enforce_eager = true
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+tensor_parallel_size = 2
+data_parallel_size = 1
+data_parallel_rpc_port = 13345
+
+[file_monitor]
+filename = "metrics.jsonl"
