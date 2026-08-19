@@ -7,6 +7,7 @@ import hashlib
 import json
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from scripts.summarize_procedural_harness_master_v1 import _traces
 
@@ -60,6 +61,16 @@ def _read_gate(root: Path, label: str, suffix: str) -> dict[str, Any]:
     config = json.loads(config_path.read_text())
     for key in ("model", "output_dir"):
         config.pop(key, None)
+    client = config.get("client")
+    if isinstance(client, dict) and isinstance(client.get("base_url"), str):
+        endpoint = urlsplit(client["base_url"])
+        if not endpoint.scheme or not endpoint.netloc:
+            raise ComparisonFailure(f"evaluation client has an invalid base URL: {run}")
+        client["base_url"] = {
+            "path": endpoint.path or "/",
+            "query": endpoint.query,
+            "fragment": endpoint.fragment,
+        }
     config_signature = hashlib.sha256(
         json.dumps(config, sort_keys=True, separators=(",", ":")).encode()
     ).hexdigest()

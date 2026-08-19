@@ -20,6 +20,7 @@ def _write_gate(
     forbidden_post_spawn_tool_before_child: float = 1.0,
     task_index: int = 1,
     max_concurrent: int = 1,
+    client_base_url: str = "http://127.0.0.1:8100/v1",
 ) -> None:
     gate = root / f"{label}-{suffix}" / "train-admission"
     gate.mkdir(parents=True)
@@ -55,6 +56,7 @@ def _write_gate(
                 "model": f"/models/{label}",
                 "output_dir": str(root / label),
                 "max_concurrent": max_concurrent,
+                "client": {"base_url": client_base_url, "type": "eval"},
                 "sampling": {"temperature": 1.0},
             }
         )
@@ -299,6 +301,7 @@ def test_target_comparison_only_authorizes_retention_after_material_gain(
         "natural_n1",
         0,
         forbidden_post_spawn_tool_before_child=0.75,
+        client_base_url="http://127.0.0.1:8200/v1",
     )
 
     report = compare_target(tmp_path, "r7", "step2")
