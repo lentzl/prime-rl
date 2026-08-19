@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from scripts.compare_natural_yield_sdpo_gates_v1 import GATES, compare
+from scripts.compare_natural_yield_sdpo_target_gates_v1 import compare_target
 
 
 def _write_gate(
@@ -285,3 +286,44 @@ def test_comparison_fails_closed_when_target_diagnostic_is_missing(
         match="missing diagnostics: forbidden_post_spawn_tool_before_child",
     ):
         compare(tmp_path, "r7", "candidate")
+
+
+def test_target_comparison_only_authorizes_retention_after_material_gain(
+    tmp_path: Path,
+) -> None:
+    _write_gate(tmp_path, "r7", "natural-yield", "natural_n1", 0)
+    _write_gate(
+        tmp_path,
+        "step2",
+        "natural-yield",
+        "natural_n1",
+        0,
+        forbidden_post_spawn_tool_before_child=0.75,
+    )
+
+    report = compare_target(tmp_path, "r7", "step2")
+
+    assert report["decision"]["target_hard_improved"] is False
+    assert report["decision"][
+        "target_forbidden_transition_reduced_materially"
+    ] is True
+    assert report["decision"]["eligible_for_retention_gates"] is True
+    assert report["decision"]["promoted"] is False
+
+
+def test_target_comparison_rejects_exact_answer_regression(tmp_path: Path) -> None:
+    _write_gate(tmp_path, "r7", "natural-yield", "natural_n1", 0)
+    _write_gate(
+        tmp_path,
+        "step4",
+        "natural-yield",
+        "natural_n1",
+        1,
+        exact=0.875,
+    )
+
+    report = compare_target(tmp_path, "r7", "step4")
+
+    assert report["decision"]["target_improved"] is True
+    assert report["decision"]["target_exact_answer_not_regressed"] is False
+    assert report["decision"]["eligible_for_retention_gates"] is False

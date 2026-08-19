@@ -757,6 +757,15 @@ def test_natural_yield_cumulative_run_preserves_every_low_dose_step() -> None:
     assert "EXPECTED_STEPS = (1, 2, 3, 4)" in validator
     assert "zero._validate_traces(run_dir, step)" in validator
     assert "zero._validate_token_routing(run_dir, traces, step)" in validator
+    target_launcher = (
+        ROOT
+        / "scripts"
+        / "run_qwen35_27b_natural_yield_sdpo_cumulative_target_gates_v1.sh"
+    ).read_text()
+    assert "run_pair r7 step1" in target_launcher
+    assert "run_pair step2 step4" in target_launcher
+    assert "natural-policy-connectivity-bounded-gate.toml" in target_launcher
+    assert "compare_natural_yield_sdpo_target_gates_v1" in target_launcher
 
 
 def test_followup_sdpo_launcher_requires_disconnection_and_feedback_audit() -> None:
