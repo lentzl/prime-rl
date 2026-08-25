@@ -239,3 +239,23 @@ Safe recovery order:
 5. Start one watchdog only after the controller is present. Confirm the next
    appended event links to the prior `event_sha256` and that no cycle contains
    duplicate start or terminal kinds.
+
+### Rolling Hugging Face recovery slots
+
+The companion `scripts/sync_q35_2b_latest_hf_v1.py` mirrors the newest role
+cycle that has both `train_completed` and `evaluation_completed` events. It
+validates the remote `STABLE` checkpoint and event-ledger SHA-256, verifies the
+local copy and Hub LFS SHA-256, and then super-squashes each private model repo
+to one commit. The coordinator and child repositories are latest-only recovery
+slots rather than historical checkpoint archives. A local non-blocking lock and
+the Hub hash check prevent duplicate uploads after watcher or host restarts.
+
+Run the long-lived companion through
+`scripts/watch_q35_2b_latest_hf_v1.sh`; credentials stay in the local env file
+and are not copied to the rented training host. A sync is eligible only after
+the admission terminal event exists, so it cannot race or duplicate the live
+evaluation. The manifest in the local sync-state directory pins the event
+sequence, model hash, single HF commit, and admission result for each role.
+On macOS, install the launchd runtime and its HF-only credential file outside
+privacy-protected `Documents` (for example under `~/.local/share` and
+`~/.config`) instead of granting launchd Full Disk Access.
