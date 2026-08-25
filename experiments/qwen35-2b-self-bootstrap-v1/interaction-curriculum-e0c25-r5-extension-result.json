@@ -1,0 +1,34 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_admitted_in_aggregate",
+  "completed_at_utc": "2026-08-21T17:14:08Z",
+  "phase": "e0c25_inline_evidence",
+  "frozen_adapter": {
+    "adapter": "R5",
+    "adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c"
+  },
+  "optimizer_updates_during_evaluation": 0,
+  "extension_bank": {
+    "task_indices": [4005700, 4005701, 4005702, 4005703, 4005704, 4005705],
+    "bootstrap_sha256": "a89136df3e41c51cb0dad1d82ba441f25a7113bda1cbdb13abfaed98c91ebb4f",
+    "episodes": 6,
+    "hard_successes": 3,
+    "qualifying_trajectories": 3,
+    "distinct_qualifying_task_keys": 3
+  },
+  "aggregate": {
+    "source_task_banks": [4005600, 4005700],
+    "episodes": 12,
+    "qualifying_trajectories": 5,
+    "distinct_qualifying_task_keys": 5,
+    "gate_open": true,
+    "acceptance_floor_relaxed": false
+  },
+  "artifact_integrity": {
+    "extension_traces_sha256": "83fdcfd7e972b89f87d15664666bb9432023dab41f324541753ccc7d089d7332",
+    "extension_summary_sha256": "163bcd0d0386cf22276dd46f00d130eb28964d841010249990999eca43973d9d",
+    "aggregate_summary_sha256": "2f991f058c958153b75a79579d1c57c162ad5c980a95225ea82bd7a0ba7493b2",
+    "versions_sha256": "0944139cf7eecf2ca27800b07232cbcda72ef592d1b5b19983551a0dde50ebb5"
+  },
+  "next_action": "Build and hash-lock exactly four admitted E0c25 child rows with four admitted frozen-R5 E0d2 orchestrator rows, preregister exactly one R6 LoRA optimizer step, and only then authorize that gradient."
+}

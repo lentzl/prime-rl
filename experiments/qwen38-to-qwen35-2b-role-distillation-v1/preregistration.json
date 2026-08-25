@@ -1,0 +1,66 @@
+{
+  "schema_version": "q38-to-q35-2b-role-distillation/v1",
+  "status": "authorized_guarded_pilot",
+  "teacher": {
+    "model": "Qwen/Qwen3.8-27B",
+    "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+  },
+  "student": {
+    "model": "lentzl/rlm-prime-agent-qwen35-orchestrator-candidate-r1-20260809",
+    "revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "weight_file": "model.safetensors",
+    "weight_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "variants": [
+    {
+      "role": "orchestrator",
+      "sampled_sessions": "primary_graph_root_only",
+      "max_steps": 1,
+      "lora_rank": 16,
+      "learning_rate": 1e-5
+    },
+    {
+      "role": "child",
+      "sampled_sessions": "non_primary_graph_roots_only",
+      "max_steps": 1,
+      "lora_rank": 16,
+      "learning_rate": 1e-5
+    }
+  ],
+  "corpus": {
+    "required_axes": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "assistant_only_loss": true,
+    "student_template_rerender": true,
+    "direct_policy": "clean mental arithmetic and clean local IPython are both valid",
+    "reject": [
+      "errored_or_truncated_trace",
+      "unverified_async_trace",
+      "unnecessary_child_delegation",
+      "unrelated_resource_or_gate_access",
+      "repeated_work_without_value",
+      "missing_or_ambiguous_session_lineage"
+    ]
+  },
+  "ordering": [
+    "finish_and_preserve_frozen_q38_q35_matrix",
+    "evaluate_untouched_exact_2b_revision",
+    "freeze_and_hash_role_corpora",
+    "train_orchestrator_adapter_from_untouched_2b",
+    "train_child_adapter_from_untouched_2b",
+    "evaluate_each_candidate_against_untouched_baseline"
+  ],
+  "prohibitions": [
+    "no_optimizer_overlap_with_frozen_matrix",
+    "no_dense_weight_merge",
+    "no_r7_mutation",
+    "no_teacher_weight_mutation",
+    "no_mixed_role_adapter",
+    "no_acceptance_floor_relaxation",
+    "no_4b_training_in_this_pilot"
+  ]
+}

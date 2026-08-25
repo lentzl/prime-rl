@@ -1,0 +1,33 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_admitted",
+  "completed_at_utc": "2026-08-21T15:57:49Z",
+  "phase": "e0c_natural_child",
+  "adapter": {
+    "source_update": "e0b-acquisition2-joint-lora-r3",
+    "adapter_model_sha256": "ae4c3daa8b34ee5211b7cee4f3cf13ee194aa520ac02e172e6b9677ec2e88e44",
+    "frozen_during_evaluation": true
+  },
+  "optimizer_updates_during_evaluation": 0,
+  "bank": {
+    "start_index": 4004700,
+    "tasks": 6,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "a94c9b7372f67580dfd846917f5731cc2b7532a0dd4006cae76f499c2b295295",
+    "final_answers_in_bootstrap": 0
+  },
+  "result": {
+    "hard_successes": 4,
+    "qualifying_trajectories": 4,
+    "distinct_qualifying_task_keys": 4,
+    "next_gradient_gate_open": true,
+    "acceptance_floor_relaxed": false
+  },
+  "artifact_integrity": {
+    "traces_sha256": "493a42615dab7e56e47e5629a3525daa5f41cc43057302ad51d199395043a4d1",
+    "interaction_summary_sha256": "b6f3d7dc3343f9ca81b26a8caac75669a97031c07ee0d18017036018c4636020",
+    "versions_sha256": "c97c4bebb7fe93eba2ac4bfd547ae19ca41350d05949a58578f8bd8ac7ca5c8f",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0c-r3-natural-n1a-4004700-n6/run-1"
+  }
+}

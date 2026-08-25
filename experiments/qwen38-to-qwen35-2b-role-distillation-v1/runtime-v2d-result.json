@@ -1,0 +1,55 @@
+{
+  "schema_version": "q38-runtime-v2d-quiescent-no-packed-decode-result/v1",
+  "status": "rejected_on_second_fresh_start",
+  "runtime": {
+    "lane": "runtime-v2d-quiescent-no-packed-decode",
+    "changed_from_runtime_v2c": "90-second continuous idle-GPU barrier before every server start",
+    "retained": [
+      "CUDA_LAUNCH_BLOCKING=1",
+      "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE=0",
+      "vLLM 0.27.1+cu129",
+      "TP2 BF16 eager max-seqs=1 max-batched-tokens=512"
+    ],
+    "wrapper_sha256": "88145a5460e23195c45080971295a6c8ff3f2fe24f219077849e7ce195c7a8b1"
+  },
+  "attempts": [
+    {
+      "label": "q38-runtime-v2d-sentinel-3806011-r1",
+      "status": "passed",
+      "complete_traces": 1,
+      "model_calls": 11,
+      "harness_score": 0.0,
+      "final_answer_exact": 1.0,
+      "prestart_quiescence_seconds": 90,
+      "teardown_clean": true
+    },
+    {
+      "label": "q38-runtime-v2d-sentinel-3806011-r2",
+      "status": "failed_after_one_http_200",
+      "complete_traces": 0,
+      "http_200_chat_responses": 1,
+      "prestart_quiescence_seconds": 90,
+      "first_failure_stack": "qwen_gdn_attention_core -> standard decode branch -> fused_sigmoid_gating_delta_rule_update_kernel",
+      "first_failure": "Triton CUDA illegal instruction on TP0",
+      "kernel_evidence": [
+        "NVIDIA Xid 13 Graphics SM Warp Exception: Out Of Range Register",
+        "NVIDIA Xid 13 Graphics SM Global Exception: Multiple Warp Errors",
+        "NVIDIA Xid 43 process termination"
+      ],
+      "provider_errors": 2,
+      "teardown_clean": true
+    }
+  ],
+  "gate_result": {
+    "fresh_starts_required": 3,
+    "fresh_starts_passed": 1,
+    "sustained_soaks_started": 0,
+    "qualification": "rejected"
+  },
+  "artifact": {
+    "local_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/incident/runtime-v2d-quiescent-no-packed-decode-rejected",
+    "terminal_manifest_sha256": "20069d6277e4257a229907d12c999e7803355190e0eacf4e4ce0571c3a95cb41",
+    "checksums_verified_after_transfer": true
+  },
+  "interpretation": "The quiescence barrier did not stabilize the runtime. It did allow startup and one response, but the next call localized the fault to vLLM's non-packed Triton GDN recurrence kernel. Restart timing is rejected as a sufficient explanation."
+}

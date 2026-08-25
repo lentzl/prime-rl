@@ -1,0 +1,58 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T16:17:56Z",
+  "phase": "e1_root_and_yield",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "base_model_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "adapter_source": "split-frontier-joint-lora-r4",
+    "adapter_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7"
+  },
+  "preregistered_bank": {
+    "split": "train_gen",
+    "start_index": 4004900,
+    "task_indices": [4004900, 4004901, 4004902, 4004903, 4004904, 4004905],
+    "tasks": 6,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "bootstrap_level": "action_scaffold",
+    "bootstrap_sha256": "e0db5856094ff1d9571431f2b9daf639802a94b347c6ad85a38f411794800bc6"
+  },
+  "result": {
+    "episodes": 6,
+    "completed_hard_successes": 0,
+    "qualifying_trajectories": 0,
+    "distinct_qualifying_task_keys": 0,
+    "errored_episodes": 6,
+    "native_no_tool_yield_responses": 0,
+    "valid_natural_child_sends": 0,
+    "admission_gate_open": false,
+    "minimum_complete_qualifying_trajectories": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "diagnosis": {
+    "root_exact_spawns": 6,
+    "root_spawn_failures": 0,
+    "child_inline_evidence_failures": 6,
+    "coordinator_malformed_yield_tool_calls": 6,
+    "provider_errors": 6,
+    "provider_error_summary": "The coordinator emitted an empty-name malformed tool call during the intended passive no-tool transition, and request parsing failed with HTTP 400: Can only get item pairs from a mapping.",
+    "interpretation": "The balanced one-step update acquired the two leaked boundary behaviors only while their complementary supports remained present. It did not transfer either behavior into the fully unhelped E1 interaction: children treated inline evidence labels as filesystem paths, and coordinators generated malformed tool syntax instead of passive prose. This is an interaction-policy failure, not excessive use of IPython for mathematics."
+  },
+  "artifact_integrity": {
+    "run_label": "interaction-curriculum-e1-r4-natural-n1a-4004900-n6",
+    "traces_sha256": "f58b56add84a3bbd1eec924b3969601781dd96df195c7a3353bbadc86ea63e58",
+    "interaction_summary_sha256": "338b3a69ef461504537227502ea8bda9a0391332e16754bf29773f2af685cf8f",
+    "versions_sha256": "455a5e03005c2a181278ceab3df3ec1e6295a254846a5cdf0bb039e7eb50fbc0",
+    "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e1-r4-natural-n1a-4004900-n6/run-1"
+  },
+  "current_authorization": {
+    "new_gradient": false,
+    "reason": "Fresh E1 produced zero qualifying trajectories, below the unchanged minimum of four. A new, thinner transition rung must independently admit at least four complete distinct trajectories before another optimizer update."
+  },
+  "safest_next_action": "Keep R4 frozen. Introduce and evaluate one intermediate support-removal rung per boundary: first weaken E0c child evidence hints while retaining exact coordinator yield, and separately weaken E0d yield guidance while retaining constrained child reporting. Do not combine supports or update weights until each stricter rung independently passes the unchanged four-trajectory gate."
+}

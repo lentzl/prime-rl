@@ -1,0 +1,77 @@
+{
+  "schema_version": "q38-runtime-v2b-blocking-result/v1",
+  "status": "qualification_screen_passed_then_first_recovery_leg_failed",
+  "authorization_urls": [
+    "https://github.com/lentzl/rlm/issues/1#issuecomment-5353871747",
+    "https://github.com/lentzl/rlm/issues/1#issuecomment-5356066259"
+  ],
+  "qualification_report_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5357367145",
+  "failure_report_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5357455076",
+  "runtime": {
+    "lane": "runtime-v2b-blocking",
+    "only_change_from_runtime_v2a": "CUDA_LAUNCH_BLOCKING=1",
+    "vllm": "0.27.1+cu129",
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0"
+  },
+  "qualification": {
+    "status": "passed_3_of_3_fresh_server_screen",
+    "task_index": 3806011,
+    "complete_error_free_traces": 3,
+    "http_200_responses": 30,
+    "behavioral_hard_successes": 0,
+    "exact_final_answers": 3,
+    "qualification_traces_admitted_as_teacher_data": false,
+    "wrapper_sha256": "0fac269f25df5559a5f10e4323bfe8b81f0c50bea1fc128003e00b3efb418d31",
+    "manifest_sha256": "d827b6a1a9fc25b92bd79e46d89e3fb82737c84a34ed77a76ce22e134e9e1992",
+    "local_artifact_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/qualification/runtime-v2b-blocking-v1"
+  },
+  "teacher_recovery": {
+    "status": "failed_closed_on_first_task_of_first_leg",
+    "configured_axis": "natural_n1a_local",
+    "configured_task_indices": [
+      3806011,
+      3806012,
+      3806013,
+      3806014,
+      3806015
+    ],
+    "task_reached": 3806011,
+    "http_200_responses_before_failure": 1,
+    "serialized_trace_envelopes": 0,
+    "first_synchronous_failure": "CUBLAS_STATUS_EXECUTION_FAILED from cublasGemmEx in qwen3_next MLP gate_up_proj unquantized linear",
+    "subsequent_failure": "CUDA illegal memory access during CUDAEvent cleanup followed by TP0 and EngineCore death",
+    "jit_warnings_before_failure": [
+      "layer_norm_fwd_kernel"
+    ],
+    "recovery_wrapper_sha256": "eab170758cbdda51cc385d37c7bb808d16f9d609e4cd02294e95a980accace15",
+    "checksums_verified_remote_and_local": true,
+    "teardown_clean": true,
+    "local_artifact_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/incident/runtime-v2b-blocking-recovery-cublas-illegal-memory"
+  },
+  "stopped_before": [
+    "remaining_natural_n1a_local_tasks",
+    "natural_n1b_teacher_recovery",
+    "untouched_qwen35_2b_baseline",
+    "teacher_corpus_admission",
+    "role_corpus_export",
+    "optimizer"
+  ],
+  "scientific_state": {
+    "qualifying_teacher_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "required_teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "untouched_2b_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "decision": "Hold all follow-on work for strategist review because launch blocking did not provide a stable teacher lane."
+}

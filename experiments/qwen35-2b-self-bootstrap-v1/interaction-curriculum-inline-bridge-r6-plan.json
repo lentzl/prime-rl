@@ -1,0 +1,51 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-plan/v1",
+  "status": "executed_complete",
+  "recorded_at_utc": "2026-08-21T17:19:00Z",
+  "authorization": {
+    "acceptance_floor_relaxed": false,
+    "e0c25_aggregate_qualifying_trajectories": 5,
+    "e0c25_aggregate_distinct_task_keys": 5,
+    "e0d2_r5_qualifying_trajectories": 4,
+    "e0d2_r5_distinct_task_keys": 4,
+    "failed_trajectory_rows": 0,
+    "optimizer_steps_authorized": 1
+  },
+  "curriculum_rationale": {
+    "principle": "Use early leakage to grow capability, then progressively withhold one support at a time.",
+    "spade_reveal_schedule_percent": [25, 10, 5],
+    "this_update": "Train the concise inline-evidence bridge together with already-acquired prompt-free capped yield; do not jump directly from verbose leakage to the unsupported E0c3 boundary."
+  },
+  "initial_state": {
+    "immutable_base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "adapter": "R5",
+    "adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c",
+    "dense_base_updates": 0
+  },
+  "corpus": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-e0c25-e0d2-joint-sft-v3",
+    "rows": 8,
+    "e0c25_child_rows": 4,
+    "e0d2_orchestrator_rows": 4,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "01779438a0655557697e2bd70ee4ccfefdca18a8a1e9b77131fc56fb947e8d62",
+    "pretraining_baseline_sha256": "d5faab01a881e36f9ca9c1c845cfabeb1a9f029f0f020e205501feecd8894161",
+    "manifest_sha256": "833cf436b4b2902b462106be15fe85fd5cc0129a16625db5c9d6f2f562be6e8f"
+  },
+  "update": {
+    "name": "inline-bridge-joint-lora-r6",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "assistant_only_loss": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "config": "experiments/qwen35-2b-self-bootstrap-v1/interaction-inline-bridge-joint-sft-lora-r6.toml",
+    "config_sha256": "b4b8168610e4ad04281586c7e60f8881a5f0d1524ca61c34e9c0507db3fd3527"
+  },
+  "post_update_requirement": "Freeze R6 and evaluate fresh stricter child and yield task keys before any additional optimizer decision."
+}

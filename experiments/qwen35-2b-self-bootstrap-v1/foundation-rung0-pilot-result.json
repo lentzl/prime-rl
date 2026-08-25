@@ -1,0 +1,123 @@
+{
+  "schema_version": "qwen35-2b-self-bootstrap-rung0-pilot-result/v1",
+  "status": "current_2b_hint_internalization_blocked",
+  "completed_at_utc": "2026-08-21T08:30:00Z",
+  "model": {
+    "repository": "lentzl/rlm-prime-agent-qwen35-orchestrator-candidate-r1-20260809",
+    "revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "weights_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "immutable": true
+  },
+  "platform": {
+    "gpus": "2x NVIDIA RTX A6000; inference used GPU0 only",
+    "vllm": "0.26.0+cu129",
+    "prime_agent": "0.7.2-beta.495.1.97b994c",
+    "runtime_smoke": "healthy",
+    "post_run_state": "both GPUs idle at 1 MiB; no containers or experiment processes"
+  },
+  "task": {
+    "episode_id": "train_gen-natural_n1a_local-04006000-b42a13e",
+    "index": 4006000,
+    "family": "natural_n1a_local",
+    "protected_values": [
+      "310",
+      "4",
+      "624"
+    ]
+  },
+  "probes": [
+    {
+      "label": "v1",
+      "result": "hint_writer_returned_no_final_text",
+      "solver_rollouts": 0
+    },
+    {
+      "label": "v2",
+      "result": "paired_complete_zero_regret",
+      "hint_writer": "same 2B; first accepted attempt; 34-token strategy hint",
+      "no_hint": {
+        "seed": 20260822,
+        "hard_return": 0.0,
+        "turns": 12,
+        "stop": "max_output_tokens",
+        "agent_duration_seconds": 805.410267,
+        "required_atoms_fraction": 0.16666666666666666,
+        "observed_atoms": 3
+      },
+      "hinted": {
+        "seed": 20260826,
+        "hard_return": 0.0,
+        "turns": 24,
+        "stop": "max_turns",
+        "agent_duration_seconds": 295.870396,
+        "required_atoms_fraction": 0.16666666666666666,
+        "observed_atoms": 6
+      },
+      "hint_regret": 0.0
+    },
+    {
+      "label": "v3",
+      "result": "strict_contract_hint_admission_exhausted_five_attempts",
+      "solver_rollouts": 0
+    },
+    {
+      "label": "v4",
+      "result": "rejected_candidate_feedback_exhausted_five_attempts",
+      "solver_rollouts": 0
+    },
+    {
+      "label": "v5",
+      "result": "operational_hint_admitted_but_paired_regret_remained_zero",
+      "hint_writer": "same 2B; accepted attempt 4 after three gap-conditioned revisions; 213 tokens",
+      "no_hint": "exact v2 no-hint artifact reused after fail-closed provenance checks",
+      "hinted": {
+        "seed": 20260827,
+        "hard_return": 0.0,
+        "turns": 25,
+        "stop": "max_turns",
+        "agent_duration_seconds": 96.802949,
+        "required_atoms_fraction": 0.0,
+        "observed_atoms": 6,
+        "failure": "delegated coordinator-owned work to coordinator-inspector, then polled and never spawned the required audit-worker"
+      },
+      "hint_regret": 0.0
+    },
+    {
+      "label": "v6",
+      "result": "executable_first_cell_hint_admission_exhausted_five_attempts",
+      "solver_rollouts": 0,
+      "failure": "same 2B could not keep exact paths, ownership, valid rlm signature, ordering, and post-report finalization simultaneously correct"
+    }
+  ],
+  "gate": {
+    "minimum_regret": 0.25,
+    "minimum_distinct_positive_regret_task_keys": 4,
+    "minimum_distinct_positive_regret_async_task_keys": 4,
+    "observed_positive_regret_task_keys": 0,
+    "observed_positive_regret_async_task_keys": 0,
+    "passed": false,
+    "relaxed": false
+  },
+  "training": {
+    "gradient_updates": 0,
+    "optimizer_states_created": 0,
+    "adapters_created": 0,
+    "weights_mutated": false
+  },
+  "artifact_inventory_digests": {
+    "v1": "8b085d2f4096ecec9c10667d6ae751c063f9d2456debd53d46a8cb4b72733986",
+    "v2": "752010d714b8358286ce5da47d6cd5ddfcb9fcadecb8c0de484829aaa991a608",
+    "v3": "72a5c08402d7b963be6d107cb001f591a6cfaeb7aaca17595badb543fc867bf5",
+    "v4": "3f0377da15096a49a791616818dde88e525b713688a5f3135cd9496267e4864c",
+    "v5": "2aa3b3b9f66b2b65e2426cf47e1a5fd78a0b522d57f4e291ca7defb6dce7289f",
+    "v6": "b08256c51c2d6c3d9ba9f46a2597eec4a3944d79932d52bad0a1691bba5e1609",
+    "remote_local_match": true
+  },
+  "decision": {
+    "full_rung0_matrix": "not_started",
+    "fixed_pool_grpo": "not_authorized_by_evidence",
+    "adaptive_designer_training": "not_authorized_by_evidence",
+    "current_host_next_action": "release after this durable result is reported",
+    "research_next_action": "reuse the completed scaffold with a stronger immutable starting policy, preferably a verified 27B-distilled 2B or a future 4B candidate"
+  }
+}

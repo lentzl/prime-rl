@@ -1,0 +1,43 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T15:35:42Z",
+  "phase": "e1_root_and_yield",
+  "adapter": {
+    "source_update": "e0b-acquisition2-joint-lora-r3",
+    "adapter_model_sha256": "ae4c3daa8b34ee5211b7cee4f3cf13ee194aa520ac02e172e6b9677ec2e88e44",
+    "frozen_during_evaluation": true
+  },
+  "optimizer_updates_during_evaluation": 0,
+  "bank": {
+    "start_index": 4004600,
+    "tasks": 4,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "23be85b981d267a2893f65e7950ce3a7bce8b3a68f1ef74c8f716fb71893e684",
+    "final_answers_in_bootstrap": 0
+  },
+  "result": {
+    "complete_episodes": 4,
+    "errors": 1,
+    "hard_successes": 0,
+    "qualifying_trajectories": 0,
+    "distinct_qualifying_task_keys": 0,
+    "next_gradient_gate_open": false,
+    "acceptance_floor_relaxed": false
+  },
+  "diagnosis": {
+    "native_no_tool_yield_responses": 1,
+    "children_sent_valid_results": 0,
+    "children_treated_inline_private_evidence_as_a_filesystem_path": 4,
+    "provider_errors_from_malformed_tool_arguments": 1,
+    "conclusion": "A second E0b update did not improve the measured E1 frontier. Continuing identical E0b updates is not justified without splitting the two removed supports into independently measurable curriculum rungs."
+  },
+  "artifact_integrity": {
+    "traces_sha256": "066920a6c68713724adb8b734bfd9d55448e389c874dafb2294335b0db27acf7",
+    "interaction_summary_sha256": "f2a0eb52da42f8498cb2bf3d8900e9d8c74b72197dc019db390c880cac3c0af2",
+    "versions_sha256": "d0521c7a198c9fdb9ed698383854a39c2ba38c930a832a0ca0ac14ff8e16aea9",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e1-r3-natural-n1a-4004600-n4/run-1"
+  },
+  "next_action": "Do not take another gradient. Split child-send naturalization from passive-yield naturalization into separate prospective rungs, each preserving the other support, and require the same four-trajectory gate on fresh tasks."
+}

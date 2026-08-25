@@ -1,0 +1,59 @@
+{
+  "schema_version": "qwen35-2b-environment-scaffolding-result/v1",
+  "status": "complete_harness_error_hard_failure",
+  "completed_at_utc": "2026-08-21T09:03:39Z",
+  "phase": "E0_solution_replay_child_only",
+  "help_level": "training-only exact action and terminal-answer replay plus one-turn no-tool yield mediation",
+  "optimizer_updates": 0,
+  "model": {
+    "path": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "repository_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "weight_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "mutated": false
+  },
+  "episode": {
+    "task_key": "train_gen-natural_n1a-04004000-79164c8",
+    "family": "natural_n1a",
+    "trace_id": "b4e571c3444b40ff9c8f2b4685f38d07",
+    "is_completed": true,
+    "ok": false,
+    "stop_condition": "error",
+    "error_type": "HarnessError",
+    "error_summary": "ACP agent produced no visible reply after exhausting its token budget",
+    "agent_turns": 19,
+    "trace_nodes": 45,
+    "hard_reward": 0.0,
+    "final_answer_exact": 0.0,
+    "all_required_atoms": 0.0,
+    "no_forbidden_atoms": 0.0,
+    "ordering_satisfied": 0.0,
+    "cardinality_exact": 0.0,
+    "required_atoms_fraction": 0.4,
+    "forbidden_post_spawn_tool_before_child": 1.0
+  },
+  "observed_behavior": {
+    "first_spawn_admitted": true,
+    "first_spawn_handle_retained": false,
+    "first_child_send_succeeded": false,
+    "child_send_failure": "The sampled child action passed an integer instead of the required string and raised TypeError.",
+    "coordinator_post_spawn_behavior": "The coordinator sent repeated follow-ups, attempted nonexistent wait APIs, slept, introspected messaging APIs, and polled agent state.",
+    "late_duplicate_spawn": "The coordinator finally sampled an assigned spawn, but it failed because beta-worker already existed.",
+    "yield_scaffold_recorded": true,
+    "yield_scaffold_record_valid": false,
+    "scaffold_false_positive": "The request mediation treated the failed duplicate assigned spawn as eligible. The implementation is now hardened to require an explicit RLMSpawnHandle success output.",
+    "classification": "static_solution_leak_did_not_bind_first_action_or_child_send"
+  },
+  "artifact_integrity": {
+    "bootstrap_context_sha256": "8635f97dadd6cf327483c9ad82b42a141c8550d290c14465d12871791decadba",
+    "summary_sha256": "8448d9c8f2212c8c4ce2b8aedbf14d0ca756284265860edcea827e0ccdfea263",
+    "traces_sha256": "3409e1b3c1f0c7584bb02904858c68c1feb4145bf15892be0c44860f8dc7fb28",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/environment-bootstrap-e0-solution-replay-natural-n1a-4004000/run"
+  },
+  "gate": {
+    "minimum_distinct_complete_qualifying_async_trajectories": 4,
+    "qualifying_trajectories_observed": 0,
+    "gradient_gate_open": false,
+    "acceptance_floor_relaxed": false
+  },
+  "prospective_next_action": "Replace static prose/code leakage with a true early environment action scaffold: constrain or retry the root retained-spawn action and the child's typed send action, provide transition-local feedback on invalid actions, then remove those constraints in stages. Do not run another admission until that interaction-level scaffold has focused regression coverage."
+}

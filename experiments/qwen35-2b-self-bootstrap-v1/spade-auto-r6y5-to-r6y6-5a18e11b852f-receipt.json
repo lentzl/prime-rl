@@ -1,0 +1,17 @@
+{
+  "base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+  "base_sha256_before": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+  "dense_base_updates": 0,
+  "failed_trajectory_rows": 0,
+  "initial_adapter_sha256": "8b47d9f034bb30ef84da9174406fe889f050ca2787615c6ef36c6d4d4296e936",
+  "optimizer_steps": 1,
+  "output_adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-spade-interaction-loop-v1/spade-auto-r6y5-to-r6y6-5a18e11b852f/weights/step_1/lora_adapters",
+  "output_adapter_sha256": "1c2bca885ddbab01f3d649c36386035f3c33ce82faad2fecce0f860c20da6dec",
+  "output_candidate_label": "R6Y6",
+  "output_model": "q35-2b-r6y6-1c2bca885ddb",
+  "schema_version": "qwen35-2b-spade-interaction-update/v1",
+  "source_summary_sha256": {
+    "child": "fcb2961ce67c19343e02cbcb3cc97d20d8a74533d8662ce157be76985f3d1374",
+    "yield": "d6aa8e35072576205ada87780207eec08aa29c22ecd5809b2bfcffccdcdee753"
+  }
+}

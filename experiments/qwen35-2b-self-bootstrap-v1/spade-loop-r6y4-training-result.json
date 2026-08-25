@@ -1,0 +1,46 @@
+{
+  "schema_version": "qwen35-2b-spade-interaction-training-result/v1",
+  "status": "complete",
+  "completed_at_utc": "2026-08-22T14:51:52Z",
+  "initial_candidate": {
+    "label": "R6Y3",
+    "adapter_sha256": "7efaf672919d82b91f872f31d7477f7d3db87d846e94596ec915f30395ac466d",
+    "loaded_adapter_tensors": 192
+  },
+  "output_candidate": {
+    "label": "R6Y4",
+    "model": "q35-2b-r6y4-76f0b2dd9764",
+    "adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-spade-interaction-loop-v1/spade-loop-e0c25-e0d2x-lora-r6y4/weights/step_1/lora_adapters",
+    "adapter_sha256": "76f0b2dd9764c8ab556fd01c3cabb31b31aee6689762309df80149460d2373a2",
+    "adapter_config_sha256": "06a44e2d2d9c2208e2a77eea7eab23af69b43b999ff9f950c15c30d1e434acd0"
+  },
+  "update": {
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "failed_trajectory_rows": 0,
+    "loss_mean": 0.4105657935142517,
+    "loss_nan_count": 0,
+    "gradient_norm": 3.828125,
+    "time_per_step_seconds": 23.50013153598411,
+    "peak_memory_gib": 7.220703125
+  },
+  "corpus": {
+    "rows": 8,
+    "child_rows": 4,
+    "yield_orchestrator_rows": 4,
+    "train_parquet_sha256": "cf194ac3d21c2a09e849726d101fe9834f32f07a66d2050d6c4c2850b8b337f8",
+    "manifest_sha256": "9956a2343f53fdc3ac63f9e69677bad08626097394471a73f266bc806a1dc763",
+    "pretraining_baseline_sha256": "ddbb1a768a7cc834303faef87ef9e8dd413022af05fbf85756b882af5f88b7cb"
+  },
+  "integrity": {
+    "immutable_base_sha256_before": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "training_config_sha256": "aa7bcedb8818199cf27eb2fa7f48eb3c3c86fe3e846b764378ecc6f72da459d8",
+    "resolved_config_sha256": "5cd54ce28c65fc3f89de7e9e1efc80e526c134c48aefd9fbd7d2791d8024554e",
+    "metrics_sha256": "85965c7262864284f59ce9c32ac24dbce67350684f248754ce7ff89a877f275c"
+  },
+  "post_update": {
+    "candidate_frozen_for_evaluation": true,
+    "additional_gradient_authorized": false
+  }
+}

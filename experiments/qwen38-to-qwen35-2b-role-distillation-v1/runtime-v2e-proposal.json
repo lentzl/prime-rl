@@ -1,0 +1,104 @@
+{
+  "schema_version": "q38-runtime-v2e-torch-gdn-decode-proposal/v1",
+  "status": "rejected_on_second_fresh_start_runtime_family_nonviable",
+  "authorization_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5359331913",
+  "qualification_wrapper": {
+    "path": "scripts/run_q38_runtime_v2e_torch_gdn_decode_qualification_v1.sh",
+    "sha256": "9eac0bd439b92ad21fa25b033bf12afb1ca51ded83762877641078552221a638"
+  },
+  "runtime_patch": {
+    "path": "experiments/qwen38-to-qwen35-2b-role-distillation-v1/runtime-v2e-torch-gdn-decode.patch",
+    "sha256": "4b0fc4a086bb81c6bd3cfc239e422fc0fd898f7e949bb5bb94bdf09bf36d8b23",
+    "target_module": "vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py",
+    "original_module_sha256": "1227d6f385a52296e9f08223544b1c5fdc7e8d9aa09a848e7a8e522a8dc51214",
+    "patched_module_sha256": "28096a290180177fe5af07a9a040ae6a39af4814ff8a7390a0b44a806215cf23",
+    "lifecycle": "The wrapper verifies and backs up the original module, applies the patch before any server starts, and restores the byte-identical original module through an EXIT trap. It refuses an unexpected or already patched source."
+  },
+  "predecessor": {
+    "lane": "runtime-v2d-quiescent-no-packed-decode",
+    "result": "second fresh start failed in the non-packed fused-sigmoid Triton GDN recurrence after one successful response",
+    "result_file": "runtime-v2d-result.json"
+  },
+  "hypothesis": {
+    "lane": "runtime-v2e-torch-gdn-decode",
+    "single_changed_variable_from_runtime_v2d": "replace only non-speculative one-token GDN recurrent decode with an equivalent PyTorch implementation",
+    "rationale": "The packed GDN decode kernel was implicated in prior JIT/failure evidence, and v2d then localized an illegal instruction to the only vLLM 0.27.1 fallback kernel. The patch avoids both recurrent-decode Triton kernels while retaining the causal-convolution kernel, prefill kernel, model weights, engine configuration, and request semantics.",
+    "supported_shape": "continuous-batch, non-speculative, exactly one token per sequence; the frozen max_num_seqs=1 runtime satisfies this shape and all unsupported shapes fail closed",
+    "retained_runtime_v2d_settings": {
+      "CUDA_LAUNCH_BLOCKING": 1,
+      "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE": 0,
+      "prestart_gpu_quiescence_seconds": 90,
+      "vllm": "0.27.1+cu129",
+      "tensor_parallel_size": 2,
+      "dtype": "bfloat16",
+      "max_model_len": 32768,
+      "max_num_seqs": 1,
+      "max_num_batched_tokens": 512,
+      "disable_custom_all_reduce": true
+    }
+  },
+  "numerical_preflight": {
+    "status": "passed",
+    "device": "RTX 6000 Ada GPU0",
+    "shape": {
+      "query_heads_per_tp_rank": 8,
+      "value_heads_per_tp_rank": 24,
+      "key_head_dim": 128,
+      "value_head_dim": 128,
+      "tokens": 1,
+      "sequences": 1
+    },
+    "reference": "vLLM 0.27.1 fused_sigmoid_gating_delta_rule_update",
+    "torch_output_max_abs_error": 0.000003814697265625,
+    "torch_output_mean_abs_error": 0.000000001280568540096283,
+    "state_max_abs_error": 0.000000003725290298461914,
+    "state_mean_abs_error": 0.00000000011349327033758163,
+    "all_outputs_finite": true
+  },
+  "stronger_qualification_gate": {
+    "teacher_admission_status": "all_traces_permanently_non_admitted",
+    "fresh_start_reproducibility": {
+      "attempts": 3,
+      "axis": "natural_n1a_local",
+      "task_index": 3806011,
+      "tasks_per_attempt": 1
+    },
+    "sustained_use_reproducibility": {
+      "attempts": 2,
+      "fresh_server_for_each_attempt": true,
+      "axis": "natural_n1a_local",
+      "indices": [3806011, 3806012, 3806013, 3806014, 3806015],
+      "tasks_per_attempt": 5
+    },
+    "required_for_every_leg": [
+      "expected complete serialized envelope and trace count",
+      "all traces is_completed=true and error-free",
+      "zero ProviderError, EngineCore, CUDA, CUBLAS, Triton, or RPC failure signatures",
+      "clean server teardown with idle GPUs",
+      "packed and fused-sigmoid Triton GDN decode JIT signatures absent",
+      "recorded patch, module, wrapper, trace, and runtime hashes"
+    ],
+    "behavioral_hard_failure_allowed": true,
+    "pass_rule": "All three sentinel starts and both five-task soaks pass."
+  },
+  "stop_boundary": "This is the last planned vLLM 0.27.1 same-host kernel hypothesis. If it fails, the accumulated v2a-v2e evidence is sufficient to declare this host/runtime family nonviable and request a materially different platform or dependency-family decision, as required by strategist comment 5359331913.",
+  "frozen_science": {
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "current_qualifying_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "student_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "result_file": "runtime-v2e-result.json"
+}

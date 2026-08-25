@@ -10,6 +10,7 @@ from verifiers.v1.types import AssistantMessage, TextContentPart, ToolCall, Tool
 from prime_rl.configs.algorithm import AlgoConfig, FrozenModelConfig
 from prime_rl.orchestrator.algo import (
     EchoAlgorithm,
+    GRPOAlgorithm,
     SDPOAlgorithm,
     SFTDistillAlgorithm,
     stamp_advantages,
@@ -115,6 +116,12 @@ def test_sft_sampled_session_scope_defaults_to_all() -> None:
     assert config.filter is None
 
 
+def test_grpo_sampled_session_scope_defaults_to_all_and_accepts_roles() -> None:
+    assert _build(type="grpo").sampled_session_scope == "all"
+    assert _build(type="grpo", sampled_session_scope="root").sampled_session_scope == "root"
+    assert _build(type="grpo", sampled_session_scope="non_root").sampled_session_scope == "non_root"
+
+
 def test_sft_accepts_branch_aligned_token_filter() -> None:
     config = _build(
         type="sft",
@@ -127,7 +134,7 @@ def test_sft_accepts_branch_aligned_token_filter() -> None:
     assert config.filter.kwargs == {"limit": 3}
 
 
-def _multi_session_rollout(*, include_lineage: bool = True) -> Rollout:
+def _multi_session_rollout(*, include_lineage: bool = True, reward: float = 1.0) -> Rollout:
     nodes = [
         _node(UserMessage(content="root"), parent=None, sampled=False, token_ids=[1]),
         _node(
@@ -164,7 +171,7 @@ def _multi_session_rollout(*, include_lineage: bool = True) -> Rollout:
         agent=vf.AgentInfo(config=vf.AgentConfig()),
         nodes=nodes,
         calls=calls,
-        rewards={"reward": vf.Reward(score=1.0)},
+        rewards={"reward": vf.Reward(score=reward)},
         env_name="test-env",
     )
     rollout.samples = trace_to_samples(rollout, env_name="test-env")
@@ -188,6 +195,79 @@ def test_sft_root_session_scope_trains_only_primary_agent_tokens() -> None:
     assert len(rollout.samples) == 1
     assert rollout.samples[0].token_ids == [1, 2, 3, 4, 5, 6]
     assert rollout.samples[0].ce_weights == [0.0, 1.0, 1.0, 0.0, 1.0, 1.0]
+
+
+@pytest.mark.parametrize(
+    ("scope", "expected_tokens", "expected_advantages"),
+    [
+        ("root", [1, 2, 3, 4, 5, 6], [0.0, 0.5, 0.5, 0.0, 0.5, 0.5]),
+        ("non_root", [7, 8, 9], [0.0, 0.5, 0.5]),
+    ],
+)
+def test_grpo_session_scope_routes_credit_to_exactly_one_role(
+    scope: str,
+    expected_tokens: list[int],
+    expected_advantages: list[float],
+) -> None:
+    winners = _multi_session_rollout(reward=1.0)
+    losers = _multi_session_rollout(reward=0.0)
+    algorithm = GRPOAlgorithm(
+        _build(type="grpo", sampled_session_scope=scope),
+        MagicMock(),
+    )
+
+    for rollout in (winners, losers):
+        asyncio.run(algorithm.finalize_rollout(rollout))
+    asyncio.run(algorithm.finalize_group([winners, losers]))
+
+    assert len(winners.samples) == 1
+    assert winners.samples[0].token_ids == expected_tokens
+    assert winners.samples[0].advantages == expected_advantages
+    assert winners.samples[0].rl_weights is None
+    assert winners.samples[0].mask == [value != 0.0 for value in expected_advantages]
+    assert losers.samples[0].advantages == [-value for value in expected_advantages]
+
+
+def test_grpo_session_scope_fails_closed_without_lineage() -> None:
+    rollout = _multi_session_rollout(include_lineage=False)
+    algorithm = GRPOAlgorithm(
+        _build(type="grpo", sampled_session_scope="root"),
+        MagicMock(),
+    )
+
+    with pytest.raises(ValueError, match="exactly one client session"):
+        asyncio.run(algorithm.finalize_rollout(rollout))
+
+
+@pytest.mark.parametrize("scope", ["root", "non_root"])
+def test_grpo_session_scope_ignores_unscoped_auxiliary_graph(scope: str) -> None:
+    rollout = _multi_session_rollout()
+    rollout.nodes.extend(
+        [
+            _node(UserMessage(content="refine"), parent=None, sampled=False, token_ids=[10]),
+            _node(
+                AssistantMessage(content="auxiliary answer"),
+                parent=6,
+                sampled=True,
+                token_ids=[11, 12],
+                logprobs=[-0.7, -0.8],
+            ),
+        ]
+    )
+    rollout.calls.append(vf.ModelCall(node=7, client_session_id=None))
+    rollout.samples = trace_to_samples(rollout, env_name="test-env")
+    algorithm = GRPOAlgorithm(
+        _build(type="grpo", sampled_session_scope=scope),
+        MagicMock(),
+    )
+
+    asyncio.run(algorithm.finalize_rollout(rollout))
+
+    assert len(rollout.samples) == 1
+    if scope == "root":
+        assert rollout.samples[0].token_ids == [1, 2, 3, 4, 5, 6]
+    else:
+        assert rollout.samples[0].token_ids == [7, 8, 9]
 
 
 def test_sft_root_session_scope_composes_with_token_filter() -> None:

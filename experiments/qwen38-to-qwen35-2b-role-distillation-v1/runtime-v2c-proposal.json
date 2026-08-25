@@ -1,0 +1,113 @@
+{
+  "schema_version": "q38-runtime-v2c-no-packed-decode-proposal/v1",
+  "status": "rejected_on_second_fresh_start",
+  "authorization_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5359331913",
+  "qualification_wrapper": {
+    "path": "scripts/run_q38_runtime_v2c_no_packed_decode_qualification_v1.sh",
+    "sha256": "87b2ee5de2b5fdcdac1045bb1f4c8dac34c32469b8cdaf5f351b7db91c7d3b78"
+  },
+  "predecessor": {
+    "lane": "runtime-v2b-blocking",
+    "result": "passed_three_fresh_starts_then_failed_on_first_recovery_task",
+    "decision": "retire_three_fresh_starts_as_a_sufficient_operational_gate"
+  },
+  "qualification_vs_recovery_audit": {
+    "material_unintended_delta_found": false,
+    "qualification_attempt": "q38-runtime-v2b-blocking-coldstart-3806011-r1",
+    "failed_recovery_leg": "q38-runtime-v2b-n1a-local-3806011-5-r1",
+    "inference_toml_byte_identical": true,
+    "inference_toml_sha256": "ab04c120320321ca4126d53248f884baf76a52b52456a5c189d8830427e1438a",
+    "recorded_difference": {
+      "field": "num_tasks",
+      "qualification": 1,
+      "recovery": 5,
+      "classification": "intended_soak_length_change"
+    },
+    "frozen_equal_fields": [
+      "teacher_model",
+      "teacher_revision",
+      "runtime_environment",
+      "vllm_version",
+      "uv_lock_sha256",
+      "inference_config_sha256",
+      "axis",
+      "start_index",
+      "num_rollouts",
+      "max_concurrent",
+      "reasoning_effort",
+      "sampling",
+      "tensor_parallel_size",
+      "dtype",
+      "max_model_len",
+      "gpu_memory_utilization",
+      "enforce_eager",
+      "max_num_seqs",
+      "max_num_batched_tokens",
+      "disable_custom_all_reduce",
+      "CUDA_LAUNCH_BLOCKING"
+    ],
+    "task_identity_conclusion": "Task generation is independently seeded by axis, split, absolute index, master seed, and mode; increasing count from one to five does not change task 3806011.",
+    "server_lifecycle_conclusion": "Both wrappers launch the same baseline runner into a fresh server lifetime; the failed recovery merely requested a longer sequential task range.",
+    "conclusion": "The prior 3/3 fresh-start-only gate was insufficient to predict sustained serving stability."
+  },
+  "hypothesis": {
+    "lane": "runtime-v2c-no-packed-decode",
+    "single_changed_variable_from_runtime_v2b": {
+      "name": "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE",
+      "from": 1,
+      "to": 0
+    },
+    "rationale": "The installed vLLM 0.27.1 Qwen GDN layer exposes this built-in switch. Disabling it bypasses fused_recurrent_gated_delta_rule_packed_decode for decode-only non-speculative requests and uses the existing standard recurrent-update path. This is a reversible runtime-only change aimed at a timing-sensitive CUDA failure; causal attribution remains a hypothesis.",
+    "unchanged_runtime_intervention": {
+      "CUDA_LAUNCH_BLOCKING": 1
+    },
+    "unavailable_newer_control": "VLLM_GDN_DECODE_KERNEL is not present in the installed vLLM 0.27.1 release and is not part of this hypothesis."
+  },
+  "stronger_qualification_gate": {
+    "teacher_admission_status": "all_traces_permanently_non_admitted",
+    "fresh_start_reproducibility": {
+      "attempts": 3,
+      "axis": "natural_n1a_local",
+      "task_index": 3806011,
+      "tasks_per_attempt": 1
+    },
+    "sustained_use_reproducibility": {
+      "attempts": 2,
+      "fresh_server_for_each_attempt": true,
+      "axis": "natural_n1a_local",
+      "start_index": 3806011,
+      "tasks_per_attempt": 5,
+      "indices": [3806011, 3806012, 3806013, 3806014, 3806015]
+    },
+    "required_for_every_leg": [
+      "expected complete serialized envelope and trace count",
+      "all traces is_completed=true and error-free",
+      "zero ProviderError, EngineCore, CUDA, CUBLAS, or RPC failure signatures",
+      "clean server teardown with idle GPUs",
+      "packed recurrent decode JIT signature absent",
+      "recorded checksums and exact runtime provenance"
+    ],
+    "behavioral_hard_failure_allowed": true,
+    "pass_rule": "All three sentinel starts and both five-task soaks pass; any failed leg rejects runtime-v2c."
+  },
+  "frozen_science": {
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "vllm": "0.27.1+cu129",
+    "teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "current_qualifying_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "student_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "result_file": "runtime-v2c-result.json"
+}

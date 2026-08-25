@@ -1,0 +1,45 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-plan/v1",
+  "status": "preregistered_not_started",
+  "recorded_at_utc": "2026-08-21T16:45:56Z",
+  "authorization": {
+    "acceptance_floor_relaxed": false,
+    "e0c2_aggregate_qualifying_trajectories": 5,
+    "e0c2_aggregate_distinct_task_keys": 5,
+    "e0d2x_qualifying_trajectories": 4,
+    "e0d2x_distinct_task_keys": 4,
+    "failed_trajectory_rows": 0,
+    "optimizer_steps_authorized": 1
+  },
+  "initial_state": {
+    "immutable_base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "adapter": "R4",
+    "adapter_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7",
+    "dense_base_updates": 0
+  },
+  "corpus": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-intermediate-recovery-joint-sft-v2",
+    "rows": 8,
+    "e0c2_child_rows": 4,
+    "e0d2x_orchestrator_rows": 4,
+    "train_parquet_sha256": "8123305a5e9e172c0fb0912fc6327a45fcdb14d6f67fb5257df7768167079836",
+    "pretraining_baseline_sha256": "ff47f2fd2721ab49f8ee73083d6e399caee72334b75c0dd769c09699dfdfc423",
+    "manifest_sha256": "9a345db11fc8ffcaf7f7b8ee629c72c3e51cc0b75cab2526a07aa05c6e345ef9"
+  },
+  "update": {
+    "name": "intermediate-recovery-joint-lora-r5",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "assistant_only_loss": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "config": "experiments/qwen35-2b-self-bootstrap-v1/interaction-intermediate-recovery-joint-sft-lora-r5.toml",
+    "config_sha256": "66c9ad23435fa69977c1849512be5c7f18f89466855727dbf33d73b40c3f7ebb"
+  },
+  "post_update_requirement": "Freeze R5 and evaluate it on fresh progressively stricter task keys before any additional optimizer decision."
+}

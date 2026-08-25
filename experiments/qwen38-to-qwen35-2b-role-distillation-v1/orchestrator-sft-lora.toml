@@ -1,0 +1,91 @@
+max_steps = 1
+output_dir = "/home/ubuntu/rlm/outputs/q38-to-q35-2b-role-distillation-v1"
+clean = false
+
+[run]
+name = "q38-to-q35-2b-orchestrator-lora-r1"
+dir = "q38-to-q35-2b-orchestrator-lora-r1"
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+num_gpus = 2
+
+[model]
+name = "__STUDENT_SNAPSHOT__"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.compile]
+fullgraph = false
+
+[model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[model.lora]
+rank = 16
+alpha = 32.0
+dropout = 0.0
+target_modules = [
+  "q_proj",
+  "k_proj",
+  "v_proj",
+  "o_proj",
+  "gate_proj",
+  "up_proj",
+  "down_proj",
+]
+
+[tokenizer]
+name = "__STUDENT_SNAPSHOT__"
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[data]
+type = "sft"
+name = "__ROLE_DATASET__"
+batch_size = 32
+micro_batch_size = 1
+seq_len = 16384
+shuffle = false
+seed = 20260819
+
+[data.loss_mask]
+system = false
+user = false
+assistant = true
+tool = false
+
+[optim]
+type = "adamw"
+lr = 1e-5
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[scheduler]
+type = "constant"
+
+[ckpt]
+interval = 1
+keep_last = 1
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+save_adapter_separately = true
+
+[file_monitor]
+filename = "metrics.jsonl"

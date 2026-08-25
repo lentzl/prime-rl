@@ -1,0 +1,45 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-paired-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T16:35:06Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "base_model_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "adapter": "R4",
+    "adapter_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7"
+  },
+  "arms": {
+    "e0c2_natural_child_no_template": {
+      "task_indices": [4005000, 4005001, 4005002, 4005003, 4005004, 4005005],
+      "episodes": 6,
+      "hard_successes": 5,
+      "qualifying_trajectories": 3,
+      "distinct_qualifying_task_keys": 3,
+      "gate_open": false,
+      "bootstrap_sha256": "c5d9ba1ef073cc896b07bb20c6b7b754bb5488433f89466bbbce812cb42d782a",
+      "traces_sha256": "bca2e94f1215d58f1dd155f29ce41c1ed7eebe1281fdfb45196bf19ef48f0099",
+      "summary_sha256": "a4c9ccf5087deb703165018fa612fd57fcbc770e880f7efdfa3718917d51d75c",
+      "versions_sha256": "d4c9854294ece9d7fc8054f3a479e697a4229104ef545265eb258e5f5f6bba2d",
+      "diagnosis": "Three hard-success traces contained exactly one valid unconstrained child send and qualified. Two additional hard successes first sampled malformed send syntax and then repaired it in a second IPython call, so the fail-closed single-action audit rejected them."
+    },
+    "e0d2_capped_yield": {
+      "task_indices": [4005100, 4005101, 4005102, 4005103, 4005104, 4005105],
+      "episodes": 6,
+      "hard_successes": 1,
+      "qualifying_trajectories": 1,
+      "distinct_qualifying_task_keys": 1,
+      "gate_open": false,
+      "bootstrap_sha256": "07d7402c6672682568fa11769f5f664b35a987e8e0a3b94fbcb5546eda648715",
+      "traces_sha256": "6642d4821dadca442d5a378a9983f2a1228398f104b932165c7c7ce83ce60f28",
+      "summary_sha256": "ffb1e30a0870385a4c003b13e3eda0fdf738f422188ca08120f07d62bd272e87",
+      "versions_sha256": "7e49451dc8eec3b3e5c28263599165b54a5d09326c74c9882f7b9068ac6d1dd6",
+      "diagnosis": "Five of six coordinators produced a native no-tool passive response under the prompt-free decode cap. Four otherwise complete trajectories failed because the value-agnostic child-send constraint sampled the wrong evidence value; one coordinator emitted malformed tool syntax. The arm therefore did not isolate yield capability strongly enough."
+    }
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_training_source": 4,
+    "acceptance_floor_relaxed": false,
+    "new_gradient_authorized": false
+  },
+  "next_action": "Keep R4 frozen. Preregister a six-task E0c2 extension bank and aggregate all qualifying traces without changing the predicate. In parallel, repeat the prompt-free capped-yield rung with an exact correct child-send leak so that yield capability is measured independently of child value extraction."
+}

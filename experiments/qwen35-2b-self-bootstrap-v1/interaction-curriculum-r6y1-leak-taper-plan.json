@@ -1,0 +1,61 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "executed_complete_not_admitted",
+  "recorded_at_utc": "2026-08-21T18:21:01Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y1",
+    "adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/supported-child-uncapped-yield-lora-r6y1/weights/step_1/lora_adapters",
+    "adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+    "base_model": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "spade_alignment": "Tighten one leak per isolated frontier after the capability-growing update. Child evidence keeps only the positive inline-location cue; yield remains uncapped and prompt-free while the exact child answer becomes a value-agnostic send constraint.",
+  "arms": [
+    {
+      "phase": "e0c275_inline_location",
+      "retained_leak": "The child is told only that private evidence is supplied inline in its system message.",
+      "removed_supports_relative_to_training_source": [
+        "no statement that the evidence is not a filesystem path",
+        "no path prohibition",
+        "no exact or templated answer"
+      ],
+      "start_index": 4006500,
+      "task_indices": [4006500, 4006501, 4006502, 4006503, 4006504, 4006505],
+      "run_label": "interaction-curriculum-e0c275-r6y1-natural-n1a-4006500-n6",
+      "bootstrap_sha256": "7f0d8df8cb4403e7703b286e876e5a0ccbc2244be4a8a42fc4e7fa07ce163a1c"
+    },
+    {
+      "phase": "e0d3_uncapped_yield",
+      "retained_leak": "The child send is constrained only to a value-agnostic numeric send shape; the coordinator receives no yield prompt, tools, decode cap, temperature override, reasoning override, or exact waiting response.",
+      "removed_supports_relative_to_training_source": [
+        "no exact child result in the constrained action",
+        "no exact child-result enum"
+      ],
+      "start_index": 4006600,
+      "task_indices": [4006600, 4006601, 4006602, 4006603, 4006604, 4006605],
+      "run_label": "interaction-curriculum-e0d3-r6y1-natural-n1a-4006600-n6",
+      "bootstrap_sha256": "6e875009d2870c4efff7b7a64f72e33c64addb09f0a14f78828f2077605e8cd0"
+    }
+  ],
+  "shared_sampling": {
+    "split": "train_gen",
+    "axis": "natural_n1a",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks_per_arm": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6,
+    "bootstrap_level": "action_scaffold"
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_arm": 4,
+    "minimum_distinct_task_keys_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_must_pass_before_any_gradient": true,
+    "failed_trajectory_rows_trainable": false
+  }
+}

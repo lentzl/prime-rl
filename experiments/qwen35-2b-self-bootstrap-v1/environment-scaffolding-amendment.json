@@ -1,0 +1,68 @@
+{
+  "schema_version": "qwen35-2b-environment-scaffolding-amendment/v1",
+  "status": "owner_authorized_before_new_inference",
+  "created_at_utc": "2026-08-21T08:43:04Z",
+  "owner_direction": "Allow the Environment Designer or training environment to expose solution structure early so the 2B policy can acquire the capability, then tighten the environment as capability grows.",
+  "paper_basis": {
+    "paper": "SPADE: Self-Play in Adaptive Synthetic Executable Environments",
+    "arxiv_id": "2608.19197v1",
+    "section_4_2": "Privileged hints expose a strategy, partial solution, or key observation, while the ordinary hint writer is instructed not to reveal the exact answer.",
+    "appendix_c_1": "Single-turn environments reveal the exact solution when the turn limit is reached so the model learns from failure.",
+    "appendix_g_1_2": "The observed curriculum moves from an early, strongly guided environment toward state-gated interaction and finer reward grading later in training.",
+    "interpretation": "Leakage is a curriculum mechanism at the environment and feedback level, not a reason to contaminate held-out evaluation or relabel an exact-answer replay as an ordinary nonleaking SPADE hint."
+  },
+  "relationship_to_frozen_records": {
+    "initial_preregistration_sha256": "20bd582985b871dce897c7fa48efdbc38854067b30e09804571d0a807b34546c",
+    "paper_alignment_addendum_sha256": "ca634b4f492e9ac1faa0acec7734ef410fba57113dd6153bb87b4522b7a833ba",
+    "failed_nonleaking_pilot_sha256": "c7174a5c89ee40d8a99029d13eee4b382fc5020c0f23eb6644016d69fe425260",
+    "frozen_records_edited": false,
+    "prospective_change": "The prior no-oracle-in-context prohibition no longer applies to explicitly labeled, train-gen-only early curriculum scaffolds. It remains binding for held-out evaluation and ordinary hint-regret measurement."
+  },
+  "curriculum": [
+    {
+      "phase": "E0_solution_replay",
+      "entry": "A task has already failed under weaker help.",
+      "environment_help": "Exact executable action sequence plus terminal values and successful final response.",
+      "paper_analogue": "Solution reveal after truncation.",
+      "scientific_label": "training-only solution replay; not ordinary hint regret"
+    },
+    {
+      "phase": "E1_action_scaffold",
+      "entry": "The policy can bind a prior successful replay.",
+      "environment_help": "Exact executable next actions, ownership, yield point, and response contract; private result and final response withheld.",
+      "paper_analogue": "Strongly guided early environment with informative next steps."
+    },
+    {
+      "phase": "E2_partial_scaffold",
+      "entry": "The policy hard-passes E1 on distinct tasks.",
+      "environment_help": "Action structure and ordering remain, but executable code and local parsers are omitted."
+    },
+    {
+      "phase": "E3_privileged_hint",
+      "entry": "The policy hard-passes E2 on distinct tasks.",
+      "environment_help": "Natural strategy or partial-solution hint without exact answer values."
+    },
+    {
+      "phase": "E4_unhinted",
+      "entry": "The policy internalizes the hinted behavior.",
+      "environment_help": "No privileged context; this is the deployment and held-out target."
+    }
+  ],
+  "admission_and_training_gates": {
+    "first_action": "Run inference-only E0 on the already failed natural_n1a_local task, then test E1 on fresh train-gen tasks.",
+    "minimum_complete_qualifying_trajectories_before_any_gradient": 4,
+    "minimum_distinct_qualifying_async_task_keys_before_any_gradient": 4,
+    "qualifying_trajectory": "complete, error-free, exact-cardinality, hard-successful, and lineage-valid",
+    "acceptance_floor_relaxed": false,
+    "gradient_updates_authorized_by_this_amendment": 0
+  },
+  "hard_boundaries": [
+    "bootstrap_context_is_train_gen_only",
+    "heldout_valid_gen_and_ood_gen_never_receive_bootstrap_context",
+    "ordinary_hint_regret_never_uses_solution_replay",
+    "all_reports_name_the_active_help_level",
+    "no_gradient_before_four_distinct_complete_qualifying_async_trajectories",
+    "no_dense_base_weight_mutation",
+    "no_q38_or_r7_weight_mutation"
+  ]
+}

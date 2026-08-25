@@ -1,0 +1,39 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_admitted_in_aggregate",
+  "completed_at_utc": "2026-08-21T18:09:48Z",
+  "phase": "e0c25_inline_evidence",
+  "frozen_adapter": {
+    "adapter": "R6",
+    "adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297"
+  },
+  "optimizer_updates_during_evaluation": 0,
+  "extension": {
+    "episodes": 6,
+    "hard_successes": 4,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "gate_open_standalone": false,
+    "traces_sha256": "6ab3fcf4fa34621b6b28bf2811ad16f7e1dd8736100429a57abc9342934621e0",
+    "summary_sha256": "3036a96286add41e9440a1cc71a0c60c420bcc27208785bc6a675166dde3582c",
+    "versions_sha256": "66458ed9c21b3787107d744d16f54e9b745f4e96835e50781cae497fb9025fba"
+  },
+  "aggregate": {
+    "source_task_banks": [4006300, 4006400],
+    "episodes": 12,
+    "qualifying_trajectories": 4,
+    "distinct_qualifying_task_keys": 4,
+    "gate_open": true,
+    "summary_sha256": "bbc7f028c76d4e224b769d27005a8f8875e202f61efe64bf195fc43b49169034"
+  },
+  "complementary_e0d3_aggregate": {
+    "episodes": 12,
+    "qualifying_trajectories": 5,
+    "distinct_qualifying_task_keys": 5,
+    "gate_open": true,
+    "summary_sha256": "02ffb719e7ef008997168a4f453bb8749ee4897b751541f098badfb636c0c820"
+  },
+  "both_sources_admitted": true,
+  "acceptance_floor_relaxed": false,
+  "next_action": "Build and hash-lock four admitted E0c25 child rows plus four admitted E0d3 orchestrator rows. Preregister exactly one 2B LoRA step from R6 before launching it."
+}

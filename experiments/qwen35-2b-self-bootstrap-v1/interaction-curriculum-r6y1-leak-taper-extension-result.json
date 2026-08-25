@@ -1,0 +1,43 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "executed_complete_split_admission",
+  "completed_at_utc": "2026-08-21T18:52:15Z",
+  "plan": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-leak-taper-extension-plan.json",
+  "optimizer_updates_during_evaluation": 0,
+  "e0c275_extension": {
+    "episodes": 6,
+    "hard_successes": 3,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "traces_sha256": "e5a1b93c2bff4421250cf2f1fa50d20b81e197b318b8ff666b2ae678519b2a5c",
+    "summary_sha256": "06bd32ff4cda58f758642d3943c95605f991b44df299315cd8e58b6110f617e4",
+    "versions_sha256": "704839f4e3a3080315311e54e8006db5f12ab56b82d4420e8f6e39453bdf59b1"
+  },
+  "e0c275_aggregate": {
+    "episodes": 12,
+    "qualifying_trajectories": 4,
+    "distinct_qualifying_task_keys": 4,
+    "gate_open": true,
+    "summary_sha256": "d148c63fef08bb4e368d529a96fe59482c28ca4e1906dfd11f41845a7c8f1810"
+  },
+  "e0d3_extension": {
+    "episodes": 6,
+    "hard_successes": 2,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "provider_error_failures": 4,
+    "traces_sha256": "a51faabd513af6f82cd285619158a6719c499009109fe9260922eea4a56bb3a9",
+    "summary_sha256": "62c428fb49bdf14746edacc0e18d8e2c4051eb59003f084fd52c0add0da5e9a6",
+    "versions_sha256": "17a459349b941b20910f9cbad13913e0fc1df3f6182e7f3384244c76d4e2f795"
+  },
+  "e0d3_aggregate": {
+    "episodes": 12,
+    "qualifying_trajectories": 3,
+    "distinct_qualifying_task_keys": 3,
+    "gate_open": false,
+    "summary_sha256": "ad0c00b8639cedc1dd4e7ae91532a0b0e158736c5d4cec9059985255d623da86"
+  },
+  "both_sources_admitted": false,
+  "acceptance_floor_relaxed": false,
+  "additional_optimizer_steps_authorized": 0
+}

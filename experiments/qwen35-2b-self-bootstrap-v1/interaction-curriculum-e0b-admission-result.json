@@ -1,0 +1,55 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_admitted",
+  "completed_at_utc": "2026-08-21T14:56:46Z",
+  "phase": "e0b_select_child_value",
+  "adapter": {
+    "source_update": "e0-joint-lora-r1",
+    "adapter_model_sha256": "0c1aa3029774a2ab92a164d21e6aa86a0c5ad057af2f7f0ee20a07b075fea22e",
+    "frozen_during_evaluation": true
+  },
+  "model_mutated": false,
+  "optimizer_updates_during_evaluation": 0,
+  "bank": {
+    "primary_start_index": 4004300,
+    "primary_tasks": 4,
+    "distinct_extension_start_index": 4004304,
+    "extension_tasks": 1,
+    "total_attempted_tasks": 5,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "primary_bootstrap_sha256": "64a6b9379e23d4447eaa292b82ad8f6b0240073674de5712595cb6bf2cdaaa4e",
+    "extension_bootstrap_sha256": "b42a2e9fb5c598428bae4ec8e3f8bd2ea50f8b72e7f904294e70493bc3c90e13",
+    "final_answers_in_bootstrap": 0
+  },
+  "result": {
+    "complete_episodes": 5,
+    "errors": 0,
+    "hard_successes": 4,
+    "hard_failures": 1,
+    "qualifying_trajectories": 4,
+    "distinct_qualifying_task_keys": 4,
+    "next_gradient_gate_open": true,
+    "acceptance_floor_relaxed": false
+  },
+  "selection_audit": {
+    "qualifying_task_indices": [4004300, 4004301, 4004303, 4004304],
+    "qualifying_expected_and_selected_values": [[7, 7], [4, 4], [90, 90], [3, 3]],
+    "failed_task_index": 4004302,
+    "failed_expected_value": 146,
+    "failed_selected_value": 346,
+    "pattern_encoded_oracle_value": false,
+    "all_trajectories_completed_interaction_contract": true,
+    "conclusion": "The E0 adapter can select the correct inline evidence value under a value-agnostic action grammar on four distinct tasks. The 4/5 result is scaffolded frontier evidence, not unconstrained child capability."
+  },
+  "artifact_integrity": {
+    "primary_traces_sha256": "f25cd55ed17e148d939923c8c6a23b5d7daf2b39477b5b857a484a2eac0e3865",
+    "extension_traces_sha256": "c98853982ccca517ab7bd5bfc9677630eb30be2893fccf8b21e145af47d397e2",
+    "aggregate_summary_sha256": "3bc48533bb8fac3e1ba6f388229f22da13911d51c6f37fb4a8c1a918803253fd",
+    "primary_versions_sha256": "1460a8c8812abd5f9e2ebee48838d94b54e0d9e3e75ed3cd41f3675ff08090ee",
+    "extension_versions_sha256": "e0621901317d21fbbadbc143f1224d533f167c7e7a9031c31629fa5143c3482a",
+    "local_primary_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0b-select-child-value-natural-n1a-4004300-n4/run-1-admission",
+    "local_extension_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0b-select-child-value-natural-n1a-4004304-n1/run-1-extension"
+  },
+  "next_action": "Export only the four qualifying E0b trajectories, initialize from the frozen E0 adapter, perform one additional adapter-only acquisition update, then reevaluate the stricter E1 boundary on fresh task keys."
+}

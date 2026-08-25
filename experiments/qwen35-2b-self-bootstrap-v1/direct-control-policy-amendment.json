@@ -1,0 +1,33 @@
+{
+  "schema_version": "qwen35-2b-self-bootstrap-direct-control-policy/v1",
+  "status": "prospective_before_full_rung0_matrix",
+  "created_at_utc": "2026-08-21T08:20:00Z",
+  "owner_policy_source": "GitHub issue 1 comments 5347752617, 5347770180, and 5347780966; accepted by strategist in 5347811164",
+  "reason": "The causal-v2 natural direct-control contract incorrectly treated every coordinator-local IPython action as forbidden externalization.",
+  "scope": {
+    "changed_axis": "natural_direct_control",
+    "completed_async_probe_affected": false,
+    "task_keys_and_payloads_changed": false,
+    "full_rung0_matrix_started": false
+  },
+  "aligned_hard_contract": {
+    "requires": [
+      "exact final answer"
+    ],
+    "forbids": [
+      "child delegation",
+      "polling",
+      "child discovery"
+    ],
+    "allows": [
+      "clean in-context arithmetic",
+      "clean coordinator-local IPython arithmetic"
+    ]
+  },
+  "acceptance_gate": {
+    "minimum_distinct_positive_regret_task_keys": 4,
+    "minimum_distinct_positive_regret_async_task_keys": 4,
+    "relaxed": false
+  },
+  "generator_version": "2026-08-21.causal-v3"
+}

@@ -34,11 +34,87 @@ Default cadence: **1 hour** (researcher can override). At each check-in:
 **Notes**: anything unusual (errors, restarts, hangs). Omit if nothing notable.
 ```
 
+### Validation on a live host
+
+Do not run repository pytest commands on a host with a live inference, training,
+or evaluation process until you have audited every discovered `conftest.py`.
+Prime-RL's root test fixture runs `pkill -f VLLM` during module setup to clean CI
+zombies, which also terminates legitimate live vLLM services. Run focused tests
+off-host, wait for the GPU lane to drain, or use a test invocation whose fixture
+discovery is demonstrably isolated from the repository root. Checking only the
+selected test body is insufficient because pytest loads `conftest.py` first.
+
+For admission-gated autonomous evaluations, distinguish behavioral failures from
+provider failures before advancing the curriculum. Inspect nested trace calls,
+not only the aggregate summary; a harness rescorer can report zero qualifiers
+without surfacing the underlying provider exception:
+
+```bash
+jq -s 'map(.traces[]?.calls[]?.error?.type // empty) | group_by(.) |
+  map({type: .[0], count: length})' traces.jsonl
+```
+
+Any bank containing a `ProviderError` is invalid evidence. Preserve its artifacts,
+append the controller's invalidation event, and retry the same phase on fresh keys.
+Do not use it to trigger an easier curriculum rung, candidate rollback, or an
+optimizer update.
+
+Track the evaluator process's RSS as well as GPU health. A dead agent/container
+stream can make the evaluator busy-loop and retain tens of gigabytes even after
+the behavioral gate is closed. For the dual-dense harness, set
+`QWEN38_QUALIFICATION_EVAL_MAX_ADDRESS_SPACE_BYTES` (32 GiB on a 94 GiB host).
+If an evaluation terminates early, a partial bank may trigger an easier rung or
+rejection only when its complete, error-free trajectories mathematically close
+the four-qualifier gate. It must never be admitted as a training source.
+Snapshot the partial traces and routing audit to immutable files before hashing
+the abort event. A late evaluator child can append to its original output after
+the wrapper returns, invalidating an otherwise correct event-path hash. After
+the runner stops, verify that no task containers from the aborted bank remain;
+remove only containers whose exact IDs, creation times, and runtime labels match
+that bank.
+
 In W&B, each project auto-gets an **"overview" saved view** (train / eval / stability / performance sections) on its first run — use it for a quick check instead of the auto-generated default workspace.
 
 ### Restarting a run
 
 **Never restart unless the researcher explicitly asked.** Confirm the exact restart command and the conditions that warrant one.
+
+For detached launches (`nohup`, service managers, or non-interactive SSH), resolve
+`uv` before launch and pass its absolute path. Also prepend the repository
+`.venv/bin` when a wrapper starts `vllm-router` or another virtualenv console
+script. Detached shells may not load the interactive `PATH`, so a command that
+works in a login shell can fail before the run begins. After launch, verify the
+real runner process and its first durable journal/log event; a background-shell
+PID alone does not prove startup.
+
+Before launching a procedural curriculum, validate that its task selector is
+reachable. The `families` filter applies only to families emitted directly by
+the base generator; named curricula such as `natural_n1a` must be selected with
+`curriculum_rung`. Filtering `families` to a non-emitted rung makes the taskset
+materializer's `while len(tasks) < count` loop spin at 100% CPU while the run is
+stuck at `Loading training environments`. Treat this as a pre-rollout config
+failure: preserve the partial run, stop it cleanly, fix and audit the selector,
+and relaunch under a fresh immutable run label.
+
+When a privileged bootstrap or hint artifact is attached, its split, curriculum
+rung, start index, count, master seed, and private-payload mode must match the
+live taskset generator exactly. Schema validation is insufficient because task
+keys include generator coordinates. Materialize the complete configured bank
+with the artifact in a CPU-only preflight before starting trainer or inference;
+an identity mismatch must fail before GPU allocation and optimizer activity.
+
+For role-scoped GRPO with one inference model, stabilize the role that is not
+receiving gradient. A coordinator/root update must use the exact-child phase so
+weak child behavior cannot flatten every group before root credit is measured.
+A child/non-root update uses an exact root spawn with natural child evidence
+handling. Confirm the trace contains the anchored role event and reward variance
+within one task group before accepting the optimizer receipt. This is temporary
+training-time leakage; promotion remains a separate unassisted evaluation gate.
+Prime Agent children may execute in external sessions that are absent from the
+parent verifier trace, so a parent-side exact-child request interceptor alone is
+not sufficient evidence of anchoring. Carry a value-free `replace VALUE` send
+template in the spawned child prompt as the cross-session fallback; never expose
+the oracle integer in coordinator-visible prompt tokens.
 
 **Never** run kill or launch commands from your own shell. Dispatch them to the tmux **Launcher** window so the researcher sees what was executed:
 
@@ -189,3 +265,166 @@ PRIME-RL::Launcher
 ```
 
 For multi-node runs, trainer and inference processes are on separate nodes — use `srun` or `ssh` to inspect them.
+
+### Dual-dense SPADE coevolution loop
+
+For `run_q35_2b_spade_dual_dense_autonomous_v1.py --coevolution`, treat a
+generated batch as complete only when all of these exist and agree:
+
+- `generation/GENERATION.json`, `NO_HINT_BOOTSTRAP.json`, and
+  `HINT_BOOTSTRAP.json`;
+- both six-episode result trees and routing audits;
+- `PAIRED_EVALUATIONS_COMPLETE`, the two interaction summaries, and
+  `SCORE.json`;
+- the corresponding hash-chained rows in `coevolution-memory.jsonl`.
+
+Check that the generation records the current coordinator weight hash, exposes
+no oracle/private values, and assigns the same fresh task keys to both arms.
+The first batch after a checkpoint has no eligible Designer update by design.
+Only a positive-reward batch generated by an older coordinator hash may appear
+as a delayed rewarded Designer row. A better-arm interaction source contains
+complete qualifying rows. Ordinary evaluation failures may additionally
+produce `positive-prefix-source` rows, but only when their sampled tool actions
+hash-match the verifier event audit, cardinality is exact, and no forbidden
+atom fired. Confirm that the replay reports these separately as
+`new_partial_rows`; the incorrect suffix of a failed trajectory must never
+appear in the exported messages. Preserve the four-qualifier champion
+threshold even when the aggressive exploratory frontier advances from one
+complete trajectory or one validated positive prefix.
+
+If every Designer proposal fails schema or safety validation, the expected
+durable outcome is `generation/REJECTIONS.json` plus `DESIGNER_REJECTED`. The
+controller must record `coevolution_batch_repaired`, export one or two
+`scaffolded_schema_and_safety_repair` rows for the coordinator, skip the paired
+arms, and continue role training. This is not an infrastructure failure.
+
+Replay rows use raw curriculum phases or a three-part wrapped phase. Rewarded
+Designer rows use `spade:<track>:<phase>` and scaffolded repair rows use
+`spade-repair:<track>:<phase>`. Before restarting after a replay-build failure,
+run the exact failed combine command against a fresh temporary output directory
+and confirm both namespaces rank against the embedded track. Preserve the
+failed output directory for diagnosis; the autonomous runner will refuse to
+overwrite it.
+
+For multi-day rentals, run `watch_q35_2b_spade_dual_dense_v1.sh` in a separate
+tmux window. It may restart only when the runner is absent, the explicit stop
+file is absent, and no GPU compute process remains. Keep its default fuse of
+three restarts at the same hash of the durable controller head; an open fuse is
+a deterministic blocker requiring diagnosis, not permission to delete partial
+artifacts or replay evaluations. The watcher must exclude its own PID when
+matching the runner pattern because its argv contains the full restart command,
+which ordinarily repeats that same pattern.
+
+When two independent vLLM role engines share one GPU, do not rely only on
+`gpu_memory_utilization` values whose sum appears to fit. Each process profiles
+the device independently, so the second engine can report no available cache
+blocks after the first has reserved its cache. Set an explicit
+`kv_cache_memory_bytes` cap for both engines, verify that the cap supports the
+configured concurrency and context length, then confirm both health endpoints
+and actual aggregate GPU memory before allowing rollouts. An engine startup
+failure before rollout generation is a zero-update infrastructure attempt; stop
+the waiting trainer and preserve the unique run label rather than reusing it.
+For renderer-mode training, the role proxy must also forward the root-mounted
+`/inference/v1/generate` endpoint; forwarding only `/v1/chat/completions`
+produces an all-404 rollout group. Because generate requests contain token ids
+rather than messages, classify the role with a tokenizer-derived subsequence
+for the private-evidence marker, rewrite the logical model to the selected
+upstream model, and include the endpoint, role, model, payload hash, and status
+in the routing audit.
+
+If a batch fails for any other reason before either `DESIGNER_REJECTED` or
+`PAIRED_EVALUATIONS_COMPLETE`, leave the controller event head unchanged, stop
+GPU services, and archive the partial batch with a reason suffix before
+retrying. Never silently reuse or overwrite a partial generation or one arm of
+a pair.
+
+### Autonomous role-GRPO loop
+
+For `run_q35_2b_role_grpo_autonomous_v1.py`, the durable authority is the
+controller state directory, especially its append-only `events.jsonl`. Verify
+the SHA-256 link from every row to its predecessor before trusting the
+frontier. The controller lock must have exactly one owner, and the explicit
+`STOP` file must be absent while work is expected to continue.
+
+Each training or evaluation launch has a fresh sequence-derived label and a
+fresh, non-overlapping deterministic task bank. Never reuse a label after a
+failed, interrupted, or partially completed action. On restart, reconcile a
+recorded `train_started` event only from its attempt and success receipts, and
+reconcile `eval_started` only from the complete result envelope and routing
+audit. If those artifacts do not prove completion, record the interrupted
+action as failed and advance to a new label; do not replay it under the old
+identity.
+
+Treat the two-GPU role-GRPO host as single-tenant while an action is live.
+Do not run repository tests, validation launchers, or even a nominal `--dry-run`
+beside the live stack; repeated validation commands have coincided with external
+`SIGTERM` delivery to the trainer. Make read-only log/process checks only, and
+run operational validation in a controller maintenance gap or on another host.
+
+Role-GRPO is full-dense and strictly role-scoped. A coordinator update samples
+only root tokens while the child checkpoint is a frozen anchor; a child update
+samples only non-root tokens while the coordinator checkpoint is frozen. The
+role filter masks wholly unscoped auxiliary graph roots such as Prime Agent's
+`/refine` calls from both policies. Missing or conflicting lineage inside an
+actual coordinator or child client-session graph still fails closed.
+The early coordinator curriculum preserves the harness's first named IPython action
+and disables thinking. Because the 2B model cannot yet copy that action reliably,
+the proxy supplies one synthetic exact retained-spawn completion per coordinator
+session; receipts label this `first_action_sampling=synthetic_exact_spawn` rather
+than presenting it as a strict policy-distribution sample. Later coordinator turns
+are naturally sampled. Child
+GRPO keeps thinking enabled and strips the broken named tool-choice constraint;
+the frozen counterpart retains its curriculum mediation. A completion-only notice about a child action is not child
+evidence. Child action shaping must come from an
+observable, parseable non-root IPython action and awaited
+`agent_message.send(..., receiver_role='parent')`; forbidden behavior must
+still receive zero reward.
+
+Zero-advantage filtering is mandatory. An all-equal group may cause the
+orchestrator to sample another group, so `0/8` followed by a fresh set of eight
+in-flight rollouts is not by itself a stall. The controller's bounded training
+deadline is the terminal guard: after it expires, terminate the whole process
+group, preserve the unique attempt receipt and logs, record a failed/no-update
+event, and alternate to the other role. Keep the complete eight-rollout GRPO
+group logically in flight, but serialize complete coordinator episodes at the
+EnvServer boundary. Two simultaneous coordinator episodes have driven a 94-GiB
+host into global OOM with the EnvServer at roughly 89 GiB RSS. Child updates may
+use two-episode waves when observed memory remains bounded. Allow up to three
+hours for a serialized coordinator update so a zero-advantage group can be
+replaced without terminating valid work.
+
+Serialization does not contain an individual scorer allocation loop. Invalid
+sampled Python such as `from agent_message import agent_message` can create a
+self-prefixed static alias. Alias resolution must detect cycles by the repeatedly
+resolved head, not by the ever-growing full dotted name; otherwise task scoring
+can concatenate the alias until the EnvServer or evaluator reaches its memory
+limit. This is a scorer robustness failure, not evidence against ordinary IPython
+computation. Keep ACP output caps and non-interactive pagers as independent
+defenses. During a coordinator soak, sample EnvServer RSS and host available
+memory as well as container count; if RSS grows continuously toward the host
+limit, place the controller STOP sentinel and terminate the exact EnvServer
+worker before global OOM, then record the action as failed with no update.
+
+Advance a role's exploratory training frontier after every validated optimizer
+update, even if held-out admission fails. Advance its promoted frontier only
+after at least four distinct complete qualifying held-out trajectories. The
+evaluation envelope must contain the expected episode count, zero errors,
+distinct task keys, hard success, successful coordinator and child routes, and
+the exact hashes of both evaluated checkpoints. Never weaken the four-trajectory
+promotion floor.
+
+For disk pressure, prune only completed `grpo-auto-*` checkpoint directories
+that are explicitly absent from the initial, current, and promoted frontiers.
+Record every deletion in the hash-chained event log and retain enough recent
+unpromoted history for diagnosis. Never delete an in-flight output, receipt,
+evaluation result, routing audit, or controller state artifact.
+
+Prime Agent Docker runtimes may survive after their owning training or
+evaluation command exits and can consume tens of GiB in writable layers. The
+controller snapshots running container IDs before each action and may force-remove
+only newly created containers whose image is either the purpose-built
+`rlm-prime-agent-runtime:*` image or the configured `python:3.11-slim` runtime
+after that exact action has terminated. Every removal
+must be recorded as `runtime_containers_pruned` in the hash-chained event log.
+Never infer cleanup scope from age alone and never remove a pre-existing or
+in-flight container.

@@ -1,0 +1,40 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_admitted",
+  "completed_at_utc": "2026-08-21T14:13:51Z",
+  "phase": "e0_full_actions",
+  "model_mutated": false,
+  "optimizer_updates": 0,
+  "bank": {
+    "start_index": 4004100,
+    "tasks": 4,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "3c7c5329ac0961cf949c3d3fb8c9ec300a84a6d0f1b8dd6c4704358acbd80d4d"
+  },
+  "result": {
+    "complete_episodes": 4,
+    "errors": 0,
+    "hard_successes": 4,
+    "qualifying_trajectories": 4,
+    "distinct_qualifying_task_keys": 4,
+    "gradient_gate_open": true,
+    "acceptance_floor_relaxed": false
+  },
+  "environment_audit": {
+    "root_exact_action_events": 4,
+    "child_exact_action_events": 4,
+    "child_stop_events": 4,
+    "passive_yield_events": 4,
+    "structured_choice_yield_events": 4,
+    "structured_choice_completion_tokens_each": 7,
+    "all_hard_metrics_at_one": true,
+    "conclusion": "The maximally leaky E0 environment produced four distinct complete hard-success trajectories. This opens the preregistered adapter-only gradient gate but is not evidence of unhinted capability."
+  },
+  "artifact_integrity": {
+    "traces_sha256": "959a6f5def76ff667aa4fbbf9fdd687bf5cfa7e875f838a66f05b0078528fc6e",
+    "interaction_summary_sha256": "6ba407766ec86e80dec3caa1af840c32b8c96b3380d4761d24f8f25aa0b9b2ab",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0-full-actions-natural-n1a-4004100-n4/run-7-admission"
+  },
+  "next_action": "Build and hash-lock a joint root-and-child SFT corpus, validate the immutable pretraining baseline and one-step LoRA configuration, then execute the adapter-only acquisition update."
+}

@@ -32,11 +32,15 @@ class SFTDistillAlgorithm(Algorithm):
             self.filter_fn = partial(import_object(config.filter.import_path), **config.filter.kwargs)
 
     async def score_rollout(self, rollout: Rollout) -> None:
-        if self.sampled_session_scope == "root":
-            retain_root_session_samples(rollout, drop_empty=False)
+        if self.sampled_session_scope != "all":
+            retain_session_scope_samples(
+                rollout,
+                scope=self.sampled_session_scope,
+                drop_empty=False,
+            )
         if self.filter_fn is not None:
             retain_filtered_samples(rollout, self.filter_fn)
-        if self.sampled_session_scope == "root" or self.filter_fn is not None:
+        if self.sampled_session_scope != "all" or self.filter_fn is not None:
             rollout.samples = [sample for sample in rollout.samples if any(sample.mask)]
 
 
@@ -84,28 +88,35 @@ def retain_filtered_samples(
         ]
 
 
-def retain_root_session_samples(rollout: Rollout, *, drop_empty: bool = True) -> None:
-    """Keep sampled tokens from the primary trace root's client session.
+def retain_session_scope_samples(
+    rollout: Rollout,
+    *,
+    scope: str,
+    drop_empty: bool = True,
+) -> None:
+    """Keep sampled tokens inside or outside the primary client session.
 
     Agent harnesses may place coordinator and child calls in one trace. The
-    primary root is the first root node; every sampled node must have a model
-    call with explicit client lineage. Ambiguous or missing lineage raises
-    instead of silently training the wrong agent role.
+    primary root is the first root node. Model calls in client-session graphs
+    must have explicit, unambiguous lineage. Wholly unscoped auxiliary graphs
+    (for example, harness refinement) are excluded from both role scopes.
     """
+    if scope not in {"root", "non_root"}:
+        raise ValueError(f"session-scoped training does not support scope {scope!r}")
     if not rollout.nodes:
-        raise ValueError("root-session SFT requires a non-empty trace graph")
+        raise ValueError("session-scoped training requires a non-empty trace graph")
     root_index = next(
         (index for index, node in enumerate(rollout.nodes) if node.parent is None),
         None,
     )
     if root_index is None:
-        raise ValueError("root-session SFT requires a graph root")
+        raise ValueError("session-scoped training requires a graph root")
 
     def graph_root(node_index: int) -> int:
         seen: set[int] = set()
         while True:
             if node_index in seen:
-                raise ValueError("root-session SFT found a cycle in the trace graph")
+                raise ValueError("session-scoped training found a cycle in the trace graph")
             seen.add(node_index)
             parent = rollout.nodes[node_index].parent
             if parent is None:
@@ -120,16 +131,25 @@ def retain_root_session_samples(rollout: Rollout, *, drop_empty: bool = True) ->
             raise ValueError(f"root-session SFT model call references invalid node {call.node}")
         lineage_by_node.setdefault(call.node, set()).add(call.client_session_id)
 
-    def session_for_node(node_index: int) -> str:
+    lineage_by_graph_root: dict[int, set[str | None]] = {}
+    for node_index, lineage in lineage_by_node.items():
+        lineage_by_graph_root.setdefault(graph_root(node_index), set()).update(lineage)
+
+    def session_for_node(node_index: int) -> str | None:
         lineage = lineage_by_node.get(node_index, set())
-        if len(lineage) != 1 or None in lineage:
-            raise ValueError(
-                "root-session SFT requires exactly one client session for every "
-                f"model-call node (node {node_index} has {len(lineage)} valid candidate(s))"
-            )
-        session_id = next(iter(lineage))
-        assert session_id is not None
-        return session_id
+        valid_lineage = {session_id for session_id in lineage if session_id is not None}
+        if len(lineage) == 1 and len(valid_lineage) == 1:
+            return next(iter(valid_lineage))
+        node_graph_root = graph_root(node_index)
+        if (
+            node_graph_root != root_index
+            and lineage_by_graph_root.get(node_graph_root) == {None}
+        ):
+            return None
+        raise ValueError(
+            "session-scoped training requires exactly one client session for every "
+            f"model-call node (node {node_index} has {len(valid_lineage)} valid candidate(s))"
+        )
 
     root_sessions = {
         session_for_node(node_index)
@@ -138,30 +158,39 @@ def retain_root_session_samples(rollout: Rollout, *, drop_empty: bool = True) ->
     }
     if len(root_sessions) != 1:
         raise ValueError(
-            "root-session SFT requires exactly one client session on the primary "
+            "session-scoped training requires exactly one client session on the primary "
             f"graph root, found {len(root_sessions)}"
         )
     root_session_id = next(iter(root_sessions))
+    assert root_session_id is not None
 
     node_indices = {id(node): index for index, node in enumerate(rollout.nodes)}
     trainable = list(iter_trainable_branches(rollout))
     if len(trainable) != len(rollout.samples):
         raise ValueError(
-            "root-session SFT branch/sample mismatch: "
+            "session-scoped training branch/sample mismatch: "
             f"{len(trainable)} branches, {len(rollout.samples)} samples"
         )
 
     for sample, (branch, branch_mask) in zip(rollout.samples, trainable):
         if list(sample.mask) != branch_mask:
-            raise ValueError("root-session SFT sample mask does not match its trace branch")
+            raise ValueError("session-scoped training sample mask does not match its trace branch")
         offset = 0
         for node in branch.nodes:
             span = len(node.token_ids)
             if node.sampled and any(branch_mask[offset : offset + span]):
                 node_index = node_indices[id(node)]
                 session_id = session_for_node(node_index)
-                if session_id != root_session_id:
+                selected = session_id is not None and session_id == root_session_id
+                if scope == "non_root":
+                    selected = session_id is not None and session_id != root_session_id
+                if not selected:
                     sample.mask[offset : offset + span] = [False] * span
             offset += span
     if drop_empty:
         rollout.samples = [sample for sample in rollout.samples if any(sample.mask)]
+
+
+def retain_root_session_samples(rollout: Rollout, *, drop_empty: bool = True) -> None:
+    """Backward-compatible wrapper retaining only primary-session tokens."""
+    retain_session_scope_samples(rollout, scope="root", drop_empty=drop_empty)

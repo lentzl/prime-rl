@@ -1,0 +1,57 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "complete_not_admitted",
+  "recorded_at_utc": "2026-08-21T20:02:45Z",
+  "completed_at_utc": "2026-08-21T20:17:49Z",
+  "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-supported-replenishment-result.json",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "rationale": "SPADE-style early capability growth: stricter child tapers produced zero qualifiers, so return to the proven e0c275 leak rather than weakening admission. Complete the independently demonstrated yield source with one fresh aggregate extension.",
+  "arms": [
+    {
+      "phase": "e0c275_inline_location",
+      "purpose": "Collect fresh successful child-naturalization trajectories with the explicit system-message evidence-location leak retained.",
+      "start_index": 4007600,
+      "task_indices": [4007600, 4007601, 4007602, 4007603, 4007604, 4007605],
+      "run_label": "interaction-curriculum-e0c275-r6y2-natural-n1a-4007600-n6",
+      "bootstrap_sha256": "8fa6673c221ab283119497c6575d914291a3d8dccc9ce648a14f0e188b979acc",
+      "minimum_complete_distinct_qualifiers": 4
+    },
+    {
+      "phase": "e0d3_uncapped_yield",
+      "purpose": "Second fresh extension of the identical frozen yield source.",
+      "start_index": 4007700,
+      "task_indices": [4007700, 4007701, 4007702, 4007703, 4007704, 4007705],
+      "run_label": "interaction-curriculum-e0d3-r6y2-natural-n1a-4007700-n6",
+      "bootstrap_sha256": "6a1ef8fb0b53907fccd10192e77685d873f2430143a67ac527b5ea277fea8d4f",
+      "aggregate_source_banks": [4007300, 4007500, 4007700],
+      "existing_complete_distinct_qualifiers": 3,
+      "additional_complete_distinct_qualifiers_required": 1,
+      "minimum_aggregate_complete_distinct_qualifiers": 4
+    }
+  ],
+  "shared_sampling": {
+    "split": "train_gen",
+    "axis": "natural_n1a",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks_per_arm": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6,
+    "bootstrap_level": "action_scaffold"
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_source": 4,
+    "minimum_distinct_task_keys_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "both_sources_must_pass_before_success_only_corpus_construction": true,
+    "failed_trajectory_rows_trainable": false,
+    "optimizer_step_authorized_by_this_plan": false
+  }
+}

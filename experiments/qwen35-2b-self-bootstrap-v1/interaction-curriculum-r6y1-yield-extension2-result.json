@@ -1,0 +1,36 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "executed_complete_aggregate_admitted",
+  "completed_at_utc": "2026-08-21T18:59:53Z",
+  "plan": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-yield-extension2-plan.json",
+  "optimizer_updates_during_evaluation": 0,
+  "extension": {
+    "episodes": 6,
+    "hard_successes": 2,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "provider_error_failures": 4,
+    "traces_sha256": "7c20cde47b682b20bf9731cf20ff54004b62ddf4cc4f226ad6ae2dc01cf0e101",
+    "summary_sha256": "9b0b3cf4a31c1595f90eb105120b1393adbe433d05b90a3b03fea192c48a8aa0",
+    "versions_sha256": "20590fce1bd14818aca6ae0ea645d85ddf0cc73f81e3fe1c0858d402e5b9afda"
+  },
+  "aggregate": {
+    "source_banks": [4006600, 4006800, 4006900],
+    "episodes": 18,
+    "qualifying_trajectories": 5,
+    "distinct_qualifying_task_keys": 5,
+    "gate_open": true,
+    "summary_sha256": "e422987695cc0242a3d8b60da42cd7dca6dbf12da3de548eb1a02892dfd27b95"
+  },
+  "complementary_child_aggregate": {
+    "source_banks": [4006500, 4006700],
+    "qualifying_trajectories": 4,
+    "distinct_qualifying_task_keys": 4,
+    "gate_open": true,
+    "summary_sha256": "d148c63fef08bb4e368d529a96fe59482c28ca4e1906dfd11f41845a7c8f1810"
+  },
+  "both_sources_admitted": true,
+  "acceptance_floor_relaxed": false,
+  "corpus_construction_authorized": true,
+  "optimizer_steps_authorized": 0
+}

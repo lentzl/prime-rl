@@ -1,0 +1,40 @@
+{
+  "schema_version": "q38-platform-v3a1-wrapper-correction/v1",
+  "status": "preregistered_before_rerun",
+  "runtime_change": false,
+  "scientific_change": false,
+  "invalid_attempt": {
+    "output": "/home/ubuntu/rlm/results/q38-platform-v3a-a6000x2-vllm026-qualification-v1",
+    "wrapper_sha256": "d8bc8e9956de87207946c617b64a644dfd353775c69ceee3f557f114f19a85a6",
+    "sentinel": {
+      "baseline_exit_status": 0,
+      "trace_validation_status": 0,
+      "complete_traces": 1,
+      "model_calls": 15,
+      "http_200": 15,
+      "provider_or_cuda_faults": 0,
+      "kernel_xids": 0,
+      "teardown_status": 0,
+      "behavioral_harness_score": 0.0,
+      "final_answer_exact": 1.0
+    },
+    "invalidity": "The recursive forbidden-signature grep opened FORBIDDEN-INFRASTRUCTURE-SIGNATURES.txt inside its own search root before scanning. GNU grep detected its output as an input file and returned status 2. The wrapper converted that scanner error to a false forbidden-signature failure."
+  },
+  "correction": {
+    "lane": "platform-v3a1-a6000x2-vllm026",
+    "output": "/home/ubuntu/rlm/results/q38-platform-v3a1-a6000x2-vllm026-qualification-v1",
+    "wrapper_sha256": "58401392383d34ecfbb5811615496817c10858f3290bc670317a627cf7082c99",
+    "change": "Write grep output to an external mktemp path and atomically move it into the run directory only after recursive scanning completes.",
+    "unchanged": [
+      "host",
+      "runtime_and_packages",
+      "teacher_model_and_revision",
+      "sampling",
+      "server_configuration",
+      "task_ids",
+      "three_leg_gate",
+      "teacher_non_admission"
+    ]
+  },
+  "decision": "Preserve the invalid attempt, rerun the complete unchanged qualification under the corrected v3a1 provenance label, and continue fail-closed."
+}

@@ -1,0 +1,67 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "complete_not_admitted",
+  "recorded_at_utc": "2026-08-21T19:29:37Z",
+  "completed_at_utc": "2026-08-21T19:45:56Z",
+  "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-thinner-diagnostic-result.json",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/positive-inline-value-selected-yield-lora-r6y2/weights/step_1/lora_adapters",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_model": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "diagnostic_rationale": "R6Y2 produced 0/6 at e0c3 and 0/6 at combined E1. Isolate the boundaries again: taper the child leak by removing the evidence location but retaining explicit evidence availability, and recheck native uncapped yield while preserving value-pattern child reporting.",
+  "arms": [
+    {
+      "phase": "e0c29_evidence_available",
+      "new_support_boundary": "The child is told only that private evidence has already been supplied; inline placement and the system-message location are no longer named.",
+      "retained_supports": [
+        "exact retained root spawn",
+        "forced first child IPython tool with unconstrained code",
+        "exact structured coordinator yield",
+        "one terminal child-closing response after a valid send"
+      ],
+      "start_index": 4007200,
+      "task_indices": [4007200, 4007201, 4007202, 4007203, 4007204, 4007205],
+      "run_label": "interaction-curriculum-e0c29-r6y2-natural-n1a-4007200-n6",
+      "bootstrap_path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/e0c29-r6y2-natural-n1a-4007200-n6-master20260819-privileged-bootstrap.json",
+      "bootstrap_sha256": "e367ad192649e93dfad0941dfb3d919204ad38e5462bcff89a40ea1bf1b47dbd"
+    },
+    {
+      "phase": "e0d3_uncapped_yield",
+      "isolated_boundary": "The coordinator receives no yield prompt, token cap, reasoning override, or response constraint; child reporting remains value-agnostic and pattern-constrained.",
+      "retained_supports": [
+        "exact retained root spawn",
+        "value-agnostic child-send pattern",
+        "one terminal child-closing response"
+      ],
+      "start_index": 4007300,
+      "task_indices": [4007300, 4007301, 4007302, 4007303, 4007304, 4007305],
+      "run_label": "interaction-curriculum-e0d3-r6y2-natural-n1a-4007300-n6",
+      "bootstrap_path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/e0d3-r6y2-natural-n1a-4007300-n6-master20260819-privileged-bootstrap.json",
+      "bootstrap_sha256": "acedda91b63f0158f8cbabd224e806c54bbccf6b6d858a9d5a613b09a3e3bd25"
+    }
+  ],
+  "shared_sampling": {
+    "split": "train_gen",
+    "axis": "natural_n1a",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks_per_arm": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6,
+    "bootstrap_level": "action_scaffold"
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_arm": 4,
+    "minimum_distinct_task_keys_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_must_pass_before_any_joint_gradient": true,
+    "failed_trajectory_rows_trainable": false
+  }
+}

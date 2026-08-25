@@ -1,0 +1,62 @@
+{
+  "schema_version": "qwen35-2b-spade-interaction-training-plan/v1",
+  "status": "executed_complete",
+  "recorded_at_utc": "2026-08-22T14:48:00Z",
+  "authorization": {
+    "event_log": "experiments/qwen35-2b-self-bootstrap-v1/spade-interaction-loop-r6y3-events.jsonl",
+    "event_head_sha256": "ee03f1db078fb8f7f82ed5641766cc50a2d4baca826e305478af53c26ad7e83a",
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "child_phase": "e0c25_inline_evidence",
+    "child_qualifying_trajectories": 4,
+    "child_distinct_task_keys": 4,
+    "child_summary_sha256": "7dee0c775f9e23927646a4990c024e3ef2214e7d3d4145df450d0c34b5ad57d2",
+    "yield_phase": "e0d2_capped_yield_exact_child",
+    "yield_qualifying_trajectories": 4,
+    "yield_distinct_task_keys": 4,
+    "yield_summary_sha256": "1872c95014c419c210239bf40711f9b742d28215123443fefe4420ddcea4c070",
+    "optimizer_steps_authorized": 1,
+    "dense_base_updates_authorized": 0
+  },
+  "initial_state": {
+    "adapter": "R6Y3",
+    "adapter_sha256": "7efaf672919d82b91f872f31d7477f7d3db87d846e94596ec915f30395ac466d",
+    "immutable_base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "corpus": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/spade-loop-r6y3-e0c25-e0d2x-joint-sft-v1",
+    "rows": 8,
+    "child_rows": 4,
+    "yield_orchestrator_rows": 4,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "cf194ac3d21c2a09e849726d101fe9834f32f07a66d2050d6c4c2850b8b337f8",
+    "manifest_sha256": "9956a2343f53fdc3ac63f9e69677bad08626097394471a73f266bc806a1dc763",
+    "pretraining_baseline_sha256": "ddbb1a768a7cc834303faef87ef9e8dd413022af05fbf85756b882af5f88b7cb"
+  },
+  "update": {
+    "name": "spade-loop-e0c25-e0d2x-lora-r6y4",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "assistant_only_loss": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "config": "experiments/qwen35-2b-self-bootstrap-v1/spade-loop-e0c25-e0d2x-sft-lora-r6y4.toml",
+    "config_sha256": "aa7bcedb8818199cf27eb2fa7f48eb3c3c86fe3e846b764378ecc6f72da459d8"
+  },
+  "result": {
+    "completed_at_utc": "2026-08-22T14:51:52Z",
+    "output_adapter_sha256": "76f0b2dd9764c8ab556fd01c3cabb31b31aee6689762309df80149460d2373a2",
+    "optimizer_steps_executed": 1,
+    "dense_base_updates": 0,
+    "failed_trajectory_rows": 0,
+    "loss_mean": 0.4105657935142517,
+    "loss_nan_count": 0,
+    "gradient_norm": 3.828125
+  },
+  "post_update_requirement": "Freeze R6Y4 and let the controller schedule stricter no-update probes before any additional optimizer decision."
+}

@@ -1,0 +1,42 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-result/v1",
+  "status": "complete",
+  "completed_at_utc": "2026-08-21T14:23:30Z",
+  "source_phase": "e0_full_actions",
+  "update": {
+    "type": "joint_root_child_sft_lora",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "assistant_only_loss": true,
+    "corpus_rows": 8,
+    "root_rows": 4,
+    "child_rows": 4,
+    "loss_mean": 0.9250861406326294,
+    "loss_nan_count": 0,
+    "gradient_norm": 8.4375
+  },
+  "immutable_base": {
+    "path": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "repository_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "weight_sha256_before_and_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "mutated": false
+  },
+  "corpus_integrity": {
+    "train_parquet_sha256": "1c40aa50e9097c83ddce01b3912770e2cd212538ce31235f15efcd9d3cd2c416",
+    "pretraining_baseline_sha256": "086d2aab997ab91e3149d9a5effb8942d306d5dd231c6dd3d94c85147ccbeebb",
+    "manifest_sha256": "3a0d73caaeac2a1690fb4f44f2c984ffe847dad03d9f0ab5b35f9329e1117ce5"
+  },
+  "output_integrity": {
+    "resolved_config_sha256": "2c47b7a746f3aa41addc483ce622e96308464aa6a20ade051883a0b05cf86f11",
+    "metrics_sha256": "2d21f960b507681c5df0b16eb5f142b6cf154451ed426953cd6f2cd9b4e03923",
+    "trainer_log_sha256": "e501a492a4e4129f0f059e2ec9ccdd234317e29b35903c44084d81b444255446",
+    "adapter_config_sha256": "06a44e2d2d9c2208e2a77eea7eab23af69b43b999ff9f950c15c30d1e434acd0",
+    "adapter_model_sha256": "0c1aa3029774a2ab92a164d21e6aa86a0c5ad057af2f7f0ee20a07b075fea22e",
+    "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0-joint-lora-r1"
+  },
+  "interpretation": "This update teaches the maximally leaked E0 interaction pattern. It is not evidence of capability under a stricter or unhinted environment.",
+  "next_action": "Freeze this adapter and evaluate E1 on four distinct train-gen task keys while withholding the exact child send action. No second optimizer update is allowed unless four complete E1 hard-success trajectories pass the unchanged gate."
+}

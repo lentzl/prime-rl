@@ -1,0 +1,23 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-result/v1",
+  "status": "executed_complete",
+  "completed_at_utc": "2026-08-21T18:16:44Z",
+  "plan": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-supported-child-uncapped-yield-r6y1-plan.json",
+  "optimizer_steps": 1,
+  "dense_base_updates": 0,
+  "loaded_initial_adapter_tensors": 192,
+  "loss_mean": 0.6654229760169983,
+  "loss_nan_count": 0,
+  "gradient_norm": 5.78125,
+  "step_time_seconds": 24.03688577999128,
+  "peak_memory_gib": 7.220703125,
+  "initial_adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297",
+  "output_adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/supported-child-uncapped-yield-lora-r6y1/weights/step_1/lora_adapters",
+  "output_adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+  "adapter_config_sha256": "06a44e2d2d9c2208e2a77eea7eab23af69b43b999ff9f950c15c30d1e434acd0",
+  "metrics_sha256": "531a37b9afe58273ea517df4c23c1370e313d8cbe62251a1f17da079ab950d75",
+  "resolved_config_sha256": "ecdc247c07bd5ccda6d8dc04e323af7bd88e558c133bdeb7ebcc2c4b9f054ea0",
+  "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+  "acceptance_floor_relaxed": false,
+  "additional_optimizer_steps_authorized": 0
+}

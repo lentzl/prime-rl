@@ -1,0 +1,46 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_partial_admission",
+  "completed_at_utc": "2026-08-21T20:31:35Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "sources": {
+    "e0c275_inline_location": {
+      "extension_task_indices": [4007800, 4007801, 4007802, 4007803, 4007804, 4007805],
+      "extension_qualifying_trajectories": 3,
+      "aggregate_source_banks": [4007600, 4007800],
+      "aggregate_qualifying_trajectories": 5,
+      "aggregate_distinct_task_keys": 5,
+      "aggregate_gate_open": true,
+      "bootstrap_sha256": "9f2eb038d80b4beebf60bdc4b4d8b46842b7906cb6a0315bb43bdb012ef92bc4",
+      "traces_sha256": "f3f05482ae5a147ef6930a402e004cb337d676005b6b31af768265001fd153f1",
+      "interaction_summary_sha256": "d4d39fb9103b531b69228393de29ac03d5f2907a9e84f83ae8be73fff98d3440",
+      "aggregate_summary_sha256": "794dd38a73051268b4ac21c65fe9c7e11815357d8f1e6b6a0ec992e2f5d1631e",
+      "versions_sha256": "60608ba68264e6afcb1b5defc573634d3320e1359a97e9459b5c91746c65ebc4"
+    },
+    "e0d3_uncapped_yield_exact_child": {
+      "task_indices": [4007900, 4007901, 4007902, 4007903, 4007904, 4007905],
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "gate_open": false,
+      "bootstrap_sha256": "444ea99d007df9c04d40e6ab3a59f0cc394490d2cfdd9a333b30ea3353297d38",
+      "traces_sha256": "dde8dc6a2b8ef123d72636932bb580b9832f3dac477a6a9da01d5f52b9a9d695",
+      "interaction_summary_sha256": "667d714ed792f18ef68ceeaecbf56876dc0cf1198c6bfdd27f8296196a5bfe44",
+      "versions_sha256": "3f3cd6811dcb52d98e9ea133b3bb860df18bf8f6213ae025d8eae7ee3f90255d"
+    }
+  },
+  "admission": {
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "child_source_admitted": true,
+    "yield_source_admitted": false,
+    "joint_corpus_authorized": false,
+    "optimizer_step_authorized": false
+  },
+  "diagnosis": "Restoring exact child reporting did not recover native uncapped yield. The next yield source should restore the capped no-tool decode rung while keeping exact child reporting; this grows the missing transition with more environment support.",
+  "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/r6y2-supported-recovery"
+}

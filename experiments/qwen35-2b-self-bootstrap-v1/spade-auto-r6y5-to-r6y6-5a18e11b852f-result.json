@@ -1,0 +1,13 @@
+{
+  "completed_at_utc": "2026-08-22T18:33:02Z",
+  "gradient_norm": 4.25,
+  "loss_mean": 0.47730520367622375,
+  "loss_nan_count": 0,
+  "metrics_sha256": "4526d84f4af558e0716255cc969d2412e38fc43ecd975976092266809823148a",
+  "output_adapter_sha256": "1c2bca885ddbab01f3d649c36386035f3c33ce82faad2fecce0f860c20da6dec",
+  "plan_path": "/home/ubuntu/rlm/prime-rl/experiments/qwen35-2b-self-bootstrap-v1/spade-auto-r6y5-to-r6y6-5a18e11b852f-plan.json",
+  "receipt_path": "/home/ubuntu/rlm/prime-rl/experiments/qwen35-2b-self-bootstrap-v1/spade-auto-r6y5-to-r6y6-5a18e11b852f-receipt.json",
+  "schema_version": "qwen35-2b-spade-autonomous-runner/v1",
+  "status": "complete",
+  "time_per_step_seconds": 23.41660303698154
+}

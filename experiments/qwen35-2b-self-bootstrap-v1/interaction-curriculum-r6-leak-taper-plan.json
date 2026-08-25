@@ -1,0 +1,50 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "executed_complete_split_admission",
+  "recorded_at_utc": "2026-08-21T17:46:00Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6",
+    "adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297"
+  },
+  "spade_alignment": "Taper solution-method leakage rather than removing it abruptly: retain only a positive inline-location cue on the child frontier, while measuring uncapped yield over a preregistered extension under its unchanged predicate.",
+  "arms": [
+    {
+      "phase": "e0c275_inline_location",
+      "retained_leak": "The child is told only that private evidence is supplied inline in its system message.",
+      "removed_supports_relative_to_e0c25": [
+        "no statement that the resource label is not a filesystem path",
+        "no path prohibition",
+        "no send-code template"
+      ],
+      "start_index": 4006100,
+      "task_indices": [4006100, 4006101, 4006102, 4006103, 4006104, 4006105],
+      "run_label": "interaction-curriculum-e0c275-r6-natural-n1a-4006100-n6",
+      "bootstrap_sha256": "186790718c00ef7551d2e9aac0d2f2043a4456cb93a3974917cfd50a05618339",
+      "required_qualifying_trajectories": 4,
+      "required_distinct_task_keys": 4
+    },
+    {
+      "phase": "e0d3_uncapped_yield_exact_child",
+      "purpose": "A fixed fresh extension under the unchanged uncapped-yield predicate; admission is computed over original and extension banks together.",
+      "start_index": 4006200,
+      "task_indices": [4006200, 4006201, 4006202, 4006203, 4006204, 4006205],
+      "run_label": "interaction-curriculum-e0d3-r6-natural-n1a-4006200-n6-extension",
+      "bootstrap_sha256": "0cd39107f2ea040ac29fe76d02e95449773ec3df4a7eaa74066cb7eccecc2648",
+      "aggregate_source_banks": [4005900, 4006200],
+      "aggregate_required_qualifying_trajectories": 4,
+      "aggregate_required_distinct_task_keys": 4
+    }
+  ],
+  "shared_sampling": {
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks_per_arm": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6,
+    "bootstrap_level": "action_scaffold"
+  },
+  "gradient_rule": "No gradient unless standalone E0c275 and aggregate E0d3 each independently contain at least four complete distinct qualifying trajectories. The acceptance floor remains unchanged."
+}

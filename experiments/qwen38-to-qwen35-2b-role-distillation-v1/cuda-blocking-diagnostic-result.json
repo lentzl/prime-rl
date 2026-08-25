@@ -1,0 +1,90 @@
+{
+  "schema_version": "q38-runtime-v2a-cuda-blocking-diagnostic-result/v1",
+  "status": "completed_cleanly_timing_sensitivity_only",
+  "authorization_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5352117943",
+  "report_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5352279980",
+  "admission_status": "permanently_non_admitted",
+  "qualification_status": "not_a_qualification_attempt",
+  "runtime_status_after_result": "runtime_v2a_remains_rejected",
+  "intervention": {
+    "only_added_setting": "CUDA_LAUNCH_BLOCKING=1",
+    "attempts_run": 1,
+    "task_index": 3806011,
+    "task_key": "train_gen-natural_n1a_local-03806011-54e4756"
+  },
+  "runtime": {
+    "vllm": "0.27.1+cu129",
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "tensor_parallel_size": 2,
+    "dtype": "bfloat16",
+    "max_model_len": 32768,
+    "gpu_memory_utilization": 0.88,
+    "enforce_eager": true,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 512,
+    "disable_custom_all_reduce": true
+  },
+  "result": {
+    "started_at_utc": "2026-08-20T06:16:39Z",
+    "finished_at_utc": "2026-08-20T06:28:13Z",
+    "trace_id": "8cd9c4d415d94b1a99d31244d808975a",
+    "outer_ok": true,
+    "outer_errors": 0,
+    "trace_ok": true,
+    "trace_errors": 0,
+    "is_completed": true,
+    "stop_condition": "user_closed",
+    "turns": 10,
+    "model_calls": 10,
+    "http_200_responses": 10,
+    "finish_reasons": {
+      "tool_calls": 6,
+      "stop": 4
+    },
+    "prompt_tokens": 72350,
+    "completion_tokens": 4701,
+    "harness_score": 1.0,
+    "final_answer_exact": 1.0,
+    "synchronous_failure": null,
+    "forbidden_error_signatures": 0
+  },
+  "jit_during_inference": {
+    "observed": [
+      "layer_norm_fwd_kernel",
+      "_causal_conv1d_update_kernel",
+      "fused_recurrent_gated_delta_rule_packed_decode_kernel"
+    ],
+    "not_observed": [
+      "_compute_slot_mapping_kernel"
+    ]
+  },
+  "interpretation": "A clean CUDA-blocking completion after the non-blocking illegal-memory failure shows timing sensitivity only. It does not identify a guilty kernel, qualify runtime-v2a, or admit this trace.",
+  "preservation": {
+    "local_artifact_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/diagnostic/runtime-v2a-cuda-blocking-3806011-r1",
+    "remote_and_local_recorded_sha256_verified": true,
+    "wrapper_sha256": "cf50a3033e3050e8d9a468b333355baafd1d7c3871251e2e87e8e77e7ebdb354",
+    "teardown_clean": true,
+    "gpu_memory_used_mib_after_teardown": [
+      2,
+      2
+    ]
+  },
+  "scientific_state_after_result": {
+    "qualifying_teacher_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "required_teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "untouched_2b_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "stop_rule": "No mitigation, teacher recovery, student baseline, or training may follow without a new review."
+}

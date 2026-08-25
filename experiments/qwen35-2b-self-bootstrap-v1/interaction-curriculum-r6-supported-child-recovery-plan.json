@@ -1,0 +1,31 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "executed_complete_not_admitted",
+  "recorded_at_utc": "2026-08-21T17:58:00Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6",
+    "adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297"
+  },
+  "phase": "e0c25_inline_evidence",
+  "curriculum_rationale": "Retain the stronger concise inline-card/not-a-filesystem-path leak after E0c275 failed admission; continue growing child capability while the harder uncapped-yield frontier is already admitted.",
+  "start_index": 4006300,
+  "task_indices": [4006300, 4006301, 4006302, 4006303, 4006304, 4006305],
+  "run_label": "interaction-curriculum-e0c25-r6-natural-n1a-4006300-n6",
+  "bootstrap_sha256": "d9b8d21865f3dd2cad31635065fd0536241708eee1f9acda56988cf10b148661",
+  "sampling": {
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories": 4,
+    "minimum_distinct_task_keys": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "gradient_rule": "No gradient unless this fresh frozen-R6 E0c25 bank independently passes admission. The already-admitted E0d3 aggregate does not substitute for the child gate."
+}

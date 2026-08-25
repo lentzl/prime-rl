@@ -1,0 +1,65 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "complete_not_admitted",
+  "recorded_at_utc": "2026-08-21T19:08:29Z",
+  "completed_at_utc": "2026-08-21T19:25:01Z",
+  "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-next-taper-result.json",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/positive-inline-value-selected-yield-lora-r6y2/weights/step_1/lora_adapters",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_model": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "curriculum_rationale": "Continue SPADE-style tapering after R6Y2 consolidation. The child arm removes the final positive inline-location cue while retaining exact yield. The combined arm keeps only the exact retained root spawn and requires both native child reporting and native uncapped passive yield.",
+  "arms": [
+    {
+      "phase": "e0c3_natural_child_minimal",
+      "removed_support": "The positive statement that private evidence is supplied inline is withheld.",
+      "retained_supports": [
+        "exact retained root spawn",
+        "forced first child IPython tool with unconstrained code",
+        "exact structured coordinator yield",
+        "one terminal child-closing response after a valid send"
+      ],
+      "start_index": 4007000,
+      "task_indices": [4007000, 4007001, 4007002, 4007003, 4007004, 4007005],
+      "run_label": "interaction-curriculum-e0c3-r6y2-natural-n1a-4007000-n6",
+      "bootstrap_sha256": "7623f4040b4d995646a8f5dcd080bb94bd4e47d17d537506ad646dba22a37c8c"
+    },
+    {
+      "phase": "e1_root_and_yield",
+      "removed_supports": [
+        "no child tool forcing or send-shape constraint",
+        "no child terminal-stop mediation",
+        "no yield prompt, exact response, decode cap, or reasoning override"
+      ],
+      "retained_support": "The root coordinator's retained child spawn remains an exact sampled action.",
+      "start_index": 4007100,
+      "task_indices": [4007100, 4007101, 4007102, 4007103, 4007104, 4007105],
+      "run_label": "interaction-curriculum-e1-r6y2-natural-n1a-4007100-n6",
+      "bootstrap_sha256": "bef401c4728f30045e2530e3ae24a4528f38758b63acae91adca12adc4e8c823"
+    }
+  ],
+  "shared_sampling": {
+    "split": "train_gen",
+    "axis": "natural_n1a",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks_per_arm": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6,
+    "bootstrap_level": "action_scaffold"
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_arm": 4,
+    "minimum_distinct_task_keys_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_must_pass_before_any_gradient": true,
+    "failed_trajectory_rows_trainable": false
+  }
+}

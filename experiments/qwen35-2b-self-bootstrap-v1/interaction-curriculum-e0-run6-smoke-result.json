@@ -1,0 +1,38 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_transition_smoke_passed",
+  "completed_at_utc": "2026-08-21T14:11:24Z",
+  "phase": "e0_full_actions",
+  "model_mutated": false,
+  "optimizer_updates": 0,
+  "bank": {
+    "start_index": 4004100,
+    "tasks": 1,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "3c7c5329ac0961cf949c3d3fb8c9ec300a84a6d0f1b8dd6c4704358acbd80d4d"
+  },
+  "result": {
+    "complete_episodes": 1,
+    "errors": 0,
+    "hard_successes": 1,
+    "qualifying_trajectories": 1,
+    "distinct_qualifying_task_keys": 1,
+    "gradient_gate_open": false
+  },
+  "environment_audit": {
+    "root_exact_action_events": 1,
+    "child_exact_action_events": 1,
+    "child_stop_events": 1,
+    "passive_yield_events": 1,
+    "structured_choice_yield_events": 1,
+    "hard_metrics_at_one": 5,
+    "conclusion": "The E0 structured-choice transition produced a native seven-token sampled waiting response, resumed on the child delivery, and completed with exact hard success. The transition repair is admitted for the four-task E0 batch."
+  },
+  "artifact_integrity": {
+    "traces_sha256": "17cb51b2c77036a988cff7ec285028fb1b67387d243b03657b0bd309fec381e2",
+    "interaction_summary_sha256": "31181faf034c3fabb910c17e96164f9dc7e3a21e4e98f5c936d5b30c3a30345e",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0-full-actions-natural-n1a-4004100-n4/run-6-smoke-4100"
+  },
+  "next_action": "Run the unchanged four-distinct-task E0 admission bank. Do not update weights until that run independently opens the four-trajectory gate."
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_partial_success_environment_defect",
+  "completed_at_utc": "2026-08-21T13:51:45Z",
+  "phase": "e0_full_actions",
+  "model_mutated": false,
+  "optimizer_updates": 0,
+  "bank": {
+    "start_index": 4004100,
+    "tasks": 4,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "3c7c5329ac0961cf949c3d3fb8c9ec300a84a6d0f1b8dd6c4704358acbd80d4d"
+  },
+  "result": {
+    "complete_episodes": 4,
+    "errors": 3,
+    "hard_successes": 1,
+    "qualifying_trajectories": 1,
+    "distinct_qualifying_task_keys": 1,
+    "gradient_gate_open": false
+  },
+  "environment_audit": {
+    "root_exact_action_events": 4,
+    "child_exact_action_events": 4,
+    "passive_yield_events": 4,
+    "diagnosis": "The synchronous constrained-root hash repair made the passive coordinator yield fire on all four episodes. After the exact child send, three child closing turns sampled a malformed empty tool call; preserving that invalid assistant message caused vLLM's Qwen chat template to reject all retries with HTTP 400.",
+    "repair": "E0 now removes tools from exactly one child closing response only after verifying that the hash-matched constrained child send was actually sampled. The one successful run-3 trace remains qualifying because it closed naturally without the added mediation."
+  },
+  "artifact_integrity": {
+    "traces_sha256": "d40cbf7ca2e063b4acb8a935ad5558ccf771d0ea00b82f5442cfeec71528e869",
+    "original_interaction_summary_sha256": "1cfe2eade5656c3f180ecd9fc16d8c017e8cb0a9b6f74c46cd6500dfb2b78721",
+    "auditor_repair": "The original summary failed to recognize list-form child message content and falsely reported no native yield. The corrected fail-closed auditor recognizes exactly one qualifying trace without changing trace data or rescoring.",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0-full-actions-natural-n1a-4004100-n4/run-3"
+  },
+  "retry_policy": "Run 4 may repeat the identical four-task bank and seed as a controlled environment repair. The acceptance floor remains four complete qualifying trajectories on four distinct task keys before any gradient."
+}

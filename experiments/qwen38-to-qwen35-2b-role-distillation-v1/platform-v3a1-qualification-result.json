@@ -1,0 +1,83 @@
+{
+  "schema_version": "q38-platform-v3a1-a6000-qualification-result/v1",
+  "status": "rejected_behavioral_process_timeout_before_restart_leg",
+  "platform_lane": "platform-v3a1-a6000x2-vllm026",
+  "teacher_admission_status": "permanently_non_admitted",
+  "teacher": {
+    "model": "Qwen/Qwen3.8-27B",
+    "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "policy": "immutable_inference_only"
+  },
+  "runtime": {
+    "vllm": "0.26.0+cu129",
+    "tensor_parallel_size": 2,
+    "dtype": "bfloat16",
+    "max_model_len": 32768,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 512,
+    "disable_custom_all_reduce": true,
+    "enforce_eager": true,
+    "cuda_launch_blocking": false,
+    "packed_recurrent_decode_override": false
+  },
+  "qualification": {
+    "fresh_sentinel": {
+      "status": "passed",
+      "task_index": 3806011,
+      "complete_error_free_traces": 1,
+      "http_200_chat_completions": 11,
+      "hard_successes": 1
+    },
+    "composite_workload_r1": {
+      "status": "rejected",
+      "expected_traces": 9,
+      "complete_error_free_traces_before_failure": 6,
+      "errored_traces": 1,
+      "unserialized_tasks_after_stop": 2,
+      "http_200_chat_completions": 78,
+      "mixed_block_complete_error_free_traces": 4,
+      "recovery_sized_block_complete_error_free_traces": 2,
+      "failure_task_index": 3806013,
+      "failure_task_key": "train_gen-natural_n1a_local-03806013-5a68338",
+      "failure_trace_id": "62339addd5a849cb995f94e092b026e6",
+      "failure_stop_condition": "error",
+      "failure_error_type": "HarnessError",
+      "failure_message": "harness 'prime_agent': EOFError: ACP process closed its stdout",
+      "agent_duration_seconds": 1141.86741065979,
+      "configured_process_timeout_seconds": 1140,
+      "model_calls_before_timeout": 11,
+      "cause": "Prime Agent reached its configured process timeout after delayed delegation and an invalid child polling strategy; the ACP EOF was the consequence of timeout termination, not an unexplained process or serving crash."
+    },
+    "composite_workload_r2_after_restart": {
+      "status": "not_started_after_fail_closed_stop"
+    },
+    "pass_rule_relaxed": false
+  },
+  "infrastructure_evidence": {
+    "successful_http_200_chat_completions_total": 89,
+    "forbidden_cuda_cublas_provider_engine_rpc_signatures": 0,
+    "kernel_xid_aer_signatures": 0,
+    "serving_fault_observed": false,
+    "teardown_verified": true,
+    "remaining_gpu_processes": 0,
+    "remaining_qualification_processes": 0,
+    "remaining_containers": 0,
+    "final_gpu_memory_used_mib_each": 1
+  },
+  "decision": {
+    "runtime_family_rejected": false,
+    "qualification_attempt_rejected": true,
+    "teacher_recovery_started": false,
+    "student_baseline_started": false,
+    "optimizer_steps": 0,
+    "next_action": "Preserve this attempt, keep every trace non-admitted, and run at most one unchanged qualification attempt under a new provenance label. If the same bounded behavioral timeout repeats, stop for strategic review rather than changing the frozen harness timeout or gate post hoc."
+  },
+  "provenance": {
+    "qualification_wrapper_sha256": "58401392383d34ecfbb5811615496817c10858f3290bc670317a627cf7082c99",
+    "durable_local_artifact_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/qualification/platform-v3a1-rejected-process-timeout",
+    "durable_local_file_count": 46,
+    "durable_local_size_bytes_approximate": 1258291,
+    "normalized_sha256_inventory_digest": "9e50d8da1c51fc8a601355e21c9261fa1f89a07251f8b074543c99196360c52b",
+    "remote_to_local_checksum_diff": "empty"
+  }
+}

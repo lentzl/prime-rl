@@ -1,0 +1,42 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-paired-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T17:00:53Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R5",
+    "adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c",
+    "immutable_base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "arms": {
+    "e0c3_natural_child_minimal": {
+      "episodes": 6,
+      "hard_successes": 0,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "gate_open": false,
+      "traces_sha256": "01861b84c50ea98fc8ced69cb93c2245f1d293ce5a0267c2d7273475a771936d",
+      "summary_sha256": "89b0d18fb7d5538f5f4f324e0984ab42ea8545343b5f3b2ecc01eef9a7fea970",
+      "versions_sha256": "1168ab97943692396eec9cb35d5c780dabbe5ad72dcfe171e27151b32e30ef29",
+      "diagnosis": "Without any inline-evidence clarification, sampled children repeatedly attempted Path reads and filesystem search against the evidence label. Five traces exhausted max turns and none produced one valid natural child send."
+    },
+    "e0d2_capped_yield": {
+      "episodes": 6,
+      "hard_successes": 4,
+      "qualifying_trajectories": 4,
+      "distinct_qualifying_task_keys": 4,
+      "gate_open": true,
+      "traces_sha256": "60fdc30547b9fae6c2d5fb20bfe7e7b28bd30cc6e04bf529e868942b221cb673",
+      "summary_sha256": "854d1104bad0e70ab227bf4170260e59cbf7bfa33398dcee4d6ff5847480fee2",
+      "versions_sha256": "b6a7125217ebcb542488c629fb49e74d91787f1e27ae0968f2c6e998938559f9",
+      "diagnosis": "R5 transferred prompt-free capped yield together with value-agnostic child value selection: four complete distinct trajectories qualified."
+    }
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "both_sources_admitted": false,
+    "new_gradient_authorized": false
+  },
+  "next_action": "Keep R5 frozen. Evaluate a single-sentence inline-evidence bridge that retains no code template, filesystem prohibitions, or extraction recipe. If it independently admits four complete distinct trajectories, pair only its child branches with the already admitted E0d2 coordinator branches."
+}

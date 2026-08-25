@@ -1,0 +1,57 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T19:45:56Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "arms": {
+    "e0c29_evidence_available": {
+      "task_indices": [4007200, 4007201, 4007202, 4007203, 4007204, 4007205],
+      "episodes": 6,
+      "hard_successes": 0,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "errors": 0,
+      "forbidden_post_spawn_tool_before_child_mean": 1.0,
+      "gate_open": false,
+      "bootstrap_sha256": "e367ad192649e93dfad0941dfb3d919204ad38e5462bcff89a40ea1bf1b47dbd",
+      "traces_sha256": "68e90cabfd0709d918eca81da16cbbee6f7042b948cc1e7d61781e9a42ebb66f",
+      "interaction_summary_sha256": "bb04ac4d207369a5c5cabd08ec0f61c1651947e788634e1f1ef6e5e153c7e84a",
+      "versions_sha256": "cac005a084c0acb7ff57a032f479b53bea7e8e8d62dfd3bce0aa04e3906a397c"
+    },
+    "e0d3_uncapped_yield": {
+      "task_indices": [4007300, 4007301, 4007302, 4007303, 4007304, 4007305],
+      "episodes": 6,
+      "hard_successes": 2,
+      "qualifying_trajectories": 2,
+      "distinct_qualifying_task_keys": 2,
+      "errors": 3,
+      "native_yield_missing": 3,
+      "gate_open": false,
+      "bootstrap_sha256": "acedda91b63f0158f8cbabd224e806c54bbccf6b6d858a9d5a613b09a3e3bd25",
+      "traces_sha256": "cc2dadb1972f0880e0c388cd84d2fb035426f078aa1c323f00064821e6986672",
+      "interaction_summary_sha256": "ef640f6a54e09df5e16459fe4b86efc9489615bb97a2f69649a361f9572dc48a",
+      "versions_sha256": "4c52278a260d1e2f575c255eb4dd989a4b2da40e99c059d8c0c4c996ee55b54a"
+    }
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_arm": 4,
+    "minimum_distinct_task_keys_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_admitted": false,
+    "new_gradient_authorized": false,
+    "failed_trajectory_rows_trainable": false
+  },
+  "diagnosis": {
+    "child_boundary": "Removing both the word inline and the system-message location remained too large a support jump: all six coordinators made forbidden post-spawn tool calls and no child-natural-send audit completed.",
+    "yield_boundary": "Native uncapped passive yield survived stochastically in two complete distinct trajectories when child reporting remained constrained, but the fresh bank did not meet the four-trajectory floor.",
+    "next_taper": "Test a narrower child wording that removes only the system-message location while retaining the word inline. The two admitted yield trajectories may be aggregated only with a preregistered fresh extension under the same phase and frozen adapter."
+  },
+  "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/r6y2-thinner-diagnostic",
+  "safest_next_action": "Keep R6Y2 frozen. Implement and preregister e0c28_inline_only on fresh keys, and separately preregister an e0d3 extension whose aggregate must reach four distinct complete qualifiers. Do not construct a corpus or update weights until the applicable source gate is open."
+}

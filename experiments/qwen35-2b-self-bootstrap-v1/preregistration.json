@@ -1,0 +1,122 @@
+{
+  "schema_version": "qwen35-2b-self-bootstrap/v1",
+  "status": "owner_authorized_preregistered",
+  "created_at_utc": "2026-08-21T07:30:00Z",
+  "authorization": {
+    "source": "owner",
+    "decision": "Pivot the available 2x RTX A6000 host from blocked Q38 harvesting to a bounded Qwen3.5-2B endogenous self-bootstrapping foundation.",
+    "strategist_permission_required": false,
+    "strategist_notification_required": true
+  },
+  "base_model": {
+    "repository": "lentzl/rlm-prime-agent-qwen35-orchestrator-candidate-r1-20260809",
+    "revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "weight_file": "model.safetensors",
+    "weight_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "policy": "immutable_dense_start_for_every_baseline_and_adapter_run"
+  },
+  "hypothesis": "The same frozen 2B weights with a bounded inference-time search budget can produce verified successes on fresh causal tasks where a single deployment-scale attempt fails, and those P-plus-only successes can be compressed into separate orchestrator and child rank-16 LoRA adapters.",
+  "phase_1_compute_gap": {
+    "p": {
+      "description": "deployment-scale reference",
+      "rollouts_per_task": 1,
+      "sampling_seeds": [20260821]
+    },
+    "p_plus": {
+      "description": "compute-privileged best-of-four search using identical frozen weights",
+      "rollouts_per_task": 4,
+      "sampling_seeds": [20260822, 20260823, 20260824, 20260825]
+    },
+    "task_bank": {
+      "split": "train_gen",
+      "axes": [
+        "natural_direct_control",
+        "natural_n1a",
+        "natural_n1a_local",
+        "natural_n1b"
+      ],
+      "tasks_per_axis": 8,
+      "index_offset": 200000,
+      "task_keys_identical_between_p_and_p_plus": true,
+      "prior_experiment_task_overlap_allowed": false
+    },
+    "selection": {
+      "timing": "after_all_rollouts_complete",
+      "model_access_to_verifier_or_oracle": false,
+      "p_success": "the single rollout is complete, error-free, and hard-successful",
+      "p_plus_success": "at least one of four independently seeded rollouts is complete, error-free, and hard-successful",
+      "compute_gap": "P fails and P+ succeeds for the same task key"
+    },
+    "positive_feasibility_gate": {
+      "minimum_distinct_compute_gap_task_keys": 4,
+      "minimum_complete_lineage_valid_async_p_plus_successes": 4,
+      "infrastructure_complete_required": true,
+      "duplicate_task_or_trace_identity_rejected": true
+    }
+  },
+  "phase_2_compression": {
+    "authorized_only_if_phase_1_gate_passes": true,
+    "corpus": {
+      "sources": "complete hard-successful P+ trajectories from the preregistered discovery bank",
+      "orchestrator": "sampled assistant spans from primary graph sessions only",
+      "child": "sampled assistant spans from non-primary graph sessions only",
+      "context_only": [
+        "system",
+        "user",
+        "tool",
+        "environment"
+      ],
+      "assistant_only_loss": true,
+      "unique_client_session_lineage_required": true,
+      "minimum_complete_qualifying_trajectories_per_role": 4,
+      "mixed_role_ce": false
+    },
+    "adapters": [
+      {
+        "role": "orchestrator",
+        "rank": 16,
+        "max_steps": 1,
+        "dense_merge": false
+      },
+      {
+        "role": "child",
+        "rank": 16,
+        "max_steps": 1,
+        "dense_merge": false
+      }
+    ],
+    "evaluation": {
+      "held_out_axes": [
+        "natural_direct_control",
+        "natural_n1a",
+        "natural_n1a_local",
+        "natural_n1b"
+      ],
+      "held_out_tasks_per_axis": 8,
+      "held_out_index_offset": 210000,
+      "untouched_p_baseline_frozen_before_gradients": true,
+      "paired_task_keys_required": true,
+      "promotion_requires_no_regression_in_infrastructure_completeness": true
+    }
+  },
+  "prohibitions": [
+    "no_q38_training_or_weight_mutation",
+    "no_r7_mutation",
+    "no_dense_2b_weight_update_or_merge",
+    "no_gradient_before_positive_compute_gap_and_untouched_holdout_baseline",
+    "no_training_on_incomplete_errored_or_hard-failing_rollouts",
+    "no_training_on_held-out_evaluation_tasks",
+    "no_verifier_or_oracle_content_in_model_context",
+    "no_mixed-role_adapter",
+    "no_acceptance_floor_relaxation",
+    "no_learned_environment_designer_in_v1",
+    "no_open-ended_hyperparameter_sweep"
+  ],
+  "stop_conditions": [
+    "P-plus produces fewer than four verified compute-gap task keys",
+    "fewer than four complete lineage-valid trajectories exist for either role",
+    "the untouched 2B runtime is not infrastructure-stable",
+    "role routing cannot be evaluated without changing frozen task or verifier semantics",
+    "the first bounded compression dose fails to improve held-out P without unacceptable regression"
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schema_version": "q38-runtime-v2e-torch-gdn-decode-result/v1",
+  "status": "rejected_on_second_fresh_start_runtime_family_nonviable",
+  "runtime": {
+    "lane": "runtime-v2e-torch-gdn-decode",
+    "vllm": "0.27.1+cu129",
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "wrapper_sha256": "9eac0bd439b92ad21fa25b033bf12afb1ca51ded83762877641078552221a638",
+    "patch_sha256": "4b0fc4a086bb81c6bd3cfc239e422fc0fd898f7e949bb5bb94bdf09bf36d8b23",
+    "original_module_sha256": "1227d6f385a52296e9f08223544b1c5fdc7e8d9aa09a848e7a8e522a8dc51214",
+    "patched_module_sha256": "28096a290180177fe5af07a9a040ae6a39af4814ff8a7390a0b44a806215cf23",
+    "original_module_restored": true
+  },
+  "attempts": [
+    {
+      "label": "q38-runtime-v2e-sentinel-3806011-r1",
+      "status": "passed",
+      "complete_traces": 1,
+      "model_calls": 13,
+      "harness_score": 0.0,
+      "final_answer_exact": 1.0,
+      "stop_condition": "user_closed",
+      "forbidden_gdn_decode_kernels_seen": false,
+      "forbidden_infrastructure_signatures": 0,
+      "teardown_clean": true
+    },
+    {
+      "label": "q38-runtime-v2e-sentinel-3806011-r2",
+      "status": "failed_after_one_http_200",
+      "complete_traces": 0,
+      "http_200_chat_responses": 1,
+      "first_visible_failure_stack": "Qwen attention o_proj -> unquantized linear -> cublasGemmEx",
+      "first_visible_failure": "CUBLAS_STATUS_EXECUTION_FAILED on TP0",
+      "kernel_evidence": [
+        "NVIDIA Xid 13 out-of-range-register warp exceptions on two SMs",
+        "NVIDIA Xid 13 multiple warp errors",
+        "NVIDIA Xid 43 process termination"
+      ],
+      "preceding_jit_warning": "_causal_conv1d_update_kernel",
+      "packed_gdn_decode_kernel_seen": false,
+      "fused_sigmoid_gdn_decode_kernel_seen": false,
+      "provider_errors": 2,
+      "teardown_clean": true
+    }
+  ],
+  "gate_result": {
+    "fresh_starts_required": 3,
+    "fresh_starts_passed": 1,
+    "sustained_soaks_started": 0,
+    "qualification": "rejected"
+  },
+  "artifact": {
+    "local_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/incident/runtime-v2e-torch-gdn-decode-rejected",
+    "terminal_manifest_sha256": "2ada7c6cd35b18afe1872d06ab5d30333800a48c2363b326fada0dfabec8b7a7",
+    "checksums_verified_after_transfer": true,
+    "restored_original_module_sha256_verified": true
+  },
+  "runtime_family_decision": {
+    "decision": "abandon_current_host_vllm_0_27_1_torch_2_11_cuda_12_8_q38_serving_family",
+    "basis": [
+      "runtime-v2a failed with an asynchronous CUDA illegal-memory fault",
+      "runtime-v2b launch blocking passed the old 3/3 gate but failed the first recovery task in cublasGemmEx",
+      "runtime-v2c disabled packed GDN decode but failed on its second fresh start during startup profiling",
+      "runtime-v2d added 90-second GPU quiescence but failed on its second fresh start in the fallback Triton GDN recurrence",
+      "runtime-v2e replaced both GDN recurrence kernels with a numerically validated PyTorch path yet failed on its second fresh start with Xid 13/43 and cublasGemmEx"
+    ],
+    "next_action_requires_review": "Choose a materially different serving substrate or dependency family; do not launch another same-host vLLM 0.27.1 hypothesis."
+  },
+  "scientific_state": {
+    "qualifying_teacher_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "required_teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "student_baseline_started": false,
+    "teacher_recovery_started_after_v2b": false,
+    "optimizer_steps": 0,
+    "weights_mutated": false
+  }
+}

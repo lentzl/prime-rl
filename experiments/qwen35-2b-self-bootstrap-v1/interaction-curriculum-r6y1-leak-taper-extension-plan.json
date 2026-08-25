@@ -1,0 +1,52 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "executed_complete_split_admission",
+  "recorded_at_utc": "2026-08-21T18:39:40Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y1",
+    "adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "arms": [
+    {
+      "phase": "e0c275_inline_location",
+      "start_index": 4006700,
+      "task_indices": [4006700, 4006701, 4006702, 4006703, 4006704, 4006705],
+      "run_label": "interaction-curriculum-e0c275-r6y1-natural-n1a-4006700-n6-extension",
+      "bootstrap_sha256": "969511a42ca9739123c01defe28b56c2eebdf251829536b94a2292119e088aa3",
+      "aggregate_source_banks": [4006500, 4006700],
+      "existing_qualifiers": 2,
+      "additional_qualifiers_required": 2
+    },
+    {
+      "phase": "e0d3_uncapped_yield",
+      "start_index": 4006800,
+      "task_indices": [4006800, 4006801, 4006802, 4006803, 4006804, 4006805],
+      "run_label": "interaction-curriculum-e0d3-r6y1-natural-n1a-4006800-n6-extension",
+      "bootstrap_sha256": "a228f6c2c04dcf9997217e1d085c0dae967ef7c6856926ecb56a0df2a54b0f22",
+      "aggregate_source_banks": [4006600, 4006800],
+      "existing_qualifiers": 1,
+      "additional_qualifiers_required": 3
+    }
+  ],
+  "shared_sampling": {
+    "split": "train_gen",
+    "axis": "natural_n1a",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks_per_arm": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6,
+    "bootstrap_level": "action_scaffold"
+  },
+  "admission": {
+    "aggregate_minimum_complete_qualifying_trajectories_per_arm": 4,
+    "aggregate_minimum_distinct_task_keys_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_must_pass_before_any_gradient": true,
+    "failed_trajectory_rows_trainable": false
+  }
+}

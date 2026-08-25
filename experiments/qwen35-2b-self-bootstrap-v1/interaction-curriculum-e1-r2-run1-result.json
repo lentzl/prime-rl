@@ -1,0 +1,46 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T15:19:11Z",
+  "phase": "e1_root_and_yield",
+  "adapter": {
+    "source_update": "e0b-joint-lora-r2",
+    "adapter_model_sha256": "30235c4e4ded37d82581dc33173a23e5f22f0d1c8a8a07c4da553c4980914e98",
+    "frozen_during_evaluation": true
+  },
+  "model_mutated": false,
+  "optimizer_updates_during_evaluation": 0,
+  "bank": {
+    "start_index": 4004400,
+    "tasks": 4,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "e6de340accf07fc37cc291a3bd23576965898de63825b9099c0948a12ae94da1",
+    "final_answers_in_bootstrap": 0
+  },
+  "result": {
+    "complete_episodes": 4,
+    "errors": 0,
+    "hard_successes": 0,
+    "max_turns": 4,
+    "qualifying_trajectories": 0,
+    "distinct_qualifying_task_keys": 0,
+    "next_gradient_gate_open": false,
+    "acceptance_floor_relaxed": false
+  },
+  "diagnosis": {
+    "exact_root_spawn_events": 4,
+    "native_no_tool_yield_responses": 1,
+    "children_sent_valid_results": 0,
+    "children_repeatedly_treated_inline_private_evidence_as_a_filesystem_path": 4,
+    "roots_with_forbidden_post_spawn_tools": 2,
+    "conclusion": "One E0b update did not bridge either independent E1 frontier: unconstrained child reporting or unconstrained passive yield. No E1 trace is eligible for training."
+  },
+  "artifact_integrity": {
+    "traces_sha256": "ed8d96852f05cd27aad08027945de104ae2bc90ab7a670104408c2e074de6711",
+    "interaction_summary_sha256": "a261a0b2f3a2a50692fe33b869a0f497bdec12dc42aa3c84d9e97a6fa55701c7",
+    "versions_sha256": "c8c217221c7d0e6f48da81b4486d069c48bbae4a35bfecb07a798deeb212c590",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e1-root-and-yield-r2-natural-n1a-4004400-n4/run-1"
+  },
+  "next_action": "Keep R2 frozen and collect another distinct E0b acquisition batch. Permit at most one further adapter-only update only after four new complete qualifying E0b trajectories; then retest E1 on fresh keys."
+}

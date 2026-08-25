@@ -1,0 +1,72 @@
+{
+  "schema_version": "qwen35-2b-spade-interaction-loop-checkpoint/v1",
+  "status": "candidate_frozen_pending_stricter_probes",
+  "recorded_at_utc": "2026-08-22T15:30:00Z",
+  "event_log": {
+    "path": "experiments/qwen35-2b-self-bootstrap-v1/spade-interaction-loop-r6y3-events.jsonl",
+    "events": 13,
+    "head_sha256": "13788319d75ae5ae5ffd973d4ccbf35e9f54e3876e914b9520e52d8d8f0f0222"
+  },
+  "immutable_base": {
+    "path": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "dense_updates": 0
+  },
+  "completed_updates": [
+    {
+      "input_candidate": "R6Y3",
+      "output_candidate": "R6Y4",
+      "output_adapter_sha256": "76f0b2dd9764c8ab556fd01c3cabb31b31aee6689762309df80149460d2373a2",
+      "sources": {
+        "child": {"phase": "e0c25_inline_evidence", "qualifying_trajectories": 4},
+        "yield": {"phase": "e0d2_capped_yield_exact_child", "qualifying_trajectories": 4}
+      },
+      "optimizer_steps": 1,
+      "failed_trajectory_rows": 0,
+      "loss_mean": 0.4105657935142517
+    },
+    {
+      "input_candidate": "R6Y4",
+      "output_candidate": "R6Y5",
+      "output_adapter_sha256": "8b47d9f034bb30ef84da9174406fe889f050ca2787615c6ef36c6d4d4296e936",
+      "sources": {
+        "child": {"phase": "e0c2_natural_child_no_template", "qualifying_trajectories": 5},
+        "yield": {"phase": "e0d2_capped_yield_exact_child", "qualifying_trajectories": 5}
+      },
+      "optimizer_steps": 1,
+      "failed_trajectory_rows": 0,
+      "loss_mean": 0.41758978366851807
+    }
+  ],
+  "r6y4_environment_search": [
+    {"track": "child", "phase": "e0c275_inline_location", "start_index": 4008600, "qualifying_trajectories": 3, "gate_open": false},
+    {"track": "yield", "phase": "e0d3_uncapped_yield_exact_child", "start_index": 4008700, "qualifying_trajectories": 0, "gate_open": false},
+    {"track": "child", "phase": "e0c25_inline_evidence", "start_index": 4008800, "qualifying_trajectories": 0, "gate_open": false},
+    {"track": "yield", "phase": "e0d2_capped_yield_exact_child", "start_index": 4008900, "qualifying_trajectories": 5, "gate_open": true},
+    {"track": "child", "phase": "e0c2_natural_child_no_template", "start_index": 4009000, "qualifying_trajectories": 5, "gate_open": true}
+  ],
+  "current_candidate": {
+    "label": "R6Y5",
+    "model": "q35-2b-r6y5-8b47d9f034bb",
+    "adapter_sha256": "8b47d9f034bb30ef84da9174406fe889f050ca2787615c6ef36c6d4d4296e936",
+    "frozen": true,
+    "additional_gradient_authorized": false
+  },
+  "next_action": {
+    "kind": "collect",
+    "optimizer_steps_authorized": 0,
+    "arms": [
+      {"track": "child", "phase": "e0c25_inline_evidence", "start_index": 4009100, "tasks": 6},
+      {"track": "yield", "phase": "e0d3_uncapped_yield_exact_child", "start_index": 4009200, "tasks": 6}
+    ]
+  },
+  "invariants": {
+    "minimum_complete_qualifying_trajectories_per_source": 4,
+    "minimum_distinct_qualifying_task_keys_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "failed_trajectory_rows_trainable": false,
+    "maximum_optimizer_steps_per_cycle": 1,
+    "dense_base_updates_authorized": 0
+  }
+}

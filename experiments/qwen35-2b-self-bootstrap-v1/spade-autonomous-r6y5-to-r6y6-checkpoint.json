@@ -1,0 +1,142 @@
+{
+  "schema_version": "qwen35-2b-spade-autonomous-checkpoint/v1",
+  "status": "complete",
+  "recorded_at_utc": "2026-08-22T18:41:29Z",
+  "runner": {
+    "actions_completed": 9,
+    "evaluations_completed": 8,
+    "updates_completed": 1,
+    "stop_reason": "action_budget_exhausted",
+    "journal_events": 75,
+    "journal_head_sha256": "342600fa24a5bfdcd3590a104ff1bb64a0a13cf173413e4a7d2d57c379412a09",
+    "journal_file_sha256": "2c46145564990b4e3aa12d9479dbb57db1b96d1fd07d7ec697e441c3a361ad89"
+  },
+  "input_candidate": {
+    "label": "R6Y5",
+    "adapter_sha256": "8b47d9f034bb30ef84da9174406fe889f050ca2787615c6ef36c6d4d4296e936",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "r6y5_collection": [
+    {
+      "bank_id": "r6y5-child-e0c25-4009100-n6",
+      "track": "child",
+      "phase": "e0c25_inline_evidence",
+      "qualifying_trajectories": 2,
+      "distinct_task_keys": 2,
+      "gate_open": false
+    },
+    {
+      "bank_id": "r6y5-child-e0c2-4009300-n6",
+      "track": "child",
+      "phase": "e0c2_natural_child_no_template",
+      "qualifying_trajectories": 1,
+      "distinct_task_keys": 1,
+      "gate_open": false
+    },
+    {
+      "bank_id": "r6y5-child-e0c-4009500-n6",
+      "track": "child",
+      "phase": "e0c_natural_child",
+      "qualifying_trajectories": 2,
+      "distinct_task_keys": 2,
+      "gate_open": false
+    },
+    {
+      "bank_id": "r6y5-child-e0-4009700-n6",
+      "track": "child",
+      "phase": "e0_full_actions",
+      "qualifying_trajectories": 6,
+      "distinct_task_keys": 6,
+      "gate_open": true
+    },
+    {
+      "bank_id": "r6y5-yield-e0d3x-4009200-n6",
+      "track": "yield",
+      "phase": "e0d3_uncapped_yield_exact_child",
+      "qualifying_trajectories": 1,
+      "distinct_task_keys": 1,
+      "gate_open": false
+    },
+    {
+      "bank_id": "r6y5-yield-e0d2x-4009400-n6",
+      "track": "yield",
+      "phase": "e0d2_capped_yield_exact_child",
+      "qualifying_trajectories": 5,
+      "distinct_task_keys": 5,
+      "gate_open": true
+    }
+  ],
+  "update": {
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "failed_trajectory_rows": 0,
+    "training_rows": 8,
+    "training_rows_by_phase_and_role": {
+      "e0_full_actions:child": 4,
+      "e0d2_capped_yield_exact_child:orchestrator": 4
+    },
+    "loss_mean": 0.47730520367622375,
+    "loss_nan_count": 0,
+    "gradient_norm": 4.25,
+    "time_per_step_seconds": 23.41660303698154,
+    "plan_sha256": "0f1c6acfd892180b268951465ba26b89c05552ff275d605e6c48b71e01eaf663",
+    "result_sha256": "a16bba388cec79f8ee2392380b85614a610fbc6c13010d8cfe8b7af0ca6c53f7",
+    "receipt_sha256": "5970cc41287b2f17046573585b8a9de6140821a0d40c6dbc901196500bc920cc"
+  },
+  "output_candidate": {
+    "label": "R6Y6",
+    "model": "q35-2b-r6y6-1c2bca885ddb",
+    "model_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "adapter_sha256": "1c2bca885ddbab01f3d649c36386035f3c33ce82faad2fecce0f860c20da6dec",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "local_adapter_path": "artifacts/q35-2b-self-bootstrap-v1/autonomous-r6y5-checkpoint/r6y6-adapter"
+  },
+  "r6y6_post_update": [
+    {
+      "bank_id": "r6y6-child-e0c-4009800-n6",
+      "track": "child",
+      "phase": "e0c_natural_child",
+      "qualifying_trajectories": 5,
+      "distinct_task_keys": 5,
+      "gate_open": true
+    },
+    {
+      "bank_id": "r6y6-yield-e0d3x-4009900-n6",
+      "track": "yield",
+      "phase": "e0d3_uncapped_yield_exact_child",
+      "qualifying_trajectories": 1,
+      "distinct_task_keys": 1,
+      "gate_open": false
+    }
+  ],
+  "controller": {
+    "event_count": 22,
+    "event_head_sha256": "2f6ef831ab7d798ff23bbd551aae3d53bd1bafb483f3b1594986a8b912732c21",
+    "accepted_sources": {
+      "child": {
+        "bank_id": "r6y6-child-e0c-4009800-n6",
+        "phase": "e0c_natural_child",
+        "qualifying_trajectories": 5,
+        "distinct_task_keys": 5
+      }
+    },
+    "next_action": {
+      "kind": "collect",
+      "optimizer_steps_authorized": 0,
+      "track": "yield",
+      "phase": "e0d2_capped_yield_exact_child",
+      "start_index": 4010100,
+      "tasks": 6,
+      "reason": "increase_environment_help_after_failed_admission"
+    }
+  },
+  "invariants": {
+    "minimum_complete_qualifying_trajectories_per_source": 4,
+    "minimum_distinct_qualifying_task_keys_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "failed_trajectory_rows_trainable": false,
+    "maximum_optimizer_steps_per_cycle": 1,
+    "dense_base_updates_authorized": 0,
+    "heldout_training_allowed": false
+  }
+}

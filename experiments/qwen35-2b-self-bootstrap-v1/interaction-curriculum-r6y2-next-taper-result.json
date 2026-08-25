@@ -1,0 +1,69 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T19:25:01Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/positive-inline-value-selected-yield-lora-r6y2/weights/step_1/lora_adapters",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "arms": {
+    "e0c3_natural_child_minimal": {
+      "task_indices": [4007000, 4007001, 4007002, 4007003, 4007004, 4007005],
+      "episodes": 6,
+      "hard_successes": 0,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "errors": 0,
+      "user_closed": 2,
+      "max_turns": 4,
+      "forbidden_post_spawn_tool_before_child_mean": 0.8333333333333334,
+      "native_yield_missing": 4,
+      "gate_open": false,
+      "bootstrap_sha256": "7623f4040b4d995646a8f5dcd080bb94bd4e47d17d537506ad646dba22a37c8c",
+      "traces_sha256": "bd13d6d80063172dd403c03bdd186c0522e0ea3995b46ac0487bd5d0d5e8a2c7",
+      "interaction_summary_sha256": "b5e6d363cc6f66e053df9491c3b67bf3b25233f68eaffc0b4031d60dc6dd1051",
+      "versions_sha256": "117d17c9c70d33e4de78bdbf86c208e606ff660449a69a0ca3b0448634ae0940"
+    },
+    "e1_root_and_yield": {
+      "task_indices": [4007100, 4007101, 4007102, 4007103, 4007104, 4007105],
+      "episodes": 6,
+      "hard_successes": 0,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "errors": 4,
+      "provider_errors": 4,
+      "user_closed": 1,
+      "max_turns": 1,
+      "native_yield_missing": 6,
+      "gate_open": false,
+      "bootstrap_sha256": "bef401c4728f30045e2530e3ae24a4528f38758b63acae91adca12adc4e8c823",
+      "traces_sha256": "15f8664d555918736283b732df5ccfb508d97e328663978561293f74b3269b4b",
+      "interaction_summary_sha256": "0b0f29f6ed94f6dd314178c211cb93fc647c0ee8cdde17787935248e6bf8be16",
+      "versions_sha256": "9b4550d023d7bf0e21cbee36e70f35fd2b0f68b3a78c0cf264d7d7979dbee224"
+    }
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_arm": 4,
+    "minimum_distinct_task_keys_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_admitted": false,
+    "new_gradient_authorized": false,
+    "failed_trajectory_rows_trainable": false
+  },
+  "diagnosis": {
+    "child_boundary": "Removing the final positive statement that the private evidence is inline caused every natural-child audit to fail; five of six coordinators also made a forbidden post-spawn tool call.",
+    "combined_boundary": "Removing child-send mediation and passive-yield mediation together produced no native yield in six episodes. Four trajectories ended in the known malformed pseudo-tool ProviderError: Can only get item pairs from a mapping.",
+    "interpretation": "R6Y2 consolidated supported behavior but did not transfer across either full support-removal jump. The SPADE-style response is a thinner leak taper, not weaker admission."
+  },
+  "infrastructure_note": {
+    "aborted_attempt": "interaction-curriculum-e1-r6y2-natural-n1a-4007100-n6-aborted-router-path",
+    "model_generations": 0,
+    "cause": "The first launch shell did not expose the project virtualenv router binary on PATH. The attempt was preserved, and the task bank was executed exactly once after correcting PATH."
+  },
+  "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/r6y2-next-taper",
+  "safest_next_action": "Keep R6Y2 frozen. Preregister a no-update two-arm diagnostic: a new child-only rung between e0c275 and e0c3 that says evidence is already supplied without naming its location, plus a fresh e0d3_uncapped_yield arm that preserves value-pattern child reporting. Require four complete distinct qualifiers independently before any corpus construction or optimizer step."
+}

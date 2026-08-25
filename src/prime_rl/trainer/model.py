@@ -1,3 +1,5 @@
+import hashlib
+import json
 import logging
 import os
 import time
@@ -30,12 +32,18 @@ from prime_rl.configs.trainer import (
     ActivationCheckpointConfig,
     CompileConfig,
     FP8Config,
+    LoRAConfig,
     ModelConfig,
     MXFP8Config,
     TokenizerConfig,
 )
 from prime_rl.trainer.distributed import DeepEPExpertParallel, MXFP8AllToAllExpertParallel
-from prime_rl.trainer.lora import apply_lora_to_model, freeze_all_except_lora_and_specified, strip_lora_from_state_dict
+from prime_rl.trainer.lora import (
+    apply_lora_to_model,
+    freeze_all_except_lora_and_specified,
+    get_lora_state,
+    strip_lora_from_state_dict,
+)
 from prime_rl.trainer.models import (
     AutoModelForCausalLMPrimeRL,
     PreTrainedModelPrimeRL,
@@ -1011,6 +1019,59 @@ def load_dcp_from_hf(model: nn.Module, config: ModelConfig, parallel_dims: Paral
         for module in lora_modules:
             module._init_lora_parameters(generator)
     logger.debug(f"Loaded weights using HF DCP in {time.perf_counter() - load_dcp_start_time:.2f} seconds")
+
+
+def load_initial_lora_adapter(model: nn.Module, config: LoRAConfig) -> None:
+    """Load one hash-locked PEFT adapter into materialized PrimeRL LoRA parameters."""
+    if config.initial_adapter_path is None or config.initial_adapter_sha256 is None:
+        raise ValueError("initial adapter path and SHA-256 are required")
+
+    adapter_dir = config.initial_adapter_path
+    weights_path = adapter_dir / "adapter_model.safetensors"
+    config_path = adapter_dir / "adapter_config.json"
+    if not weights_path.is_file() or not config_path.is_file():
+        raise ValueError(f"initial adapter is incomplete: {adapter_dir}")
+
+    weights_sha256 = hashlib.sha256(weights_path.read_bytes()).hexdigest()
+    if weights_sha256 != config.initial_adapter_sha256:
+        raise ValueError(
+            f"initial adapter SHA-256 mismatch: expected {config.initial_adapter_sha256}, got {weights_sha256}"
+        )
+
+    adapter_config = json.loads(config_path.read_text())
+    expected_metadata = {
+        "r": config.rank,
+        "lora_alpha": config.alpha,
+        "lora_dropout": config.dropout,
+        "base_model_name_or_path": model.config._name_or_path,
+    }
+    mismatches = {
+        key: (expected, adapter_config.get(key))
+        for key, expected in expected_metadata.items()
+        if adapter_config.get(key) != expected
+    }
+    if mismatches:
+        raise ValueError(f"initial adapter metadata mismatch: {mismatches}")
+
+    prefix = "base_model.model."
+    adapter_parameters = dict(get_lora_state().named_adapter_parameters())
+    target_state = {f"{prefix}{name}": parameter for name, parameter in adapter_parameters.items()}
+    source_keys = set(load_state_dict_keys(adapter_dir))
+    if source_keys != set(target_state):
+        missing = sorted(set(target_state) - source_keys)
+        unexpected = sorted(source_keys - set(target_state))
+        raise ValueError(
+            f"initial adapter parameter mismatch: missing={missing[:10]}, unexpected={unexpected[:10]}"
+        )
+
+    dcp_load(
+        target_state,
+        storage_reader=HuggingFaceStorageReader(path=adapter_dir.as_posix()),
+    )
+    get_logger().info(
+        f"Initialized {len(target_state)} LoRA parameters from {adapter_dir} "
+        f"(sha256={weights_sha256})"
+    )
 
 
 def can_reinit_empty_buffers(model: nn.Module):

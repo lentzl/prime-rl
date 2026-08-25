@@ -1,0 +1,41 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T17:41:01Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6",
+    "adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297"
+  },
+  "arms": {
+    "e0c3_natural_child_minimal": {
+      "episodes": 6,
+      "hard_successes": 0,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "gate_open": false,
+      "traces_sha256": "4f5385e23a226eb79a9d3aa32922caecd6dd66740e6ee8cc7b12511836749634",
+      "summary_sha256": "89b0d18fb7d5538f5f4f324e0984ab42ea8545343b5f3b2ecc01eef9a7fea970",
+      "versions_sha256": "10e8ea89c5bd16cefe83e654ac760b8b550d84f7c456bf689fd6103468931f91",
+      "diagnosis": "Without any inline-evidence semantic hint, children reverted to treating the evidence label as a runtime path or continued corrective tool use; five of six exhausted or approached the turn budget."
+    },
+    "e0d3_uncapped_yield_exact_child": {
+      "episodes": 6,
+      "hard_successes": 2,
+      "qualifying_trajectories": 2,
+      "distinct_qualifying_task_keys": 2,
+      "gate_open": false,
+      "traces_sha256": "c23f3aa5b57b498998d2974bf8a4234aa421b17e10d527a22c1753a932efc201",
+      "summary_sha256": "8018faa51f37ea9da3c09bb3311e70d988ad9cd34068dd7e14ae1f7b88e85597",
+      "versions_sha256": "7f4e45ddd4bd36b1f3185fec69a56c69fcf8469592f80d368ea141d623be683c",
+      "diagnosis": "Two coordinators natively yielded and completed. Four maxed the ordinary 3072-token transition with malformed pseudo-tool output despite tools being absent from the request, then terminated with provider/parser errors."
+    }
+  },
+  "admission": {
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_admitted": false,
+    "new_gradient_authorized": false
+  },
+  "next_action": "Retain deliberate early leakage and test smaller support removals: preserve a positive inline-location cue between E0c25 and E0c3, and preserve bounded decoding while separately relaxing the remaining yield controls."
+}

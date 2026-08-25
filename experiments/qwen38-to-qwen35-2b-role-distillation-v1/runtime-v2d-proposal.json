@@ -1,0 +1,92 @@
+{
+  "schema_version": "q38-runtime-v2d-quiescent-no-packed-decode-proposal/v1",
+  "status": "rejected_on_second_fresh_start",
+  "authorization_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5359331913",
+  "qualification_wrapper": {
+    "path": "scripts/run_q38_runtime_v2d_quiescent_no_packed_decode_qualification_v1.sh",
+    "sha256": "88145a5460e23195c45080971295a6c8ff3f2fe24f219077849e7ce195c7a8b1"
+  },
+  "predecessor": {
+    "lane": "runtime-v2c-no-packed-decode",
+    "result": "first_sentinel_passed_then_immediate_restart_failed_during_startup_profile",
+    "result_file": "runtime-v2c-result.json"
+  },
+  "hypothesis": {
+    "lane": "runtime-v2d-quiescent-no-packed-decode",
+    "single_changed_variable_from_runtime_v2c": {
+      "name": "continuous_gpu_quiescence_barrier_before_each_server_start_seconds",
+      "from": 0,
+      "to": 90
+    },
+    "rationale": "Runtime-v2c r1 completed and tore down cleanly, but r2 was launched in the same recorded second and failed during the startup profile run with NVIDIA Xid 31. Requiring 90 consecutive seconds with no compute process before every server lifetime tests whether driver/context teardown was still racing the next startup. It changes server lifecycle only; no engine, model, request, task, or verifier setting changes.",
+    "retained_runtime_v2c_settings": {
+      "CUDA_LAUNCH_BLOCKING": 1,
+      "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE": 0,
+      "vllm": "0.27.1+cu129",
+      "tensor_parallel_size": 2,
+      "dtype": "bfloat16",
+      "max_model_len": 32768,
+      "gpu_memory_utilization": 0.88,
+      "enforce_eager": true,
+      "max_num_seqs": 1,
+      "max_num_batched_tokens": 512,
+      "disable_custom_all_reduce": true
+    },
+    "causal_scope": "reversible runtime lifecycle plumbing",
+    "falsification": "Any failed quiescence barrier, startup, sentinel trace, sustained-use trace, or teardown rejects runtime-v2d."
+  },
+  "evidence": {
+    "host_kernel_event": "NVRM Xid 31 MMU FAULT_PDE ACCESS_TYPE_VIRT_READ on GPU0 at 2026-08-20T17:53:55Z",
+    "upstream_pattern": "vLLM issue 48477 reports the same CUBLAS_STATUS_EXECUTION_FAILED family during determine_available_memory/profile_run for a Qwen3.5 hybrid GDN model, although its FP8 model and later vLLM release differ from this BF16 case.",
+    "upstream_url": "https://github.com/vllm-project/vllm/issues/48477",
+    "inference": "The upstream report supports treating the visible GEMM as a profile-run/runtime failure family; it does not establish that a quiescence barrier is a known fix."
+  },
+  "stronger_qualification_gate": {
+    "teacher_admission_status": "all_traces_permanently_non_admitted",
+    "fresh_start_reproducibility": {
+      "attempts": 3,
+      "axis": "natural_n1a_local",
+      "task_index": 3806011,
+      "tasks_per_attempt": 1,
+      "prestart_quiescence_seconds": 90
+    },
+    "sustained_use_reproducibility": {
+      "attempts": 2,
+      "fresh_server_for_each_attempt": true,
+      "axis": "natural_n1a_local",
+      "indices": [3806011, 3806012, 3806013, 3806014, 3806015],
+      "tasks_per_attempt": 5,
+      "prestart_quiescence_seconds": 90
+    },
+    "required_for_every_leg": [
+      "90 consecutive prestart seconds with zero GPU compute processes",
+      "expected complete serialized envelope and trace count",
+      "all traces is_completed=true and error-free",
+      "zero ProviderError, EngineCore, CUDA, CUBLAS, or RPC failure signatures",
+      "clean server teardown with idle GPUs",
+      "packed recurrent decode JIT signature absent",
+      "recorded checksums and exact runtime provenance"
+    ],
+    "behavioral_hard_failure_allowed": true,
+    "pass_rule": "All three sentinel starts and both five-task soaks pass."
+  },
+  "frozen_science": {
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "current_qualifying_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "student_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "result_file": "runtime-v2d-result.json"
+}

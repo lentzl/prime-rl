@@ -1,0 +1,93 @@
+max_steps = 1
+output_dir = "/home/ubuntu/rlm/outputs/q35-2b-spade-interaction-loop-v1"
+clean = false
+
+[run]
+name = "spade-loop-e0c2-e0d2x-lora-r6y5"
+dir = "spade-loop-e0c2-e0d2x-lora-r6y5"
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+num_gpus = 2
+
+[model]
+name = "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.compile]
+fullgraph = false
+
+[model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[model.lora]
+rank = 16
+alpha = 32.0
+dropout = 0.0
+target_modules = [
+  "q_proj",
+  "k_proj",
+  "v_proj",
+  "o_proj",
+  "gate_proj",
+  "up_proj",
+  "down_proj",
+]
+initial_adapter_path = "/home/ubuntu/rlm/outputs/q35-2b-spade-interaction-loop-v1/spade-loop-e0c25-e0d2x-lora-r6y4/weights/step_1/lora_adapters"
+initial_adapter_sha256 = "76f0b2dd9764c8ab556fd01c3cabb31b31aee6689762309df80149460d2373a2"
+
+[tokenizer]
+name = "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7"
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[data]
+type = "sft"
+name = "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/spade-loop-r6y4-e0c2-e0d2x-joint-sft-v2"
+batch_size = 8
+micro_batch_size = 1
+seq_len = 16384
+shuffle = false
+seed = 20260822
+
+[data.loss_mask]
+system = false
+user = false
+assistant = true
+tool = false
+
+[optim]
+type = "adamw"
+lr = 1e-5
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[scheduler]
+type = "constant"
+
+[ckpt]
+interval = 1
+keep_last = 1
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+save_adapter_separately = true
+
+[file_monitor]
+filename = "metrics.jsonl"

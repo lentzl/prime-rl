@@ -1,0 +1,130 @@
+{
+  "schema_version": "q38-platform-v3-a6000x2/v1",
+  "status": "preregistered_before_provisioning",
+  "authorization": {
+    "url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5361874859",
+    "scope": "Use a materially different two-GPU platform to establish a stable frozen-Q38 inference lane, then continue through the bounded 2B role-adapter ignition pilot if every frozen gate passes."
+  },
+  "host_inventory": {
+    "observed_at_utc": "2026-08-20T21:39:43Z",
+    "ssh_host": "216.81.200.39",
+    "hostname": "0078-dsm-prxmx30165",
+    "os": "Ubuntu 22.04.5 LTS",
+    "kernel": "6.8.0-90-generic",
+    "cpu": "Intel Xeon Gold 6238R",
+    "logical_cpus": 14,
+    "system_memory_gib": 94,
+    "swap_gib": 4,
+    "root_disk_available_gib": 469,
+    "driver": "580.126.09",
+    "driver_reported_cuda": "13.0",
+    "gpu_topology": "PHB",
+    "nvlink_present": false,
+    "gpus": [
+      {
+        "index": 0,
+        "name": "NVIDIA RTX A6000",
+        "architecture": "Ampere",
+        "compute_capability": "8.6",
+        "uuid": "GPU-34b3ed8e-f87a-013f-3a77-ed3c726df0eb",
+        "pci_bus_id": "00000000:01:00.0",
+        "memory_mib": 49140,
+        "vbios": "94.02.5C.00.02"
+      },
+      {
+        "index": 1,
+        "name": "NVIDIA RTX A6000",
+        "architecture": "Ampere",
+        "compute_capability": "8.6",
+        "uuid": "GPU-512bec28-584e-3e18-1b86-2b91d2695783",
+        "pci_bus_id": "00000000:02:00.0",
+        "memory_mib": 49140,
+        "vbios": "94.02.5C.00.02"
+      }
+    ],
+    "initial_state": {
+      "gpu_memory_used_mib_each": 1,
+      "serving_or_training_processes": 0,
+      "kernel_gpu_faults_since_boot": 0
+    }
+  },
+  "frozen_scientific_state": {
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "teacher_policy": "immutable_inference_only",
+    "teacher_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "student_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "first_serving_family": {
+    "name": "platform-v3a-a6000x2-vllm026",
+    "rationale": "Use the repository's clean locked and supported inference environment on the materially different Ampere platform. Do not carry forward CUDA launch blocking, packed-decode overrides, quiescence experiments, or the PyTorch GDN patch from the rejected Ada family.",
+    "provisioning": "uv sync --all-extras --frozen",
+    "vllm": "0.26.0+cu129",
+    "tensor_parallel_size": 2,
+    "dtype": "bfloat16",
+    "max_model_len": 32768,
+    "gpu_memory_utilization": 0.88,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 512,
+    "disable_custom_all_reduce": true,
+    "enforce_eager": true,
+    "ada_runtime_hacks_inherited": false
+  },
+  "qualification": {
+    "teacher_admission_status": "permanently_non_admitted",
+    "legs": [
+      {
+        "name": "fresh_sentinel",
+        "fresh_server": true,
+        "axes": ["natural_n1a_local"],
+        "start_index": 3806011,
+        "tasks_per_axis": 1,
+        "expected_complete_traces": 1
+      },
+      {
+        "name": "composite_workload_r1",
+        "fresh_server": true,
+        "sequence": [
+          {
+            "axes": [
+              "natural_direct_control",
+              "natural_n1a",
+              "natural_n1a_local",
+              "natural_n1b"
+            ],
+            "index_offset": 11,
+            "tasks_per_axis": 1
+          },
+          {
+            "axes": ["natural_n1a_local"],
+            "start_index": 3806011,
+            "tasks_per_axis": 5
+          }
+        ],
+        "expected_complete_traces": 9
+      },
+      {
+        "name": "composite_workload_r2_after_restart",
+        "fresh_server": true,
+        "repeat_of": "composite_workload_r1",
+        "expected_complete_traces": 9
+      }
+    ],
+    "pass_rule": "All three legs must exit zero, serialize exactly the expected number of complete error-free envelopes and traces, contain no CUDA, Xid, CUBLAS, EngineCore, Provider, or RPC failure signature, and leave no GPU or serving worker after teardown.",
+    "fail_rule": "Any failed leg rejects this serving family before teacher recovery. Qualification data remains permanently non-admitted regardless of behavior."
+  },
+  "next_if_qualified": "Proceed directly to minimal current-causal N1a-local and N1b teacher recovery under new admitted provenance.",
+  "next_if_rejected": "Select one materially distinct supported A6000 serving family. Stop for strategic review only if two supported A6000 serving families fail or hardware evidence appears."
+}

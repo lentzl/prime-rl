@@ -1,0 +1,36 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_admitted",
+  "completed_at_utc": "2026-08-21T20:36:08Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "source": {
+    "phase": "e0d2_capped_yield_exact_child",
+    "task_indices": [4008000, 4008001, 4008002, 4008003, 4008004, 4008005],
+    "episodes": 6,
+    "qualifying_trajectories": 4,
+    "distinct_qualifying_task_keys": 4,
+    "gate_open": true,
+    "bootstrap_sha256": "0141640c7fbdb646c5c5285369cc6f1afec944e709d570b686f432f37bca198e",
+    "traces_sha256": "e00e2334be4dbfd66cf36d0964e027a394861550b6ac1352c4c52bf5543333d2",
+    "interaction_summary_sha256": "646aca3882e2f6fac421cafce2a8aaeb4662b6b60f1ac16c8b1850b7aeb0af9c",
+    "versions_sha256": "415876bbdd529d21df26d1d8ea4db97e13f108d9d6c27600df4b367a6bbf6baa"
+  },
+  "joint_admission": {
+    "supported_child_phase": "e0c275_inline_location",
+    "supported_child_qualifying_trajectories": 5,
+    "supported_child_distinct_task_keys": 5,
+    "capped_yield_qualifying_trajectories": 4,
+    "capped_yield_distinct_task_keys": 4,
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "both_sources_admitted": true,
+    "success_only_corpus_authorized": true,
+    "optimizer_step_authorized": false
+  },
+  "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/r6y2-capped-yield-recovery"
+}

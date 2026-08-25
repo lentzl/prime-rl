@@ -1,0 +1,50 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-result/v1",
+  "status": "complete",
+  "completed_at_utc": "2026-08-21T16:48:14Z",
+  "update": {
+    "name": "intermediate-recovery-joint-lora-r5",
+    "type": "sequential_balanced_sft_lora",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "assistant_only_loss": true,
+    "corpus_rows": 8,
+    "e0c2_child_rows": 4,
+    "e0d2x_orchestrator_rows": 4,
+    "failed_trajectory_rows": 0,
+    "loss_mean": 0.6030740737915039,
+    "loss_nan_count": 0,
+    "gradient_norm": 5.8125,
+    "step_time_seconds": 23.74380750799901,
+    "peak_memory_gib": 7.220703125
+  },
+  "initial_adapter": {
+    "adapter": "R4",
+    "adapter_model_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7",
+    "loaded_parameter_tensors": 192,
+    "merged_into_dense_base": false
+  },
+  "immutable_base": {
+    "weight_sha256_before_and_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "mutated": false
+  },
+  "corpus_integrity": {
+    "train_parquet_sha256": "8123305a5e9e172c0fb0912fc6327a45fcdb14d6f67fb5257df7768167079836",
+    "pretraining_baseline_sha256": "ff47f2fd2721ab49f8ee73083d6e399caee72334b75c0dd769c09699dfdfc423",
+    "manifest_sha256": "9a345db11fc8ffcaf7f7b8ee629c72c3e51cc0b75cab2526a07aa05c6e345ef9"
+  },
+  "output_integrity": {
+    "resolved_config_sha256": "eb044a1f97b628bb6a04e2e2b2bf8c5f83ed3ae8d33d01d9541883d68b789f39",
+    "metrics_sha256": "d753b243fded91131bbcdae77719b168a016dcef0fb430f3596861172ba78591",
+    "adapter_config_sha256": "06a44e2d2d9c2208e2a77eea7eab23af69b43b999ff9f950c15c30d1e434acd0",
+    "adapter_model_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c",
+    "remote_adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/intermediate-recovery-joint-lora-r5/weights/step_1/lora_adapters"
+  },
+  "current_authorization": {
+    "new_gradient": false,
+    "reason": "The single authorized R5 update is complete. Frozen R5 must pass a fresh progressively stricter evaluation before any further optimizer decision."
+  }
+}

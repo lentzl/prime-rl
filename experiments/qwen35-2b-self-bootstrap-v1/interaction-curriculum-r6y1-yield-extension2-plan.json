@@ -1,0 +1,34 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "executed_complete_aggregate_admitted",
+  "recorded_at_utc": "2026-08-21T18:53:01Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y1",
+    "adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "phase": "e0d3_uncapped_yield",
+  "start_index": 4006900,
+  "task_indices": [4006900, 4006901, 4006902, 4006903, 4006904, 4006905],
+  "run_label": "interaction-curriculum-e0d3-r6y1-natural-n1a-4006900-n6-extension2",
+  "bootstrap_sha256": "5e9cd8365a3f8979e47e4881f9db32ded0345b8fc0ba61c30274c38a65b37cba",
+  "aggregate_source_banks": [4006600, 4006800, 4006900],
+  "existing_aggregate_qualifiers": 3,
+  "additional_qualifiers_required": 1,
+  "sampling": {
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6
+  },
+  "admission": {
+    "aggregate_minimum_complete_qualifying_trajectories": 4,
+    "aggregate_minimum_distinct_task_keys": 4,
+    "acceptance_floor_relaxed": false,
+    "failed_trajectory_rows_trainable": false
+  }
+}

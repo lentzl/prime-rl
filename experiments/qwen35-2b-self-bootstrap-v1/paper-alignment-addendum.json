@@ -1,0 +1,132 @@
+{
+  "schema_version": "qwen35-2b-self-bootstrap-paper-alignment/v1",
+  "status": "preregistered_before_2b_inference",
+  "created_at_utc": "2026-08-21T07:40:00Z",
+  "source": {
+    "paper": "SPADE: Self-Play in Adaptive Synthetic Executable Environments",
+    "local_pdf": "../2608.19197v1.pdf",
+    "arxiv_id": "2608.19197v1",
+    "reason": "The paper was supplied after the initial owner-pivot preregistration and before any 2B inference or gradient update."
+  },
+  "relationship_to_initial_preregistration": {
+    "initial_file": "experiments/qwen35-2b-self-bootstrap-v1/preregistration.json",
+    "initial_sha256": "20bd582985b871dce897c7fa48efdbc38854067b30e09804571d0a807b34546c",
+    "supersedes": "phase_1_compute_gap as the primary SPADE feasibility signal",
+    "retains": "P versus best-of-four P-plus as a separately reported inference-search baseline",
+    "post_hoc_change": false
+  },
+  "paper_alignment": {
+    "shared_base_policy": true,
+    "roles": [
+      "environment_designer",
+      "reasoning_agent"
+    ],
+    "code_as_environment_target": "Gym-style executable reset()/step() environments",
+    "primary_signal": "paired privileged-hint regret",
+    "designer_reward_definition": "mean_reasoning_agent_return_with_hint minus mean_reasoning_agent_return_without_hint",
+    "corpus_grounding_required_before_adaptive_generation": true,
+    "environment_memory_required_before_adaptive_generation": true,
+    "candidate_validation_required": [
+      "syntax",
+      "instantiation",
+      "deterministic_reset",
+      "bounded_probe_execution",
+      "reward_and_termination_contract"
+    ]
+  },
+  "foundation_rung_0": {
+    "purpose": "Verify that the immutable 2B policy and existing executable Prime environments expose a measurable hint-based learning frontier before building or training an adaptive environment designer.",
+    "environment_source": "existing frozen procedural generator; no learned designer yet",
+    "tasks": {
+      "axes": [
+        "natural_direct_control",
+        "natural_n1a",
+        "natural_n1a_local",
+        "natural_n1b"
+      ],
+      "tasks_per_axis": 8,
+      "index_offset": 200000
+    },
+    "hint_writer": {
+      "model": "the same immutable 2B snapshot",
+      "role_prompt": "environment_designer_hint_writer",
+      "privileged_input": "designer-only task specification and verifier/oracle metadata",
+      "solver_access_to_privileged_input": false,
+      "exact_answer_or_private_payload_leak_rejected": true,
+      "temperature": 0.6,
+      "max_tokens": 1024
+    },
+    "paired_rollouts": {
+      "group_size_per_arm": 4,
+      "no_hint_seeds": [
+        20260822,
+        20260823,
+        20260824,
+        20260825
+      ],
+      "hint_seeds": [
+        20260826,
+        20260827,
+        20260828,
+        20260829
+      ],
+      "same_task_keys_between_arms": true,
+      "independent_environment_reset_seeds": true,
+      "reasoning_agent_temperature": 0.6
+    },
+    "positive_frontier_gate": {
+      "minimum_distinct_positive_regret_task_keys": 4,
+      "minimum_regret": 0.25,
+      "minimum_distinct_positive_regret_async_task_keys": 4,
+      "all_counted_rollouts_complete_and_error_free": true,
+      "no_hint_mean_return_less_than_hint_mean_return": true,
+      "no_answer_leaking_hint": true
+    },
+    "gradient_updates": 0
+  },
+  "foundation_rung_1": {
+    "authorized_only_if_rung_0_passes": true,
+    "purpose": "Build a fixed-pool Reasoning Agent GRPO control before joint adaptive designer training.",
+    "training_environment_pool": "positive-regret discovery environments from rung 0",
+    "training_role": "reasoning_agent",
+    "objective": "verifier-grounded GRPO",
+    "base_model_immutable": true,
+    "adapter_only": true,
+    "held_out_baseline_frozen_before_gradient": true,
+    "note": "This is a controlled foundation and must not be reported as full SPADE."
+  },
+  "foundation_rung_2": {
+    "authorized_only_if_rung_1_improves_held_out_reasoning_agent_return": true,
+    "purpose": "Add corpus-grounded executable environment generation, validation, environment memory, paired hint/no-hint rollouts, and shared-policy role updates.",
+    "joint_roles": [
+      "environment_designer",
+      "reasoning_agent"
+    ],
+    "shared_adapter_or_policy_required": true,
+    "designer_reward": {
+      "hint_regret_weight": 0.4,
+      "difficulty_plateau_weight": 0.6,
+      "target_no_hint_win_rate_band": [
+        0.4,
+        0.6
+      ],
+      "negative_regret_floor": 0.0
+    },
+    "environment_memory_capacity": 200,
+    "rejected_candidates_persisted": true,
+    "maximum_generation_attempts_per_environment": 5,
+    "note": "This is the first rung eligible to be described as a SPADE-style adaptive self-play implementation."
+  },
+  "global_prohibitions": [
+    "no_gradients_before_rung_0_positive_frontier_gate",
+    "no_claim_that_best-of-n_alone_is_SPADE",
+    "no_solver_access_to_designer_oracle_or_environment_source",
+    "no_exact_answer_in_privileged_hint",
+    "no_execution_of_unvalidated_generated_environment_code",
+    "no_training_on_invalid_incomplete_or_errored_rollouts",
+    "no_dense_merge_or_base_weight_mutation",
+    "no_q38_or_r7_weight_mutation",
+    "no_held_out_task_training",
+    "no_full_adaptive_designer_claim_before_rung_2"
+  ]
+}

@@ -1,0 +1,1043 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-split-frontier-design/v1",
+  "status": "r6y3_fresh_taper_complete_not_admitted",
+  "recorded_at_utc": "2026-08-21T17:14:08Z",
+  "trigger": {
+    "r2_e1_hard_successes": 0,
+    "r3_e1_hard_successes": 0,
+    "repeated_failure": "E1 simultaneously removes child-send syntax control and exact passive-yield control; neither behavior transferred after two distinct E0b acquisition updates."
+  },
+  "principle": "Deliberately leak solution-relevant interaction structure early to grow capability, then tighten one independent boundary at a time while preserving the complementary leak. Leakage is curriculum support, not a defect or a disqualifier.",
+  "spade_alignment": {
+    "source": "2608.19197v1.pdf, Figure 8 and surrounding discussion",
+    "reported_solution_method_reveal_schedule": {
+      "early_percent": 25,
+      "mid_percent": 10,
+      "late_percent": 5
+    },
+    "local_analogue": "E0c2 -> E0c25 -> E0c3 progressively removes child evidence and action supports only after the supported behavior is acquired; yield supports are tightened independently.",
+    "policy": "Early supported successes remain valid capability-growing data when they satisfy the preregistered phase audit. Advancement, rather than retroactive punishment, removes the leak."
+  },
+  "prospective_rungs": [
+    {
+      "phase": "E0c_child_naturalization",
+      "purpose": "Measure and acquire unconstrained child reporting without exposing coordinator yield failures.",
+      "retained_help": [
+        "exact retained root spawn",
+        "exact structured passive yield",
+        "one terminal child-closing response after a valid send"
+      ],
+      "removed_help": "numeric child-send regex",
+      "replacement_leak": "The hidden child evidence message explicitly states that the evidence label is not a file path and supplies a value-agnostic send-code template; the first tool is forced to IPython but its code is model-generated.",
+      "qualification": "A complete hard success must contain a sampled, unconstrained child IPython call whose AST sends the correct inline-evidence value exactly once to the parent."
+    },
+    {
+      "phase": "E0d_yield_naturalization",
+      "purpose": "Measure and acquire native passive yield without exposing child reporting failures.",
+      "retained_help": [
+        "exact retained root spawn",
+        "value-agnostic pattern-constrained child send",
+        "one terminal child-closing response"
+      ],
+      "removed_help": "single-choice exact waiting sentence",
+      "replacement_leak": "The post-spawn observation gives a generic yield instruction, removes tools, disables thinking, and caps the transition, but the waiting text itself is generated without a response-choice constraint.",
+      "qualification": "A complete hard success must contain one sampled no-tool coordinator response before the child report."
+    }
+  ],
+  "admission": {
+    "minimum_complete_qualifying_trajectories_before_each_gradient": 4,
+    "minimum_distinct_task_keys": 4,
+    "acceptance_floor_relaxed": false,
+    "fresh_train_gen_keys_required": true,
+    "failed_e1_data_trainable": false
+  },
+  "combination_rule": "Only after both isolated rungs independently meet admission may their supports be removed together in a fresh E1 evaluation.",
+  "evaluation_plan": {
+    "recorded_at_utc": "2026-08-21T15:50:14Z",
+    "gradient_updates_during_evaluation": 0,
+    "frozen_candidate": {
+      "base_model": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+      "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+      "adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/e0b-acquisition2-joint-lora-r3/weights/step_1/lora_adapters",
+      "adapter_sha256": "ae4c3daa8b34ee5211b7cee4f3cf13ee194aa520ac02e172e6b9677ec2e88e44",
+      "adapter_rank": 16
+    },
+    "shared_sampling": {
+      "axis": "natural_n1a",
+      "split": "train_gen",
+      "tasks_per_arm": 6,
+      "rollouts_per_task": 1,
+      "sampling_seed": 20260822,
+      "temperature": 0.6,
+      "reasoning_effort": "high",
+      "maximum_concurrency": 6,
+      "bootstrap_level": "action_scaffold"
+    },
+    "arms": [
+      {
+        "phase": "e0c_natural_child",
+        "start_index": 4004700,
+        "task_indices": [4004700, 4004701, 4004702, 4004703, 4004704, 4004705],
+        "run_label": "interaction-curriculum-e0c-r3-natural-n1a-4004700-n6"
+      },
+      {
+        "phase": "e0d_guided_yield",
+        "start_index": 4004800,
+        "task_indices": [4004800, 4004801, 4004802, 4004803, 4004804, 4004805],
+        "run_label": "interaction-curriculum-e0d-r3-natural-n1a-4004800-n6"
+      }
+    ]
+  },
+  "evaluation_result": {
+    "optimizer_updates_during_evaluation": 0,
+    "e0c_natural_child": {
+      "episodes": 6,
+      "hard_successes": 4,
+      "qualifying_trajectories": 4,
+      "distinct_qualifying_task_keys": 4,
+      "traces_sha256": "493a42615dab7e56e47e5629a3525daa5f41cc43057302ad51d199395043a4d1",
+      "summary_sha256": "b6f3d7dc3343f9ca81b26a8caac75669a97031c07ee0d18017036018c4636020",
+      "gate_open": true
+    },
+    "e0d_guided_yield": {
+      "episodes": 6,
+      "hard_successes": 6,
+      "qualifying_trajectories": 6,
+      "distinct_qualifying_task_keys": 6,
+      "traces_sha256": "96ba717ef1e0c2b4642858ed71d78c37f55695822a52aea1c86b5d228f2c6f87",
+      "summary_sha256": "abd1fbeabf9f2ebadcd4c57fee2feb495b246873b71970c642700c64144c06f0",
+      "gate_open": true
+    }
+  },
+  "training_plan": {
+    "recorded_before_launch": true,
+    "update_name": "split-frontier-joint-lora-r4",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "initial_adapter": "R3",
+    "initial_adapter_sha256": "ae4c3daa8b34ee5211b7cee4f3cf13ee194aa520ac02e172e6b9677ec2e88e44",
+    "corpus": {
+      "rows": 8,
+      "e0c_natural_child_rows": 4,
+      "e0d_guided_yield_rows": 4,
+      "failed_trajectory_rows": 0,
+      "train_parquet_sha256": "8d4e0c019926a97935a06b8c2272d43fa6ef78c0c8ae18f274f957d961da18f2",
+      "manifest_sha256": "9e26a8cca1f43ee0e16a4a0fce42ae6769f10883272c799386c475914ae814cb"
+    },
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "assistant_only_loss": true,
+    "config": "experiments/qwen35-2b-self-bootstrap-v1/interaction-split-frontier-joint-sft-lora.toml"
+  },
+  "training_result": {
+    "completed_at_utc": "2026-08-21T16:08:49Z",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "loss_mean": 0.6557987332344055,
+    "loss_nan_count": 0,
+    "gradient_norm": 5.75,
+    "loaded_initial_adapter_tensors": 192,
+    "output_adapter_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7",
+    "resolved_config_sha256": "d1088331be12e99f0df797340ff274b4d96f392301a31f2103d3fe4c34dd5995",
+    "metrics_sha256": "0bd48d1584d91d2fc9f4b69a86665de25e6d57a88f5c0b4e2eae2dc86b724525",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "post_update_e1_plan": {
+    "phase": "e1_root_and_yield",
+    "start_index": 4004900,
+    "task_indices": [4004900, 4004901, 4004902, 4004903, 4004904, 4004905],
+    "tasks": 6,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "minimum_complete_qualifying_trajectories": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "post_update_e1_result": {
+    "completed_at_utc": "2026-08-21T16:17:56Z",
+    "episodes": 6,
+    "hard_successes": 0,
+    "qualifying_trajectories": 0,
+    "distinct_qualifying_task_keys": 0,
+    "errored_episodes": 6,
+    "valid_natural_child_sends": 0,
+    "native_no_tool_yield_responses": 0,
+    "traces_sha256": "f58b56add84a3bbd1eec924b3969601781dd96df195c7a3353bbadc86ea63e58",
+    "summary_sha256": "338b3a69ef461504537227502ea8bda9a0391332e16754bf29773f2af685cf8f",
+    "gate_open": false,
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-e1-r4-run1-result.json"
+  },
+  "intermediate_transition_design": {
+    "recorded_at_utc": "2026-08-21T16:24:46Z",
+    "principle": "After the combined E1 jump failed, remove exactly one residual support from each independently acquired boundary while retaining the complementary boundary's stronger leak.",
+    "frozen_candidate": {
+      "adapter": "R4",
+      "adapter_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7",
+      "optimizer_updates_during_evaluation": 0
+    },
+    "arms": [
+      {
+        "phase": "e0c2_natural_child_no_template",
+        "removed_support": "The value-agnostic str(VALUE) send-code template is absent.",
+        "retained_supports": [
+          "the inline-evidence and not-a-runtime-path explanation",
+          "forced first IPython tool with unconstrained code",
+          "exact structured coordinator yield"
+        ],
+        "start_index": 4005000,
+        "task_indices": [4005000, 4005001, 4005002, 4005003, 4005004, 4005005],
+        "run_label": "interaction-curriculum-e0c2-r4-natural-n1a-4005000-n6",
+        "bootstrap_sha256": "c5d9ba1ef073cc896b07bb20c6b7b754bb5488433f89466bbbce812cb42d782a"
+      },
+      {
+        "phase": "e0d2_capped_yield",
+        "removed_support": "No waiting instruction or added observation text is shown to the coordinator.",
+        "retained_supports": [
+          "tool removal for the passive transition",
+          "128-token, temperature-zero, low-effort, no-thinking decode cap",
+          "value-agnostic pattern-constrained child send"
+        ],
+        "start_index": 4005100,
+        "task_indices": [4005100, 4005101, 4005102, 4005103, 4005104, 4005105],
+        "run_label": "interaction-curriculum-e0d2-r4-natural-n1a-4005100-n6",
+        "bootstrap_sha256": "07d7402c6672682568fa11769f5f664b35a987e8e0a3b94fbcb5546eda648715"
+      }
+    ],
+    "shared_sampling": {
+      "split": "train_gen",
+      "tasks_per_arm": 6,
+      "rollouts_per_task": 1,
+      "task_master_seed": 20260819,
+      "sampling_seed": 20260822,
+      "temperature": 0.6,
+      "reasoning_effort": "high",
+      "bootstrap_level": "action_scaffold"
+    },
+    "admission": {
+      "minimum_complete_qualifying_trajectories_per_arm": 4,
+      "minimum_distinct_task_keys_per_arm": 4,
+      "acceptance_floor_relaxed": false,
+      "both_arms_must_pass_before_any_gradient": true
+    },
+    "preflight_correction": {
+      "status": "corrected_before_sampling",
+      "episodes_sampled_before_correction": 0,
+      "cause": "The first bootstrap artifacts were generated with sampling_seed 20260822 instead of the independently configured task_master_seed 20260819, so task loading failed closed before rollout creation.",
+      "preserved_failed_run_suffix": "aborted-preflight-master-seed-mismatch",
+      "evaluation_bank_changed": false
+    }
+  },
+  "intermediate_transition_result": {
+    "completed_at_utc": "2026-08-21T16:35:06Z",
+    "optimizer_updates": 0,
+    "e0c2_natural_child_no_template": {
+      "episodes": 6,
+      "hard_successes": 5,
+      "qualifying_trajectories": 3,
+      "distinct_qualifying_task_keys": 3,
+      "gate_open": false,
+      "summary_sha256": "a4c9ccf5087deb703165018fa612fd57fcbc770e880f7efdfa3718917d51d75c"
+    },
+    "e0d2_capped_yield": {
+      "episodes": 6,
+      "hard_successes": 1,
+      "qualifying_trajectories": 1,
+      "distinct_qualifying_task_keys": 1,
+      "native_no_tool_yield_responses": 5,
+      "gate_open": false,
+      "summary_sha256": "ffb1e30a0870385a4c003b13e3eda0fdf738f422188ca08120f07d62bd272e87"
+    },
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-intermediate-r4-run1-result.json"
+  },
+  "intermediate_recovery_plan": {
+    "recorded_at_utc": "2026-08-21T16:37:55Z",
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R4",
+    "frozen_adapter_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7",
+    "arms": [
+      {
+        "phase": "e0c2_natural_child_no_template",
+        "purpose": "A fixed fresh extension bank for the unchanged natural-child predicate; admission is computed over the original and extension banks together.",
+        "start_index": 4005200,
+        "task_indices": [4005200, 4005201, 4005202, 4005203, 4005204, 4005205],
+        "run_label": "interaction-curriculum-e0c2-r4-natural-n1a-4005200-n6-extension",
+        "bootstrap_sha256": "a1a96a7d9457197c7c8d308fb37f7124cd8e44ff21943725c42353558e563256",
+        "aggregate_required_qualifying_trajectories": 4,
+        "aggregate_required_distinct_task_keys": 4
+      },
+      {
+        "phase": "e0d2_capped_yield_exact_child",
+        "purpose": "Measure prompt-free capped passive yield while leaking the exact correct child send, eliminating child-value extraction as a confound.",
+        "start_index": 4005300,
+        "task_indices": [4005300, 4005301, 4005302, 4005303, 4005304, 4005305],
+        "run_label": "interaction-curriculum-e0d2x-r4-natural-n1a-4005300-n6",
+        "bootstrap_sha256": "8bcddde861b3b1fb6ddb51a4bd711e733fdb8b819199e449c7bab6a8b608ceb9",
+        "required_qualifying_trajectories": 4,
+        "required_distinct_task_keys": 4
+      }
+    ],
+    "shared_sampling": {
+      "task_master_seed": 20260819,
+      "sampling_seed": 20260822,
+      "temperature": 0.6,
+      "reasoning_effort": "high",
+      "tasks_per_arm": 6,
+      "rollouts_per_task": 1,
+      "bootstrap_level": "action_scaffold"
+    },
+    "gradient_rule": "No gradient unless aggregated E0c2 and standalone E0d2x each independently contain at least four complete distinct qualifying trajectories."
+  },
+  "intermediate_recovery_result": {
+    "completed_at_utc": "2026-08-21T16:43:54Z",
+    "optimizer_updates": 0,
+    "e0c2_aggregate": {
+      "episodes": 12,
+      "qualifying_trajectories": 5,
+      "distinct_qualifying_task_keys": 5,
+      "aggregate_summary_sha256": "daa9259a6beec569a7681800278f5cc8b2819ffa06edcd9c770a22f0608ca02b",
+      "gate_open": true
+    },
+    "e0d2_capped_yield_exact_child": {
+      "episodes": 6,
+      "hard_successes": 4,
+      "qualifying_trajectories": 4,
+      "distinct_qualifying_task_keys": 4,
+      "summary_sha256": "2231b737c0c0aa2cbab6addc0d4f9a7ec0dbb8fdf4932892ca7f86881454b381",
+      "gate_open": true
+    },
+    "both_sources_admitted": true,
+    "acceptance_floor_relaxed": false
+  },
+  "r5_training_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-intermediate-recovery-r5-plan.json",
+    "initial_adapter": "R4",
+    "initial_adapter_sha256": "9d5e6fdc8d5922d558ff581cbf6cd0e0231d400d97cab99786b85517e35e08b7",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "corpus_rows": 8,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "8123305a5e9e172c0fb0912fc6327a45fcdb14d6f67fb5257df7768167079836",
+    "config_sha256": "66c9ad23435fa69977c1849512be5c7f18f89466855727dbf33d73b40c3f7ebb"
+  },
+  "r5_training_result": {
+    "completed_at_utc": "2026-08-21T16:48:14Z",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "loss_mean": 0.6030740737915039,
+    "loss_nan_count": 0,
+    "gradient_norm": 5.8125,
+    "output_adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-intermediate-recovery-r5-result.json"
+  },
+  "r5_stricter_evaluation_plan": {
+    "recorded_at_utc": "2026-08-21T16:50:20Z",
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R5",
+    "frozen_adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c",
+    "arms": [
+      {
+        "phase": "e0c3_natural_child_minimal",
+        "removed_support": "The inline-evidence and not-a-runtime-path explanation is removed; the child receives only the ordinary task instruction.",
+        "retained_supports": [
+          "forced first IPython tool with unconstrained code",
+          "exact structured coordinator yield"
+        ],
+        "start_index": 4005400,
+        "task_indices": [4005400, 4005401, 4005402, 4005403, 4005404, 4005405],
+        "run_label": "interaction-curriculum-e0c3-r5-natural-n1a-4005400-n6",
+        "bootstrap_sha256": "4579b8e46eed1b0a9f1c13130b6f72da05de59f3749de56a24d814fe8d02c975"
+      },
+      {
+        "phase": "e0d2_capped_yield",
+        "removed_support": "The exact correct child-send leak is removed; the child selects its value within the value-agnostic send schema.",
+        "retained_supports": [
+          "prompt-free coordinator tool removal",
+          "128-token, temperature-zero, low-effort, no-thinking decode cap",
+          "value-agnostic pattern-constrained child send"
+        ],
+        "start_index": 4005500,
+        "task_indices": [4005500, 4005501, 4005502, 4005503, 4005504, 4005505],
+        "run_label": "interaction-curriculum-e0d2-r5-natural-n1a-4005500-n6",
+        "bootstrap_sha256": "974833824afa11a298d9176f2d6affc417fede4c4db945230c83da950f12a280"
+      }
+    ],
+    "shared_sampling": {
+      "task_master_seed": 20260819,
+      "sampling_seed": 20260822,
+      "temperature": 0.6,
+      "reasoning_effort": "high",
+      "tasks_per_arm": 6,
+      "rollouts_per_task": 1,
+      "bootstrap_level": "action_scaffold"
+    },
+    "admission": {
+      "minimum_complete_qualifying_trajectories_per_arm": 4,
+      "minimum_distinct_task_keys_per_arm": 4,
+      "acceptance_floor_relaxed": false,
+      "both_arms_must_pass_before_any_gradient": true
+    }
+  },
+  "r5_stricter_evaluation_result": {
+    "completed_at_utc": "2026-08-21T17:00:53Z",
+    "optimizer_updates": 0,
+    "e0c3_natural_child_minimal": {
+      "episodes": 6,
+      "hard_successes": 0,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "gate_open": false,
+      "summary_sha256": "89b0d18fb7d5538f5f4f324e0984ab42ea8545343b5f3b2ecc01eef9a7fea970"
+    },
+    "e0d2_capped_yield": {
+      "episodes": 6,
+      "hard_successes": 4,
+      "qualifying_trajectories": 4,
+      "distinct_qualifying_task_keys": 4,
+      "gate_open": true,
+      "summary_sha256": "854d1104bad0e70ab227bf4170260e59cbf7bfa33398dcee4d6ff5847480fee2"
+    },
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r5-stricter-run1-result.json"
+  },
+  "r5_e0c25_bridge_plan": {
+    "recorded_at_utc": "2026-08-21T17:02:54Z",
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R5",
+    "frozen_adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c",
+    "phase": "e0c25_inline_evidence",
+    "removed_supports_relative_to_e0c2": [
+      "no explicit prohibition on Path, open, or filesystem search",
+      "no instruction that inline contents are authoritative",
+      "no instruction to read the integer directly"
+    ],
+    "retained_support": "One semantic sentence says the private evidence is the inline card in the system message, not a filesystem path.",
+    "start_index": 4005600,
+    "task_indices": [4005600, 4005601, 4005602, 4005603, 4005604, 4005605],
+    "run_label": "interaction-curriculum-e0c25-r5-natural-n1a-4005600-n6",
+    "bootstrap_sha256": "c29eb2fa923da0d0637374f91b7c5ec126f78006b40320c4e8745abd11d8480f",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "minimum_complete_qualifying_trajectories": 4,
+    "minimum_distinct_task_keys": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r5_e0c25_bridge_result": {
+    "completed_at_utc": "2026-08-21T17:06:04Z",
+    "episodes": 6,
+    "hard_successes": 6,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "gate_open": false,
+    "summary_sha256": "2173bcbea27c317598881c4aacf65e97a937efbac7acbd0901354ecc0ce309b4",
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-e0c25-r5-run1-result.json"
+  },
+  "r5_e0c25_extension_plan": {
+    "recorded_at_utc": "2026-08-21T17:06:46Z",
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R5",
+    "phase": "e0c25_inline_evidence",
+    "start_index": 4005700,
+    "task_indices": [4005700, 4005701, 4005702, 4005703, 4005704, 4005705],
+    "run_label": "interaction-curriculum-e0c25-r5-natural-n1a-4005700-n6-extension",
+    "bootstrap_sha256": "a89136df3e41c51cb0dad1d82ba441f25a7113bda1cbdb13abfaed98c91ebb4f",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "aggregate_source_banks": [4005600, 4005700],
+    "aggregate_minimum_complete_qualifying_trajectories": 4,
+    "aggregate_minimum_distinct_task_keys": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r5_e0c25_extension_result": {
+    "completed_at_utc": "2026-08-21T17:14:08Z",
+    "optimizer_updates": 0,
+    "extension": {
+      "episodes": 6,
+      "hard_successes": 3,
+      "qualifying_trajectories": 3,
+      "distinct_qualifying_task_keys": 3,
+      "gate_open_standalone": false,
+      "traces_sha256": "83fdcfd7e972b89f87d15664666bb9432023dab41f324541753ccc7d089d7332",
+      "summary_sha256": "163bcd0d0386cf22276dd46f00d130eb28964d841010249990999eca43973d9d",
+      "versions_sha256": "0944139cf7eecf2ca27800b07232cbcda72ef592d1b5b19983551a0dde50ebb5"
+    },
+    "aggregate": {
+      "episodes": 12,
+      "qualifying_trajectories": 5,
+      "distinct_qualifying_task_keys": 5,
+      "gate_open": true,
+      "summary_sha256": "2f991f058c958153b75a79579d1c57c162ad5c980a95225ea82bd7a0ba7493b2"
+    },
+    "complementary_e0d2_r5_source": {
+      "qualifying_trajectories": 4,
+      "distinct_qualifying_task_keys": 4,
+      "gate_open": true,
+      "summary_sha256": "854d1104bad0e70ab227bf4170260e59cbf7bfa33398dcee4d6ff5847480fee2"
+    },
+    "both_sources_admitted": true,
+    "acceptance_floor_relaxed": false,
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-e0c25-r5-extension-result.json"
+  },
+  "r6_training_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-inline-bridge-r6-plan.json",
+    "initial_adapter": "R5",
+    "initial_adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "corpus_rows": 8,
+    "e0c25_child_rows": 4,
+    "e0d2_orchestrator_rows": 4,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "01779438a0655557697e2bd70ee4ccfefdca18a8a1e9b77131fc56fb947e8d62",
+    "pretraining_baseline_sha256": "d5faab01a881e36f9ca9c1c845cfabeb1a9f029f0f020e205501feecd8894161",
+    "manifest_sha256": "833cf436b4b2902b462106be15fe85fd5cc0129a16625db5c9d6f2f562be6e8f",
+    "config_sha256": "b4b8168610e4ad04281586c7e60f8881a5f0d1524ca61c34e9c0507db3fd3527"
+  },
+  "r6_training_result": {
+    "completed_at_utc": "2026-08-21T17:21:18Z",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "loss_mean": 0.5663328766822815,
+    "loss_nan_count": 0,
+    "gradient_norm": 5.5625,
+    "output_adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297",
+    "metrics_sha256": "c08e45b7d94ef2920cff82ca6c42fcbd78701a78021926797f21a625acdb61cf",
+    "resolved_config_sha256": "a382ae5ef7abca55e29a7ea244a35293d26822bcd183c5e39336c28aad2a07b7",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-inline-bridge-r6-result.json"
+  },
+  "r6_stricter_evaluation_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-stricter-plan.json",
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6",
+    "frozen_adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297",
+    "arms": [
+      {
+        "phase": "e0c3_natural_child_minimal",
+        "start_index": 4005800,
+        "tasks": 6,
+        "bootstrap_sha256": "684aec7bbdf305aca908904729ba1d0d4a46992d210c5e1f10c8981fee955f31"
+      },
+      {
+        "phase": "e0d3_uncapped_yield_exact_child",
+        "start_index": 4005900,
+        "tasks": 6,
+        "bootstrap_sha256": "9810f4bc407cf42eb31e8b93174b8f78839b175dcb7b6a1859055164d4a816d6"
+      }
+    ],
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6_stricter_evaluation_result": {
+    "completed_at_utc": "2026-08-21T17:41:01Z",
+    "optimizer_updates": 0,
+    "e0c3_natural_child_minimal": {
+      "episodes": 6,
+      "hard_successes": 0,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "gate_open": false,
+      "summary_sha256": "89b0d18fb7d5538f5f4f324e0984ab42ea8545343b5f3b2ecc01eef9a7fea970"
+    },
+    "e0d3_uncapped_yield_exact_child": {
+      "episodes": 6,
+      "hard_successes": 2,
+      "qualifying_trajectories": 2,
+      "distinct_qualifying_task_keys": 2,
+      "gate_open": false,
+      "summary_sha256": "8018faa51f37ea9da3c09bb3311e70d988ad9cd34068dd7e14ae1f7b88e85597"
+    },
+    "both_sources_admitted": false,
+    "acceptance_floor_relaxed": false,
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-stricter-result.json"
+  },
+  "r6_leak_taper_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-leak-taper-plan.json",
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6",
+    "arms": [
+      {
+        "phase": "e0c275_inline_location",
+        "start_index": 4006100,
+        "tasks": 6,
+        "bootstrap_sha256": "186790718c00ef7551d2e9aac0d2f2043a4456cb93a3974917cfd50a05618339"
+      },
+      {
+        "phase": "e0d3_uncapped_yield_exact_child",
+        "start_index": 4006200,
+        "tasks": 6,
+        "aggregate_source_banks": [4005900, 4006200],
+        "bootstrap_sha256": "0cd39107f2ea040ac29fe76d02e95449773ec3df4a7eaa74066cb7eccecc2648"
+      }
+    ],
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6_leak_taper_result": {
+    "completed_at_utc": "2026-08-21T17:56:17Z",
+    "optimizer_updates": 0,
+    "e0c275_inline_location": {
+      "episodes": 6,
+      "hard_successes": 2,
+      "qualifying_trajectories": 1,
+      "distinct_qualifying_task_keys": 1,
+      "gate_open": false,
+      "summary_sha256": "5e157cbc1238f57d024b1a6cfbdd1d6c217eee0d4cebee380d09734b99b38ad1"
+    },
+    "e0d3_aggregate": {
+      "episodes": 12,
+      "qualifying_trajectories": 5,
+      "distinct_qualifying_task_keys": 5,
+      "gate_open": true,
+      "summary_sha256": "02ffb719e7ef008997168a4f453bb8749ee4897b751541f098badfb636c0c820"
+    },
+    "both_sources_admitted": false,
+    "acceptance_floor_relaxed": false,
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-leak-taper-result.json"
+  },
+  "r6_supported_child_recovery_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-supported-child-recovery-plan.json",
+    "optimizer_updates_during_evaluation": 0,
+    "phase": "e0c25_inline_evidence",
+    "start_index": 4006300,
+    "tasks": 6,
+    "bootstrap_sha256": "d9b8d21865f3dd2cad31635065fd0536241708eee1f9acda56988cf10b148661",
+    "minimum_complete_distinct_qualifiers": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6_supported_child_recovery_result": {
+    "completed_at_utc": "2026-08-21T18:02:26Z",
+    "episodes": 6,
+    "hard_successes": 5,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "gate_open": false,
+    "summary_sha256": "17552fc1d4d458539ac258a0fc39f4c7bc77ae276a683d1116d45bc3b5c4376d",
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-supported-child-recovery-run1-result.json"
+  },
+  "r6_supported_child_extension_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-supported-child-extension-plan.json",
+    "optimizer_updates_during_evaluation": 0,
+    "phase": "e0c25_inline_evidence",
+    "start_index": 4006400,
+    "tasks": 6,
+    "aggregate_source_banks": [4006300, 4006400],
+    "bootstrap_sha256": "ac9c674047dc14ce86359a3a27c04741a3f4f2f7212b942907b3a7ee20353518",
+    "aggregate_minimum_complete_distinct_qualifiers": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6_supported_child_extension_result": {
+    "completed_at_utc": "2026-08-21T18:09:48Z",
+    "optimizer_updates": 0,
+    "e0c25_aggregate": {
+      "episodes": 12,
+      "qualifying_trajectories": 4,
+      "distinct_qualifying_task_keys": 4,
+      "gate_open": true,
+      "summary_sha256": "bbc7f028c76d4e224b769d27005a8f8875e202f61efe64bf195fc43b49169034"
+    },
+    "e0d3_aggregate": {
+      "episodes": 12,
+      "qualifying_trajectories": 5,
+      "distinct_qualifying_task_keys": 5,
+      "gate_open": true,
+      "summary_sha256": "02ffb719e7ef008997168a4f453bb8749ee4897b751541f098badfb636c0c820"
+    },
+    "both_sources_admitted": true,
+    "acceptance_floor_relaxed": false,
+    "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6-supported-child-extension-result.json"
+  },
+  "r6y1_training_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-supported-child-uncapped-yield-r6y1-plan.json",
+    "recorded_before_launch": true,
+    "initial_adapter": "R6",
+    "initial_adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "corpus_rows": 8,
+    "e0c25_child_rows": 4,
+    "e0d3_orchestrator_rows": 4,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "4039b74e370f0c8894c9436c97152869f28900884339b1e674fa05e4b962ac43",
+    "pretraining_baseline_sha256": "fb0917253ff5a6dd1b7173a81f8919ed512cbf56c1df56772cf505e469a8c29f",
+    "manifest_sha256": "73e71620b866ef8ff4b6f10ced3aaf729df0da4c22e2b0b77e18fc5cd7184e13",
+    "config_sha256": "6d7e3529c073eb16f4823220ed8217143c0d85d602d1244e6ab681dbaa6cb379"
+  },
+  "r6y1_training_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-supported-child-uncapped-yield-r6y1-result.json",
+    "completed_at_utc": "2026-08-21T18:16:44Z",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "loss_mean": 0.6654229760169983,
+    "loss_nan_count": 0,
+    "gradient_norm": 5.78125,
+    "loaded_initial_adapter_tensors": 192,
+    "output_adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+    "metrics_sha256": "531a37b9afe58273ea517df4c23c1370e313d8cbe62251a1f17da079ab950d75",
+    "resolved_config_sha256": "ecdc247c07bd5ccda6d8dc04e323af7bd88e558c133bdeb7ebcc2c4b9f054ea0",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "r6y1_leak_taper_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-leak-taper-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y1",
+    "frozen_adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+    "arms": [
+      {
+        "phase": "e0c275_inline_location",
+        "start_index": 4006500,
+        "tasks": 6,
+        "bootstrap_sha256": "7f0d8df8cb4403e7703b286e876e5a0ccbc2244be4a8a42fc4e7fa07ce163a1c"
+      },
+      {
+        "phase": "e0d3_uncapped_yield",
+        "start_index": 4006600,
+        "tasks": 6,
+        "bootstrap_sha256": "6e875009d2870c4efff7b7a64f72e33c64addb09f0a14f78828f2077605e8cd0"
+      }
+    ],
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y1_leak_taper_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-leak-taper-result.json",
+    "completed_at_utc": "2026-08-21T18:36:47Z",
+    "optimizer_updates": 0,
+    "e0c275_inline_location": {
+      "episodes": 6,
+      "hard_successes": 2,
+      "qualifying_trajectories": 2,
+      "distinct_qualifying_task_keys": 2,
+      "gate_open": false,
+      "summary_sha256": "c55c3182e5bdab561c0e74282b56598edb64227460c88585a2485a81516a1138"
+    },
+    "e0d3_uncapped_yield": {
+      "episodes": 6,
+      "hard_successes": 2,
+      "qualifying_trajectories": 1,
+      "distinct_qualifying_task_keys": 1,
+      "gate_open": false,
+      "summary_sha256": "ba5fcce98370669665760ed9dea01fab97a680677b4b65a57a38e9ca96eb534e"
+    },
+    "both_sources_admitted": false,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y1_leak_taper_extension_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-leak-taper-extension-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y1",
+    "child_source_banks": [4006500, 4006700],
+    "yield_source_banks": [4006600, 4006800],
+    "minimum_complete_distinct_qualifiers_per_aggregate_arm": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y1_leak_taper_extension_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-leak-taper-extension-result.json",
+    "child_aggregate_qualifying_trajectories": 4,
+    "child_aggregate_distinct_task_keys": 4,
+    "child_gate_open": true,
+    "yield_aggregate_qualifying_trajectories": 3,
+    "yield_aggregate_distinct_task_keys": 3,
+    "yield_gate_open": false,
+    "both_sources_admitted": false,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y1_yield_extension2_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-yield-extension2-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "phase": "e0d3_uncapped_yield",
+    "start_index": 4006900,
+    "aggregate_source_banks": [4006600, 4006800, 4006900],
+    "existing_aggregate_qualifiers": 3,
+    "additional_qualifiers_required": 1,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y1_yield_extension2_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-yield-extension2-result.json",
+    "extension_qualifying_trajectories": 2,
+    "yield_aggregate_qualifying_trajectories": 5,
+    "yield_aggregate_distinct_task_keys": 5,
+    "yield_gate_open": true,
+    "child_aggregate_qualifying_trajectories": 4,
+    "child_aggregate_distinct_task_keys": 4,
+    "child_gate_open": true,
+    "both_sources_admitted": true,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_training_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-positive-inline-value-selected-yield-r6y2-plan.json",
+    "recorded_before_launch": true,
+    "initial_adapter": "R6Y1",
+    "initial_adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "corpus_rows": 8,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "43ea29f06868f562ee3a53a0a3bc2916ed6c0c72d43b4946b195d9f1e2fb415e",
+    "manifest_sha256": "f000ca305d729d87422d00c1fb43f77c677f484716a3e7a7beebbd5864c6e432",
+    "config_sha256": "6bade5610b46fea0ca497b0b1b523b59d2ba1541954a2ea094c5d225b73320e4"
+  },
+  "r6y2_training_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-positive-inline-value-selected-yield-r6y2-result.json",
+    "completed_at_utc": "2026-08-21T19:04:11Z",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "loss_mean": 0.5652725696563721,
+    "loss_nan_count": 0,
+    "gradient_norm": 5.5625,
+    "loaded_initial_adapter_tensors": 192,
+    "output_adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "metrics_sha256": "d06f13ed7beec3c5a22e4bc8dce85c5678780792a45ff1ac82afa3ece85d09d3",
+    "resolved_config_sha256": "527a6fea4e4e7f24ece49b3fc97ce61d666c0c94077546688cd0d2e32fe3a26d",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "r6y2_next_taper_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-next-taper-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y2",
+    "frozen_adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "arms": [
+      {
+        "phase": "e0c3_natural_child_minimal",
+        "start_index": 4007000,
+        "tasks": 6,
+        "bootstrap_sha256": "7623f4040b4d995646a8f5dcd080bb94bd4e47d17d537506ad646dba22a37c8c"
+      },
+      {
+        "phase": "e1_root_and_yield",
+        "start_index": 4007100,
+        "tasks": 6,
+        "bootstrap_sha256": "bef401c4728f30045e2530e3ae24a4528f38758b63acae91adca12adc4e8c823"
+      }
+    ],
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_next_taper_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-next-taper-result.json",
+    "completed_at_utc": "2026-08-21T19:25:01Z",
+    "optimizer_updates_during_evaluation": 0,
+    "e0c3_natural_child_minimal_qualifying_trajectories": 0,
+    "e0c3_natural_child_minimal_distinct_task_keys": 0,
+    "e0c3_natural_child_minimal_gate_open": false,
+    "e1_root_and_yield_qualifying_trajectories": 0,
+    "e1_root_and_yield_distinct_task_keys": 0,
+    "e1_root_and_yield_gate_open": false,
+    "both_arms_admitted": false,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_thinner_diagnostic_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-thinner-diagnostic-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y2",
+    "frozen_adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "arms": [
+      {
+        "phase": "e0c29_evidence_available",
+        "start_index": 4007200,
+        "tasks": 6,
+        "bootstrap_sha256": "e367ad192649e93dfad0941dfb3d919204ad38e5462bcff89a40ea1bf1b47dbd"
+      },
+      {
+        "phase": "e0d3_uncapped_yield",
+        "start_index": 4007300,
+        "tasks": 6,
+        "bootstrap_sha256": "acedda91b63f0158f8cbabd224e806c54bbccf6b6d858a9d5a613b09a3e3bd25"
+      }
+    ],
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_thinner_diagnostic_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-thinner-diagnostic-result.json",
+    "completed_at_utc": "2026-08-21T19:45:56Z",
+    "optimizer_updates_during_evaluation": 0,
+    "e0c29_evidence_available_qualifying_trajectories": 0,
+    "e0c29_evidence_available_distinct_task_keys": 0,
+    "e0c29_evidence_available_gate_open": false,
+    "e0d3_uncapped_yield_qualifying_trajectories": 2,
+    "e0d3_uncapped_yield_distinct_task_keys": 2,
+    "e0d3_uncapped_yield_gate_open": false,
+    "both_arms_admitted": false,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_inline_only_yield_extension_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-inline-only-yield-extension-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y2",
+    "child_phase": "e0c28_inline_only",
+    "child_start_index": 4007400,
+    "child_bootstrap_sha256": "402056ca4ae8557711a177e75993c6b4fb5730a0ad6e4f1180cff274c31ff5d8",
+    "yield_phase": "e0d3_uncapped_yield",
+    "yield_extension_start_index": 4007500,
+    "yield_bootstrap_sha256": "f7dea1205cca27c6fafe1aa4be56cf2a3215ac5ce67c7432d60038073ced5ffb",
+    "yield_existing_qualifiers": 2,
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_inline_only_yield_extension_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-inline-only-yield-extension-result.json",
+    "completed_at_utc": "2026-08-21T20:01:48Z",
+    "optimizer_updates_during_evaluation": 0,
+    "e0c28_inline_only_qualifying_trajectories": 0,
+    "e0c28_inline_only_gate_open": false,
+    "e0d3_extension_qualifying_trajectories": 1,
+    "e0d3_aggregate_qualifying_trajectories": 3,
+    "e0d3_aggregate_distinct_task_keys": 3,
+    "e0d3_aggregate_gate_open": false,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_supported_replenishment_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-supported-replenishment-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y2",
+    "child_phase": "e0c275_inline_location",
+    "child_start_index": 4007600,
+    "child_bootstrap_sha256": "8fa6673c221ab283119497c6575d914291a3d8dccc9ce648a14f0e188b979acc",
+    "yield_phase": "e0d3_uncapped_yield",
+    "yield_extension_start_index": 4007700,
+    "yield_bootstrap_sha256": "6a1ef8fb0b53907fccd10192e77685d873f2430143a67ac527b5ea277fea8d4f",
+    "yield_existing_qualifiers": 3,
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_supported_replenishment_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-supported-replenishment-result.json",
+    "completed_at_utc": "2026-08-21T20:17:49Z",
+    "optimizer_updates_during_evaluation": 0,
+    "e0c275_qualifying_trajectories": 2,
+    "e0c275_distinct_task_keys": 2,
+    "e0c275_gate_open": false,
+    "e0d3_extension_qualifying_trajectories": 0,
+    "e0d3_aggregate_qualifying_trajectories": 3,
+    "e0d3_aggregate_distinct_task_keys": 3,
+    "e0d3_aggregate_gate_open": false,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_supported_recovery_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-supported-recovery-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y2",
+    "child_phase": "e0c275_inline_location",
+    "child_extension_start_index": 4007800,
+    "child_existing_qualifiers": 2,
+    "child_bootstrap_sha256": "9f2eb038d80b4beebf60bdc4b4d8b46842b7906cb6a0315bb43bdb012ef92bc4",
+    "yield_phase": "e0d3_uncapped_yield_exact_child",
+    "yield_start_index": 4007900,
+    "yield_bootstrap_sha256": "444ea99d007df9c04d40e6ab3a59f0cc394490d2cfdd9a333b30ea3353297d38",
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_supported_recovery_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-supported-recovery-result.json",
+    "completed_at_utc": "2026-08-21T20:31:35Z",
+    "optimizer_updates_during_evaluation": 0,
+    "e0c275_extension_qualifying_trajectories": 3,
+    "e0c275_aggregate_qualifying_trajectories": 5,
+    "e0c275_aggregate_distinct_task_keys": 5,
+    "e0c275_aggregate_gate_open": true,
+    "e0d3_exact_child_qualifying_trajectories": 0,
+    "e0d3_exact_child_gate_open": false,
+    "both_sources_admitted": false,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_capped_yield_recovery_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-capped-yield-recovery-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y2",
+    "phase": "e0d2_capped_yield_exact_child",
+    "start_index": 4008000,
+    "bootstrap_sha256": "0141640c7fbdb646c5c5285369cc6f1afec944e709d570b686f432f37bca198e",
+    "supported_child_source_admitted": true,
+    "minimum_complete_distinct_qualifiers": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y2_capped_yield_recovery_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-capped-yield-recovery-result.json",
+    "completed_at_utc": "2026-08-21T20:36:08Z",
+    "optimizer_updates_during_evaluation": 0,
+    "qualifying_trajectories": 4,
+    "distinct_task_keys": 4,
+    "gate_open": true,
+    "supported_child_source_qualifying_trajectories": 5,
+    "supported_child_source_gate_open": true,
+    "both_sources_admitted": true,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y3_training_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-supported-inline-capped-yield-r6y3-plan.json",
+    "recorded_before_launch": true,
+    "initial_adapter": "R6Y2",
+    "initial_adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "corpus_rows": 8,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "f61860246150fb833bd412b8bd88c752e2baf253c6dbe697bc3425a55436ec8e",
+    "manifest_sha256": "0a0f21318f3aad9dae0c801678e9f473e98f30b190bfa911a842ee70890b48e3",
+    "config_sha256": "2fcbdf46f538ff1370b2d2f33d150f489211c756029beccd9b110ce4e068035b"
+  },
+  "r6y3_training_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-supported-inline-capped-yield-r6y3-result.json",
+    "completed_at_utc": "2026-08-21T20:40:30Z",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "loss_mean": 0.4652581512928009,
+    "loss_nan_count": 0,
+    "gradient_norm": 4.3125,
+    "loaded_initial_adapter_tensors": 192,
+    "output_adapter_sha256": "7efaf672919d82b91f872f31d7477f7d3db87d846e94596ec915f30395ac466d",
+    "metrics_sha256": "b44874b669e3fd8ad9b75ac8d66e2ff2d795fc4d2b108939cef00dbc0e357e5c",
+    "resolved_config_sha256": "95d9e46b8bd9978e442a768706fefa05d7b9420b71a53ddd58f21e461348d82b",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "r6y3_fresh_taper_plan": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y3-fresh-taper-plan.json",
+    "recorded_before_launch": true,
+    "optimizer_updates_during_evaluation": 0,
+    "frozen_adapter": "R6Y3",
+    "frozen_adapter_sha256": "7efaf672919d82b91f872f31d7477f7d3db87d846e94596ec915f30395ac466d",
+    "child_phase": "e0c28_inline_only",
+    "child_start_index": 4008100,
+    "yield_phase": "e0d3_uncapped_yield_exact_child",
+    "yield_start_index": 4008200,
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "r6y3_fresh_taper_result": {
+    "record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y3-fresh-taper-result.json",
+    "completed_at_utc": "2026-08-21T20:59:18Z",
+    "optimizer_updates_during_evaluation": 0,
+    "e0c28_qualifying_trajectories": 0,
+    "e0c28_distinct_task_keys": 0,
+    "e0c28_gate_open": false,
+    "e0d3_exact_child_qualifying_trajectories": 1,
+    "e0d3_exact_child_distinct_task_keys": 1,
+    "e0d3_exact_child_gate_open": false,
+    "both_arms_admitted": false,
+    "acceptance_floor_relaxed": false
+  },
+  "current_authorization": {
+    "new_gradient": false,
+    "corpus_construction": false,
+    "optimizer_steps_authorized": 0,
+    "frozen_evaluation": true,
+    "reason": "Fresh R6Y3 evaluation produced 0/6 qualifiers at e0c28 and 1/6 at exact-child uncapped yield. R6Y3 remains frozen; no corpus or optimizer step is authorized."
+  }
+}

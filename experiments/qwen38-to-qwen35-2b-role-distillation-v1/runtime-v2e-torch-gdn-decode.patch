@@ -1,0 +1,108 @@
+diff --git a/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py b/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
+--- a/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
++++ b/vllm/model_executor/layers/mamba/gdn/qwen_gdn_linear_attn.py
+@@ -79,6 +79,86 @@ if GDN_AITER_TRITON_AVAILABLE:
+ logger = init_logger(__name__)
+ 
+ 
++def _torch_sigmoid_gating_delta_rule_update(
++    *,
++    A_log: torch.Tensor,
++    a: torch.Tensor,
++    b: torch.Tensor,
++    dt_bias: torch.Tensor,
++    q: torch.Tensor,
++    k: torch.Tensor,
++    v: torch.Tensor,
++    beta: float = 1.0,
++    threshold: float = 20.0,
++    scale: float | None = None,
++    initial_state: torch.Tensor,
++    inplace_final_state: bool = True,
++    cu_seqlens: torch.Tensor | None = None,
++    ssm_state_indices: torch.Tensor | None = None,
++    use_qk_l2norm_in_kernel: bool = False,
++) -> tuple[torch.Tensor, torch.Tensor]:
++    """One-token continuous-batch GDN recurrence using PyTorch operators.
++
++    This guarded serving fallback avoids the two vLLM 0.27.1 Triton kernels
++    that fault on SM89 in the Qwen3.8-27B pilot. It intentionally supports
++    only the non-speculative one-token-per-sequence decode shape used by the
++    runtime lane (max_num_seqs=1); unsupported shapes fail closed.
++    """
++    if not inplace_final_state:
++        raise ValueError("torch GDN decode requires in-place final state")
++    if cu_seqlens is None or ssm_state_indices is None:
++        raise ValueError("torch GDN decode requires continuous-batch metadata")
++    if q.ndim != 4 or q.shape[0] != 1:
++        raise ValueError(f"unexpected torch GDN query shape: {tuple(q.shape)}")
++    num_sequences = cu_seqlens.numel() - 1
++    num_tokens = q.shape[1]
++    if num_sequences != num_tokens or ssm_state_indices.ndim != 1:
++        raise ValueError(
++            "torch GDN decode requires exactly one token per non-spec sequence"
++        )
++
++    num_query_heads = q.shape[2]
++    num_value_heads = v.shape[2]
++    if num_value_heads % num_query_heads != 0:
++        raise ValueError("torch GDN decode requires an integral GQA head ratio")
++    head_ratio = num_value_heads // num_query_heads
++    if scale is None:
++        scale = k.shape[-1] ** -0.5
++
++    q_heads = q[0].float()
++    k_heads = k[0].float()
++    if use_qk_l2norm_in_kernel:
++        q_heads = q_heads * torch.rsqrt(
++            (q_heads * q_heads).sum(dim=-1, keepdim=True) + 1e-6
++        )
++        k_heads = k_heads * torch.rsqrt(
++            (k_heads * k_heads).sum(dim=-1, keepdim=True) + 1e-6
++        )
++    q_heads = q_heads.repeat_interleave(head_ratio, dim=1) * scale
++    k_heads = k_heads.repeat_interleave(head_ratio, dim=1)
++
++    state_indices = ssm_state_indices[:num_sequences].to(torch.long)
++    valid_indices = state_indices > 0
++    safe_indices = state_indices.clamp_min(1)
++    state = initial_state.index_select(0, safe_indices).float()
++    x = a[:num_tokens].float() + dt_bias.float().unsqueeze(0)
++    gate = -A_log.float().exp().unsqueeze(0) * torch.nn.functional.softplus(
++        x, beta=beta, threshold=threshold
++    )
++    state = state * torch.exp(gate).unsqueeze(-1).unsqueeze(-1)
++    predicted_value = torch.einsum("nhvk,nhk->nhv", state, k_heads)
++    delta = (v[0].float() - predicted_value) * torch.sigmoid(
++        b[:num_tokens].float()
++    ).unsqueeze(-1)
++    state = state + delta.unsqueeze(-1) * k_heads.unsqueeze(-2)
++    output = torch.einsum("nhvk,nhk->nhv", state, q_heads).to(q.dtype)
++    output = output * valid_indices[:, None, None]
++    initial_state.index_copy_(
++        0, safe_indices[valid_indices], state[valid_indices].to(initial_state.dtype)
++    )
++    return output, initial_state
++
++
+ def _resolve_gdn_prefill_backend(
+     vllm_config: VllmConfig,
+ ) -> tuple[str, Literal["triton", "flashinfer", "cutedsl"]]:
+@@ -1401,7 +1481,7 @@ class Qwen3GatedDeltaNet(PluggableLayer):
+             query_decode, key_decode, value_decode = self.rearrange_mixed_qkv(
+                 mixed_qkv_non_spec[:num_decode_tokens]  # type: ignore[index]
+             )
+-            core_attn_out_decode, _ = fused_sigmoid_gating_delta_rule_update(
++            core_attn_out_decode, _ = _torch_sigmoid_gating_delta_rule_update(
+                 A_log=self.A_log,
+                 a=a[:num_decode_tokens],
+                 b=b[:num_decode_tokens],
+@@ -1459,7 +1539,7 @@ class Qwen3GatedDeltaNet(PluggableLayer):
+                 )
+         elif attn_metadata.num_decodes > 0:
+             core_attn_out_non_spec, last_recurrent_state = (
+-                fused_sigmoid_gating_delta_rule_update(
++                _torch_sigmoid_gating_delta_rule_update(
+                     A_log=self.A_log,
+                     a=a,
+                     b=b,

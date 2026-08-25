@@ -1,0 +1,30 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T17:06:04Z",
+  "phase": "e0c25_inline_evidence",
+  "frozen_adapter": {
+    "adapter": "R5",
+    "adapter_sha256": "44369d7e9723a4fccee44e0395477b8eb00f311978d08b0f1bcd89ca1a089b0c"
+  },
+  "optimizer_updates_during_evaluation": 0,
+  "bank": {
+    "task_indices": [4005600, 4005601, 4005602, 4005603, 4005604, 4005605],
+    "bootstrap_sha256": "c29eb2fa923da0d0637374f91b7c5ec126f78006b40320c4e8745abd11d8480f"
+  },
+  "result": {
+    "episodes": 6,
+    "hard_successes": 6,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "gate_open": false,
+    "acceptance_floor_relaxed": false
+  },
+  "artifact_integrity": {
+    "traces_sha256": "99e941388cb50cd05e28fc07e8d3d398ce7140b8461edaeeee4e5e97efaf9b64",
+    "summary_sha256": "2173bcbea27c317598881c4aacf65e97a937efbac7acbd0901354ecc0ce309b4",
+    "versions_sha256": "63aff6c63d03c048a8ab34ffa327be5624cc27aab42983851c15b110eb4a0e55"
+  },
+  "diagnosis": "The concise inline-evidence sentence eliminated path confusion and all six trajectories were hard successes. Four traces sampled malformed first send syntax and repaired it with a second IPython call, so only two satisfied the unchanged single-action audit.",
+  "next_action": "Evaluate the fixed fresh six-task extension under the identical predicate and compute admission over both banks together; do not change the predicate or take a gradient unless the aggregate contains at least four complete distinct qualifiers."
+}

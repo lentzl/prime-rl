@@ -1,0 +1,69 @@
+{
+  "schema_version": "q38-runtime-v2c-no-packed-decode-result/v1",
+  "status": "rejected_on_second_fresh_start",
+  "authorization_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5359331913",
+  "runtime": {
+    "lane": "runtime-v2c-no-packed-decode",
+    "changed_from_runtime_v2b": "VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE=0",
+    "unchanged_cuda_launch_blocking": 1,
+    "vllm": "0.27.1+cu129",
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "wrapper_sha256": "87b2ee5de2b5fdcdac1045bb1f4c8dac34c32469b8cdaf5f351b7db91c7d3b78"
+  },
+  "attempts": [
+    {
+      "label": "q38-runtime-v2c-sentinel-3806011-r1",
+      "status": "passed",
+      "complete_traces": 1,
+      "model_calls": 11,
+      "stop_condition": "user_closed",
+      "harness_score": 0.0,
+      "final_answer_exact": 1.0,
+      "packed_decode_jit_signature_seen": false,
+      "forbidden_infrastructure_signatures": 0,
+      "teardown_clean": true
+    },
+    {
+      "label": "q38-runtime-v2c-sentinel-3806011-r2",
+      "status": "failed_before_server_health",
+      "complete_traces": 0,
+      "http_200_chat_responses": 0,
+      "first_failure_phase": "startup determine_available_memory profile run",
+      "first_failure_stack": "qwen3_5 -> qwen3_next attention -> qkv_proj -> unquantized linear -> cublasGemmEx",
+      "first_failure": "CUBLAS_STATUS_EXECUTION_FAILED on TP0",
+      "kernel_evidence": "NVIDIA Xid 31 MMU FAULT_PDE VIRT_READ on GPU0",
+      "subsequent_failure": "CUDA illegal memory access followed by EngineCore startup failure",
+      "packed_decode_jit_signature_seen": false,
+      "teardown_clean": true
+    }
+  ],
+  "gate_result": {
+    "fresh_starts_required": 3,
+    "fresh_starts_passed": 1,
+    "sustained_soaks_started": 0,
+    "qualification": "rejected"
+  },
+  "artifact": {
+    "local_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/incident/runtime-v2c-no-packed-decode-rejected",
+    "terminal_manifest_sha256": "592314abb8a0fb31cc65c971d3318bedd6c9e97b3cc572b9cc5d772e2216a696",
+    "checksums_verified_after_transfer": true
+  },
+  "scientific_state": {
+    "qualifying_teacher_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "required_teacher_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "student_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "interpretation": "Disabling the packed recurrent decode fast path is insufficient. The failing restart crashed during the startup profiling pass before any request, so the immediate next hypothesis targets server-lifecycle GPU quiescence rather than another decode kernel."
+}

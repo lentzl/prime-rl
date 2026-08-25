@@ -1,0 +1,38 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_environment_defect",
+  "completed_at_utc": "2026-08-21T14:00:18Z",
+  "phase": "e0_full_actions",
+  "model_mutated": false,
+  "optimizer_updates": 0,
+  "bank": {
+    "start_index": 4004100,
+    "tasks": 4,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "3c7c5329ac0961cf949c3d3fb8c9ec300a84a6d0f1b8dd6c4704358acbd80d4d"
+  },
+  "result": {
+    "complete_episodes": 4,
+    "errors": 4,
+    "hard_successes": 0,
+    "qualifying_trajectories": 0,
+    "distinct_qualifying_task_keys": 0,
+    "cumulative_distinct_qualifying_task_keys_before_run": 1,
+    "gradient_gate_open": false
+  },
+  "environment_audit": {
+    "root_exact_action_events": 4,
+    "child_exact_action_events": 4,
+    "child_stop_events": 4,
+    "passive_yield_events": 4,
+    "diagnosis": "The E0 child closing response was tool-free on all four episodes. The root passive response also had no tool definitions, but Qwen generated for the full 3072-token budget and the active server tool parser decoded its terminal syntax as malformed empty tool calls. Those invalid assistant nodes caused chat-template HTTP 400 errors on retry.",
+    "repair": "The maximally leaky E0 phase now exposes an exact passive-yield transition observation and bounds only that call to 128 tokens with low-effort greedy decoding. The response remains model-generated."
+  },
+  "artifact_integrity": {
+    "traces_sha256": "bc9d4283f886a135431050a391a6ee9cf6d444cd72c3d49518d4b1796f2c8e2a",
+    "interaction_summary_sha256": "f1027a651cf89ea741f7bd658adc511c4b953424b08aacdaabcbc2fccee4fccb",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0-full-actions-natural-n1a-4004100-n4/run-4"
+  },
+  "retry_policy": "First execute a one-episode transition smoke. Only after a clean hard success may the identical four-task admission bank be retried. The four-distinct-trajectory gradient gate is unchanged."
+}

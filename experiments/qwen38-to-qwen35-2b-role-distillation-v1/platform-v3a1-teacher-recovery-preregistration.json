@@ -1,0 +1,71 @@
+{
+  "schema_version": "q38-platform-v3a1-teacher-recovery-preregistration/v1",
+  "status": "preregistered_during_qualification_before_teacher_recovery",
+  "created_at_utc": "2026-08-20T23:08:18Z",
+  "scientific_state": {
+    "teacher_model": "Qwen/Qwen3.8-27B",
+    "teacher_revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "teacher_policy": "immutable_inference_only",
+    "frozen_qualifying_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "unchanged_floors": {
+      "natural_direct_control": 12,
+      "natural_n1a": 4,
+      "natural_n1a_local": 4,
+      "natural_n1b": 4
+    },
+    "student_baseline_started": false,
+    "optimizer_steps": 0
+  },
+  "hard_precondition": {
+    "qualification_manifest": "/home/ubuntu/rlm/results/q38-platform-v3a1-a6000x2-vllm026-qualification-v1/PLATFORM-V3A1-QUALIFIED.txt",
+    "required_status": "qualified",
+    "required_platform_lane": "platform-v3a1-a6000x2-vllm026",
+    "required_fresh_server_lifetimes": 3,
+    "required_nonadmitted_qualification_traces": 19,
+    "on_failure": "do_not_start_teacher_recovery"
+  },
+  "recovery": {
+    "output_root": "/home/ubuntu/rlm/results/q38-platform-v3a1-teacher-recovery-v1",
+    "runtime": {
+      "vllm": "0.26.0+cu129",
+      "tensor_parallel_size": 2,
+      "dtype": "bfloat16",
+      "max_model_len": 32768,
+      "gpu_memory_utilization": 0.88,
+      "max_num_seqs": 1,
+      "max_num_batched_tokens": 512,
+      "disable_custom_all_reduce": true,
+      "enforce_eager": true,
+      "cuda_launch_blocking": false,
+      "packed_recurrent_decode_override": false
+    },
+    "legs": [
+      {
+        "axis": "natural_n1a_local",
+        "start_index": 3806011,
+        "draws": 5,
+        "fresh_server": true
+      },
+      {
+        "axis": "natural_n1b",
+        "start_index": 3805000,
+        "draws": 16,
+        "fresh_server": true
+      }
+    ],
+    "infrastructure_pass_rule": "Each leg must exit zero, serialize exactly the preregistered complete error-free envelopes and traces at the expected task indices, contain no CUDA, Xid, CUBLAS, EngineCore, Provider, or RPC failure signature, and leave no GPU or serving worker after teardown.",
+    "admission_rule": "Infrastructure completion does not admit a trace. Apply the existing hard behavioral and provenance gates afterward and require at least four complete qualifying trajectories per role; do not relax any floor."
+  },
+  "provenance": {
+    "platform_proposal_sha256": "f680a50173959062e4da7e0cf8d7b56cf4e9fc8a2e11638d76dafea39771cea3",
+    "host_manifest_sha256": "e67a67d3ea9251d731dfb354d92164220909e9e33aeaeed46408a617c32620b6",
+    "runtime_manifest_sha256": "bfca72b076ae9ab20b4bf5f7ee454134ec426410c4269c1731d6b5a9a8eee671",
+    "recovery_wrapper": "scripts/run_q38_platform_v3a1_teacher_recovery_v1.sh",
+    "recovery_wrapper_sha256": "3c918dc97f672917b1b15f4144405c838b2b839b5ff9891fba0d7c532967aec3"
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "executed_complete_not_admitted",
+  "completed_at_utc": "2026-08-21T18:36:47Z",
+  "plan": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y1-leak-taper-plan.json",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y1",
+    "adapter_sha256": "ed4405f399c67e11c1100be98ef8f52db510f9d3f140a0a0c1fb322958efe471",
+    "immutable_base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "e0c275_inline_location": {
+    "episodes": 6,
+    "hard_successes": 2,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "max_turn_failures": 4,
+    "gate_open": false,
+    "traces_sha256": "e3856496319e5d21af04fb1a818118c1242a432904f433d9c40c2f3c15e0fcfe",
+    "summary_sha256": "c55c3182e5bdab561c0e74282b56598edb64227460c88585a2485a81516a1138",
+    "versions_sha256": "d1c985d5ee2c50110286bf411f04f5e5b048764c078c8ef8cd56e185956ff317"
+  },
+  "e0d3_uncapped_yield": {
+    "episodes": 6,
+    "hard_successes": 2,
+    "qualifying_trajectories": 1,
+    "distinct_qualifying_task_keys": 1,
+    "provider_error_failures": 4,
+    "hard_successes_missing_unique_native_yield_audit": 1,
+    "gate_open": false,
+    "traces_sha256": "d748ce9d7ecb4c81249dc86d0e36a48d5f59f97aa54fe1b23d56c0985392f14a",
+    "summary_sha256": "ba5fcce98370669665760ed9dea01fab97a680677b4b65a57a38e9ca96eb534e",
+    "versions_sha256": "51c381d05294cfe504edda2581e53cb7881a7904f8d91a90aa078b1f98c20ab0"
+  },
+  "both_sources_admitted": false,
+  "acceptance_floor_relaxed": false,
+  "additional_optimizer_steps_authorized": 0,
+  "infrastructure_note": {
+    "aborted_run": "interaction-curriculum-e0c275-r6y1-natural-n1a-4006500-n6-aborted-lora-load-missing",
+    "cause": "LoRA served name was requested before the adapter was loaded.",
+    "model_generations": 0,
+    "training_rows": 0,
+    "recovery": "Preserved the aborted artifacts, explicitly loaded the hash-pinned LoRA, verified it in /v1/models, then ran the preregistered bank."
+  }
+}

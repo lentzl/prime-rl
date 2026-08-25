@@ -1,0 +1,48 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T20:17:49Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "sources": {
+    "e0c275_inline_location": {
+      "task_indices": [4007600, 4007601, 4007602, 4007603, 4007604, 4007605],
+      "episodes": 6,
+      "hard_successes": 3,
+      "qualifying_trajectories": 2,
+      "distinct_qualifying_task_keys": 2,
+      "gate_open": false,
+      "bootstrap_sha256": "8fa6673c221ab283119497c6575d914291a3d8dccc9ce648a14f0e188b979acc",
+      "traces_sha256": "573c787c31395c4c41f0bc29c31e0cdf233025ed6bdc6edb6120f8bbb080120b",
+      "interaction_summary_sha256": "bcad660e90344dedb542467bfff66f698e04c76f0503f30133e10b2c29607470",
+      "versions_sha256": "c155db47ba759062923db7d9ce35eb78dafb786251fb560b906ee01734e409f6"
+    },
+    "e0d3_uncapped_yield": {
+      "extension_task_indices": [4007700, 4007701, 4007702, 4007703, 4007704, 4007705],
+      "extension_qualifying_trajectories": 0,
+      "aggregate_source_banks": [4007300, 4007500, 4007700],
+      "aggregate_episodes": 18,
+      "aggregate_qualifying_trajectories": 3,
+      "aggregate_distinct_task_keys": 3,
+      "aggregate_gate_open": false,
+      "bootstrap_sha256": "6a1ef8fb0b53907fccd10192e77685d873f2430143a67ac527b5ea277fea8d4f",
+      "traces_sha256": "f132f4f9176021401864833db2072013177bfc2fbed50a3eb1c6188874500214",
+      "interaction_summary_sha256": "73209aacc6126f9cfcc9ce097e23fba812585a503851d85bad1a814d105f5201",
+      "aggregate_summary_sha256": "733eb5cd10ad1fc52aab8bbbc01682e9369ee42a70ee77d5e2ce592bce8f4834",
+      "versions_sha256": "dd01cbd8b5bbfe73c9c2998b440825451813a7f911983a05e72a027fe2a3760d"
+    }
+  },
+  "admission": {
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "success_only_corpus_authorized": false,
+    "optimizer_step_authorized": false,
+    "failed_trajectory_rows_trainable": false
+  },
+  "diagnosis": "The proven child leak produces real but sparse audited successes. Repeating value-pattern uncapped yield after 18 total episodes has diminishing returns. Restore exact child reporting to increase support while continuing to train the passive coordinator transition.",
+  "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/r6y2-supported-replenishment"
+}

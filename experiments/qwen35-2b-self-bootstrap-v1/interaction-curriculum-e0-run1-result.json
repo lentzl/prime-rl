@@ -1,0 +1,37 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-run-result/v1",
+  "status": "complete_environment_defect",
+  "completed_at_utc": "2026-08-21T13:33:52Z",
+  "phase": "e0_full_actions",
+  "model_mutated": false,
+  "optimizer_updates": 0,
+  "bank": {
+    "start_index": 4004100,
+    "tasks": 4,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "bootstrap_sha256": "3c7c5329ac0961cf949c3d3fb8c9ec300a84a6d0f1b8dd6c4704358acbd80d4d"
+  },
+  "result": {
+    "complete_episodes": 4,
+    "errors": 0,
+    "exact_final_answers": 4,
+    "hard_successes": 0,
+    "qualifying_trajectories": 0,
+    "distinct_qualifying_task_keys": 0,
+    "gradient_gate_open": false
+  },
+  "environment_audit": {
+    "root_exact_action_events": 4,
+    "child_exact_action_events": 4,
+    "passive_yield_events": 0,
+    "diagnosis": "Assigned successful rlm calls returned an empty IPython result. The fail-closed yield detector required either a visible RLMSpawnHandle or other success evidence, so it rejected every real assigned spawn and left tools available for forbidden post-spawn detours.",
+    "repair": "An empty spawn result is now accepted only when a matching child branch appears at or after that exact spawn timestamp. A causally older branch cannot validate a failed duplicate spawn."
+  },
+  "artifact_integrity": {
+    "traces_sha256": "f9b27658454da078104126347c3d0a275151bacabcc729cc52584403d36b56cf",
+    "interaction_summary_sha256": "33508e5f8f9246281af7f5b5313aedda6aa7a344bd9b57278c672c53437a64a8",
+    "local_run_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0-full-actions-natural-n1a-4004100-n4/run-1"
+  },
+  "retry_policy": "The corrected environment may rerun the same four train-gen task keys with the same sampling seed. This is a controlled infrastructure retry, not a new admission bank; only corrected hard-success traces may qualify."
+}

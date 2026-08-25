@@ -1,0 +1,139 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-preregistration/v1",
+  "status": "owner_authorized_before_e0_admission",
+  "created_at_utc": "2026-08-21T09:20:00Z",
+  "objective": "Grow the immutable Qwen3.5-2B starting policy through deliberately leaky executable environments, then remove interaction help in stages until behavior survives unhinted evaluation.",
+  "paper_interpretation": "Early capability growth may use environment-level solution and action leakage. Scientific validity comes from labeling the active help level, preserving the frozen hard verifier, and demonstrating transfer as constraints are removed.",
+  "immutable_start": {
+    "model_path": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "repository_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "weight_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "dense_weight_mutation_allowed": false
+  },
+  "phases": [
+    {
+      "phase": "E0",
+      "runtime_mode": "e0_full_actions",
+      "bootstrap_level": "solution_replay",
+      "interaction_help": [
+        "exact retained root spawn constrained by the tool schema",
+        "exact typed child send constrained by the tool schema",
+        "one child closing response after the typed send constrained by removing tools",
+        "one passive post-spawn coordinator response constrained by an exact transition observation and a single-choice structured decoder"
+      ],
+      "purpose": "Create complete hard-success demonstrations from the endogenous 2B policy under the maximally leaky early environment."
+    },
+    {
+      "phase": "E1",
+      "runtime_mode": "e1_root_and_yield",
+      "bootstrap_level": "action_scaffold",
+      "interaction_help": [
+        "exact retained root spawn constrained by the tool schema",
+        "one passive post-spawn coordinator response constrained by removing tools"
+      ],
+      "removed_help": "child typed-send constraint"
+    },
+    {
+      "phase": "E2",
+      "runtime_mode": "e2_yield_only",
+      "bootstrap_level": "action_scaffold",
+      "interaction_help": [
+        "one passive post-spawn coordinator response constrained by removing tools"
+      ],
+      "removed_help": "root retained-spawn constraint"
+    },
+    {
+      "phase": "E3",
+      "runtime_mode": "off",
+      "bootstrap_level": "ordinary privileged hint without exact answer",
+      "interaction_help": [],
+      "removed_help": "passive-yield request constraint"
+    },
+    {
+      "phase": "E4",
+      "runtime_mode": "off",
+      "bootstrap_level": "none",
+      "interaction_help": [],
+      "removed_help": "all privileged context"
+    }
+  ],
+  "admission": {
+    "axis": "natural_n1a",
+    "split": "train_gen",
+    "start_index": 4004100,
+    "distinct_tasks": 4,
+    "rollouts_per_task": 1,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "qualifying_trajectory": "complete, error-free, lineage-valid, exact-cardinality hard success whose trace records both E0 exact-action events and a native no-tool yield response",
+    "minimum_complete_qualifying_trajectories_before_any_gradient": 4,
+    "minimum_distinct_qualifying_async_task_keys_before_any_gradient": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "protocol_amendments": [
+    {
+      "recorded_at_utc": "2026-08-21T13:54:50Z",
+      "applies_before_run": 4,
+      "phase": "E0",
+      "change": "Remove tools from exactly one child closing response after the sampled exact typed-send action.",
+      "reason": "Run 3 proved that the required child send and coordinator yield both occurred, but three children emitted a malformed empty tool call when Prime Agent requested a closing response after send. That invalid message then caused deterministic chat-template 400 errors.",
+      "scope": "Train-gen E0 only; requires a hash-matched sampled child_typed_send event; fires once; does not alter the child result, coordinator response, hard verifier, task bank, sampling seed, acceptance floor, or model weights."
+    },
+    {
+      "recorded_at_utc": "2026-08-21T14:00:18Z",
+      "applies_before_run": 5,
+      "phase": "E0",
+      "change": "Replace the empty successful-spawn tool observation with an explicitly labeled exact-yield observation, remove tools, and bound that one coordinator generation to max_tokens=128, temperature=0, reasoning_effort=low.",
+      "reason": "Run 4 showed the child-closing repair fired on all four tasks, but every root no-tools yield generation still ran to the 3072-token limit and emitted malformed Qwen tool syntax because the server tool parser remains active even without tool definitions.",
+      "scope": "Train-gen E0 exact-root trajectories only; one transition call; the response remains a native model generation. E1 and later phases do not receive the exact observation or sampling override. The hard verifier, task bank, admission floor, and weights remain unchanged."
+    },
+    {
+      "recorded_at_utc": "2026-08-21T14:06:26Z",
+      "applies_before_run": 6,
+      "phase": "E0",
+      "change": "Constrain the exact-yield transition with vLLM structured_outputs.choice=['Waiting for the child report.'] and disable thinking for that single request.",
+      "reason": "The run-5 smoke proved that an exact observation plus low-effort greedy decoding still let the 2B emit malformed tool syntax at the 128-token cap. The installed vLLM 0.27.1 protocol natively supports single-choice structured decoding.",
+      "scope": "Train-gen E0 exact-root transition only. The returned assistant content and tokens are generated under constrained decoding, not rewritten after sampling. E1-E4, the hard verifier, admission floor, task bank, and all model weights remain unchanged."
+    },
+    {
+      "recorded_at_utc": "2026-08-21T14:44:56Z",
+      "applies_before_run": "E0b run 1",
+      "phase": "E0b_select_child_value",
+      "change": "Insert a remedial rung between E0 and E1. Retain the exact root spawn, child-closing stop, and structured-choice passive yield, but replace the exact numeric child send with a pattern-constrained send action whose numeric value must be selected by the model from inline private evidence.",
+      "reason": "The first E1 evaluation produced zero hard successes: all four coordinators failed the unconstrained passive yield, three trajectories errored, and children repeatedly treated inline evidence labels as filesystem paths. Removing two independent supports at once skipped the observable learning frontier.",
+      "scope": "Prospective train-gen-only phase on distinct task keys. The pattern admits any non-negative integer and does not encode the oracle value. The frozen hard verifier, four-complete-trajectory floor, dense model, E0 adapter, task generator, and E1-E4 definitions remain unchanged. No optimizer update is authorized unless four distinct E0b trajectories qualify."
+    },
+    {
+      "recorded_at_utc": "2026-08-21T15:21:31Z",
+      "applies_before_run": "E0b acquisition batch 2",
+      "phase": "E0b_select_child_value",
+      "change": "Remain on the E0b acquisition rung for one additional distinct batch before attempting E1 again.",
+      "reason": "The R2 E1 evaluation hard-failed all four fresh tasks. Exact root spawning fired four times, but only one native passive-yield response appeared and no child produced a valid unconstrained result; every child treated inline private evidence as a filesystem path. The two E1 supports are not yet learned well enough to remove together.",
+      "scope": "Prospective task indices starting at 4004500 only. R2 remains frozen during sampling. A maximum of one further adapter-only update is permitted only after at least four new distinct complete E0b hard-success trajectories. Failed E1 data is excluded. The dense model, verifier, acceptance floor, sampling policy, and E1 boundary remain unchanged."
+    }
+  ],
+  "training_after_gate": {
+    "authorized": true,
+    "authorization_source": "owner goal: implement and execute the interaction-level curriculum",
+    "update_type": "new adapter-only supervised acquisition stage from admitted E0 root and child branches",
+    "dense_base_weight_updates": 0,
+    "teacher": "the immutable 2B policy sampled inside the E0 constrained environment",
+    "required_before_launch": [
+      "four qualifying E0 trajectories",
+      "hash-locked joint root-and-child corpus",
+      "validated untouched-student baseline manifest",
+      "dry-run of the resolved adapter training configuration"
+    ],
+    "prohibited": [
+      "training on errored or non-hard-success traces",
+      "training on held-out valid_gen or ood_gen tasks",
+      "mutating the immutable dense start",
+      "mutating Qwen3.8-27B or R7"
+    ]
+  },
+  "promotion": {
+    "rule": "Advance only in order from E0 through the remedial E0b rung and then E1-E4. Each stricter phase uses distinct task keys and must produce at least four complete hard successes before its data can seed the next adapter update.",
+    "final_claim": "Capability is acquired only if a frozen adapter hard-passes distinct unhinted E4 tasks; E0-E3 success is scaffolded curriculum progress, not deployment mastery."
+  }
+}

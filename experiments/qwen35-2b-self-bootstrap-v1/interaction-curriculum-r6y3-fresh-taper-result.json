@@ -1,0 +1,49 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T20:59:18Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y3",
+    "adapter_sha256": "7efaf672919d82b91f872f31d7477f7d3db87d846e94596ec915f30395ac466d",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "arms": {
+    "e0c28_inline_only": {
+      "task_indices": [4008100, 4008101, 4008102, 4008103, 4008104, 4008105],
+      "episodes": 6,
+      "qualifying_trajectories": 0,
+      "distinct_qualifying_task_keys": 0,
+      "gate_open": false,
+      "bootstrap_sha256": "aea983e091656cfb200dc2edb996b0c546fb8891a772673dd26c1ebb86b08f84",
+      "traces_sha256": "e0778aea5d3fbdcce2d975cbf9415e0d82480f8b1fa9b7775cdb6e85ca3cffa8",
+      "interaction_summary_sha256": "b6e0af30d80bee2dbdd9f968200a2a43fedd10c3bc47e08b844eb9a392f0203f",
+      "versions_sha256": "128465843c4204682298d039c154822a0285227c6d1d0328662e683e020ebd8c"
+    },
+    "e0d3_uncapped_yield_exact_child": {
+      "task_indices": [4008200, 4008201, 4008202, 4008203, 4008204, 4008205],
+      "episodes": 6,
+      "hard_successes": 2,
+      "qualifying_trajectories": 1,
+      "distinct_qualifying_task_keys": 1,
+      "gate_open": false,
+      "bootstrap_sha256": "0f3ce37cae13292c6cadb1b571039c947dd663d97ef72155053e767319a828da",
+      "traces_sha256": "79daca2680a44ef8b75b4125ea96ef1c80cd5b8366d66cbd185daa5b5a797efa",
+      "interaction_summary_sha256": "f6c9a09c1727a056b1c8d815570c89fa801db40a25c08320a917eee026f82308",
+      "versions_sha256": "dfdf7f1b0b69d44f7cf3f4920bde0e3ee0c9fa3e1e6ae1d9f6702714f448d00c"
+    }
+  },
+  "admission": {
+    "minimum_complete_distinct_qualifiers_per_arm": 4,
+    "acceptance_floor_relaxed": false,
+    "both_arms_admitted": false,
+    "new_gradient_authorized": false,
+    "failed_trajectory_rows_trainable": false
+  },
+  "interpretation": {
+    "child": "Additional supported child consolidation did not transfer across removal of the explicit system-message evidence location.",
+    "yield": "Capped sampled-yield consolidation improved raw uncapped hard successes from zero to two, but only one trajectory contained the complete native-yield audit. The transfer is real but below admission."
+  },
+  "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/r6y3-fresh-taper",
+  "safest_next_action": "Keep R6Y3 frozen. If continuing, collect another admitted capped-yield source and more supported e0c275 child data before a further one-step consolidation; do not spend more banks on e0c28 or uncapped yield until supported capability has grown."
+}

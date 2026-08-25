@@ -1,0 +1,58 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-plan/v1",
+  "status": "complete_not_admitted",
+  "recorded_at_utc": "2026-08-21T19:48:23Z",
+  "completed_at_utc": "2026-08-21T20:01:48Z",
+  "result_record": "experiments/qwen35-2b-self-bootstrap-v1/interaction-curriculum-r6y2-inline-only-yield-extension-result.json",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_candidate": {
+    "adapter": "R6Y2",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "arms": [
+    {
+      "phase": "e0c28_inline_only",
+      "support_boundary": "Remove only the system-message location from e0c275 while retaining the statement that evidence is supplied inline.",
+      "start_index": 4007400,
+      "task_indices": [4007400, 4007401, 4007402, 4007403, 4007404, 4007405],
+      "run_label": "interaction-curriculum-e0c28-r6y2-natural-n1a-4007400-n6",
+      "bootstrap_path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/e0c28-r6y2-natural-n1a-4007400-n6-master20260819-privileged-bootstrap.json",
+      "bootstrap_sha256": "402056ca4ae8557711a177e75993c6b4fb5730a0ad6e4f1180cff274c31ff5d8",
+      "minimum_complete_distinct_qualifiers": 4
+    },
+    {
+      "phase": "e0d3_uncapped_yield",
+      "purpose": "Fresh extension of the same frozen phase; aggregate only complete distinct qualifiers with the preregistered 4007300 bank.",
+      "start_index": 4007500,
+      "task_indices": [4007500, 4007501, 4007502, 4007503, 4007504, 4007505],
+      "run_label": "interaction-curriculum-e0d3-r6y2-natural-n1a-4007500-n6",
+      "bootstrap_path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/e0d3-r6y2-natural-n1a-4007500-n6-master20260819-privileged-bootstrap.json",
+      "bootstrap_sha256": "f7dea1205cca27c6fafe1aa4be56cf2a3215ac5ce67c7432d60038073ced5ffb",
+      "aggregate_source_banks": [4007300, 4007500],
+      "existing_complete_distinct_qualifiers": 2,
+      "additional_complete_distinct_qualifiers_required": 2,
+      "minimum_aggregate_complete_distinct_qualifiers": 4
+    }
+  ],
+  "shared_sampling": {
+    "split": "train_gen",
+    "axis": "natural_n1a",
+    "task_master_seed": 20260819,
+    "sampling_seed": 20260822,
+    "temperature": 0.6,
+    "reasoning_effort": "high",
+    "tasks_per_arm": 6,
+    "rollouts_per_task": 1,
+    "maximum_concurrency": 6,
+    "bootstrap_level": "action_scaffold"
+  },
+  "admission": {
+    "minimum_complete_qualifying_trajectories_per_source": 4,
+    "minimum_distinct_task_keys_per_source": 4,
+    "acceptance_floor_relaxed": false,
+    "both_sources_must_pass_before_joint_corpus_construction": true,
+    "failed_trajectory_rows_trainable": false
+  }
+}

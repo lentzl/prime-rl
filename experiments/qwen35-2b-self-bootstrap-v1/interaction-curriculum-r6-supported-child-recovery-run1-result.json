@@ -1,0 +1,26 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_not_admitted",
+  "completed_at_utc": "2026-08-21T18:02:26Z",
+  "phase": "e0c25_inline_evidence",
+  "frozen_adapter": {
+    "adapter": "R6",
+    "adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297"
+  },
+  "optimizer_updates_during_evaluation": 0,
+  "result": {
+    "episodes": 6,
+    "hard_successes": 5,
+    "qualifying_trajectories": 2,
+    "distinct_qualifying_task_keys": 2,
+    "gate_open": false,
+    "acceptance_floor_relaxed": false
+  },
+  "artifact_integrity": {
+    "traces_sha256": "58cd5c7230deb9fb5fc2f954b05c2207e69e6302a2e044d8831972dfb24cce25",
+    "summary_sha256": "17552fc1d4d458539ac258a0fc39f4c7bc77ae276a683d1116d45bc3b5c4376d",
+    "versions_sha256": "0a77714293a51e95a0e92a839bb3ab9ad23f29ad579b469f6495f96e7e70f55a"
+  },
+  "diagnosis": "Five trajectories were hard successes, but three repaired malformed first child-send syntax with additional action and therefore failed the unchanged single-action audit.",
+  "next_action": "Evaluate the preregistered fresh extension under the identical E0c25 predicate and compute aggregate admission over both banks."
+}

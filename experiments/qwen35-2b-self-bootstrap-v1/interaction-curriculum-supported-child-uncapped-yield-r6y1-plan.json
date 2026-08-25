@@ -1,0 +1,67 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-plan/v1",
+  "status": "executed_complete",
+  "recorded_at_utc": "2026-08-21T18:14:17Z",
+  "authorization": {
+    "acceptance_floor_relaxed": false,
+    "minimum_complete_distinct_qualifiers_per_source": 4,
+    "e0c25_aggregate_qualifying_trajectories": 4,
+    "e0c25_aggregate_distinct_task_keys": 4,
+    "e0d3_aggregate_qualifying_trajectories": 5,
+    "e0d3_aggregate_distinct_task_keys": 5,
+    "failed_trajectory_rows": 0,
+    "optimizer_steps_authorized": 1
+  },
+  "curriculum_rationale": {
+    "principle": "Leak solution-relevant interaction structure early to grow capability, then progressively withhold it as the policy succeeds.",
+    "spade_reveal_schedule_percent": [25, 10, 5],
+    "this_update": "Consolidate admitted supported child reporting and ordinary uncapped passive yielding. The next frozen evaluation tightens each boundary independently; this update does not claim unsupported mastery."
+  },
+  "initial_state": {
+    "immutable_base_path": "/home/ubuntu/rlm/models/qwen35-2b-orchestrator-candidate-r1-c90f5a7",
+    "immutable_base_revision": "c90f5a78e81f59cd62c2e3d0661a2ece1eb8a428",
+    "immutable_base_sha256": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "adapter": "R6",
+    "adapter_path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/inline-bridge-joint-lora-r6/weights/step_1/lora_adapters",
+    "adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297",
+    "dense_base_updates": 0
+  },
+  "corpus": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-e0c25-e0d3-joint-sft-v4",
+    "rows": 8,
+    "e0c25_child_rows": 4,
+    "e0d3_orchestrator_rows": 4,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "4039b74e370f0c8894c9436c97152869f28900884339b1e674fa05e4b962ac43",
+    "pretraining_baseline_sha256": "fb0917253ff5a6dd1b7173a81f8919ed512cbf56c1df56772cf505e469a8c29f",
+    "manifest_sha256": "73e71620b866ef8ff4b6f10ced3aaf729df0da4c22e2b0b77e18fc5cd7184e13",
+    "sources": {
+      "e0c25": {
+        "manifest_sha256": "85f8fa4f1a9e350d3a5bc6ba88163bde3b23dbaa6fd63abe3e53c405d31bf309",
+        "pretraining_baseline_sha256": "48426b08be1f4f11271d547869d93007ed2e27c51fd07860469c32e76516ecdb",
+        "train_parquet_sha256": "f554cb5ec33eaa0eea1e8fa29b126b83f72b18c781de2ab3bf9e38c096c92444"
+      },
+      "e0d3": {
+        "manifest_sha256": "f2c219eb6da3a6b4c6e2baaa01f409b54b48b7e379081592aeaecae11e834090",
+        "pretraining_baseline_sha256": "3e6aacdea9c2db9e02719eb52e2a903b6b25b787b64092e8240d2f6cabacdc32",
+        "train_parquet_sha256": "677fe4eae4f57bd0bcf979f794c790f1e3c5bcca964f0f16fdcfae13feeeb014"
+      }
+    }
+  },
+  "update": {
+    "name": "supported-child-uncapped-yield-lora-r6y1",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "assistant_only_loss": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "config": "experiments/qwen35-2b-self-bootstrap-v1/interaction-supported-child-uncapped-yield-sft-lora-r6y1.toml",
+    "config_sha256": "6d7e3529c073eb16f4823220ed8217143c0d85d602d1244e6ab681dbaa6cb379"
+  },
+  "post_update_requirement": "Freeze R6Y1 and evaluate fresh stricter child and yield task keys before any additional optimizer decision."
+}

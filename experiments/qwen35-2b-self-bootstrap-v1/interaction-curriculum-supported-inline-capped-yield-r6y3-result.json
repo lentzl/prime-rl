@@ -1,0 +1,44 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-result/v1",
+  "status": "complete",
+  "completed_at_utc": "2026-08-21T20:40:30Z",
+  "optimizer_steps": 1,
+  "dense_base_updates": 0,
+  "initial_adapter": {
+    "name": "R6Y2",
+    "adapter_sha256": "f35b60d5dfb960af82fa2450bf189889f70ea04b26fbaf947e2e1a1dbd879b3d",
+    "loaded_adapter_tensors": 192
+  },
+  "output_adapter": {
+    "name": "R6Y3",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1/supported-inline-capped-yield-lora-r6y3/weights/step_1/lora_adapters",
+    "adapter_model_sha256": "7efaf672919d82b91f872f31d7477f7d3db87d846e94596ec915f30395ac466d",
+    "adapter_config_sha256": "06a44e2d2d9c2208e2a77eea7eab23af69b43b999ff9f950c15c30d1e434acd0"
+  },
+  "metrics": {
+    "loss_mean": 0.4652581512928009,
+    "loss_nan_count": 0,
+    "gradient_norm": 4.3125,
+    "learning_rate": 0.00001,
+    "time_step_seconds": 23.882459899003152,
+    "peak_memory_gib": 7.220703125,
+    "metrics_sha256": "b44874b669e3fd8ad9b75ac8d66e2ff2d795fc4d2b108939cef00dbc0e357e5c"
+  },
+  "integrity": {
+    "training_config_sha256": "2fcbdf46f538ff1370b2d2f33d150f489211c756029beccd9b110ce4e068035b",
+    "resolved_config_sha256": "95d9e46b8bd9978e442a768706fefa05d7b9420b71a53ddd58f21e461348d82b",
+    "immutable_base_sha256_before": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "immutable_base_sha256_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406"
+  },
+  "corpus": {
+    "rows": 8,
+    "failed_trajectory_rows": 0,
+    "train_parquet_sha256": "f61860246150fb833bd412b8bd88c752e2baf253c6dbe697bc3425a55436ec8e",
+    "manifest_sha256": "0a0f21318f3aad9dae0c801678e9f473e98f30b190bfa911a842ee70890b48e3"
+  },
+  "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-supported-inline-capped-yield-lora-r6y3",
+  "post_update_authorization": {
+    "new_gradient": false,
+    "frozen_evaluation": true
+  }
+}

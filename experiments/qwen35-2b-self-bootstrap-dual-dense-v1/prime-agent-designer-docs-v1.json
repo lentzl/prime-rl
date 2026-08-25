@@ -1,0 +1,155 @@
+{
+  "documents": [
+    {
+      "content": "The callable `rlm` object is preloaded in the kernel. Spawn a child with a direct call:\n\n```python\nhandle = await rlm(\"Review the authentication flow for security issues\", name=\"auth-reviewer\")\nprint(handle.rlm_child_id, handle.name, handle.session_dir, handle.model)\n```\n\nThe call returns immediately after task admission with a child handle; it never waits for or returns the child's answer. The TypeScript host creates a normal child `AgentSession` with an independent context and session directory. The child inherits the parent model, provider configuration, skills, tools, retry policy, and resource loader unless the call requests another configured model.\n\nSpawn independent children in separate calls and end the turn instead of awaiting completion:\n\n```python\napi_review = await rlm(\"Review the public API\", name=\"api-reviewer\")\ntest_review = await rlm(\"Review the test coverage\", name=\"test-reviewer\")\nintegration_audit = await rlm(\"Run the slow integration audit\", name=\"integration-audit\")\n```\n\nResults arrive only through explicit `agent_message` replies or files, never as an `rlm()` return value. Children reply when an answer is needed:\n\n```python\nawait agent_message.send(message, receiver_role=\"parent\")\n```\n\nThe parent can follow up with a retained child:\n\n```python\nawait agent_message.send(\n    \"Check the newly added regression test.\",\n    receiver_role=\"child\",\n    receiver_name=api_review.name,\n)\n```\n\n#### Child handles and lifecycle\n\nAn admission handle contains `rlm_child_id`, `name`, `session_dir`, and `model`. Child usage is attributed to the parent session while remaining distinguishable in context-tree reporting.\n\nThe parent-scoped child registry survives compaction, kernel restart, and parent restoration:\n\n```python\nchildren = await rlm.list_subagents()\nfor child in children:\n    print(child.session_name, child.status, child.active_session_id)\n```\n\nSuccessfully completed daemon-backed children remain addressable while their parent session is open. Delete a child only when its context is no longer needed:\n\n```python\nawait rlm.delete_subagent(children[0])\n```\n\nThe default recursion depth allows a root agent to create children. Raising the configured depth allows descendants to recurse further.",
+      "content_sha256": "38bec8f0d27dd47c92e09bbc858fb8f337363bde64ebca28a4563e1c22954542",
+      "document_id": "prime-agent-subagents-are-native-rlm-calls-38bec8f0d27d",
+      "heading": "Subagents are native RLM calls",
+      "source_path": "packages/coding-agent/docs/rlm.md",
+      "source_sha256": "7e88409a3f3ce0ef6b8f470ab7bc63906e4301930b63f52f5c127997819b1fce",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/docs/rlm.md",
+      "tags": [
+        "delegation",
+        "admission",
+        "explicit_reply",
+        "child_lifecycle"
+      ]
+    },
+    {
+      "content": "The RLM programming model assumes useful work may take many turns or continue after the terminal UI closes:\n\n- automatic compaction summarizes older context while preserving recent messages and kernel state;\n- daemon-backed workers keep active sessions running after clients detach;\n- child registries and session artifacts make subagents recoverable;\n- heartbeats and scheduled prompts re-enter a session later;\n- persistent goals continue until the objective is complete or the user changes their state; and\n- autonomous mode adds bounded continuations and optional quality gates.\n\nSee [Long-Running and Background Agents](long-running-agents.md) for these lifecycle features.",
+      "content_sha256": "32d24ee9e1e06c7eaa7c21e29de2ceb34bd7b8983ec14455fb2a34f6a5b4b3e8",
+      "document_id": "prime-agent-state-is-designed-to-outlive-one-turn-32d24ee9e1e0",
+      "heading": "State is designed to outlive one turn",
+      "source_path": "packages/coding-agent/docs/rlm.md",
+      "source_sha256": "7e88409a3f3ce0ef6b8f470ab7bc63906e4301930b63f52f5c127997819b1fce",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/docs/rlm.md",
+      "tags": [
+        "persistence",
+        "compaction",
+        "long_running"
+      ]
+    },
+    {
+      "content": "Each direct call admits an independent child and returns its handle immediately:\n\n```python\napi_review = await rlm(\"review the API\", name=\"api-reviewer\")\ntest_review = await rlm(\"review the tests\", name=\"test-reviewer\")\naudit = await rlm(\"slow independent audit\", name=\"audit-reviewer\")\n```\n\nEnd the turn instead of waiting for completion. Children send requested answers with `await agent_message.send(message, receiver_role=\"parent\")`, and replies arrive as ordinary agent messages over later turns. A child may instead write results to files for the parent to read. The host runs each admitted child as an independent `AgentSession`; daemon-backed children can be retained as independently addressable session workers.",
+      "content_sha256": "8658b9badffe05d7a3ff8b725e6e0c2467dc5443318417c8128ea4f33e5ed64c",
+      "document_id": "prime-agent-independent-delegation-8658b9badffe",
+      "heading": "Independent Delegation",
+      "source_path": "packages/coding-agent/docs/rlm-runtime.md",
+      "source_sha256": "f6b5e9207a5cd3ad7f8903f387df31af8c2596f07a302ed6c13a6de413419b8b",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/docs/rlm-runtime.md",
+      "tags": [
+        "delegation",
+        "parallelism",
+        "passive_yield"
+      ]
+    },
+    {
+      "content": "The TypeScript parent maintains the authoritative direct-child registry. `await rlm.list_subagents()` returns stable child IDs, active-session IDs when daemon-backed, session IDs, names, directories, and running/completed status.\n\nThis registry survives kernel restart, compaction, and parent restore. Successfully completed daemon-backed children are rehydrated from the parent artifact registry. Inline children remain inspectable in the current process but have no active-session ID.\n\nThe parent can continue a retained daemon child with `await agent_message.send(..., receiver_role=\"child\", receiver_name=child.session_name)`. `rlm.delete_subagent()` accepts an exact child ID, active-session ID, session ID, or unique name. Deletion cancels or closes the runtime, writes a durable tombstone, and removes the child from messaging and observation. It does not erase the transcript or artifacts on disk.\n\nRegistry scope follows the parent transcript. An unrelated new parent session does not inherit children.",
+      "content_sha256": "be98de0fc18d4199ed7589c4f961794e6a3fe2baf5d2492d85bfc8f64449e405",
+      "document_id": "prime-agent-parent-scoped-sub-agent-registry-be98de0fc18d",
+      "heading": "Parent-Scoped Sub-Agent Registry",
+      "source_path": "packages/coding-agent/docs/rlm-runtime.md",
+      "source_sha256": "f6b5e9207a5cd3ad7f8903f387df31af8c2596f07a302ed6c13a6de413419b8b",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/docs/rlm-runtime.md",
+      "tags": [
+        "retained_handle",
+        "recovery",
+        "child_lifecycle"
+      ]
+    },
+    {
+      "content": "The daemon routes direct messages between active sessions and retained daemon-backed subagents. From a shell:\n\n```bash\nprime-agent send <agent> \"Please verify the latest migration\"\n```\n\nFrom the IPython kernel, use the preloaded `agent_message` Python skill:\n\n```python\nroster = await agent_message.list_agents()\nreceipt = await agent_message.send(\n    \"Recheck the endpoint after the latest edit\",\n    receiver_role=\"sibling\",\n    receiver_name=\"api-reviewer\",\n    mode=\"auto\",\n)\nprint(receipt[\"deliveryStatus\"])\n```\n\nFor the current parent's direct RLM children, prefer the parent-scoped registry:\n\n```python\nchildren = await rlm.list_subagents()\nchild = next(item for item in children if item.session_name == \"api-reviewer\")\nawait agent_message.send(\n    \"Continue with the updated diff\",\n    receiver_role=\"child\",\n    receiver_name=child.session_name,\n)\n```\n\nDelivery modes are:\n\n- `auto`: steer a busy target and deliver immediately to an idle target;\n- `steer`: intentionally inject the message into active work; and\n- `follow_up`: wait until the target's current work finishes.\n\nA receipt is `delivered` when it reached an idle target's context or `queued` when accepted for later delivery. `agent_message.send(\"all\", message)` broadcasts only within the family roster. The daemon derives sender identity and enforces message-size, rate, and pending-queue limits.",
+      "content_sha256": "2d189380acdb542968ae851f632f9b32b03d41092ae6ee73fb611b44a2ac733b",
+      "document_id": "prime-agent-agent-to-agent-communication-2d189380acdb",
+      "heading": "Agent-to-Agent Communication",
+      "source_path": "packages/coding-agent/docs/long-running-agents.md",
+      "source_sha256": "84114af9f0c719c3bb585bb833e5451542dc115d38cee17729078d9c570aafb6",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/docs/long-running-agents.md",
+      "tags": [
+        "messaging",
+        "delivery",
+        "follow_up"
+      ]
+    },
+    {
+      "content": "Automatic compaction handles context growth during long tasks. On overflow or near the configured threshold, Prime Agent summarizes older messages, retains recent context, and continues. The IPython kernel persists through compaction, so variables, imports, helper functions, and task state remain available.\n\nThe agent can inspect or request compaction programmatically:\n\n```python\nawait compact.status()\nawait compact.run(\"Preserve the failing tests and remaining migration steps\")\n```\n\nCompaction is not a completion signal. It does not stop goals, autonomous continuations, heartbeats, or existing child sessions; later parent turns continue from the compacted context.\n\nFor lower-level process and recovery behavior, see [Daemon Architecture](daemon.md). For recursive child lifecycle details, see [RLM Programming Model](rlm.md) and [RLM Runtime Architecture](rlm-runtime.md).",
+      "content_sha256": "b1398b0752b0909e790c698df284747e3ae69b8347555eeedf8768d2eef1c639",
+      "document_id": "prime-agent-compaction-and-continuity-b1398b0752b0",
+      "heading": "Compaction and Continuity",
+      "source_path": "packages/coding-agent/docs/long-running-agents.md",
+      "source_sha256": "84114af9f0c719c3bb585bb833e5451542dc115d38cee17729078d9c570aafb6",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/docs/long-running-agents.md",
+      "tags": [
+        "persistence",
+        "continuity",
+        "child_lifecycle"
+      ]
+    },
+    {
+      "content": "- `await agent_message.list_agents()` — returns `current` (`name`, `id`, `depth`)\n  and family-scoped `entries` (`relationship`, `name`, `id`, `depth`, `status`)\n  for the current agent's parent, siblings, and children. It includes inactive\n  family members and sorts parent, siblings by name, then children by name; it\n  does not expose a global daemon session list.\n- `await agent_message.send(message, receiver_role=\"parent\" | \"sibling\" | \"child\", receiver_name=None)` — sends one direct\n  text message to an active session. Sending to an idle completed subagent\n  starts an ordinary follow-up turn in that same child session and context.\n  The child remains available only until its parent session closes. The daemon\n  resolves `receiver_role` within the current agent family; `receiver_name` is\n  required for siblings and children and omitted for the unique parent.\n  `send(\"all\", message)` broadcasts only to the family roster and returns\n  `{receipts: [...]}` in roster order; successful entries are ordinary receipts\n  and failed entries contain the target id and a short `error`. One failed delivery\n  does not reject successful deliveries. Messages always use steering delivery so\n  a busy target sees them during its active run. Returns a receipt with a\n  `deliveryStatus` field: `\"delivered\"` means the message reached an idle target's\n  context; `\"queued\"` means a steering message was accepted and will deliver when\n  the target's current work allows (`send` does not block waiting for that).\n  Delivered receipts carry `deliveredAt`, queued receipts carry `queuedAt`.",
+      "content_sha256": "a91b39520d559ac47a4d4b505da65bb3bb2d9e4dbeba7c4cc184977ea88bf0a5",
+      "document_id": "prime-agent-api-a91b39520d55",
+      "heading": "API",
+      "source_path": "packages/coding-agent/skills/agent-message/SKILL.md",
+      "source_sha256": "0f8469a3c08753507f4b9feab191effcd1e7110e4ca6fcaa78d087065f67a653",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/skills/agent-message/SKILL.md",
+      "tags": [
+        "messaging",
+        "family_scope",
+        "delivery_receipt"
+      ]
+    },
+    {
+      "content": "- Do not delete a child immediately after `send`: delivered follow-ups may still\n  be running and queued receipts have not run yet. Wait until observation shows\n  the child is idle and its context is no longer needed before calling\n  `await rlm.delete_subagent(child)`.\n- Reach is limited to parent, siblings, and direct children; relay through an\n  intermediate child instead of messaging grandchildren or cousins directly.\n- Sender identity is daemon-derived and cannot be spoofed from Python.\n- The daemon enforces message size, rate, and pending-queue limits before\n  accepting delivery.",
+      "content_sha256": "4439158ef6c210ecc3ac92d34a96f9f22a479be28c232d87bda8bcbd2c55237b",
+      "document_id": "prime-agent-safety-4439158ef6c2",
+      "heading": "Safety",
+      "source_path": "packages/coding-agent/skills/agent-message/SKILL.md",
+      "source_sha256": "0f8469a3c08753507f4b9feab191effcd1e7110e4ca6fcaa78d087065f67a653",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/skills/agent-message/SKILL.md",
+      "tags": [
+        "messaging",
+        "family_scope",
+        "child_lifecycle"
+      ]
+    },
+    {
+      "content": "- `await agent_observe.list_agents()` returns `current` and `agents`. Each\n  agent includes active session id, session id, optional name, runtime kind,\n  cwd, status, streaming state, message count, pending count, and a latest\n  message preview. The list is restricted to self, parent, siblings, and direct\n  children. For direct children, `await rlm.list_subagents()` also exposes\n  parent-owned lifecycle handles.\n- `await agent_observe.get_agent(target)` returns `agent`, where `agent`\n  contains one agent summary. `target` is resolved like other live-session\n  selectors: active id, session id/name, or unambiguous suffix.\n- `await agent_observe.recent_messages(target, limit=8, max_chars=800)`\n  returns up to `limit` recent bounded message previews for the target session.\n  `limit` must be 1-50, and `max_chars` must be 80-2000.",
+      "content_sha256": "730c3347f9daaaa5f0fc01915bc351ad684333e5e71ecfd0d7add6f7233872ae",
+      "document_id": "prime-agent-api-730c3347f9da",
+      "heading": "API",
+      "source_path": "packages/coding-agent/skills/agent-observe/SKILL.md",
+      "source_sha256": "5d424c29e71f935e7ae77e1c6b73ce909b3049aad53f2fdd912d4649b36f1405",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/skills/agent-observe/SKILL.md",
+      "tags": [
+        "observation",
+        "family_scope",
+        "read_only"
+      ]
+    },
+    {
+      "content": "- This skill is read-only and exposes no mutation commands.\n- Targets outside the nuclear family are rejected; transcript reads follow the\n  same family rule as messaging.\n- Message access is bounded by count and per-message character limit.\n- Prefer status and recent previews for orchestration. Ask the user before\n  using observed context to steer or message another session.",
+      "content_sha256": "5b9b4b219c6b3078a995cc6584f70de6b716f87fe0064d24b80925987ad76564",
+      "document_id": "prime-agent-safety-5b9b4b219c6b",
+      "heading": "Safety",
+      "source_path": "packages/coding-agent/skills/agent-observe/SKILL.md",
+      "source_sha256": "5d424c29e71f935e7ae77e1c6b73ce909b3049aad53f2fdd912d4649b36f1405",
+      "source_url": "https://raw.githubusercontent.com/PrimeIntellect-ai/prime-agent/9e49b73dd46908b3e400f4780b46a90daef69052/packages/coding-agent/skills/agent-observe/SKILL.md",
+      "tags": [
+        "observation",
+        "family_scope",
+        "read_only"
+      ]
+    }
+  ],
+  "schema_version": "prime-agent-designer-document-corpus/v1",
+  "selection_policy": {
+    "answer_bearing_task_data_allowed": false,
+    "scope": "Prime Agent recursive coordination and lifecycle protocol",
+    "verbatim_sections": true
+  },
+  "upstream": {
+    "repository": "https://github.com/PrimeIntellect-ai/prime-agent",
+    "revision": "9e49b73dd46908b3e400f4780b46a90daef69052"
+  }
+}

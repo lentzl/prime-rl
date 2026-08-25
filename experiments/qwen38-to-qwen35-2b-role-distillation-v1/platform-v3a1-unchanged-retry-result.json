@@ -1,0 +1,99 @@
+{
+  "schema_version": "q38-platform-v3a1-unchanged-qualification-retry-result/v1",
+  "status": "rejected_repeated_behavioral_process_timeout",
+  "platform_lane": "platform-v3a1-a6000x2-vllm026",
+  "teacher_admission_status": "permanently_non_admitted",
+  "teacher": {
+    "model": "Qwen/Qwen3.8-27B",
+    "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+    "policy": "immutable_inference_only"
+  },
+  "runtime": {
+    "vllm": "0.26.0+cu129",
+    "tensor_parallel_size": 2,
+    "dtype": "bfloat16",
+    "max_model_len": 32768,
+    "max_num_seqs": 1,
+    "max_num_batched_tokens": 512,
+    "disable_custom_all_reduce": true,
+    "enforce_eager": true,
+    "cuda_launch_blocking": false,
+    "packed_recurrent_decode_override": false
+  },
+  "qualification": {
+    "fresh_sentinel": {
+      "status": "passed",
+      "task_index": 3806011,
+      "complete_error_free_traces": 1,
+      "http_200_chat_completions": 11
+    },
+    "composite_workload_r1": {
+      "status": "rejected",
+      "expected_traces": 9,
+      "mixed_block_complete_error_free_traces": 4,
+      "mixed_block_hard_successes": 1,
+      "recovery_sized_block_complete_error_free_traces": 0,
+      "recovery_sized_block_errored_traces": 1,
+      "subsequent_task_started_but_unserialized_before_fail_closed_stop": 3806012,
+      "remaining_tasks_not_admitted": 3,
+      "http_200_chat_completions": 47,
+      "http_200_chat_completions_in_serialized_mixed_block": 35,
+      "http_200_chat_completions_in_failure_trace": 10,
+      "http_200_chat_completions_in_stopped_unserialized_task": 2,
+      "failure_task_index": 3806011,
+      "failure_task_key": "train_gen-natural_n1a_local-03806011-54e4756",
+      "failure_trace_id": "2ff0193be45b42748f6b649262168fc3",
+      "failure_trace_is_completed": true,
+      "failure_trace_ok": false,
+      "failure_stop_condition": "error",
+      "failure_error_type": "HarnessError",
+      "failure_message": "harness 'prime_agent': EOFError: ACP process closed its stdout",
+      "agent_duration_seconds": 1141.8874032497406,
+      "configured_process_timeout_seconds": 1140,
+      "model_calls_before_timeout": 10,
+      "coordinator_model_calls": 7,
+      "child_model_calls": 3,
+      "behavioral_sequence": "The first coordinator generation exhausted its 3072-token turn without a tool call. Autonomous-gate recovery then inspected prior session state, delegated beta-worker, and completed the coordinator-owned local calculation. The child delivered signal_count=252, but the coordinator did not resume and emit the final answer before the fixed process deadline.",
+      "cause": "The ACP EOF again coincided with Prime Agent reaching its configured process timeout. The vLLM server continued returning HTTP 200 responses and showed no forbidden serving signature, so this is a repeated bounded behavioral timeout rather than a serving crash."
+    },
+    "composite_workload_r2_after_restart": {
+      "status": "not_started_after_fail_closed_stop"
+    },
+    "pass_rule_relaxed": false
+  },
+  "comparison_to_preregistered_boundary": {
+    "prior_failure_task_index": 3806013,
+    "prior_failure_agent_duration_seconds": 1141.86741065979,
+    "retry_failure_task_index": 3806011,
+    "retry_failure_agent_duration_seconds": 1141.8874032497406,
+    "same_failure_class_repeated": true,
+    "required_action": "Preserve and stop for strategist review; do not extend the frozen timeout or relax the error-free gate post hoc."
+  },
+  "infrastructure_evidence": {
+    "successful_http_200_chat_completions_total": 58,
+    "forbidden_cuda_cublas_provider_engine_rpc_signatures": 0,
+    "kernel_xid_aer_signatures": 0,
+    "serving_fault_observed": false,
+    "teardown_verified": true,
+    "remaining_gpu_processes": 0,
+    "remaining_qualification_processes": 0,
+    "remaining_containers": 0,
+    "final_gpu_memory_used_mib_each": 1
+  },
+  "decision": {
+    "runtime_family_rejected": false,
+    "qualification_attempt_rejected": true,
+    "teacher_recovery_started": false,
+    "student_baseline_started": false,
+    "optimizer_steps": 0,
+    "next_action": "Stop at the preregistered strategic boundary. Ask the strategist to choose a prospective scientific change; do not launch teacher recovery, baseline, training, or another unchanged retry."
+  },
+  "provenance": {
+    "retry_preregistration_file": "experiments/qwen38-to-qwen35-2b-role-distillation-v1/platform-v3a1-unchanged-retry-preregistration.json",
+    "qualification_wrapper_sha256": "58401392383d34ecfbb5811615496817c10858f3290bc670317a627cf7082c99",
+    "durable_local_artifact_root": "artifacts/q38-to-q35-2b-distill-pilot-v1/qualification/platform-v3a1-rejected-process-timeout-retry-v2",
+    "durable_local_file_count": 46,
+    "normalized_sha256_inventory_digest": "83cbc7c1e3fd1c4331dc992eacd7fdd8382849ddc796e1cafe6445de61e07632",
+    "remote_to_local_checksum_diff": "empty"
+  }
+}

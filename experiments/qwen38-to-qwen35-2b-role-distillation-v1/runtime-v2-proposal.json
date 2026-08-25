@@ -1,0 +1,121 @@
+{
+  "schema_version": "q38-runtime-mitigation/v2-proposal",
+  "status": "runtime_v2a_rejected_after_first_cold_start",
+  "authorization": {
+    "url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5348832970",
+    "scope": "Package-only vLLM 0.27.1 falsification with three cold starts and fail-closed rejection after any infrastructure failure. Teacher admission and gradients retain all frozen gates."
+  },
+  "preparation_result": {
+    "status": "failed_closed_before_gpu_launch",
+    "decision_request_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5348799306",
+    "wheel_sha256_verified": true,
+    "original_environment_mutated": false,
+    "gpu_process_started": false,
+    "new_unsatisfied_requirements": {
+      "torch": "2.13.0",
+      "torchvision": "0.28.0",
+      "flashinfer-python": "0.6.16.post3",
+      "apache-tvm-ffi": "0.1.11",
+      "tilelang": "0.1.12",
+      "quack-kernels": "0.6.1"
+    },
+    "interpretation": "The official wheel cannot form a supported one-distribution substitution on the v1 dependency stack."
+  },
+  "runtime_v2a_result": {
+    "status": "rejected",
+    "result_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5348926929",
+    "runtime_name": "runtime-v2a-vllm0271-on-prime-torch211",
+    "attempted_cold_starts": 1,
+    "planned_cold_starts": 3,
+    "task_index": 3806011,
+    "failure": "TP0 CUDA illegal memory access followed by EngineCore death and ProviderError",
+    "complete_serialized_trace": false,
+    "remaining_attempts_run": false,
+    "teacher_data_admitted": false,
+    "optimizer_steps": 0,
+    "qualifying_teacher_counts": {
+      "natural_direct_control": 15,
+      "natural_n1a": 5,
+      "natural_n1a_local": 3,
+      "natural_n1b": 0
+    },
+    "next_review_url": "https://github.com/lentzl/rlm/issues/1#issuecomment-5348942266"
+  },
+  "purpose": "Test whether a pinned vLLM upgrade removes the Qwen3.8-27B hybrid-GDN infrastructure failure without changing the frozen behavioral experiment.",
+  "frozen_failed_lane": {
+    "runtime": "vllm==0.26.0+cu129",
+    "result": "stopped_after_two_invalid_infrastructure_attempts_on_task_3806011",
+    "failure_signatures": [
+      "cuda_illegal_memory_access",
+      "triton_cuda_illegal_instruction_in_qwen_gdn_causal_conv1d",
+      "compute_slot_mapping_kernel_jit_during_first_inference"
+    ],
+    "preservation_rule": "Never overwrite, append to, or reinterpret the frozen v1 artifacts. Runtime-v2 results use new labels and provenance."
+  },
+  "single_intervention": {
+    "package": "vllm==0.27.1+cu129",
+    "official_wheel": "https://github.com/vllm-project/vllm/releases/download/v0.27.1/vllm-0.27.1%2Bcu129-cp38-abi3-manylinux_2_28_x86_64.whl",
+    "wheel_sha256": "bf0d52faa2a51e7a01c6856a7a8a2d1307fd0ff711415d34168a67ffac0fa47b",
+    "unchanged": [
+      "teacher_model_and_revision",
+      "task_ids_and_sampling_parameters",
+      "prime_agent_harness_and_scorers",
+      "tensor_parallel_size_2",
+      "enforce_eager_true",
+      "disable_custom_all_reduce_true",
+      "max_num_seqs_1",
+      "max_num_batched_tokens_512",
+      "acceptance_floors"
+    ]
+  },
+  "rationale": {
+    "directly_relevant_upstream_changes_in_0_27_1": [
+      {
+        "pull_request": 49903,
+        "url": "https://github.com/vllm-project/vllm/pull/49903",
+        "fact": "Included in v0.27.1 and adds pre-request warmup coverage for runner-owned Triton kernels, including mixed GDN branches."
+      },
+      {
+        "pull_request": 49757,
+        "url": "https://github.com/vllm-project/vllm/pull/49757",
+        "fact": "Included in v0.27.1 and prevents stale hybrid recurrent-state block-table rows from reaching state-writing kernels."
+      }
+    ],
+    "supporting_but_non_equivalent_report": {
+      "url": "https://github.com/vllm-project/vllm/issues/34948#issuecomment-5318513806",
+      "fact": "A reporter says their H200/MXFP4 TP=2 illegal-access failure is fixed in 0.27.1.",
+      "limitation": "Their compiler-fusion, quantization, and GPU path differs from dense BF16 Qwen3.8-27B on Ada with eager execution; this is not proof for our failure."
+    },
+    "excluded_as_primary_explanation": {
+      "url": "https://github.com/vllm-project/vllm/pull/52553",
+      "fact": "The FlashInfer CUDA-graph workspace fix is still unmerged and targets a materially different SM120/FP8 path."
+    }
+  },
+  "gradient_gate": "Runtime qualification does not authorize a gradient. Train only after missing teacher recovery, untouched-2B baseline, unchanged corpus floors, and all provenance/hash gates pass.",
+  "execution_if_authorized": [
+    {
+      "phase": "isolated_dependency_resolution",
+      "pass": "Produce a separate lock/environment with exact package versions and hashes; leave the v1 environment unchanged."
+    },
+    {
+      "phase": "cold_start_infrastructure_qualification",
+      "task": "Exact Q38 N1a-local task 3806011 under a new non-admitted runtime-v2 label.",
+      "pass": "Three independent cold starts each complete the task with no provider error, EngineCore death, CUDA fault, RPC timeout, or Triton JIT-during-inference warning for the implicated runner-owned kernels.",
+      "fail": "Any infrastructure failure stops runtime-v2 before matrix recovery. Behavioral failure is valid infrastructure evidence but is not teacher data."
+    },
+    {
+      "phase": "missing_matrix_recovery",
+      "task": "Run only missing Q38 N1a-local indices 3806011 through 3806015, then Q38 N1b, each under new runtime-v2 labels.",
+      "pass": "Every admitted trajectory is complete, exact-provenance, and passes the pre-existing hard scorer."
+    },
+    {
+      "phase": "student_baseline",
+      "task": "Evaluate the untouched exact 2B snapshot under the same pinned runtime-v2 before any optimizer step."
+    },
+    {
+      "phase": "corpus_and_gradient_gate",
+      "pass": "At least 12 direct, 4 N1a, 4 N1a-local, and 4 N1b qualifying teacher trajectories; final role corpora and manifests hash cleanly; untouched 2B baseline is complete.",
+      "fail": "No optimizer step. Acceptance floors remain unchanged."
+    }
+  ]
+}

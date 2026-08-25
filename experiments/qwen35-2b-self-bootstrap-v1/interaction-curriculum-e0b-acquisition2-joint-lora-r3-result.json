@@ -1,0 +1,49 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-training-result/v1",
+  "status": "complete",
+  "completed_at_utc": "2026-08-21T15:28:09Z",
+  "source_phase": "e0b_select_child_value",
+  "update": {
+    "type": "sequential_joint_root_child_sft_lora",
+    "optimizer_steps": 1,
+    "dense_base_updates": 0,
+    "lora_rank": 16,
+    "lora_alpha": 32.0,
+    "learning_rate": 0.00001,
+    "assistant_only_loss": true,
+    "corpus_rows": 8,
+    "root_rows": 4,
+    "child_rows": 4,
+    "loss_mean": 0.8619077801704407,
+    "loss_nan_count": 0,
+    "gradient_norm": 7.78125
+  },
+  "initial_adapter": {
+    "source_update": "e0b-joint-lora-r2",
+    "adapter_model_sha256": "30235c4e4ded37d82581dc33173a23e5f22f0d1c8a8a07c4da553c4980914e98",
+    "loaded_parameter_tensors": 192,
+    "merged_into_dense_base": false
+  },
+  "immutable_base": {
+    "weight_sha256_before_and_after": "c75915dd41cd4fc9b1a1ef5582c6fd14913fc6f9971a58feca3b72b4bfcad406",
+    "mutated": false
+  },
+  "admission": {
+    "qualifying_trajectories": 4,
+    "distinct_task_keys": 4,
+    "acceptance_floor_relaxed": false,
+    "excluded_failed_task_indices": [4004500, 4004505]
+  },
+  "corpus_integrity": {
+    "train_parquet_sha256": "f97293fae9d596fc59e68928f04b7882463dfd16874b81d80334bd73fbccba30",
+    "pretraining_baseline_sha256": "e7b1e8b2050a58f9862e4b7a7d4a047f044a444a4526a57ed8fe0b896c196c42",
+    "manifest_sha256": "28042c9c20d2ad7d9d24a2eb562ea7d1f4bdcf05103943fa762357507799ca49"
+  },
+  "output_integrity": {
+    "resolved_config_sha256": "dcd517ee593b50dcd2ae81ae14a069aac55d634b9cd0b4059743b9f0e3ac6ecd",
+    "metrics_sha256": "797d45239258c6e3fc3d7a3824ea29edc78aa22c30090f943337c9bb0790ce73",
+    "adapter_config_sha256": "06a44e2d2d9c2208e2a77eea7eab23af69b43b999ff9f950c15c30d1e434acd0",
+    "adapter_model_sha256": "ae4c3daa8b34ee5211b7cee4f3cf13ee194aa520ac02e172e6b9677ec2e88e44",
+    "local_artifact_directory": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-self-bootstrap-v1/interaction-curriculum-e0b-acquisition2-joint-lora-r3"
+  }
+}

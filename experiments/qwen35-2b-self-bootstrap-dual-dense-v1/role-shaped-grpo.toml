@@ -1,0 +1,213 @@
+# One full-dense, role-scoped GRPO step. The launcher resolves the role,
+# checkpoint, task bank, bootstrap artifact, and unique run directory.
+
+max_steps = 1
+seq_len = 8192
+max_train_batch_lead = 0
+output_dir = "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1"
+clean = false
+
+[run]
+name = "role-grpo-shadow"
+dir = "role-grpo-shadow"
+
+[deployment]
+gpus_per_node = 2
+num_train_gpus = 1
+num_infer_gpus = 1
+
+[model]
+name = "Qwen/Qwen3.5-2B"
+
+[trainer.model]
+seq_len = 8192
+attn = "auto"
+impl = "custom"
+fsdp_cpu_offload = false
+optim_cpu_offload = false
+
+[trainer.model.compile]
+fullgraph = false
+
+[trainer.model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[trainer.optim]
+type = "adamw"
+lr = 1e-6
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[trainer.scheduler]
+type = "constant"
+
+[trainer.ckpt]
+interval = 1
+keep_last = 2
+weights_only = true
+
+[trainer.ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[orchestrator]
+batch_size = 8
+group_size = 8
+# Prime-RL requires the complete eight-rollout GRPO group to remain logically
+# in flight. The environment-level semaphore below materializes it in
+# two-agent waves so long Prime Agent traces cannot exhaust the host's RAM.
+max_inflight_episodes = 8
+oversampling_factor = 1.0
+max_off_policy_steps = 0
+
+[orchestrator.algo]
+type = "grpo"
+sampled_session_scope = "root"
+
+[[orchestrator.pre_batch_filters]]
+type = "trainable_token_window"
+max_tokens = 8192
+enforce = true
+
+[[orchestrator.pre_batch_filters]]
+type = "zero_advantage"
+enforce = true
+
+[[orchestrator.pre_batch_filters]]
+type = "gibberish"
+enforce = false
+
+[[orchestrator.pre_batch_filters]]
+type = "repetition"
+enforce = false
+
+[orchestrator.renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[orchestrator.train.sampling]
+temperature = 1.0
+reasoning_effort = "high"
+max_completion_tokens = 2048
+
+[orchestrator.train.sampling.extra_body]
+top_k = -1
+min_p = 0.0
+return_token_ids = true
+
+[[orchestrator.train.source]]
+name = "q35-2b-role-shaped-grpo"
+ratio = 1.0
+group_size = 8
+
+[orchestrator.train.source.algo]
+type = "grpo"
+sampled_session_scope = "root"
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 2
+
+[orchestrator.train.source.env.taskset.task]
+reward_mode = "event_control"
+leak_child_exact_action = false
+
+[orchestrator.train.source.env.taskset]
+id = "procedural-harness-master-v1"
+split = "train_gen"
+count = 64
+start_index = 9100000
+master_seed = 20260824
+curriculum_rung = "natural_n1a"
+private_payload_mode = "finding_card"
+privileged_bootstrap_path = "/tmp/q35-2b-role-grpo-bootstrap.json"
+
+[orchestrator.train.source.env.agent]
+max_turns = 16
+max_output_tokens = 16384
+max_total_tokens = 65536
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.procedural-harness-master/completion_gate.py"]
+autonomous_max_continuations = 4
+autonomous_max_turns = 16
+autonomous_max_tokens = 65536
+autonomous_timeout_ms = 900000
+process_timeout_ms = 840000
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "python:3.11-slim"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.retries]
+max_retries = 0
+
+[orchestrator.train.source.serve]
+# Bound complete episodes across EnvServer requests. The env-level
+# max_concurrent_agents setting applies only within one episode. The launcher
+# serializes coordinator episodes to contain host RAM, while child updates keep
+# two complete episodes live because their observed memory footprint is lower.
+max_concurrent = 1
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[orchestrator.ckpt]
+interval = 1
+keep_last = 2
+wait_for_weights_timeout = 3600
+
+[inference]
+backend_port = 8100
+
+[inference.server]
+port = 8000
+liveness_timeout_seconds = 30.0
+
+[inference.router]
+type = "role-router"
+policy_role = "coordinator"
+anchor_model = "/tmp/q35-2b-role-grpo-anchor"
+anchor_backend_port = 8200
+anchor_data_parallel_rpc_port = 13347
+anchor_gpu_memory_utilization = 0.34
+anchor_kv_cache_memory_bytes = 4294967296
+leak_coordinator_exact_action = false
+strip_child_tool_choice = false
+strip_coordinator_tool_choice = false
+state_dir = "/tmp/q35-2b-role-grpo-router"
+audit_log = "/tmp/q35-2b-role-grpo-routing-audit.jsonl"
+
+[inference.vllm]
+max_model_len = 32768
+language_model_only = true
+enforce_eager = true
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+tensor_parallel_size = 1
+data_parallel_size = 1
+data_parallel_rpc_port = 13345
+gpu_memory_utilization = 0.42
+kv_cache_memory_bytes = 4294967296
+max_num_seqs = 8
+max_num_batched_tokens = 4096
+mamba_ssm_cache_dtype = "float32"
+
+[file_monitor]
+filename = "metrics.jsonl"
+
+[log]
+json_logging = false

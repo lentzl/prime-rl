@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+model=${1:-}
+label=${2:-}
+revision=${3:-local}
+
+if [[ -z "$model" || -z "$label" ]]; then
+  echo "usage: $0 MODEL_OR_STABLE_PATH LABEL [REVISION]" >&2
+  exit 1
+fi
+
+EVAL_CUDA_VISIBLE_DEVICES=${EVAL_CUDA_VISIBLE_DEVICES:-0} \
+EVAL_TENSOR_PARALLEL_SIZE=${EVAL_TENSOR_PARALLEL_SIZE:-1} \
+EVAL_DTYPE=${EVAL_DTYPE:-bfloat16} \
+EVAL_MAX_MODEL_LEN=${EVAL_MAX_MODEL_LEN:-32768} \
+EVAL_GPU_MEMORY_UTILIZATION=${EVAL_GPU_MEMORY_UTILIZATION:-0.80} \
+EVAL_MAX_NUM_SEQS=${EVAL_MAX_NUM_SEQS:-1} \
+EVAL_MAX_NUM_BATCHED_TOKENS=${EVAL_MAX_NUM_BATCHED_TOKENS:-512} \
+EVAL_LANGUAGE_MODEL_ONLY=${EVAL_LANGUAGE_MODEL_ONLY:-true} \
+EVAL_DISABLE_CUSTOM_ALL_REDUCE=${EVAL_DISABLE_CUSTOM_ALL_REDUCE:-false} \
+QWEN38_QUALIFICATION_AXES=${QWEN38_QUALIFICATION_AXES:-natural_direct_control,natural_n1a,natural_n1a_local,natural_n1b} \
+QWEN38_QUALIFICATION_NUM_TASKS=${QWEN38_QUALIFICATION_NUM_TASKS:-16} \
+QWEN38_QUALIFICATION_NUM_ROLLOUTS=1 \
+QWEN38_QUALIFICATION_MAX_CONCURRENT=1 \
+QWEN38_QUALIFICATION_INDEX_OFFSET=${QWEN38_QUALIFICATION_INDEX_OFFSET:-100000} \
+QUALIFICATION_REASONING_EFFORT=${QUALIFICATION_REASONING_EFFORT:-high} \
+EVAL_DRIVER=scripts/run_qwen38_27b_prime_harness_qualification_v1.sh \
+EVAL_EXPERIMENT_DIR=experiments/qwen38-27b-prime-harness-qualification-v1 \
+PRIME_MASTERY_OUTPUT_ROOT=${PRIME_MASTERY_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q38-to-q35-2b-role-distillation-v1} \
+  "$root/scripts/run_qwen35_27b_prime_agent_mastery_baseline_v2.sh" \
+  "$model" "$label" "$revision"

@@ -1,0 +1,44 @@
+{
+  "schema_version": "qwen35-2b-interaction-curriculum-evaluation-result/v1",
+  "status": "complete_split_admission",
+  "completed_at_utc": "2026-08-21T17:56:17Z",
+  "optimizer_updates_during_evaluation": 0,
+  "frozen_adapter": {
+    "adapter": "R6",
+    "adapter_sha256": "0f5bcac73c0db8268d740aa27ec36af07561eeca0f27b2eea6cd1715dd2fa297"
+  },
+  "e0c275_inline_location": {
+    "episodes": 6,
+    "hard_successes": 2,
+    "qualifying_trajectories": 1,
+    "distinct_qualifying_task_keys": 1,
+    "gate_open": false,
+    "traces_sha256": "5297285c922ca2f4fe9dc340dd8ffc76d8f38ecbd170839761c640bca0468799",
+    "summary_sha256": "5e157cbc1238f57d024b1a6cfbdd1d6c217eee0d4cebee380d09734b99b38ad1",
+    "versions_sha256": "d828a17323c56e219f64db5821ba0ec155bf6b86e1bc58ec91939dd5ac40b9c4"
+  },
+  "e0d3_uncapped_yield_exact_child_extension": {
+    "episodes": 6,
+    "hard_successes": 3,
+    "qualifying_trajectories": 3,
+    "distinct_qualifying_task_keys": 3,
+    "gate_open_standalone": false,
+    "traces_sha256": "eb1b68e97383f20fd5a043be834fbfdfa9c731c833c64a0c9a899ac2d58dca33",
+    "summary_sha256": "52ae53eb1eb53f9952c068240be1a6edd03ab0de6664c536b12039a7753dcdbd",
+    "versions_sha256": "ed76d9f587a6f1492a3f0cdbe5c17fcf9bb9427891b3e4f4007475804c1529ec"
+  },
+  "e0d3_aggregate": {
+    "source_task_banks": [4005900, 4006200],
+    "episodes": 12,
+    "qualifying_trajectories": 5,
+    "distinct_qualifying_task_keys": 5,
+    "gate_open": true,
+    "summary_sha256": "02ffb719e7ef008997168a4f453bb8749ee4897b751541f098badfb636c0c820"
+  },
+  "admission": {
+    "acceptance_floor_relaxed": false,
+    "both_arms_admitted": false,
+    "new_gradient_authorized": false
+  },
+  "next_action": "Keep the stronger E0c25 child leak and evaluate it freshly on frozen R6. Only if it independently reaches four complete distinct qualifiers may its child rows be paired with the already-admitted E0d3 yield rows for a later single update."
+}

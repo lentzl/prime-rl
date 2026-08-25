@@ -1,0 +1,70 @@
+{
+  "schema_version": "procedural-harness-master/causal-v2-qualification/v1",
+  "status": "zero_update_only",
+  "master_seed": 20260819,
+  "sampling_seed": 20260819,
+  "serialized_runtime": {
+    "tensor_parallel_size": 2,
+    "dtype": "bfloat16",
+    "max_model_len": 32768,
+    "max_num_batched_tokens": 512,
+    "max_num_seqs": 1,
+    "eval_concurrency": 1,
+    "disable_custom_all_reduce": true,
+    "max_tokens_per_request": 3072,
+    "chat_completion_limit_alias_policy": "eval max_tokens removes competing harness max_completion_tokens"
+  },
+  "models": [
+    {
+      "role": "untouched_qwen35",
+      "model": "Qwen/Qwen3.5-27B",
+      "revision": "fc05daec18b0a78c049392ed2e771dde82bdf654",
+      "reasoning_effort": "high"
+    },
+    {
+      "role": "canonical_r7",
+      "model": "lentzl/rlm-prime-agent-qwen35-27b-harness-r7-20260818",
+      "revision": "resolve_and_record_before_launch",
+      "reasoning_effort": "high"
+    },
+    {
+      "role": "untouched_qwen38",
+      "model": "Qwen/Qwen3.8-27B",
+      "revision": "1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0",
+      "reasoning_effort": "xhigh"
+    }
+  ],
+  "principal_axes": {
+    "draws_per_model": 16,
+    "axes": [
+      {"name": "natural_n1a", "start_index": 3804000},
+      {"name": "natural_n1a_local", "start_index": 3806000},
+      {"name": "natural_n1b", "start_index": 3805000},
+      {"name": "natural_direct_control", "start_index": 3807000}
+    ]
+  },
+  "diagnostic_axes": {
+    "draws_per_model": 4,
+    "axes": [
+      {"name": "atomic_state", "start_index": 3801000},
+      {"name": "atomic_send", "start_index": 3802000},
+      {"name": "atomic_child_request", "start_index": 3803000}
+    ]
+  },
+  "admission": {
+    "minimum_complete_n1a_trajectories": 4,
+    "minimum_complete_n1a_local_trajectories": 4,
+    "minimum_direct_control_successes": 12,
+    "maximum_provider_or_rollout_errors": 0,
+    "n1b_is_diagnostic_in_first_block": true,
+    "atomic_axes_are_diagnostic_not_selectors": true
+  },
+  "prohibitions": [
+    "no_gradient",
+    "no_optimizer_step",
+    "no_r7_weight_mutation",
+    "no_task_vector_or_cross_generation_interpolation",
+    "no_vllm_upgrade_mid_comparison",
+    "no_scaffold_unless_a_fresh_corrected_axis_has_zero_or_near_zero_native_support"
+  ]
+}
