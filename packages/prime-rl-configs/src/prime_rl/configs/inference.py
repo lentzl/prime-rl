@@ -326,6 +326,10 @@ class RoleRouterConfig(BaseConfig):
     """For child-policy bootstrap only, synthesize the disclosed exact coordinator
     spawn action at the role-router boundary. Coordinator tokens are excluded from
     the update; child responses remain sampled on-policy."""
+    leak_child_exact_action: bool = False
+    """For early coordinator-policy bootstrap only, synthesize the child send action
+    disclosed inside the child's private training context. The hidden value is never
+    added to the coordinator prompt; only the resulting child message crosses roles."""
     strip_child_tool_choice: bool = False
     """For child-policy bootstrap only, remove named chat tool-choice controls from
     direct token-in generation. The tool schema remains in the rendered prompt."""

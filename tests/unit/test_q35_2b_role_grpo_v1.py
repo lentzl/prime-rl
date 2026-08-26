@@ -49,7 +49,7 @@ def _resolved(
     source = source.replace(
         "leak_child_exact_action = false",
         "leak_child_exact_action = true",
-        1,
+        2,
     )
     source = source.replace(
         "strip_child_tool_choice = false",
@@ -115,6 +115,7 @@ def test_role_grpo_template_audits_both_session_scopes(tmp_path: Path) -> None:
         assert report["full_dense"] is True
         assert report["coordinator_action_leak"] is True
         assert report["child_action_leak"] is True
+        assert report["child_action_sampling"] == "synthetic_exact_send"
         assert report["first_action_sampling"] == (
             "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor"
         )
@@ -171,6 +172,38 @@ def test_coordinator_role_grpo_rejects_unscaffolded_frozen_child(tmp_path: Path)
         assert "partial causal protocol progress" in str(error)
     else:
         raise AssertionError("unscaffolded frozen child passed the coordinator GRPO audit")
+
+
+def test_coordinator_role_grpo_rejects_forwarded_child_send(tmp_path: Path) -> None:
+    config, model, anchor, bootstrap = _resolved(tmp_path, "coordinator")
+    source = config.read_text()
+    first = source.index("leak_child_exact_action = true")
+    second = source.index("leak_child_exact_action = true", first + 1)
+    config.write_text(
+        source[:second]
+        + source[second:].replace(
+            "leak_child_exact_action = true",
+            "leak_child_exact_action = false",
+            1,
+        )
+    )
+
+    try:
+        MODULE.audit(
+            config,
+            role="coordinator",
+            model_path=model,
+            anchor_model_path=anchor,
+            run_name="test-run",
+            bootstrap_path=bootstrap,
+            phase="e0d3_uncapped_yield_exact_child",
+            start_index=9100000,
+            task_count=64,
+        )
+    except MODULE.AuditFailure as error:
+        assert "synthesize the private child send" in str(error)
+    else:
+        raise AssertionError("forwarded child send passed the coordinator GRPO audit")
 
 
 def test_role_grpo_audit_rejects_child_reasoning_mode_mismatch(tmp_path: Path) -> None:

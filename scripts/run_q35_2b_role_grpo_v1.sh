@@ -133,6 +133,7 @@ payload = {
     "sampled_session_scope": scope,
     "coordinator_action_leak": True,
     "child_action_leak": True,
+    "child_action_sampling": "synthetic_exact_send",
     "first_action_sampling": "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "child_tool_choice_stripped": role == "child",
     "coordinator_tool_choice_stripped": False,
@@ -171,7 +172,7 @@ trap 'attempt_exit=$?; trap - EXIT; write_attempt_receipt "$attempt_exit"; exit 
   "$template" "$resolved" "$role" "$scope" "$model_path" "$anchor_model_path" \
   "$run_name" "$bootstrap" "$start_index" "$task_count" "$output_root" \
   "$learning_rate" "$role_router_state" "$routing_audit" \
-  "$leak_coordinator_exact_action" "$strip_child_tool_choice" \
+  "$leak_coordinator_exact_action" "$leak_child_exact_action" "$strip_child_tool_choice" \
   "$strip_coordinator_tool_choice" "$enable_thinking" \
   "$max_completion_tokens" "$agent_max_turns" "$agent_max_output_tokens" \
   "$agent_max_total_tokens" "$autonomous_max_tokens" <<'PY'
@@ -198,25 +199,30 @@ replacements = (
     ),
     (
         r'^leak_child_exact_action = false$',
-        'leak_child_exact_action = true',
+        f'leak_child_exact_action = {sys.argv[16]}',
+        1,
+    ),
+    (
+        r'^leak_child_exact_action = false$',
+        f'leak_child_exact_action = {sys.argv[16]}',
         1,
     ),
     (
         r'^strip_child_tool_choice = false$',
-        f'strip_child_tool_choice = {sys.argv[16]}',
+        f'strip_child_tool_choice = {sys.argv[17]}',
         1,
     ),
     (
         r'^strip_coordinator_tool_choice = false$',
-        f'strip_coordinator_tool_choice = {sys.argv[17]}',
+        f'strip_coordinator_tool_choice = {sys.argv[18]}',
         1,
     ),
-    (r'^enable_thinking = false$', f'enable_thinking = {sys.argv[18]}', 1),
-    (r'^max_completion_tokens = 2048$', f'max_completion_tokens = {sys.argv[19]}', 1),
-    (r'^max_turns = 16$', f'max_turns = {sys.argv[20]}', 1),
-    (r'^max_output_tokens = 16384$', f'max_output_tokens = {sys.argv[21]}', 1),
-    (r'^max_total_tokens = 65536$', f'max_total_tokens = {sys.argv[22]}', 1),
-    (r'^autonomous_max_turns = 16$', f'autonomous_max_turns = {sys.argv[20]}', 1),
+    (r'^enable_thinking = false$', f'enable_thinking = {sys.argv[19]}', 1),
+    (r'^max_completion_tokens = 2048$', f'max_completion_tokens = {sys.argv[20]}', 1),
+    (r'^max_turns = 16$', f'max_turns = {sys.argv[21]}', 1),
+    (r'^max_output_tokens = 16384$', f'max_output_tokens = {sys.argv[22]}', 1),
+    (r'^max_total_tokens = 65536$', f'max_total_tokens = {sys.argv[23]}', 1),
+    (r'^autonomous_max_turns = 16$', f'autonomous_max_turns = {sys.argv[21]}', 1),
     (r'^autonomous_max_tokens = 65536$', f'autonomous_max_tokens = {sys.argv[23]}', 1),
     (
         r'^max_concurrent = 1$',
@@ -335,6 +341,7 @@ payload = {
     "sampled_session_scope": scope,
     "coordinator_action_leak": True,
     "child_action_leak": True,
+    "child_action_sampling": "synthetic_exact_send",
     "first_action_sampling": "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "phase": phase,
     "enable_thinking": role == "child",

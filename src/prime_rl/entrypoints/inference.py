@@ -249,6 +249,8 @@ def start_role_router(config: InferenceConfig) -> list[subprocess.Popen]:
     ]
     if router.leak_coordinator_exact_action:
         proxy_command.append("--leak-coordinator-exact-action")
+    if router.leak_child_exact_action:
+        proxy_command.append("--leak-child-exact-action")
     if router.strip_child_tool_choice:
         proxy_command.append("--strip-child-tool-choice")
     if router.strip_coordinator_tool_choice:

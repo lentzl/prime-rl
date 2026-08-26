@@ -186,6 +186,7 @@ anchor_data_parallel_rpc_port = 13347
 anchor_gpu_memory_utilization = 0.34
 anchor_kv_cache_memory_bytes = 4294967296
 leak_coordinator_exact_action = false
+leak_child_exact_action = false
 strip_child_tool_choice = false
 strip_coordinator_tool_choice = false
 state_dir = "/tmp/q35-2b-role-grpo-router"

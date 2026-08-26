@@ -328,6 +328,45 @@ def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal()
     assert json.dumps(code) not in tokenizer.encoded
 
 
+def test_coordinator_grpo_proxy_encodes_private_child_send_action() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = "await agent_message.send('17', receiver_role='parent')"
+    prompt = (
+        "prefix [private evidence supplied to this reviewer] suffix\n"
+        "[training-only child action scaffold]\n"
+        "In your first IPython call execute exactly:\n\n"
+        f"```python\n{code}\n```"
+    )
+
+    class RecordingTokenizer:
+        encoded: str | None = None
+
+        def decode(self, token_ids, *, skip_special_tokens):
+            assert token_ids == [1, 2, 3]
+            assert skip_special_tokens is False
+            return prompt
+
+        def encode(self, text, *, add_special_tokens):
+            assert add_special_tokens is False
+            self.encoded = text
+            return [20, 21]
+
+        def convert_tokens_to_ids(self, token):
+            assert token == "<|im_end|>"
+            return 22
+
+    tokenizer = RecordingTokenizer()
+    result = module.exact_child_ipython_completion_ids(tokenizer, [1, 2, 3])
+
+    assert result == ([20, 21, 22], hashlib.sha256(code.encode()).hexdigest())
+    assert tokenizer.encoded == (
+        "<tool_call><function=ipython><parameter=code>\n"
+        f"{code}\n"
+        "</parameter></function></tool_call>"
+    )
+    assert module.disclosed_child_action(prompt.replace(module.CHILD_ACTION_SCAFFOLD_HEADER, "")) is None
+
+
 def test_synthetic_generate_response_has_cardinality_matched_finite_logprobs() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     payload = json.loads(module.synthetic_generate_response([10, 11, 12], sequence=7))
@@ -379,9 +418,11 @@ def test_proxy_source_makes_exact_coordinator_leak_one_shot_per_session() -> Non
     ).read_text()
 
     assert "self.leaked_session_hashes" in source
-    assert "session_sha256 in self.leaked_session_hashes" in source
+    assert "session_sha256 in self.leaked_session_hashes[role]" in source
     assert 'request.headers.get("x-session-id")' in source
-    assert "leak_rejected_missing_session" in source
+    assert "leak_rejected_missing_{role}_session" in source
+    assert '"coordinator": set()' in source
+    assert '"child": set()' in source
 
 
 def test_qualification_driver_resolves_and_records_one_master_seed() -> None:

@@ -179,6 +179,10 @@ def audit(
         raise AuditFailure(
             "early role GRPO must leak the disclosed coordinator spawn action"
         )
+    if role_router.get("leak_child_exact_action") is not True:
+        raise AuditFailure(
+            "early role GRPO must synthesize the private child send action"
+        )
     expected_child_strip = role == "child"
     if role_router.get("strip_child_tool_choice") is not expected_child_strip:
         raise AuditFailure(
@@ -230,6 +234,7 @@ def audit(
         "full_dense": True,
         "coordinator_action_leak": expected_coordinator_leak,
         "child_action_leak": expected_child_action_leak,
+        "child_action_sampling": "synthetic_exact_send",
         "first_action_sampling": (
             "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor"
         ),

@@ -13,11 +13,21 @@ from typing import Any
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 PRIVATE_EVIDENCE_HEADER = "[private evidence supplied to this reviewer]"
+CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
 ROOT_ACTION_PATTERN = re.compile(
     r"In the root coordinator's first IPython call, execute this code exactly:\s*"
     r"```python\s*\n(?P<code>.*?)\n```",
     re.DOTALL,
+)
+CHILD_ACTION_PATTERN = re.compile(
+    re.escape(CHILD_ACTION_SCAFFOLD_HEADER)
+    + r".*?In your first IPython call execute exactly:\s*"
+    + r"```python\s*\n(?P<code>.*?)\n```",
+    re.DOTALL,
+)
+CHILD_SEND_PATTERN = re.compile(
+    r"await agent_message\.send\('[0-9]+', receiver_role='parent'\)"
 )
 HOP_BY_HOP = {
     "connection",
@@ -125,7 +135,40 @@ def disclosed_root_action(prompt: str) -> str | None:
     return code
 
 
-def exact_ipython_completion_ids(tokenizer: Any, token_ids: list[int]) -> tuple[list[int], str] | None:
+def disclosed_child_action(prompt: str) -> str | None:
+    """Extract a hidden training-only child send action from its private context."""
+
+    if CHILD_ACTION_SCAFFOLD_HEADER not in prompt:
+        return None
+    matches = [match.group("code").strip() for match in CHILD_ACTION_PATTERN.finditer(prompt)]
+    if not matches:
+        return None
+    if len(set(matches)) != 1:
+        raise ValueError("rendered child prompt contains conflicting exact actions")
+    code = matches[0]
+    if CHILD_SEND_PATTERN.fullmatch(code) is None:
+        raise ValueError("disclosed child action is not the expected typed parent send")
+    return code
+
+
+def _encoded_ipython_completion(tokenizer: Any, code: str) -> tuple[list[int], str]:
+    if "</parameter>" in code or "</function>" in code or "</tool_call>" in code:
+        raise ValueError("disclosed action contains a tool-call delimiter")
+    completion = (
+        "<tool_call><function=ipython><parameter=code>\n"
+        f"{code}\n"
+        "</parameter></function></tool_call>"
+    )
+    completion_ids = tokenizer.encode(completion, add_special_tokens=False)
+    stop_id = tokenizer.convert_tokens_to_ids("<|im_end|>")
+    if not isinstance(stop_id, int) or stop_id < 0:
+        raise RuntimeError("Qwen tokenizer lacks the <|im_end|> stop token")
+    return [*completion_ids, stop_id], hashlib.sha256(code.encode()).hexdigest()
+
+
+def exact_ipython_completion_ids(
+    tokenizer: Any, token_ids: list[int]
+) -> tuple[list[int], str] | None:
     """Build the native Qwen tool completion for a disclosed coordinator action.
 
     This is an explicit early-curriculum environment leak. Child updates mask it via
@@ -137,18 +180,19 @@ def exact_ipython_completion_ids(tokenizer: Any, token_ids: list[int]) -> tuple[
     code = disclosed_root_action(prompt)
     if code is None:
         return None
-    if "</parameter>" in code or "</function>" in code or "</tool_call>" in code:
-        raise ValueError("disclosed coordinator action contains a tool-call delimiter")
-    completion = (
-        "<tool_call><function=ipython><parameter=code>\n"
-        f"{code}\n"
-        "</parameter></function></tool_call>"
-    )
-    completion_ids = tokenizer.encode(completion, add_special_tokens=False)
-    stop_id = tokenizer.convert_tokens_to_ids("<|im_end|>")
-    if not isinstance(stop_id, int) or stop_id < 0:
-        raise RuntimeError("Qwen tokenizer lacks the <|im_end|> stop token")
-    return [*completion_ids, stop_id], hashlib.sha256(code.encode()).hexdigest()
+    return _encoded_ipython_completion(tokenizer, code)
+
+
+def exact_child_ipython_completion_ids(
+    tokenizer: Any, token_ids: list[int]
+) -> tuple[list[int], str] | None:
+    """Build the native Qwen tool completion for a private child send scaffold."""
+
+    prompt = tokenizer.decode(token_ids, skip_special_tokens=False)
+    code = disclosed_child_action(prompt)
+    if code is None:
+        return None
+    return _encoded_ipython_completion(tokenizer, code)
 
 
 def synthetic_generate_response(completion_ids: list[int], *, sequence: int) -> bytes:
@@ -187,6 +231,7 @@ class DualPolicyProxy:
         private_evidence_token_ids: list[int],
         tokenizer: Any,
         leak_coordinator_exact_action: bool = False,
+        leak_child_exact_action: bool = False,
         strip_child_tool_choice: bool = False,
         strip_coordinator_tool_choice: bool = False,
     ) -> None:
@@ -200,11 +245,15 @@ class DualPolicyProxy:
         self.private_evidence_token_ids = private_evidence_token_ids
         self.tokenizer = tokenizer
         self.leak_coordinator_exact_action = leak_coordinator_exact_action
+        self.leak_child_exact_action = leak_child_exact_action
         self.strip_child_tool_choice = strip_child_tool_choice
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
         self.client: ClientSession | None = None
         self.sequence = 0
-        self.leaked_session_hashes: set[str] = set()
+        self.leaked_session_hashes: dict[str, set[str]] = {
+            "coordinator": set(),
+            "child": set(),
+        }
 
     async def startup(self, _: web.Application) -> None:
         self.audit_log.parent.mkdir(parents=True, exist_ok=True)
@@ -212,12 +261,15 @@ class DualPolicyProxy:
             with self.audit_log.open(encoding="utf-8") as handle:
                 events = [json.loads(line) for line in handle if line.strip()]
             self.sequence = len(events)
-            self.leaked_session_hashes = {
-                event["session_sha256"]
-                for event in events
-                if event.get("mode") == "leaked_exact_coordinator_action"
-                and isinstance(event.get("session_sha256"), str)
-            }
+            for event in events:
+                role = event.get("role")
+                session_sha256 = event.get("session_sha256")
+                if (
+                    role in self.leaked_session_hashes
+                    and event.get("mode") == f"leaked_exact_{role}_action"
+                    and isinstance(session_sha256, str)
+                ):
+                    self.leaked_session_hashes[role].add(session_sha256)
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
     async def cleanup(self, _: web.Application) -> None:
@@ -310,14 +362,18 @@ class DualPolicyProxy:
         session_sha256 = (
             hashlib.sha256(session_id.encode()).hexdigest() if session_id else None
         )
-        if (
-            endpoint == "/inference/v1/generate"
-            and role == "coordinator"
-            and self.leak_coordinator_exact_action
-        ):
+        leak_exact_action = (
+            role == "coordinator" and self.leak_coordinator_exact_action
+        ) or (role == "child" and self.leak_child_exact_action)
+        if endpoint == "/inference/v1/generate" and leak_exact_action:
             token_ids = payload.get("token_ids")
+            completion_builder = (
+                exact_ipython_completion_ids
+                if role == "coordinator"
+                else exact_child_ipython_completion_ids
+            )
             leaked = (
-                exact_ipython_completion_ids(self.tokenizer, token_ids)
+                completion_builder(self.tokenizer, token_ids)
                 if isinstance(token_ids, list)
                 and all(isinstance(token_id, int) for token_id in token_ids)
                 else None
@@ -330,16 +386,16 @@ class DualPolicyProxy:
                         endpoint=endpoint,
                         body=body,
                         status=400,
-                        mode="leak_rejected_missing_session",
+                        mode=f"leak_rejected_missing_{role}_session",
                     )
                     return web.json_response(
-                        {"error": "exact coordinator action leak requires x-session-id"},
+                        {"error": f"exact {role} action leak requires x-session-id"},
                         status=400,
                     )
-                if session_sha256 in self.leaked_session_hashes:
+                if session_sha256 in self.leaked_session_hashes[role]:
                     leaked = None
                 else:
-                    self.leaked_session_hashes.add(session_sha256)
+                    self.leaked_session_hashes[role].add(session_sha256)
             if leaked is not None:
                 completion_ids, action_sha256 = leaked
                 response_body = synthetic_generate_response(
@@ -350,7 +406,7 @@ class DualPolicyProxy:
                     endpoint=endpoint,
                     body=body,
                     status=200,
-                    mode="leaked_exact_coordinator_action",
+                    mode=f"leaked_exact_{role}_action",
                     action_sha256=action_sha256,
                     session_sha256=session_sha256,
                 )
@@ -418,6 +474,7 @@ def main() -> None:
     parser.add_argument("--external-model", required=True)
     parser.add_argument("--tokenizer-model")
     parser.add_argument("--leak-coordinator-exact-action", action="store_true")
+    parser.add_argument("--leak-child-exact-action", action="store_true")
     parser.add_argument("--strip-child-tool-choice", action="store_true")
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
@@ -438,6 +495,7 @@ def main() -> None:
         private_evidence_token_ids=private_evidence_token_ids,
         tokenizer=tokenizer,
         leak_coordinator_exact_action=args.leak_coordinator_exact_action,
+        leak_child_exact_action=args.leak_child_exact_action,
         strip_child_tool_choice=args.strip_child_tool_choice,
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,
     )
