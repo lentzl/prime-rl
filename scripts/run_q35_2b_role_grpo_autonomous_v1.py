@@ -265,6 +265,9 @@ def _validate_train_receipt(
         or receipt.get("promotion_minimum") != PROMOTION_MINIMUM
         or receipt.get("env_server_max_concurrent")
         != (1 if role == "coordinator" else 2)
+        or receipt.get("coordinator_action_leak") is not (role == "child")
+        or receipt.get("first_action_sampling")
+        != ("prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor")
         or receipt.get("child_action_leak") is not True
         or receipt.get("child_action_sampling") != "synthetic_exact_send"
         or receipt.get("task_bank", {}).get("group_size") != GROUP_SIZE

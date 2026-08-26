@@ -22,8 +22,9 @@ case "$role" in
   # Keep the frozen child reliable while collecting coordinator trajectories.
   # The child owns the hidden evidence, so this exposes the exact send only in
   # its private context; coordinator tokens still have to learn how to resume
-  # from and use the delivered report.
-  coordinator) scope=root; leak_coordinator_exact_action=true; leak_child_exact_action=true; strip_child_tool_choice=false; strip_coordinator_tool_choice=false; enable_thinking=false ;;
+  # from and use the delivered report. After repeated all-success coordinator
+  # groups, taper the root wire scaffold and sample the prompt-disclosed spawn.
+  coordinator) scope=root; leak_coordinator_exact_action=false; leak_child_exact_action=true; strip_child_tool_choice=false; strip_coordinator_tool_choice=false; enable_thinking=false ;;
   child) scope=non_root; leak_coordinator_exact_action=true; leak_child_exact_action=true; strip_child_tool_choice=true; strip_coordinator_tool_choice=false; enable_thinking=true ;;
   *) echo "role must be coordinator or child: $role" >&2; exit 1 ;;
 esac
@@ -131,10 +132,10 @@ payload = {
     "run_name": run_name,
     "role": role,
     "sampled_session_scope": scope,
-    "coordinator_action_leak": True,
+    "coordinator_action_leak": role == "child",
     "child_action_leak": True,
     "child_action_sampling": "synthetic_exact_send",
-    "first_action_sampling": "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor",
+    "first_action_sampling": "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "child_tool_choice_stripped": role == "child",
     "coordinator_tool_choice_stripped": False,
     "env_server_max_concurrent": 1 if role == "coordinator" else 2,
@@ -339,10 +340,10 @@ payload = {
     "recorded_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
     "role": role,
     "sampled_session_scope": scope,
-    "coordinator_action_leak": True,
+    "coordinator_action_leak": role == "child",
     "child_action_leak": True,
     "child_action_sampling": "synthetic_exact_send",
-    "first_action_sampling": "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor",
+    "first_action_sampling": "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "phase": phase,
     "enable_thinking": role == "child",
     "bootstrap_leak_level": "solution_replay" if phase == "e0_full_actions" else "action_scaffold",

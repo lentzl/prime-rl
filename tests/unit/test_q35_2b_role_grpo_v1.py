@@ -43,7 +43,7 @@ def _resolved(
     source = source.replace('policy_role = "coordinator"', f'policy_role = "{role}"', 1)
     source = source.replace(
         "leak_coordinator_exact_action = false",
-        "leak_coordinator_exact_action = true",
+        f"leak_coordinator_exact_action = {'true' if role == 'child' else 'false'}",
         1,
     )
     source = source.replace(
@@ -113,11 +113,11 @@ def test_role_grpo_template_audits_both_session_scopes(tmp_path: Path) -> None:
             1 if role == "coordinator" else 2
         )
         assert report["full_dense"] is True
-        assert report["coordinator_action_leak"] is True
+        assert report["coordinator_action_leak"] is (role == "child")
         assert report["child_action_leak"] is True
         assert report["child_action_sampling"] == "synthetic_exact_send"
         assert report["first_action_sampling"] == (
-            "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor"
+            "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor"
         )
         assert report["child_tool_choice_stripped"] is (role == "child")
         assert report["coordinator_tool_choice_stripped"] is False
@@ -204,6 +204,62 @@ def test_coordinator_role_grpo_rejects_forwarded_child_send(tmp_path: Path) -> N
         assert "synthesize the private child send" in str(error)
     else:
         raise AssertionError("forwarded child send passed the coordinator GRPO audit")
+
+
+def test_coordinator_role_grpo_rejects_synthetic_root_spawn(tmp_path: Path) -> None:
+    config, model, anchor, bootstrap = _resolved(tmp_path, "coordinator")
+    config.write_text(
+        config.read_text().replace(
+            "leak_coordinator_exact_action = false",
+            "leak_coordinator_exact_action = true",
+            1,
+        )
+    )
+
+    try:
+        MODULE.audit(
+            config,
+            role="coordinator",
+            model_path=model,
+            anchor_model_path=anchor,
+            run_name="test-run",
+            bootstrap_path=bootstrap,
+            phase="e0d3_uncapped_yield_exact_child",
+            start_index=9100000,
+            task_count=64,
+        )
+    except MODULE.AuditFailure as error:
+        assert "tapered curriculum" in str(error)
+    else:
+        raise AssertionError("synthetic root spawn passed the tapered coordinator audit")
+
+
+def test_child_role_grpo_rejects_unscaffolded_frozen_coordinator(tmp_path: Path) -> None:
+    config, model, anchor, bootstrap = _resolved(tmp_path, "child")
+    config.write_text(
+        config.read_text().replace(
+            "leak_coordinator_exact_action = true",
+            "leak_coordinator_exact_action = false",
+            1,
+        )
+    )
+
+    try:
+        MODULE.audit(
+            config,
+            role="child",
+            model_path=model,
+            anchor_model_path=anchor,
+            run_name="test-run",
+            bootstrap_path=bootstrap,
+            phase="e0c3_natural_child_minimal",
+            start_index=9100000,
+            task_count=64,
+        )
+    except MODULE.AuditFailure as error:
+        assert "tapered curriculum" in str(error)
+    else:
+        raise AssertionError("unscaffolded frozen coordinator passed the child audit")
 
 
 def test_role_grpo_audit_rejects_child_reasoning_mode_mismatch(tmp_path: Path) -> None:

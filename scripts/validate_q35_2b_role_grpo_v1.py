@@ -174,10 +174,15 @@ def audit(
         or role_router.get("anchor_model") != str(anchor_model_path)
     ):
         raise AuditFailure("role router does not pair the requested policy and frozen counterpart")
-    expected_coordinator_leak = True
+    # Once exact child delivery makes complete coordinator trajectories reliable,
+    # tighten the root side: the disclosed spawn remains in the task prompt, but
+    # the trainable coordinator must now emit its native IPython call on-policy.
+    # Child updates still freeze and synthesize the coordinator anchor so their
+    # non-root learning signal remains reachable.
+    expected_coordinator_leak = role == "child"
     if role_router.get("leak_coordinator_exact_action") is not expected_coordinator_leak:
         raise AuditFailure(
-            "early role GRPO must leak the disclosed coordinator spawn action"
+            "role GRPO coordinator-spawn sampling does not match the tapered curriculum"
         )
     if role_router.get("leak_child_exact_action") is not True:
         raise AuditFailure(
@@ -236,7 +241,7 @@ def audit(
         "child_action_leak": expected_child_action_leak,
         "child_action_sampling": "synthetic_exact_send",
         "first_action_sampling": (
-            "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor"
+            "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor"
         ),
         "child_tool_choice_stripped": expected_child_strip,
         "coordinator_tool_choice_stripped": expected_coordinator_strip,

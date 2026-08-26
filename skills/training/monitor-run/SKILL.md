@@ -371,12 +371,13 @@ role filter masks wholly unscoped auxiliary graph roots such as Prime Agent's
 `/refine` calls from both policies. Missing or conflicting lineage inside an
 actual coordinator or child client-session graph still fails closed.
 The early coordinator curriculum preserves the harness's first named IPython action
-and disables thinking. Because the 2B model cannot yet copy that action reliably,
-the proxy supplies one synthetic exact retained-spawn completion per coordinator
-session; receipts label this `first_action_sampling=synthetic_exact_spawn` rather
-than presenting it as a strict policy-distribution sample. Later coordinator turns
-are naturally sampled. Child
-GRPO keeps thinking enabled and strips the broken named tool-choice constraint;
+and disables thinking. After repeated all-success exact-spawn groups demonstrate
+that the fully synthetic root transition is saturated, coordinator updates taper
+that wire scaffold: the exact retained spawn remains disclosed in the environment
+prompt, but its native IPython completion is sampled on-policy. Receipts label this
+`first_action_sampling=prompted_native_spawn`. Child updates continue to synthesize
+the frozen coordinator's exact retained spawn so non-root learning remains reachable.
+Child GRPO keeps thinking enabled and strips the broken named tool-choice constraint;
 the frozen counterpart retains its curriculum mediation. A completion-only notice about a child action is not child
 evidence. Child action shaping must come from an
 observable, parseable non-root IPython action and awaited
