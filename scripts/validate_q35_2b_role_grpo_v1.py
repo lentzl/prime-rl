@@ -147,7 +147,10 @@ def audit(
     if not isinstance(contexts, dict) or len(contexts) != task_count:
         raise AuditFailure("bootstrap context cardinality does not match the resolved task bank")
     task = taskset.get("task")
-    expected_child_action_leak = role == "child"
+    # A frozen child that fails to report makes every coordinator trajectory
+    # zero-advantage. Keep its private-context send action scaffolded for both
+    # role updates; the coordinator never sees the hidden value directly.
+    expected_child_action_leak = True
     if (
         not isinstance(task, dict)
         or task.get("reward_mode") != "event_control"

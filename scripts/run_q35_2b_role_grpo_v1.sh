@@ -19,7 +19,11 @@ dry_run=${Q35_2B_ROLE_GRPO_DRY_RUN:-false}
 master_seed=20260824
 
 case "$role" in
-  coordinator) scope=root; leak_coordinator_exact_action=true; leak_child_exact_action=false; strip_child_tool_choice=false; strip_coordinator_tool_choice=false; enable_thinking=false ;;
+  # Keep the frozen child reliable while collecting coordinator trajectories.
+  # The child owns the hidden evidence, so this exposes the exact send only in
+  # its private context; coordinator tokens still have to learn how to resume
+  # from and use the delivered report.
+  coordinator) scope=root; leak_coordinator_exact_action=true; leak_child_exact_action=true; strip_child_tool_choice=false; strip_coordinator_tool_choice=false; enable_thinking=false ;;
   child) scope=non_root; leak_coordinator_exact_action=true; leak_child_exact_action=true; strip_child_tool_choice=true; strip_coordinator_tool_choice=false; enable_thinking=true ;;
   *) echo "role must be coordinator or child: $role" >&2; exit 1 ;;
 esac
@@ -128,7 +132,7 @@ payload = {
     "role": role,
     "sampled_session_scope": scope,
     "coordinator_action_leak": True,
-    "child_action_leak": role == "child",
+    "child_action_leak": True,
     "first_action_sampling": "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "child_tool_choice_stripped": role == "child",
     "coordinator_tool_choice_stripped": False,
@@ -194,7 +198,7 @@ replacements = (
     ),
     (
         r'^leak_child_exact_action = false$',
-        f'leak_child_exact_action = {"true" if sys.argv[3] == "child" else "false"}',
+        'leak_child_exact_action = true',
         1,
     ),
     (
@@ -330,7 +334,7 @@ payload = {
     "role": role,
     "sampled_session_scope": scope,
     "coordinator_action_leak": True,
-    "child_action_leak": role == "child",
+    "child_action_leak": True,
     "first_action_sampling": "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "phase": phase,
     "enable_thinking": role == "child",

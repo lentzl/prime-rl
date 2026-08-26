@@ -48,7 +48,7 @@ def _resolved(
     )
     source = source.replace(
         "leak_child_exact_action = false",
-        f"leak_child_exact_action = {'true' if role == 'child' else 'false'}",
+        "leak_child_exact_action = true",
         1,
     )
     source = source.replace(
@@ -114,7 +114,7 @@ def test_role_grpo_template_audits_both_session_scopes(tmp_path: Path) -> None:
         )
         assert report["full_dense"] is True
         assert report["coordinator_action_leak"] is True
-        assert report["child_action_leak"] is (role == "child")
+        assert report["child_action_leak"] is True
         assert report["first_action_sampling"] == (
             "synthetic_exact_spawn" if role == "coordinator" else "masked_frozen_anchor"
         )
@@ -143,6 +143,34 @@ def test_role_grpo_audits_bounded_exact_child_rung(tmp_path: Path) -> None:
     )
     assert report["early_rung_bounded"] is True
     assert report["bootstrap_leak_level"] == "solution_replay"
+
+
+def test_coordinator_role_grpo_rejects_unscaffolded_frozen_child(tmp_path: Path) -> None:
+    config, model, anchor, bootstrap = _resolved(tmp_path, "coordinator")
+    config.write_text(
+        config.read_text().replace(
+            "leak_child_exact_action = true",
+            "leak_child_exact_action = false",
+            1,
+        )
+    )
+
+    try:
+        MODULE.audit(
+            config,
+            role="coordinator",
+            model_path=model,
+            anchor_model_path=anchor,
+            run_name="test-run",
+            bootstrap_path=bootstrap,
+            phase="e0d3_uncapped_yield_exact_child",
+            start_index=9100000,
+            task_count=64,
+        )
+    except MODULE.AuditFailure as error:
+        assert "partial causal protocol progress" in str(error)
+    else:
+        raise AssertionError("unscaffolded frozen child passed the coordinator GRPO audit")
 
 
 def test_role_grpo_audit_rejects_child_reasoning_mode_mismatch(tmp_path: Path) -> None:

@@ -265,7 +265,7 @@ def _validate_train_receipt(
         or receipt.get("promotion_minimum") != PROMOTION_MINIMUM
         or receipt.get("env_server_max_concurrent")
         != (1 if role == "coordinator" else 2)
-        or receipt.get("child_action_leak") is not (role == "child")
+        or receipt.get("child_action_leak") is not True
         or receipt.get("task_bank", {}).get("group_size") != GROUP_SIZE
         or receipt.get("source", {}).get("model_sha256") != source["model_sha256"]
         or not isinstance(output, dict)
