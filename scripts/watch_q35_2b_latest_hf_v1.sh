@@ -63,9 +63,13 @@ while true; do
     --prime-revision "$prime_revision" \
     --verifier-revision "$verifier_revision" \
     "${extra_args[@]}" 2>&1); then
+      output=${output//$'\r'/}
+      output=${output//$'\n'/\\n}
       record "sync_ok $output"
     else
       status=$?
+      output=${output//$'\r'/}
+      output=${output//$'\n'/\\n}
       record "sync_failed status=$status output=$output"
     fi
   fi
