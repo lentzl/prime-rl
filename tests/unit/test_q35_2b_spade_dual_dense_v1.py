@@ -269,6 +269,31 @@ def test_proxy_routes_private_evidence_only_to_the_child_model() -> None:
     )
 
 
+def test_proxy_normalizes_vllm_abort_finish_reason_for_json_and_split_sse() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "id": "completion",
+        "choices": [{"index": 0, "finish_reason": "abort"}],
+    }
+    body = json.dumps(payload).encode()
+
+    normalized, rewrites = module.normalize_openai_finish_reason(body)
+    assert rewrites == 1
+    assert json.loads(normalized)["choices"][0]["finish_reason"] == "stop"
+
+    event = b"event: message\n" + b"data: " + body
+    normalized_event, rewrites = module.normalize_sse_event(event)
+    assert rewrites == 1
+    data_line = normalized_event.splitlines()[1]
+    assert json.loads(data_line.removeprefix(b"data: "))["choices"][0][
+        "finish_reason"
+    ] == "stop"
+
+    done, rewrites = module.normalize_sse_event(b"data: [DONE]")
+    assert done == b"data: [DONE]"
+    assert rewrites == 0
+
+
 def test_dual_policy_launch_uses_checkpoint_tokenizer_for_logical_external_model() -> None:
     launcher = (
         Path(__file__).parents[2] / "scripts/dual_policy_openai_proxy_v1.py"

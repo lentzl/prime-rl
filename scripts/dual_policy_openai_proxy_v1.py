@@ -43,6 +43,52 @@ HOP_BY_HOP = {
 }
 
 
+def normalize_openai_finish_reason(body: bytes) -> tuple[bytes, int]:
+    """Map vLLM's internal ``abort`` extension to the OpenAI ``stop`` enum.
+
+    The OpenAI client rejects ``abort`` before the harness can retain the
+    partial completion, turning one cancelled stream into an evaluation-wide
+    infrastructure failure. The proxy is the protocol boundary, so keep the
+    backend extension from escaping it while recording every rewrite.
+    """
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body, 0
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        return body, 0
+    rewrites = 0
+    for choice in payload["choices"]:
+        if isinstance(choice, dict) and choice.get("finish_reason") == "abort":
+            choice["finish_reason"] = "stop"
+            rewrites += 1
+    if not rewrites:
+        return body, 0
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(), rewrites
+
+
+def normalize_sse_event(event: bytes) -> tuple[bytes, int]:
+    """Normalize every JSON ``data:`` line in one complete SSE event."""
+
+    output = []
+    rewrites = 0
+    for line in event.splitlines(keepends=True):
+        content = line.rstrip(b"\r\n")
+        ending = line[len(content) :]
+        if not content.startswith(b"data:"):
+            output.append(line)
+            continue
+        prefix, separator, data = content.partition(b" ")
+        if not separator or data == b"[DONE]":
+            output.append(line)
+            continue
+        normalized, count = normalize_openai_finish_reason(data)
+        output.append(prefix + separator + normalized + ending)
+        rewrites += count
+    return b"".join(output), rewrites
+
+
 def _contains_private_evidence(value: Any) -> bool:
     if isinstance(value, str):
         return PRIVATE_EVIDENCE_HEADER in value
@@ -317,6 +363,7 @@ class DualPolicyProxy:
         mode: str = "forwarded",
         action_sha256: str | None = None,
         session_sha256: str | None = None,
+        response_rewrites: int = 0,
     ) -> None:
         event = {
             "schema_version": "qwen35-2b-dual-policy-route/v1",
@@ -332,6 +379,10 @@ class DualPolicyProxy:
             event["action_sha256"] = action_sha256
         if session_sha256 is not None:
             event["session_sha256"] = session_sha256
+        if response_rewrites:
+            event["response_rewrites"] = {
+                "abort_finish_reason_to_stop": response_rewrites
+            }
         with self.audit_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
         self.sequence += 1
@@ -426,22 +477,49 @@ class DualPolicyProxy:
                 for key, value in upstream.headers.items()
                 if key.lower() not in HOP_BY_HOP
             }
-            response = web.StreamResponse(status=upstream.status, headers=response_headers)
-            await response.prepare(request)
-            async for chunk in upstream.content.iter_any():
-                await response.write(chunk)
-            await response.write_eof()
+            response_rewrites = 0
+            if upstream.headers.get("content-type", "").startswith("text/event-stream"):
+                response = web.StreamResponse(status=upstream.status, headers=response_headers)
+                await response.prepare(request)
+                pending = b""
+                async for chunk in upstream.content.iter_any():
+                    pending += chunk
+                    while b"\n\n" in pending:
+                        event, pending = pending.split(b"\n\n", 1)
+                        normalized, count = normalize_sse_event(event)
+                        response_rewrites += count
+                        await response.write(normalized + b"\n\n")
+                if pending:
+                    normalized, count = normalize_sse_event(pending)
+                    response_rewrites += count
+                    await response.write(normalized)
+                await response.write_eof()
+            else:
+                upstream_body = await upstream.read()
+                normalized, response_rewrites = normalize_openai_finish_reason(
+                    upstream_body
+                )
+                response = web.Response(
+                    status=upstream.status,
+                    headers=response_headers,
+                    body=normalized,
+                )
             self._audit(
                 role=role,
                 endpoint=endpoint,
                 body=body,
                 status=upstream.status,
                 mode=(
-                    "forwarded_without_tool_choice"
-                    if stripped_sampling_fields
-                    else "forwarded"
+                    "forwarded_normalized_abort_finish_reason"
+                    if response_rewrites
+                    else (
+                        "forwarded_without_tool_choice"
+                        if stripped_sampling_fields
+                        else "forwarded"
+                    )
                 ),
                 session_sha256=session_sha256,
+                response_rewrites=response_rewrites,
             )
             return response
 
