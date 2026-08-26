@@ -17,6 +17,7 @@ uv_bin=${UV_BIN:-/home/ubuntu/.local/bin/uv}
 learning_rate=${Q35_2B_ROLE_GRPO_LR:-1e-6}
 dry_run=${Q35_2B_ROLE_GRPO_DRY_RUN:-false}
 master_seed=20260824
+renderer_patcher=$root/scripts/apply_q35_renderer_tool_parse_v1.py
 
 case "$role" in
   # Keep the frozen child reliable while collecting coordinator trajectories.
@@ -61,8 +62,8 @@ for checkpoint in "$model_path" "$anchor_model_path"; do
     exit 1
   fi
 done
-if [[ ! -f "$template" || ! -x "$uv_bin" ]]; then
-  echo "role-GRPO template or uv executable is unavailable" >&2
+if [[ ! -f "$template" || ! -f "$renderer_patcher" || ! -x "$uv_bin" ]]; then
+  echo "role-GRPO template, renderer patcher, or uv executable is unavailable" >&2
   exit 1
 fi
 if [[ "$dry_run" != true && -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
@@ -72,6 +73,16 @@ fi
 
 cd "$root"
 export PATH="$root/.venv/bin:$HOME/.local/bin:$PATH"
+
+# Raw-token rollouts use the editable renderers checkout rather than vLLM's
+# OpenAI parser. Keep them aligned: a complete Qwen3.5 </function> block is
+# executable even if the model emits <|im_end|> before the redundant outer
+# </tool_call> token. The experiment carries this patcher because renderers is
+# an upstream submodule that this checkout cannot push.
+"$uv_bin" run --frozen --no-sync python "$renderer_patcher" \
+  "$root/deps/renderers/renderers/parsing.py"
+"$uv_bin" run --frozen --no-sync python scripts/verify_q35_renderer_tool_parse_v1.py
+
 mkdir -p "$experiment_dir" "$artifact_root"
 resolved=$experiment_dir/$run_name.toml
 bootstrap=$artifact_root/$run_name-action-scaffold-bootstrap.json
