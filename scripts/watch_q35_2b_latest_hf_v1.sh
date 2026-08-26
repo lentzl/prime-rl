@@ -14,9 +14,10 @@ verifier_revision=${10:?verifier source revision required}
 poll_seconds=${11:-600}
 remote_upload_helper=${12:-}
 remote_uv_bin=${13:-}
+retry_seconds=${14:-60}
 
-if [[ "$poll_seconds" -lt 60 ]]; then
-  echo "poll interval must be at least 60 seconds" >&2
+if [[ "$poll_seconds" -lt 60 || "$retry_seconds" -lt 1 || "$retry_seconds" -gt "$poll_seconds" ]]; then
+  echo "poll interval must be at least 60 seconds and retry interval must be between 1 and the poll interval" >&2
   exit 2
 fi
 
@@ -30,6 +31,7 @@ record() {
 }
 
 while true; do
+  sleep_seconds=$poll_seconds
   set -a
   # shellcheck disable=SC1090
   source "$env_file"
@@ -37,12 +39,13 @@ while true; do
   export HF_TOKEN=${HF_TOKEN:-${HF_KEY:-}}
   if [[ -z "$HF_TOKEN" ]]; then
     record "sync_failed missing_hf_credential"
+    sleep_seconds=$retry_seconds
   else
     extra_args=()
     if [[ -n "$remote_upload_helper" || -n "$remote_uv_bin" ]]; then
       if [[ -z "$remote_upload_helper" || -z "$remote_uv_bin" ]]; then
         record "sync_failed remote_upload_requires_helper_and_uv"
-        sleep "$poll_seconds"
+        sleep "$retry_seconds"
         continue
       fi
       extra_args+=(
@@ -71,7 +74,8 @@ while true; do
       output=${output//$'\r'/}
       output=${output//$'\n'/\\n}
       record "sync_failed status=$status output=$output"
+      sleep_seconds=$retry_seconds
     fi
   fi
-  sleep "$poll_seconds"
+  sleep "$sleep_seconds"
 done
