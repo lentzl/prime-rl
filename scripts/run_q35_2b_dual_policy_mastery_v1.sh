@@ -151,12 +151,19 @@ eval_pid=$!
 
 (
   failures=0
-  while true; do
+  while kill -0 "$eval_pid" 2>/dev/null; do
+    for service_pid in "$coordinator_pid" "$child_pid" "$proxy_pid"; do
+      if ! kill -0 "$service_pid" 2>/dev/null; then
+        kill -TERM "$eval_pid" 2>/dev/null || true
+        exit 1
+      fi
+    done
     if curl -fsS "http://127.0.0.1:$proxy_port/health" >/dev/null; then
       failures=0
     else
       failures=$((failures + 1))
       if ((failures >= 3)); then
+        kill -TERM "$eval_pid" 2>/dev/null || true
         exit 1
       fi
     fi
@@ -165,12 +172,13 @@ eval_pid=$!
 ) &
 monitor_pid=$!
 
-completed_pid=
 set +e
-wait -n -p completed_pid "$coordinator_pid" "$child_pid" "$proxy_pid" "$eval_pid" "$monitor_pid"
-completed_status=$?
+wait "$eval_pid"
+eval_status=$?
+kill "$monitor_pid" 2>/dev/null
+wait "$monitor_pid" 2>/dev/null
 set -e
-if [[ "$completed_pid" != "$eval_pid" || $completed_status -ne 0 ]]; then
+if [[ $eval_status -ne 0 ]]; then
   echo "dual-policy service exited or became unhealthy before evaluation completed" >&2
   exit 1
 fi

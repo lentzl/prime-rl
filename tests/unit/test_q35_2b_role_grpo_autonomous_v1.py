@@ -1,10 +1,15 @@
 import importlib.util
+import hashlib
 import json
+import subprocess
+import sys
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/run_q35_2b_role_grpo_autonomous_v1.py"
+MASTERY_SCRIPT = ROOT / "scripts/run_q35_2b_dual_policy_mastery_v1.sh"
+RECOVERY_SCRIPT = ROOT / "scripts/recover_q35_2b_autonomous_frontier_v1.py"
 SPEC = importlib.util.spec_from_file_location("role_grpo_auto", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -50,6 +55,111 @@ def test_project_advances_training_frontier_before_promotion() -> None:
     assert state["frontier"]["coordinator"] == output
     assert state["promoted"]["coordinator"]["label"] == "C26"
     assert state["pending_eval"]["cycle"] == 1
+
+
+def test_project_accepts_explicit_forensic_frontier_recovery() -> None:
+    coordinator = _candidate("C57")
+    child = _candidate("K56")
+    state = MODULE.project(
+        [
+            _initialized(),
+            {
+                "kind": "frontier_recovered",
+                "frontier": {"coordinator": coordinator, "child": child},
+                "next_role": "coordinator",
+                "next_cycle": 59,
+            },
+        ]
+    )
+
+    assert state["frontier"] == {"coordinator": coordinator, "child": child}
+    assert state["next_role"] == "coordinator"
+    assert state["next_cycle"] == 59
+    assert state["pending_eval"] is None
+
+
+def test_dual_policy_mastery_waits_on_eval_without_wait_n_pid_race() -> None:
+    launcher = MASTERY_SCRIPT.read_text()
+
+    assert 'wait "$eval_pid"' in launcher
+    assert 'kill -TERM "$eval_pid"' in launcher
+    assert "wait -n -p completed_pid" not in launcher
+
+
+def test_recovery_tool_forks_valid_prefix_without_overwriting_source(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    source_events = source / "events.jsonl"
+    MODULE.append_event(source_events, _initialized())
+    MODULE.append_event(
+        source_events,
+        {
+            "kind": "evaluation_completed",
+            "cycle": 0,
+            "role": "child",
+            "phase": "e0c_natural_child",
+            "admitted": False,
+        },
+    )
+    source_before = source_events.read_bytes()
+    models = {}
+    for role in ("coordinator", "child"):
+        path = tmp_path / role
+        path.mkdir()
+        (path / "STABLE").touch()
+        weight = f"{role}-weights".encode()
+        (path / "model.safetensors").write_bytes(weight)
+        models[role] = (path, hashlib.sha256(weight).hexdigest())
+    target = tmp_path / "target"
+
+    subprocess.run(
+        [
+            sys.executable,
+            str(RECOVERY_SCRIPT),
+            "--source-state-dir",
+            str(source),
+            "--target-state-dir",
+            str(target),
+            "--through-sequence",
+            "1",
+            "--coordinator-model",
+            str(models["coordinator"][0]),
+            "--coordinator-label",
+            "C57",
+            "--coordinator-sha256",
+            models["coordinator"][1],
+            "--child-model",
+            str(models["child"][0]),
+            "--child-label",
+            "K56",
+            "--child-sha256",
+            models["child"][1],
+            "--next-cycle",
+            "59",
+            "--next-role",
+            "coordinator",
+            "--recovery-reason",
+            "test",
+            "--discarded-cycle",
+            "58",
+            "--discarded-model-sha256",
+            "lost",
+            "--discarded-evaluation-run",
+            "/results/c58",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert source_events.read_bytes() == source_before
+    recovered = MODULE.load_events(target / "events.jsonl")
+    assert len(recovered) == 3
+    assert recovered[-1]["kind"] == "frontier_recovered"
+    assert recovered[-1]["duplicate_evaluation_launched"] is False
+    state = MODULE.project(recovered)
+    assert state["next_cycle"] == 59
+    assert state["next_role"] == "coordinator"
 
 
 def test_admission_keeps_six_examples_but_caps_runtime_pressure() -> None:

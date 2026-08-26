@@ -1,4 +1,5 @@
 import importlib.util
+from argparse import Namespace
 from pathlib import Path
 
 
@@ -35,3 +36,110 @@ def test_latest_only_publish_recreates_slot_before_upload(tmp_path: Path) -> Non
     assert upload["repo_id"] == "owner/latest"
     assert upload["folder_path"] == tmp_path
     assert upload["commit_message"] == "replace"
+
+
+def test_prune_never_deletes_newer_update_with_admission_pending(monkeypatch) -> None:
+    old = "/outputs/grpo-auto-000054-child/weights/step_1"
+    protected_child = "/outputs/grpo-auto-000056-child/weights/step_1"
+    pending_child = "/outputs/grpo-auto-000058-child/weights/step_1"
+    protected_coordinator = "/outputs/grpo-auto-000057-coordinator/weights/step_1"
+    events = [
+        {
+            "kind": "train_completed",
+            "cycle": 54,
+            "role": "child",
+            "output_candidate": {"model_path": old, "model_sha256": "old"},
+        },
+        {"kind": "evaluation_completed", "cycle": 54, "role": "child"},
+        {
+            "kind": "train_completed",
+            "cycle": 56,
+            "role": "child",
+            "output_candidate": {
+                "model_path": protected_child,
+                "model_sha256": "child",
+            },
+        },
+        {"kind": "evaluation_completed", "cycle": 56, "role": "child"},
+        {
+            "kind": "train_completed",
+            "cycle": 58,
+            "role": "child",
+            "output_candidate": {
+                "model_path": pending_child,
+                "model_sha256": "pending",
+            },
+        },
+    ]
+    frontiers = {
+        "child": (
+            {},
+            {
+                "cycle": 56,
+                "output_candidate": {"model_path": protected_child},
+            },
+            {},
+        ),
+        "coordinator": (
+            {},
+            {
+                "cycle": 57,
+                "output_candidate": {"model_path": protected_coordinator},
+            },
+            {},
+        ),
+    }
+    commands = []
+
+    def fake_ssh(_args, command: str) -> str:
+        commands.append(command)
+        return old + "\n"
+
+    monkeypatch.setattr(MODULE, "_ssh", fake_ssh)
+    removed = MODULE._prune_superseded_remote_weights(Namespace(), events, frontiers)
+
+    assert [item["model_path"] for item in removed] == [old]
+    assert pending_child not in commands[0]
+    assert protected_child not in commands[0]
+
+
+def test_prune_never_deletes_failed_admission_frontier(monkeypatch) -> None:
+    protected_child = "/outputs/grpo-auto-000056-child/weights/step_1"
+    failed_child = "/outputs/grpo-auto-000058-child/weights/step_1"
+    protected_coordinator = "/outputs/grpo-auto-000057-coordinator/weights/step_1"
+    events = [
+        {
+            "kind": "train_completed",
+            "cycle": 58,
+            "role": "child",
+            "output_candidate": {
+                "model_path": failed_child,
+                "model_sha256": "failed",
+            },
+        },
+        {"kind": "evaluation_failed", "cycle": 58, "role": "child"},
+    ]
+    frontiers = {
+        "child": (
+            {},
+            {
+                "cycle": 56,
+                "output_candidate": {"model_path": protected_child},
+            },
+            {},
+        ),
+        "coordinator": (
+            {},
+            {
+                "cycle": 57,
+                "output_candidate": {"model_path": protected_coordinator},
+            },
+            {},
+        ),
+    }
+
+    def unexpected_ssh(_args, _command: str) -> str:
+        raise AssertionError("failed-admission frontier must not be pruned")
+
+    monkeypatch.setattr(MODULE, "_ssh", unexpected_ssh)
+    assert MODULE._prune_superseded_remote_weights(Namespace(), events, frontiers) == []

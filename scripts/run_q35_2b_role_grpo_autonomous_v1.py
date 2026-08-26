@@ -160,6 +160,11 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
             state["next_role"] = _other(event["role"])
             state["next_cycle"] = event["cycle"] + 1
             state["pending_eval"] = None
+        elif kind == "frontier_recovered":
+            state["frontier"] = copy.deepcopy(event["frontier"])
+            state["next_role"] = event["next_role"]
+            state["next_cycle"] = event["next_cycle"]
+            state["pending_eval"] = None
     return state
 
 
@@ -469,6 +474,19 @@ class Controller:
         label, start, _, _ = self._names(cycle, role, phase)
         source = state["frontier"][role]
         anchor = state["frontier"][_other(role)]
+        # Validate both immutable inputs before recording train_started.  A
+        # missing recovery frontier is infrastructure damage, not a completed
+        # training attempt, and must never turn into a rapid cycle-number loop.
+        for checkpoint_role, checkpoint in ((role, source), (_other(role), anchor)):
+            path = Path(checkpoint["model_path"])
+            if (
+                not path.is_absolute()
+                or not (path / "STABLE").is_file()
+                or not (path / "model.safetensors").is_file()
+            ):
+                raise RuntimeError(
+                    f"{checkpoint_role} frontier checkpoint is unavailable: {path}"
+                )
         runtime_container_baseline = sorted(_runtime_containers())
         append_event(
             self.events_path,
@@ -523,6 +541,7 @@ class Controller:
                     "attempt_status": "missing_terminal_receipt",
                 },
             )
+            raise RuntimeError(f"training ended without a terminal receipt: {label}")
 
     def _bootstrap(self, *, label: str, phase: str, start: int) -> Path:
         leak = "solution_replay" if phase == "e0_full_actions" else "action_scaffold"
@@ -702,6 +721,9 @@ class Controller:
                         "run_name": label,
                         "attempt_status": "interrupted_without_terminal_receipt",
                     },
+                )
+                raise RuntimeError(
+                    f"interrupted training has no terminal receipt: {label}"
                 )
             return True
         eval_started = next((event for event in current if event["kind"] == "evaluation_started"), None)

@@ -365,8 +365,9 @@ def _prune_superseded_remote_weights(
     This runs only after both current role frontiers have been mirrored and
     verified on the Hub.  It deliberately leaves each run directory and all
     results, receipts, logs, artifacts, and lifecycle events intact.  A run
-    without a train_completed event can never become a deletion candidate, so
-    an in-flight or recoverable interrupted update is protected as well.
+    without both train_completed and evaluation_completed events can never
+    become a deletion candidate, so an in-flight admission or recoverable
+    interrupted update is protected as well.
     """
     protected_model_paths = {
         records[1]["output_candidate"]["model_path"]
@@ -383,9 +384,34 @@ def _prune_superseded_remote_weights(
         raise RuntimeError("latest role frontiers do not share one output root")
     output_root = next(iter(output_roots))
 
+    # A dense update is not superseded merely because the last *evaluated*
+    # frontier still points at an older checkpoint.  Admission can take many
+    # minutes, during which the newer update is the aggressive training
+    # frontier and the only copy may still live on the trainer.  Only updates
+    # with their own completed evaluation may be considered for deletion, and
+    # only when an even newer/equal evaluated checkpoint for that same role is
+    # protected on the Hub.
+    evaluated = {
+        (event.get("cycle"), event.get("role"))
+        for event in events
+        if event.get("kind") == "evaluation_completed"
+    }
+    protected_cycles = {
+        role: records[1]["cycle"] for role, records in frontiers.items()
+    }
+
     candidates: dict[str, dict[str, Any]] = {}
     for event in events:
         if event.get("kind") != "train_completed":
+            continue
+        role = event.get("role")
+        cycle = event.get("cycle")
+        if (
+            role not in ROLES
+            or not isinstance(cycle, int)
+            or (cycle, role) not in evaluated
+            or cycle >= protected_cycles[role]
+        ):
             continue
         candidate = event.get("output_candidate")
         if not isinstance(candidate, dict):
@@ -405,10 +431,10 @@ def _prune_superseded_remote_weights(
         ):
             continue
         candidates[model_path] = {
-            "cycle": event.get("cycle"),
+            "cycle": cycle,
             "model_path": model_path,
             "model_sha256": candidate.get("model_sha256"),
-            "role": event.get("role"),
+            "role": role,
         }
 
     ordered = sorted(candidates)
