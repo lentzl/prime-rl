@@ -11,7 +11,8 @@ import os
 import shlex
 import subprocess
 import tempfile
-from pathlib import Path
+from datetime import datetime, timezone
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from huggingface_hub import HfApi
@@ -28,6 +29,14 @@ REQUIRED_CHECKPOINT_FILES = (
     "tokenizer_config.json",
 )
 ROLES = ("coordinator", "child")
+SSH_KEEPALIVE_OPTIONS = (
+    "-o",
+    "ServerAliveInterval=15",
+    "-o",
+    "ServerAliveCountMax=12",
+    "-o",
+    "TCPKeepAlive=yes",
+)
 
 
 def _run(command: list[str], *, capture: bool = False) -> str:
@@ -50,6 +59,7 @@ def _ssh(args: argparse.Namespace, remote_command: str) -> str:
             "BatchMode=yes",
             "-o",
             "ConnectTimeout=8",
+            *SSH_KEEPALIVE_OPTIONS,
             args.remote,
             remote_command,
         ],
@@ -176,6 +186,15 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     os.replace(temporary, path)
 
 
+def _append_jsonl_durable(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as stream:
+        json.dump(payload, stream, sort_keys=True)
+        stream.write("\n")
+        stream.flush()
+        os.fsync(stream.fileno())
+
+
 def _validate_remote_checkpoint(
     args: argparse.Namespace, model_path: str, expected_hash: str
 ) -> None:
@@ -205,8 +224,14 @@ def _rsync_checkpoint(
             "-a",
             "--delete",
             "--partial",
+            "--append",
             "-e",
-            f"ssh -i {args.ssh_key} -o BatchMode=yes -o ConnectTimeout=8",
+            (
+                f"ssh -i {shlex.quote(str(args.ssh_key))}"
+                " -o BatchMode=yes -o ConnectTimeout=8"
+                " -o ServerAliveInterval=15 -o ServerAliveCountMax=12"
+                " -o TCPKeepAlive=yes"
+            ),
             f"{args.remote}:{model_path}/",
             f"{checkpoint_dir}/",
         ]
@@ -235,6 +260,27 @@ def _squash_and_verify(
     return commits[0].commit_id
 
 
+def _upload_latest_only(
+    api: HfApi,
+    repo_id: str,
+    checkpoint_dir: Path,
+    commit_message: str,
+) -> None:
+    # This is a recovery slot, not a checkpoint archive. Recreate it for every
+    # replacement so the old dense blob and commit history cannot accumulate
+    # or temporarily double private-storage use. The caller has already
+    # validated the immutable remote source and its complete local copy; the
+    # remote source is pruned only after this upload is independently verified.
+    api.delete_repo(repo_id, repo_type="model")
+    api.create_repo(repo_id, repo_type="model", private=True)
+    api.upload_folder(
+        repo_id=repo_id,
+        repo_type="model",
+        folder_path=checkpoint_dir,
+        commit_message=commit_message,
+    )
+
+
 def _sync_role(
     args: argparse.Namespace,
     api: HfApi,
@@ -257,9 +303,18 @@ def _sync_role(
         _rsync_checkpoint(args, model_path, checkpoint_dir)
         local_hash = _sha256(checkpoint_dir / MODEL_FILENAME)
         if local_hash != expected_hash:
-            raise RuntimeError(
-                f"local checkpoint hash mismatch: expected {expected_hash}, got {local_hash}"
-            )
+            # macOS openrsync supports resumable --append but not GNU
+            # --append-verify. If the resumed prefix was not valid, discard
+            # only the invalid local model blob and fetch it once from the
+            # already-validated immutable remote checkpoint.
+            (checkpoint_dir / MODEL_FILENAME).unlink()
+            _rsync_checkpoint(args, model_path, checkpoint_dir)
+            local_hash = _sha256(checkpoint_dir / MODEL_FILENAME)
+            if local_hash != expected_hash:
+                raise RuntimeError(
+                    "local checkpoint hash mismatch after clean retry: "
+                    f"expected {expected_hash}, got {local_hash}"
+                )
         (checkpoint_dir / "README.md").write_text(
             _model_card(
                 role,
@@ -271,11 +326,11 @@ def _sync_role(
             ),
             encoding="utf-8",
         )
-        api.upload_folder(
-            repo_id=repo_id,
-            repo_type="model",
-            folder_path=checkpoint_dir,
-            commit_message=f"Replace latest {role} frontier with cycle {update['cycle']}",
+        _upload_latest_only(
+            api,
+            repo_id,
+            checkpoint_dir,
+            f"Replace latest {role} frontier with cycle {update['cycle']}",
         )
 
     head = _squash_and_verify(
@@ -296,6 +351,78 @@ def _sync_role(
     }
     _write_json_atomic(manifest_path, manifest)
     return manifest
+
+
+def _prune_superseded_remote_weights(
+    args: argparse.Namespace,
+    events: list[dict[str, Any]],
+    frontiers: dict[
+        str, tuple[dict[str, Any], dict[str, Any], dict[str, Any]]
+    ],
+) -> list[dict[str, Any]]:
+    """Remove only completed, superseded autonomous weight payloads.
+
+    This runs only after both current role frontiers have been mirrored and
+    verified on the Hub.  It deliberately leaves each run directory and all
+    results, receipts, logs, artifacts, and lifecycle events intact.  A run
+    without a train_completed event can never become a deletion candidate, so
+    an in-flight or recoverable interrupted update is protected as well.
+    """
+    protected_model_paths = {
+        records[1]["output_candidate"]["model_path"]
+        for records in frontiers.values()
+    }
+    protected_run_dirs = {
+        PurePosixPath(model_path).parents[1]
+        for model_path in protected_model_paths
+    }
+    if len(protected_run_dirs) != len(ROLES):
+        raise RuntimeError("latest role frontiers do not resolve to two run directories")
+    output_roots = {run_dir.parent for run_dir in protected_run_dirs}
+    if len(output_roots) != 1:
+        raise RuntimeError("latest role frontiers do not share one output root")
+    output_root = next(iter(output_roots))
+
+    candidates: dict[str, dict[str, Any]] = {}
+    for event in events:
+        if event.get("kind") != "train_completed":
+            continue
+        candidate = event.get("output_candidate")
+        if not isinstance(candidate, dict):
+            continue
+        model_path = candidate.get("model_path")
+        if not isinstance(model_path, str) or model_path in protected_model_paths:
+            continue
+        path = PurePosixPath(model_path)
+        if len(path.parents) < 2:
+            continue
+        run_dir = path.parents[1]
+        if (
+            run_dir.parent != output_root
+            or not run_dir.name.startswith("grpo-auto-")
+            or path.name != "step_1"
+            or path.parent.name != "weights"
+        ):
+            continue
+        candidates[model_path] = {
+            "cycle": event.get("cycle"),
+            "model_path": model_path,
+            "model_sha256": candidate.get("model_sha256"),
+            "role": event.get("role"),
+        }
+
+    ordered = sorted(candidates)
+    if ordered:
+        quoted = " ".join(shlex.quote(path) for path in ordered)
+        removed = _ssh(
+            args,
+            "for path in "
+            f"{quoted}; do "
+            'if test -e "$path"; then printf \'%s\\n\' "$path"; '
+            'rm -rf -- "$path"; fi; done',
+        )
+        return [candidates[line] for line in removed.splitlines() if line]
+    return []
 
 
 def _parse_args() -> argparse.Namespace:
@@ -340,7 +467,28 @@ def main() -> None:
             )
             for role in ROLES
         ]
-    print(json.dumps(results, sort_keys=True))
+        pruned = _prune_superseded_remote_weights(args, events, frontiers)
+        if pruned:
+            _append_jsonl_durable(
+                args.local_state_dir / "remote-weight-retention.jsonl",
+                {
+                    "mirrors": results,
+                    "recorded_at_utc": datetime.now(timezone.utc)
+                    .replace(microsecond=0)
+                    .isoformat()
+                    .replace("+00:00", "Z"),
+                    "remote": args.remote,
+                    "remote_state_dir": args.remote_state_dir,
+                    "removed": pruned,
+                    "schema_version": "q35-2b-hf-latest-retention/v1",
+                },
+            )
+    print(
+        json.dumps(
+            {"mirrors": results, "pruned_remote_weights": pruned},
+            sort_keys=True,
+        )
+    )
 
 
 if __name__ == "__main__":

@@ -165,8 +165,10 @@ def test_qualifying_evaluation_requires_distinct_hard_successes_and_both_routes(
     with (run / "ROUTING_AUDIT.jsonl").open("w") as handle:
         for role in ("coordinator", "child"):
             handle.write(json.dumps({"role": role, "status": 200}) + "\n")
+        handle.write(json.dumps({"role": "child", "status": 400}) + "\n")
 
     result = MODULE._qualifying_evaluation(run, frontier)
     assert result["admitted"] is True
     assert result["distinct_qualifying"] == 6
     assert result["promotion_minimum"] == 4
+    assert result["role_route_failure_counts"] == {"coordinator": 0, "child": 1}

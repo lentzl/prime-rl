@@ -304,6 +304,10 @@ def _qualifying_evaluation(
         role: sum(event.get("role") == role and event.get("status") == 200 for event in audit)
         for role in ("coordinator", "child")
     }
+    role_failure_counts = {
+        role: sum(event.get("role") == role and event.get("status") != 200 for event in audit)
+        for role in ("coordinator", "child")
+    }
     versions = {}
     for line in (run_dir / "VERSIONS.txt").read_text().splitlines():
         key, separator, value = line.partition("=")
@@ -316,7 +320,6 @@ def _qualifying_evaluation(
         or len(traces) != EVAL_TASKS
         or len(set(qualifying)) != len(qualifying)
         or min(role_counts.values()) < 1
-        or any(event.get("status") != 200 for event in audit)
         or versions.get("coordinator_model_sha256") != frontier["coordinator"]["model_sha256"]
         or versions.get("child_model_sha256") != frontier["child"]["model_sha256"]
     ):
@@ -328,6 +331,7 @@ def _qualifying_evaluation(
         "admitted": len(set(qualifying)) >= PROMOTION_MINIMUM,
         "promotion_minimum": PROMOTION_MINIMUM,
         "role_route_counts": role_counts,
+        "role_route_failure_counts": role_failure_counts,
     }
 
 

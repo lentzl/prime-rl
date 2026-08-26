@@ -25,12 +25,17 @@ record() {
 }
 
 runner_present() {
-  local pid
-  while IFS= read -r pid; do
-    if [[ -n "$pid" && "$pid" != "$$" ]]; then
+  local process pid proc_cmdline
+  for process in /proc/[0-9]*; do
+    pid=${process##*/}
+    [[ "$pid" != "$$" ]] || continue
+    if ! proc_cmdline=$(tr '\0' ' ' <"$process/cmdline" 2>/dev/null); then
+      continue
+    fi
+    if [[ "$proc_cmdline" == *python* && "$proc_cmdline" =~ $runner_pattern ]]; then
       return 0
     fi
-  done < <(pgrep -f "$runner_pattern" || true)
+  done
   return 1
 }
 

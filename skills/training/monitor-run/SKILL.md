@@ -313,7 +313,10 @@ three restarts at the same hash of the durable controller head; an open fuse is
 a deterministic blocker requiring diagnosis, not permission to delete partial
 artifacts or replay evaluations. The watcher must exclude its own PID when
 matching the runner pattern because its argv contains the full restart command,
-which ordinarily repeats that same pattern.
+which ordinarily repeats that same pattern. Match candidate Python processes by
+reading `/proc/[0-9]*/cmdline` directly and excluding the watcher PID; a `pgrep`
+inside command substitution can match the temporary shell that is executing the
+search and falsely suppress recovery.
 
 When two independent vLLM role engines share one GPU, do not rely only on
 `gpu_memory_utilization` values whose sum appears to fit. Each process profiles
@@ -411,7 +414,23 @@ after at least four distinct complete qualifying held-out trajectories. The
 evaluation envelope must contain the expected episode count, zero errors,
 distinct task keys, hard success, successful coordinator and child routes, and
 the exact hashes of both evaluated checkpoints. Never weaken the four-trajectory
-promotion floor.
+promotion floor. Do not invalidate an otherwise complete six-trace evaluation
+solely because one routing-audit request returned non-200: that request is model
+behavior and its trajectory already scores as a failure. Require at least one
+successful route for each role, retain per-role non-200 counts in the terminal
+event, and apply the unchanged four-of-six admission gate to the complete traces.
+
+Mirror full-dense recovery checkpoints to one rolling private Hugging Face repo
+per role, not an accumulating checkpoint archive. Validate the immutable remote
+checkpoint and its complete local SHA-256 copy before publication. When a role's
+hash changes, delete and recreate only that role's recovery repo immediately
+before upload so neither dense history nor a temporary second dense blob consumes
+private storage. Accept publication only after the repo is private, has exactly
+one commit, and exposes the expected model size and SHA-256. Prune a superseded
+remote `weights/step_1` only after both current role frontiers have verified Hub
+mirrors; retain run directories, receipts, results, logs, artifacts, events, and
+a durable retention journal. Keep only one local rolling checkpoint directory
+per role and replace its files in place.
 
 For disk pressure, prune only completed `grpo-auto-*` checkpoint directories
 that are explicitly absent from the initial, current, and promoted frontiers.
