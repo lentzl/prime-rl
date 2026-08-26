@@ -39,17 +39,22 @@ SSH_KEEPALIVE_OPTIONS = (
 )
 
 
-def _run(command: list[str], *, capture: bool = False) -> str:
+def _run(
+    command: list[str], *, capture: bool = False, input_text: str | None = None
+) -> str:
     result = subprocess.run(
         command,
         check=True,
         text=True,
+        input=input_text,
         stdout=subprocess.PIPE if capture else None,
     )
     return result.stdout if capture else ""
 
 
-def _ssh(args: argparse.Namespace, remote_command: str) -> str:
+def _ssh(
+    args: argparse.Namespace, remote_command: str, *, input_text: str | None = None
+) -> str:
     return _run(
         [
             "ssh",
@@ -64,6 +69,7 @@ def _ssh(args: argparse.Namespace, remote_command: str) -> str:
             remote_command,
         ],
         capture=True,
+        input_text=input_text,
     )
 
 
@@ -265,6 +271,7 @@ def _upload_latest_only(
     repo_id: str,
     checkpoint_dir: Path,
     commit_message: str,
+    remote_upload: tuple[argparse.Namespace, str, str, str] | None = None,
 ) -> None:
     # This is a recovery slot, not a checkpoint archive. Recreate it for every
     # replacement so the old dense blob and commit history cannot accumulate
@@ -273,17 +280,66 @@ def _upload_latest_only(
     # remote source is pruned only after this upload is independently verified.
     api.delete_repo(repo_id, repo_type="model")
     api.create_repo(repo_id, repo_type="model", private=True)
-    api.upload_folder(
+    if remote_upload is None:
+        api.upload_folder(
+            repo_id=repo_id,
+            repo_type="model",
+            folder_path=checkpoint_dir,
+            commit_message=commit_message,
+        )
+        return
+
+    args, model_path, token, model_card = remote_upload
+    _upload_remote_checkpoint(
+        args,
         repo_id=repo_id,
-        repo_type="model",
-        folder_path=checkpoint_dir,
+        model_path=model_path,
         commit_message=commit_message,
+        token=token,
+        model_card=model_card,
+    )
+
+
+def _upload_remote_checkpoint(
+    args: argparse.Namespace,
+    *,
+    repo_id: str,
+    model_path: str,
+    commit_message: str,
+    token: str,
+    model_card: str,
+) -> None:
+    if not args.remote_upload_helper or not args.remote_uv_bin:
+        raise RuntimeError("remote upload requires helper and uv paths")
+    command = " ".join(
+        [
+            "PYTHONDONTWRITEBYTECODE=1",
+            shlex.quote(args.remote_uv_bin),
+            "run",
+            "--no-project",
+            "--with",
+            shlex.quote("huggingface-hub>=0.34"),
+            "python",
+            shlex.quote(args.remote_upload_helper),
+            "--repo-id",
+            shlex.quote(repo_id),
+            "--checkpoint-dir",
+            shlex.quote(model_path),
+            "--commit-message",
+            shlex.quote(commit_message),
+        ]
+    )
+    _ssh(
+        args,
+        command,
+        input_text=json.dumps({"model_card": model_card, "token": token}) + "\n",
     )
 
 
 def _sync_role(
     args: argparse.Namespace,
     api: HfApi,
+    token: str,
     role: str,
     records: tuple[dict[str, Any], dict[str, Any], dict[str, Any]],
     prime_revision: str,
@@ -315,22 +371,24 @@ def _sync_role(
                     "local checkpoint hash mismatch after clean retry: "
                     f"expected {expected_hash}, got {local_hash}"
                 )
-        (checkpoint_dir / "README.md").write_text(
-            _model_card(
-                role,
-                start,
-                update,
-                evaluation,
-                prime_revision,
-                verifier_revision,
-            ),
-            encoding="utf-8",
+        model_card = _model_card(
+            role,
+            start,
+            update,
+            evaluation,
+            prime_revision,
+            verifier_revision,
         )
+        (checkpoint_dir / "README.md").write_text(model_card, encoding="utf-8")
+        remote_upload = None
+        if args.remote_upload_helper:
+            remote_upload = (args, model_path, token, model_card)
         _upload_latest_only(
             api,
             repo_id,
             checkpoint_dir,
             f"Replace latest {role} frontier with cycle {update['cycle']}",
+            remote_upload,
         )
 
     head = _squash_and_verify(
@@ -462,6 +520,8 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--child-repo", required=True)
     parser.add_argument("--prime-revision", required=True)
     parser.add_argument("--verifier-revision", required=True)
+    parser.add_argument("--remote-upload-helper")
+    parser.add_argument("--remote-uv-bin")
     return parser.parse_args()
 
 
@@ -486,6 +546,7 @@ def main() -> None:
             _sync_role(
                 args,
                 api,
+                token,
                 role,
                 frontiers[role],
                 args.prime_revision,

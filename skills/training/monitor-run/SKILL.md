@@ -422,15 +422,18 @@ event, and apply the unchanged four-of-six admission gate to the complete traces
 
 Mirror full-dense recovery checkpoints to one rolling private Hugging Face repo
 per role, not an accumulating checkpoint archive. Validate the immutable remote
-checkpoint and its complete local SHA-256 copy before publication. When a role's
-hash changes, delete and recreate only that role's recovery repo immediately
-before upload so neither dense history nor a temporary second dense blob consumes
-private storage. Accept publication only after the repo is private, has exactly
-one commit, and exposes the expected model size and SHA-256. Prune a superseded
-remote `weights/step_1` only after both current role frontiers have verified Hub
-mirrors; retain run directories, receipts, results, logs, artifacts, events, and
-a durable retention journal. Keep only one local rolling checkpoint directory
-per role and replace its files in place.
+checkpoint and its complete local SHA-256 copy before publication. Publish the
+validated remote checkpoint from the training host when its cloud uplink is
+faster; stream the HF credential over SSH stdin so it is absent from argv and
+do not remove the local recovery copy. When a role's hash changes, delete and
+recreate only that role's recovery repo immediately before upload so neither
+dense history nor a temporary second dense blob consumes private storage. Accept
+publication only after the repo is private, has exactly one commit, and exposes
+the expected model size and SHA-256. Prune a superseded remote `weights/step_1`
+only after both current role frontiers have verified Hub mirrors; retain run
+directories, receipts, results, logs, artifacts, events, and a durable retention
+journal. Keep only one local rolling checkpoint directory per role and replace
+its files in place.
 
 For disk pressure, prune only completed `grpo-auto-*` checkpoint directories
 that are explicitly absent from the initial, current, and promoted frontiers.

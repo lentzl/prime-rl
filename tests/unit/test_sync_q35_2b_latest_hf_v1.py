@@ -1,7 +1,7 @@
 import importlib.util
+import json
 from argparse import Namespace
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/sync_q35_2b_latest_hf_v1.py"
@@ -36,6 +36,36 @@ def test_latest_only_publish_recreates_slot_before_upload(tmp_path: Path) -> Non
     assert upload["repo_id"] == "owner/latest"
     assert upload["folder_path"] == tmp_path
     assert upload["commit_message"] == "replace"
+
+
+def test_remote_publish_streams_credential_outside_command(monkeypatch) -> None:
+    calls = []
+    args = Namespace(
+        remote_upload_helper="/repo/scripts/publish.py",
+        remote_uv_bin="/home/ubuntu/.local/bin/uv",
+    )
+
+    def fake_ssh(_args, command: str, *, input_text: str | None = None) -> str:
+        calls.append((command, input_text))
+        return ""
+
+    monkeypatch.setattr(MODULE, "_ssh", fake_ssh)
+    MODULE._upload_remote_checkpoint(
+        args,
+        repo_id="owner/latest",
+        model_path="/outputs/cycle 61/weights/step_1",
+        commit_message="replace latest",
+        token="hf_secret",
+        model_card="# latest",
+    )
+
+    command, input_text = calls[0]
+    assert "hf_secret" not in command
+    assert "'/outputs/cycle 61/weights/step_1'" in command
+    assert json.loads(input_text) == {
+        "model_card": "# latest",
+        "token": "hf_secret",
+    }
 
 
 def test_prune_never_deletes_newer_update_with_admission_pending(monkeypatch) -> None:
