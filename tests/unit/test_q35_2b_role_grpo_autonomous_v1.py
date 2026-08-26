@@ -1,10 +1,9 @@
-import importlib.util
 import hashlib
+import importlib.util
 import json
 import subprocess
 import sys
 from pathlib import Path
-
 
 ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/run_q35_2b_role_grpo_autonomous_v1.py"
@@ -55,6 +54,81 @@ def test_project_advances_training_frontier_before_promotion() -> None:
     assert state["frontier"]["coordinator"] == output
     assert state["promoted"]["coordinator"]["label"] == "C26"
     assert state["pending_eval"]["cycle"] == 1
+
+
+def test_project_advances_explicit_leak_level_one_step_only_after_admission() -> None:
+    output = _candidate("C27")
+    trained = {
+        "kind": "train_completed",
+        "cycle": 1,
+        "role": "coordinator",
+        "phase": MODULE.COORDINATOR_PHASE,
+        "bootstrap_leak_level": "action_scaffold",
+        "output_candidate": output,
+    }
+    rejected = MODULE.project(
+        [
+            _initialized(),
+            trained,
+            {
+                "kind": "evaluation_completed",
+                "cycle": 1,
+                "role": "coordinator",
+                "phase": MODULE.COORDINATOR_PHASE,
+                "bootstrap_leak_level": "action_scaffold",
+                "admitted": False,
+            },
+        ]
+    )
+    assert rejected["leak_levels"]["coordinator"] == "action_scaffold"
+
+    admitted = MODULE.project(
+        [
+            _initialized(),
+            trained,
+            {
+                "kind": "evaluation_completed",
+                "cycle": 1,
+                "role": "coordinator",
+                "phase": MODULE.COORDINATOR_PHASE,
+                "bootstrap_leak_level": "action_scaffold",
+                "admitted": True,
+            },
+        ]
+    )
+    assert admitted["leak_levels"]["coordinator"] == "child_contract_scaffold"
+
+
+def test_project_does_not_retroactively_count_legacy_admissions() -> None:
+    state = MODULE.project(
+        [
+            _initialized(),
+            {
+                "kind": "evaluation_completed",
+                "cycle": 0,
+                "role": "coordinator",
+                "phase": MODULE.COORDINATOR_PHASE,
+                "admitted": True,
+            },
+        ]
+    )
+    assert state["leak_levels"]["coordinator"] == "action_scaffold"
+
+
+def test_project_accepts_audited_one_step_leak_migration() -> None:
+    state = MODULE.project(
+        [
+            _initialized(),
+            {
+                "kind": "leak_level_changed",
+                "role": "coordinator",
+                "from_leak_level": "action_scaffold",
+                "to_leak_level": "child_contract_scaffold",
+                "evidence_sequence": 284,
+            },
+        ]
+    )
+    assert state["leak_levels"]["coordinator"] == "child_contract_scaffold"
 
 
 def test_project_accepts_explicit_forensic_frontier_recovery() -> None:

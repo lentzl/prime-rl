@@ -34,19 +34,29 @@ case "$role:$phase" in
   child:e0_full_actions|child:e0c_natural_child|child:e0c2_natural_child_no_template|child:e0c25_inline_evidence|child:e0c275_inline_location|child:e0c28_inline_only|child:e0c29_evidence_available|child:e0c3_natural_child_minimal) ;;
   *) echo "unsupported role/phase pairing for stabilized role GRPO: $role:$phase" >&2; exit 1 ;;
 esac
-bootstrap_leak_level=action_scaffold
+bootstrap_leak_level=${Q35_2B_ROLE_GRPO_BOOTSTRAP_LEAK_LEVEL:-action_scaffold}
 max_completion_tokens=2048
 agent_max_turns=16
 agent_max_output_tokens=16384
 agent_max_total_tokens=65536
 autonomous_max_tokens=65536
 if [[ "$role:$phase" == child:e0_full_actions ]]; then
+  if [[ -n "${Q35_2B_ROLE_GRPO_BOOTSTRAP_LEAK_LEVEL:-}" && "$bootstrap_leak_level" != solution_replay ]]; then
+    echo "the e0_full_actions phase requires solution_replay" >&2
+    exit 1
+  fi
   bootstrap_leak_level=solution_replay
   max_completion_tokens=1024
   agent_max_turns=8
   agent_max_output_tokens=8192
   agent_max_total_tokens=32768
   autonomous_max_tokens=32768
+fi
+if [[ "$phase" != e0_full_actions ]]; then
+  case "$bootstrap_leak_level" in
+    action_scaffold|child_contract_scaffold|spawn_contract_scaffold|ownership_scaffold|strategy_hint) ;;
+    *) echo "unsupported bootstrap leak level: $bootstrap_leak_level" >&2; exit 1 ;;
+  esac
 fi
 if [[ ! "$run_name" =~ ^[a-z0-9][a-z0-9._-]*$ ]]; then
   echo "run name must be a stable lowercase label: $run_name" >&2
@@ -85,7 +95,7 @@ export PATH="$root/.venv/bin:$HOME/.local/bin:$PATH"
 
 mkdir -p "$experiment_dir" "$artifact_root"
 resolved=$experiment_dir/$run_name.toml
-bootstrap=$artifact_root/$run_name-action-scaffold-bootstrap.json
+bootstrap=$artifact_root/$run_name-$bootstrap_leak_level-bootstrap.json
 receipt=$experiment_dir/$run_name-receipt.json
 attempt_receipt=$experiment_dir/$run_name-attempt.json
 run_output=$output_root/$run_name
@@ -114,7 +124,7 @@ write_attempt_receipt() {
     "$attempt_receipt" "$run_name" "$role" "$scope" "$phase" \
     "$start_index" "$task_count" "$attempt_started_at" "$attempt_stage" \
     "$status" "$exit_code" "$resolved" "$bootstrap" "$run_output" \
-    "$receipt" "$routing_audit" <<'PY' || true
+    "$receipt" "$routing_audit" "$bootstrap_leak_level" <<'PY' || true
 import json
 import sys
 from datetime import datetime, timezone
@@ -137,6 +147,7 @@ from pathlib import Path
     output,
     receipt,
     routing_audit,
+    bootstrap_leak_level,
 ) = sys.argv[1:]
 payload = {
     "schema_version": "qwen35-2b-role-grpo-attempt/v1",
@@ -151,7 +162,7 @@ payload = {
     "coordinator_tool_choice_stripped": False,
     "env_server_max_concurrent": 1 if role == "coordinator" else 2,
     "enable_thinking": role == "child",
-    "bootstrap_leak_level": "solution_replay" if phase == "e0_full_actions" else "action_scaffold",
+    "bootstrap_leak_level": bootstrap_leak_level,
     "early_rung_bounded": phase == "e0_full_actions",
     "phase": phase,
     "task_bank": {"start_index": int(start_index), "count": int(task_count)},
@@ -268,6 +279,7 @@ PY
   "$resolved" --role "$role" --model-path "$model_path" \
   --anchor-model-path "$anchor_model_path" --run-name "$run_name" \
   --bootstrap-path "$bootstrap" --phase "$phase" \
+  --bootstrap-leak-level "$bootstrap_leak_level" \
   --start-index "$start_index" --task-count "$task_count"
 
 # Exercise the exact environment materialization before any GPU process starts.
@@ -330,7 +342,7 @@ fi
 "$uv_bin" run --frozen --no-sync python - \
   "$receipt" "$role" "$scope" "$phase" "$start_index" "$task_count" \
   "$model_path" "$anchor_model_path" "$weights" "$resolved" "$bootstrap" \
-  "$metrics" "$routing_audit" <<'PY'
+  "$metrics" "$routing_audit" "$bootstrap_leak_level" <<'PY'
 import hashlib
 import json
 import sys
@@ -357,7 +369,7 @@ payload = {
     "first_action_sampling": "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "phase": phase,
     "enable_thinking": role == "child",
-    "bootstrap_leak_level": "solution_replay" if phase == "e0_full_actions" else "action_scaffold",
+    "bootstrap_leak_level": sys.argv[14],
     "early_rung_bounded": phase == "e0_full_actions",
     "task_bank": {"start_index": int(sys.argv[5]), "count": int(sys.argv[6]), "group_size": 8},
     "reward_mode": "event_control",

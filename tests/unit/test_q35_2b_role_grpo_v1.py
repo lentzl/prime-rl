@@ -146,6 +146,27 @@ def test_role_grpo_audits_bounded_exact_child_rung(tmp_path: Path) -> None:
     assert report["bootstrap_leak_level"] == "solution_replay"
 
 
+def test_role_grpo_audits_tapered_child_contract_scaffold(tmp_path: Path) -> None:
+    config, model, anchor, bootstrap = _resolved(tmp_path, "coordinator")
+    payload = json.loads(bootstrap.read_text())
+    payload["leak_level"] = "child_contract_scaffold"
+    bootstrap.write_text(json.dumps(payload))
+
+    report = MODULE.audit(
+        config,
+        role="coordinator",
+        model_path=model,
+        anchor_model_path=anchor,
+        run_name="test-run",
+        bootstrap_path=bootstrap,
+        phase="e0d3_uncapped_yield_exact_child",
+        start_index=9100000,
+        task_count=64,
+        bootstrap_leak_level="child_contract_scaffold",
+    )
+    assert report["bootstrap_leak_level"] == "child_contract_scaffold"
+
+
 def test_coordinator_role_grpo_rejects_unscaffolded_frozen_child(tmp_path: Path) -> None:
     config, model, anchor, bootstrap = _resolved(tmp_path, "coordinator")
     config.write_text(

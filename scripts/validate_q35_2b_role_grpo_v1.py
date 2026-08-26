@@ -35,6 +35,7 @@ def audit(
     phase: str,
     start_index: int,
     task_count: int,
+    bootstrap_leak_level: str | None = None,
 ) -> dict[str, Any]:
     payload = tomllib.loads(config_path.read_text())
     expected_scope = {"coordinator": "root", "child": "non_root"}.get(role)
@@ -130,7 +131,22 @@ def audit(
     bootstrap = json.loads(bootstrap_path.read_text()) if bootstrap_path.is_file() else None
     if not isinstance(bootstrap, dict):
         raise AuditFailure(f"bootstrap artifact is missing or invalid: {bootstrap_path}")
-    expected_leak_level = "solution_replay" if phase == "e0_full_actions" else "action_scaffold"
+    expected_leak_level = bootstrap_leak_level or (
+        "solution_replay" if phase == "e0_full_actions" else "action_scaffold"
+    )
+    allowed_leak_levels = {
+        "action_scaffold",
+        "child_contract_scaffold",
+        "spawn_contract_scaffold",
+        "ownership_scaffold",
+        "strategy_hint",
+    }
+    if (
+        phase == "e0_full_actions" and expected_leak_level != "solution_replay"
+    ) or (
+        phase != "e0_full_actions" and expected_leak_level not in allowed_leak_levels
+    ):
+        raise AuditFailure("bootstrap leak level does not match the curriculum phase")
     expected_axis = [{"name": "natural_n1a", "start_index": start_index}]
     if (
         bootstrap.get("schema_version") != "qwen35-2b-environment-bootstrap-context/v1"
@@ -263,6 +279,7 @@ def main() -> None:
     parser.add_argument("--phase", required=True)
     parser.add_argument("--start-index", required=True, type=int)
     parser.add_argument("--task-count", required=True, type=int)
+    parser.add_argument("--bootstrap-leak-level", required=True)
     args = parser.parse_args()
     print(
         audit(
@@ -275,6 +292,7 @@ def main() -> None:
             phase=args.phase,
             start_index=args.start_index,
             task_count=args.task_count,
+            bootstrap_leak_level=args.bootstrap_leak_level,
         )
     )
 

@@ -42,6 +42,13 @@ CHILD_PHASES = (
 COORDINATOR_PHASE = "e0d3_uncapped_yield_exact_child"
 ROLE_SCOPE = {"child": "non_root", "coordinator": "root"}
 RUNTIME_IMAGE_PREFIXES = ("rlm-prime-agent-runtime:", "python:3.11-slim")
+LEAK_LADDER = (
+    "action_scaffold",
+    "child_contract_scaffold",
+    "spawn_contract_scaffold",
+    "ownership_scaffold",
+    "strategy_hint",
+)
 
 
 def _canonical(value: Any) -> str:
@@ -126,6 +133,20 @@ def _next_phase(role: str, phase: str) -> str:
     return CHILD_PHASES[min(index + 1, len(CHILD_PHASES) - 1)]
 
 
+def _default_leak_level(phase: str) -> str:
+    return "solution_replay" if phase == "e0_full_actions" else LEAK_LADDER[0]
+
+
+def _next_leak_level(leak_level: str) -> str:
+    if leak_level == "solution_replay":
+        return LEAK_LADDER[0]
+    try:
+        index = LEAK_LADDER.index(leak_level)
+    except ValueError as error:
+        raise ValueError(f"unsupported bootstrap leak level: {leak_level}") from error
+    return LEAK_LADDER[min(index + 1, len(LEAK_LADDER) - 1)]
+
+
 def project(events: list[dict[str, Any]]) -> dict[str, Any]:
     if not events or events[0].get("kind") != "initialized":
         raise ValueError("autonomous state must begin with initialized")
@@ -135,6 +156,15 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
         "promoted": copy.deepcopy(initial["promoted"]),
         "initial": copy.deepcopy(initial["frontier"]),
         "phases": copy.deepcopy(initial["phases"]),
+        "leak_levels": copy.deepcopy(
+            initial.get(
+                "leak_levels",
+                {
+                    role: _default_leak_level(initial["phases"][role])
+                    for role in ("coordinator", "child")
+                },
+            )
+        ),
         "next_role": initial["next_role"],
         "next_cycle": initial["next_cycle"],
         "pending_eval": None,
@@ -147,6 +177,9 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                 "cycle": event["cycle"],
                 "role": event["role"],
                 "phase": event["phase"],
+                "bootstrap_leak_level": event.get(
+                    "bootstrap_leak_level", _default_leak_level(event["phase"])
+                ),
             }
         elif kind in {"train_failed", "train_no_update"}:
             state["next_role"] = _other(event["role"])
@@ -157,6 +190,16 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                 role = event["role"]
                 state["promoted"][role] = copy.deepcopy(state["frontier"][role])
                 state["phases"][role] = _next_phase(role, event["phase"])
+                # Only explicitly versioned evaluations advance the leak ladder.
+                # This prevents a controller upgrade from retroactively counting
+                # historical admissions collected under different router semantics.
+                evaluated_leak = event.get("bootstrap_leak_level")
+                if evaluated_leak is not None:
+                    if evaluated_leak != state["leak_levels"][role]:
+                        raise ValueError(
+                            "admission leak level does not match the projected curriculum"
+                        )
+                    state["leak_levels"][role] = _next_leak_level(evaluated_leak)
             state["next_role"] = _other(event["role"])
             state["next_cycle"] = event["cycle"] + 1
             state["pending_eval"] = None
@@ -165,6 +208,13 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
             state["next_role"] = event["next_role"]
             state["next_cycle"] = event["next_cycle"]
             state["pending_eval"] = None
+        elif kind == "leak_level_changed":
+            role = event["role"]
+            if event["from_leak_level"] != state["leak_levels"][role]:
+                raise ValueError("leak-level migration does not match projected state")
+            if event["to_leak_level"] != _next_leak_level(event["from_leak_level"]):
+                raise ValueError("leak-level migration must move exactly one ladder step")
+            state["leak_levels"][role] = event["to_leak_level"]
     return state
 
 
@@ -252,7 +302,12 @@ def _read_json(path: Path) -> dict[str, Any]:
 
 
 def _validate_train_receipt(
-    receipt_path: Path, *, role: str, phase: str, source: dict[str, str]
+    receipt_path: Path,
+    *,
+    role: str,
+    phase: str,
+    bootstrap_leak_level: str,
+    source: dict[str, str],
 ) -> dict[str, str]:
     receipt = _read_json(receipt_path)
     output = receipt.get("output")
@@ -260,6 +315,7 @@ def _validate_train_receipt(
         receipt.get("schema_version") != "qwen35-2b-role-grpo-update/v1"
         or receipt.get("role") != role
         or receipt.get("phase") != phase
+        or receipt.get("bootstrap_leak_level") != bootstrap_leak_level
         or receipt.get("sampled_session_scope") != ROLE_SCOPE[role]
         or receipt.get("optimizer_updates") != 1
         or receipt.get("promotion_minimum") != PROMOTION_MINIMUM
@@ -408,6 +464,10 @@ class Controller:
                     "coordinator": COORDINATOR_PHASE,
                     "child": self.args.child_phase,
                 },
+                "leak_levels": {
+                    "coordinator": LEAK_LADDER[0],
+                    "child": _default_leak_level(self.args.child_phase),
+                },
                 "next_role": self.args.next_role,
                 "next_cycle": self.args.start_cycle,
                 "promotion_minimum": PROMOTION_MINIMUM,
@@ -432,12 +492,23 @@ class Controller:
         return base / f"{label}-receipt.json", base / f"{label}-attempt.json"
 
     def _record_train_terminal(
-        self, *, cycle: int, role: str, phase: str, label: str, source: dict[str, str]
+        self,
+        *,
+        cycle: int,
+        role: str,
+        phase: str,
+        bootstrap_leak_level: str,
+        label: str,
+        source: dict[str, str],
     ) -> bool:
         receipt_path, attempt_path = self._train_paths(label)
         if receipt_path.is_file():
             output = _validate_train_receipt(
-                receipt_path, role=role, phase=phase, source=source
+                receipt_path,
+                role=role,
+                phase=phase,
+                bootstrap_leak_level=bootstrap_leak_level,
+                source=source,
             )
             append_event(
                 self.events_path,
@@ -446,6 +517,7 @@ class Controller:
                     "cycle": cycle,
                     "role": role,
                     "phase": phase,
+                    "bootstrap_leak_level": bootstrap_leak_level,
                     "run_name": label,
                     "receipt_path": str(receipt_path),
                     "output_candidate": output,
@@ -463,6 +535,7 @@ class Controller:
                     "cycle": cycle,
                     "role": role,
                     "phase": phase,
+                    "bootstrap_leak_level": bootstrap_leak_level,
                     "run_name": label,
                     "attempt_path": str(attempt_path),
                     "attempt_status": status,
@@ -475,6 +548,7 @@ class Controller:
     def _start_train(self, state: dict[str, Any]) -> None:
         cycle, role = state["next_cycle"], state["next_role"]
         phase = state["phases"][role]
+        bootstrap_leak_level = state["leak_levels"][role]
         label, start, _, _ = self._names(cycle, role, phase)
         source = state["frontier"][role]
         anchor = state["frontier"][_other(role)]
@@ -499,6 +573,7 @@ class Controller:
                 "cycle": cycle,
                 "role": role,
                 "phase": phase,
+                "bootstrap_leak_level": bootstrap_leak_level,
                 "run_name": label,
                 "task_bank": {"start_index": start, "count": GROUP_SIZE},
                 "source": copy.deepcopy(source),
@@ -508,6 +583,7 @@ class Controller:
         )
         env = os.environ.copy()
         env["UV_BIN"] = str(self.args.uv_bin)
+        env["Q35_2B_ROLE_GRPO_BOOTSTRAP_LEAK_LEVEL"] = bootstrap_leak_level
         command = [
             "bash",
             str(self.repo / "scripts/run_q35_2b_role_grpo_v1.sh"),
@@ -532,7 +608,12 @@ class Controller:
             baseline=runtime_container_baseline,
         )
         if not self._record_train_terminal(
-            cycle=cycle, role=role, phase=phase, label=label, source=source
+            cycle=cycle,
+            role=role,
+            phase=phase,
+            bootstrap_leak_level=bootstrap_leak_level,
+            label=label,
+            source=source,
         ):
             append_event(
                 self.events_path,
@@ -541,14 +622,14 @@ class Controller:
                     "cycle": cycle,
                     "role": role,
                     "phase": phase,
+                    "bootstrap_leak_level": bootstrap_leak_level,
                     "run_name": label,
                     "attempt_status": "missing_terminal_receipt",
                 },
             )
             raise RuntimeError(f"training ended without a terminal receipt: {label}")
 
-    def _bootstrap(self, *, label: str, phase: str, start: int) -> Path:
-        leak = "solution_replay" if phase == "e0_full_actions" else "action_scaffold"
+    def _bootstrap(self, *, label: str, leak: str, start: int) -> Path:
         path = self.args.artifact_root.resolve() / f"{label}-{leak}-bootstrap.json"
         if path.exists():
             payload = _read_json(path)
@@ -587,6 +668,7 @@ class Controller:
         cycle: int,
         role: str,
         phase: str,
+        bootstrap_leak_level: str,
         label: str,
         frontier: dict[str, dict[str, str]],
     ) -> bool:
@@ -601,6 +683,7 @@ class Controller:
                 "cycle": cycle,
                 "role": role,
                 "phase": phase,
+                "bootstrap_leak_level": bootstrap_leak_level,
                 "run_name": label,
                 "run_dir": str(run_dir),
                 **evidence,
@@ -611,8 +694,11 @@ class Controller:
     def _start_evaluation(self, state: dict[str, Any]) -> None:
         pending = state["pending_eval"]
         cycle, role, phase = pending["cycle"], pending["role"], pending["phase"]
+        bootstrap_leak_level = pending["bootstrap_leak_level"]
         _, _, label, start = self._names(cycle, role, phase)
-        bootstrap = self._bootstrap(label=label, phase=phase, start=start)
+        bootstrap = self._bootstrap(
+            label=label, leak=bootstrap_leak_level, start=start
+        )
         runtime_container_baseline = sorted(_runtime_containers())
         append_event(
             self.events_path,
@@ -621,6 +707,7 @@ class Controller:
                 "cycle": cycle,
                 "role": role,
                 "phase": phase,
+                "bootstrap_leak_level": bootstrap_leak_level,
                 "run_name": label,
                 "task_bank": {"start_index": start, "count": EVAL_TASKS},
                 "frontier": copy.deepcopy(state["frontier"]),
@@ -674,6 +761,7 @@ class Controller:
             cycle=cycle,
             role=role,
             phase=phase,
+            bootstrap_leak_level=bootstrap_leak_level,
             label=label,
             frontier=state["frontier"],
         ):
@@ -684,6 +772,7 @@ class Controller:
                     "cycle": cycle,
                     "role": role,
                     "phase": phase,
+                    "bootstrap_leak_level": bootstrap_leak_level,
                     "run_name": label,
                     "return_code": return_code,
                 },
@@ -712,6 +801,10 @@ class Controller:
                 cycle=cycle,
                 role=train_started["role"],
                 phase=train_started["phase"],
+                bootstrap_leak_level=train_started.get(
+                    "bootstrap_leak_level",
+                    _default_leak_level(train_started["phase"]),
+                ),
                 label=label,
                 source=train_started["source"],
             ):
@@ -722,6 +815,10 @@ class Controller:
                         "cycle": cycle,
                         "role": train_started["role"],
                         "phase": train_started["phase"],
+                        "bootstrap_leak_level": train_started.get(
+                            "bootstrap_leak_level",
+                            _default_leak_level(train_started["phase"]),
+                        ),
                         "run_name": label,
                         "attempt_status": "interrupted_without_terminal_receipt",
                     },
@@ -750,6 +847,10 @@ class Controller:
                 cycle=cycle,
                 role=eval_started["role"],
                 phase=eval_started["phase"],
+                bootstrap_leak_level=eval_started.get(
+                    "bootstrap_leak_level",
+                    _default_leak_level(eval_started["phase"]),
+                ),
                 label=label,
                 frontier=eval_started["frontier"],
             ):
@@ -760,6 +861,10 @@ class Controller:
                         "cycle": cycle,
                         "role": eval_started["role"],
                         "phase": eval_started["phase"],
+                        "bootstrap_leak_level": eval_started.get(
+                            "bootstrap_leak_level",
+                            _default_leak_level(eval_started["phase"]),
+                        ),
                         "run_name": label,
                         "return_code": None,
                     },
