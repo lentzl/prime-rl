@@ -131,6 +131,89 @@ def test_project_accepts_audited_one_step_leak_migration() -> None:
     assert state["leak_levels"]["coordinator"] == "child_contract_scaffold"
 
 
+def test_single_axis_policy_advances_child_phase_without_also_tightening_leak() -> None:
+    initialized = _initialized()
+    initialized["phases"]["child"] = "e0c29_evidence_available"
+    state = MODULE.project(
+        [
+            initialized,
+            {
+                "kind": "curriculum_policy_changed",
+                "from_policy": MODULE.COUPLED_CURRICULUM_POLICY,
+                "to_policy": MODULE.SINGLE_AXIS_CURRICULUM_POLICY,
+            },
+            {
+                "kind": "evaluation_completed",
+                "cycle": 1,
+                "role": "child",
+                "phase": "e0c29_evidence_available",
+                "bootstrap_leak_level": "action_scaffold",
+                "admitted": True,
+            },
+        ]
+    )
+
+    assert state["phases"]["child"] == "e0c3_natural_child_minimal"
+    assert state["leak_levels"]["child"] == "action_scaffold"
+
+
+def test_single_axis_policy_tightens_leak_after_child_phase_is_maximal() -> None:
+    initialized = _initialized()
+    initialized["phases"]["child"] = "e0c3_natural_child_minimal"
+    state = MODULE.project(
+        [
+            initialized,
+            {
+                "kind": "curriculum_policy_changed",
+                "from_policy": MODULE.COUPLED_CURRICULUM_POLICY,
+                "to_policy": MODULE.SINGLE_AXIS_CURRICULUM_POLICY,
+            },
+            {
+                "kind": "evaluation_completed",
+                "cycle": 1,
+                "role": "child",
+                "phase": "e0c3_natural_child_minimal",
+                "bootstrap_leak_level": "action_scaffold",
+                "admitted": True,
+            },
+        ]
+    )
+
+    assert state["phases"]["child"] == "e0c3_natural_child_minimal"
+    assert state["leak_levels"]["child"] == "child_contract_scaffold"
+
+
+def test_project_accepts_audited_one_axis_curriculum_recovery() -> None:
+    initialized = _initialized()
+    initialized["phases"]["child"] = "e0c3_natural_child_minimal"
+    initialized["leak_levels"] = {
+        "coordinator": "action_scaffold",
+        "child": "child_contract_scaffold",
+    }
+    state = MODULE.project(
+        [
+            initialized,
+            {
+                "kind": "curriculum_policy_changed",
+                "from_policy": MODULE.COUPLED_CURRICULUM_POLICY,
+                "to_policy": MODULE.SINGLE_AXIS_CURRICULUM_POLICY,
+            },
+            {
+                "kind": "curriculum_recovered",
+                "role": "child",
+                "from_phase": "e0c3_natural_child_minimal",
+                "to_phase": "e0c3_natural_child_minimal",
+                "from_leak_level": "child_contract_scaffold",
+                "to_leak_level": "action_scaffold",
+                "evidence_sequences": [530, 536, 540],
+            },
+        ]
+    )
+
+    assert state["phases"]["child"] == "e0c3_natural_child_minimal"
+    assert state["leak_levels"]["child"] == "action_scaffold"
+
+
 def test_project_accepts_explicit_forensic_frontier_recovery() -> None:
     coordinator = _candidate("C57")
     child = _candidate("K56")

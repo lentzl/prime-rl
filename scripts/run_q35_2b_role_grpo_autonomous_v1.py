@@ -49,6 +49,8 @@ LEAK_LADDER = (
     "ownership_scaffold",
     "strategy_hint",
 )
+COUPLED_CURRICULUM_POLICY = "coupled_v1"
+SINGLE_AXIS_CURRICULUM_POLICY = "single_axis_v2"
 
 
 def _canonical(value: Any) -> str:
@@ -147,6 +149,32 @@ def _next_leak_level(leak_level: str) -> str:
     return LEAK_LADDER[min(index + 1, len(LEAK_LADDER) - 1)]
 
 
+def _previous_phase(role: str, phase: str) -> str:
+    if role == "coordinator":
+        return COORDINATOR_PHASE
+    index = CHILD_PHASES.index(phase)
+    return CHILD_PHASES[max(index - 1, 0)]
+
+
+def _previous_leak_level(leak_level: str) -> str:
+    if leak_level == "solution_replay":
+        return "solution_replay"
+    try:
+        index = LEAK_LADDER.index(leak_level)
+    except ValueError as error:
+        raise ValueError(f"unsupported bootstrap leak level: {leak_level}") from error
+    return "solution_replay" if index == 0 else LEAK_LADDER[index - 1]
+
+
+def _advance_single_axis_curriculum(
+    role: str, phase: str, leak_level: str
+) -> tuple[str, str]:
+    next_phase = _next_phase(role, phase)
+    if next_phase != phase:
+        return next_phase, leak_level
+    return phase, _next_leak_level(leak_level)
+
+
 def project(events: list[dict[str, Any]]) -> dict[str, Any]:
     if not events or events[0].get("kind") != "initialized":
         raise ValueError("autonomous state must begin with initialized")
@@ -168,6 +196,9 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
         "next_role": initial["next_role"],
         "next_cycle": initial["next_cycle"],
         "pending_eval": None,
+        "curriculum_policy": initial.get(
+            "curriculum_policy", COUPLED_CURRICULUM_POLICY
+        ),
     }
     for event in events[1:]:
         kind = event["kind"]
@@ -189,7 +220,6 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
             if kind == "evaluation_completed" and event["admitted"]:
                 role = event["role"]
                 state["promoted"][role] = copy.deepcopy(state["frontier"][role])
-                state["phases"][role] = _next_phase(role, event["phase"])
                 # Only explicitly versioned evaluations advance the leak ladder.
                 # This prevents a controller upgrade from retroactively counting
                 # historical admissions collected under different router semantics.
@@ -199,7 +229,25 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                         raise ValueError(
                             "admission leak level does not match the projected curriculum"
                         )
-                    state["leak_levels"][role] = _next_leak_level(evaluated_leak)
+                if state["curriculum_policy"] == COUPLED_CURRICULUM_POLICY:
+                    state["phases"][role] = _next_phase(role, event["phase"])
+                    if evaluated_leak is not None:
+                        state["leak_levels"][role] = _next_leak_level(
+                            evaluated_leak
+                        )
+                elif state["curriculum_policy"] == SINGLE_AXIS_CURRICULUM_POLICY:
+                    next_phase, next_leak = _advance_single_axis_curriculum(
+                        role,
+                        event["phase"],
+                        state["leak_levels"][role],
+                    )
+                    state["phases"][role] = next_phase
+                    if evaluated_leak is not None:
+                        state["leak_levels"][role] = next_leak
+                else:
+                    raise ValueError(
+                        f"unsupported curriculum policy: {state['curriculum_policy']}"
+                    )
             state["next_role"] = _other(event["role"])
             state["next_cycle"] = event["cycle"] + 1
             state["pending_eval"] = None
@@ -215,6 +263,42 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
             if event["to_leak_level"] != _next_leak_level(event["from_leak_level"]):
                 raise ValueError("leak-level migration must move exactly one ladder step")
             state["leak_levels"][role] = event["to_leak_level"]
+        elif kind == "curriculum_policy_changed":
+            if event["from_policy"] != state["curriculum_policy"]:
+                raise ValueError("curriculum-policy migration does not match projected state")
+            if (
+                event["from_policy"] != COUPLED_CURRICULUM_POLICY
+                or event["to_policy"] != SINGLE_AXIS_CURRICULUM_POLICY
+            ):
+                raise ValueError("unsupported curriculum-policy migration")
+            state["curriculum_policy"] = event["to_policy"]
+        elif kind == "curriculum_recovered":
+            role = event["role"]
+            current_phase = state["phases"][role]
+            current_leak = state["leak_levels"][role]
+            if (
+                event["from_phase"] != current_phase
+                or event["from_leak_level"] != current_leak
+            ):
+                raise ValueError("curriculum recovery does not match projected state")
+            to_phase = event["to_phase"]
+            to_leak = event["to_leak_level"]
+            phase_rollback = (
+                to_phase == _previous_phase(role, current_phase)
+                and to_phase != current_phase
+                and to_leak == current_leak
+            )
+            leak_rollback = (
+                to_phase == current_phase
+                and to_leak == _previous_leak_level(current_leak)
+                and to_leak != current_leak
+            )
+            if not (phase_rollback or leak_rollback):
+                raise ValueError(
+                    "curriculum recovery must roll back exactly one axis by one step"
+                )
+            state["phases"][role] = to_phase
+            state["leak_levels"][role] = to_leak
     return state
 
 
