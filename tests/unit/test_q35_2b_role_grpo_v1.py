@@ -49,7 +49,17 @@ def _resolved(
     source = source.replace(
         "leak_child_exact_action = false",
         "leak_child_exact_action = true",
-        2,
+        1,
+    )
+    source = source.replace(
+        "leak_child_exact_action = false",
+        f"leak_child_exact_action = {'true' if role == 'coordinator' else 'false'}",
+        1,
+    )
+    source = source.replace(
+        'reward_mode = "event_control"',
+        f'reward_mode = "{"event_control" if role == "coordinator" else "child_action"}"',
+        1,
     )
     source = source.replace(
         "strip_child_tool_choice = false",
@@ -115,7 +125,12 @@ def test_role_grpo_template_audits_both_session_scopes(tmp_path: Path) -> None:
         assert report["full_dense"] is True
         assert report["coordinator_action_leak"] is (role == "child")
         assert report["child_action_leak"] is True
-        assert report["child_action_sampling"] == "synthetic_exact_send"
+        assert report["reward_mode"] == (
+            "event_control" if role == "coordinator" else "child_action"
+        )
+        assert report["child_action_sampling"] == (
+            "synthetic_exact_send" if role == "coordinator" else "prompted_native_send"
+        )
         assert report["first_action_sampling"] == (
             "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor"
         )
@@ -190,7 +205,7 @@ def test_coordinator_role_grpo_rejects_unscaffolded_frozen_child(tmp_path: Path)
             task_count=64,
         )
     except MODULE.AuditFailure as error:
-        assert "partial causal protocol progress" in str(error)
+        assert "prompt-visible child scaffold" in str(error)
     else:
         raise AssertionError("unscaffolded frozen child passed the coordinator GRPO audit")
 
@@ -222,7 +237,7 @@ def test_coordinator_role_grpo_rejects_forwarded_child_send(tmp_path: Path) -> N
             task_count=64,
         )
     except MODULE.AuditFailure as error:
-        assert "synthesize the private child send" in str(error)
+        assert "synthetic frozen child" in str(error)
     else:
         raise AssertionError("forwarded child send passed the coordinator GRPO audit")
 
@@ -281,6 +296,38 @@ def test_child_role_grpo_rejects_unscaffolded_frozen_coordinator(tmp_path: Path)
         assert "tapered curriculum" in str(error)
     else:
         raise AssertionError("unscaffolded frozen coordinator passed the child audit")
+
+
+def test_child_role_grpo_rejects_synthetic_child_action(tmp_path: Path) -> None:
+    config, model, anchor, bootstrap = _resolved(tmp_path, "child")
+    source = config.read_text()
+    first = source.index("leak_child_exact_action = true")
+    second = source.index("leak_child_exact_action = false", first + 1)
+    config.write_text(
+        source[:second]
+        + source[second:].replace(
+            "leak_child_exact_action = false",
+            "leak_child_exact_action = true",
+            1,
+        )
+    )
+
+    try:
+        MODULE.audit(
+            config,
+            role="child",
+            model_path=model,
+            anchor_model_path=anchor,
+            run_name="test-run",
+            bootstrap_path=bootstrap,
+            phase="e0c3_natural_child_minimal",
+            start_index=9100000,
+            task_count=64,
+        )
+    except MODULE.AuditFailure as error:
+        assert "sample its own prompt-scaffolded send action" in str(error)
+    else:
+        raise AssertionError("synthetic child action passed the child-role audit")
 
 
 def test_role_grpo_audit_rejects_child_reasoning_mode_mismatch(tmp_path: Path) -> None:

@@ -167,12 +167,13 @@ def audit(
     # zero-advantage. Keep its private-context send action scaffolded for both
     # role updates; the coordinator never sees the hidden value directly.
     expected_child_action_leak = True
+    expected_reward_mode = "event_control" if role == "coordinator" else "child_action"
     if (
         not isinstance(task, dict)
-        or task.get("reward_mode") != "event_control"
+        or task.get("reward_mode") != expected_reward_mode
         or task.get("leak_child_exact_action") is not expected_child_action_leak
     ):
-        raise AuditFailure("role GRPO must reward partial causal protocol progress")
+        raise AuditFailure("role GRPO reward or prompt-visible child scaffold mismatch")
     zero_advantage = next(
         (item for item in orchestrator.get("pre_batch_filters", []) if item.get("type") == "zero_advantage"),
         None,
@@ -200,9 +201,11 @@ def audit(
         raise AuditFailure(
             "role GRPO coordinator-spawn sampling does not match the tapered curriculum"
         )
-    if role_router.get("leak_child_exact_action") is not True:
+    expected_child_router_leak = role == "coordinator"
+    if role_router.get("leak_child_exact_action") is not expected_child_router_leak:
         raise AuditFailure(
-            "early role GRPO must synthesize the private child send action"
+            "coordinator GRPO requires a synthetic frozen child, while child GRPO "
+            "must sample its own prompt-scaffolded send action"
         )
     expected_child_strip = role == "child"
     if role_router.get("strip_child_tool_choice") is not expected_child_strip:
@@ -251,11 +254,13 @@ def audit(
         "max_inflight_episodes": 8,
         "max_concurrent_agents": 2,
         "env_server_max_concurrent": expected_env_server_max_concurrent,
-        "reward_mode": "event_control",
+        "reward_mode": expected_reward_mode,
         "full_dense": True,
         "coordinator_action_leak": expected_coordinator_leak,
         "child_action_leak": expected_child_action_leak,
-        "child_action_sampling": "synthetic_exact_send",
+        "child_action_sampling": (
+            "synthetic_exact_send" if role == "coordinator" else "prompted_native_send"
+        ),
         "first_action_sampling": (
             "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor"
         ),

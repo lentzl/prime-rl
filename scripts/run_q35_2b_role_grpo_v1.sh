@@ -25,8 +25,8 @@ case "$role" in
   # its private context; coordinator tokens still have to learn how to resume
   # from and use the delivered report. After repeated all-success coordinator
   # groups, taper the root wire scaffold and sample the prompt-disclosed spawn.
-  coordinator) scope=root; leak_coordinator_exact_action=false; leak_child_exact_action=true; strip_child_tool_choice=false; strip_coordinator_tool_choice=false; enable_thinking=false ;;
-  child) scope=non_root; leak_coordinator_exact_action=true; leak_child_exact_action=true; strip_child_tool_choice=true; strip_coordinator_tool_choice=false; enable_thinking=true ;;
+  coordinator) scope=root; leak_coordinator_exact_action=false; prompt_child_exact_action=true; route_child_exact_action=true; reward_mode=event_control; strip_child_tool_choice=false; strip_coordinator_tool_choice=false; enable_thinking=false ;;
+  child) scope=non_root; leak_coordinator_exact_action=true; prompt_child_exact_action=true; route_child_exact_action=false; reward_mode=child_action; strip_child_tool_choice=true; strip_coordinator_tool_choice=false; enable_thinking=true ;;
   *) echo "role must be coordinator or child: $role" >&2; exit 1 ;;
 esac
 case "$role:$phase" in
@@ -155,8 +155,11 @@ payload = {
     "role": role,
     "sampled_session_scope": scope,
     "coordinator_action_leak": role == "child",
-    "child_action_leak": True,
-    "child_action_sampling": "synthetic_exact_send",
+    "child_prompt_action_leak": True,
+    "child_router_action_leak": role == "coordinator",
+    "child_action_sampling": (
+        "synthetic_exact_send" if role == "coordinator" else "prompted_native_send"
+    ),
     "first_action_sampling": "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "child_tool_choice_stripped": role == "child",
     "coordinator_tool_choice_stripped": False,
@@ -165,6 +168,7 @@ payload = {
     "bootstrap_leak_level": bootstrap_leak_level,
     "early_rung_bounded": phase == "e0_full_actions",
     "phase": phase,
+    "reward_mode": "event_control" if role == "coordinator" else "child_action",
     "task_bank": {"start_index": int(start_index), "count": int(task_count)},
     "started_at_utc": started_at,
     "finished_at_utc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
@@ -195,7 +199,8 @@ trap 'attempt_exit=$?; trap - EXIT; write_attempt_receipt "$attempt_exit"; exit 
   "$template" "$resolved" "$role" "$scope" "$model_path" "$anchor_model_path" \
   "$run_name" "$bootstrap" "$start_index" "$task_count" "$output_root" \
   "$learning_rate" "$role_router_state" "$routing_audit" \
-  "$leak_coordinator_exact_action" "$leak_child_exact_action" "$strip_child_tool_choice" \
+  "$leak_coordinator_exact_action" "$prompt_child_exact_action" "$route_child_exact_action" \
+  "$reward_mode" "$strip_child_tool_choice" \
   "$strip_coordinator_tool_choice" "$enable_thinking" \
   "$max_completion_tokens" "$agent_max_turns" "$agent_max_output_tokens" \
   "$agent_max_total_tokens" "$autonomous_max_tokens" <<'PY'
@@ -227,26 +232,27 @@ replacements = (
     ),
     (
         r'^leak_child_exact_action = false$',
-        f'leak_child_exact_action = {sys.argv[16]}',
+        f'leak_child_exact_action = {sys.argv[17]}',
         1,
     ),
+    (r'^reward_mode = "event_control"$', f'reward_mode = "{sys.argv[18]}"', 1),
     (
         r'^strip_child_tool_choice = false$',
-        f'strip_child_tool_choice = {sys.argv[17]}',
+        f'strip_child_tool_choice = {sys.argv[19]}',
         1,
     ),
     (
         r'^strip_coordinator_tool_choice = false$',
-        f'strip_coordinator_tool_choice = {sys.argv[18]}',
+        f'strip_coordinator_tool_choice = {sys.argv[20]}',
         1,
     ),
-    (r'^enable_thinking = false$', f'enable_thinking = {sys.argv[19]}', 1),
-    (r'^max_completion_tokens = 2048$', f'max_completion_tokens = {sys.argv[20]}', 1),
-    (r'^max_turns = 16$', f'max_turns = {sys.argv[21]}', 1),
-    (r'^max_output_tokens = 16384$', f'max_output_tokens = {sys.argv[22]}', 1),
-    (r'^max_total_tokens = 65536$', f'max_total_tokens = {sys.argv[23]}', 1),
-    (r'^autonomous_max_turns = 16$', f'autonomous_max_turns = {sys.argv[21]}', 1),
-    (r'^autonomous_max_tokens = 65536$', f'autonomous_max_tokens = {sys.argv[23]}', 1),
+    (r'^enable_thinking = false$', f'enable_thinking = {sys.argv[21]}', 1),
+    (r'^max_completion_tokens = 2048$', f'max_completion_tokens = {sys.argv[22]}', 1),
+    (r'^max_turns = 16$', f'max_turns = {sys.argv[23]}', 1),
+    (r'^max_output_tokens = 16384$', f'max_output_tokens = {sys.argv[24]}', 1),
+    (r'^max_total_tokens = 65536$', f'max_total_tokens = {sys.argv[25]}', 1),
+    (r'^autonomous_max_turns = 16$', f'autonomous_max_turns = {sys.argv[23]}', 1),
+    (r'^autonomous_max_tokens = 65536$', f'autonomous_max_tokens = {sys.argv[26]}', 1),
     (
         r'^max_concurrent = 1$',
         f'max_concurrent = {1 if sys.argv[3] == "coordinator" else 2}',
@@ -364,15 +370,18 @@ payload = {
     "role": role,
     "sampled_session_scope": scope,
     "coordinator_action_leak": role == "child",
-    "child_action_leak": True,
-    "child_action_sampling": "synthetic_exact_send",
+    "child_prompt_action_leak": True,
+    "child_router_action_leak": role == "coordinator",
+    "child_action_sampling": (
+        "synthetic_exact_send" if role == "coordinator" else "prompted_native_send"
+    ),
     "first_action_sampling": "prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor",
     "phase": phase,
     "enable_thinking": role == "child",
     "bootstrap_leak_level": sys.argv[14],
     "early_rung_bounded": phase == "e0_full_actions",
     "task_bank": {"start_index": int(sys.argv[5]), "count": int(sys.argv[6]), "group_size": 8},
-    "reward_mode": "event_control",
+    "reward_mode": "event_control" if role == "coordinator" else "child_action",
     "child_tool_choice_stripped": role == "child",
     "coordinator_tool_choice_stripped": False,
     "env_server_max_concurrent": 1 if role == "coordinator" else 2,

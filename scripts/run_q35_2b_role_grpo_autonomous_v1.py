@@ -324,8 +324,12 @@ def _validate_train_receipt(
         or receipt.get("coordinator_action_leak") is not (role == "child")
         or receipt.get("first_action_sampling")
         != ("prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor")
-        or receipt.get("child_action_leak") is not True
-        or receipt.get("child_action_sampling") != "synthetic_exact_send"
+        or receipt.get("child_prompt_action_leak") is not True
+        or receipt.get("child_router_action_leak") is not (role == "coordinator")
+        or receipt.get("child_action_sampling")
+        != ("synthetic_exact_send" if role == "coordinator" else "prompted_native_send")
+        or receipt.get("reward_mode")
+        != ("event_control" if role == "coordinator" else "child_action")
         or receipt.get("task_bank", {}).get("group_size") != GROUP_SIZE
         or receipt.get("source", {}).get("model_sha256") != source["model_sha256"]
         or not isinstance(output, dict)
