@@ -122,7 +122,7 @@ def _canonical_row(trace: dict[str, Any], *, source: Path) -> dict[str, Any]:
     }
 
 
-def export(*, traces: list[Path], output_dir: Path, max_rows: int = 8) -> dict[str, Any]:
+def export(*, traces: list[Path], output_dir: Path, max_rows: int = 16) -> dict[str, Any]:
     if not 1 <= max_rows <= 16:
         raise ValueError("child-action booster row cap must be between one and sixteen")
     if output_dir.exists():
@@ -174,7 +174,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--traces", action="append", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
-    parser.add_argument("--max-rows", type=int, default=8)
+    parser.add_argument("--max-rows", type=int, default=16)
     args = parser.parse_args()
     print(
         json.dumps(

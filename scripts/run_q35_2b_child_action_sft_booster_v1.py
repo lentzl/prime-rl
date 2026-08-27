@@ -38,8 +38,8 @@ def training_config(
     lr: float,
     optimizer_updates: int,
 ) -> str:
-    if not 2 <= rows <= 8:
-        raise ValueError("child-action booster requires between two and eight rows")
+    if not 2 <= rows <= 16:
+        raise ValueError("child-action booster requires between two and sixteen rows")
     if not 1 <= optimizer_updates <= 8:
         raise ValueError("child-action booster requires between one and eight updates")
     batch_size = rows + rows % 2
@@ -152,7 +152,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         or manifest.get("status") != "complete"
         or manifest.get("role") != "child"
         or manifest.get("objective") != "canonical_exact_parent_send_then_stop"
-        or not 2 <= manifest.get("rows", 0) <= 8
+        or not 2 <= manifest.get("rows", 0) <= 16
         or manifest.get("dataset", {}).get("path") != parquet.name
         or manifest.get("dataset", {}).get("sha256") != sha256_file(parquet)
     ):
