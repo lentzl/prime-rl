@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+"""Build a bounded canonical child-action SFT leak from hard-success traces."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
+
+from datasets import Dataset
+from export_prime_agent_role_sft_v1 import _wire_message, sha256_file
+
+SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v1"
+TRUNCATED_STOPS = {
+    "max_turns",
+    "max_input_tokens",
+    "max_output_tokens",
+    "max_total_tokens",
+    "context_length",
+    "generation_truncated",
+}
+
+
+def _score(value: Any) -> float:
+    if not isinstance(value, dict):
+        return 0.0
+    score = value.get("score", value.get("value", 0.0))
+    return float(score) if isinstance(score, int | float) else 0.0
+
+
+def _path(nodes: list[dict[str, Any]], target: int) -> list[int]:
+    result = []
+    seen = set()
+    current: int | None = target
+    while current is not None:
+        if current in seen or not 0 <= current < len(nodes):
+            raise ValueError("child-action trace has invalid lineage")
+        seen.add(current)
+        result.append(current)
+        parent = nodes[current].get("parent")
+        if parent is not None and not isinstance(parent, int):
+            raise ValueError("child-action trace has a non-integer parent")
+        current = parent
+    return list(reversed(result))
+
+
+def _root(nodes: list[dict[str, Any]], index: int) -> int:
+    path = _path(nodes, index)
+    return path[0]
+
+
+def _canonical_row(trace: dict[str, Any], *, source: Path) -> dict[str, Any]:
+    if (
+        trace.get("ok") is not True
+        or trace.get("errors")
+        or trace.get("stop_condition") in TRUNCATED_STOPS
+        or _score((trace.get("rewards") or {}).get("harness_score")) != 1.0
+    ):
+        raise ValueError("child-action booster accepts hard-success traces only")
+    task = trace.get("task", {}).get("data", {})
+    children = task.get("oracle", {}).get("children")
+    if not isinstance(children, list) or len(children) != 1:
+        raise ValueError("child-action booster requires exactly one oracle child")
+    child = children[0]
+    expected = child.get("expected_result")
+    if not isinstance(expected, int):
+        raise ValueError("child-action booster requires an integer oracle result")
+    nodes = trace.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        raise ValueError("child-action trace has no message graph")
+    roots = [index for index, node in enumerate(nodes) if node.get("parent") is None]
+    if len(roots) < 2:
+        raise ValueError("child-action trace has no non-root branch")
+    primary_root = roots[0]
+    child_sampled = [
+        index
+        for index, node in enumerate(nodes)
+        if node.get("sampled") is True
+        and _root(nodes, index) != primary_root
+        and node.get("message", {}).get("role") == "assistant"
+    ]
+    if not child_sampled:
+        raise ValueError("child-action trace has no sampled child response")
+    prefix = _path(nodes, child_sampled[0])[:-1]
+    if not prefix or _root(nodes, prefix[-1]) == primary_root:
+        raise ValueError("child-action prefix crossed into the coordinator branch")
+    tools = trace.get("tools") or []
+    if not any(tool.get("name") == "ipython" for tool in tools if isinstance(tool, dict)):
+        raise ValueError("child-action trace does not expose the IPython tool")
+    code = f"await agent_message.send({str(expected)!r}, receiver_role='parent')"
+    digest = hashlib.sha256(f"{trace['id']}:{code}".encode()).hexdigest()[:16]
+    target = {
+        "role": "assistant",
+        "content": "",
+        "reasoning_content": (
+            f"The private evidence gives {expected}. I must send that integer once to my parent and stop."
+        ),
+        "tool_calls": [
+            {
+                "id": f"child-action-{digest}",
+                "name": "ipython",
+                "arguments": json.dumps({"code": code}, separators=(",", ":")),
+            }
+        ],
+    }
+    task_key = task.get("episode_id") or task.get("name")
+    if not isinstance(task_key, str):
+        raise ValueError("child-action trace lacks a stable task key")
+    return {
+        "messages": [*[_wire_message(nodes[index]["message"]) for index in prefix], target],
+        "tools": json.dumps(tools, sort_keys=True, separators=(",", ":")),
+        "axis": "natural_n1a",
+        "phase": "e0c29_evidence_available",
+        "task_key": task_key,
+        "trace_id": f"child-action-booster:{trace['id']}",
+        "role": "child",
+        "objective": "canonical_exact_parent_send_then_stop",
+        "expected_result": expected,
+        "source_trace": str(source),
+    }
+
+
+def export(*, traces: list[Path], output_dir: Path, max_rows: int = 8) -> dict[str, Any]:
+    if not 1 <= max_rows <= 16:
+        raise ValueError("child-action booster row cap must be between one and sixteen")
+    if output_dir.exists():
+        raise FileExistsError(f"refusing to overwrite child-action booster: {output_dir}")
+    candidates: dict[str, dict[str, Any]] = {}
+    source_records = []
+    for path in traces:
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        source_records.append({"path": str(path.resolve()), "sha256": sha256_file(path)})
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                envelope = json.loads(line)
+                for trace in envelope.get("traces") or []:
+                    if (
+                        trace.get("ok") is True
+                        and not trace.get("errors")
+                        and trace.get("stop_condition") not in TRUNCATED_STOPS
+                        and _score((trace.get("rewards") or {}).get("harness_score")) == 1.0
+                    ):
+                        row = _canonical_row(trace, source=path)
+                        candidates[row["task_key"]] = row
+    rows = list(candidates.values())[-max_rows:]
+    if len(rows) < 2:
+        raise ValueError("child-action booster needs at least two distinct hard successes")
+    output_dir.mkdir(parents=True)
+    parquet = output_dir / "train.parquet"
+    Dataset.from_list(rows).to_parquet(str(parquet))
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "status": "complete",
+        "role": "child",
+        "objective": "canonical_exact_parent_send_then_stop",
+        "rows": len(rows),
+        "task_keys": [row["task_key"] for row in rows],
+        "source_traces": source_records,
+        "dataset": {"path": parquet.name, "sha256": sha256_file(parquet)},
+    }
+    (output_dir / "MANIFEST.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return manifest
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--traces", action="append", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--max-rows", type=int, default=8)
+    args = parser.parse_args()
+    print(
+        json.dumps(
+            export(
+                traces=[path.resolve() for path in args.traces],
+                output_dir=args.output_dir.resolve(),
+                max_rows=args.max_rows,
+            ),
+            indent=2,
+            sort_keys=True,
+        )
+    )
+
+
+if __name__ == "__main__":
+    main()
