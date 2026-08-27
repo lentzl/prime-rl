@@ -13,6 +13,7 @@ from datasets import Dataset
 from export_prime_agent_role_sft_v1 import _wire_message, sha256_file
 
 SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v1"
+CONTRACT_RECOVERY_SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v2"
 TRUNCATED_STOPS = {
     "max_turns",
     "max_input_tokens",
@@ -51,11 +52,13 @@ def _root(nodes: list[dict[str, Any]], index: int) -> int:
     return path[0]
 
 
-def _canonical_row(trace: dict[str, Any], *, source: Path) -> dict[str, Any]:
-    if (
-        trace.get("ok") is not True
-        or trace.get("errors")
-        or trace.get("stop_condition") in TRUNCATED_STOPS
+def _canonical_row(
+    trace: dict[str, Any], *, source: Path, contract_recovery: bool = False
+) -> dict[str, Any]:
+    if trace.get("ok") is not True or trace.get("errors"):
+        raise ValueError("child-action booster accepts structurally valid traces only")
+    if not contract_recovery and (
+        trace.get("stop_condition") in TRUNCATED_STOPS
         or _score((trace.get("rewards") or {}).get("harness_score")) != 1.0
     ):
         raise ValueError("child-action booster accepts hard-success traces only")
@@ -91,6 +94,7 @@ def _canonical_row(trace: dict[str, Any], *, source: Path) -> dict[str, Any]:
         raise ValueError("child-action trace does not expose the IPython tool")
     code = f"await agent_message.send({str(expected)!r}, receiver_role='parent')"
     digest = hashlib.sha256(f"{trace['id']}:{code}".encode()).hexdigest()[:16]
+    tool_call_id = f"child-action-{digest}"
     target = {
         "role": "assistant",
         "content": "",
@@ -99,32 +103,58 @@ def _canonical_row(trace: dict[str, Any], *, source: Path) -> dict[str, Any]:
         ),
         "tool_calls": [
             {
-                "id": f"child-action-{digest}",
+                "id": tool_call_id,
                 "name": "ipython",
                 "arguments": json.dumps({"code": code}, separators=(",", ":")),
             }
         ],
     }
+    messages = [*[_wire_message(nodes[index]["message"]) for index in prefix], target]
+    objective = "canonical_exact_parent_send_then_stop"
+    if contract_recovery:
+        messages.extend(
+            [
+                {
+                    "role": "tool",
+                    "content": "message queued",
+                    "tool_call_id": tool_call_id,
+                },
+                {
+                    "role": "assistant",
+                    "content": "Done.",
+                    "reasoning_content": "The result was delivered successfully, so I must stop.",
+                    "tool_calls": [],
+                },
+            ]
+        )
+        objective = "canonical_exact_parent_send_ack_then_stop"
     task_key = task.get("episode_id") or task.get("name")
     if not isinstance(task_key, str):
         raise ValueError("child-action trace lacks a stable task key")
     return {
-        "messages": [*[_wire_message(nodes[index]["message"]) for index in prefix], target],
+        "messages": messages,
         "tools": json.dumps(tools, sort_keys=True, separators=(",", ":")),
         "axis": "natural_n1a",
         "phase": "e0c29_evidence_available",
         "task_key": task_key,
         "trace_id": f"child-action-booster:{trace['id']}",
         "role": "child",
-        "objective": "canonical_exact_parent_send_then_stop",
+        "objective": objective,
         "expected_result": expected,
         "source_trace": str(source),
     }
 
 
-def export(*, traces: list[Path], output_dir: Path, max_rows: int = 16) -> dict[str, Any]:
-    if not 1 <= max_rows <= 16:
-        raise ValueError("child-action booster row cap must be between one and sixteen")
+def export(
+    *,
+    traces: list[Path],
+    output_dir: Path,
+    max_rows: int = 16,
+    contract_recovery: bool = False,
+) -> dict[str, Any]:
+    row_cap = 32 if contract_recovery else 16
+    if not 1 <= max_rows <= row_cap:
+        raise ValueError(f"child-action booster row cap must be between one and {row_cap}")
     if output_dir.exists():
         raise FileExistsError(f"refusing to overwrite child-action booster: {output_dir}")
     candidates: dict[str, dict[str, Any]] = {}
@@ -139,13 +169,17 @@ def export(*, traces: list[Path], output_dir: Path, max_rows: int = 16) -> dict[
                     continue
                 envelope = json.loads(line)
                 for trace in envelope.get("traces") or []:
-                    if (
-                        trace.get("ok") is True
-                        and not trace.get("errors")
-                        and trace.get("stop_condition") not in TRUNCATED_STOPS
+                    eligible = trace.get("ok") is True and not trace.get("errors")
+                    hard_success = (
+                        trace.get("stop_condition") not in TRUNCATED_STOPS
                         and _score((trace.get("rewards") or {}).get("harness_score")) == 1.0
-                    ):
-                        row = _canonical_row(trace, source=path)
+                    )
+                    if eligible and (contract_recovery or hard_success):
+                        row = _canonical_row(
+                            trace,
+                            source=path,
+                            contract_recovery=contract_recovery,
+                        )
                         candidates[row["task_key"]] = row
     rows = list(candidates.values())[-max_rows:]
     if len(rows) < 2:
@@ -154,10 +188,16 @@ def export(*, traces: list[Path], output_dir: Path, max_rows: int = 16) -> dict[
     parquet = output_dir / "train.parquet"
     Dataset.from_list(rows).to_parquet(str(parquet))
     manifest = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": (
+            CONTRACT_RECOVERY_SCHEMA_VERSION if contract_recovery else SCHEMA_VERSION
+        ),
         "status": "complete",
         "role": "child",
-        "objective": "canonical_exact_parent_send_then_stop",
+        "objective": (
+            "canonical_exact_parent_send_ack_then_stop"
+            if contract_recovery
+            else "canonical_exact_parent_send_then_stop"
+        ),
         "rows": len(rows),
         "task_keys": [row["task_key"] for row in rows],
         "source_traces": source_records,
@@ -175,6 +215,11 @@ def main() -> None:
     parser.add_argument("--traces", action="append", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--max-rows", type=int, default=16)
+    parser.add_argument(
+        "--contract-recovery",
+        action="store_true",
+        help="include valid near-miss traces and train the post-send stop response",
+    )
     args = parser.parse_args()
     print(
         json.dumps(
@@ -182,6 +227,7 @@ def main() -> None:
                 traces=[path.resolve() for path in args.traces],
                 output_dir=args.output_dir.resolve(),
                 max_rows=args.max_rows,
+                contract_recovery=args.contract_recovery,
             ),
             indent=2,
             sort_keys=True,

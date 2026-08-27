@@ -22,6 +22,14 @@ from run_q35_2b_role_grpo_autonomous_v1 import (
 
 SCHEMA_VERSION = "qwen35-2b-child-action-booster-update/v1"
 DATASET_SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v1"
+DATASET_SCHEMA_VERSIONS = {
+    DATASET_SCHEMA_VERSION,
+    "qwen35-2b-child-action-booster-sft/v2",
+}
+DATASET_OBJECTIVES = {
+    "canonical_exact_parent_send_then_stop",
+    "canonical_exact_parent_send_ack_then_stop",
+}
 
 
 def _quote(value: str | Path) -> str:
@@ -38,8 +46,8 @@ def training_config(
     lr: float,
     optimizer_updates: int,
 ) -> str:
-    if not 2 <= rows <= 16:
-        raise ValueError("child-action booster requires between two and sixteen rows")
+    if not 2 <= rows <= 32:
+        raise ValueError("child-action booster requires between two and thirty-two rows")
     if not 1 <= optimizer_updates <= 8:
         raise ValueError("child-action booster requires between one and eight updates")
     batch_size = rows + rows % 2
@@ -148,11 +156,11 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text())
     parquet = path / "train.parquet"
     if (
-        manifest.get("schema_version") != DATASET_SCHEMA_VERSION
+        manifest.get("schema_version") not in DATASET_SCHEMA_VERSIONS
         or manifest.get("status") != "complete"
         or manifest.get("role") != "child"
-        or manifest.get("objective") != "canonical_exact_parent_send_then_stop"
-        or not 2 <= manifest.get("rows", 0) <= 16
+        or manifest.get("objective") not in DATASET_OBJECTIVES
+        or not 2 <= manifest.get("rows", 0) <= 32
         or manifest.get("dataset", {}).get("path") != parquet.name
         or manifest.get("dataset", {}).get("sha256") != sha256_file(parquet)
     ):

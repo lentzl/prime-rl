@@ -81,6 +81,38 @@ def test_export_rejects_non_success_only_bank(tmp_path: Path) -> None:
         raise AssertionError("non-success child bank was exported")
 
 
+def test_contract_recovery_canonicalizes_near_miss_and_trains_stop(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    rows = []
+    for index in range(3):
+        trace = _trace(f"near-miss-{index}", 20 + index)
+        trace["stop_condition"] = "max_turns"
+        trace["rewards"]["harness_score"]["score"] = 0
+        rows.append({"traces": [trace]})
+    traces.write_text("".join(json.dumps(row) + "\n" for row in rows))
+    output = tmp_path / "sft"
+
+    manifest = MODULE.export(
+        traces=[traces],
+        output_dir=output,
+        max_rows=3,
+        contract_recovery=True,
+    )
+
+    assert manifest["schema_version"] == MODULE.CONTRACT_RECOVERY_SCHEMA_VERSION
+    assert manifest["objective"] == "canonical_exact_parent_send_ack_then_stop"
+    exported = Dataset.from_parquet(str(output / "train.parquet"))
+    assert len(exported) == 3
+    for row in exported:
+        send, acknowledgement, stop = row["messages"][-3:]
+        assert send["role"] == "assistant"
+        assert acknowledgement["role"] == "tool"
+        assert acknowledgement["tool_call_id"] == send["tool_calls"][0]["id"]
+        assert stop["role"] == "assistant"
+        assert stop["content"] == "Done."
+        assert stop["tool_calls"] == []
+
+
 def test_booster_config_is_bounded_full_dense_sft(tmp_path: Path) -> None:
     config = BOOSTER_MODULE.training_config(
         run_name="child-booster",
@@ -97,3 +129,18 @@ def test_booster_config_is_bounded_full_dense_sft(tmp_path: Path) -> None:
     assert "batch_size = 8" in config
     assert "lr = 5e-06" in config
     assert "lora" not in config.lower()
+
+
+def test_booster_config_accepts_bounded_contract_recovery_bank(tmp_path: Path) -> None:
+    config = BOOSTER_MODULE.training_config(
+        run_name="child-contract-recovery",
+        model_path=tmp_path / "model",
+        dataset_dir=tmp_path / "dataset",
+        output_root=tmp_path / "outputs",
+        rows=24,
+        lr=5e-6,
+        optimizer_updates=2,
+    )
+
+    assert "max_steps = 2" in config
+    assert "batch_size = 24" in config
