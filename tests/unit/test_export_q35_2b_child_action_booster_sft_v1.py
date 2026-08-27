@@ -81,7 +81,7 @@ def test_export_rejects_non_success_only_bank(tmp_path: Path) -> None:
         raise AssertionError("non-success child bank was exported")
 
 
-def test_booster_config_is_one_step_full_dense_sft(tmp_path: Path) -> None:
+def test_booster_config_is_bounded_full_dense_sft(tmp_path: Path) -> None:
     config = BOOSTER_MODULE.training_config(
         run_name="child-booster",
         model_path=tmp_path / "model",
@@ -89,9 +89,10 @@ def test_booster_config_is_one_step_full_dense_sft(tmp_path: Path) -> None:
         output_root=tmp_path / "outputs",
         rows=8,
         lr=5e-6,
+        optimizer_updates=4,
     )
 
-    assert "max_steps = 1" in config
+    assert "max_steps = 4" in config
     assert 'type = "sft"' in config
     assert "batch_size = 8" in config
     assert "lr = 5e-06" in config

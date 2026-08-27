@@ -29,12 +29,21 @@ def _quote(value: str | Path) -> str:
 
 
 def training_config(
-    *, run_name: str, model_path: Path, dataset_dir: Path, output_root: Path, rows: int, lr: float
+    *,
+    run_name: str,
+    model_path: Path,
+    dataset_dir: Path,
+    output_root: Path,
+    rows: int,
+    lr: float,
+    optimizer_updates: int,
 ) -> str:
     if not 2 <= rows <= 8:
         raise ValueError("child-action booster requires between two and eight rows")
+    if not 1 <= optimizer_updates <= 8:
+        raise ValueError("child-action booster requires between one and eight updates")
     batch_size = rows + rows % 2
-    return f"""max_steps = 1
+    return f"""max_steps = {optimizer_updates}
 output_dir = {_quote(output_root)}
 clean = false
 
@@ -214,10 +223,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         output_root=output_root,
         rows=dataset["rows"],
         lr=args.learning_rate,
+        optimizer_updates=args.optimizer_updates,
     )
     _write_once(config_path, config)
     output_dir = output_root / args.run_name
-    output_model = output_dir / "weights/step_1"
+    output_model = output_dir / f"weights/step_{args.optimizer_updates}"
     output_weight = output_model / "model.safetensors"
     metrics_path = output_dir / "metrics.jsonl"
     if not (output_weight.is_file() and (output_model / "STABLE").is_file() and metrics_path.is_file()):
@@ -249,7 +259,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "phase": phase,
         "bootstrap_leak_level": leak,
         "cycle": args.cycle,
-        "optimizer_updates": 1,
+        "optimizer_updates": args.optimizer_updates,
         "full_dense": True,
         "promotion_minimum": PROMOTION_MINIMUM,
         "source": source,
@@ -299,11 +309,12 @@ def main() -> None:
     parser.add_argument("--cycle", type=int, required=True)
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--learning-rate", type=float, default=5e-6)
+    parser.add_argument("--optimizer-updates", type=int, default=1)
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--uv-bin", type=Path, default=Path("/home/ubuntu/.local/bin/uv"))
     args = parser.parse_args()
-    if args.cycle < 1 or not 0 < args.learning_rate <= 1e-4:
-        parser.error("cycle and learning rate are outside the bounded booster range")
+    if args.cycle < 1 or not 0 < args.learning_rate <= 1e-4 or not 1 <= args.optimizer_updates <= 8:
+        parser.error("cycle, learning rate, or update count is outside the bounded range")
     print(json.dumps(run(args), indent=2, sort_keys=True))
 
 
