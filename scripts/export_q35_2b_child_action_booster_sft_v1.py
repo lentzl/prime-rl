@@ -13,7 +13,7 @@ from datasets import Dataset
 from export_prime_agent_role_sft_v1 import _wire_message, sha256_file
 
 SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v1"
-CONTRACT_RECOVERY_SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v2"
+CONTRACT_RECOVERY_SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v3"
 TRUNCATED_STOPS = {
     "max_turns",
     "max_input_tokens",
@@ -95,12 +95,19 @@ def _canonical_row(
     code = f"await agent_message.send({str(expected)!r}, receiver_role='parent')"
     digest = hashlib.sha256(f"{trace['id']}:{code}".encode()).hexdigest()[:16]
     tool_call_id = f"child-action-{digest}"
+    reasoning = (
+        f"The private evidence gives {expected}. I will send that integer once through "
+        "the required parent channel."
+        if contract_recovery
+        else (
+            f"The private evidence gives {expected}. I must send that integer once to my "
+            "parent and stop."
+        )
+    )
     target = {
         "role": "assistant",
         "content": "",
-        "reasoning_content": (
-            f"The private evidence gives {expected}. I must send that integer once to my parent and stop."
-        ),
+        "reasoning_content": reasoning,
         "tool_calls": [
             {
                 "id": tool_call_id,

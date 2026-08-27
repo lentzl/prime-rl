@@ -25,6 +25,7 @@ DATASET_SCHEMA_VERSION = "qwen35-2b-child-action-booster-sft/v1"
 DATASET_SCHEMA_VERSIONS = {
     DATASET_SCHEMA_VERSION,
     "qwen35-2b-child-action-booster-sft/v2",
+    "qwen35-2b-child-action-booster-sft/v3",
 }
 DATASET_OBJECTIVES = {
     "canonical_exact_parent_send_then_stop",

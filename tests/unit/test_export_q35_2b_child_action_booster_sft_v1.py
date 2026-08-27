@@ -111,6 +111,7 @@ def test_contract_recovery_canonicalizes_near_miss_and_trains_stop(tmp_path: Pat
         assert stop["role"] == "assistant"
         assert stop["content"] == "Done."
         assert stop["tool_calls"] == []
+        assert "stop" not in send["reasoning_content"].lower()
 
 
 def test_booster_config_is_bounded_full_dense_sft(tmp_path: Path) -> None:
