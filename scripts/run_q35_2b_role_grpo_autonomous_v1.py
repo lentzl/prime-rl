@@ -679,7 +679,28 @@ class Controller:
         run_dir = self.args.result_root.resolve() / label
         if not (run_dir / "SUMMARY.json").is_file() or not (run_dir / "VERSIONS.txt").is_file():
             return False
-        evidence = _qualifying_evaluation(run_dir, frontier)
+        try:
+            evidence = _qualifying_evaluation(run_dir, frontier)
+        except ValueError as error:
+            # Admission is deliberately fail-closed: an errored envelope cannot
+            # promote a checkpoint. Record invalid completed evidence as a
+            # terminal failure so the controller advances instead of crashing
+            # and retrying the same immutable result forever.
+            append_event(
+                self.events_path,
+                {
+                    "kind": "evaluation_failed",
+                    "cycle": cycle,
+                    "role": role,
+                    "phase": phase,
+                    "bootstrap_leak_level": bootstrap_leak_level,
+                    "run_name": label,
+                    "run_dir": str(run_dir),
+                    "failure_type": "invalid_admission_evidence",
+                    "error": str(error),
+                },
+            )
+            return True
         append_event(
             self.events_path,
             {

@@ -356,3 +356,46 @@ def test_qualifying_evaluation_requires_distinct_hard_successes_and_both_routes(
     assert result["distinct_qualifying"] == 6
     assert result["promotion_minimum"] == 4
     assert result["role_route_failure_counts"] == {"coordinator": 0, "child": 1}
+
+
+def test_invalid_completed_admission_records_failure_without_controller_crash(
+    tmp_path: Path,
+) -> None:
+    run = tmp_path / "invalid-admission"
+    axis = run / "natural_n1a"
+    axis.mkdir(parents=True)
+    frontier = {"coordinator": _candidate("C26"), "child": _candidate("K2")}
+    (run / "SUMMARY.json").write_text(json.dumps({"episodes": 6, "errors": 1}))
+    (run / "VERSIONS.txt").write_text(
+        f"coordinator_model_sha256={frontier['coordinator']['model_sha256']}\n"
+        f"child_model_sha256={frontier['child']['model_sha256']}\n"
+    )
+    (axis / "traces.jsonl").write_text(
+        json.dumps(
+            {
+                "ok": False,
+                "errors": [{"type": "HarnessError", "message": "transient"}],
+                "traces": [],
+            }
+        )
+        + "\n"
+    )
+    (run / "ROUTING_AUDIT.jsonl").write_text("")
+
+    controller = MODULE.Controller.__new__(MODULE.Controller)
+    controller.args = type("Args", (), {"result_root": tmp_path})()
+    controller.events_path = tmp_path / "events.jsonl"
+    MODULE.append_event(controller.events_path, _initialized())
+
+    assert controller._record_eval_terminal(
+        cycle=1,
+        role="child",
+        phase="e0c29_evidence_available",
+        bootstrap_leak_level="action_scaffold",
+        label=run.name,
+        frontier=frontier,
+    ) is True
+    terminal = MODULE.load_events(controller.events_path)[-1]
+    assert terminal["kind"] == "evaluation_failed"
+    assert terminal["failure_type"] == "invalid_admission_evidence"
+    assert terminal["cycle"] == 1
