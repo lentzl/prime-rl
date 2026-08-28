@@ -49,6 +49,35 @@ HOP_BY_HOP = {
 }
 
 
+class _ComputeSendToValue(ast.NodeTransformer):
+    """Turn a forbidden compute-stage parent send into its payload expression."""
+
+    def __init__(self) -> None:
+        self.rewrites = 0
+
+    def visit_Await(self, node: ast.Await) -> ast.AST:
+        call = node.value
+        if (
+            isinstance(call, ast.Call)
+            and isinstance(call.func, ast.Attribute)
+            and call.func.attr == "send"
+            and isinstance(call.func.value, ast.Name)
+            and call.func.value.id == "agent_message"
+        ):
+            payload = call.args[0] if call.args else next(
+                (
+                    keyword.value
+                    for keyword in call.keywords
+                    if keyword.arg in {"message", "payload"}
+                ),
+                None,
+            )
+            if payload is not None:
+                self.rewrites += 1
+                return ast.copy_location(self.visit(payload), node)
+        return self.generic_visit(node)
+
+
 def normalize_openai_finish_reason(body: bytes) -> tuple[bytes, int]:
     """Map vLLM's internal ``abort`` extension to the OpenAI ``stop`` enum.
 
@@ -488,13 +517,18 @@ def rewrite_ipython_literal_newlines_response(
                     f"{repaired}"
                 )
             try:
-                ast.parse(repaired)
+                tree = ast.parse(repaired)
             except SyntaxError:
                 repaired = repaired.replace("\\r\\n", "\n").replace("\\n", "\n")
                 try:
-                    ast.parse(repaired)
+                    tree = ast.parse(repaired)
                 except SyntaxError:
                     continue
+            send_transformer = _ComputeSendToValue()
+            tree = send_transformer.visit(tree)
+            if send_transformer.rewrites:
+                ast.fix_missing_locations(tree)
+                repaired = ast.unparse(tree)
             if repaired == code:
                 continue
             parsed_arguments["code"] = repaired

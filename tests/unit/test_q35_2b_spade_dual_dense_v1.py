@@ -685,6 +685,41 @@ def test_proxy_prebinds_inline_evidence_and_redirects_path_read() -> None:
     compile(grounded, "<grounded-compute>", "exec")
 
 
+def test_proxy_converts_compute_stage_parent_send_to_value_expression() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = "await agent_message.send(str(2 + 2), receiver_role='parent')"
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    body, rewrites, _ = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode(), inline_evidence="unused evidence"
+    )
+
+    assert rewrites == 1
+    grounded = json.loads(
+        json.loads(body)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert "agent_message.send" not in grounded
+    assert "str(2 + 2)" in grounded
+    compile(grounded, "<grounded-compute>", "exec")
+
+
 def test_proxy_preserves_valid_python_containing_literal_newline_escape() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     code = 'separator = "\\n"'
