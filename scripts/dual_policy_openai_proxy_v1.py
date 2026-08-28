@@ -30,6 +30,7 @@ CHILD_ACTION_PATTERN = re.compile(
 CHILD_SEND_PATTERN = re.compile(
     r"await agent_message\.send\('[0-9]+', receiver_role='parent'\)"
 )
+TYPED_PARENT_RETURN_TOOL = "return_to_parent"
 HOP_BY_HOP = {
     "connection",
     "content-encoding",
@@ -291,6 +292,114 @@ def force_ipython_code_schema(payload: dict[str, Any], code: str) -> dict[str, A
     }
 
 
+def force_typed_parent_return_schema(payload: dict[str, Any]) -> dict[str, Any]:
+    """Expose one parent-return action without disclosing its payload or routing code."""
+
+    tools = payload.get("tools")
+    if not isinstance(tools, list) or not any(
+        isinstance(tool, dict)
+        and isinstance(tool.get("function"), dict)
+        and tool["function"].get("name") == "ipython"
+        for tool in tools
+    ):
+        raise ValueError("typed parent return requires the IPython tool")
+    rewritten = {
+        **payload,
+        "stream": False,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": TYPED_PARENT_RETURN_TOOL,
+                    "description": (
+                        "Return the computed result to this session's direct parent. "
+                        "The harness fixes routing, permits exactly one return, and "
+                        "ends the delegated session after delivery."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "payload": {
+                                "type": "string",
+                                "description": "The result computed from this session's evidence.",
+                            }
+                        },
+                        "required": ["payload"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        ],
+        "tool_choice": {
+            "type": "function",
+            "function": {"name": TYPED_PARENT_RETURN_TOOL},
+        },
+        "parallel_tool_calls": False,
+    }
+    rewritten.pop("stream_options", None)
+    return rewritten
+
+
+def rewrite_typed_parent_return_response(body: bytes) -> tuple[bytes, int, str | None]:
+    """Translate a model-computed typed return into the native IPython send call."""
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body, 0, None
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        return body, 0, None
+    rewrites = 0
+    action_sha256 = None
+    for choice in payload["choices"]:
+        if not isinstance(choice, dict):
+            continue
+        message = choice.get("message")
+        if not isinstance(message, dict):
+            continue
+        tool_calls = message.get("tool_calls")
+        if not isinstance(tool_calls, list) or len(tool_calls) != 1:
+            continue
+        tool_call = tool_calls[0]
+        if not isinstance(tool_call, dict):
+            continue
+        function = tool_call.get("function")
+        if not isinstance(function, dict) or function.get("name") != TYPED_PARENT_RETURN_TOOL:
+            continue
+        arguments = function.get("arguments")
+        try:
+            parsed_arguments = (
+                json.loads(arguments) if isinstance(arguments, str) else arguments
+            )
+        except json.JSONDecodeError:
+            continue
+        if (
+            not isinstance(parsed_arguments, dict)
+            or set(parsed_arguments) != {"payload"}
+            or not isinstance(parsed_arguments["payload"], str)
+        ):
+            continue
+        code = (
+            "await agent_message.send("
+            f"{json.dumps(parsed_arguments['payload'], ensure_ascii=False)}, "
+            "receiver_role='parent')"
+        )
+        tool_call["type"] = "function"
+        function["name"] = "ipython"
+        function["arguments"] = json.dumps(
+            {"code": code}, separators=(",", ":"), ensure_ascii=False
+        )
+        rewrites += 1
+        action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+    if not rewrites:
+        return body, 0, None
+    return (
+        json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(),
+        rewrites,
+        action_sha256,
+    )
+
+
 def _encoded_ipython_completion(tokenizer: Any, code: str) -> tuple[list[int], str]:
     if "</parameter>" in code or "</function>" in code or "</tool_call>" in code:
         raise ValueError("disclosed action contains a tool-call delimiter")
@@ -373,6 +482,7 @@ class DualPolicyProxy:
         recursive_coordinator_token_ids: list[int] | None = None,
         leak_coordinator_exact_action: bool = False,
         leak_coordinator_return_action: bool = False,
+        typed_coordinator_return: bool = False,
         leak_child_exact_action: bool = False,
         strip_child_tool_choice: bool = False,
         strip_coordinator_tool_choice: bool = False,
@@ -389,6 +499,7 @@ class DualPolicyProxy:
         self.tokenizer = tokenizer
         self.leak_coordinator_exact_action = leak_coordinator_exact_action
         self.leak_coordinator_return_action = leak_coordinator_return_action
+        self.typed_coordinator_return = typed_coordinator_return
         self.leak_child_exact_action = leak_child_exact_action
         self.strip_child_tool_choice = strip_child_tool_choice
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
@@ -517,6 +628,8 @@ class DualPolicyProxy:
         )
         forced_chat_scope = None
         forced_chat_action_sha256 = None
+        typed_return_scope = False
+        typed_return_action_sha256 = None
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -551,6 +664,33 @@ class DualPolicyProxy:
                     self.leaked_session_hashes[forced_chat_scope].add(session_sha256)
                     routed = force_ipython_code_schema(routed, code)
                     forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        if (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and self.typed_coordinator_return
+            and _contains_marker(payload.get("messages"), RECURSIVE_COORDINATOR_HEADER)
+        ):
+            typed_return_scope = True
+            if session_sha256 is None:
+                body = json.dumps(
+                    routed, separators=(",", ":"), ensure_ascii=False
+                ).encode()
+                self._audit(
+                    role=role,
+                    endpoint=endpoint,
+                    body=body,
+                    status=400,
+                    mode="typed_return_rejected_missing_session",
+                )
+                return web.json_response(
+                    {"error": "typed coordinator return requires x-session-id"},
+                    status=400,
+                )
+            if session_sha256 in self.leaked_session_hashes["coordinator_return"]:
+                typed_return_scope = False
+            else:
+                self.leaked_session_hashes["coordinator_return"].add(session_sha256)
+                routed = force_typed_parent_return_schema(routed)
         body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
         leak_specs = []
         if role == "coordinator" and self.leak_coordinator_exact_action:
@@ -642,6 +782,10 @@ class DualPolicyProxy:
                 normalized, response_rewrites = normalize_openai_finish_reason(
                     upstream_body
                 )
+                if typed_return_scope and upstream.status == 200:
+                    normalized, _, typed_return_action_sha256 = (
+                        rewrite_typed_parent_return_response(normalized)
+                    )
                 response = web.Response(
                     status=upstream.status,
                     headers=response_headers,
@@ -653,7 +797,13 @@ class DualPolicyProxy:
                 body=body,
                 status=upstream.status,
                 mode=(
-                    "forwarded_forced_exact_coordinator_return_schema"
+                    (
+                        "forwarded_typed_coordinator_return"
+                        if typed_return_action_sha256 is not None
+                        else "forwarded_typed_coordinator_return_untranslated"
+                    )
+                    if typed_return_scope
+                    else "forwarded_forced_exact_coordinator_return_schema"
                     if forced_chat_scope is not None
                     else (
                         "forwarded_normalized_abort_finish_reason"
@@ -665,7 +815,9 @@ class DualPolicyProxy:
                         )
                     )
                 ),
-                action_sha256=forced_chat_action_sha256,
+                action_sha256=(
+                    typed_return_action_sha256 or forced_chat_action_sha256
+                ),
                 session_sha256=session_sha256,
                 response_rewrites=response_rewrites,
             )
@@ -701,6 +853,7 @@ def main() -> None:
     parser.add_argument("--tokenizer-model")
     parser.add_argument("--leak-coordinator-exact-action", action="store_true")
     parser.add_argument("--leak-coordinator-return-action", action="store_true")
+    parser.add_argument("--typed-coordinator-return", action="store_true")
     parser.add_argument("--leak-child-exact-action", action="store_true")
     parser.add_argument("--strip-child-tool-choice", action="store_true")
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
@@ -729,6 +882,7 @@ def main() -> None:
         tokenizer=tokenizer,
         leak_coordinator_exact_action=args.leak_coordinator_exact_action,
         leak_coordinator_return_action=args.leak_coordinator_return_action,
+        typed_coordinator_return=args.typed_coordinator_return,
         leak_child_exact_action=args.leak_child_exact_action,
         strip_child_tool_choice=args.strip_child_tool_choice,
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,

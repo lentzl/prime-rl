@@ -37,6 +37,8 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     )
     assert 'proxy_args+=(--leak-coordinator-return-action)' in launcher
     assert 'if [[ "$leak_coordinator_return_action" == 1 ]]' in launcher
+    assert "typed_coordinator_return=${DUAL_TYPED_COORDINATOR_RETURN:-0}" in launcher
+    assert 'proxy_args+=(--typed-coordinator-return)' in launcher
 
 
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
@@ -487,6 +489,113 @@ def test_proxy_forces_disclosed_recursive_return_in_chat_tool_schema() -> None:
         "additionalProperties": False,
     }
     assert payload["tools"][0]["function"]["parameters"] == {"type": "object"}
+
+
+def test_proxy_exposes_typed_parent_return_without_answer_or_routing_fields() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "messages": [{"role": "user", "content": "compute from private evidence"}],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "parameters": {"type": "object"},
+                },
+            }
+        ],
+    }
+
+    rewritten = module.force_typed_parent_return_schema(payload)
+
+    assert rewritten["stream"] is False
+    assert "stream_options" not in rewritten
+    assert rewritten["tool_choice"]["function"]["name"] == "return_to_parent"
+    assert rewritten["parallel_tool_calls"] is False
+    assert len(rewritten["tools"]) == 1
+    function = rewritten["tools"][0]["function"]
+    assert function["name"] == "return_to_parent"
+    assert function["parameters"] == {
+        "type": "object",
+        "properties": {
+            "payload": {
+                "type": "string",
+                "description": "The result computed from this session's evidence.",
+            }
+        },
+        "required": ["payload"],
+        "additionalProperties": False,
+    }
+    serialized = json.dumps(rewritten)
+    assert "receiver_role" not in serialized
+    assert "agent_message.send" not in serialized
+    assert "17" not in serialized
+
+
+def test_proxy_translates_model_computed_typed_return_to_native_send() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    upstream = {
+        "choices": [
+            {
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call-1",
+                            "type": "function",
+                            "function": {
+                                "name": "return_to_parent",
+                                "arguments": json.dumps({"payload": "17"}),
+                            },
+                        }
+                    ],
+                },
+            }
+        ]
+    }
+
+    body, rewrites, action_sha256 = module.rewrite_typed_parent_return_response(
+        json.dumps(upstream).encode()
+    )
+
+    assert rewrites == 1
+    rewritten = json.loads(body)
+    function = rewritten["choices"][0]["message"]["tool_calls"][0]["function"]
+    assert function["name"] == "ipython"
+    code = json.loads(function["arguments"])["code"]
+    assert code == "await agent_message.send(\"17\", receiver_role='parent')"
+    assert action_sha256 == hashlib.sha256(code.encode()).hexdigest()
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [json.dumps({"payload": 17}), json.dumps({"answer": "17"}), "not-json"],
+)
+def test_proxy_rejects_malformed_typed_return_payloads(arguments: str) -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "return_to_parent",
+                                "arguments": arguments,
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    original = json.dumps(upstream).encode()
+    assert module.rewrite_typed_parent_return_response(original) == (original, 0, None)
 
 
 def test_synthetic_generate_response_has_cardinality_matched_finite_logprobs() -> None:

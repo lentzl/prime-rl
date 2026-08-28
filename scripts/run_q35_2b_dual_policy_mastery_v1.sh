@@ -16,6 +16,7 @@ coordinator_backend_port=${COORDINATOR_BACKEND_PORT:-8101}
 child_backend_port=${CHILD_BACKEND_PORT:-8102}
 proxy_port=${DUAL_PROXY_PORT:-8100}
 leak_coordinator_return_action=${DUAL_LEAK_COORDINATOR_RETURN_ACTION:-0}
+typed_coordinator_return=${DUAL_TYPED_COORDINATOR_RETURN:-0}
 
 cd "$root"
 for model in "$coordinator_model" "$child_model"; do
@@ -34,6 +35,14 @@ if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
 fi
 if [[ "$leak_coordinator_return_action" != 0 && "$leak_coordinator_return_action" != 1 ]]; then
   echo "DUAL_LEAK_COORDINATOR_RETURN_ACTION must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$typed_coordinator_return" != 0 && "$typed_coordinator_return" != 1 ]]; then
+  echo "DUAL_TYPED_COORDINATOR_RETURN must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$leak_coordinator_return_action" == 1 && "$typed_coordinator_return" == 1 ]]; then
+  echo "exact and typed coordinator-return scaffolds are mutually exclusive" >&2
   exit 1
 fi
 mkdir -p "$run_output"
@@ -135,6 +144,9 @@ proxy_args=(
 )
 if [[ "$leak_coordinator_return_action" == 1 ]]; then
   proxy_args+=(--leak-coordinator-return-action)
+fi
+if [[ "$typed_coordinator_return" == 1 ]]; then
+  proxy_args+=(--typed-coordinator-return)
 fi
 
 "$uv_bin" run --no-sync scripts/dual_policy_openai_proxy_v1.py \
