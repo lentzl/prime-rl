@@ -13,6 +13,7 @@ from typing import Any
 from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 PRIVATE_EVIDENCE_HEADER = "[private evidence supplied to this reviewer]"
+RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
 ROOT_ACTION_PATTERN = re.compile(
@@ -99,6 +100,16 @@ def _contains_private_evidence(value: Any) -> bool:
     return False
 
 
+def _contains_marker(value: Any, marker: str) -> bool:
+    if isinstance(value, str):
+        return marker in value
+    if isinstance(value, list):
+        return any(_contains_marker(item, marker) for item in value)
+    if isinstance(value, dict):
+        return any(_contains_marker(item, marker) for item in value.values())
+    return False
+
+
 def _contains_token_subsequence(token_ids: list[int], marker_ids: list[int]) -> bool:
     if not marker_ids or len(marker_ids) > len(token_ids):
         return False
@@ -106,14 +117,30 @@ def _contains_token_subsequence(token_ids: list[int], marker_ids: list[int]) -> 
     return any(token_ids[start : start + width] == marker_ids for start in range(len(token_ids) - width + 1))
 
 
-def request_role(payload: dict[str, Any], *, private_evidence_token_ids: list[int] | None = None) -> str:
+def request_role(
+    payload: dict[str, Any],
+    *,
+    private_evidence_token_ids: list[int] | None = None,
+    recursive_coordinator_token_ids: list[int] | None = None,
+) -> str:
     messages = payload.get("messages")
     if isinstance(messages, list):
-        return "child" if _contains_private_evidence(messages) else "coordinator"
+        has_private = _contains_private_evidence(messages)
+        has_recursive_coordinator = _contains_marker(
+            messages, RECURSIVE_COORDINATOR_HEADER
+        )
+        if has_private and has_recursive_coordinator:
+            raise ValueError("request contains conflicting delegated-session role markers")
+        return "child" if has_private else "coordinator"
     token_ids = payload.get("token_ids")
     if isinstance(token_ids, list) and all(isinstance(item, int) for item in token_ids):
         marker_ids = private_evidence_token_ids or []
-        return "child" if _contains_token_subsequence(token_ids, marker_ids) else "coordinator"
+        coordinator_ids = recursive_coordinator_token_ids or []
+        has_private = _contains_token_subsequence(token_ids, marker_ids)
+        has_recursive_coordinator = _contains_token_subsequence(token_ids, coordinator_ids)
+        if has_private and has_recursive_coordinator:
+            raise ValueError("request contains conflicting delegated-session role markers")
+        return "child" if has_private else "coordinator"
     raise ValueError("role-routed request lacks messages or token_ids")
 
 
@@ -123,8 +150,13 @@ def routed_payload(
     coordinator_model: str,
     child_model: str,
     private_evidence_token_ids: list[int] | None = None,
+    recursive_coordinator_token_ids: list[int] | None = None,
 ) -> tuple[str, dict[str, Any]]:
-    role = request_role(payload, private_evidence_token_ids=private_evidence_token_ids)
+    role = request_role(
+        payload,
+        private_evidence_token_ids=private_evidence_token_ids,
+        recursive_coordinator_token_ids=recursive_coordinator_token_ids,
+    )
     model = child_model if role == "child" else coordinator_model
     return role, {**payload, "model": model}
 
@@ -276,6 +308,7 @@ class DualPolicyProxy:
         audit_log: Path,
         private_evidence_token_ids: list[int],
         tokenizer: Any,
+        recursive_coordinator_token_ids: list[int] | None = None,
         leak_coordinator_exact_action: bool = False,
         leak_child_exact_action: bool = False,
         strip_child_tool_choice: bool = False,
@@ -289,6 +322,7 @@ class DualPolicyProxy:
         self.external_model = external_model
         self.audit_log = audit_log
         self.private_evidence_token_ids = private_evidence_token_ids
+        self.recursive_coordinator_token_ids = recursive_coordinator_token_ids or []
         self.tokenizer = tokenizer
         self.leak_coordinator_exact_action = leak_coordinator_exact_action
         self.leak_child_exact_action = leak_child_exact_action
@@ -399,6 +433,7 @@ class DualPolicyProxy:
             coordinator_model=self.models["coordinator"],
             child_model=self.models["child"],
             private_evidence_token_ids=self.private_evidence_token_ids,
+            recursive_coordinator_token_ids=self.recursive_coordinator_token_ids,
         )
         stripped_sampling_fields: tuple[str, ...] = ()
         strip_tool_choice = should_strip_tool_choice(
@@ -561,8 +596,13 @@ def main() -> None:
 
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer_model or args.coordinator_model)
     private_evidence_token_ids = tokenizer.encode(PRIVATE_EVIDENCE_HEADER, add_special_tokens=False)
+    recursive_coordinator_token_ids = tokenizer.encode(
+        RECURSIVE_COORDINATOR_HEADER, add_special_tokens=False
+    )
     if not private_evidence_token_ids:
         raise RuntimeError("private-evidence role marker encoded to an empty token sequence")
+    if not recursive_coordinator_token_ids:
+        raise RuntimeError("recursive-coordinator role marker encoded to an empty token sequence")
     proxy = DualPolicyProxy(
         coordinator_url=args.coordinator_url,
         coordinator_model=args.coordinator_model,
@@ -571,6 +611,7 @@ def main() -> None:
         external_model=args.external_model,
         audit_log=args.audit_log.resolve(),
         private_evidence_token_ids=private_evidence_token_ids,
+        recursive_coordinator_token_ids=recursive_coordinator_token_ids,
         tokenizer=tokenizer,
         leak_coordinator_exact_action=args.leak_coordinator_exact_action,
         leak_child_exact_action=args.leak_child_exact_action,

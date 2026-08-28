@@ -269,6 +269,46 @@ def test_proxy_routes_private_evidence_only_to_the_child_model() -> None:
     )
 
 
+def test_proxy_routes_recursive_coordinator_context_to_coordinator_model() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    recursive = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "[recursive coordinator session contract]\n"
+                    "session_role=coordinator\nis_root=false"
+                ),
+            }
+        ],
+        "model": "external",
+    }
+
+    assert module.routed_payload(
+        recursive, coordinator_model="coordinator", child_model="child"
+    ) == ("coordinator", {**recursive, "model": "coordinator"})
+
+    conflicting = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "[recursive coordinator session contract] "
+                    "[private evidence supplied to this reviewer]"
+                ),
+            }
+        ]
+    }
+    with pytest.raises(ValueError, match="conflicting delegated-session"):
+        module.request_role(conflicting)
+
+    assert module.request_role(
+        {"token_ids": [1, 71, 72, 2]},
+        private_evidence_token_ids=[81, 82],
+        recursive_coordinator_token_ids=[71, 72],
+    ) == "coordinator"
+
+
 def test_proxy_normalizes_vllm_abort_finish_reason_for_json_and_split_sse() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     payload = {

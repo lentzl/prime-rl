@@ -86,7 +86,7 @@ if [[ -n "$privileged_hint_path" && -n "$privileged_bootstrap_path" ]]; then
   exit 1
 fi
 case "$interaction_curriculum" in
-  ""|e0_full_actions|e0b_select_child_value|e0c_natural_child|e0c2_natural_child_no_template|e0c25_inline_evidence|e0c275_inline_location|e0c28_inline_only|e0c29_evidence_available|e0c3_natural_child_minimal|e0d_guided_yield|e0d2_capped_yield|e0d2_capped_yield_exact_child|e0d3_uncapped_yield_exact_child|e0d3_uncapped_yield|e1_root_and_yield|e2_yield_only) ;;
+  ""|e0_full_actions|e0b_select_child_value|e0c_natural_child|e0c2_natural_child_no_template|e0c25_inline_evidence|e0c275_inline_location|e0c28_inline_only|e0c29_evidence_available|e0c3_natural_child_minimal|e0c4_recursive_coordinator_return|e0d_guided_yield|e0d2_capped_yield|e0d2_capped_yield_exact_child|e0d3_uncapped_yield_exact_child|e0d3_uncapped_yield|e1_root_and_yield|e2_yield_only) ;;
   *) echo "unsupported interaction curriculum phase: $interaction_curriculum" >&2; exit 1 ;;
 esac
 if [[ -n "$interaction_curriculum" ]]; then
