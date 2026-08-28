@@ -6,6 +6,7 @@ import torch
 
 from prime_rl.configs.algorithm import GRPOAlgoConfig
 from prime_rl.orchestrator.algo.base import Algorithm
+from prime_rl.orchestrator.algo.sft import retain_session_scope_samples
 
 if TYPE_CHECKING:
     from prime_rl.orchestrator.types import Rollout
@@ -20,6 +21,14 @@ class GRPOAlgorithm(Algorithm):
     def __init__(self, config: GRPOAlgoConfig, policy_pool: InferencePool):
         super().__init__(config, policy_pool)
         self.length_penalty = config.length_penalty
+        self.sampled_session_scope = config.sampled_session_scope
+
+    async def score_rollout(self, rollout: Rollout) -> None:
+        if self.sampled_session_scope != "all":
+            retain_session_scope_samples(
+                rollout,
+                scope=self.sampled_session_scope,
+            )
 
     async def score_group(self, group: list[Rollout]) -> None:
         rewards = torch.tensor([rollout.reward for rollout in group], dtype=torch.float32)

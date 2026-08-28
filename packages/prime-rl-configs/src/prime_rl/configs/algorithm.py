@@ -238,6 +238,16 @@ class GRPOAlgoConfig(BaseAlgoConfig):
 
     action_loss_type: ClassVar[ActionLossType] = "rl"
 
+    sampled_session_scope: Literal["all", "root", "non_root"] = "all"
+    """Which intercepted client sessions receive policy-gradient credit.
+
+    ``all`` preserves ordinary GRPO behavior. ``root`` retains only the
+    primary graph root's client session (the Prime Agent coordinator), while
+    ``non_root`` retains every other explicitly identified client session
+    (direct children). Role-scoped modes require unambiguous per-call session
+    lineage and fail closed when it is missing or conflicting.
+    """
+
     length_penalty: LengthPenaltyConfig | None = None
     """Linear length penalty subtracted from each reward before the GRPO baseline (see ``LinearLengthPenaltyConfig``): a ``pass_rate``-scaled sum of output-token, input-token, and turns terms, each normalized by the group's own max for that quantity. None disables it."""
 
@@ -451,10 +461,11 @@ class SFTAlgoConfig(BaseAlgoConfig):
 
     action_loss_type: ClassVar[ActionLossType] = "ce"
 
-    sampled_session_scope: Literal["all", "root"] = "all"
+    sampled_session_scope: Literal["all", "root", "non_root"] = "all"
     """Which intercepted client sessions contribute sampled-token CE. ``all``
     preserves ordinary SFT behavior. ``root`` trains only the primary graph
-    root's client session and requires explicit per-call session lineage."""
+    root's client session, while ``non_root`` trains its direct or nested
+    children. Role-scoped modes require explicit per-call session lineage."""
 
     filter: SFTFilterConfig | None = None
     """Optional filter narrowing sampled SFT action targets."""

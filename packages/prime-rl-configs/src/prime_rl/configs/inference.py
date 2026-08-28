@@ -312,6 +312,34 @@ class VllmRouterConfig(BaseConfig):
     """Routing policy, e.g. ``consistent_hash`` or ``round_robin``."""
 
 
+class RoleRouterConfig(BaseConfig):
+    """Route coordinator and child sessions between a policy and frozen anchor."""
+
+    type: Literal["role-router"] = "role-router"
+    policy_role: Literal["coordinator", "child"]
+    anchor_model: str
+    anchor_backend_port: int = Field(8200, ge=1, le=65535)
+    anchor_data_parallel_rpc_port: int = Field(13347, ge=1, le=65535)
+    anchor_gpu_memory_utilization: float = Field(0.34, gt=0, lt=1)
+    anchor_kv_cache_memory_bytes: int = Field(4 * 1024**3, gt=0)
+    leak_coordinator_exact_action: bool = False
+    """For child-policy bootstrap only, synthesize the disclosed exact coordinator
+    spawn action at the role-router boundary. Coordinator tokens are excluded from
+    the update; child responses remain sampled on-policy."""
+    leak_child_exact_action: bool = False
+    """For early coordinator-policy bootstrap only, synthesize the child send action
+    disclosed inside the child's private training context. The hidden value is never
+    added to the coordinator prompt; only the resulting child message crosses roles."""
+    strip_child_tool_choice: bool = False
+    """For child-policy bootstrap only, remove named chat tool-choice controls from
+    direct token-in generation. The tool schema remains in the rendered prompt."""
+    strip_coordinator_tool_choice: bool = False
+    """For coordinator-policy bootstrap only, remove named chat tool-choice controls
+    from direct token-in generation. The tool schema remains in the rendered prompt."""
+    state_dir: Path
+    audit_log: Path
+
+
 class LlmdRouterConfig(BaseConfig):
     """llm-d router backend (EPP + Envoy)."""
 
@@ -359,7 +387,10 @@ class LlmdRouterConfig(BaseConfig):
 
 
 # Discriminated on ``type`` so the launch path can pick the router backend.
-RouterConfig: TypeAlias = Annotated[VllmRouterConfig | LlmdRouterConfig, Field(discriminator="type")]
+RouterConfig: TypeAlias = Annotated[
+    VllmRouterConfig | RoleRouterConfig | LlmdRouterConfig,
+    Field(discriminator="type"),
+]
 
 
 class BaseInferenceDeploymentConfig(BaseConfig):

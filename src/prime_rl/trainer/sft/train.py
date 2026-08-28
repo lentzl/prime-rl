@@ -29,6 +29,7 @@ from prime_rl.trainer.model import (
     forward,
     get_load_balance_stats,
     is_tt_moe_model,
+    load_initial_lora_adapter,
     setup_processor,
     setup_tokenizer,
     resolve_auto_attn,
@@ -151,6 +152,10 @@ def train(config: SFTConfig):
 
     if config.model.lora is not None:
         get_lora_state().reset_adapter_parameters()
+        if config.model.lora.initial_adapter_path is not None:
+            if checkpoint_step is not None:
+                raise ValueError("initial_adapter_path cannot be combined with checkpoint resume")
+            load_initial_lora_adapter(model, config.model.lora)
 
     logger.info(f"Initializing tokenizer ({config.tokenizer})")
     tokenizer = setup_tokenizer(config.tokenizer)

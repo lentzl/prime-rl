@@ -341,6 +341,14 @@ The per-token training signal is set by `algo.type` and the [algorithm](#the-alg
 
 The default advantage is per-group reward minus per-group baseline (DR-GRPO without std normalization). For each prompt's group of `group_size` rollouts, every token in rollout $i$ receives advantage $s_i - \bar{s}$ where $\bar{s}$ is the group mean.
 
+Agent harnesses that place several independently addressable sessions in one
+trace can restrict policy-gradient credit with `sampled_session_scope =
+"root"` or `"non_root"`. `root` selects the primary graph-root session (for
+example, a Prime Agent coordinator); `non_root` selects child sessions. Both
+modes require explicit, unambiguous client-session lineage for every sampled
+model call and fail closed otherwise. Rewards are still compared across the
+whole same-task group; only the token-level gradient destination is narrowed.
+
 This is intentionally simple — it does the right thing for most envs. Write a named algorithm class when you need group-aware shaping that depends on trajectory metadata (sub-agent rollouts, relative-rank shaping, …) — see [Authoring an Algorithm](#authoring-an-algorithm).
 
 A **length penalty** (`length_penalty` on the `grpo`-family algorithms) can be layered on top to discourage rambling. The `linear` penalty subtracts a single `pass_rate`-scaled penalty from each reward before the GRPO baseline, combining output tokens (`num_output_tokens_weight`), input / context tokens (`num_input_tokens_weight`), and turns (`num_turns_weight`) — each normalized by the group's own max for that quantity, with `num_input_tokens_weight` and `num_turns_weight` defaulting to `0.1`.

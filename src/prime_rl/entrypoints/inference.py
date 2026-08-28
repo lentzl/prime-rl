@@ -179,6 +179,91 @@ def start_router(config: InferenceConfig) -> subprocess.Popen:
     return subprocess.Popen(cmd)
 
 
+def start_role_router(config: InferenceConfig) -> list[subprocess.Popen]:
+    """Start a frozen anchor engine and role-aware proxy beside the policy engine."""
+
+    assert config.router is not None and config.router.type == "role-router"
+    router = config.router
+    router.state_dir.mkdir(parents=True, exist_ok=True)
+    anchor_output = router.state_dir / "anchor"
+    anchor_vllm = config.vllm.model_copy(
+        update={
+            "model": router.anchor_model,
+            "gpu_memory_utilization": router.anchor_gpu_memory_utilization,
+            "kv_cache_memory_bytes": router.anchor_kv_cache_memory_bytes,
+            "data_parallel_rpc_port": router.anchor_data_parallel_rpc_port,
+        }
+    )
+    anchor_config = config.model_copy(
+        update={
+            "server": config.server.model_copy(update={"port": router.anchor_backend_port}),
+            "router": None,
+            "backend_port": router.anchor_backend_port + 100,
+            "vllm": anchor_vllm,
+            "output_dir": anchor_output,
+        }
+    )
+    anchor_config_path = write_config(anchor_config, anchor_output)
+    anchor_log = open(router.state_dir / "anchor-inference.log", "w")
+    anchor_process = subprocess.Popen(
+        ["inference", "@", str(anchor_config_path)],
+        stdout=anchor_log,
+        stderr=anchor_log,
+    )
+    anchor_log.close()
+
+    policy_url = f"http://127.0.0.1:{config.backend_port}/v1"
+    anchor_url = f"http://127.0.0.1:{router.anchor_backend_port}/v1"
+    if router.policy_role == "coordinator":
+        coordinator_url, coordinator_model = policy_url, config.vllm.model
+        child_url, child_model = anchor_url, router.anchor_model
+    else:
+        coordinator_url, coordinator_model = anchor_url, router.anchor_model
+        child_url, child_model = policy_url, config.vllm.model
+
+    repository_root = Path(__file__).resolve().parents[3]
+    proxy_script = repository_root / "scripts" / "dual_policy_openai_proxy_v1.py"
+    if not proxy_script.is_file():
+        cleanup_processes([anchor_process])
+        raise FileNotFoundError(f"role-router proxy is missing: {proxy_script}")
+    proxy_log = open(router.state_dir / "proxy.log", "w")
+    proxy_command = [
+        sys.executable,
+        str(proxy_script),
+        "--host",
+        config.server.host or "0.0.0.0",
+        "--port",
+        str(config.server.port),
+        "--coordinator-url",
+        coordinator_url,
+        "--coordinator-model",
+        coordinator_model,
+        "--child-url",
+        child_url,
+        "--child-model",
+        child_model,
+        "--external-model",
+        config.vllm.model,
+        "--audit-log",
+        str(router.audit_log),
+    ]
+    if router.leak_coordinator_exact_action:
+        proxy_command.append("--leak-coordinator-exact-action")
+    if router.leak_child_exact_action:
+        proxy_command.append("--leak-child-exact-action")
+    if router.strip_child_tool_choice:
+        proxy_command.append("--strip-child-tool-choice")
+    if router.strip_coordinator_tool_choice:
+        proxy_command.append("--strip-coordinator-tool-choice")
+    proxy_process = subprocess.Popen(
+        proxy_command,
+        stdout=proxy_log,
+        stderr=proxy_log,
+    )
+    proxy_log.close()
+    return [proxy_process, anchor_process]
+
+
 def inference_local(config: InferenceConfig):
     """Run inference locally: a router on ``server.port`` fronting the engine on ``backend_port``."""
     from prime_rl.inference.server import setup_vllm_env
@@ -199,21 +284,28 @@ def inference_local(config: InferenceConfig):
 
     setup_vllm_env(config)
 
-    router_process: subprocess.Popen | None = None
+    router_processes: list[subprocess.Popen] = []
     router_stopping = Event()
     if config.router is not None:
-        logger.info(f"Starting router on http://{host}:{port}/v1 (engine on port {config.backend_port})\n")
-        router_process = start_router(config)
+        logger.info(
+            f"Starting {config.router.type} on http://{host}:{port}/v1 "
+            f"(policy engine on port {config.backend_port})\n"
+        )
+        if config.router.type == "role-router":
+            router_processes = start_role_router(config)
+        else:
+            router_processes = [start_router(config)]
         # The router owns the client-facing port; the engine moves behind it.
         config.server.port = config.backend_port
 
-        def watch_router():
-            router_process.wait()
+        def watch_router(process: subprocess.Popen):
+            process.wait()
             if not router_stopping.is_set():
-                logger.error(f"Router exited with code {router_process.returncode} - shutting down")
+                logger.error(f"Router process exited with code {process.returncode} - shutting down")
                 os.kill(os.getpid(), signal.SIGTERM)
 
-        Thread(target=watch_router, daemon=True).start()
+        for process in router_processes:
+            Thread(target=watch_router, args=(process,), daemon=True).start()
     else:
         logger.info(f"Starting inference on http://{host}:{port}/v1\n")
 
@@ -222,9 +314,9 @@ def inference_local(config: InferenceConfig):
     try:
         server(config)
     finally:
-        if router_process is not None:
+        if router_processes:
             router_stopping.set()
-            cleanup_processes([router_process])
+            cleanup_processes(router_processes)
 
 
 def inference(config: InferenceConfig):
