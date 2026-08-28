@@ -534,6 +534,48 @@ def test_proxy_exposes_typed_parent_return_without_answer_or_routing_fields() ->
     assert "17" not in serialized
 
 
+def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "messages": [{"role": "user", "content": "Evidence contents: 2, 3, 5"}],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "description": "Run Python",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {"code": {"type": "string"}},
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {"name": "another_tool", "parameters": {}},
+            },
+        ],
+    }
+
+    rewritten = module.force_parent_return_compute_schema(payload)
+
+    assert rewritten["stream"] is True
+    assert rewritten["stream_options"] == {"include_usage": True}
+    assert rewritten["tool_choice"]["function"]["name"] == "ipython"
+    assert rewritten["parallel_tool_calls"] is False
+    assert len(rewritten["tools"]) == 1
+    function = rewritten["tools"][0]["function"]
+    assert function["name"] == "ipython"
+    assert function["parameters"] == payload["tools"][0]["function"]["parameters"]
+    assert "Do not message the parent" in function["description"]
+    serialized = json.dumps(rewritten)
+    assert "return_to_parent" not in serialized
+    assert "receiver_role" not in serialized
+    assert "agent_message.send" not in serialized
+
+
 def test_proxy_translates_model_computed_typed_return_to_native_send() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     upstream = {
@@ -605,6 +647,8 @@ def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
     ).read_text()
 
     assert "self.completed_typed_return_hashes" in source
+    assert "self.typed_return_compute_hashes" in source
+    assert '"forwarded_typed_return_compute"' in source
     assert 'mode="typed_return_session_terminated"' in source
     assert "session_sha256 in self.completed_typed_return_hashes" in source
 

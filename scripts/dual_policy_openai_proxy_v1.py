@@ -340,6 +340,44 @@ def force_typed_parent_return_schema(payload: dict[str, Any]) -> dict[str, Any]:
     return rewritten
 
 
+def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any]:
+    """Constrain the first recursive turn to one model-authored IPython computation."""
+
+    tools = payload.get("tools")
+    if not isinstance(tools, list):
+        raise ValueError("typed parent-return computation requires Chat Completions tools")
+    ipython_tool = next(
+        (
+            tool
+            for tool in tools
+            if isinstance(tool, dict)
+            and isinstance(tool.get("function"), dict)
+            and tool["function"].get("name") == "ipython"
+        ),
+        None,
+    )
+    if ipython_tool is None:
+        raise ValueError("typed parent-return computation requires the IPython tool")
+    function = ipython_tool["function"]
+    compute_tool = {
+        **ipython_tool,
+        "function": {
+            **function,
+            "description": (
+                "Use Python once to compute the requested result from the inline evidence. "
+                "Do not message the parent in this call; the next turn provides the typed "
+                "parent-return action."
+            ),
+        },
+    }
+    return {
+        **payload,
+        "tools": [compute_tool],
+        "tool_choice": {"type": "function", "function": {"name": "ipython"}},
+        "parallel_tool_calls": False,
+    }
+
+
 def rewrite_typed_parent_return_response(body: bytes) -> tuple[bytes, int, str | None]:
     """Translate a model-computed typed return into the native IPython send call."""
 
@@ -566,6 +604,7 @@ class DualPolicyProxy:
             "child": set(),
         }
         self.completed_typed_return_hashes: set[str] = set()
+        self.typed_return_compute_hashes: set[str] = set()
 
     async def startup(self, _: web.Application) -> None:
         self.audit_log.parent.mkdir(parents=True, exist_ok=True)
@@ -590,6 +629,11 @@ class DualPolicyProxy:
                     and isinstance(session_sha256, str)
                 ):
                     self.completed_typed_return_hashes.add(session_sha256)
+                if (
+                    event.get("mode") == "forwarded_typed_return_compute"
+                    and isinstance(session_sha256, str)
+                ):
+                    self.typed_return_compute_hashes.add(session_sha256)
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
     async def cleanup(self, _: web.Application) -> None:
@@ -719,6 +763,7 @@ class DualPolicyProxy:
             return web.Response(body=response_body, content_type=content_type)
         forced_chat_scope = None
         forced_chat_action_sha256 = None
+        typed_compute_scope = False
         typed_return_scope = False
         typed_return_action_sha256 = None
         if (
@@ -761,7 +806,6 @@ class DualPolicyProxy:
             and self.typed_coordinator_return
             and recursive_coordinator_chat
         ):
-            typed_return_scope = True
             if session_sha256 is None:
                 body = json.dumps(
                     routed, separators=(",", ":"), ensure_ascii=False
@@ -777,9 +821,14 @@ class DualPolicyProxy:
                     {"error": "typed coordinator return requires x-session-id"},
                     status=400,
                 )
-            if session_sha256 in self.leaked_session_hashes["coordinator_return"]:
+            if session_sha256 not in self.typed_return_compute_hashes:
+                typed_compute_scope = True
+                self.typed_return_compute_hashes.add(session_sha256)
+                routed = force_parent_return_compute_schema(routed)
+            elif session_sha256 in self.leaked_session_hashes["coordinator_return"]:
                 typed_return_scope = False
             else:
+                typed_return_scope = True
                 self.leaked_session_hashes["coordinator_return"].add(session_sha256)
                 routed = force_typed_parent_return_schema(routed)
         body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
@@ -899,7 +948,9 @@ class DualPolicyProxy:
                 body=body,
                 status=upstream.status,
                 mode=(
-                    (
+                    "forwarded_typed_return_compute"
+                    if typed_compute_scope
+                    else (
                         "forwarded_typed_coordinator_return"
                         if typed_return_action_sha256 is not None
                         else "forwarded_typed_coordinator_return_untranslated"
