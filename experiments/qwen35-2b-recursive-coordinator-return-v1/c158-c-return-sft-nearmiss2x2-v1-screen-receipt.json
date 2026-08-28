@@ -1,0 +1,90 @@
+{
+  "schema_version": "q35-2b-recursive-coordinator-return-screen/v1",
+  "status": "rejected_early",
+  "run_name": "c158-c-return-sft-nearmiss2x2-v1-screen-9420100-n6",
+  "started_at_utc": "2026-08-28T17:55:39Z",
+  "stopped_at_utc": "2026-08-28T18:02:34Z",
+  "zero_update": true,
+  "source_model": {
+    "label": "grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800",
+    "sha256": "18f760904ba4ef6b54b785dea96307e100d8ff71719750d8a76fabd9a55a789e",
+    "protected": true
+  },
+  "candidate": {
+    "label": "c158-c-return-sft-nearmiss2x2-v1/weights/step_2",
+    "sha256": "3eafb362776b815a8b930d04632121613f77961ef605fb8f41d8a0b3e4ae2412",
+    "promoted": false,
+    "journaled_as_d1": false
+  },
+  "acquisition": {
+    "type": "full_dense_sft",
+    "updates": 2,
+    "examples": 2,
+    "learning_rate": 0.000005,
+    "loss_step_1": 2.621105670928955,
+    "loss_step_2": 1.23097825050354,
+    "nan_count": 0,
+    "train_parquet_sha256": "ab489fefaaccc6f7761e173e9d2f64da1197fa1e3038a422e5f997bf5c3c5cb0",
+    "manifest_sha256": "cd6c0f1fdb1f099e6f4c17edae59ccd9ebfc9965e7f7289371fd27eb1e65f4ba",
+    "config_sha256": "ba07b4efe2aa27f43015b9ea177958a5b6bdb8f2f11df2e62d667f554e12a504"
+  },
+  "code": {
+    "prime_rl_commit": "8e4563495c16973cf48a5c7d0345b10bffa952fa",
+    "verifiers_commit": "fffcb0a1e6732a298b0d1d9f9b1a924fde84729d"
+  },
+  "acceptance": {
+    "planned_episodes": 6,
+    "completed_episodes": 3,
+    "complete_qualifying_trajectories": 0,
+    "required_complete_qualifying_trajectories": 4,
+    "maximum_possible_after_completed_failures": 3,
+    "floor_relaxed": false,
+    "early_stop_reason": "Three completed nonqualifying trajectories made the unchanged 4-of-6 floor mathematically unreachable."
+  },
+  "routing": {
+    "coordinator": 37,
+    "child": 0,
+    "failures": 0
+  },
+  "invariants": {
+    "all_completed_roots_used_natural_yield_scaffold": true,
+    "all_delegated_requests_used_coordinator_policy": true,
+    "delegated_descendant_calls": 0,
+    "screen_performed_no_model_or_optimizer_update": true,
+    "d2_remained_disconnected": true
+  },
+  "completed": [
+    {
+      "task_key": "train_gen-natural_n1a-09420100-3e92dc8",
+      "reward": 0.25,
+      "child_action_progress": 0.25,
+      "child_action_completed": 0,
+      "stop_condition": "max_turns",
+      "diagnostic": "Repeated sends of a child-handle field instead of the computed result, followed by malformed and duplicated computation attempts."
+    },
+    {
+      "task_key": "train_gen-natural_n1a-09420101-ed8f529",
+      "reward": 0.75,
+      "child_action_progress": 0.75,
+      "child_action_completed": 0,
+      "stop_condition": "max_turns",
+      "diagnostic": "Produced parent sends but duplicated them and then improvised unsupported polling APIs instead of stopping after the acknowledgement."
+    },
+    {
+      "task_key": "train_gen-natural_n1a-09420102-48ad9ba",
+      "reward": 0.75,
+      "child_action_progress": 0.75,
+      "child_action_completed": 0,
+      "stop_condition": "max_turns",
+      "diagnostic": "Attempted computation and parent sends but generated malformed/repetitive code and did not complete the exact one-report acknowledgement contract."
+    }
+  ],
+  "conclusion": "Two exact nearmiss demonstrations were too narrow: they increased partial protocol activity but did not produce any complete return trajectory. The candidate is rejected and C158 remains the protected coordinator checkpoint.",
+  "artifacts": {
+    "traces_sha256": "594cdc85064ee5e893ef0608cd75bdd528cfa67933ce84b6d6d3bfaabf3e8309",
+    "routing_audit_sha256": "84f876454f3923162c42a7a0a3c640cfe6519d17677ae852c9a62a64ebe7f6f4",
+    "resolved_config_sha256": "ed44de1ae60cb72dd3b13445bb12c95967b3c80c817fbd09a42c74e031028a78",
+    "versions_sha256": "1f86ebceba45344eb7b8f06ae6157ca2b1ea33bbfbacae4a30a2a6ee63f72006",
+    "bootstrap_sha256": "1aa901d8b0deb3476d0ae96d52167117f69e40d2ddfc328ac726a395a64d20c7"
+  }
+}
