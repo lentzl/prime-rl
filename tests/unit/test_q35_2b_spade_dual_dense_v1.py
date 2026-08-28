@@ -445,6 +445,50 @@ def test_coordinator_grpo_proxy_encodes_private_child_send_action() -> None:
     assert module.disclosed_child_action(prompt.replace(module.CHILD_ACTION_SCAFFOLD_HEADER, "")) is None
 
 
+def test_proxy_forces_disclosed_recursive_return_in_chat_tool_schema() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = "await agent_message.send('17', receiver_role='parent')"
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "[training-only child action scaffold]\n"
+                    "In your first IPython call execute exactly:\n\n"
+                    f"```python\n{code}\n```"
+                ),
+            }
+        ],
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "description": "Run Python",
+                    "parameters": {"type": "object"},
+                },
+            }
+        ],
+    }
+
+    disclosed = module.disclosed_child_action_from_messages(payload["messages"])
+    rewritten = module.force_ipython_code_schema(payload, disclosed)
+
+    assert disclosed == code
+    assert rewritten["tool_choice"] == {
+        "type": "function",
+        "function": {"name": "ipython"},
+    }
+    assert rewritten["parallel_tool_calls"] is False
+    assert rewritten["tools"][0]["function"]["parameters"] == {
+        "type": "object",
+        "properties": {"code": {"type": "string", "enum": [code]}},
+        "required": ["code"],
+        "additionalProperties": False,
+    }
+    assert payload["tools"][0]["function"]["parameters"] == {"type": "object"}
+
+
 def test_synthetic_generate_response_has_cardinality_matched_finite_logprobs() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     payload = json.loads(module.synthetic_generate_response([10, 11, 12], sequence=7))

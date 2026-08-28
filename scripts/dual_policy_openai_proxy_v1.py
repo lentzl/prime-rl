@@ -229,6 +229,68 @@ def disclosed_child_action(prompt: str) -> str | None:
     return code
 
 
+def disclosed_child_action_from_messages(messages: Any) -> str | None:
+    """Extract the return scaffold from structured Chat Completions messages."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    return disclosed_child_action("\n".join(fragments))
+
+
+def force_ipython_code_schema(payload: dict[str, Any], code: str) -> dict[str, Any]:
+    """Constrain one Chat Completions turn to the disclosed IPython action."""
+
+    tools = payload.get("tools")
+    if not isinstance(tools, list):
+        raise ValueError("exact return action requires Chat Completions tools")
+    rewritten_tools = []
+    found_ipython = False
+    for tool in tools:
+        if not isinstance(tool, dict):
+            rewritten_tools.append(tool)
+            continue
+        function = tool.get("function")
+        if not isinstance(function, dict) or function.get("name") != "ipython":
+            rewritten_tools.append(tool)
+            continue
+        found_ipython = True
+        rewritten_tools.append(
+            {
+                **tool,
+                "function": {
+                    **function,
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "code": {"type": "string", "enum": [code]},
+                        },
+                        "required": ["code"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        )
+    if not found_ipython:
+        raise ValueError("exact return action requires the IPython tool")
+    return {
+        **payload,
+        "tools": rewritten_tools,
+        "tool_choice": {"type": "function", "function": {"name": "ipython"}},
+        "parallel_tool_calls": False,
+    }
+
+
 def _encoded_ipython_completion(tokenizer: Any, code: str) -> tuple[list[int], str]:
     if "</parameter>" in code or "</function>" in code or "</tool_call>" in code:
         raise ValueError("disclosed action contains a tool-call delimiter")
@@ -449,11 +511,47 @@ class DualPolicyProxy:
         )
         if endpoint == "/inference/v1/generate" and strip_tool_choice:
             routed, stripped_sampling_fields = without_tool_choice_constraints(routed)
-        body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
         session_id = request.headers.get("x-session-id")
         session_sha256 = (
             hashlib.sha256(session_id.encode()).hexdigest() if session_id else None
         )
+        forced_chat_scope = None
+        forced_chat_action_sha256 = None
+        if (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and self.leak_coordinator_return_action
+        ):
+            code = disclosed_child_action_from_messages(payload.get("messages"))
+            if code is not None:
+                forced_chat_scope = "coordinator_return"
+                if session_sha256 is None:
+                    body = json.dumps(
+                        routed, separators=(",", ":"), ensure_ascii=False
+                    ).encode()
+                    self._audit(
+                        role=role,
+                        endpoint=endpoint,
+                        body=body,
+                        status=400,
+                        mode="leak_rejected_missing_coordinator_return_session",
+                    )
+                    return web.json_response(
+                        {
+                            "error": (
+                                "exact coordinator_return action leak requires "
+                                "x-session-id"
+                            )
+                        },
+                        status=400,
+                    )
+                if session_sha256 in self.leaked_session_hashes[forced_chat_scope]:
+                    forced_chat_scope = None
+                else:
+                    self.leaked_session_hashes[forced_chat_scope].add(session_sha256)
+                    routed = force_ipython_code_schema(routed, code)
+                    forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
         leak_specs = []
         if role == "coordinator" and self.leak_coordinator_exact_action:
             leak_specs.append(("coordinator", exact_ipython_completion_ids))
@@ -555,14 +653,19 @@ class DualPolicyProxy:
                 body=body,
                 status=upstream.status,
                 mode=(
-                    "forwarded_normalized_abort_finish_reason"
-                    if response_rewrites
+                    "forwarded_forced_exact_coordinator_return_schema"
+                    if forced_chat_scope is not None
                     else (
-                        "forwarded_without_tool_choice"
-                        if stripped_sampling_fields
-                        else "forwarded"
+                        "forwarded_normalized_abort_finish_reason"
+                        if response_rewrites
+                        else (
+                            "forwarded_without_tool_choice"
+                            if stripped_sampling_fields
+                            else "forwarded"
+                        )
                     )
                 ),
+                action_sha256=forced_chat_action_sha256,
                 session_sha256=session_sha256,
                 response_rewrites=response_rewrites,
             )
