@@ -400,6 +400,40 @@ def rewrite_typed_parent_return_response(body: bytes) -> tuple[bytes, int, str |
     )
 
 
+def chat_completion_to_sse(body: bytes) -> bytes:
+    """Bridge one non-streaming chat completion back to an OpenAI SSE stream."""
+
+    payload = json.loads(body)
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        raise ValueError("chat completion bridge requires choices")
+    choices = []
+    for choice in payload["choices"]:
+        if not isinstance(choice, dict) or not isinstance(choice.get("message"), dict):
+            raise ValueError("chat completion bridge requires complete messages")
+        message = choice["message"]
+        delta = {
+            key: message[key]
+            for key in ("role", "content", "reasoning_content", "tool_calls")
+            if key in message
+        }
+        choices.append(
+            {
+                "index": choice.get("index", 0),
+                "delta": delta,
+                "logprobs": choice.get("logprobs"),
+                "finish_reason": choice.get("finish_reason"),
+            }
+        )
+    chunk = {
+        key: payload[key]
+        for key in ("id", "created", "model", "system_fingerprint", "usage")
+        if key in payload
+    }
+    chunk.update({"object": "chat.completion.chunk", "choices": choices})
+    encoded = json.dumps(chunk, separators=(",", ":"), ensure_ascii=False).encode()
+    return b"data: " + encoded + b"\n\ndata: [DONE]\n\n"
+
+
 def _encoded_ipython_completion(tokenizer: Any, code: str) -> tuple[list[int], str]:
     if "</parameter>" in code or "</function>" in code or "</tool_call>" in code:
         raise ValueError("disclosed action contains a tool-call delimiter")
@@ -614,6 +648,7 @@ class DualPolicyProxy:
             private_evidence_token_ids=self.private_evidence_token_ids,
             recursive_coordinator_token_ids=self.recursive_coordinator_token_ids,
         )
+        client_requested_stream = payload.get("stream") is True
         stripped_sampling_fields: tuple[str, ...] = ()
         strip_tool_choice = should_strip_tool_choice(
             role,
@@ -786,6 +821,14 @@ class DualPolicyProxy:
                     normalized, _, typed_return_action_sha256 = (
                         rewrite_typed_parent_return_response(normalized)
                     )
+                    if typed_return_action_sha256 is not None and client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 response = web.Response(
                     status=upstream.status,
                     headers=response_headers,

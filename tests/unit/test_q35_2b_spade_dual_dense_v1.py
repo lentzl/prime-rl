@@ -570,6 +570,14 @@ def test_proxy_translates_model_computed_typed_return_to_native_send() -> None:
     assert code == "await agent_message.send(\"17\", receiver_role='parent')"
     assert action_sha256 == hashlib.sha256(code.encode()).hexdigest()
 
+    sse = module.chat_completion_to_sse(body)
+    assert sse.endswith(b"\n\ndata: [DONE]\n\n")
+    event = json.loads(sse.splitlines()[0].removeprefix(b"data: "))
+    assert event["object"] == "chat.completion.chunk"
+    streamed_function = event["choices"][0]["delta"]["tool_calls"][0]["function"]
+    assert streamed_function["name"] == "ipython"
+    assert json.loads(streamed_function["arguments"])["code"] == code
+
 
 @pytest.mark.parametrize(
     "arguments",
