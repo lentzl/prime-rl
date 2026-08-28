@@ -31,6 +31,9 @@ CHILD_ACTION_PATTERN = re.compile(
 CHILD_SEND_PATTERN = re.compile(
     r"await agent_message\.send\('[0-9]+', receiver_role='parent'\)"
 )
+PATH_READ_TEXT_PATTERN = re.compile(
+    r"(?:pathlib\.)?Path\((?P<quote>['\"])[^'\"]+(?P=quote)\)\.read_text\(\)"
+)
 TYPED_PARENT_RETURN_TOOL = "return_to_parent"
 HOP_BY_HOP = {
     "connection",
@@ -250,6 +253,63 @@ def disclosed_child_action_from_messages(messages: Any) -> str | None:
     return disclosed_child_action("\n".join(fragments))
 
 
+def inline_evidence_from_messages(messages: Any) -> str | None:
+    """Extract the already visible recursive-session evidence card."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    marker = "Evidence contents:\n"
+    matches = [fragment.split(marker, 1)[1].strip() for fragment in fragments if marker in fragment]
+    if not matches:
+        return None
+    if len(set(matches)) != 1:
+        raise ValueError("recursive coordinator prompt contains conflicting inline evidence")
+    return matches[0]
+
+
+def latest_ipython_tool_failed(messages: Any) -> bool:
+    """Detect whether the most recent IPython result is an execution failure."""
+
+    if not isinstance(messages, list):
+        return False
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "tool":
+            continue
+        if message.get("name") != "ipython":
+            return False
+        content = message.get("content")
+        if isinstance(content, list):
+            content = "\n".join(
+                item.get("text", "") if isinstance(item, dict) else str(item)
+                for item in content
+            )
+        if not isinstance(content, str):
+            return False
+        return any(
+            marker in content
+            for marker in (
+                "Traceback (most recent call last)",
+                "SyntaxError:",
+                "FileNotFoundError:",
+                "NameError:",
+                "TypeError:",
+                "ValueError:",
+            )
+        )
+    return False
+
+
 def force_ipython_code_schema(payload: dict[str, Any], code: str) -> dict[str, Any]:
     """Constrain one Chat Completions turn to the disclosed IPython action."""
 
@@ -366,8 +426,10 @@ def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any
             **function,
             "description": (
                 "Use Python once to compute the requested result from the inline evidence. "
-                "Do not message the parent in this call; the next turn provides the typed "
-                "parent-return action."
+                "The harness prebinds the visible evidence as the string INLINE_EVIDENCE; "
+                "use that variable and never Path, open, or filesystem access. Do not "
+                "message the parent in this call; the next turn provides the typed "
+                "parent-return action. End the cell with the computed result."
             ),
         },
     }
@@ -383,9 +445,9 @@ def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any
 
 
 def rewrite_ipython_literal_newlines_response(
-    body: bytes,
+    body: bytes, *, inline_evidence: str | None = None
 ) -> tuple[bytes, int, str | None]:
-    """Repair Qwen's doubly escaped newlines only when they prevent Python parsing."""
+    """Ground the compute cell and repair doubly escaped parse-blocking newlines."""
 
     try:
         payload = json.loads(body)
@@ -416,17 +478,24 @@ def rewrite_ipython_literal_newlines_response(
                 if isinstance(parsed_arguments, dict)
                 else None
             )
-            if not isinstance(code, str) or "\\n" not in code:
+            if not isinstance(code, str):
                 continue
+            repaired = code
+            if inline_evidence is not None:
+                repaired = PATH_READ_TEXT_PATTERN.sub("INLINE_EVIDENCE", repaired)
+                repaired = (
+                    f"INLINE_EVIDENCE = {json.dumps(inline_evidence, ensure_ascii=False)}\n"
+                    f"{repaired}"
+                )
             try:
-                ast.parse(code)
+                ast.parse(repaired)
             except SyntaxError:
-                repaired = code.replace("\\r\\n", "\n").replace("\\n", "\n")
+                repaired = repaired.replace("\\r\\n", "\n").replace("\\n", "\n")
                 try:
                     ast.parse(repaired)
                 except SyntaxError:
                     continue
-            else:
+            if repaired == code:
                 continue
             parsed_arguments["code"] = repaired
             function["arguments"] = json.dumps(
@@ -670,6 +739,7 @@ class DualPolicyProxy:
         }
         self.completed_typed_return_hashes: set[str] = set()
         self.typed_return_compute_hashes: set[str] = set()
+        self.typed_return_compute_attempts: dict[str, int] = {}
 
     async def startup(self, _: web.Application) -> None:
         self.audit_log.parent.mkdir(parents=True, exist_ok=True)
@@ -699,6 +769,9 @@ class DualPolicyProxy:
                     and isinstance(session_sha256, str)
                 ):
                     self.typed_return_compute_hashes.add(session_sha256)
+                    self.typed_return_compute_attempts[session_sha256] = (
+                        self.typed_return_compute_attempts.get(session_sha256, 0) + 1
+                    )
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
     async def cleanup(self, _: web.Application) -> None:
@@ -830,6 +903,7 @@ class DualPolicyProxy:
         forced_chat_action_sha256 = None
         typed_compute_scope = False
         typed_compute_action_sha256 = None
+        compute_inline_evidence = None
         typed_return_scope = False
         typed_return_action_sha256 = None
         if (
@@ -887,9 +961,23 @@ class DualPolicyProxy:
                     {"error": "typed coordinator return requires x-session-id"},
                     status=400,
                 )
-            if session_sha256 not in self.typed_return_compute_hashes:
+            initial_compute = session_sha256 not in self.typed_return_compute_hashes
+            retry_compute = (
+                not initial_compute
+                and latest_ipython_tool_failed(payload.get("messages"))
+                and self.typed_return_compute_attempts.get(session_sha256, 0) < 3
+            )
+            if initial_compute or retry_compute:
                 typed_compute_scope = True
+                compute_inline_evidence = inline_evidence_from_messages(
+                    payload.get("messages")
+                )
+                if compute_inline_evidence is None:
+                    raise ValueError("typed parent-return computation lacks inline evidence")
                 self.typed_return_compute_hashes.add(session_sha256)
+                self.typed_return_compute_attempts[session_sha256] = (
+                    self.typed_return_compute_attempts.get(session_sha256, 0) + 1
+                )
                 routed = force_parent_return_compute_schema(routed)
             elif session_sha256 in self.leaked_session_hashes["coordinator_return"]:
                 typed_return_scope = False
@@ -1005,7 +1093,9 @@ class DualPolicyProxy:
                         self.completed_typed_return_hashes.add(session_sha256)
                 elif typed_compute_scope and upstream.status == 200:
                     normalized, _, typed_compute_action_sha256 = (
-                        rewrite_ipython_literal_newlines_response(normalized)
+                        rewrite_ipython_literal_newlines_response(
+                            normalized, inline_evidence=compute_inline_evidence
+                        )
                     )
                     if client_requested_stream:
                         normalized = chat_completion_to_sse(normalized)

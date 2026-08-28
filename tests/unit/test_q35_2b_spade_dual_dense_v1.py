@@ -576,6 +576,41 @@ def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
     assert "agent_message.send" not in serialized
 
 
+def test_proxy_extracts_visible_recursive_inline_evidence() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    messages = [
+        {
+            "role": "developer",
+            "content": (
+                "[recursive coordinator session contract]\n"
+                "Required review: sum values\n"
+                "Evidence contents:\n{\"a\": 2, \"b\": 5}\n"
+            ),
+        },
+        {"role": "user", "content": "[task from parent]\nCompute it."},
+    ]
+
+    assert module.inline_evidence_from_messages(messages) == '{"a": 2, "b": 5}'
+
+
+@pytest.mark.parametrize(
+    ("content", "failed"),
+    [
+        ("Out[1]: 7", False),
+        ("Traceback (most recent call last)\nFileNotFoundError: missing", True),
+        ("Cell In[1], line 1\nSyntaxError: invalid syntax", True),
+    ],
+)
+def test_proxy_detects_failed_latest_ipython_result(content: str, failed: bool) -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    messages = [
+        {"role": "assistant", "tool_calls": []},
+        {"role": "tool", "name": "ipython", "content": content},
+    ]
+
+    assert module.latest_ipython_tool_failed(messages) is failed
+
+
 def test_proxy_repairs_only_parse_blocking_literal_newlines_in_compute_code() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     broken_code = "values = [2, 3, 5]\\nsum(values)"
@@ -608,6 +643,46 @@ def test_proxy_repairs_only_parse_blocking_literal_newlines_in_compute_code() ->
     )["code"]
     assert repaired == "values = [2, 3, 5]\nsum(values)"
     assert action_sha256 == hashlib.sha256(repaired.encode()).hexdigest()
+
+
+def test_proxy_prebinds_inline_evidence_and_redirects_path_read() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = (
+        "import json\nfrom pathlib import Path\n"
+        "data = json.loads(Path('/workspace/missing.json').read_text())\n"
+        "max(data.values())"
+    )
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    body, rewrites, _ = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode(), inline_evidence='{"a": 2, "b": 5}'
+    )
+
+    assert rewrites == 1
+    grounded = json.loads(
+        json.loads(body)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert grounded.startswith('INLINE_EVIDENCE = "{\\"a\\": 2, \\"b\\": 5}"\n')
+    assert "Path('/workspace/missing.json').read_text()" not in grounded
+    assert "json.loads(INLINE_EVIDENCE)" in grounded
+    compile(grounded, "<grounded-compute>", "exec")
 
 
 def test_proxy_preserves_valid_python_containing_literal_newline_escape() -> None:
@@ -710,6 +785,8 @@ def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
 
     assert "self.completed_typed_return_hashes" in source
     assert "self.typed_return_compute_hashes" in source
+    assert "self.typed_return_compute_attempts" in source
+    assert "latest_ipython_tool_failed" in source
     assert '"forwarded_typed_return_compute"' in source
     assert 'mode="typed_return_session_terminated"' in source
     assert "session_sha256 in self.completed_typed_return_hashes" in source
