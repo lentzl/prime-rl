@@ -1,0 +1,105 @@
+{
+  "dataset": {
+    "path": "train.parquet",
+    "sha256": "6973aa69b9cc219fb73e1e47395415a6b73000e64f18f1bcab70ae66a12167c7"
+  },
+  "leak_policy": {
+    "gold_answer_in_user_prompt": false,
+    "raw_evidence_visible": true,
+    "target_contains_exactly_one_parent_send": true,
+    "target_contains_no_post_ack_assistant_turn": true,
+    "target_uses_python_computation": true
+  },
+  "objective": "computation_grounded_recursive_return_with_root_retention",
+  "recursive_return_rows": 56,
+  "resource_family_counts": {
+    "csv_total": 8,
+    "json_max": 8,
+    "json_sum": 8,
+    "log_error": 8,
+    "md_h2": 8,
+    "python_defs": 8,
+    "word_count": 8
+  },
+  "root_retention_rows": 16,
+  "row_count": 72,
+  "schema_version": "q35-2b-recursive-coordinator-return-sft/v2",
+  "sources": {
+    "generator": {
+      "path": "deps/verifiers/datasets/procedural_harness_master_v1/generate.py",
+      "sha256": "4e045cce2a73424165cd8584cab61bdedda6f13a77a71c348bad52351a8c8455"
+    },
+    "root_anchor_traces": {
+      "path": "/home/ubuntu/rlm/results/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800-admission-9415850-n6/natural_n1a/traces.jsonl",
+      "sha256": "8e68e7176eb14751697ffb1cd8b60803a8d90466e5b14715b16dd0d47355ad8e"
+    },
+    "template_corpus": {
+      "path": "/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c158-c-return-v2-nearmiss-sft/train.parquet",
+      "sha256": "ab489fefaaccc6f7761e173e9d2f64da1197fa1e3038a422e5f997bf5c3c5cb0"
+    }
+  },
+  "status": "complete",
+  "task_index_range": {
+    "requested_start": 9420600,
+    "selected_max": 9420683,
+    "selected_min": 9420600
+  },
+  "task_keys": [
+    "train_gen-natural_n1a-09420600-b4a6ea3",
+    "train_gen-natural_n1a-09420601-55cf74b",
+    "train_gen-natural_n1a-09420602-e1a4a05",
+    "train_gen-natural_n1a-09420603-4a4bdd1",
+    "train_gen-natural_n1a-09420604-2ac3ad3",
+    "train_gen-natural_n1a-09420605-1776257",
+    "train_gen-natural_n1a-09420606-e3a242b",
+    "train_gen-natural_n1a-09420607-89a74ea",
+    "train_gen-natural_n1a-09420608-25a4a55",
+    "train_gen-natural_n1a-09420609-4d992b6",
+    "train_gen-natural_n1a-09420610-77cd808",
+    "train_gen-natural_n1a-09420611-400c027",
+    "train_gen-natural_n1a-09420612-95342ba",
+    "train_gen-natural_n1a-09420613-56d7a14",
+    "train_gen-natural_n1a-09420614-9e0d283",
+    "train_gen-natural_n1a-09420615-eeeca46",
+    "train_gen-natural_n1a-09420616-b59d8d6",
+    "train_gen-natural_n1a-09420617-98032dd",
+    "train_gen-natural_n1a-09420618-914f8a4",
+    "train_gen-natural_n1a-09420619-7de0587",
+    "train_gen-natural_n1a-09420620-257ff75",
+    "train_gen-natural_n1a-09420621-8789aad",
+    "train_gen-natural_n1a-09420622-15cb638",
+    "train_gen-natural_n1a-09420623-82df853",
+    "train_gen-natural_n1a-09420624-68db93b",
+    "train_gen-natural_n1a-09420625-fb3f277",
+    "train_gen-natural_n1a-09420626-3bce51c",
+    "train_gen-natural_n1a-09420627-67585f5",
+    "train_gen-natural_n1a-09420628-b970fe5",
+    "train_gen-natural_n1a-09420630-e83e5b0",
+    "train_gen-natural_n1a-09420633-d4aebdf",
+    "train_gen-natural_n1a-09420634-377e90e",
+    "train_gen-natural_n1a-09420635-ff6349b",
+    "train_gen-natural_n1a-09420636-d6a0dbe",
+    "train_gen-natural_n1a-09420637-2dd44fa",
+    "train_gen-natural_n1a-09420638-aec0674",
+    "train_gen-natural_n1a-09420639-d412882",
+    "train_gen-natural_n1a-09420640-a56e88d",
+    "train_gen-natural_n1a-09420641-1b49a6f",
+    "train_gen-natural_n1a-09420642-25bd26f",
+    "train_gen-natural_n1a-09420643-8916ee0",
+    "train_gen-natural_n1a-09420644-993061c",
+    "train_gen-natural_n1a-09420645-6c78b6b",
+    "train_gen-natural_n1a-09420646-cc1fd79",
+    "train_gen-natural_n1a-09420647-7765710",
+    "train_gen-natural_n1a-09420649-ad58d50",
+    "train_gen-natural_n1a-09420650-5bc0787",
+    "train_gen-natural_n1a-09420653-56deef9",
+    "train_gen-natural_n1a-09420658-2324724",
+    "train_gen-natural_n1a-09420659-9414f4d",
+    "train_gen-natural_n1a-09420661-4b5d4f9",
+    "train_gen-natural_n1a-09420669-0e7122e",
+    "train_gen-natural_n1a-09420671-999fd16",
+    "train_gen-natural_n1a-09420675-398204b",
+    "train_gen-natural_n1a-09420680-840bf6b",
+    "train_gen-natural_n1a-09420683-7ed5d29"
+  ]
+}

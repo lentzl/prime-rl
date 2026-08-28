@@ -150,6 +150,9 @@ def recursive_return_row(
     child_prompt = (
         f"You are {child['name']}, a non-root coordinator. Only this session owns "
         f"{path}. You cannot finalize the user's request and must not create descendants. "
+        "The private evidence is the inline card supplied in your system message; its "
+        "evidence label is not a runtime path, so do not use Path, open, or filesystem "
+        "search. "
         f"Process the supplied private evidence and {operation}. In your first IPython call "
         "send only the resulting integer as a string to receiver_role='parent'. Send "
         "exactly one report to your parent, then stop; do not return the result only as prose."

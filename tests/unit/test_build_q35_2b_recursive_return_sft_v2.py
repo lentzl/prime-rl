@@ -63,6 +63,7 @@ def test_recursive_row_has_one_action_and_no_trailing_assistant() -> None:
         "user", "user", "assistant", "tool"
     ]
     assert builder.RECURSIVE_HEADER in row["messages"][1]["content"]
+    assert "evidence label is not a runtime path" in row["messages"][1]["content"]
     arguments = json.loads(row["messages"][2]["tool_calls"][0]["arguments"])
     assert arguments["code"].count("agent_message.send") == 1
     assert row["messages"][-1]["role"] == "tool"
