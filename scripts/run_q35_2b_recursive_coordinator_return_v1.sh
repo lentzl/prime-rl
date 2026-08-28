@@ -12,7 +12,7 @@ if [[ ! -f "$bootstrap_path" ]]; then
   exit 1
 fi
 
-export QWEN38_QUALIFICATION_CONFIG="$root/experiments/qwen35-2b-recursive-coordinator-return-v1/qualification-template.toml"
+export QWEN38_QUALIFICATION_CONFIG="${C_RETURN_QUALIFICATION_CONFIG:-$root/experiments/qwen35-2b-recursive-coordinator-return-v1/qualification-template.toml}"
 export QWEN38_QUALIFICATION_OUTPUT_ROOT="${C_RETURN_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1}"
 export QWEN38_QUALIFICATION_AXES=natural_n1a
 export QWEN38_QUALIFICATION_NUM_TASKS="${C_RETURN_NUM_TASKS:-6}"
