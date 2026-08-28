@@ -114,6 +114,24 @@ def test_contract_recovery_canonicalizes_near_miss_and_trains_stop(tmp_path: Pat
         assert "stop" not in send["reasoning_content"].lower()
 
 
+def test_contract_recovery_skips_traces_without_a_child_branch(tmp_path: Path) -> None:
+    traces = tmp_path / "traces.jsonl"
+    root_only = _trace("root-only", 19)
+    root_only["nodes"] = root_only["nodes"][:2]
+    rows = [root_only, _trace("child-1", 20), _trace("child-2", 21)]
+    traces.write_text(json.dumps({"traces": rows}) + "\n")
+    output = tmp_path / "sft"
+
+    manifest = MODULE.export(
+        traces=[traces],
+        output_dir=output,
+        contract_recovery=True,
+    )
+
+    assert manifest["rows"] == 2
+    assert manifest["task_keys"] == ["task-child-1", "task-child-2"]
+
+
 def test_booster_config_is_bounded_full_dense_sft(tmp_path: Path) -> None:
     config = BOOSTER_MODULE.training_config(
         run_name="child-booster",

@@ -176,9 +176,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     state = project(events)
     if state["pending_eval"] is not None:
         raise ValueError("cannot insert booster while an admission is pending")
-    if state["next_cycle"] != args.cycle or state["next_role"] != "coordinator":
+    if state["next_cycle"] != args.cycle or state["next_role"] not in {
+        "child",
+        "coordinator",
+    }:
         raise ValueError(
-            f"booster boundary mismatch: expected coordinator cycle {args.cycle}, "
+            f"booster boundary mismatch: expected open cycle {args.cycle}, "
             f"got {state['next_role']} cycle {state['next_cycle']}"
         )
     cycle_events = [event for event in events if event.get("cycle") == args.cycle]

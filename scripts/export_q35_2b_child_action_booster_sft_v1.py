@@ -52,6 +52,22 @@ def _root(nodes: list[dict[str, Any]], index: int) -> int:
     return path[0]
 
 
+def _has_sampled_child_branch(trace: dict[str, Any]) -> bool:
+    nodes = trace.get("nodes")
+    if not isinstance(nodes, list) or not nodes:
+        return False
+    roots = [index for index, node in enumerate(nodes) if node.get("parent") is None]
+    if len(roots) < 2:
+        return False
+    primary_root = roots[0]
+    return any(
+        node.get("sampled") is True
+        and node.get("message", {}).get("role") == "assistant"
+        and _root(nodes, index) != primary_root
+        for index, node in enumerate(nodes)
+    )
+
+
 def _canonical_row(
     trace: dict[str, Any], *, source: Path, contract_recovery: bool = False
 ) -> dict[str, Any]:
@@ -181,7 +197,11 @@ def export(
                         trace.get("stop_condition") not in TRUNCATED_STOPS
                         and _score((trace.get("rewards") or {}).get("harness_score")) == 1.0
                     )
-                    if eligible and (contract_recovery or hard_success):
+                    if (
+                        eligible
+                        and (contract_recovery or hard_success)
+                        and _has_sampled_child_branch(trace)
+                    ):
                         row = _canonical_row(
                             trace,
                             source=path,

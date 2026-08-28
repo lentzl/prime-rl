@@ -384,6 +384,15 @@ observable, parseable non-root IPython action and awaited
 `agent_message.send(..., receiver_role='parent')`; forbidden behavior must
 still receive zero reward.
 
+When repeated child admissions fail because a sampled child obtains the private
+result but omits the required parent-channel argument or continues acting after
+delivery, a bounded child-action SFT booster may occupy either the child's
+natural next cycle or an inserted coordinator boundary. Build contract-recovery
+rows only from traces with an actual sampled non-root branch; root-only spawn
+failures are coordinator evidence and must be skipped rather than canonicalized
+as child targets. Resume the autonomous controller with the booster checkpoint
+pending admission, and keep the ordinary four-of-six promotion gate unchanged.
+
 Zero-advantage filtering is mandatory. An all-equal group may cause the
 orchestrator to sample another group, so `0/8` followed by a fresh set of eight
 in-flight rollouts is not by itself a stall. The controller's bounded training
