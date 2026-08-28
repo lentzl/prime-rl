@@ -1,0 +1,77 @@
+{
+  "dataset": {
+    "path": "train.parquet",
+    "sha256": "aad3ad333234f03ffae0747c7ece253548f3cc4c4434f9ae121cc85bf89fd741"
+  },
+  "leak_policy": {
+    "gold_answer_in_user_prompt": false,
+    "raw_evidence_visible": true,
+    "target_contains_exactly_one_parent_send": true,
+    "target_contains_no_post_ack_assistant_turn": true,
+    "target_uses_python_computation": true
+  },
+  "objective": "computation_grounded_recursive_return_with_root_retention",
+  "recursive_return_rows": 28,
+  "resource_family_counts": {
+    "csv_total": 4,
+    "json_max": 4,
+    "json_sum": 4,
+    "log_error": 4,
+    "md_h2": 4,
+    "python_defs": 4,
+    "word_count": 4
+  },
+  "root_retention_rows": 8,
+  "row_count": 36,
+  "schema_version": "q35-2b-recursive-coordinator-return-sft/v2",
+  "sources": {
+    "generator": {
+      "path": "deps/verifiers/datasets/procedural_harness_master_v1/generate.py",
+      "sha256": "4e045cce2a73424165cd8584cab61bdedda6f13a77a71c348bad52351a8c8455"
+    },
+    "root_anchor_traces": {
+      "path": "/home/ubuntu/rlm/results/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800-admission-9415850-n6/natural_n1a/traces.jsonl",
+      "sha256": "8e68e7176eb14751697ffb1cd8b60803a8d90466e5b14715b16dd0d47355ad8e"
+    },
+    "template_corpus": {
+      "path": "/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c158-c-return-v2-nearmiss-sft/train.parquet",
+      "sha256": "ab489fefaaccc6f7761e173e9d2f64da1197fa1e3038a422e5f997bf5c3c5cb0"
+    }
+  },
+  "status": "complete",
+  "task_index_range": {
+    "requested_start": 9420200,
+    "selected_max": 9420235,
+    "selected_min": 9420200
+  },
+  "task_keys": [
+    "train_gen-natural_n1a-09420200-6ce957f",
+    "train_gen-natural_n1a-09420201-b9ea2bd",
+    "train_gen-natural_n1a-09420202-4368b98",
+    "train_gen-natural_n1a-09420203-40d66f3",
+    "train_gen-natural_n1a-09420204-57d3b56",
+    "train_gen-natural_n1a-09420205-f6faa3b",
+    "train_gen-natural_n1a-09420206-293aa6a",
+    "train_gen-natural_n1a-09420207-0ae8c6e",
+    "train_gen-natural_n1a-09420208-3c95953",
+    "train_gen-natural_n1a-09420209-cb6ffd4",
+    "train_gen-natural_n1a-09420210-213c19e",
+    "train_gen-natural_n1a-09420211-3f91143",
+    "train_gen-natural_n1a-09420212-55aa678",
+    "train_gen-natural_n1a-09420213-dfcca43",
+    "train_gen-natural_n1a-09420214-994d44e",
+    "train_gen-natural_n1a-09420215-dd7ec5e",
+    "train_gen-natural_n1a-09420216-966937b",
+    "train_gen-natural_n1a-09420217-8c0e04a",
+    "train_gen-natural_n1a-09420218-d0fd169",
+    "train_gen-natural_n1a-09420219-3e6da8c",
+    "train_gen-natural_n1a-09420222-eb0781c",
+    "train_gen-natural_n1a-09420223-072a0ef",
+    "train_gen-natural_n1a-09420224-1cffc59",
+    "train_gen-natural_n1a-09420227-fd77eda",
+    "train_gen-natural_n1a-09420228-8ca5dfa",
+    "train_gen-natural_n1a-09420231-b97d83f",
+    "train_gen-natural_n1a-09420232-9bb27b9",
+    "train_gen-natural_n1a-09420235-f46f592"
+  ]
+}
