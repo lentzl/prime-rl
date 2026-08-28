@@ -1,0 +1,76 @@
+max_steps = 6
+output_dir = "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1"
+clean = false
+
+[run]
+name = "c158-c-return-sft-forced28-root8-v2"
+dir = "c158-c-return-sft-forced28-root8-v2"
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+num_gpus = 2
+
+[model]
+name = "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800/weights/step_1"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.compile]
+fullgraph = false
+
+[model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[tokenizer]
+name = "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800/weights/step_1"
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[data]
+type = "sft"
+name = "/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c158-forced-return28-root8-sft-v2"
+batch_size = 2
+micro_batch_size = 1
+seq_len = 16384
+shuffle = true
+seed = 20260828
+
+[data.loss_mask]
+system = false
+user = false
+assistant = true
+tool = false
+
+[optim]
+type = "adamw"
+lr = 0.00000075
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[scheduler]
+type = "constant"
+
+[ckpt]
+interval = 2
+keep_last = 2
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[file_monitor]
+filename = "metrics.jsonl"
