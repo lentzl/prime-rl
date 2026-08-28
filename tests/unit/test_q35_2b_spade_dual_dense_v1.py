@@ -26,6 +26,19 @@ def _module(name: str):
         sys.path.remove(str(scripts))
 
 
+def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -> None:
+    launcher = (
+        Path(__file__).parents[2] / "scripts" / "run_q35_2b_dual_policy_mastery_v1.sh"
+    ).read_text()
+
+    assert (
+        "leak_coordinator_return_action=${DUAL_LEAK_COORDINATOR_RETURN_ACTION:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--leak-coordinator-return-action)' in launcher
+    assert 'if [[ "$leak_coordinator_return_action" == 1 ]]' in launcher
+
+
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
     path = tmp_path / name
     path.mkdir()
@@ -483,9 +496,10 @@ def test_proxy_source_makes_exact_coordinator_leak_one_shot_per_session() -> Non
     ).read_text()
 
     assert "self.leaked_session_hashes" in source
-    assert "session_sha256 in self.leaked_session_hashes[role]" in source
+    assert "session_sha256 in self.leaked_session_hashes[leak_scope]" in source
+    assert '"coordinator_return": set()' in source
     assert 'request.headers.get("x-session-id")' in source
-    assert "leak_rejected_missing_{role}_session" in source
+    assert "leak_rejected_missing_{leak_scope}_session" in source
     assert '"coordinator": set()' in source
     assert '"child": set()' in source
 

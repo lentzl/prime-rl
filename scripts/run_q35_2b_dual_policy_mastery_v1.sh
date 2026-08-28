@@ -15,6 +15,7 @@ external_model=${DUAL_EXTERNAL_MODEL:-q35-2b-dual-policy}
 coordinator_backend_port=${COORDINATOR_BACKEND_PORT:-8101}
 child_backend_port=${CHILD_BACKEND_PORT:-8102}
 proxy_port=${DUAL_PROXY_PORT:-8100}
+leak_coordinator_return_action=${DUAL_LEAK_COORDINATOR_RETURN_ACTION:-0}
 
 cd "$root"
 for model in "$coordinator_model" "$child_model"; do
@@ -29,6 +30,10 @@ if [[ -e "$run_output" ]]; then
 fi
 if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
   echo "refusing to launch dual-policy evaluation while a GPU process is active" >&2
+  exit 1
+fi
+if [[ "$leak_coordinator_return_action" != 0 && "$leak_coordinator_return_action" != 1 ]]; then
+  echo "DUAL_LEAK_COORDINATOR_RETURN_ACTION must be 0 or 1" >&2
   exit 1
 fi
 mkdir -p "$run_output"
@@ -119,14 +124,21 @@ if ! curl -fsS "http://127.0.0.1:$coordinator_backend_port/health" >/dev/null \
   exit 1
 fi
 
+proxy_args=(
+  --port "$proxy_port"
+  --coordinator-url "http://127.0.0.1:$coordinator_backend_port/v1"
+  --coordinator-model "$coordinator_model"
+  --child-url "http://127.0.0.1:$child_backend_port/v1"
+  --child-model "$child_model"
+  --external-model "$external_model"
+  --audit-log "$routing_audit"
+)
+if [[ "$leak_coordinator_return_action" == 1 ]]; then
+  proxy_args+=(--leak-coordinator-return-action)
+fi
+
 "$uv_bin" run --no-sync scripts/dual_policy_openai_proxy_v1.py \
-  --port "$proxy_port" \
-  --coordinator-url "http://127.0.0.1:$coordinator_backend_port/v1" \
-  --coordinator-model "$coordinator_model" \
-  --child-url "http://127.0.0.1:$child_backend_port/v1" \
-  --child-model "$child_model" \
-  --external-model "$external_model" \
-  --audit-log "$routing_audit" \
+  "${proxy_args[@]}" \
   >"$run_output/proxy.log" 2>&1 &
 proxy_pid=$!
 for _ in $(seq 1 60); do

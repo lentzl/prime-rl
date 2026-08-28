@@ -310,6 +310,7 @@ class DualPolicyProxy:
         tokenizer: Any,
         recursive_coordinator_token_ids: list[int] | None = None,
         leak_coordinator_exact_action: bool = False,
+        leak_coordinator_return_action: bool = False,
         leak_child_exact_action: bool = False,
         strip_child_tool_choice: bool = False,
         strip_coordinator_tool_choice: bool = False,
@@ -325,6 +326,7 @@ class DualPolicyProxy:
         self.recursive_coordinator_token_ids = recursive_coordinator_token_ids or []
         self.tokenizer = tokenizer
         self.leak_coordinator_exact_action = leak_coordinator_exact_action
+        self.leak_coordinator_return_action = leak_coordinator_return_action
         self.leak_child_exact_action = leak_child_exact_action
         self.strip_child_tool_choice = strip_child_tool_choice
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
@@ -332,6 +334,7 @@ class DualPolicyProxy:
         self.sequence = 0
         self.leaked_session_hashes: dict[str, set[str]] = {
             "coordinator": set(),
+            "coordinator_return": set(),
             "child": set(),
         }
 
@@ -342,14 +345,17 @@ class DualPolicyProxy:
                 events = [json.loads(line) for line in handle if line.strip()]
             self.sequence = len(events)
             for event in events:
-                role = event.get("role")
                 session_sha256 = event.get("session_sha256")
-                if (
-                    role in self.leaked_session_hashes
-                    and event.get("mode") == f"leaked_exact_{role}_action"
-                    and isinstance(session_sha256, str)
-                ):
-                    self.leaked_session_hashes[role].add(session_sha256)
+                leak_scope = next(
+                    (
+                        scope
+                        for scope in self.leaked_session_hashes
+                        if event.get("mode") == f"leaked_exact_{scope}_action"
+                    ),
+                    None,
+                )
+                if leak_scope is not None and isinstance(session_sha256, str):
+                    self.leaked_session_hashes[leak_scope].add(session_sha256)
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
     async def cleanup(self, _: web.Application) -> None:
@@ -448,23 +454,27 @@ class DualPolicyProxy:
         session_sha256 = (
             hashlib.sha256(session_id.encode()).hexdigest() if session_id else None
         )
-        leak_exact_action = (
-            role == "coordinator" and self.leak_coordinator_exact_action
-        ) or (role == "child" and self.leak_child_exact_action)
-        if endpoint == "/inference/v1/generate" and leak_exact_action:
+        leak_specs = []
+        if role == "coordinator" and self.leak_coordinator_exact_action:
+            leak_specs.append(("coordinator", exact_ipython_completion_ids))
+        if role == "coordinator" and self.leak_coordinator_return_action:
+            leak_specs.append(("coordinator_return", exact_child_ipython_completion_ids))
+        if role == "child" and self.leak_child_exact_action:
+            leak_specs.append(("child", exact_child_ipython_completion_ids))
+        if endpoint == "/inference/v1/generate" and leak_specs:
             token_ids = payload.get("token_ids")
-            completion_builder = (
-                exact_ipython_completion_ids
-                if role == "coordinator"
-                else exact_child_ipython_completion_ids
-            )
-            leaked = (
-                completion_builder(self.tokenizer, token_ids)
-                if isinstance(token_ids, list)
-                and all(isinstance(token_id, int) for token_id in token_ids)
-                else None
-            )
+            leaked = None
+            leak_scope = None
+            if isinstance(token_ids, list) and all(
+                isinstance(token_id, int) for token_id in token_ids
+            ):
+                for candidate_scope, completion_builder in leak_specs:
+                    leaked = completion_builder(self.tokenizer, token_ids)
+                    if leaked is not None:
+                        leak_scope = candidate_scope
+                        break
             if leaked is not None:
+                assert leak_scope is not None
                 completion_ids, action_sha256 = leaked
                 if session_sha256 is None:
                     self._audit(
@@ -472,16 +482,16 @@ class DualPolicyProxy:
                         endpoint=endpoint,
                         body=body,
                         status=400,
-                        mode=f"leak_rejected_missing_{role}_session",
+                        mode=f"leak_rejected_missing_{leak_scope}_session",
                     )
                     return web.json_response(
-                        {"error": f"exact {role} action leak requires x-session-id"},
+                        {"error": f"exact {leak_scope} action leak requires x-session-id"},
                         status=400,
                     )
-                if session_sha256 in self.leaked_session_hashes[role]:
+                if session_sha256 in self.leaked_session_hashes[leak_scope]:
                     leaked = None
                 else:
-                    self.leaked_session_hashes[role].add(session_sha256)
+                    self.leaked_session_hashes[leak_scope].add(session_sha256)
             if leaked is not None:
                 completion_ids, action_sha256 = leaked
                 response_body = synthetic_generate_response(
@@ -492,7 +502,7 @@ class DualPolicyProxy:
                     endpoint=endpoint,
                     body=body,
                     status=200,
-                    mode=f"leaked_exact_{role}_action",
+                    mode=f"leaked_exact_{leak_scope}_action",
                     action_sha256=action_sha256,
                     session_sha256=session_sha256,
                 )
@@ -587,6 +597,7 @@ def main() -> None:
     parser.add_argument("--external-model", required=True)
     parser.add_argument("--tokenizer-model")
     parser.add_argument("--leak-coordinator-exact-action", action="store_true")
+    parser.add_argument("--leak-coordinator-return-action", action="store_true")
     parser.add_argument("--leak-child-exact-action", action="store_true")
     parser.add_argument("--strip-child-tool-choice", action="store_true")
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
@@ -614,6 +625,7 @@ def main() -> None:
         recursive_coordinator_token_ids=recursive_coordinator_token_ids,
         tokenizer=tokenizer,
         leak_coordinator_exact_action=args.leak_coordinator_exact_action,
+        leak_coordinator_return_action=args.leak_coordinator_return_action,
         leak_child_exact_action=args.leak_child_exact_action,
         strip_child_tool_choice=args.strip_child_tool_choice,
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,
