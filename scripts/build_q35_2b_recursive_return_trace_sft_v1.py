@@ -70,6 +70,18 @@ def _successful_trace(episode: dict[str, Any]) -> dict[str, Any]:
     return trace
 
 
+def is_qualifying_episode(episode: dict[str, Any]) -> bool:
+    traces = episode.get("traces")
+    if not isinstance(traces, list) or len(traces) != 1:
+        return False
+    trace = traces[0]
+    return (
+        score_value((trace.get("rewards") or {}).get("harness_score")) == 1.0
+        and float((trace.get("metrics") or {}).get("child_action_completed", 0.0)) == 1.0
+        and trace.get("stop_condition") == "user_closed"
+    )
+
+
 def recursive_return_row(episode: dict[str, Any]) -> dict[str, Any]:
     trace = _successful_trace(episode)
     nodes = trace["nodes"]
@@ -162,20 +174,39 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--return-repeats", type=int, default=4)
     parser.add_argument("--root-anchor-repeats", type=int, default=2)
+    parser.add_argument("--minimum-return-traces", type=int, default=4)
     args = parser.parse_args()
     if args.output_dir.exists():
         raise SystemExit(f"refusing to overwrite corpus: {args.output_dir}")
-    if args.return_repeats < 1 or args.root_anchor_repeats < 1:
+    if args.return_repeats < 1 or args.root_anchor_repeats < 1 or args.minimum_return_traces < 1:
         raise ValueError("corpus repeat counts must be positive")
 
     from datasets import Dataset
 
     returns: list[dict[str, Any]] = []
+    source_episodes = 0
+    accepted_trajectories = 0
+    rejected_task_keys: list[str] = []
     with args.forced_return_traces.open(encoding="utf-8") as handle:
         for line in handle:
             if line.strip():
-                row = recursive_return_row(json.loads(line))
+                source_episodes += 1
+                episode = json.loads(line)
+                if not is_qualifying_episode(episode):
+                    traces = episode.get("traces") or []
+                    rejected_task_keys.append(
+                        traces[0].get("task", {}).get("key", episode.get("id", "unknown"))
+                        if traces
+                        else episode.get("id", "unknown")
+                    )
+                    continue
+                row = recursive_return_row(episode)
+                accepted_trajectories += 1
                 returns.extend(dict(row) for _ in range(args.return_repeats))
+    if accepted_trajectories < args.minimum_return_traces:
+        raise ValueError(
+            f"only {accepted_trajectories} qualifying return traces; requires {args.minimum_return_traces}"
+        )
     anchors = root_anchor_rows(args.root_anchor_traces, args.root_anchor_repeats)
     rows = [*returns, *anchors]
     args.output_dir.mkdir(parents=True)
@@ -187,6 +218,11 @@ def main() -> None:
         "objective": "forced_recursive_coordinator_return_with_root_retention",
         "row_count": len(rows),
         "recursive_return_rows": len(returns),
+        "source_episodes": source_episodes,
+        "accepted_return_trajectories": accepted_trajectories,
+        "rejected_return_trajectories": source_episodes - accepted_trajectories,
+        "rejected_task_keys": rejected_task_keys,
+        "minimum_return_traces": args.minimum_return_traces,
         "root_retention_rows": len(anchors),
         "return_repeats": args.return_repeats,
         "root_anchor_repeats": args.root_anchor_repeats,

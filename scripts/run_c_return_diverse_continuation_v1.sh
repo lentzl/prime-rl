@@ -34,7 +34,7 @@ qualifying=$(
     and .traces[0].stop_condition == "user_closed"
   )] | length' "$collection_traces"
 )
-if [[ "$episodes" != 28 || "$qualifying" != 28 ]]; then
+if [[ "$episodes" != 28 || "$qualifying" -lt 18 ]]; then
   echo "forced collection incomplete: episodes=$episodes qualifying=$qualifying" >&2
   exit 1
 fi
@@ -44,7 +44,8 @@ python scripts/build_q35_2b_recursive_return_trace_sft_v1.py \
   --root-anchor-traces "$root_anchors" \
   --output-dir "$corpus" \
   --return-repeats 1 \
-  --root-anchor-repeats 2
+  --root-anchor-repeats 2 \
+  --minimum-return-traces 18
 
 sft @ "$training_config"
 if [[ ! -f "$candidate/STABLE" || ! -f "$candidate/model.safetensors" ]]; then

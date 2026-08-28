@@ -91,3 +91,13 @@ def test_recursive_return_row_rejects_nonexact_or_nonqualifying_trace() -> None:
         assert "not a hard success" in str(exc)
     else:
         raise AssertionError("nonqualifying trace was accepted")
+
+
+def test_qualifying_episode_filter_is_role_scoped_and_strict() -> None:
+    module = _module()
+    code = "await agent_message.send('17', receiver_role='parent')"
+    passing = _episode(code)
+
+    assert module.is_qualifying_episode(passing) is True
+    passing["traces"][0]["metrics"]["child_action_completed"] = 0
+    assert module.is_qualifying_episode(passing) is False
