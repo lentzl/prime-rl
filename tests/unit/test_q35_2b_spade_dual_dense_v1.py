@@ -579,6 +579,36 @@ def test_proxy_translates_model_computed_typed_return_to_native_send() -> None:
     assert json.loads(streamed_function["arguments"])["code"] == code
 
 
+def test_proxy_synthesizes_terminal_stream_after_typed_return() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+
+    body = module.synthetic_chat_stop_response(model="external", sequence=9)
+    response = json.loads(body)
+
+    assert response["id"] == "typed-parent-return-stop-9"
+    assert response["model"] == "external"
+    assert response["choices"] == [
+        {
+            "index": 0,
+            "message": {"role": "assistant", "content": ""},
+            "logprobs": None,
+            "finish_reason": "stop",
+        }
+    ]
+    sse = module.chat_completion_to_sse(body)
+    assert sse.endswith(b"\n\ndata: [DONE]\n\n")
+
+
+def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
+    source = (
+        Path(__file__).parents[2] / "scripts/dual_policy_openai_proxy_v1.py"
+    ).read_text()
+
+    assert "self.completed_typed_return_hashes" in source
+    assert 'mode="typed_return_session_terminated"' in source
+    assert "session_sha256 in self.completed_typed_return_hashes" in source
+
+
 @pytest.mark.parametrize(
     "arguments",
     [json.dumps({"payload": 17}), json.dumps({"answer": "17"}), "not-json"],

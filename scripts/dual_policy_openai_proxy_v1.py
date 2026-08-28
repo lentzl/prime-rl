@@ -434,6 +434,27 @@ def chat_completion_to_sse(body: bytes) -> bytes:
     return b"data: " + encoded + b"\n\ndata: [DONE]\n\n"
 
 
+def synthetic_chat_stop_response(*, model: str, sequence: int) -> bytes:
+    """Return a terminal empty turn after a typed parent return was delivered."""
+
+    payload = {
+        "id": f"typed-parent-return-stop-{sequence}",
+        "object": "chat.completion",
+        "created": 0,
+        "model": model,
+        "choices": [
+            {
+                "index": 0,
+                "message": {"role": "assistant", "content": ""},
+                "logprobs": None,
+                "finish_reason": "stop",
+            }
+        ],
+        "usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0},
+    }
+    return json.dumps(payload, separators=(",", ":")).encode()
+
+
 def _encoded_ipython_completion(tokenizer: Any, code: str) -> tuple[list[int], str]:
     if "</parameter>" in code or "</function>" in code or "</tool_call>" in code:
         raise ValueError("disclosed action contains a tool-call delimiter")
@@ -544,6 +565,7 @@ class DualPolicyProxy:
             "coordinator_return": set(),
             "child": set(),
         }
+        self.completed_typed_return_hashes: set[str] = set()
 
     async def startup(self, _: web.Application) -> None:
         self.audit_log.parent.mkdir(parents=True, exist_ok=True)
@@ -563,6 +585,11 @@ class DualPolicyProxy:
                 )
                 if leak_scope is not None and isinstance(session_sha256, str):
                     self.leaked_session_hashes[leak_scope].add(session_sha256)
+                if (
+                    event.get("mode") == "forwarded_typed_coordinator_return"
+                    and isinstance(session_sha256, str)
+                ):
+                    self.completed_typed_return_hashes.add(session_sha256)
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
     async def cleanup(self, _: web.Application) -> None:
@@ -661,6 +688,35 @@ class DualPolicyProxy:
         session_sha256 = (
             hashlib.sha256(session_id.encode()).hexdigest() if session_id else None
         )
+        recursive_coordinator_chat = (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and _contains_marker(payload.get("messages"), RECURSIVE_COORDINATOR_HEADER)
+        )
+        if (
+            self.typed_coordinator_return
+            and recursive_coordinator_chat
+            and session_sha256 in self.completed_typed_return_hashes
+        ):
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model, sequence=self.sequence
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="typed_return_session_terminated",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         forced_chat_scope = None
         forced_chat_action_sha256 = None
         typed_return_scope = False
@@ -703,7 +759,7 @@ class DualPolicyProxy:
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
             and self.typed_coordinator_return
-            and _contains_marker(payload.get("messages"), RECURSIVE_COORDINATOR_HEADER)
+            and recursive_coordinator_chat
         ):
             typed_return_scope = True
             if session_sha256 is None:
@@ -829,6 +885,9 @@ class DualPolicyProxy:
                             if key.lower() != "content-type"
                         }
                         response_headers["Content-Type"] = "text/event-stream"
+                    if typed_return_action_sha256 is not None:
+                        assert session_sha256 is not None
+                        self.completed_typed_return_hashes.add(session_sha256)
                 response = web.Response(
                     status=upstream.status,
                     headers=response_headers,
