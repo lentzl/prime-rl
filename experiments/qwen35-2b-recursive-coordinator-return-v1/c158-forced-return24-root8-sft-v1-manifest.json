@@ -1,0 +1,30 @@
+{
+  "dataset": {
+    "path": "train.parquet",
+    "sha256": "d8d4456da761334ed6c83bf282ffe6f7fa4beda3a431015e19492058e7c82457"
+  },
+  "objective": "forced_recursive_coordinator_return_with_root_retention",
+  "recursive_return_rows": 24,
+  "resource_family_counts": {
+    "json_sum": 8,
+    "log_error": 8,
+    "python_defs": 4,
+    "word_count": 4
+  },
+  "return_repeats": 4,
+  "root_anchor_repeats": 2,
+  "root_retention_rows": 8,
+  "row_count": 32,
+  "schema_version": "q35-2b-recursive-coordinator-return-trace-sft/v1",
+  "sources": {
+    "forced_return_traces": {
+      "path": "/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1/c158-c-return-forced-chat-screen-9421100-n6/natural_n1a/traces.jsonl",
+      "sha256": "e57060604abe1fe4cc5d83c009df0bc59dabb546870178d90d30ef85799bf754"
+    },
+    "root_anchor_traces": {
+      "path": "/home/ubuntu/rlm/results/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800-admission-9415850-n6/natural_n1a/traces.jsonl",
+      "sha256": "8e68e7176eb14751697ffb1cd8b60803a8d90466e5b14715b16dd0d47355ad8e"
+    }
+  },
+  "status": "complete"
+}

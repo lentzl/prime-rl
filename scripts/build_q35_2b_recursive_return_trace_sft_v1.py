@@ -1,0 +1,213 @@
+#!/usr/bin/env python3
+"""Build recursive-coordinator SFT from admitted forced-return traces."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+from collections import Counter
+from pathlib import Path
+from typing import Any
+
+SCHEMA_VERSION = "q35-2b-recursive-coordinator-return-trace-sft/v1"
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def score_value(value: Any) -> float:
+    if isinstance(value, dict):
+        value = value.get("score", 0.0)
+    return float(value or 0.0)
+
+
+def branch_paths(trace: dict[str, Any]) -> list[list[int]]:
+    nodes = trace["nodes"]
+    parents = [node.get("parent") for node in nodes]
+    parent_nodes = {parent for parent in parents if parent is not None}
+    paths: list[list[int]] = []
+    for leaf in (index for index in range(len(nodes)) if index not in parent_nodes):
+        path: list[int] = []
+        seen: set[int] = set()
+        current: int | None = leaf
+        while current is not None:
+            if current in seen:
+                raise ValueError(f"trace {trace.get('id')} has a cycle")
+            seen.add(current)
+            path.append(current)
+            current = parents[current]
+        paths.append(list(reversed(path)))
+    return paths
+
+
+def wire_message(message: dict[str, Any]) -> dict[str, Any]:
+    result = {key: value for key, value in message.items() if value is not None}
+    content = result.get("content")
+    if isinstance(content, list):
+        if not all(isinstance(part, dict) and part.get("type") == "text" for part in content):
+            raise ValueError("recursive-return trace SFT supports text-only messages")
+        result["content"] = "".join(str(part.get("text", "")) for part in content)
+    return result
+
+
+def _successful_trace(episode: dict[str, Any]) -> dict[str, Any]:
+    traces = episode.get("traces")
+    if not isinstance(traces, list) or len(traces) != 1:
+        raise ValueError(f"episode {episode.get('id')} must contain exactly one trace")
+    trace = traces[0]
+    if score_value((trace.get("rewards") or {}).get("harness_score")) != 1.0:
+        raise ValueError(f"trace {trace.get('id')} is not a hard success")
+    if float((trace.get("metrics") or {}).get("child_action_completed", 0.0)) != 1.0:
+        raise ValueError(f"trace {trace.get('id')} lacks a complete delegated return")
+    if trace.get("stop_condition") != "user_closed":
+        raise ValueError(f"trace {trace.get('id')} did not close cleanly")
+    return trace
+
+
+def recursive_return_row(episode: dict[str, Any]) -> dict[str, Any]:
+    trace = _successful_trace(episode)
+    nodes = trace["nodes"]
+    roots = [index for index, node in enumerate(nodes) if node.get("parent") is None]
+    if len(roots) != 2:
+        raise ValueError(f"trace {trace.get('id')} must contain one delegated session")
+    delegated_root = roots[1]
+    paths = [path for path in branch_paths(trace) if path[0] == delegated_root]
+    if len(paths) != 1:
+        raise ValueError(f"trace {trace.get('id')} has {len(paths)} delegated branches")
+    path = paths[0]
+    sampled = [index for index in path if nodes[index].get("sampled") is True]
+    if not sampled:
+        raise ValueError(f"trace {trace.get('id')} has no sampled delegated action")
+    action_index = sampled[0]
+    action = nodes[action_index]["message"]
+    tool_calls = action.get("tool_calls") or []
+    if len(tool_calls) != 1 or tool_calls[0].get("name") != "ipython":
+        raise ValueError(f"trace {trace.get('id')} lacks one IPython return action")
+    arguments = json.loads(tool_calls[0]["arguments"])
+    child = trace["task"]["data"]["oracle"]["children"][0]
+    expected_code = f"await agent_message.send({str(child['expected_result'])!r}, receiver_role='parent')"
+    if arguments != {"code": expected_code}:
+        raise ValueError(f"trace {trace.get('id')} return action is not exact")
+    action_position = path.index(action_index)
+    if action_position + 1 >= len(path):
+        raise ValueError(f"trace {trace.get('id')} lacks a tool acknowledgement")
+    tool_index = path[action_position + 1]
+    tool_message = nodes[tool_index]["message"]
+    if tool_message.get("role") != "tool":
+        raise ValueError(f"trace {trace.get('id')} return action lacks tool acknowledgement")
+    trained_path = path[: action_position + 2]
+    family = trace["task"]["data"]["generation_metadata"]["resource_families"][0]
+    return {
+        "messages": [wire_message(nodes[index]["message"]) for index in trained_path],
+        "tools": json.dumps(trace.get("tools") or [], sort_keys=True, separators=(",", ":")),
+        "axis": "recursive_coordinator_return_forced_action",
+        "phase": "e0c4_recursive_coordinator_return",
+        "task_key": trace["task"]["key"],
+        "trace_id": trace["id"],
+        "role": "coordinator_nonroot",
+        "objective": "exactly_one_parent_send_then_stop",
+        "expected_result": str(child["expected_result"]),
+        "resource_family": family,
+    }
+
+
+def root_anchor_rows(trace_path: Path, repeats: int) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with trace_path.open(encoding="utf-8") as handle:
+        for line in handle:
+            if not line.strip():
+                continue
+            episode = json.loads(line)
+            trace = episode["traces"][0]
+            if score_value((trace.get("rewards") or {}).get("harness_score")) != 1.0:
+                continue
+            roots = [index for index, node in enumerate(trace["nodes"]) if node.get("parent") is None]
+            primary_root = roots[0]
+            paths = [path for path in branch_paths(trace) if path[0] == primary_root]
+            path = max(
+                paths,
+                key=lambda item: (
+                    sum(trace["nodes"][index].get("sampled") is True for index in item),
+                    len(item),
+                ),
+            )
+            base = {
+                "messages": [wire_message(trace["nodes"][index]["message"]) for index in path],
+                "tools": json.dumps(trace.get("tools") or [], sort_keys=True, separators=(",", ":")),
+                "axis": "root_coordinator_retention",
+                "phase": "e0d3_uncapped_yield_exact_child",
+                "task_key": trace["task"]["key"],
+                "trace_id": trace["id"],
+                "role": "coordinator_root",
+                "objective": "retain_admitted_root_coordinator_behavior",
+                "expected_result": None,
+                "resource_family": None,
+            }
+            rows.extend(dict(base) for _ in range(repeats))
+    if not rows:
+        raise ValueError(f"no hard-success root anchors in {trace_path}")
+    return rows
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--forced-return-traces", type=Path, required=True)
+    parser.add_argument("--root-anchor-traces", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--return-repeats", type=int, default=4)
+    parser.add_argument("--root-anchor-repeats", type=int, default=2)
+    args = parser.parse_args()
+    if args.output_dir.exists():
+        raise SystemExit(f"refusing to overwrite corpus: {args.output_dir}")
+    if args.return_repeats < 1 or args.root_anchor_repeats < 1:
+        raise ValueError("corpus repeat counts must be positive")
+
+    from datasets import Dataset
+
+    returns: list[dict[str, Any]] = []
+    with args.forced_return_traces.open(encoding="utf-8") as handle:
+        for line in handle:
+            if line.strip():
+                row = recursive_return_row(json.loads(line))
+                returns.extend(dict(row) for _ in range(args.return_repeats))
+    anchors = root_anchor_rows(args.root_anchor_traces, args.root_anchor_repeats)
+    rows = [*returns, *anchors]
+    args.output_dir.mkdir(parents=True)
+    parquet_path = args.output_dir / "train.parquet"
+    Dataset.from_list(rows).to_parquet(str(parquet_path))
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "status": "complete",
+        "objective": "forced_recursive_coordinator_return_with_root_retention",
+        "row_count": len(rows),
+        "recursive_return_rows": len(returns),
+        "root_retention_rows": len(anchors),
+        "return_repeats": args.return_repeats,
+        "root_anchor_repeats": args.root_anchor_repeats,
+        "resource_family_counts": dict(sorted(Counter(row["resource_family"] for row in returns).items())),
+        "sources": {
+            "forced_return_traces": {
+                "path": str(args.forced_return_traces),
+                "sha256": sha256_file(args.forced_return_traces),
+            },
+            "root_anchor_traces": {
+                "path": str(args.root_anchor_traces),
+                "sha256": sha256_file(args.root_anchor_traces),
+            },
+        },
+        "dataset": {"path": parquet_path.name, "sha256": sha256_file(parquet_path)},
+    }
+    (args.output_dir / "MANIFEST.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+    )
+    print(f"wrote {len(rows)} rows: {len(returns)} recursive return + {len(anchors)} root retention")
+
+
+if __name__ == "__main__":
+    main()
