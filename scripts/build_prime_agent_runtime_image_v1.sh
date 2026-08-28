@@ -5,7 +5,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 dockerfile=$root/experiments/qwen35-27b-procedural-harness-master-v1/prime-agent-runtime.Dockerfile
 prime_agent_version=${PRIME_AGENT_VERSION:-0.7.2-beta.495.1.97b994c}
 node_version=${PRIME_AGENT_NODE_VERSION:-22.19.0}
-image=${PRIME_AGENT_RUNTIME_IMAGE:-rlm-prime-agent-runtime:${prime_agent_version}-node${node_version}}
+image=${PRIME_AGENT_RUNTIME_IMAGE:-rlm-prime-agent-runtime:${prime_agent_version}-node${node_version}-default-parent-v1}
 
 if ! docker image inspect "$image" >/dev/null 2>&1; then
   docker build \
@@ -19,6 +19,7 @@ fi
 docker run --rm "$image" sh -c \
   "test -x /var/tmp/vf-prime-agent/$prime_agent_version/bin/prime-agent && \
    test \"\$(/var/tmp/vf-prime-agent/$prime_agent_version/bin/prime-agent --version 2>&1)\" = $prime_agent_version && \
+   grep -F 'receiver_role = \"parent\"' /var/tmp/vf-prime-agent/$prime_agent_version/lib/node_modules/prime-agent/dist/skills/agent-message/src/agent_message/__init__.py >/dev/null && \
    test \"\$(/var/tmp/vf-node/bin/node --version)\" = v$node_version"
 
 printf '%s\n' "$image"
