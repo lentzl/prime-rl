@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import re
@@ -370,12 +371,76 @@ def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any
             ),
         },
     }
-    return {
+    rewritten = {
         **payload,
+        "stream": False,
         "tools": [compute_tool],
         "tool_choice": {"type": "function", "function": {"name": "ipython"}},
         "parallel_tool_calls": False,
     }
+    rewritten.pop("stream_options", None)
+    return rewritten
+
+
+def rewrite_ipython_literal_newlines_response(
+    body: bytes,
+) -> tuple[bytes, int, str | None]:
+    """Repair Qwen's doubly escaped newlines only when they prevent Python parsing."""
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body, 0, None
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        return body, 0, None
+    rewrites = 0
+    action_sha256 = None
+    for choice in payload["choices"]:
+        message = choice.get("message") if isinstance(choice, dict) else None
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+        if not isinstance(tool_calls, list):
+            continue
+        for tool_call in tool_calls:
+            function = tool_call.get("function") if isinstance(tool_call, dict) else None
+            if not isinstance(function, dict) or function.get("name") != "ipython":
+                continue
+            arguments = function.get("arguments")
+            try:
+                parsed_arguments = (
+                    json.loads(arguments) if isinstance(arguments, str) else arguments
+                )
+            except json.JSONDecodeError:
+                continue
+            code = (
+                parsed_arguments.get("code")
+                if isinstance(parsed_arguments, dict)
+                else None
+            )
+            if not isinstance(code, str) or "\\n" not in code:
+                continue
+            try:
+                ast.parse(code)
+            except SyntaxError:
+                repaired = code.replace("\\r\\n", "\n").replace("\\n", "\n")
+                try:
+                    ast.parse(repaired)
+                except SyntaxError:
+                    continue
+            else:
+                continue
+            parsed_arguments["code"] = repaired
+            function["arguments"] = json.dumps(
+                parsed_arguments, separators=(",", ":"), ensure_ascii=False
+            )
+            rewrites += 1
+            action_sha256 = hashlib.sha256(repaired.encode()).hexdigest()
+    if not rewrites:
+        return body, 0, None
+    return (
+        json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(),
+        rewrites,
+        action_sha256,
+    )
 
 
 def rewrite_typed_parent_return_response(body: bytes) -> tuple[bytes, int, str | None]:
@@ -630,7 +695,7 @@ class DualPolicyProxy:
                 ):
                     self.completed_typed_return_hashes.add(session_sha256)
                 if (
-                    event.get("mode") == "forwarded_typed_return_compute"
+                    str(event.get("mode", "")).startswith("forwarded_typed_return_compute")
                     and isinstance(session_sha256, str)
                 ):
                     self.typed_return_compute_hashes.add(session_sha256)
@@ -764,6 +829,7 @@ class DualPolicyProxy:
         forced_chat_scope = None
         forced_chat_action_sha256 = None
         typed_compute_scope = False
+        typed_compute_action_sha256 = None
         typed_return_scope = False
         typed_return_action_sha256 = None
         if (
@@ -937,6 +1003,18 @@ class DualPolicyProxy:
                     if typed_return_action_sha256 is not None:
                         assert session_sha256 is not None
                         self.completed_typed_return_hashes.add(session_sha256)
+                elif typed_compute_scope and upstream.status == 200:
+                    normalized, _, typed_compute_action_sha256 = (
+                        rewrite_ipython_literal_newlines_response(normalized)
+                    )
+                    if client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 response = web.Response(
                     status=upstream.status,
                     headers=response_headers,
@@ -948,7 +1026,11 @@ class DualPolicyProxy:
                 body=body,
                 status=upstream.status,
                 mode=(
-                    "forwarded_typed_return_compute"
+                    (
+                        "forwarded_typed_return_compute_repaired"
+                        if typed_compute_action_sha256 is not None
+                        else "forwarded_typed_return_compute"
+                    )
                     if typed_compute_scope
                     else (
                         "forwarded_typed_coordinator_return"
@@ -969,7 +1051,9 @@ class DualPolicyProxy:
                     )
                 ),
                 action_sha256=(
-                    typed_return_action_sha256 or forced_chat_action_sha256
+                    typed_return_action_sha256
+                    or typed_compute_action_sha256
+                    or forced_chat_action_sha256
                 ),
                 session_sha256=session_sha256,
                 response_rewrites=response_rewrites,

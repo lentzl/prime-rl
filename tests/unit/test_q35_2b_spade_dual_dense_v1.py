@@ -561,8 +561,8 @@ def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
 
     rewritten = module.force_parent_return_compute_schema(payload)
 
-    assert rewritten["stream"] is True
-    assert rewritten["stream_options"] == {"include_usage": True}
+    assert rewritten["stream"] is False
+    assert "stream_options" not in rewritten
     assert rewritten["tool_choice"]["function"]["name"] == "ipython"
     assert rewritten["parallel_tool_calls"] is False
     assert len(rewritten["tools"]) == 1
@@ -574,6 +574,68 @@ def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
     assert "return_to_parent" not in serialized
     assert "receiver_role" not in serialized
     assert "agent_message.send" not in serialized
+
+
+def test_proxy_repairs_only_parse_blocking_literal_newlines_in_compute_code() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    broken_code = "values = [2, 3, 5]\\nsum(values)"
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": broken_code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    body, rewrites, action_sha256 = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode()
+    )
+
+    assert rewrites == 1
+    repaired = json.loads(
+        json.loads(body)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert repaired == "values = [2, 3, 5]\nsum(values)"
+    assert action_sha256 == hashlib.sha256(repaired.encode()).hexdigest()
+
+
+def test_proxy_preserves_valid_python_containing_literal_newline_escape() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = 'separator = "\\n"'
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+    original = json.dumps(upstream).encode()
+
+    assert module.rewrite_ipython_literal_newlines_response(original) == (
+        original,
+        0,
+        None,
+    )
 
 
 def test_proxy_translates_model_computed_typed_return_to_native_send() -> None:
