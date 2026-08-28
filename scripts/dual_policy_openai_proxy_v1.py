@@ -435,7 +435,7 @@ def chat_completion_to_sse(body: bytes) -> bytes:
 
 
 def synthetic_chat_stop_response(*, model: str, sequence: int) -> bytes:
-    """Return a terminal empty turn after a typed parent return was delivered."""
+    """Return one terminal non-tool turn after a typed parent return was delivered."""
 
     payload = {
         "id": f"typed-parent-return-stop-{sequence}",
@@ -445,7 +445,7 @@ def synthetic_chat_stop_response(*, model: str, sequence: int) -> bytes:
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": ""},
+                "message": {"role": "assistant", "content": "Return delivered."},
                 "logprobs": None,
                 "finish_reason": "stop",
             }

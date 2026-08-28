@@ -590,7 +590,7 @@ def test_proxy_synthesizes_terminal_stream_after_typed_return() -> None:
     assert response["choices"] == [
         {
             "index": 0,
-            "message": {"role": "assistant", "content": ""},
+            "message": {"role": "assistant", "content": "Return delivered."},
             "logprobs": None,
             "finish_reason": "stop",
         }
