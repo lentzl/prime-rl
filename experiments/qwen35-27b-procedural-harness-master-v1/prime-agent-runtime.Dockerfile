@@ -31,5 +31,15 @@ RUN set -eux; \
     test -x "$prefix/bin/prime-agent"; \
     test "$("$prefix/bin/prime-agent" --version 2>&1)" = "$PRIME_AGENT_VERSION"
 
+COPY patches/prime-agent/agent-message-default-parent.py /tmp/agent-message-default-parent.py
+
+RUN set -eux; \
+    target="/var/tmp/vf-prime-agent/${PRIME_AGENT_VERSION}/lib/node_modules/prime-agent/dist/skills/agent-message/src/agent_message/__init__.py"; \
+    test -f "$target"; \
+    install -m 0644 /tmp/agent-message-default-parent.py "$target"; \
+    grep -F 'receiver_role = "parent"' "$target"; \
+    rm /tmp/agent-message-default-parent.py
+
 LABEL ai.rlmlab.prime-agent.version="${PRIME_AGENT_VERSION}" \
-      ai.rlmlab.node.version="${NODE_VERSION}"
+      ai.rlmlab.node.version="${NODE_VERSION}" \
+      ai.rlmlab.agent-message-default-parent="v1"

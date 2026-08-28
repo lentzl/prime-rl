@@ -493,6 +493,9 @@ def test_success_sft_launcher_keeps_the_managed_teacher_frozen_for_collection() 
 def test_prime_agent_runtime_image_pins_the_episode_dependencies() -> None:
     builder = PRIME_AGENT_RUNTIME_BUILDER.read_text()
     dockerfile = PRIME_AGENT_RUNTIME_DOCKERFILE.read_text()
+    message_overlay = (
+        ROOT / "patches" / "prime-agent" / "agent-message-default-parent.py"
+    ).read_text()
 
     assert "NODE_VERSION=22.19.0" in dockerfile
     assert "PRIME_AGENT_VERSION=0.7.2-beta.495.1.97b994c" in dockerfile
@@ -503,6 +506,9 @@ def test_prime_agent_runtime_image_pins_the_episode_dependencies() -> None:
     assert 'docker image inspect "$image"' in builder
     assert 'docker run --rm "$image"' in builder
     assert "prime-agent --version 2>&1" in builder
+    assert "default-parent-v1" in builder
+    assert "agent-message-default-parent.py" in dockerfile
+    assert 'receiver_role = "parent"' in message_overlay
 
 
 def test_harness_action_gate_battery_is_disjoint_and_cumulative() -> None:

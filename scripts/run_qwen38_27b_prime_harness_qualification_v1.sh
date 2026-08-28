@@ -148,7 +148,8 @@ else
   inference_config_sha256=external_endpoint_not_recorded
 fi
 
-"$root/scripts/build_prime_agent_runtime_image_v1.sh" >/dev/null
+runtime_image=$("$root/scripts/build_prime_agent_runtime_image_v1.sh")
+runtime_image_id=$(docker image inspect --format '{{.Id}}' "$runtime_image")
 for package in subagent_communication_v1 procedural_harness_master_v1; do
   "$uv_bin" pip install --python "$runtime_python" --no-deps --editable \
     "$root/deps/verifiers/environments/$package" >/dev/null
@@ -159,6 +160,8 @@ mkdir -p "$output_root/resolved-configs"
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"
   printf 'verifiers_commit=%s\n' "$(git -C deps/verifiers rev-parse HEAD)"
   printf 'prime_agent_version=0.7.2-beta.495.1.97b994c\n'
+  printf 'prime_agent_runtime_image=%s\n' "$runtime_image"
+  printf 'prime_agent_runtime_image_id=%s\n' "$runtime_image_id"
   printf 'model=%s\n' "$model"
   printf 'model_revision=%s\n' "${MODEL_REVISION:-1d4bf0f2ff6012fd82039f2fa52739d0dd7c60c0}"
   printf 'vllm_version=%s\n' "$vllm_version"
@@ -232,7 +235,7 @@ for axis in "${axes[@]}"; do
     start_index=$((start_index + index_offset))
   fi
   resolved=$output_root/resolved-configs/$axis.toml
-  "$runtime_python" - "$template" "$resolved" "$axis" "$split" "$start_index" "$curriculum" "$num_tasks" "$num_rollouts" "$family_filter" "$reasoning_effort" "$sampling_seed" "$sampling_temperature" "$privileged_hint_path" "$privileged_bootstrap_path" "$master_seed" <<'PY'
+  "$runtime_python" - "$template" "$resolved" "$axis" "$split" "$start_index" "$curriculum" "$num_tasks" "$num_rollouts" "$family_filter" "$reasoning_effort" "$sampling_seed" "$sampling_temperature" "$privileged_hint_path" "$privileged_bootstrap_path" "$master_seed" "$runtime_image" <<'PY'
 import json
 import re
 import sys
@@ -246,6 +249,7 @@ replacements = (
     (r"^count = [0-9]+$", f"count = {sys.argv[7]}", "count"),
     (r"^start_index = [0-9]+$", f"start_index = {sys.argv[5]}", "start_index"),
     (r"^master_seed = [0-9]+$", f"master_seed = {sys.argv[15]}", "master_seed"),
+    (r'^image = "[^"]+"$', f'image = {json.dumps(sys.argv[16])}', "runtime image"),
     (
         r'^reasoning_effort = "[^"]+"$',
         f'reasoning_effort = "{sys.argv[10]}"',
