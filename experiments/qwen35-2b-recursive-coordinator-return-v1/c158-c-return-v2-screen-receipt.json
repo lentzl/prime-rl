@@ -1,0 +1,69 @@
+{
+  "schema_version": "q35-2b-recursive-coordinator-return-screen/v1",
+  "status": "rejected_early",
+  "run_name": "c158-c-return-v2-9420000-n6",
+  "started_at_utc": "2026-08-28T17:35:47Z",
+  "stopped_at_utc": "2026-08-28T17:42:32Z",
+  "zero_update": true,
+  "model": {
+    "label": "grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800",
+    "sha256": "18f760904ba4ef6b54b785dea96307e100d8ff71719750d8a76fabd9a55a789e"
+  },
+  "code": {
+    "prime_rl_commit": "6ad26670d5e3ad76a9f37ec138d597261d46a90d",
+    "verifiers_commit": "fffcb0a1e6732a298b0d1d9f9b1a924fde84729d"
+  },
+  "acceptance": {
+    "planned_episodes": 6,
+    "completed_episodes": 3,
+    "complete_qualifying_trajectories": 0,
+    "required_complete_qualifying_trajectories": 4,
+    "maximum_possible_after_completed_failures": 3,
+    "floor_relaxed": false,
+    "early_stop_reason": "Three completed nonqualifying trajectories made the unchanged 4-of-6 floor mathematically unreachable."
+  },
+  "routing": {
+    "coordinator": 38,
+    "child": 0,
+    "failures": 0
+  },
+  "invariants": {
+    "all_completed_roots_used_natural_yield_scaffold": true,
+    "all_delegated_requests_used_coordinator_policy": true,
+    "delegated_descendant_calls": 0,
+    "no_model_or_optimizer_update": true
+  },
+  "completed": [
+    {
+      "task_key": "train_gen-natural_n1a-09420000-674b0f2",
+      "reward": 0.75,
+      "child_action_progress": 0.75,
+      "child_action_completed": 0,
+      "stop_condition": "max_turns",
+      "diagnostic": "Awaited a correctly routed parent send but computed max(dict), returning key m6 instead of value 104; then repeated sends."
+    },
+    {
+      "task_key": "train_gen-natural_n1a-09420001-4f46412",
+      "reward": 0.0,
+      "child_action_progress": 0.0,
+      "child_action_completed": 0,
+      "stop_condition": "max_turns",
+      "diagnostic": "No valid parent-send action was sampled."
+    },
+    {
+      "task_key": "train_gen-natural_n1a-09420002-368c585",
+      "reward": 0.25,
+      "child_action_progress": 0.25,
+      "child_action_completed": 0,
+      "stop_condition": "max_turns",
+      "diagnostic": "Sampled executable non-root code but no valid awaited parent send."
+    }
+  ],
+  "artifacts": {
+    "traces_sha256": "3c8b7b61d5702e888af40347660baad1fbb39c5d6243df78dadb9927fbf79a04",
+    "routing_audit_sha256": "0148bc6e78af7b6d9d2da1830688a70542d342e31bb5ddacf1771da924e0e6d1",
+    "resolved_config_sha256": "c94e03bf43ca00a3a2908e5303dc8bfe64f1fb38c6d8004799f2133784257a51",
+    "versions_sha256": "3a07154b8fc746cb96e2f791eb8d8c881c8183850ae8eeec861a06137355b8d3",
+    "bootstrap_sha256": "cfbb4dce93ed20f1eba39b85530e74bdfd382e4b87c1156da944ccfc9b226516"
+  }
+}
