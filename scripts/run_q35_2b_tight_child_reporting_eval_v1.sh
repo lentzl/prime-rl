@@ -45,6 +45,7 @@ cd "$root"
 DUAL_SCAFFOLD_PROFILE=tight_answer_free_child_reporting_v1 \
 DUAL_EXTERNAL_MODEL=q35-2b-recursive-coordinator-return \
 UV_BIN="$uv_bin" \
+PATH="$root/.venv/bin:$HOME/.local/bin:$PATH" \
 DUAL_LEAK_COORDINATOR_EXACT_ACTION=0 \
 DUAL_LEAK_COORDINATOR_RETURN_ACTION=0 \
 DUAL_TYPED_COORDINATOR_RETURN=0 \
