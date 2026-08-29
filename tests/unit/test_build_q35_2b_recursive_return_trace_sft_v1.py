@@ -223,6 +223,32 @@ def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> Non
         module.main()
 
 
+def test_multiple_trace_banks_fail_closed_on_duplicate_task(monkeypatch, tmp_path: Path) -> None:
+    module = _module()
+    first = tmp_path / "first.jsonl"
+    second = tmp_path / "second.jsonl"
+    line = json.dumps(_episode("await agent_message.send('17', receiver_role='parent')"))
+    first.write_text(line + "\n", encoding="utf-8")
+    second.write_text(line + "\n", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "builder",
+            "--forced-return-traces",
+            str(first),
+            "--forced-return-traces",
+            str(second),
+            "--child-only",
+            "--output-dir",
+            str(tmp_path / "output"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="duplicate return task"):
+        module.main()
+
+
 def test_replay_anchor_is_verified_repeated_and_interleaved(tmp_path: Path) -> None:
     module = _module()
     corpus = tmp_path / "anchor"

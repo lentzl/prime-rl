@@ -330,7 +330,9 @@ def interleave_rows(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--forced-return-traces", type=Path, required=True)
+    parser.add_argument(
+        "--forced-return-traces", type=Path, action="append", required=True
+    )
     parser.add_argument("--root-anchor-traces", type=Path)
     parser.add_argument("--child-only", action="store_true")
     parser.add_argument("--natural-child-actions", action="store_true")
@@ -370,20 +372,27 @@ def main() -> None:
     source_episodes = 0
     accepted_trajectories = 0
     rejected_task_keys: list[str] = []
-    with args.forced_return_traces.open(encoding="utf-8") as handle:
-        for line in handle:
-            if line.strip():
+    seen_task_keys: set[str] = set()
+    for trace_path in args.forced_return_traces:
+        with trace_path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
                 source_episodes += 1
                 episode = json.loads(line)
+                traces = episode.get("traces") or []
+                task_key = (
+                    traces[0].get("task", {}).get("key", episode.get("id", "unknown"))
+                    if traces
+                    else episode.get("id", "unknown")
+                )
+                if task_key in seen_task_keys:
+                    raise ValueError(f"duplicate return task across trace banks: {task_key}")
+                seen_task_keys.add(task_key)
                 if not is_qualifying_episode(
                     episode, require_hard_success=not args.natural_child_actions
                 ):
-                    traces = episode.get("traces") or []
-                    rejected_task_keys.append(
-                        traces[0].get("task", {}).get("key", episode.get("id", "unknown"))
-                        if traces
-                        else episode.get("id", "unknown")
-                    )
+                    rejected_task_keys.append(task_key)
                     continue
                 row = recursive_return_row(
                     episode,
@@ -443,10 +452,10 @@ def main() -> None:
         "scaffolded_compute_actions": args.scaffolded_compute_actions,
         "resource_family_counts": dict(sorted(Counter(row["resource_family"] for row in returns).items())),
         "sources": {
-            "forced_return_traces": {
-                "path": str(args.forced_return_traces),
-                "sha256": sha256_file(args.forced_return_traces),
-            },
+            "forced_return_traces": [
+                {"path": str(path), "sha256": sha256_file(path)}
+                for path in args.forced_return_traces
+            ],
         },
         "dataset": {"path": parquet_path.name, "sha256": sha256_file(parquet_path)},
     }
