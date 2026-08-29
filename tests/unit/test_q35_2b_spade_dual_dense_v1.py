@@ -330,6 +330,38 @@ def test_proxy_routes_recursive_coordinator_context_to_coordinator_model() -> No
         recursive_coordinator_token_ids=[71, 72],
     ) == "coordinator"
 
+    bounded_leaf = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "[recursive coordinator session contract]\n"
+                    "is_root=false\n"
+                    "can_delegate=false\n"
+                    "can_finalize_user=false\n"
+                    "return_contract=exactly_one_parent_report"
+                ),
+            }
+        ],
+        "model": "external",
+    }
+    assert module.routed_payload(
+        bounded_leaf, coordinator_model="coordinator", child_model="child"
+    ) == ("child", {**bounded_leaf, "model": "child"})
+
+    bounded_private_leaf = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    bounded_leaf["messages"][0]["content"]
+                    + "\n[private evidence supplied to this reviewer]"
+                ),
+            }
+        ]
+    }
+    assert module.request_role(bounded_private_leaf) == "child"
+
 
 def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     module = _module("dual_policy_openai_proxy_v1")

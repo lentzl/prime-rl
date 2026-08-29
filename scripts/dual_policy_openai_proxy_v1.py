@@ -171,6 +171,19 @@ def _contains_marker(value: Any, marker: str) -> bool:
     return False
 
 
+def _is_bounded_leaf_session(value: Any) -> bool:
+    return all(
+        _contains_marker(value, marker)
+        for marker in (
+            RECURSIVE_COORDINATOR_HEADER,
+            "is_root=false",
+            "can_delegate=false",
+            "can_finalize_user=false",
+            "return_contract=exactly_one_parent_report",
+        )
+    )
+
+
 def _contains_token_subsequence(token_ids: list[int], marker_ids: list[int]) -> bool:
     if not marker_ids or len(marker_ids) > len(token_ids):
         return False
@@ -190,9 +203,10 @@ def request_role(
         has_recursive_coordinator = _contains_marker(
             messages, RECURSIVE_COORDINATOR_HEADER
         )
-        if has_private and has_recursive_coordinator:
+        bounded_leaf = _is_bounded_leaf_session(messages)
+        if has_private and has_recursive_coordinator and not bounded_leaf:
             raise ValueError("request contains conflicting delegated-session role markers")
-        return "child" if has_private else "coordinator"
+        return "child" if has_private or bounded_leaf else "coordinator"
     token_ids = payload.get("token_ids")
     if isinstance(token_ids, list) and all(isinstance(item, int) for item in token_ids):
         marker_ids = private_evidence_token_ids or []

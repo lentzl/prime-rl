@@ -374,6 +374,12 @@ the root has no parent, retains its coordinator identity across child traffic,
 and alone finalizes the user answer. Keep it disabled for unscaffolded
 admission measurements, and never apply it to private-evidence or depth-positive
 child sessions.
+Structured Chat Completions carrying the full bounded-leaf contract
+(`is_root=false`, delegation/finalization disabled, and exactly one parent
+report) route to the child policy even when the private-evidence marker is not
+serialized into the request. A recursive coordinator lacking that complete
+leaf contract remains on the coordinator policy. Verify both roles appear in
+the routing audit before accepting a dual-policy screen.
 For natural leaf-report acquisition, set `DUAL_LEAF_REPORTER_CONTRACT=1`.
 This adds a private-child-only contract with one canonical sequence: compute
 from inline evidence, send `str(result)` once to the default parent, and remain
