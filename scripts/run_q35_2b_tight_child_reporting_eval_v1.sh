@@ -11,6 +11,15 @@ revision=${6:-candidate-local}
 artifact_root=${Q35_2B_TIGHT_REPORT_ARTIFACT_ROOT:-/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1}
 output_root=${Q35_2B_TIGHT_REPORT_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1}
 bootstrap=$artifact_root/$label-bootstrap.json
+uv_bin=${UV_BIN:-$(command -v uv || true)}
+
+if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
+  uv_bin=$HOME/.local/bin/uv
+fi
+if [[ -z "$uv_bin" ]]; then
+  echo "uv executable not found" >&2
+  exit 1
+fi
 
 if [[ ! "$start_index" =~ ^[0-9]+$ ]]; then
   echo "start index must be a non-negative integer" >&2
@@ -26,7 +35,7 @@ if [[ -e "$bootstrap" ]]; then
 fi
 
 cd "$root"
-uv run --no-sync scripts/build_q35_2b_environment_bootstrap_context_v1.py \
+"$uv_bin" run --no-sync scripts/build_q35_2b_environment_bootstrap_context_v1.py \
   --output "$bootstrap" \
   --axis "natural_n1a:$start_index" \
   --tasks-per-axis "$num_tasks" \
