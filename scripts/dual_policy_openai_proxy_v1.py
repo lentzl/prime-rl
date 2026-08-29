@@ -110,6 +110,26 @@ class _ComputeSendToValue(ast.NodeTransformer):
         return self.generic_visit(node)
 
 
+class _AwaitBareParentSend(ast.NodeTransformer):
+    """Normalize a model-authored bare parent-send expression into an await."""
+
+    def __init__(self) -> None:
+        self.rewrites = 0
+
+    def visit_Expr(self, node: ast.Expr) -> ast.AST:
+        value = node.value
+        if (
+            isinstance(value, ast.Call)
+            and isinstance(value.func, ast.Attribute)
+            and value.func.attr == "send"
+            and isinstance(value.func.value, ast.Name)
+            and value.func.value.id == "agent_message"
+        ):
+            self.rewrites += 1
+            return ast.copy_location(ast.Expr(value=ast.Await(value=value)), node)
+        return self.generic_visit(node)
+
+
 def normalize_openai_finish_reason(body: bytes) -> tuple[bytes, int]:
     """Map vLLM's internal ``abort`` extension to the OpenAI ``stop`` enum.
 
@@ -766,7 +786,13 @@ def rewrite_ipython_literal_newlines_response(
                     tree = ast.parse(repaired)
                 except SyntaxError:
                     continue
-            if not preserve_parent_send:
+            if preserve_parent_send:
+                await_transformer = _AwaitBareParentSend()
+                tree = await_transformer.visit(tree)
+                if await_transformer.rewrites:
+                    ast.fix_missing_locations(tree)
+                    repaired = ast.unparse(tree)
+            else:
                 send_transformer = _ComputeSendToValue()
                 tree = send_transformer.visit(tree)
                 if send_transformer.rewrites:

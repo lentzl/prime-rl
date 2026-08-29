@@ -1083,6 +1083,46 @@ def test_proxy_prebinds_leaf_evidence_without_removing_parent_send() -> None:
     compile(grounded, "<grounded-leaf>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
 
+def test_proxy_awaits_model_authored_bare_leaf_parent_send() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = (
+        "result = sum(line.startswith('## ') for line in INLINE_EVIDENCE.splitlines())\n"
+        "agent_message.send(str(result), receiver_role='parent')"
+    )
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    body, rewrites, _ = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode(),
+        inline_evidence="# Report\n## A\n## B\n",
+        preserve_parent_send=True,
+    )
+
+    assert rewrites == 1
+    grounded = json.loads(
+        json.loads(body)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert "await agent_message.send(str(result), receiver_role='parent')" in grounded
+    assert "result = sum(" in grounded
+    compile(grounded, "<awaited-leaf>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+
+
 def test_proxy_converts_compute_stage_parent_send_to_value_expression() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     code = "await agent_message.send(str(2 + 2), receiver_role='parent')"
