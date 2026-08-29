@@ -65,6 +65,8 @@ PATH_READ_TEXT_PATTERN = re.compile(
 )
 TYPED_PARENT_RETURN_TOOL = "return_to_parent"
 REQUIRED_REVIEW_MARKER = "Required review: "
+EVIDENCE_LABEL_MARKER = "Evidence label: "
+PATHLESS_INLINE_EVIDENCE_LABEL = "INLINE_EVIDENCE"
 HOP_BY_HOP = {
     "connection",
     "content-encoding",
@@ -416,6 +418,54 @@ def inline_evidence_from_messages(messages: Any) -> str | None:
     if len(set(matches)) != 1:
         raise ValueError("recursive coordinator prompt contains conflicting inline evidence")
     return matches[0]
+
+
+def without_leaf_evidence_path(payload: dict[str, Any]) -> dict[str, Any]:
+    """Remove a leaf's deliberately non-runtime evidence path from its live prompt.
+
+    The private bytes remain visible in the evidence card. Replacing only the exact
+    label prevents a small policy from treating the opaque ownership label as a real
+    filesystem path, while still requiring it to choose and execute the computation.
+    """
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        raise ValueError("pathless leaf evidence requires chat messages")
+    paths: list[str] = []
+
+    def find(value: Any) -> None:
+        if isinstance(value, str):
+            for line in value.splitlines():
+                if line.startswith(EVIDENCE_LABEL_MARKER):
+                    label = line[len(EVIDENCE_LABEL_MARKER) :].strip()
+                    if label:
+                        paths.append(label)
+        elif isinstance(value, list):
+            for item in value:
+                find(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                find(item)
+
+    find(messages)
+    if not paths:
+        raise ValueError("pathless leaf evidence lacks an evidence label")
+    if len(set(paths)) != 1:
+        raise ValueError("pathless leaf evidence contains conflicting labels")
+    label = paths[0]
+    if label == PATHLESS_INLINE_EVIDENCE_LABEL:
+        return payload
+
+    def rewrite(value: Any) -> Any:
+        if isinstance(value, str):
+            return value.replace(label, PATHLESS_INLINE_EVIDENCE_LABEL)
+        if isinstance(value, list):
+            return [rewrite(item) for item in value]
+        if isinstance(value, dict):
+            return {key: rewrite(item) for key, item in value.items()}
+        return value
+
+    return {**payload, "messages": rewrite(messages)}
 
 
 def required_review_from_messages(messages: Any) -> str | None:
@@ -1119,6 +1169,12 @@ class DualPolicyProxy:
             and role == "child"
         ):
             routed = with_leaf_reporter_contract(routed)
+        if (
+            self.leaf_inline_evidence
+            and endpoint == "/v1/chat/completions"
+            and role == "child"
+        ):
+            routed = without_leaf_evidence_path(routed)
         client_requested_stream = payload.get("stream") is True
         stripped_sampling_fields: tuple[str, ...] = ()
         strip_tool_choice = should_strip_tool_choice(

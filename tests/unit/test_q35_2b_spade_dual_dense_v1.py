@@ -575,6 +575,48 @@ def test_proxy_injects_idempotent_one_shot_leaf_reporter_contract() -> None:
     assert module.with_leaf_reporter_contract(injected) is injected
 
 
+def test_inline_evidence_scaffold_removes_only_the_fake_leaf_path() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    path = "/workspace/harness-v1/train_gen/batch-1/review.md"
+    payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    f"Evidence label: {path}\n"
+                    "Required review: count level-2 Markdown headings\n"
+                    "Evidence contents:\n## A\nbody"
+                ),
+            },
+            {
+                "role": "user",
+                "content": f"Only this session owns {path}. Do not use open or Path.",
+            },
+        ]
+    }
+
+    rewritten = module.without_leaf_evidence_path(payload)
+
+    prompt = json.dumps(rewritten["messages"])
+    assert path not in prompt
+    assert prompt.count(module.PATHLESS_INLINE_EVIDENCE_LABEL) == 2
+    assert "Evidence contents:\\n## A\\nbody" in prompt
+    assert payload["messages"][0]["content"].startswith(f"Evidence label: {path}")
+
+
+def test_pathless_inline_evidence_rejects_conflicting_labels() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "messages": [
+            {"role": "user", "content": "Evidence label: /workspace/a"},
+            {"role": "user", "content": "Evidence label: /workspace/b"},
+        ]
+    }
+
+    with pytest.raises(ValueError, match="conflicting labels"):
+        module.without_leaf_evidence_path(payload)
+
+
 @pytest.mark.parametrize(
     ("operation", "required_fragment"),
     [
