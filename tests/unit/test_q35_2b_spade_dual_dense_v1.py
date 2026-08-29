@@ -48,6 +48,29 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'proxy_args+=(--typed-child-report)' in launcher
 
 
+def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -> None:
+    root = Path(__file__).parents[2]
+    runner = (root / "scripts" / "run_c160_natural_child_replay_v2.sh").read_text()
+    config = (
+        root
+        / "experiments"
+        / "qwen35-2b-recursive-coordinator-return-v1"
+        / "c160-child-natural-compute-replay-v2.toml"
+    ).read_text()
+
+    assert "--natural-child-actions" in runner
+    assert "--replay-anchor-corpus" in runner
+    assert "accepted < 1" in runner
+    assert ".traces[0].metrics.child_action_completed == 1" in runner
+    assert ".traces[0].rewards.harness_score.score == 1" in runner
+    assert "admission_floor: 4" in runner
+    assert "DUAL_LEAK_COORDINATOR_EXACT_ACTION=1" in runner
+    assert "DUAL_TYPED_CHILD_REPORT" not in runner
+    assert "lora" not in config.lower()
+    assert "max_steps = 8" in config
+    assert "lr = 3e-06" in config
+
+
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
     path = tmp_path / name
     path.mkdir()
