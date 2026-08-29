@@ -11,7 +11,6 @@ from typing import Any
 
 from huggingface_hub import HfApi
 
-
 _PRESERVED_REPO_FILES = {".gitattributes"}
 
 

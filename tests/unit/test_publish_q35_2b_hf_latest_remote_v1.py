@@ -1,7 +1,6 @@
 import importlib.util
 from pathlib import Path
 
-
 ROOT = Path(__file__).parents[2]
 SCRIPT = ROOT / "scripts" / "publish_q35_2b_hf_latest_remote_v1.py"
 SPEC = importlib.util.spec_from_file_location("publish_q35_2b_hf_latest_remote_v1", SCRIPT)
