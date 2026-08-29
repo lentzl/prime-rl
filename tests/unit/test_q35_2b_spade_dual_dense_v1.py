@@ -69,6 +69,7 @@ def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -
     assert "admission_floor: 4" in runner
     assert "DUAL_LEAK_COORDINATOR_EXACT_ACTION=1" in runner
     assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
+    assert "PROCEDURAL_NATURAL_YIELD_SCAFFOLD=1" in runner
     assert "DUAL_TYPED_CHILD_REPORT" not in runner
     assert "lora" not in config.lower()
     assert "max_steps = 8" in config
