@@ -134,6 +134,23 @@ def test_child_only_natural_row_accepts_computed_delivery_despite_root_failure()
         )
 
 
+def test_child_only_natural_row_accepts_verified_terminal_send_without_ack() -> None:
+    module = _module()
+    code = "result = 8 + 9\nawait agent_message.send(str(result))"
+    episode = _episode(code, reward=0.75)
+    episode["traces"][0]["nodes"] = episode["traces"][0]["nodes"][:4]
+
+    row = module.recursive_return_row(
+        episode, allow_natural_action=True, require_hard_success=False
+    )
+
+    assert [message["role"] for message in row["messages"]] == ["user", "assistant"]
+    assert json.loads(row["messages"][1]["tool_calls"][0]["arguments"])["code"] == code
+
+    with pytest.raises(ValueError, match="lacks a tool acknowledgement"):
+        module.recursive_return_row(episode)
+
+
 def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> None:
     module = _module()
     traces = tmp_path / "traces.jsonl"

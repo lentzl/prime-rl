@@ -167,13 +167,16 @@ def recursive_return_row(
     elif arguments != {"code": expected_code}:
         raise ValueError(f"trace {trace.get('id')} return action is not exact")
     action_position = path.index(action_index)
+    trained_path = path[: action_position + 1]
     if action_position + 1 >= len(path):
-        raise ValueError(f"trace {trace.get('id')} lacks a tool acknowledgement")
-    tool_index = path[action_position + 1]
-    tool_message = nodes[tool_index]["message"]
-    if tool_message.get("role") != "tool":
-        raise ValueError(f"trace {trace.get('id')} return action lacks tool acknowledgement")
-    trained_path = path[: action_position + 2]
+        if not allow_natural_action:
+            raise ValueError(f"trace {trace.get('id')} lacks a tool acknowledgement")
+    else:
+        tool_index = path[action_position + 1]
+        tool_message = nodes[tool_index]["message"]
+        if tool_message.get("role") != "tool":
+            raise ValueError(f"trace {trace.get('id')} return action lacks tool acknowledgement")
+        trained_path.append(tool_index)
     family = trace["task"]["data"]["generation_metadata"]["resource_families"][0]
     return {
         "messages": [wire_message(nodes[index]["message"]) for index in trained_path],
