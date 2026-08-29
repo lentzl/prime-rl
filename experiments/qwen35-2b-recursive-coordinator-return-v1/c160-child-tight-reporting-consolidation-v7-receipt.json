@@ -1,0 +1,146 @@
+{
+  "schema_version": "q35-2b-tight-reporting-consolidation-receipt/v1",
+  "status": "complete_not_promoted",
+  "decision": {
+    "canonical_child": "protected_c160",
+    "candidate": "c160_child_tight_reporting_consolidation_v7_step_6",
+    "candidate_admitted_by_production_gate": true,
+    "candidate_promoted": false,
+    "huggingface_latest_updated": false,
+    "reason": "The candidate retained strict production behavior but did not improve over protected C160 and regressed on the matched authored-computation diagnostic."
+  },
+  "acceptance_contract": {
+    "minimum_complete_qualifying_trajectories": 4,
+    "relaxed": false,
+    "production_profile": "tight_answer_free_child_reporting_v1",
+    "semantic_profile": "tight_learned_semantic_probe_v1",
+    "semantic_profile_is_diagnostic_only": true
+  },
+  "models": {
+    "coordinator": {
+      "label": "protected_c158",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800/weights/step_1",
+      "model_sha256": "18f760904ba4ef6b54b785dea96307e100d8ff71719750d8a76fabd9a55a789e"
+    },
+    "protected_child": {
+      "label": "protected_c160",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000160-child-e0c3-natural-child-minimal-sft-spawn9x4-c159-v3/weights/step_4",
+      "model_sha256": "aaa19e1d736c293e5aebc0714233cebdf4d8e2e1bb08506876aaf3c1067c12cf"
+    },
+    "candidate_child": {
+      "label": "c160_child_tight_reporting_consolidation_v7_step_6",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1/c160-child-tight-reporting-consolidation-v7/weights/step_6",
+      "model_sha256": "13fd3fffea5721f7ba643b9a54f8b8491eae1f1350e8f11dd5777b8c09a39af7"
+    }
+  },
+  "training": {
+    "config": "experiments/qwen35-2b-recursive-coordinator-return-v1/c160-child-tight-reporting-consolidation-v7.toml",
+    "source_child": "protected_c160",
+    "update_type": "full_weight_sft",
+    "steps": 6,
+    "learning_rate": 7.5e-7,
+    "loss_mean_by_step": [
+      0.4588,
+      0.36,
+      0.2931,
+      0.2354,
+      0.1997,
+      0.16483402252197266
+    ],
+    "final_grad_norm": 73.0,
+    "nan_count": 0,
+    "peak_gpu_memory_gib": 11.154296875
+  },
+  "corpus": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c160-child-tight-reporting-consolidation-v7",
+    "unique_accepted_trajectories": 18,
+    "rows": 72,
+    "resource_families": [
+      "csv_total",
+      "json_max",
+      "json_sum",
+      "log_error",
+      "md_h2",
+      "python_defs",
+      "word_count"
+    ],
+    "train_parquet_sha256": "5a5117bd008afe4cb6206cb212df1a2898c7eac1e02eb8c778d8f800c18acec6",
+    "manifest_sha256": "0b5f60f4f2a6a15bc907cf44c2953227d2cec9347cdaf55b5c8fa470d8d0e9a8"
+  },
+  "production_evaluation": {
+    "label": "c158-v7-tight-production-v24-9427300-n6",
+    "path": "/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1/c158-v7-tight-production-v24-9427300-n6",
+    "task_start_index": 9427300,
+    "episodes": 6,
+    "strict_passes": 6,
+    "errors": 0,
+    "all_child_actions_completed": true,
+    "all_stop_conditions": "user_closed",
+    "trace_sha256": "fce6a5dd874db4d6a517382811cfe2021d0848256bd957c434b75bd7365c1edb"
+  },
+  "matched_semantic_evaluation": {
+    "task_banks": [
+      {
+        "start_index": 9427400,
+        "protected_c160": {
+          "label": "c158-c160-semantic-probe-v25-9427400-n6",
+          "passes": 6,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 4,
+          "trace_sha256": "ae85b85d67ecab742bb06b68ff229cbc8bef2438312818497b0fa5cc77fe94c5"
+        },
+        "candidate_v7": {
+          "label": "c158-v7-semantic-probe-v26-9427400-n6",
+          "passes": 5,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 2,
+          "trace_sha256": "6d76ecc8a45a5d6eb2ce6a42c1f48396c66fabe04eb2999932c2969485ec1d44"
+        }
+      },
+      {
+        "start_index": 9427500,
+        "protected_c160": {
+          "label": "c158-c160-semantic-probe-v27-9427500-n6",
+          "passes": 5,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 3,
+          "trace_sha256": "7dd517058346a9d2c95e05d9678643b603481e9bd10dea39e1c21990c4bba2e0"
+        },
+        "candidate_v7": {
+          "label": "c158-v7-semantic-probe-v28-9427500-n6",
+          "passes": 5,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 1,
+          "trace_sha256": "5711f2c7f358d64b6416d474a0d17b20616b534e135775e0596aa69bf66a21e6"
+        }
+      }
+    ],
+    "aggregate": {
+      "protected_c160_passes": 11,
+      "candidate_v7_passes": 10,
+      "episodes_per_model": 12,
+      "protected_c160_immediate_atomic_compute_reports": 7,
+      "candidate_v7_immediate_atomic_compute_reports": 3,
+      "candidate_unique_wins": 0,
+      "candidate_unique_losses": 1
+    },
+    "candidate_unique_loss": {
+      "start_index": 9427400,
+      "task_index": 5,
+      "resource_family": "log_error",
+      "expected_child_result": 5,
+      "candidate_child_result": 3,
+      "failure": "The candidate emitted empty or invalid Python arguments, then the repair path returned an ungrounded value."
+    }
+  },
+  "attribution": {
+    "production_reliability": "Primarily attributable to the frozen tight scaffold plus protected C160 capability; v7 showed no matched production advantage over its source.",
+    "weight_update_effect": "No demonstrated gain. The candidate retained the strict production profile but reduced authored-computation accuracy and immediate atomicity.",
+    "safe_next_update": "If consolidation is retried, restart from protected C160, mix explicit authored-computation retention examples with production reporting examples, reduce update magnitude, and require both the unchanged production gate and a no-worse matched semantic result before promotion."
+  },
+  "code": {
+    "training_config_commit": "cdd97e0",
+    "semantic_probe_commit": "fb2728a",
+    "receipt_commit_parent": "ed638ba"
+  }
+}
