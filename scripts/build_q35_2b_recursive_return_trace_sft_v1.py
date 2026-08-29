@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 from collections import Counter
@@ -56,12 +57,17 @@ def wire_message(message: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
-def _successful_trace(episode: dict[str, Any]) -> dict[str, Any]:
+def _successful_trace(
+    episode: dict[str, Any], *, require_hard_success: bool = True
+) -> dict[str, Any]:
     traces = episode.get("traces")
     if not isinstance(traces, list) or len(traces) != 1:
         raise ValueError(f"episode {episode.get('id')} must contain exactly one trace")
     trace = traces[0]
-    if score_value((trace.get("rewards") or {}).get("harness_score")) != 1.0:
+    if (
+        require_hard_success
+        and score_value((trace.get("rewards") or {}).get("harness_score")) != 1.0
+    ):
         raise ValueError(f"trace {trace.get('id')} is not a hard success")
     if float((trace.get("metrics") or {}).get("child_action_completed", 0.0)) != 1.0:
         raise ValueError(f"trace {trace.get('id')} lacks a complete delegated return")
@@ -70,20 +76,70 @@ def _successful_trace(episode: dict[str, Any]) -> dict[str, Any]:
     return trace
 
 
-def is_qualifying_episode(episode: dict[str, Any]) -> bool:
+def is_qualifying_episode(
+    episode: dict[str, Any], *, require_hard_success: bool = True
+) -> bool:
     traces = episode.get("traces")
     if not isinstance(traces, list) or len(traces) != 1:
         return False
     trace = traces[0]
     return (
-        score_value((trace.get("rewards") or {}).get("harness_score")) == 1.0
-        and float((trace.get("metrics") or {}).get("child_action_completed", 0.0)) == 1.0
+        (
+            not require_hard_success
+            or score_value((trace.get("rewards") or {}).get("harness_score")) == 1.0
+        )
+        and float((trace.get("metrics") or {}).get("child_action_completed", 0.0))
+        == 1.0
         and trace.get("stop_condition") == "user_closed"
     )
 
 
-def recursive_return_row(episode: dict[str, Any]) -> dict[str, Any]:
-    trace = _successful_trace(episode)
+def _dotted_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        prefix = _dotted_name(node.value)
+        return f"{prefix}.{node.attr}" if prefix else node.attr
+    return None
+
+
+def _natural_parent_send(code: str) -> bool:
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return False
+    awaited_sends = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Await) or not isinstance(node.value, ast.Call):
+            continue
+        call = node.value
+        if _dotted_name(call.func) == "agent_message.send":
+            awaited_sends.append(call)
+    if len(awaited_sends) != 1:
+        return False
+    send = awaited_sends[0]
+    keywords = {keyword.arg: keyword.value for keyword in send.keywords if keyword.arg}
+    receiver = keywords.get("receiver_role")
+    receiver_name = keywords.get("receiver_name")
+    if receiver_name is not None:
+        return False
+    if receiver is not None and not (
+        isinstance(receiver, ast.Constant) and receiver.value == "parent"
+    ):
+        return False
+    return not any(
+        isinstance(node, ast.Call) and _dotted_name(node.func) == "rlm"
+        for node in ast.walk(tree)
+    )
+
+
+def recursive_return_row(
+    episode: dict[str, Any],
+    *,
+    allow_natural_action: bool = False,
+    require_hard_success: bool = True,
+) -> dict[str, Any]:
+    trace = _successful_trace(episode, require_hard_success=require_hard_success)
     nodes = trace["nodes"]
     roots = [index for index, node in enumerate(nodes) if node.get("parent") is None]
     if len(roots) != 2:
@@ -104,7 +160,11 @@ def recursive_return_row(episode: dict[str, Any]) -> dict[str, Any]:
     arguments = json.loads(tool_calls[0]["arguments"])
     child = trace["task"]["data"]["oracle"]["children"][0]
     expected_code = f"await agent_message.send({str(child['expected_result'])!r}, receiver_role='parent')"
-    if arguments != {"code": expected_code}:
+    code = arguments.get("code") if isinstance(arguments, dict) else None
+    if allow_natural_action:
+        if not isinstance(code, str) or not _natural_parent_send(code):
+            raise ValueError(f"trace {trace.get('id')} lacks one natural parent send")
+    elif arguments != {"code": expected_code}:
         raise ValueError(f"trace {trace.get('id')} return action is not exact")
     action_position = path.index(action_index)
     if action_position + 1 >= len(path):
@@ -118,7 +178,11 @@ def recursive_return_row(episode: dict[str, Any]) -> dict[str, Any]:
     return {
         "messages": [wire_message(nodes[index]["message"]) for index in trained_path],
         "tools": json.dumps(trace.get("tools") or [], sort_keys=True, separators=(",", ":")),
-        "axis": "recursive_coordinator_return_forced_action",
+        "axis": (
+            "recursive_coordinator_return_natural_action"
+            if allow_natural_action
+            else "recursive_coordinator_return_forced_action"
+        ),
         "phase": "e0c4_recursive_coordinator_return",
         "task_key": trace["task"]["key"],
         "trace_id": trace["id"],
@@ -172,6 +236,7 @@ def main() -> None:
     parser.add_argument("--forced-return-traces", type=Path, required=True)
     parser.add_argument("--root-anchor-traces", type=Path)
     parser.add_argument("--child-only", action="store_true")
+    parser.add_argument("--natural-child-actions", action="store_true")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--return-repeats", type=int, default=4)
     parser.add_argument("--root-anchor-repeats", type=int, default=2)
@@ -181,6 +246,8 @@ def main() -> None:
         raise SystemExit(f"refusing to overwrite corpus: {args.output_dir}")
     if args.child_only and args.root_anchor_traces is not None:
         raise ValueError("child-only corpus must not include root anchors")
+    if args.natural_child_actions and not args.child_only:
+        raise ValueError("natural child actions require --child-only")
     if not args.child_only and args.root_anchor_traces is None:
         raise ValueError("mixed corpus requires --root-anchor-traces")
     if args.return_repeats < 1 or args.root_anchor_repeats < 1 or args.minimum_return_traces < 1:
@@ -197,7 +264,9 @@ def main() -> None:
             if line.strip():
                 source_episodes += 1
                 episode = json.loads(line)
-                if not is_qualifying_episode(episode):
+                if not is_qualifying_episode(
+                    episode, require_hard_success=not args.natural_child_actions
+                ):
                     traces = episode.get("traces") or []
                     rejected_task_keys.append(
                         traces[0].get("task", {}).get("key", episode.get("id", "unknown"))
@@ -205,7 +274,11 @@ def main() -> None:
                         else episode.get("id", "unknown")
                     )
                     continue
-                row = recursive_return_row(episode)
+                row = recursive_return_row(
+                    episode,
+                    allow_natural_action=args.natural_child_actions,
+                    require_hard_success=not args.natural_child_actions,
+                )
                 accepted_trajectories += 1
                 returns.extend(dict(row) for _ in range(args.return_repeats))
     if accepted_trajectories < args.minimum_return_traces:
@@ -225,7 +298,9 @@ def main() -> None:
         "schema_version": SCHEMA_VERSION,
         "status": "complete",
         "objective": (
-            "forced_recursive_child_return_consolidation"
+            "natural_recursive_child_return_consolidation"
+            if args.natural_child_actions
+            else "forced_recursive_child_return_consolidation"
             if args.child_only
             else "forced_recursive_coordinator_return_with_root_retention"
         ),
@@ -239,6 +314,7 @@ def main() -> None:
         "root_retention_rows": len(anchors),
         "return_repeats": args.return_repeats,
         "root_anchor_repeats": args.root_anchor_repeats,
+        "natural_child_actions": args.natural_child_actions,
         "resource_family_counts": dict(sorted(Counter(row["resource_family"] for row in returns).items())),
         "sources": {
             "forced_return_traces": {

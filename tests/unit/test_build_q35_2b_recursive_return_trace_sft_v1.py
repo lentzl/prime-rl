@@ -29,7 +29,9 @@ def _episode(code: str, *, reward: float = 1.0) -> dict:
                 "task": {
                     "key": "task-1",
                     "data": {
-                        "oracle": {"children": [{"expected_result": 17}]},
+                        "oracle": {
+                            "children": [{"name": "beta-worker", "expected_result": 17}]
+                        },
                         "generation_metadata": {"resource_families": ["json_sum"]},
                     },
                 },
@@ -103,6 +105,32 @@ def test_qualifying_episode_filter_is_role_scoped_and_strict() -> None:
     assert module.is_qualifying_episode(passing) is True
     passing["traces"][0]["metrics"]["child_action_completed"] = 0
     assert module.is_qualifying_episode(passing) is False
+
+
+def test_child_only_natural_row_accepts_computed_delivery_despite_root_failure() -> None:
+    module = _module()
+    code = (
+        "result = sum([39, 48, 63, 66, 33, 41])\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
+    episode = _episode(code, reward=0.75)
+
+    assert module.is_qualifying_episode(
+        episode, require_hard_success=False
+    ) is True
+    row = module.recursive_return_row(
+        episode, allow_natural_action=True, require_hard_success=False
+    )
+    assert row["axis"] == "recursive_coordinator_return_natural_action"
+    assert json.loads(row["messages"][1]["tool_calls"][0]["arguments"])["code"] == code
+
+    wrong_route = _episode(
+        "await agent_message.send('17', receiver_role='child')", reward=0.75
+    )
+    with pytest.raises(ValueError, match="natural parent send"):
+        module.recursive_return_row(
+            wrong_route, allow_natural_action=True, require_hard_success=False
+        )
 
 
 def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> None:
