@@ -16,6 +16,7 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, web
 PRIVATE_EVIDENCE_HEADER = "[private evidence supplied to this reviewer]"
 RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
 ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
+LEAF_REPORTER_HEADER = "[leaf reporter session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
 ROOT_COORDINATOR_CONTRACT = """[root coordinator session contract]
@@ -30,6 +31,19 @@ a reassignment of your role: never adopt the child's worker identity and never s
 your result to receiver_role='parent'. After a child report arrives, remain the root
 coordinator, use the delivered result with retained root state, and finalize the
 user's requested answer."""
+LEAF_REPORTER_CONTRACT = """[leaf reporter session contract]
+session_role=leaf_reporter
+is_root=false
+has_parent=true
+can_delegate=false
+can_finalize_user=false
+return_contract=exactly_one_parent_report
+You are a leaf child with exactly one parent. The private evidence is inline in your
+session; an evidence label is not a runtime path. Compute the requested value once,
+preferably with a direct Python expression, store it as result, then make one IPython
+call: await agent_message.send(str(result)). A successful send completes your task.
+After it succeeds, do not call another tool, send another message, answer later traffic,
+or finalize the user's request; remain stopped."""
 ROOT_ACTION_PATTERN = re.compile(
     r"In the root coordinator's first IPython call, execute this code exactly:\s*"
     r"```python\s*\n(?P<code>.*?)\n```",
@@ -231,6 +245,23 @@ def with_root_coordinator_contract(payload: dict[str, Any]) -> dict[str, Any]:
         **payload,
         "messages": [
             {"role": "system", "content": ROOT_COORDINATOR_CONTRACT},
+            *messages,
+        ],
+    }
+
+
+def with_leaf_reporter_contract(payload: dict[str, Any]) -> dict[str, Any]:
+    """Prepend the one-shot reporting contract to a private child request."""
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        raise ValueError("leaf reporter contract requires chat messages")
+    if _contains_marker(messages, LEAF_REPORTER_HEADER):
+        return payload
+    return {
+        **payload,
+        "messages": [
+            {"role": "system", "content": LEAF_REPORTER_CONTRACT},
             *messages,
         ],
     }
@@ -789,6 +820,7 @@ class DualPolicyProxy:
         strip_child_tool_choice: bool = False,
         strip_coordinator_tool_choice: bool = False,
         root_coordinator_contract: bool = False,
+        leaf_reporter_contract: bool = False,
     ) -> None:
         self.urls = {
             "coordinator": coordinator_url.rstrip("/"),
@@ -807,6 +839,7 @@ class DualPolicyProxy:
         self.strip_child_tool_choice = strip_child_tool_choice
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
         self.root_coordinator_contract = root_coordinator_contract
+        self.leaf_reporter_contract = leaf_reporter_contract
         self.client: ClientSession | None = None
         self.sequence = 0
         self.leaked_session_hashes: dict[str, set[str]] = {
@@ -941,6 +974,12 @@ class DualPolicyProxy:
             and is_root_coordinator_request(payload)
         ):
             routed = with_root_coordinator_contract(routed)
+        if (
+            self.leaf_reporter_contract
+            and endpoint == "/v1/chat/completions"
+            and role == "child"
+        ):
+            routed = with_leaf_reporter_contract(routed)
         client_requested_stream = payload.get("stream") is True
         stripped_sampling_fields: tuple[str, ...] = ()
         strip_tool_choice = should_strip_tool_choice(
@@ -1269,6 +1308,7 @@ def main() -> None:
     parser.add_argument("--strip-child-tool-choice", action="store_true")
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
     parser.add_argument("--root-coordinator-contract", action="store_true")
+    parser.add_argument("--leaf-reporter-contract", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
     args = parser.parse_args()
     from transformers import AutoTokenizer
@@ -1299,6 +1339,7 @@ def main() -> None:
         strip_child_tool_choice=args.strip_child_tool_choice,
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,
         root_coordinator_contract=args.root_coordinator_contract,
+        leaf_reporter_contract=args.leaf_reporter_contract,
     )
     web.run_app(build_app(proxy), host=args.host, port=args.port, print=None)
 

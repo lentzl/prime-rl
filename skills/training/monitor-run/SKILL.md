@@ -374,6 +374,12 @@ the root has no parent, retains its coordinator identity across child traffic,
 and alone finalizes the user answer. Keep it disabled for unscaffolded
 admission measurements, and never apply it to private-evidence or depth-positive
 child sessions.
+For natural leaf-report acquisition, set `DUAL_LEAF_REPORTER_CONTRACT=1`.
+This adds a private-child-only contract with one canonical sequence: compute
+from inline evidence, send `str(result)` once to the default parent, and remain
+terminal after success. It does not disclose the answer or force a completion.
+Keep coordinator and leaf contracts independently switchable so screens can
+attribute gains to the correct role.
 The early coordinator curriculum preserves the harness's first named IPython action
 and disables thinking. Because the 2B model cannot yet copy that action reliably,
 the proxy supplies one synthetic exact retained-spawn completion per coordinator

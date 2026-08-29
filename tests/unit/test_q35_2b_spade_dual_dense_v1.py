@@ -374,6 +374,36 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     assert module.is_root_coordinator_request(private_child) is False
 
 
+def test_proxy_injects_idempotent_one_shot_leaf_reporter_contract() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    child = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Recursive agent depth: 1\n"
+                    "[private evidence supplied to this reviewer]"
+                ),
+            }
+        ],
+        "model": "external",
+    }
+
+    injected = module.with_leaf_reporter_contract(child)
+    assert injected["messages"][0] == {
+        "role": "system",
+        "content": module.LEAF_REPORTER_CONTRACT,
+    }
+    assert injected["messages"][1:] == child["messages"]
+    contract = injected["messages"][0]["content"]
+    assert "return_contract=exactly_one_parent_report" in contract
+    assert "await agent_message.send(str(result))" in contract
+    assert "A successful send completes your task" in contract
+    assert "do not call another tool" in contract
+
+    assert module.with_leaf_reporter_contract(injected) is injected
+
+
 def test_proxy_normalizes_vllm_abort_finish_reason_for_json_and_split_sse() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     payload = {
