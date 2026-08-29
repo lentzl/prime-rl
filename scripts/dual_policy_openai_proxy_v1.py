@@ -63,6 +63,9 @@ CHILD_SEND_PATTERN = re.compile(
 PATH_READ_TEXT_PATTERN = re.compile(
     r"(?:pathlib\.)?Path\((?P<quote>['\"])[^'\"]+(?P=quote)\)\.read_text\(\)"
 )
+MODEL_TOOL_CONTAMINATION_PATTERN = re.compile(
+    r"</?(?:parameter|function|tool_call)>|<\|(?:endoftext|im_start|im_end)\|>"
+)
 TYPED_PARENT_RETURN_TOOL = "return_to_parent"
 REQUIRED_REVIEW_MARKER = "Required review: "
 EVIDENCE_LABEL_MARKER = "Evidence label: "
@@ -874,11 +877,30 @@ def rewrite_ipython_literal_newlines_response(
             try:
                 tree = ast.parse(repaired)
             except SyntaxError:
-                repaired = repaired.replace("\\r\\n", "\n").replace("\\n", "\n")
+                clean_prefix = MODEL_TOOL_CONTAMINATION_PATTERN.split(
+                    repaired, maxsplit=1
+                )[0].rstrip()
                 try:
-                    tree = ast.parse(repaired)
+                    tree = ast.parse(clean_prefix)
                 except SyntaxError:
-                    continue
+                    repaired = repaired.replace("\\r\\n", "\n").replace(
+                        "\\n", "\n"
+                    )
+                    try:
+                        tree = ast.parse(repaired)
+                    except SyntaxError:
+                        clean_prefix = MODEL_TOOL_CONTAMINATION_PATTERN.split(
+                            repaired, maxsplit=1
+                        )[0].rstrip()
+                        if not clean_prefix:
+                            continue
+                        try:
+                            tree = ast.parse(clean_prefix)
+                        except SyntaxError:
+                            continue
+                        repaired = clean_prefix
+                else:
+                    repaired = clean_prefix
             if preserve_parent_send:
                 await_transformer = _AwaitBareParentSend()
                 tree = await_transformer.visit(tree)

@@ -1231,6 +1231,48 @@ def test_proxy_wraps_model_computed_final_value_in_first_parent_report() -> None
     compile(grounded, "<computed-report>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
 
+def test_proxy_truncates_tool_markup_after_complete_computed_value() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = (
+        "result = INLINE_EVIDENCE.splitlines().count('ERROR')\n"
+        "print(result)\n"
+        "</parameter></function><|endoftext|><|im_start|>user"
+    )
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    body, rewrites, _ = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode(),
+        inline_evidence="ERROR\nINFO\n",
+        report_final_value_to_parent=True,
+    )
+
+    assert rewrites == 1
+    grounded = json.loads(
+        json.loads(body)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert "</parameter>" not in grounded
+    assert "<|endoftext|>" not in grounded
+    assert "await agent_message.send(str(result), receiver_role='parent')" in grounded
+    compile(grounded, "<truncated-report>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
+
+
 def test_proxy_preserves_valid_python_containing_literal_newline_escape() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     code = 'separator = "\\n"'
