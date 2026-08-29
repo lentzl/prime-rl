@@ -370,7 +370,10 @@ def disclosed_root_action_from_messages(messages: Any) -> str | None:
                 collect(item)
 
     collect(messages)
-    return disclosed_root_action("\n".join(fragments))
+    prompt = "\n".join(fragments)
+    if EXACT_ACTION_MARKER not in prompt:
+        prompt = f"{EXACT_ACTION_MARKER}\n{prompt}"
+    return disclosed_root_action(prompt)
 
 
 def inline_evidence_from_messages(messages: Any) -> str | None:

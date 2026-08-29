@@ -388,6 +388,9 @@ The exact coordinator action flag applies to both token-in training requests
 and live depth-zero Chat Completions. Confirm the routing audit records
 `forwarded_forced_exact_coordinator_schema` before treating an evaluation as a
 root-spawn-controlled child isolation.
+Live chat extraction may use the exact-action prompt phrase from an
+`action_scaffold` bootstrap even when the token-in marker is absent; the
+explicit launcher flag remains mandatory.
 If the leaf repeatedly computes the right value but invalidates the trajectory
 with a path read, malformed IPython, or a second send, set
 `DUAL_TYPED_CHILD_REPORT=1`. The model still computes the payload from the
