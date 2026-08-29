@@ -39,6 +39,11 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'if [[ "$leak_coordinator_return_action" == 1 ]]' in launcher
     assert "typed_coordinator_return=${DUAL_TYPED_COORDINATOR_RETURN:-0}" in launcher
     assert 'proxy_args+=(--typed-coordinator-return)' in launcher
+    assert (
+        "leak_coordinator_exact_action=${DUAL_LEAK_COORDINATOR_EXACT_ACTION:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--leak-coordinator-exact-action)' in launcher
 
 
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:

@@ -380,6 +380,10 @@ from inline evidence, send `str(result)` once to the default parent, and remain
 terminal after success. It does not disclose the answer or force a completion.
 Keep coordinator and leaf contracts independently switchable so screens can
 attribute gains to the correct role.
+When isolating natural leaf reporting, combine the leaf contract with
+`DUAL_LEAK_COORDINATOR_EXACT_ACTION=1`. This guarantees only the disclosed
+root spawn; do not enable the coordinator-return leak, because that would force
+the child report and invalidate the natural leaf measurement.
 The early coordinator curriculum preserves the harness's first named IPython action
 and disables thinking. Because the 2B model cannot yet copy that action reliably,
 the proxy supplies one synthetic exact retained-spawn completion per coordinator

@@ -15,6 +15,7 @@ external_model=${DUAL_EXTERNAL_MODEL:-q35-2b-dual-policy}
 coordinator_backend_port=${COORDINATOR_BACKEND_PORT:-8101}
 child_backend_port=${CHILD_BACKEND_PORT:-8102}
 proxy_port=${DUAL_PROXY_PORT:-8100}
+leak_coordinator_exact_action=${DUAL_LEAK_COORDINATOR_EXACT_ACTION:-0}
 leak_coordinator_return_action=${DUAL_LEAK_COORDINATOR_RETURN_ACTION:-0}
 typed_coordinator_return=${DUAL_TYPED_COORDINATOR_RETURN:-0}
 root_coordinator_contract=${DUAL_ROOT_COORDINATOR_CONTRACT:-0}
@@ -37,6 +38,10 @@ if [[ -n "$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)" ]]; then
 fi
 if [[ "$leak_coordinator_return_action" != 0 && "$leak_coordinator_return_action" != 1 ]]; then
   echo "DUAL_LEAK_COORDINATOR_RETURN_ACTION must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$leak_coordinator_exact_action" != 0 && "$leak_coordinator_exact_action" != 1 ]]; then
+  echo "DUAL_LEAK_COORDINATOR_EXACT_ACTION must be 0 or 1" >&2
   exit 1
 fi
 if [[ "$typed_coordinator_return" != 0 && "$typed_coordinator_return" != 1 ]]; then
@@ -152,6 +157,9 @@ proxy_args=(
   --external-model "$external_model"
   --audit-log "$routing_audit"
 )
+if [[ "$leak_coordinator_exact_action" == 1 ]]; then
+  proxy_args+=(--leak-coordinator-exact-action)
+fi
 if [[ "$leak_coordinator_return_action" == 1 ]]; then
   proxy_args+=(--leak-coordinator-return-action)
 fi
