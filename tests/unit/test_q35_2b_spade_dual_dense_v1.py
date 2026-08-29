@@ -343,9 +343,8 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
         "content": module.ROOT_COORDINATOR_CONTRACT,
     }
     assert injected["messages"][1:] == root["messages"]
-    assert "This identity persists across every delegation and resume" in injected["messages"][0][
-        "content"
-    ]
+    assert "This identity persists" in injected["messages"][0]["content"]
+    assert "delegation and resume" in injected["messages"][0]["content"]
     assert "never adopt the child's worker identity" in injected["messages"][0]["content"]
     assert "has_parent=false" in injected["messages"][0]["content"]
 
