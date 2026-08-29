@@ -5,6 +5,7 @@ from pathlib import Path
 
 from prime_rl.configs.rl import RLConfig
 from prime_rl.utils.config import cli
+from procedural_harness_master_v1.taskset import _delivered_child_result_matches
 from scripts.audit_procedural_harness_event_control_support_v1 import (
     summarize_support,
     validate_support,
@@ -102,6 +103,21 @@ PRIME_AGENT_RUNTIME_DOCKERFILE = CONFIG.with_name("prime-agent-runtime.Dockerfil
 SUMMARIZER = ROOT / "scripts" / "summarize_procedural_harness_master_v1.py"
 BASELINE = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_baseline_v1.sh"
 CHECKPOINT_BATTERY = ROOT / "scripts" / "run_qwen35_27b_procedural_harness_master_checkpoint_battery_v1.sh"
+
+
+def test_dynamic_child_send_is_verified_from_the_delivered_parent_message() -> None:
+    expected = {"beta-worker": "290"}
+
+    assert _delivered_child_result_matches([(8, "beta-worker", "290")], expected)
+    assert not _delivered_child_result_matches(
+        [(8, "beta-worker", "291")], expected
+    )
+    assert not _delivered_child_result_matches(
+        [(8, "other-worker", "290")], expected
+    )
+    assert not _delivered_child_result_matches(
+        [(8, "beta-worker", "290"), (9, "beta-worker", "290")], expected
+    )
 
 
 def test_bootstrap_is_full_weight_hard_reward_grpo() -> None:
