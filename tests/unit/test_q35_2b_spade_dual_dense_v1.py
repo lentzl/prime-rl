@@ -1300,6 +1300,12 @@ def test_typed_compute_phase_starts_once_retries_failures_and_then_returns() -> 
     assert module.should_run_typed_compute(
         session, {session}, {session: 2}, failed_messages
     )
+    assert module.should_run_typed_compute(
+        session,
+        {session},
+        {session: 1},
+        [{"role": "tool", "tool_call_id": "call-1", "content": "SyntaxError: bad"}],
+    )
     assert not module.should_run_typed_compute(
         session, {session}, {session: 3}, failed_messages
     )

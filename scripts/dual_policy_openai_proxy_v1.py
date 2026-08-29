@@ -574,7 +574,10 @@ def latest_ipython_tool_failed(messages: Any) -> bool:
     for message in reversed(messages):
         if not isinstance(message, dict) or message.get("role") != "tool":
             continue
-        if message.get("name") != "ipython":
+        # OpenAI-compatible clients may identify a tool result only by
+        # tool_call_id. Typed-compute turns expose IPython as the sole tool, so
+        # an omitted name is still unambiguous; an explicit different name is not.
+        if message.get("name") not in (None, "ipython"):
             return False
         content = message.get("content")
         if isinstance(content, list):
