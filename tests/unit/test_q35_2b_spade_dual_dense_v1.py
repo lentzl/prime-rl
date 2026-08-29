@@ -958,6 +958,7 @@ def test_proxy_forces_one_step_child_compute_report_without_answer() -> None:
     rewritten = module.force_child_compute_report_schema(payload)
 
     assert rewritten["tool_choice"]["function"]["name"] == "ipython"
+    assert rewritten["temperature"] == 0.0
     description = rewritten["tools"][0]["function"]["description"]
     assert "End the cell with the computed result" in description
     assert "harness routes that value" in description

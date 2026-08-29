@@ -836,6 +836,7 @@ def force_child_compute_report_schema(payload: dict[str, Any]) -> dict[str, Any]
     """Constrain one model-authored compute cell whose final value is reported."""
 
     rewritten = force_parent_return_compute_schema(payload)
+    rewritten["temperature"] = 0.0
     function = rewritten["tools"][0]["function"]
     function["description"] = (
         "Use Python once to compute the requested result from the inline evidence. "
