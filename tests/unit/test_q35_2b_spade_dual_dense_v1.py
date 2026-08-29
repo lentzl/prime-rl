@@ -98,6 +98,27 @@ def test_compute_report_curriculum_is_scaffolded_harvest_not_admission() -> None
     assert "sft @" not in runner
 
 
+def test_runtime_compute_update_trains_full_weights_then_uses_natural_gate() -> None:
+    root = Path(__file__).parents[2]
+    runner = (root / "scripts" / "run_c160_child_runtime_compute_v4.sh").read_text()
+    config = (
+        root
+        / "experiments"
+        / "qwen35-2b-recursive-coordinator-return-v1"
+        / "c160-child-runtime-compute-v4.toml"
+    ).read_text()
+
+    assert "--scaffolded-compute-actions" in runner
+    assert "--minimum-return-traces 16" in runner
+    assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
+    assert "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD" not in runner
+    assert "admission_floor: 4" in runner
+    assert "max_steps = 8" in config
+    assert "lr = 0.000001" in config
+    assert "lora" not in config.lower()
+    assert "step_10" in config
+
+
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
     path = tmp_path / name
     path.mkdir()

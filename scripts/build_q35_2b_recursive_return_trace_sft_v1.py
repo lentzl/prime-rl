@@ -5,11 +5,14 @@ from __future__ import annotations
 
 import argparse
 import ast
+import copy
 import hashlib
 import json
 from collections import Counter
 from pathlib import Path
 from typing import Any
+
+from dual_policy_openai_proxy_v1 import leaf_compute_report_code
 
 SCHEMA_VERSION = "q35-2b-recursive-coordinator-return-trace-sft/v1"
 
@@ -133,12 +136,42 @@ def _natural_parent_send(code: str) -> bool:
     )
 
 
+def canonical_scaffold_compute_code(code: str, operation: str) -> str:
+    """Remove only the runtime evidence binding from a verified scaffold action."""
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as exc:
+        raise ValueError("scaffolded compute-report action is not valid Python") from exc
+    if not tree.body or not isinstance(tree.body[0], ast.Assign):
+        raise ValueError("scaffolded compute-report action lacks INLINE_EVIDENCE binding")
+    assignment = tree.body[0]
+    if (
+        len(assignment.targets) != 1
+        or not isinstance(assignment.targets[0], ast.Name)
+        or assignment.targets[0].id != "INLINE_EVIDENCE"
+        or not isinstance(assignment.value, ast.Constant)
+        or not isinstance(assignment.value.value, str)
+    ):
+        raise ValueError("scaffolded compute-report action has an invalid evidence binding")
+    canonical = leaf_compute_report_code(operation)
+    observed = ast.Module(body=tree.body[1:], type_ignores=[])
+    if ast.dump(observed, include_attributes=False) != ast.dump(
+        ast.parse(canonical), include_attributes=False
+    ):
+        raise ValueError("scaffolded compute-report action differs from canonical operation")
+    return canonical
+
+
 def recursive_return_row(
     episode: dict[str, Any],
     *,
     allow_natural_action: bool = False,
+    scaffolded_compute_action: bool = False,
     require_hard_success: bool = True,
 ) -> dict[str, Any]:
+    if allow_natural_action and scaffolded_compute_action:
+        raise ValueError("natural and scaffolded compute actions are mutually exclusive")
     trace = _successful_trace(episode, require_hard_success=require_hard_success)
     nodes = trace["nodes"]
     roots = [index for index, node in enumerate(nodes) if node.get("parent") is None]
@@ -161,7 +194,12 @@ def recursive_return_row(
     child = trace["task"]["data"]["oracle"]["children"][0]
     expected_code = f"await agent_message.send({str(child['expected_result'])!r}, receiver_role='parent')"
     code = arguments.get("code") if isinstance(arguments, dict) else None
-    if allow_natural_action:
+    canonical_code = None
+    if scaffolded_compute_action:
+        if not isinstance(code, str) or not _natural_parent_send(code):
+            raise ValueError(f"trace {trace.get('id')} lacks one scaffolded parent send")
+        canonical_code = canonical_scaffold_compute_code(code, child["operation"])
+    elif allow_natural_action:
         if not isinstance(code, str) or not _natural_parent_send(code):
             raise ValueError(f"trace {trace.get('id')} lacks one natural parent send")
     elif arguments != {"code": expected_code}:
@@ -178,11 +216,23 @@ def recursive_return_row(
             raise ValueError(f"trace {trace.get('id')} return action lacks tool acknowledgement")
         trained_path.append(tool_index)
     family = trace["task"]["data"]["generation_metadata"]["resource_families"][0]
+    messages = []
+    for index in trained_path:
+        message = wire_message(copy.deepcopy(nodes[index]["message"]))
+        if index == action_index and canonical_code is not None:
+            rewritten_arguments = json.loads(message["tool_calls"][0]["arguments"])
+            rewritten_arguments["code"] = canonical_code
+            message["tool_calls"][0]["arguments"] = json.dumps(
+                rewritten_arguments, separators=(",", ":")
+            )
+        messages.append(message)
     return {
-        "messages": [wire_message(nodes[index]["message"]) for index in trained_path],
+        "messages": messages,
         "tools": json.dumps(trace.get("tools") or [], sort_keys=True, separators=(",", ":")),
         "axis": (
-            "recursive_coordinator_return_natural_action"
+            "recursive_coordinator_return_scaffolded_compute"
+            if scaffolded_compute_action
+            else "recursive_coordinator_return_natural_action"
             if allow_natural_action
             else "recursive_coordinator_return_forced_action"
         ),
@@ -190,7 +240,11 @@ def recursive_return_row(
         "task_key": trace["task"]["key"],
         "trace_id": trace["id"],
         "role": "coordinator_nonroot",
-        "objective": "exactly_one_parent_send_then_stop",
+        "objective": (
+            "compute_from_inline_evidence_then_one_parent_send"
+            if scaffolded_compute_action
+            else "exactly_one_parent_send_then_stop"
+        ),
         "expected_result": str(child["expected_result"]),
         "resource_family": family,
     }
@@ -280,6 +334,7 @@ def main() -> None:
     parser.add_argument("--root-anchor-traces", type=Path)
     parser.add_argument("--child-only", action="store_true")
     parser.add_argument("--natural-child-actions", action="store_true")
+    parser.add_argument("--scaffolded-compute-actions", action="store_true")
     parser.add_argument("--replay-anchor-corpus", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--return-repeats", type=int, default=4)
@@ -293,6 +348,10 @@ def main() -> None:
         raise ValueError("child-only corpus must not include root anchors")
     if args.natural_child_actions and not args.child_only:
         raise ValueError("natural child actions require --child-only")
+    if args.scaffolded_compute_actions and not args.child_only:
+        raise ValueError("scaffolded compute actions require --child-only")
+    if args.natural_child_actions and args.scaffolded_compute_actions:
+        raise ValueError("natural and scaffolded compute actions are mutually exclusive")
     if args.replay_anchor_corpus is not None and not args.child_only:
         raise ValueError("replay anchors require --child-only")
     if not args.child_only and args.root_anchor_traces is None:
@@ -329,6 +388,7 @@ def main() -> None:
                 row = recursive_return_row(
                     episode,
                     allow_natural_action=args.natural_child_actions,
+                    scaffolded_compute_action=args.scaffolded_compute_actions,
                     require_hard_success=not args.natural_child_actions,
                 )
                 accepted_trajectories += 1
@@ -359,7 +419,9 @@ def main() -> None:
         "schema_version": SCHEMA_VERSION,
         "status": "complete",
         "objective": (
-            "natural_recursive_child_return_consolidation"
+            "scaffolded_compute_report_curriculum"
+            if args.scaffolded_compute_actions
+            else "natural_recursive_child_return_consolidation"
             if args.natural_child_actions
             else "forced_recursive_child_return_consolidation"
             if args.child_only
@@ -378,6 +440,7 @@ def main() -> None:
         "root_anchor_repeats": args.root_anchor_repeats,
         "replay_anchor_repeats": args.replay_anchor_repeats,
         "natural_child_actions": args.natural_child_actions,
+        "scaffolded_compute_actions": args.scaffolded_compute_actions,
         "resource_family_counts": dict(sorted(Counter(row["resource_family"] for row in returns).items())),
         "sources": {
             "forced_return_traces": {

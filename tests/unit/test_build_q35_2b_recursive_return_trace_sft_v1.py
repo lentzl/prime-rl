@@ -9,12 +9,16 @@ from datasets import Dataset
 
 def _module():
     path = Path(__file__).parents[2] / "scripts" / "build_q35_2b_recursive_return_trace_sft_v1.py"
-    spec = importlib.util.spec_from_file_location("recursive_return_trace_sft", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec = importlib.util.spec_from_file_location("recursive_return_trace_sft", path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(path.parent))
 
 
 def _episode(code: str, *, reward: float = 1.0) -> dict:
@@ -151,6 +155,47 @@ def test_child_only_natural_row_accepts_verified_terminal_send_without_ack() -> 
     strict_episode["traces"][0]["nodes"] = strict_episode["traces"][0]["nodes"][:4]
     with pytest.raises(ValueError, match="lacks a tool acknowledgement"):
         module.recursive_return_row(strict_episode)
+
+
+def test_scaffolded_compute_row_strips_literal_binding_and_keeps_canonical_action() -> None:
+    module = _module()
+    code = (
+        "INLINE_EVIDENCE = '[39, 48, 63]'\n"
+        "import json\n"
+        "result = sum(json.loads(INLINE_EVIDENCE))\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
+    episode = _episode(code)
+    episode["traces"][0]["task"]["data"]["oracle"]["children"][0]["operation"] = (
+        "sum the top-level JSON integer list"
+    )
+
+    row = module.recursive_return_row(episode, scaffolded_compute_action=True)
+    trained = json.loads(row["messages"][1]["tool_calls"][0]["arguments"])["code"]
+
+    assert row["axis"] == "recursive_coordinator_return_scaffolded_compute"
+    assert row["objective"] == "compute_from_inline_evidence_then_one_parent_send"
+    assert "39" not in trained
+    assert trained == (
+        "import json\n"
+        "result = sum(json.loads(INLINE_EVIDENCE))\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
+
+
+def test_scaffolded_compute_row_rejects_noncanonical_operation_body() -> None:
+    module = _module()
+    episode = _episode(
+        "INLINE_EVIDENCE = '[1, 2]'\n"
+        "result = 999\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
+    episode["traces"][0]["task"]["data"]["oracle"]["children"][0]["operation"] = (
+        "sum the top-level JSON integer list"
+    )
+
+    with pytest.raises(ValueError, match="differs from canonical"):
+        module.recursive_return_row(episode, scaffolded_compute_action=True)
 
 
 def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> None:
