@@ -170,7 +170,8 @@ def root_anchor_rows(trace_path: Path, repeats: int) -> list[dict[str, Any]]:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--forced-return-traces", type=Path, required=True)
-    parser.add_argument("--root-anchor-traces", type=Path, required=True)
+    parser.add_argument("--root-anchor-traces", type=Path)
+    parser.add_argument("--child-only", action="store_true")
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--return-repeats", type=int, default=4)
     parser.add_argument("--root-anchor-repeats", type=int, default=2)
@@ -178,6 +179,10 @@ def main() -> None:
     args = parser.parse_args()
     if args.output_dir.exists():
         raise SystemExit(f"refusing to overwrite corpus: {args.output_dir}")
+    if args.child_only and args.root_anchor_traces is not None:
+        raise ValueError("child-only corpus must not include root anchors")
+    if not args.child_only and args.root_anchor_traces is None:
+        raise ValueError("mixed corpus requires --root-anchor-traces")
     if args.return_repeats < 1 or args.root_anchor_repeats < 1 or args.minimum_return_traces < 1:
         raise ValueError("corpus repeat counts must be positive")
 
@@ -207,7 +212,11 @@ def main() -> None:
         raise ValueError(
             f"only {accepted_trajectories} qualifying return traces; requires {args.minimum_return_traces}"
         )
-    anchors = root_anchor_rows(args.root_anchor_traces, args.root_anchor_repeats)
+    anchors = (
+        []
+        if args.child_only
+        else root_anchor_rows(args.root_anchor_traces, args.root_anchor_repeats)
+    )
     rows = [*returns, *anchors]
     args.output_dir.mkdir(parents=True)
     parquet_path = args.output_dir / "train.parquet"
@@ -215,7 +224,11 @@ def main() -> None:
     manifest = {
         "schema_version": SCHEMA_VERSION,
         "status": "complete",
-        "objective": "forced_recursive_coordinator_return_with_root_retention",
+        "objective": (
+            "forced_recursive_child_return_consolidation"
+            if args.child_only
+            else "forced_recursive_coordinator_return_with_root_retention"
+        ),
         "row_count": len(rows),
         "recursive_return_rows": len(returns),
         "source_episodes": source_episodes,
@@ -232,13 +245,14 @@ def main() -> None:
                 "path": str(args.forced_return_traces),
                 "sha256": sha256_file(args.forced_return_traces),
             },
-            "root_anchor_traces": {
-                "path": str(args.root_anchor_traces),
-                "sha256": sha256_file(args.root_anchor_traces),
-            },
         },
         "dataset": {"path": parquet_path.name, "sha256": sha256_file(parquet_path)},
     }
+    if args.root_anchor_traces is not None:
+        manifest["sources"]["root_anchor_traces"] = {
+            "path": str(args.root_anchor_traces),
+            "sha256": sha256_file(args.root_anchor_traces),
+        }
     (args.output_dir / "MANIFEST.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )

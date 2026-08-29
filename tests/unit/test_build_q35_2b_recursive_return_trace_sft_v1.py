@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _module():
     path = Path(__file__).parents[2] / "scripts" / "build_q35_2b_recursive_return_trace_sft_v1.py"
@@ -101,3 +103,28 @@ def test_qualifying_episode_filter_is_role_scoped_and_strict() -> None:
     assert module.is_qualifying_episode(passing) is True
     passing["traces"][0]["metrics"]["child_action_completed"] = 0
     assert module.is_qualifying_episode(passing) is False
+
+
+def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> None:
+    module = _module()
+    traces = tmp_path / "traces.jsonl"
+    traces.write_text("", encoding="utf-8")
+    anchors = tmp_path / "anchors.jsonl"
+    anchors.write_text("", encoding="utf-8")
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "builder",
+            "--forced-return-traces",
+            str(traces),
+            "--root-anchor-traces",
+            str(anchors),
+            "--child-only",
+            "--output-dir",
+            str(tmp_path / "output"),
+        ],
+    )
+
+    with pytest.raises(ValueError, match="must not include root anchors"):
+        module.main()

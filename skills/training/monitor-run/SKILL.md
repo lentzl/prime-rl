@@ -403,6 +403,10 @@ with a path read, malformed IPython, or a second send, set
 private prompt, but a typed one-shot return schema fixes parent routing and the
 proxy terminates the child session after the native send. This is a scaffolded
 acquisition measurement, not an unscaffolded admission result.
+For a child-only consolidation update, build from hard-success forced-return
+traces with `build_q35_2b_recursive_return_trace_sft_v1.py --child-only`.
+This excludes root anchors so the candidate can be trained from the protected
+child checkpoint while the coordinator remains frozen during evaluation.
 The early coordinator curriculum preserves the harness's first named IPython action
 and disables thinking. Because the 2B model cannot yet copy that action reliably,
 the proxy supplies one synthetic exact retained-spawn completion per coordinator
