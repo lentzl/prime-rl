@@ -875,17 +875,31 @@ def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any
 def force_child_compute_report_schema(
     payload: dict[str, Any], *, operation: str | None = None
 ) -> dict[str, Any]:
-    """Constrain one model-authored compute cell whose final value is reported."""
+    """Constrain one answer-free compute cell whose runtime value is reported."""
 
-    rewritten = force_parent_return_compute_schema(payload)
+    rewritten = (
+        force_parent_return_compute_schema(payload)
+        if operation is None
+        else force_ipython_code_schema(payload, leaf_compute_report_code(operation))
+    )
+    rewritten = {**rewritten, "stream": False}
+    rewritten.pop("stream_options", None)
     rewritten["temperature"] = 0.0
-    function = rewritten["tools"][0]["function"]
+    function = next(
+        tool["function"]
+        for tool in rewritten["tools"]
+        if tool["function"].get("name") == "ipython"
+    )
     function["description"] = (
-        "Use Python once to compute the requested result from the inline evidence. "
-        "The harness prebinds the visible evidence as the string INLINE_EVIDENCE; "
-        "use that variable and never Path, open, or filesystem access. Do not call "
-        "agent_message yourself. End the cell with the computed result (or print it "
-        "once); the harness routes that value to the direct parent and ends the session."
+        "Execute one answer-free Python computation over INLINE_EVIDENCE. The disclosed "
+        "program contains the operation and parent routing but no result; runtime "
+        "evidence determines the reported value and the harness then ends the session."
+        if operation is not None
+        else (
+            "Use Python once to compute the requested result from INLINE_EVIDENCE. End "
+            "the cell with the computed result; the harness routes that value to the "
+            "direct parent and ends the session."
+        )
     )
     if operation is not None:
         function["description"] += f" Method hint: {child_compute_method_hint(operation)}"

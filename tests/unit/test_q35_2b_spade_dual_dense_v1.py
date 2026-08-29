@@ -961,13 +961,19 @@ def test_proxy_forces_one_step_child_compute_report_without_answer() -> None:
 
     assert rewritten["tool_choice"]["function"]["name"] == "ipython"
     assert rewritten["temperature"] == 0.0
-    description = rewritten["tools"][0]["function"]["description"]
-    assert "End the cell with the computed result" in description
-    assert "harness routes that value" in description
+    function = rewritten["tools"][0]["function"]
+    description = function["description"]
+    assert "answer-free Python computation" in description
+    assert "contains the operation and parent routing but no result" in description
     assert "ast.parse" in description
     assert "Do not inspect globals" in description
     assert "next turn" not in description
     assert "return_to_parent" not in json.dumps(rewritten)
+    assert function["parameters"]["properties"]["code"]["enum"] == [
+        module.leaf_compute_report_code(
+            "count top-level sync and async function definitions"
+        )
+    ]
 
 
 def test_proxy_extracts_visible_recursive_inline_evidence() -> None:
