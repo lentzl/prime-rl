@@ -67,7 +67,7 @@ def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -
     assert ".traces[0].metrics.child_action_completed == 1" in runner
     assert ".traces[0].rewards.harness_score.score == 1" in runner
     assert "admission_floor: 4" in runner
-    assert "DUAL_LEAK_COORDINATOR_EXACT_ACTION=1" in runner
+    assert "DUAL_LEAK_COORDINATOR_EXACT_ACTION=1" not in runner
     assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
     assert "PROCEDURAL_NATURAL_YIELD_SCAFFOLD=1" in runner
     assert "DUAL_TYPED_CHILD_REPORT" not in runner

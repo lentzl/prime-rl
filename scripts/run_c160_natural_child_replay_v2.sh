@@ -72,7 +72,6 @@ DUAL_EXTERNAL_MODEL=q35-2b-recursive-coordinator-return \
 DUAL_ROOT_COORDINATOR_CONTRACT=1 \
 DUAL_LEAF_REPORTER_CONTRACT=1 \
 DUAL_LEAF_INLINE_EVIDENCE=1 \
-DUAL_LEAK_COORDINATOR_EXACT_ACTION=1 \
 UV_BIN=/home/ubuntu/.local/bin/uv \
 scripts/run_q35_2b_dual_policy_mastery_v1.sh \
   "$coordinator" "$candidate" "$screen_label" candidate-local
