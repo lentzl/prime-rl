@@ -324,6 +324,57 @@ def test_proxy_routes_recursive_coordinator_context_to_coordinator_model() -> No
     ) == "coordinator"
 
 
+def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    root = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Prime Agent session\nRecursive agent depth: 0\nSolve the task.",
+            }
+        ],
+        "model": "external",
+    }
+
+    assert module.is_root_coordinator_request(root) is True
+    injected = module.with_root_coordinator_contract(root)
+    assert injected["messages"][0] == {
+        "role": "system",
+        "content": module.ROOT_COORDINATOR_CONTRACT,
+    }
+    assert injected["messages"][1:] == root["messages"]
+    assert "This identity persists across every delegation and resume" in injected["messages"][0][
+        "content"
+    ]
+    assert "never adopt the child's worker identity" in injected["messages"][0]["content"]
+    assert "has_parent=false" in injected["messages"][0]["content"]
+
+    already_injected = module.with_root_coordinator_contract(injected)
+    assert already_injected is injected
+
+    child = {
+        "messages": [
+            {
+                "role": "user",
+                "content": "Prime Agent session\nRecursive agent depth: 1\n[task from parent]",
+            }
+        ]
+    }
+    private_child = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Recursive agent depth: 0\n"
+                    "[private evidence supplied to this reviewer]"
+                ),
+            }
+        ]
+    }
+    assert module.is_root_coordinator_request(child) is False
+    assert module.is_root_coordinator_request(private_child) is False
+
+
 def test_proxy_normalizes_vllm_abort_finish_reason_for_json_and_split_sse() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     payload = {

@@ -15,8 +15,21 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 PRIVATE_EVIDENCE_HEADER = "[private evidence supplied to this reviewer]"
 RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
+ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
+ROOT_COORDINATOR_CONTRACT = """[root coordinator session contract]
+session_role=root_coordinator
+is_root=true
+has_parent=false
+can_delegate=true
+can_finalize_user=true
+You are the root coordinator for the user's task. This identity persists across every
+delegation and resume. A child task or child report is delegated-session traffic, not
+a reassignment of your role: never adopt the child's worker identity and never send
+your result to receiver_role='parent'. After a child report arrives, remain the root
+coordinator, use the delivered result with retained root state, and finalize the
+user's requested answer."""
 ROOT_ACTION_PATTERN = re.compile(
     r"In the root coordinator's first IPython call, execute this code exactly:\s*"
     r"```python\s*\n(?P<code>.*?)\n```",
@@ -193,6 +206,34 @@ def routed_payload(
     )
     model = child_model if role == "child" else coordinator_model
     return role, {**payload, "model": model}
+
+
+def is_root_coordinator_request(payload: dict[str, Any]) -> bool:
+    """Identify the depth-zero Prime Agent session rather than delegated traffic."""
+
+    messages = payload.get("messages")
+    return (
+        isinstance(messages, list)
+        and _contains_marker(messages, "Recursive agent depth: 0")
+        and not _contains_private_evidence(messages)
+    )
+
+
+def with_root_coordinator_contract(payload: dict[str, Any]) -> dict[str, Any]:
+    """Prepend a persistent role contract to a depth-zero chat request."""
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        raise ValueError("root coordinator contract requires chat messages")
+    if _contains_marker(messages, ROOT_COORDINATOR_HEADER):
+        return payload
+    return {
+        **payload,
+        "messages": [
+            {"role": "system", "content": ROOT_COORDINATOR_CONTRACT},
+            *messages,
+        ],
+    }
 
 
 def without_tool_choice_constraints(
@@ -747,6 +788,7 @@ class DualPolicyProxy:
         leak_child_exact_action: bool = False,
         strip_child_tool_choice: bool = False,
         strip_coordinator_tool_choice: bool = False,
+        root_coordinator_contract: bool = False,
     ) -> None:
         self.urls = {
             "coordinator": coordinator_url.rstrip("/"),
@@ -764,6 +806,7 @@ class DualPolicyProxy:
         self.leak_child_exact_action = leak_child_exact_action
         self.strip_child_tool_choice = strip_child_tool_choice
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
+        self.root_coordinator_contract = root_coordinator_contract
         self.client: ClientSession | None = None
         self.sequence = 0
         self.leaked_session_hashes: dict[str, set[str]] = {
@@ -891,6 +934,13 @@ class DualPolicyProxy:
             private_evidence_token_ids=self.private_evidence_token_ids,
             recursive_coordinator_token_ids=self.recursive_coordinator_token_ids,
         )
+        if (
+            self.root_coordinator_contract
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+        ):
+            routed = with_root_coordinator_contract(routed)
         client_requested_stream = payload.get("stream") is True
         stripped_sampling_fields: tuple[str, ...] = ()
         strip_tool_choice = should_strip_tool_choice(
@@ -1218,6 +1268,7 @@ def main() -> None:
     parser.add_argument("--leak-child-exact-action", action="store_true")
     parser.add_argument("--strip-child-tool-choice", action="store_true")
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
+    parser.add_argument("--root-coordinator-contract", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
     args = parser.parse_args()
     from transformers import AutoTokenizer
@@ -1247,6 +1298,7 @@ def main() -> None:
         leak_child_exact_action=args.leak_child_exact_action,
         strip_child_tool_choice=args.strip_child_tool_choice,
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,
+        root_coordinator_contract=args.root_coordinator_contract,
     )
     web.run_app(build_app(proxy), host=args.host, port=args.port, print=None)
 

@@ -367,6 +367,13 @@ samples only non-root tokens while the coordinator checkpoint is frozen. The
 role filter masks wholly unscoped auxiliary graph roots such as Prime Agent's
 `/refine` calls from both policies. Missing or conflicting lineage inside an
 actual coordinator or child client-session graph still fails closed.
+For depth-zero role-persistence acquisition, set
+`DUAL_ROOT_COORDINATOR_CONTRACT=1` on the dual-policy mastery launcher. The
+proxy then adds the explicit root contract only to depth-zero Chat Completions:
+the root has no parent, retains its coordinator identity across child traffic,
+and alone finalizes the user answer. Keep it disabled for unscaffolded
+admission measurements, and never apply it to private-evidence or depth-positive
+child sessions.
 The early coordinator curriculum preserves the harness's first named IPython action
 and disables thinking. Because the 2B model cannot yet copy that action reliably,
 the proxy supplies one synthetic exact retained-spawn completion per coordinator

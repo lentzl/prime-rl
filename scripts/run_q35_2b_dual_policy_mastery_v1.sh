@@ -17,6 +17,7 @@ child_backend_port=${CHILD_BACKEND_PORT:-8102}
 proxy_port=${DUAL_PROXY_PORT:-8100}
 leak_coordinator_return_action=${DUAL_LEAK_COORDINATOR_RETURN_ACTION:-0}
 typed_coordinator_return=${DUAL_TYPED_COORDINATOR_RETURN:-0}
+root_coordinator_contract=${DUAL_ROOT_COORDINATOR_CONTRACT:-0}
 
 cd "$root"
 for model in "$coordinator_model" "$child_model"; do
@@ -39,6 +40,10 @@ if [[ "$leak_coordinator_return_action" != 0 && "$leak_coordinator_return_action
 fi
 if [[ "$typed_coordinator_return" != 0 && "$typed_coordinator_return" != 1 ]]; then
   echo "DUAL_TYPED_COORDINATOR_RETURN must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$root_coordinator_contract" != 0 && "$root_coordinator_contract" != 1 ]]; then
+  echo "DUAL_ROOT_COORDINATOR_CONTRACT must be 0 or 1" >&2
   exit 1
 fi
 if [[ "$leak_coordinator_return_action" == 1 && "$typed_coordinator_return" == 1 ]]; then
@@ -147,6 +152,9 @@ if [[ "$leak_coordinator_return_action" == 1 ]]; then
 fi
 if [[ "$typed_coordinator_return" == 1 ]]; then
   proxy_args+=(--typed-coordinator-return)
+fi
+if [[ "$root_coordinator_contract" == 1 ]]; then
+  proxy_args+=(--root-coordinator-contract)
 fi
 
 "$uv_bin" run --no-sync scripts/dual_policy_openai_proxy_v1.py \
