@@ -47,6 +47,10 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'proxy_args+=(--leak-coordinator-exact-action)' in launcher
     assert "typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}" in launcher
     assert 'proxy_args+=(--typed-child-report)' in launcher
+    assert (
+        "leaf inline-evidence and typed child-report scaffolds are mutually exclusive"
+        not in launcher
+    )
     assert "leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}" in launcher
     assert 'proxy_args+=(--leaf-inline-evidence)' in launcher
     assert (

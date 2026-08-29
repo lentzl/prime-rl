@@ -75,10 +75,6 @@ if [[ "$leak_coordinator_return_action" == 1 && "$typed_coordinator_return" == 1
   echo "exact and typed coordinator-return scaffolds are mutually exclusive" >&2
   exit 1
 fi
-if [[ "$leaf_inline_evidence" == 1 && "$typed_child_report" == 1 ]]; then
-  echo "leaf inline-evidence and typed child-report scaffolds are mutually exclusive" >&2
-  exit 1
-fi
 if [[ "$leaf_compute_report_scaffold" == 1 && "$typed_child_report" == 1 ]]; then
   echo "leaf compute-report and typed child-report scaffolds are mutually exclusive" >&2
   exit 1
