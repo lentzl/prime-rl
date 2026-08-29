@@ -49,6 +49,11 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'proxy_args+=(--typed-child-report)' in launcher
     assert "leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}" in launcher
     assert 'proxy_args+=(--leaf-inline-evidence)' in launcher
+    assert (
+        "leaf_compute_report_scaffold=${DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--leaf-compute-report-scaffold)' in launcher
 
 
 def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -> None:
@@ -74,6 +79,23 @@ def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -
     assert "lora" not in config.lower()
     assert "max_steps = 8" in config
     assert "lr = 3e-06" in config
+
+
+def test_compute_report_curriculum_is_scaffolded_harvest_not_admission() -> None:
+    runner = (
+        Path(__file__).parents[2]
+        / "scripts"
+        / "run_c160_child_compute_report_curriculum_v1.sh"
+    ).read_text()
+
+    assert "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD=1" in runner
+    assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
+    assert "PROCEDURAL_NATURAL_YIELD_SCAFFOLD=1" in runner
+    assert "never admission evidence" in runner
+    assert "child_action_completed == 1" in runner
+    assert "harness_score.score == 1" in runner
+    assert "stop_condition == \"user_closed\"" in runner
+    assert "sft @" not in runner
 
 
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
@@ -474,6 +496,58 @@ def test_proxy_injects_idempotent_one_shot_leaf_reporter_contract() -> None:
     assert "do not call another tool" in contract
 
     assert module.with_leaf_reporter_contract(injected) is injected
+
+
+@pytest.mark.parametrize(
+    ("operation", "required_fragment"),
+    [
+        ("sum the top-level JSON integer list", "sum(json.loads(INLINE_EVIDENCE))"),
+        ("sum the CSV amount column", "csv.DictReader(io.StringIO(INLINE_EVIDENCE))"),
+        ("count exact 'stable' tokens", "keyword = 'stable'"),
+        ("count level-2 Markdown headings", "line.startswith('## ')"),
+        ("count ERROR-level log lines", "line.startswith('ERROR ')"),
+        (
+            "count top-level sync and async function definitions",
+            "ast.parse(INLINE_EVIDENCE)",
+        ),
+        ("return the largest JSON integer value", "json.loads(INLINE_EVIDENCE).values()"),
+    ],
+)
+def test_leaf_compute_report_scaffold_is_answer_free_and_single_action(
+    operation: str, required_fragment: str
+) -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                "[recursive coordinator session contract]\n"
+                f"Required review: {operation}\n"
+                "Evidence contents:\n[91, 4, 7]"
+            ),
+        }
+    ]
+
+    assert module.required_review_from_messages(messages) == operation
+    code = module.leaf_compute_report_code(operation)
+    assert required_fragment in code
+    assert "91" not in code
+    assert code.count("agent_message.send") == 1
+    assert code.endswith("receiver_role='parent')")
+    ast.parse(code)
+
+
+def test_leaf_compute_report_scaffold_rejects_unknown_or_conflicting_operations() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    with pytest.raises(ValueError, match="unsupported"):
+        module.leaf_compute_report_code("guess the answer")
+    with pytest.raises(ValueError, match="conflicting"):
+        module.required_review_from_messages(
+            [
+                {"content": "Required review: sum the CSV amount column"},
+                {"content": "Required review: count ERROR-level log lines"},
+            ]
+        )
 
 
 def test_proxy_normalizes_vllm_abort_finish_reason_for_json_and_split_sse() -> None:
@@ -1034,6 +1108,9 @@ def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
     assert 'mode="typed_child_report_session_terminated"' in source
     assert '"forwarded_typed_child_report"' in source
     assert "session_sha256 in self.completed_typed_child_report_hashes" in source
+    assert "self.completed_leaf_compute_report_hashes" in source
+    assert 'mode="leaf_compute_report_session_terminated"' in source
+    assert '"forwarded_leaf_compute_report"' in source
 
 
 @pytest.mark.parametrize(

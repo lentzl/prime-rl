@@ -64,6 +64,7 @@ PATH_READ_TEXT_PATTERN = re.compile(
     r"(?:pathlib\.)?Path\((?P<quote>['\"])[^'\"]+(?P=quote)\)\.read_text\(\)"
 )
 TYPED_PARENT_RETURN_TOOL = "return_to_parent"
+REQUIRED_REVIEW_MARKER = "Required review: "
 HOP_BY_HOP = {
     "connection",
     "content-encoding",
@@ -415,6 +416,84 @@ def inline_evidence_from_messages(messages: Any) -> str | None:
     if len(set(matches)) != 1:
         raise ValueError("recursive coordinator prompt contains conflicting inline evidence")
     return matches[0]
+
+
+def required_review_from_messages(messages: Any) -> str | None:
+    """Extract the public operation assigned to one bounded leaf session."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    matches = []
+    for fragment in fragments:
+        if REQUIRED_REVIEW_MARKER not in fragment:
+            continue
+        review = fragment.split(REQUIRED_REVIEW_MARKER, 1)[1].splitlines()[0].strip()
+        if review:
+            matches.append(review)
+    if not matches:
+        return None
+    if len(set(matches)) != 1:
+        raise ValueError("recursive coordinator prompt contains conflicting required reviews")
+    return matches[0]
+
+
+def leaf_compute_report_code(operation: str) -> str:
+    """Return an answer-free, operation-grounded Python leaf action.
+
+    This deliberately leaks the generic algorithm during the early curriculum while
+    leaving the private evidence and resulting value to runtime computation.
+    """
+
+    if operation == "sum the top-level JSON integer list":
+        body = "import json\nresult = sum(json.loads(INLINE_EVIDENCE))"
+    elif operation == "sum the CSV amount column":
+        body = (
+            "import csv, io\n"
+            "result = sum(int(row['amount']) for row in "
+            "csv.DictReader(io.StringIO(INLINE_EVIDENCE)))"
+        )
+    elif operation == "count level-2 Markdown headings":
+        body = (
+            "result = sum(line.startswith('## ') "
+            "for line in INLINE_EVIDENCE.splitlines())"
+        )
+    elif operation == "count ERROR-level log lines":
+        body = (
+            "result = sum(line.startswith('ERROR ') "
+            "for line in INLINE_EVIDENCE.splitlines())"
+        )
+    elif operation == "count top-level sync and async function definitions":
+        body = (
+            "import ast\n"
+            "tree = ast.parse(INLINE_EVIDENCE)\n"
+            "result = sum(isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) "
+            "for node in tree.body)"
+        )
+    elif operation == "return the largest JSON integer value":
+        body = "import json\nresult = max(json.loads(INLINE_EVIDENCE).values())"
+    else:
+        word_count = re.fullmatch(r"count exact '([^']+)' tokens", operation)
+        if word_count is None:
+            raise ValueError(f"unsupported leaf compute-report operation: {operation}")
+        body = (
+            f"keyword = {word_count.group(1)!r}\n"
+            "result = INLINE_EVIDENCE.split().count(keyword)"
+        )
+    return (
+        f"{body}\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
 
 
 def latest_ipython_tool_failed(messages: Any) -> bool:
@@ -864,6 +943,7 @@ class DualPolicyProxy:
         root_coordinator_contract: bool = False,
         leaf_reporter_contract: bool = False,
         leaf_inline_evidence: bool = False,
+        leaf_compute_report_scaffold: bool = False,
         typed_child_report: bool = False,
     ) -> None:
         self.urls = {
@@ -885,6 +965,7 @@ class DualPolicyProxy:
         self.root_coordinator_contract = root_coordinator_contract
         self.leaf_reporter_contract = leaf_reporter_contract
         self.leaf_inline_evidence = leaf_inline_evidence
+        self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
         self.typed_child_report = typed_child_report
         self.client: ClientSession | None = None
         self.sequence = 0
@@ -895,6 +976,7 @@ class DualPolicyProxy:
         }
         self.completed_typed_return_hashes: set[str] = set()
         self.completed_typed_child_report_hashes: set[str] = set()
+        self.completed_leaf_compute_report_hashes: set[str] = set()
         self.typed_return_compute_hashes: set[str] = set()
         self.typed_return_compute_attempts: dict[str, int] = {}
 
@@ -926,6 +1008,11 @@ class DualPolicyProxy:
                     and isinstance(session_sha256, str)
                 ):
                     self.completed_typed_child_report_hashes.add(session_sha256)
+                if (
+                    event.get("mode") == "forwarded_leaf_compute_report"
+                    and isinstance(session_sha256, str)
+                ):
+                    self.completed_leaf_compute_report_hashes.add(session_sha256)
                 if (
                     str(event.get("mode", "")).startswith("forwarded_typed_return_compute")
                     and isinstance(session_sha256, str)
@@ -1099,6 +1186,30 @@ class DualPolicyProxy:
                 session_sha256=session_sha256,
             )
             return web.Response(body=response_body, content_type=content_type)
+        if (
+            self.leaf_compute_report_scaffold
+            and typed_child_chat
+            and session_sha256 in self.completed_leaf_compute_report_hashes
+        ):
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model, sequence=self.sequence
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="leaf_compute_report_session_terminated",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         forced_chat_scope = None
         forced_chat_action_sha256 = None
         typed_compute_scope = False
@@ -1111,6 +1222,8 @@ class DualPolicyProxy:
         leaf_inline_evidence_scope = False
         leaf_inline_evidence_value = None
         leaf_inline_evidence_action_sha256 = None
+        leaf_compute_report_scope = False
+        leaf_compute_report_action_sha256 = None
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -1238,6 +1351,35 @@ class DualPolicyProxy:
                 )
             typed_child_report_scope = True
             routed = force_typed_parent_return_schema(routed)
+        elif self.leaf_compute_report_scaffold and typed_child_chat:
+            if session_sha256 is None:
+                body = json.dumps(
+                    routed, separators=(",", ":"), ensure_ascii=False
+                ).encode()
+                self._audit(
+                    role=role,
+                    endpoint=endpoint,
+                    body=body,
+                    status=400,
+                    mode="leaf_compute_report_rejected_missing_session",
+                )
+                return web.json_response(
+                    {"error": "leaf compute-report scaffold requires x-session-id"},
+                    status=400,
+                )
+            leaf_inline_evidence_value = inline_evidence_from_messages(
+                payload.get("messages")
+            )
+            operation = required_review_from_messages(payload.get("messages"))
+            if leaf_inline_evidence_value is None:
+                raise ValueError("leaf compute-report scaffold lacks inline evidence")
+            if operation is None:
+                raise ValueError("leaf compute-report scaffold lacks required review")
+            code = leaf_compute_report_code(operation)
+            leaf_compute_report_scope = True
+            routed = force_ipython_code_schema(routed, code)
+            routed = {**routed, "stream": False}
+            routed.pop("stream_options", None)
         elif self.leaf_inline_evidence and typed_child_chat:
             leaf_inline_evidence_value = inline_evidence_from_messages(
                 payload.get("messages")
@@ -1356,6 +1498,25 @@ class DualPolicyProxy:
                     if typed_child_report_action_sha256 is not None:
                         assert session_sha256 is not None
                         self.completed_typed_child_report_hashes.add(session_sha256)
+                elif leaf_compute_report_scope and upstream.status == 200:
+                    normalized, _, leaf_compute_report_action_sha256 = (
+                        rewrite_ipython_literal_newlines_response(
+                            normalized,
+                            inline_evidence=leaf_inline_evidence_value,
+                            preserve_parent_send=True,
+                        )
+                    )
+                    if leaf_compute_report_action_sha256 is not None:
+                        assert session_sha256 is not None
+                        self.completed_leaf_compute_report_hashes.add(session_sha256)
+                    if client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 elif leaf_inline_evidence_scope and upstream.status == 200:
                     normalized, _, leaf_inline_evidence_action_sha256 = (
                         rewrite_ipython_literal_newlines_response(
@@ -1419,6 +1580,12 @@ class DualPolicyProxy:
                     )
                     if typed_child_report_scope
                     else (
+                        "forwarded_leaf_compute_report"
+                        if leaf_compute_report_action_sha256 is not None
+                        else "forwarded_leaf_compute_report_untranslated"
+                    )
+                    if leaf_compute_report_scope
+                    else (
                         "forwarded_leaf_inline_evidence_repaired"
                         if leaf_inline_evidence_action_sha256 is not None
                         else "forwarded_leaf_inline_evidence_unmodified"
@@ -1450,6 +1617,7 @@ class DualPolicyProxy:
                 ),
                 action_sha256=(
                     typed_child_report_action_sha256
+                    or leaf_compute_report_action_sha256
                     or leaf_inline_evidence_action_sha256
                     or typed_return_action_sha256
                     or typed_compute_action_sha256
@@ -1497,6 +1665,7 @@ def main() -> None:
     parser.add_argument("--root-coordinator-contract", action="store_true")
     parser.add_argument("--leaf-reporter-contract", action="store_true")
     parser.add_argument("--leaf-inline-evidence", action="store_true")
+    parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
     args = parser.parse_args()
@@ -1530,6 +1699,7 @@ def main() -> None:
         root_coordinator_contract=args.root_coordinator_contract,
         leaf_reporter_contract=args.leaf_reporter_contract,
         leaf_inline_evidence=args.leaf_inline_evidence,
+        leaf_compute_report_scaffold=args.leaf_compute_report_scaffold,
         typed_child_report=args.typed_child_report,
     )
     web.run_app(build_app(proxy), host=args.host, port=args.port, print=None)
