@@ -231,15 +231,57 @@ def root_anchor_rows(trace_path: Path, repeats: int) -> list[dict[str, Any]]:
     return rows
 
 
+def replay_anchor_rows(corpus: Path, repeats: int) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    manifest_path = corpus / "MANIFEST.json"
+    parquet_path = corpus / "train.parquet"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if (
+        manifest.get("schema_version") != SCHEMA_VERSION
+        or manifest.get("status") != "complete"
+        or manifest.get("root_retention_rows") != 0
+        or manifest.get("objective")
+        not in {
+            "forced_recursive_child_return_consolidation",
+            "natural_recursive_child_return_consolidation",
+        }
+    ):
+        raise ValueError("replay anchor is not a complete child-only return corpus")
+    if not parquet_path.is_file() or sha256_file(parquet_path) != manifest.get(
+        "dataset", {}
+    ).get("sha256"):
+        raise ValueError("replay anchor parquet SHA-256 mismatch")
+
+    from datasets import Dataset
+
+    source_rows = list(Dataset.from_parquet(str(parquet_path)))
+    if not source_rows or any(row.get("role") != "coordinator_nonroot" for row in source_rows):
+        raise ValueError("replay anchor contains a non-child row")
+    rows = [dict(row) for _ in range(repeats) for row in source_rows]
+    return rows, {
+        "path": str(corpus),
+        "manifest_sha256": sha256_file(manifest_path),
+        "parquet_sha256": sha256_file(parquet_path),
+    }
+
+
+def interleave_rows(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    for index in range(max((len(group) for group in groups), default=0)):
+        rows.extend(group[index] for group in groups if index < len(group))
+    return rows
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--forced-return-traces", type=Path, required=True)
     parser.add_argument("--root-anchor-traces", type=Path)
     parser.add_argument("--child-only", action="store_true")
     parser.add_argument("--natural-child-actions", action="store_true")
+    parser.add_argument("--replay-anchor-corpus", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--return-repeats", type=int, default=4)
     parser.add_argument("--root-anchor-repeats", type=int, default=2)
+    parser.add_argument("--replay-anchor-repeats", type=int, default=1)
     parser.add_argument("--minimum-return-traces", type=int, default=4)
     args = parser.parse_args()
     if args.output_dir.exists():
@@ -248,14 +290,21 @@ def main() -> None:
         raise ValueError("child-only corpus must not include root anchors")
     if args.natural_child_actions and not args.child_only:
         raise ValueError("natural child actions require --child-only")
+    if args.replay_anchor_corpus is not None and not args.child_only:
+        raise ValueError("replay anchors require --child-only")
     if not args.child_only and args.root_anchor_traces is None:
         raise ValueError("mixed corpus requires --root-anchor-traces")
-    if args.return_repeats < 1 or args.root_anchor_repeats < 1 or args.minimum_return_traces < 1:
+    if (
+        args.return_repeats < 1
+        or args.root_anchor_repeats < 1
+        or args.replay_anchor_repeats < 1
+        or args.minimum_return_traces < 1
+    ):
         raise ValueError("corpus repeat counts must be positive")
 
     from datasets import Dataset
 
-    returns: list[dict[str, Any]] = []
+    accepted_rows: list[dict[str, Any]] = []
     source_episodes = 0
     accepted_trajectories = 0
     rejected_task_keys: list[str] = []
@@ -280,17 +329,26 @@ def main() -> None:
                     require_hard_success=not args.natural_child_actions,
                 )
                 accepted_trajectories += 1
-                returns.extend(dict(row) for _ in range(args.return_repeats))
+                accepted_rows.append(row)
     if accepted_trajectories < args.minimum_return_traces:
         raise ValueError(
             f"only {accepted_trajectories} qualifying return traces; requires {args.minimum_return_traces}"
         )
-    anchors = (
+    returns = [
+        dict(row) for _ in range(args.return_repeats) for row in accepted_rows
+    ]
+    root_anchors = (
         []
         if args.child_only
         else root_anchor_rows(args.root_anchor_traces, args.root_anchor_repeats)
     )
-    rows = [*returns, *anchors]
+    replay_anchors: list[dict[str, Any]] = []
+    replay_source = None
+    if args.replay_anchor_corpus is not None:
+        replay_anchors, replay_source = replay_anchor_rows(
+            args.replay_anchor_corpus, args.replay_anchor_repeats
+        )
+    rows = interleave_rows(returns, replay_anchors, root_anchors)
     args.output_dir.mkdir(parents=True)
     parquet_path = args.output_dir / "train.parquet"
     Dataset.from_list(rows).to_parquet(str(parquet_path))
@@ -311,9 +369,11 @@ def main() -> None:
         "rejected_return_trajectories": source_episodes - accepted_trajectories,
         "rejected_task_keys": rejected_task_keys,
         "minimum_return_traces": args.minimum_return_traces,
-        "root_retention_rows": len(anchors),
+        "root_retention_rows": len(root_anchors),
+        "replay_anchor_rows": len(replay_anchors),
         "return_repeats": args.return_repeats,
         "root_anchor_repeats": args.root_anchor_repeats,
+        "replay_anchor_repeats": args.replay_anchor_repeats,
         "natural_child_actions": args.natural_child_actions,
         "resource_family_counts": dict(sorted(Counter(row["resource_family"] for row in returns).items())),
         "sources": {
@@ -329,10 +389,15 @@ def main() -> None:
             "path": str(args.root_anchor_traces),
             "sha256": sha256_file(args.root_anchor_traces),
         }
+    if replay_source is not None:
+        manifest["sources"]["replay_anchor_corpus"] = replay_source
     (args.output_dir / "MANIFEST.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
-    print(f"wrote {len(rows)} rows: {len(returns)} recursive return + {len(anchors)} root retention")
+    print(
+        f"wrote {len(rows)} rows: {len(returns)} recursive return + "
+        f"{len(replay_anchors)} replay anchor + {len(root_anchors)} root retention"
+    )
 
 
 if __name__ == "__main__":

@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from datasets import Dataset
 
 
 def _module():
@@ -156,3 +157,36 @@ def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="must not include root anchors"):
         module.main()
+
+
+def test_replay_anchor_is_verified_repeated_and_interleaved(tmp_path: Path) -> None:
+    module = _module()
+    corpus = tmp_path / "anchor"
+    corpus.mkdir()
+    parquet = corpus / "train.parquet"
+    Dataset.from_list(
+        [
+            {"role": "coordinator_nonroot", "trace_id": "old-1"},
+            {"role": "coordinator_nonroot", "trace_id": "old-2"},
+        ]
+    ).to_parquet(str(parquet))
+    (corpus / "MANIFEST.json").write_text(
+        json.dumps(
+            {
+                "schema_version": module.SCHEMA_VERSION,
+                "status": "complete",
+                "objective": "forced_recursive_child_return_consolidation",
+                "root_retention_rows": 0,
+                "dataset": {"sha256": module.sha256_file(parquet)},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    anchors, source = module.replay_anchor_rows(corpus, repeats=2)
+
+    assert [row["trace_id"] for row in anchors] == ["old-1", "old-2"] * 2
+    assert source["parquet_sha256"] == module.sha256_file(parquet)
+    assert [row["trace_id"] for row in module.interleave_rows(
+        [{"trace_id": "new-1"}, {"trace_id": "new-2"}], anchors
+    )[:4]] == ["new-1", "old-1", "new-2", "old-2"]
