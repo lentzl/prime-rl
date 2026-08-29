@@ -29,8 +29,8 @@ You are the root coordinator for the user's task. This identity persists across 
 delegation and resume. A child task or child report is delegated-session traffic, not
 a reassignment of your role: never adopt the child's worker identity and never send
 your result to receiver_role='parent'. After a child report arrives, remain the root
-coordinator and treat that first report as the final child evidence. Do not message
-the child, poll, or call another tool after delivery; apply the user's simple formula
+coordinator and treat that first report as the final child evidence.
+Do not message the child, poll, or call another tool after delivery; apply the user's simple formula
 directly and finalize the requested answer."""
 LEAF_REPORTER_CONTRACT = """[leaf reporter session contract]
 session_role=leaf_reporter
