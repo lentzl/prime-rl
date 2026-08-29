@@ -10,7 +10,14 @@ output_root=${QWEN38_QUALIFICATION_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-
 run_output=$output_root/$label
 eval_driver=${EVAL_DRIVER:-scripts/run_qwen38_27b_prime_harness_qualification_v1.sh}
 inference_bin=${INFERENCE_BIN:-$root/.venv/bin/inference}
-uv_bin=${UV_BIN:-$(command -v uv)}
+uv_bin=${UV_BIN:-$(command -v uv || true)}
+if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
+  uv_bin=$HOME/.local/bin/uv
+fi
+if [[ -z "$uv_bin" ]]; then
+  echo "uv executable not found" >&2
+  exit 1
+fi
 external_model=${DUAL_EXTERNAL_MODEL:-q35-2b-dual-policy}
 coordinator_backend_port=${COORDINATOR_BACKEND_PORT:-8101}
 child_backend_port=${CHILD_BACKEND_PORT:-8102}
