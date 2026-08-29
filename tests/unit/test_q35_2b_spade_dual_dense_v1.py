@@ -113,6 +113,8 @@ def test_runtime_compute_update_trains_full_weights_then_uses_natural_gate() -> 
     assert "--minimum-return-traces 16" in runner
     assert '"log_error"' in runner
     assert ".resource_family_counts | keys | sort" in runner
+    assert "expected_corpus_sha=" in runner
+    assert "runtime compute corpus checksum mismatch" in runner
     assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
     assert "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD" not in runner
     assert "admission_floor: 4" in runner

@@ -15,21 +15,31 @@ bootstrap=/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c-re
 
 cd "$root"
 export PATH="$root/.venv/bin:$PATH"
-python scripts/build_q35_2b_recursive_return_trace_sft_v1.py \
-  --forced-return-traces "$harvest_a" \
-  --forced-return-traces "$harvest_b" \
-  --forced-return-traces "$harvest_c" \
-  --child-only --scaffolded-compute-actions \
-  --replay-anchor-corpus "$replay" \
-  --return-repeats 3 --replay-anchor-repeats 1 \
-  --minimum-return-traces 16 --output-dir "$corpus"
+if [[ ! -e "$corpus" ]]; then
+  python scripts/build_q35_2b_recursive_return_trace_sft_v1.py \
+    --forced-return-traces "$harvest_a" \
+    --forced-return-traces "$harvest_b" \
+    --forced-return-traces "$harvest_c" \
+    --child-only --scaffolded-compute-actions \
+    --replay-anchor-corpus "$replay" \
+    --return-repeats 3 --replay-anchor-repeats 1 \
+    --minimum-return-traces 16 --output-dir "$corpus"
+fi
 jq -e '
   .status == "complete"
   and .accepted_return_trajectories >= 16
   and ((.resource_family_counts | keys | sort) ==
     (["csv_total", "json_max", "json_sum", "log_error", "md_h2", "python_defs", "word_count"] | sort))
 ' "$corpus/MANIFEST.json" >/dev/null
-sft @ experiments/qwen35-2b-recursive-coordinator-return-v1/c160-child-runtime-compute-v4.toml
+expected_corpus_sha=$(jq -er '.dataset.sha256' "$corpus/MANIFEST.json")
+actual_corpus_sha=$(sha256sum "$corpus/train.parquet" | awk '{print $1}')
+if [[ "$actual_corpus_sha" != "$expected_corpus_sha" ]]; then
+  echo "runtime compute corpus checksum mismatch" >&2
+  exit 1
+fi
+if [[ ! -f "$candidate/STABLE" || ! -f "$candidate/model.safetensors" ]]; then
+  sft @ experiments/qwen35-2b-recursive-coordinator-return-v1/c160-child-runtime-compute-v4.toml
+fi
 test -f "$candidate/STABLE" -a -f "$candidate/model.safetensors"
 python scripts/build_q35_2b_environment_bootstrap_context_v1.py \
   --output "$bootstrap" --axis natural_n1a:"$start" --tasks-per-axis 6 \
