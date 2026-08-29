@@ -21,6 +21,92 @@ def _module():
         sys.path.remove(str(path.parent))
 
 
+def _mix_module():
+    path = Path(__file__).parents[2] / "scripts" / "build_q35_2b_child_consolidation_mix_v1.py"
+    sys.path.insert(0, str(path.parent))
+    try:
+        spec = importlib.util.spec_from_file_location("child_consolidation_mix", path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(path.parent))
+
+
+def _mix_row(code: str, *, expected: str = "17", family: str = "json_sum") -> dict:
+    module = _mix_module()
+    return {
+        "messages": [
+            {"role": "system", "content": module.LEAF_REPORTER_CONTRACT},
+            {"role": "user", "content": "Evidence contents: [8, 9]"},
+            {"role": "user", "content": "sum the values"},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call-1",
+                        "name": "ipython",
+                        "arguments": json.dumps({"code": code}),
+                    }
+                ],
+            },
+            {"role": "tool", "content": "queued", "tool_call_id": "call-1"},
+        ],
+        "tools": "[]",
+        "axis": "balanced_live_child_compute",
+        "phase": "e0c4_recursive_coordinator_return",
+        "task_key": "task-1",
+        "trace_id": None,
+        "role": "coordinator_nonroot",
+        "objective": "compute_from_inline_evidence_then_one_parent_send",
+        "expected_result": expected,
+        "resource_family": family,
+    }
+
+
+def test_child_consolidation_mix_accepts_answer_free_atomic_row() -> None:
+    module = _mix_module()
+    row = _mix_row(
+        "import json\nresult = sum(json.loads(INLINE_EVIDENCE))\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
+
+    module.audit_answer_free_row(row)
+
+
+def test_child_consolidation_mix_rejects_embedded_answer() -> None:
+    module = _mix_module()
+    row = _mix_row(
+        "_ = INLINE_EVIDENCE\nresult = 17\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
+
+    with pytest.raises(ValueError, match="embeds its expected result"):
+        module.audit_answer_free_row(row)
+
+
+def test_child_consolidation_mix_spreads_sources_deterministically() -> None:
+    module = _mix_module()
+    left = [{"source": "left", "index": index} for index in range(6)]
+    right = [{"source": "right", "index": index} for index in range(2)]
+
+    mixed = module.proportional_interleave([left, right])
+
+    assert [row["source"] for row in mixed] == [
+        "left",
+        "right",
+        "left",
+        "left",
+        "left",
+        "right",
+        "left",
+        "left",
+    ]
+
+
 def _episode(code: str, *, reward: float = 1.0) -> dict:
     return {
         "id": "episode-1",
