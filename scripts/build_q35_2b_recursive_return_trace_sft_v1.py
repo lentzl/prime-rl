@@ -178,6 +178,26 @@ def canonical_scaffold_compute_code(code: str, operation: str) -> str:
         raise ValueError("scaffolded compute-report action has an invalid evidence binding")
     canonical = leaf_compute_report_code(operation)
     observed = ast.Module(body=tree.body[1:], type_ignores=[])
+
+    class CollapseNestedStringConversion(ast.NodeTransformer):
+        def visit_Call(self, node: ast.Call) -> ast.AST:
+            node = self.generic_visit(node)
+            if (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "str"
+                and len(node.args) == 1
+                and not node.keywords
+                and isinstance(node.args[0], ast.Call)
+                and isinstance(node.args[0].func, ast.Name)
+                and node.args[0].func.id == "str"
+                and len(node.args[0].args) == 1
+                and not node.args[0].keywords
+            ):
+                node.args[0] = node.args[0].args[0]
+            return node
+
+    observed = CollapseNestedStringConversion().visit(observed)
     if ast.dump(observed, include_attributes=False) != ast.dump(
         ast.parse(canonical), include_attributes=False
     ):

@@ -164,6 +164,19 @@ def _report_final_value_to_parent(tree: ast.Module) -> int:
             return 0
         value = ast.Name(id="result", ctx=ast.Load())
         final = None
+    serialized_value = (
+        value
+        if isinstance(value, ast.Call)
+        and isinstance(value.func, ast.Name)
+        and value.func.id == "str"
+        and len(value.args) == 1
+        and not value.keywords
+        else ast.Call(
+            func=ast.Name(id="str", ctx=ast.Load()),
+            args=[value],
+            keywords=[],
+        )
+    )
     report = ast.Expr(
         value=ast.Await(
             value=ast.Call(
@@ -172,13 +185,7 @@ def _report_final_value_to_parent(tree: ast.Module) -> int:
                     attr="send",
                     ctx=ast.Load(),
                 ),
-                args=[
-                    ast.Call(
-                        func=ast.Name(id="str", ctx=ast.Load()),
-                        args=[value],
-                        keywords=[],
-                    )
-                ],
+                args=[serialized_value],
                 keywords=[
                     ast.keyword(arg="receiver_role", value=ast.Constant(value="parent"))
                 ],

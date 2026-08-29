@@ -163,7 +163,7 @@ def test_scaffolded_compute_row_strips_literal_binding_and_keeps_canonical_actio
         "INLINE_EVIDENCE = '[39, 48, 63]'\n"
         "import json\n"
         "result = sum(json.loads(INLINE_EVIDENCE))\n"
-        "await agent_message.send(str(result), receiver_role='parent')"
+        "await agent_message.send(str(str(result)), receiver_role='parent')"
     )
     episode = _episode(code)
     episode["traces"][0]["task"]["data"]["oracle"]["children"][0]["operation"] = (

@@ -1232,6 +1232,20 @@ def test_proxy_converts_compute_stage_parent_send_to_value_expression() -> None:
     assert "str(2 + 2)" in grounded
     compile(grounded, "<grounded-compute>", "exec")
 
+    reported, rewrites, _ = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode(),
+        inline_evidence="unused evidence",
+        report_final_value_to_parent=True,
+    )
+    assert rewrites == 1
+    reported_code = json.loads(
+        json.loads(reported)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert "agent_message.send(str(2 + 2), receiver_role='parent')" in reported_code
+    assert "str(str(" not in reported_code
+
 
 def test_proxy_wraps_model_computed_final_value_in_first_parent_report() -> None:
     module = _module("dual_policy_openai_proxy_v1")
