@@ -500,7 +500,10 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
         "messages": [
             {
                 "role": "user",
-                "content": "Prime Agent session\nRecursive agent depth: 0\nSolve the task.",
+                "content": (
+                    "Prime Agent session\nRecursive agent depth: 0\nSolve the task. "
+                    'Return {"finding": <integer>, "release_score": <integer>}.'
+                ),
             }
         ],
         "model": "external",
@@ -525,7 +528,7 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     already_injected = module.with_root_coordinator_contract(injected)
     assert already_injected is injected
 
-    finalization = module.force_root_text_finalization(
+    finalization = module.force_root_json_finalization(
         {
             **injected,
             "temperature": 1.0,
@@ -540,6 +543,16 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     assert "tools" not in finalization
     assert "tool_choice" not in finalization
     assert "parallel_tool_calls" not in finalization
+    schema = finalization["response_format"]["json_schema"]["schema"]
+    assert schema == {
+        "type": "object",
+        "properties": {
+            "finding": {"type": "integer"},
+            "release_score": {"type": "integer"},
+        },
+        "required": ["finding", "release_score"],
+        "additionalProperties": False,
+    }
 
     child = {
         "messages": [

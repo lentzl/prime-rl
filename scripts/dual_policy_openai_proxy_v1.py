@@ -388,12 +388,55 @@ def with_leaf_reporter_contract(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def force_root_text_finalization(payload: dict[str, Any]) -> dict[str, Any]:
-    """Make the post-report root turn a deterministic, tool-free final response."""
+def root_final_answer_fields(messages: Any) -> tuple[str, ...]:
+    """Extract the answer-free integer field contract from the root task."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    candidates = []
+    for fragment in fragments:
+        for body in re.findall(r"Return\s+\{([^}]+)\}", fragment):
+            fields = tuple(re.findall(r'"([^"]+)"\s*:\s*<integer>', body))
+            if fields:
+                candidates.append(fields)
+    if not candidates:
+        raise ValueError("root finalization lacks an integer output contract")
+    if len(set(candidates)) != 1:
+        raise ValueError("root finalization contains conflicting output contracts")
+    return candidates[0]
+
+
+def force_root_json_finalization(payload: dict[str, Any]) -> dict[str, Any]:
+    """Constrain the post-report root turn to its answer-free JSON field schema."""
 
     rewritten = {**payload, "temperature": 0.0}
     for field in ("tools", "tool_choice", "parallel_tool_calls"):
         rewritten.pop(field, None)
+    fields = root_final_answer_fields(payload.get("messages"))
+    rewritten["response_format"] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "root_final_answer",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {field: {"type": "integer"} for field in fields},
+                "required": list(fields),
+                "additionalProperties": False,
+            },
+        },
+    }
     return rewritten
 
 
@@ -1604,7 +1647,7 @@ class DualPolicyProxy:
             and session_sha256 in self.completed_typed_child_report_hashes
         ):
             root_finalization_scope = True
-            routed = force_root_text_finalization(routed)
+            routed = force_root_json_finalization(routed)
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -1995,7 +2038,7 @@ class DualPolicyProxy:
                 body=body,
                 status=upstream.status,
                 mode=(
-                    "forwarded_root_text_finalization"
+                    "forwarded_root_json_finalization"
                     if root_finalization_scope
                     else (
                         "forwarded_typed_child_report"
