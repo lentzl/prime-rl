@@ -635,13 +635,25 @@ def leaf_compute_report_code(operation: str) -> str:
     elif operation == "return the largest JSON integer value":
         body = "import json\nresult = max(json.loads(INLINE_EVIDENCE).values())"
     else:
-        word_count = re.fullmatch(r"count exact '([^']+)' tokens", operation)
-        if word_count is None:
-            raise ValueError(f"unsupported leaf compute-report operation: {operation}")
-        body = (
-            f"keyword = {word_count.group(1)!r}\n"
-            "result = INLINE_EVIDENCE.split().count(keyword)"
+        evidence_key = re.fullmatch(
+            r"report the integer stored under ([A-Za-z_][A-Za-z0-9_]*) "
+            r"in the private evidence card",
+            operation,
         )
+        word_count = re.fullmatch(r"count exact '([^']+)' tokens", operation)
+        if evidence_key is not None:
+            body = (
+                "import json\n"
+                f"key = {evidence_key.group(1)!r}\n"
+                "result = json.loads(INLINE_EVIDENCE)[key]"
+            )
+        elif word_count is not None:
+            body = (
+                f"keyword = {word_count.group(1)!r}\n"
+                "result = INLINE_EVIDENCE.split().count(keyword)"
+            )
+        else:
+            raise ValueError(f"unsupported leaf compute-report operation: {operation}")
     return (
         f"{body}\n"
         "await agent_message.send(str(result), receiver_role='parent')"
@@ -679,6 +691,16 @@ def child_compute_method_hint(operation: str) -> str:
     }
     if operation in hints:
         return hints[operation]
+    evidence_key = re.fullmatch(
+        r"report the integer stored under ([A-Za-z_][A-Za-z0-9_]*) "
+        r"in the private evidence card",
+        operation,
+    )
+    if evidence_key is not None:
+        return (
+            "Parse INLINE_EVIDENCE with json.loads and return the integer stored under "
+            f"the exact key {evidence_key.group(1)!r}."
+        )
     word_count = re.fullmatch(r"count exact '([^']+)' tokens", operation)
     if word_count is not None:
         return (

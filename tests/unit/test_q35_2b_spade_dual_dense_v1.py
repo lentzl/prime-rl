@@ -634,6 +634,10 @@ def test_pathless_inline_evidence_rejects_conflicting_labels() -> None:
             "ast.parse(INLINE_EVIDENCE)",
         ),
         ("return the largest JSON integer value", "json.loads(INLINE_EVIDENCE).values()"),
+        (
+            "report the integer stored under signal_count in the private evidence card",
+            "json.loads(INLINE_EVIDENCE)[key]",
+        ),
     ],
 )
 def test_leaf_compute_report_scaffold_is_answer_free_and_single_action(
