@@ -384,6 +384,10 @@ When isolating natural leaf reporting, combine the leaf contract with
 `DUAL_LEAK_COORDINATOR_EXACT_ACTION=1`. This guarantees only the disclosed
 root spawn; do not enable the coordinator-return leak, because that would force
 the child report and invalidate the natural leaf measurement.
+The exact coordinator action flag applies to both token-in training requests
+and live depth-zero Chat Completions. Confirm the routing audit records
+`forwarded_forced_exact_coordinator_schema` before treating an evaluation as a
+root-spawn-controlled child isolation.
 If the leaf repeatedly computes the right value but invalidates the trajectory
 with a path read, malformed IPython, or a second send, set
 `DUAL_TYPED_CHILD_REPORT=1`. The model still computes the payload from the

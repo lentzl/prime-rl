@@ -455,6 +455,10 @@ def test_child_grpo_proxy_leaks_only_disclosed_exact_coordinator_action() -> Non
         "reviewer = await rlm('review', name='relay-worker')"
     )
     assert module.disclosed_root_action(disclosed.replace(module.EXACT_ACTION_MARKER, "")) is None
+    messages = [{"role": "user", "content": [{"type": "text", "text": disclosed}]}]
+    assert module.disclosed_root_action_from_messages(messages) == (
+        "reviewer = await rlm('review', name='relay-worker')"
+    )
 
 
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:

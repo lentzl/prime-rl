@@ -354,6 +354,25 @@ def disclosed_child_action_from_messages(messages: Any) -> str | None:
     return disclosed_child_action("\n".join(fragments))
 
 
+def disclosed_root_action_from_messages(messages: Any) -> str | None:
+    """Extract the root spawn scaffold from structured Chat Completions messages."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    return disclosed_root_action("\n".join(fragments))
+
+
 def inline_evidence_from_messages(messages: Any) -> str | None:
     """Extract the already visible recursive-session evidence card."""
 
@@ -1067,6 +1086,36 @@ class DualPolicyProxy:
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
+            and self.leak_coordinator_exact_action
+            and is_root_coordinator_request(payload)
+        ):
+            code = disclosed_root_action_from_messages(payload.get("messages"))
+            if code is not None:
+                forced_chat_scope = "coordinator"
+                if session_sha256 is None:
+                    body = json.dumps(
+                        routed, separators=(",", ":"), ensure_ascii=False
+                    ).encode()
+                    self._audit(
+                        role=role,
+                        endpoint=endpoint,
+                        body=body,
+                        status=400,
+                        mode="leak_rejected_missing_coordinator_session",
+                    )
+                    return web.json_response(
+                        {"error": "exact coordinator action leak requires x-session-id"},
+                        status=400,
+                    )
+                if session_sha256 in self.leaked_session_hashes[forced_chat_scope]:
+                    forced_chat_scope = None
+                else:
+                    self.leaked_session_hashes[forced_chat_scope].add(session_sha256)
+                    routed = force_ipython_code_schema(routed, code)
+                    forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        if (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
             and self.leak_coordinator_return_action
         ):
             code = disclosed_child_action_from_messages(payload.get("messages"))
@@ -1328,7 +1377,7 @@ class DualPolicyProxy:
                         else "forwarded_typed_coordinator_return_untranslated"
                     )
                     if typed_return_scope
-                    else "forwarded_forced_exact_coordinator_return_schema"
+                    else f"forwarded_forced_exact_{forced_chat_scope}_schema"
                     if forced_chat_scope is not None
                     else (
                         "forwarded_normalized_abort_finish_reason"
