@@ -598,6 +598,21 @@ def latest_ipython_tool_failed(messages: Any) -> bool:
     return False
 
 
+def should_run_typed_compute(
+    session_sha256: str,
+    compute_hashes: set[str],
+    compute_attempts: dict[str, int],
+    messages: Any,
+) -> bool:
+    """Start computation once and retry explicit IPython failures at most twice."""
+
+    if session_sha256 not in compute_hashes:
+        return True
+    return latest_ipython_tool_failed(messages) and compute_attempts.get(
+        session_sha256, 0
+    ) < 3
+
+
 def force_ipython_code_schema(payload: dict[str, Any], code: str) -> dict[str, Any]:
     """Constrain one Chat Completions turn to the disclosed IPython action."""
 
@@ -1055,6 +1070,8 @@ class DualPolicyProxy:
         self.completed_leaf_compute_report_hashes: set[str] = set()
         self.typed_return_compute_hashes: set[str] = set()
         self.typed_return_compute_attempts: dict[str, int] = {}
+        self.typed_child_report_compute_hashes: set[str] = set()
+        self.typed_child_report_compute_attempts: dict[str, int] = {}
 
     async def startup(self, _: web.Application) -> None:
         self.audit_log.parent.mkdir(parents=True, exist_ok=True)
@@ -1096,6 +1113,17 @@ class DualPolicyProxy:
                     self.typed_return_compute_hashes.add(session_sha256)
                     self.typed_return_compute_attempts[session_sha256] = (
                         self.typed_return_compute_attempts.get(session_sha256, 0) + 1
+                    )
+                if (
+                    str(event.get("mode", "")).startswith(
+                        "forwarded_typed_child_report_compute"
+                    )
+                    and isinstance(session_sha256, str)
+                ):
+                    self.typed_child_report_compute_hashes.add(session_sha256)
+                    self.typed_child_report_compute_attempts[session_sha256] = (
+                        self.typed_child_report_compute_attempts.get(session_sha256, 0)
+                        + 1
                     )
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
@@ -1301,6 +1329,9 @@ class DualPolicyProxy:
         typed_return_action_sha256 = None
         typed_child_report_scope = False
         typed_child_report_action_sha256 = None
+        typed_child_report_compute_scope = False
+        typed_child_report_compute_action_sha256 = None
+        typed_child_report_inline_evidence = None
         leaf_inline_evidence_scope = False
         leaf_inline_evidence_value = None
         leaf_inline_evidence_action_sha256 = None
@@ -1391,13 +1422,12 @@ class DualPolicyProxy:
                     {"error": "typed coordinator return requires x-session-id"},
                     status=400,
                 )
-            initial_compute = session_sha256 not in self.typed_return_compute_hashes
-            retry_compute = (
-                not initial_compute
-                and latest_ipython_tool_failed(payload.get("messages"))
-                and self.typed_return_compute_attempts.get(session_sha256, 0) < 3
-            )
-            if initial_compute or retry_compute:
+            if should_run_typed_compute(
+                session_sha256,
+                self.typed_return_compute_hashes,
+                self.typed_return_compute_attempts,
+                payload.get("messages"),
+            ):
                 typed_compute_scope = True
                 compute_inline_evidence = inline_evidence_from_messages(
                     payload.get("messages")
@@ -1431,8 +1461,26 @@ class DualPolicyProxy:
                     {"error": "typed child report requires x-session-id"},
                     status=400,
                 )
-            typed_child_report_scope = True
-            routed = force_typed_parent_return_schema(routed)
+            if should_run_typed_compute(
+                session_sha256,
+                self.typed_child_report_compute_hashes,
+                self.typed_child_report_compute_attempts,
+                payload.get("messages"),
+            ):
+                typed_child_report_compute_scope = True
+                typed_child_report_inline_evidence = inline_evidence_from_messages(
+                    payload.get("messages")
+                )
+                if typed_child_report_inline_evidence is None:
+                    raise ValueError("typed child-report computation lacks inline evidence")
+                self.typed_child_report_compute_hashes.add(session_sha256)
+                self.typed_child_report_compute_attempts[session_sha256] = (
+                    self.typed_child_report_compute_attempts.get(session_sha256, 0) + 1
+                )
+                routed = force_parent_return_compute_schema(routed)
+            else:
+                typed_child_report_scope = True
+                routed = force_typed_parent_return_schema(routed)
         elif self.leaf_compute_report_scaffold and typed_child_chat:
             if session_sha256 is None:
                 body = json.dumps(
@@ -1580,6 +1628,21 @@ class DualPolicyProxy:
                     if typed_child_report_action_sha256 is not None:
                         assert session_sha256 is not None
                         self.completed_typed_child_report_hashes.add(session_sha256)
+                elif typed_child_report_compute_scope and upstream.status == 200:
+                    normalized, _, typed_child_report_compute_action_sha256 = (
+                        rewrite_ipython_literal_newlines_response(
+                            normalized,
+                            inline_evidence=typed_child_report_inline_evidence,
+                        )
+                    )
+                    if client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 elif leaf_compute_report_scope and upstream.status == 200:
                     normalized, _, leaf_compute_report_action_sha256 = (
                         rewrite_ipython_literal_newlines_response(
@@ -1662,6 +1725,12 @@ class DualPolicyProxy:
                     )
                     if typed_child_report_scope
                     else (
+                        "forwarded_typed_child_report_compute_repaired"
+                        if typed_child_report_compute_action_sha256 is not None
+                        else "forwarded_typed_child_report_compute"
+                    )
+                    if typed_child_report_compute_scope
+                    else (
                         "forwarded_leaf_compute_report"
                         if leaf_compute_report_action_sha256 is not None
                         else "forwarded_leaf_compute_report_untranslated"
@@ -1699,6 +1768,7 @@ class DualPolicyProxy:
                 ),
                 action_sha256=(
                     typed_child_report_action_sha256
+                    or typed_child_report_compute_action_sha256
                     or leaf_compute_report_action_sha256
                     or leaf_inline_evidence_action_sha256
                     or typed_return_action_sha256

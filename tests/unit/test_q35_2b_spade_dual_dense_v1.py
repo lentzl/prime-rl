@@ -1264,12 +1264,44 @@ def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
     assert 'mode="typed_return_session_terminated"' in source
     assert "session_sha256 in self.completed_typed_return_hashes" in source
     assert "self.completed_typed_child_report_hashes" in source
+    assert "self.typed_child_report_compute_hashes" in source
+    assert "self.typed_child_report_compute_attempts" in source
     assert 'mode="typed_child_report_session_terminated"' in source
     assert '"forwarded_typed_child_report"' in source
+    assert '"forwarded_typed_child_report_compute"' in source
     assert "session_sha256 in self.completed_typed_child_report_hashes" in source
     assert "self.completed_leaf_compute_report_hashes" in source
     assert 'mode="leaf_compute_report_session_terminated"' in source
     assert '"forwarded_leaf_compute_report"' in source
+
+
+def test_typed_compute_phase_starts_once_retries_failures_and_then_returns() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    session = "session-sha"
+    failed_messages = [
+        {
+            "role": "tool",
+            "name": "ipython",
+            "content": "Traceback (most recent call last)\nNameError: missing",
+        }
+    ]
+    successful_messages = [
+        {"role": "tool", "name": "ipython", "content": "93"}
+    ]
+
+    assert module.should_run_typed_compute(session, set(), {}, successful_messages)
+    assert module.should_run_typed_compute(
+        session, {session}, {session: 1}, failed_messages
+    )
+    assert module.should_run_typed_compute(
+        session, {session}, {session: 2}, failed_messages
+    )
+    assert not module.should_run_typed_compute(
+        session, {session}, {session: 3}, failed_messages
+    )
+    assert not module.should_run_typed_compute(
+        session, {session}, {session: 1}, successful_messages
+    )
 
 
 @pytest.mark.parametrize(
