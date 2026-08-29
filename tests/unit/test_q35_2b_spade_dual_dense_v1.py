@@ -413,6 +413,10 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     assert "delegation and resume" in injected["messages"][0]["content"]
     assert "never adopt the child's worker identity" in injected["messages"][0]["content"]
     assert "has_parent=false" in injected["messages"][0]["content"]
+    assert "first report as the final child evidence" in injected["messages"][0]["content"]
+    assert "Do not message the child, poll, or call another tool" in injected["messages"][0][
+        "content"
+    ]
 
     already_injected = module.with_root_coordinator_contract(injected)
     assert already_injected is injected
