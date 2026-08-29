@@ -23,6 +23,7 @@ leaf_reporter_contract=${DUAL_LEAF_REPORTER_CONTRACT:-0}
 leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}
 leaf_compute_report_scaffold=${DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
+scaffold_profile=${DUAL_SCAFFOLD_PROFILE:-custom}
 
 cd "$root"
 for model in "$coordinator_model" "$child_model"; do
@@ -83,6 +84,23 @@ if [[ "$leaf_compute_report_scaffold" == 1 && "$leaf_inline_evidence" != 1 ]]; t
   echo "leaf compute-report scaffold requires DUAL_LEAF_INLINE_EVIDENCE=1" >&2
   exit 1
 fi
+case "$scaffold_profile" in
+  custom) ;;
+  tight_answer_free_child_reporting_v1)
+    if [[ "$leak_coordinator_exact_action" != 0 \
+      || "$leak_coordinator_return_action" != 0 \
+      || "$typed_coordinator_return" != 0 \
+      || "$root_coordinator_contract" != 1 \
+      || "$leaf_reporter_contract" != 1 \
+      || "$leaf_inline_evidence" != 1 \
+      || "$leaf_compute_report_scaffold" != 0 \
+      || "$typed_child_report" != 1 ]]; then
+      echo "tight_answer_free_child_reporting_v1 scaffold flags do not match its frozen contract" >&2
+      exit 1
+    fi
+    ;;
+  *) echo "unsupported dual-policy scaffold profile: $scaffold_profile" >&2; exit 1 ;;
+esac
 mkdir -p "$run_output"
 
 write_inference_config() {
@@ -266,6 +284,15 @@ fi
 coordinator_sha=$(sha256sum "$coordinator_model/model.safetensors" | awk '{print $1}')
 child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
 {
+  printf 'dual_policy_scaffold_profile=%s\n' "$scaffold_profile"
+  printf 'dual_leak_coordinator_exact_action=%s\n' "$leak_coordinator_exact_action"
+  printf 'dual_leak_coordinator_return_action=%s\n' "$leak_coordinator_return_action"
+  printf 'dual_typed_coordinator_return=%s\n' "$typed_coordinator_return"
+  printf 'dual_root_coordinator_contract=%s\n' "$root_coordinator_contract"
+  printf 'dual_leaf_reporter_contract=%s\n' "$leaf_reporter_contract"
+  printf 'dual_leaf_inline_evidence=%s\n' "$leaf_inline_evidence"
+  printf 'dual_leaf_compute_report_scaffold=%s\n' "$leaf_compute_report_scaffold"
+  printf 'dual_typed_child_report=%s\n' "$typed_child_report"
   printf 'dual_policy_external_model=%s\n' "$external_model"
   printf 'coordinator_model_path=%s\n' "$coordinator_model"
   printf 'coordinator_model_sha256=%s\n' "$coordinator_sha"
