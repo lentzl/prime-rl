@@ -23,6 +23,12 @@ python scripts/build_q35_2b_recursive_return_trace_sft_v1.py \
   --replay-anchor-corpus "$replay" \
   --return-repeats 3 --replay-anchor-repeats 1 \
   --minimum-return-traces 16 --output-dir "$corpus"
+jq -e '
+  .status == "complete"
+  and .accepted_return_trajectories >= 16
+  and ((.resource_family_counts | keys | sort) ==
+    (["csv_total", "json_max", "json_sum", "log_error", "md_h2", "python_defs", "word_count"] | sort))
+' "$corpus/MANIFEST.json" >/dev/null
 sft @ experiments/qwen35-2b-recursive-coordinator-return-v1/c160-child-runtime-compute-v4.toml
 test -f "$candidate/STABLE" -a -f "$candidate/model.safetensors"
 python scripts/build_q35_2b_environment_bootstrap_context_v1.py \
