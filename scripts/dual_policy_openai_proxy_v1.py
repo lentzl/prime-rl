@@ -648,6 +648,46 @@ def leaf_compute_report_code(operation: str) -> str:
     )
 
 
+def child_compute_method_hint(operation: str) -> str:
+    """Provide an answer-free Python method hint for an early child curriculum."""
+
+    hints = {
+        "sum the top-level JSON integer list": (
+            "Parse INLINE_EVIDENCE with json.loads, then sum the resulting integer list."
+        ),
+        "sum the CSV amount column": (
+            "Parse INLINE_EVIDENCE as CSV text with csv.DictReader and sum the integer "
+            "amount field from every data row."
+        ),
+        "count level-2 Markdown headings": (
+            "Split INLINE_EVIDENCE into lines and count only lines that start exactly "
+            "with '## '."
+        ),
+        "count ERROR-level log lines": (
+            "Split INLINE_EVIDENCE into lines and count only lines that start exactly "
+            "with 'ERROR '."
+        ),
+        "count top-level sync and async function definitions": (
+            "Treat INLINE_EVIDENCE as Python source text: parse it with ast.parse and "
+            "count FunctionDef and AsyncFunctionDef nodes only in tree.body. Do not "
+            "inspect globals or execute the supplied source."
+        ),
+        "return the largest JSON integer value": (
+            "Parse INLINE_EVIDENCE with json.loads and take the maximum of the mapping's "
+            "integer values, not its keys or invented variable names."
+        ),
+    }
+    if operation in hints:
+        return hints[operation]
+    word_count = re.fullmatch(r"count exact '([^']+)' tokens", operation)
+    if word_count is not None:
+        return (
+            "Split INLINE_EVIDENCE on whitespace and count tokens exactly equal to "
+            f"{word_count.group(1)!r}; do not use substring counting."
+        )
+    raise ValueError(f"unsupported child compute operation: {operation}")
+
+
 def latest_ipython_tool_failed(messages: Any) -> bool:
     """Detect whether the most recent IPython result is an execution failure."""
 
@@ -832,7 +872,9 @@ def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any
     return rewritten
 
 
-def force_child_compute_report_schema(payload: dict[str, Any]) -> dict[str, Any]:
+def force_child_compute_report_schema(
+    payload: dict[str, Any], *, operation: str | None = None
+) -> dict[str, Any]:
     """Constrain one model-authored compute cell whose final value is reported."""
 
     rewritten = force_parent_return_compute_schema(payload)
@@ -845,6 +887,8 @@ def force_child_compute_report_schema(payload: dict[str, Any]) -> dict[str, Any]
         "agent_message yourself. End the cell with the computed result (or print it "
         "once); the harness routes that value to the direct parent and ends the session."
     )
+    if operation is not None:
+        function["description"] += f" Method hint: {child_compute_method_hint(operation)}"
     return rewritten
 
 
@@ -1641,11 +1685,16 @@ class DualPolicyProxy:
                 )
                 if typed_child_report_inline_evidence is None:
                     raise ValueError("typed child-report computation lacks inline evidence")
+                child_operation = required_review_from_messages(payload.get("messages"))
+                if child_operation is None:
+                    raise ValueError("typed child-report computation lacks required review")
                 self.typed_child_report_compute_hashes.add(session_sha256)
                 self.typed_child_report_compute_attempts[session_sha256] = (
                     self.typed_child_report_compute_attempts.get(session_sha256, 0) + 1
                 )
-                routed = force_child_compute_report_schema(routed)
+                routed = force_child_compute_report_schema(
+                    routed, operation=child_operation
+                )
             else:
                 typed_child_report_scope = True
                 routed = force_typed_parent_return_schema(routed)

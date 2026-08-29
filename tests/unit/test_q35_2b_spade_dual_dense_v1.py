@@ -955,13 +955,17 @@ def test_proxy_forces_one_step_child_compute_report_without_answer() -> None:
         ],
     }
 
-    rewritten = module.force_child_compute_report_schema(payload)
+    rewritten = module.force_child_compute_report_schema(
+        payload, operation="count top-level sync and async function definitions"
+    )
 
     assert rewritten["tool_choice"]["function"]["name"] == "ipython"
     assert rewritten["temperature"] == 0.0
     description = rewritten["tools"][0]["function"]["description"]
     assert "End the cell with the computed result" in description
     assert "harness routes that value" in description
+    assert "ast.parse" in description
+    assert "Do not inspect globals" in description
     assert "next turn" not in description
     assert "return_to_parent" not in json.dumps(rewritten)
 
