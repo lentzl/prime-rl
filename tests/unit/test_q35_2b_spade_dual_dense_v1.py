@@ -1365,6 +1365,39 @@ def test_proxy_synthesizes_terminal_stream_after_typed_return() -> None:
     sse = module.chat_completion_to_sse(body)
     assert sse.endswith(b"\n\ndata: [DONE]\n\n")
 
+    waiting = json.loads(
+        module.synthetic_chat_stop_response(
+            model="external", sequence=10, content="Waiting for the child report."
+        )
+    )
+    assert waiting["choices"][0]["message"]["content"] == (
+        "Waiting for the child report."
+    )
+
+
+def test_proxy_recognizes_only_incomplete_root_gate_continuations() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    gate = {
+        "messages": [
+            {"role": "user", "content": "original task"},
+            {
+                "role": "user",
+                "content": (
+                    "Autonomous quality gate failed (attempt 1/3): gate exited 1.\n"
+                    "completion gate: the end-to-end coordinator task is not complete."
+                ),
+            },
+        ]
+    }
+
+    assert module.is_incomplete_root_wait_request(gate)
+    assert not module.is_incomplete_root_wait_request(
+        {
+            "messages": gate["messages"]
+            + [{"role": "user", "content": "[from child:worker]\n5"}]
+        }
+    )
+
 
 def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
     source = (
@@ -1384,6 +1417,8 @@ def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
     assert 'mode="typed_child_report_session_terminated"' in source
     assert '"forwarded_typed_child_report"' in source
     assert '"forwarded_typed_child_report_compute"' in source
+    assert '"root_wait_child_report_pending"' in source
+    assert '"root_wait_child_report_completed"' in source
     assert "session_sha256 in self.completed_typed_child_report_hashes" in source
     assert "self.completed_leaf_compute_report_hashes" in source
     assert 'mode="leaf_compute_report_session_terminated"' in source

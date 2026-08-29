@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import asyncio
 import hashlib
 import json
 import re
@@ -331,6 +332,25 @@ def is_root_coordinator_request(payload: dict[str, Any]) -> bool:
         isinstance(messages, list)
         and _contains_marker(messages, "Recursive agent depth: 0")
         and not _contains_private_evidence(messages)
+    )
+
+
+def is_incomplete_root_wait_request(payload: dict[str, Any]) -> bool:
+    """Identify a gate continuation that must remain passive pending child delivery."""
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        return False
+    latest_user = next(
+        (
+            message.get("content")
+            for message in reversed(messages)
+            if isinstance(message, dict) and message.get("role") == "user"
+        ),
+        None,
+    )
+    return _contains_marker(latest_user, "Autonomous quality gate failed") and (
+        _contains_marker(latest_user, "end-to-end coordinator task is not complete")
     )
 
 
@@ -1028,7 +1048,9 @@ def chat_completion_to_sse(body: bytes) -> bytes:
     return b"data: " + encoded + b"\n\ndata: [DONE]\n\n"
 
 
-def synthetic_chat_stop_response(*, model: str, sequence: int) -> bytes:
+def synthetic_chat_stop_response(
+    *, model: str, sequence: int, content: str = "Return delivered."
+) -> bytes:
     """Return one terminal non-tool turn after a typed parent return was delivered."""
 
     payload = {
@@ -1039,7 +1061,7 @@ def synthetic_chat_stop_response(*, model: str, sequence: int) -> bytes:
         "choices": [
             {
                 "index": 0,
-                "message": {"role": "assistant", "content": "Return delivered."},
+                "message": {"role": "assistant", "content": content},
                 "logprobs": None,
                 "finish_reason": "stop",
             }
@@ -1352,6 +1374,47 @@ class DualPolicyProxy:
             and _contains_marker(payload.get("messages"), RECURSIVE_COORDINATOR_HEADER)
         )
         typed_child_chat = endpoint == "/v1/chat/completions" and role == "child"
+        if (
+            self.root_coordinator_contract
+            and self.typed_child_report
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+            and is_incomplete_root_wait_request(payload)
+            and session_sha256 is not None
+        ):
+            for _ in range(600):
+                if session_sha256 in self.completed_typed_child_report_hashes:
+                    break
+                await asyncio.sleep(0.05)
+            child_completed = (
+                session_sha256 in self.completed_typed_child_report_hashes
+            )
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Waiting for the child report.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode=(
+                    "root_wait_child_report_completed"
+                    if child_completed
+                    else "root_wait_child_report_pending"
+                ),
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         if (
             self.typed_coordinator_return
             and recursive_coordinator_chat
