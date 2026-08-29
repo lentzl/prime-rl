@@ -1,4 +1,5 @@
 import argparse
+import ast
 import hashlib
 import importlib.util
 import json
@@ -46,6 +47,8 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'proxy_args+=(--leak-coordinator-exact-action)' in launcher
     assert "typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}" in launcher
     assert 'proxy_args+=(--typed-child-report)' in launcher
+    assert "leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}" in launcher
+    assert 'proxy_args+=(--leaf-inline-evidence)' in launcher
 
 
 def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -> None:
@@ -65,6 +68,7 @@ def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -
     assert ".traces[0].rewards.harness_score.score == 1" in runner
     assert "admission_floor: 4" in runner
     assert "DUAL_LEAK_COORDINATOR_EXACT_ACTION=1" in runner
+    assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
     assert "DUAL_TYPED_CHILD_REPORT" not in runner
     assert "lora" not in config.lower()
     assert "max_steps = 8" in config
@@ -460,6 +464,7 @@ def test_proxy_injects_idempotent_one_shot_leaf_reporter_contract() -> None:
     contract = injected["messages"][0]["content"]
     assert "return_contract=exactly_one_parent_report" in contract
     assert "await agent_message.send(str(result))" in contract
+    assert "INLINE_EVIDENCE is already bound" in contract
     assert "A successful send completes your task" in contract
     assert "do not call another tool" in contract
 
@@ -838,6 +843,46 @@ def test_proxy_prebinds_inline_evidence_and_redirects_path_read() -> None:
     assert "Path('/workspace/missing.json').read_text()" not in grounded
     assert "json.loads(INLINE_EVIDENCE)" in grounded
     compile(grounded, "<grounded-compute>", "exec")
+
+
+def test_proxy_prebinds_leaf_evidence_without_removing_parent_send() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = (
+        "result = sum(line.startswith('ERROR') for line in INLINE_EVIDENCE.splitlines())\n"
+        "await agent_message.send(str(result), receiver_role='parent')"
+    )
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    body, rewrites, _ = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode(),
+        inline_evidence="INFO one\nERROR two\nERROR three\n",
+        preserve_parent_send=True,
+    )
+
+    assert rewrites == 1
+    grounded = json.loads(
+        json.loads(body)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert grounded.startswith('INLINE_EVIDENCE = "INFO one\\nERROR two\\nERROR three\\n"\n')
+    assert "await agent_message.send(str(result), receiver_role='parent')" in grounded
+    compile(grounded, "<grounded-leaf>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
 
 def test_proxy_converts_compute_stage_parent_send_to_value_expression() -> None:

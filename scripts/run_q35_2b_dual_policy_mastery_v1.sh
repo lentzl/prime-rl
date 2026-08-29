@@ -20,6 +20,7 @@ leak_coordinator_return_action=${DUAL_LEAK_COORDINATOR_RETURN_ACTION:-0}
 typed_coordinator_return=${DUAL_TYPED_COORDINATOR_RETURN:-0}
 root_coordinator_contract=${DUAL_ROOT_COORDINATOR_CONTRACT:-0}
 leaf_reporter_contract=${DUAL_LEAF_REPORTER_CONTRACT:-0}
+leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
 
 cd "$root"
@@ -61,8 +62,16 @@ if [[ "$typed_child_report" != 0 && "$typed_child_report" != 1 ]]; then
   echo "DUAL_TYPED_CHILD_REPORT must be 0 or 1" >&2
   exit 1
 fi
+if [[ "$leaf_inline_evidence" != 0 && "$leaf_inline_evidence" != 1 ]]; then
+  echo "DUAL_LEAF_INLINE_EVIDENCE must be 0 or 1" >&2
+  exit 1
+fi
 if [[ "$leak_coordinator_return_action" == 1 && "$typed_coordinator_return" == 1 ]]; then
   echo "exact and typed coordinator-return scaffolds are mutually exclusive" >&2
+  exit 1
+fi
+if [[ "$leaf_inline_evidence" == 1 && "$typed_child_report" == 1 ]]; then
+  echo "leaf inline-evidence and typed child-report scaffolds are mutually exclusive" >&2
   exit 1
 fi
 mkdir -p "$run_output"
@@ -176,6 +185,9 @@ if [[ "$root_coordinator_contract" == 1 ]]; then
 fi
 if [[ "$leaf_reporter_contract" == 1 ]]; then
   proxy_args+=(--leaf-reporter-contract)
+fi
+if [[ "$leaf_inline_evidence" == 1 ]]; then
+  proxy_args+=(--leaf-inline-evidence)
 fi
 if [[ "$typed_child_report" == 1 ]]; then
   proxy_args+=(--typed-child-report)

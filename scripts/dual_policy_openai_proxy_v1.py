@@ -39,9 +39,10 @@ can_delegate=false
 can_finalize_user=false
 return_contract=exactly_one_parent_report
 You are a leaf child with exactly one parent. The private evidence is inline in your
-session; an evidence label is not a runtime path. Compute the requested value once,
-preferably with a direct Python expression, store it as result, then make one IPython
-call: await agent_message.send(str(result)). A successful send completes your task.
+session; an evidence label is not a runtime path. When the inline-evidence scaffold is
+enabled, the string INLINE_EVIDENCE is already bound in your IPython cell. Compute the
+requested value once with Python, store it as result, then make one IPython call:
+await agent_message.send(str(result)). A successful send completes your task.
 After it succeeds, do not call another tool, send another message, answer later traffic,
 or finalize the user's request; remain stopped."""
 ROOT_ACTION_PATTERN = re.compile(
@@ -582,7 +583,10 @@ def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any
 
 
 def rewrite_ipython_literal_newlines_response(
-    body: bytes, *, inline_evidence: str | None = None
+    body: bytes,
+    *,
+    inline_evidence: str | None = None,
+    preserve_parent_send: bool = False,
 ) -> tuple[bytes, int, str | None]:
     """Ground the compute cell and repair doubly escaped parse-blocking newlines."""
 
@@ -632,11 +636,12 @@ def rewrite_ipython_literal_newlines_response(
                     tree = ast.parse(repaired)
                 except SyntaxError:
                     continue
-            send_transformer = _ComputeSendToValue()
-            tree = send_transformer.visit(tree)
-            if send_transformer.rewrites:
-                ast.fix_missing_locations(tree)
-                repaired = ast.unparse(tree)
+            if not preserve_parent_send:
+                send_transformer = _ComputeSendToValue()
+                tree = send_transformer.visit(tree)
+                if send_transformer.rewrites:
+                    ast.fix_missing_locations(tree)
+                    repaired = ast.unparse(tree)
             if repaired == code:
                 continue
             parsed_arguments["code"] = repaired
@@ -857,6 +862,7 @@ class DualPolicyProxy:
         strip_coordinator_tool_choice: bool = False,
         root_coordinator_contract: bool = False,
         leaf_reporter_contract: bool = False,
+        leaf_inline_evidence: bool = False,
         typed_child_report: bool = False,
     ) -> None:
         self.urls = {
@@ -877,6 +883,7 @@ class DualPolicyProxy:
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
         self.root_coordinator_contract = root_coordinator_contract
         self.leaf_reporter_contract = leaf_reporter_contract
+        self.leaf_inline_evidence = leaf_inline_evidence
         self.typed_child_report = typed_child_report
         self.client: ClientSession | None = None
         self.sequence = 0
@@ -1100,6 +1107,9 @@ class DualPolicyProxy:
         typed_return_action_sha256 = None
         typed_child_report_scope = False
         typed_child_report_action_sha256 = None
+        leaf_inline_evidence_scope = False
+        leaf_inline_evidence_value = None
+        leaf_inline_evidence_action_sha256 = None
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -1227,6 +1237,15 @@ class DualPolicyProxy:
                 )
             typed_child_report_scope = True
             routed = force_typed_parent_return_schema(routed)
+        elif self.leaf_inline_evidence and typed_child_chat:
+            leaf_inline_evidence_value = inline_evidence_from_messages(
+                payload.get("messages")
+            )
+            if leaf_inline_evidence_value is None:
+                raise ValueError("leaf inline-evidence scaffold lacks inline evidence")
+            leaf_inline_evidence_scope = True
+            routed = {**routed, "stream": False}
+            routed.pop("stream_options", None)
         body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
         leak_specs = []
         if role == "coordinator" and self.leak_coordinator_exact_action:
@@ -1336,6 +1355,22 @@ class DualPolicyProxy:
                     if typed_child_report_action_sha256 is not None:
                         assert session_sha256 is not None
                         self.completed_typed_child_report_hashes.add(session_sha256)
+                elif leaf_inline_evidence_scope and upstream.status == 200:
+                    normalized, _, leaf_inline_evidence_action_sha256 = (
+                        rewrite_ipython_literal_newlines_response(
+                            normalized,
+                            inline_evidence=leaf_inline_evidence_value,
+                            preserve_parent_send=True,
+                        )
+                    )
+                    if client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 elif typed_return_scope and upstream.status == 200:
                     normalized, _, typed_return_action_sha256 = (
                         rewrite_typed_parent_return_response(normalized)
@@ -1383,6 +1418,12 @@ class DualPolicyProxy:
                     )
                     if typed_child_report_scope
                     else (
+                        "forwarded_leaf_inline_evidence_repaired"
+                        if leaf_inline_evidence_action_sha256 is not None
+                        else "forwarded_leaf_inline_evidence_unmodified"
+                    )
+                    if leaf_inline_evidence_scope
+                    else (
                         "forwarded_typed_return_compute_repaired"
                         if typed_compute_action_sha256 is not None
                         else "forwarded_typed_return_compute"
@@ -1408,6 +1449,7 @@ class DualPolicyProxy:
                 ),
                 action_sha256=(
                     typed_child_report_action_sha256
+                    or leaf_inline_evidence_action_sha256
                     or typed_return_action_sha256
                     or typed_compute_action_sha256
                     or forced_chat_action_sha256
@@ -1453,6 +1495,7 @@ def main() -> None:
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
     parser.add_argument("--root-coordinator-contract", action="store_true")
     parser.add_argument("--leaf-reporter-contract", action="store_true")
+    parser.add_argument("--leaf-inline-evidence", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
     args = parser.parse_args()
@@ -1485,6 +1528,7 @@ def main() -> None:
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,
         root_coordinator_contract=args.root_coordinator_contract,
         leaf_reporter_contract=args.leaf_reporter_contract,
+        leaf_inline_evidence=args.leaf_inline_evidence,
         typed_child_report=args.typed_child_report,
     )
     web.run_app(build_app(proxy), host=args.host, port=args.port, print=None)

@@ -386,6 +386,13 @@ from inline evidence, send `str(result)` once to the default parent, and remain
 terminal after success. It does not disclose the answer or force a completion.
 Keep coordinator and leaf contracts independently switchable so screens can
 attribute gains to the correct role.
+For a weak leaf that understands the protocol but mishandles evidence paths, add
+`DUAL_LEAF_INLINE_EVIDENCE=1`. The proxy then makes the already-visible evidence
+available as `INLINE_EVIDENCE` inside the model-authored IPython cell while
+preserving the model's computation and native parent send. This is an
+answer-free acquisition scaffold: verify the routing audit records
+`forwarded_leaf_inline_evidence_repaired`, and never combine it with the typed
+child-report scaffold.
 When isolating natural leaf reporting, combine the leaf contract with
 `DUAL_LEAK_COORDINATOR_EXACT_ACTION=1`. This guarantees only the disclosed
 root spawn; do not enable the coordinator-return leak, because that would force
