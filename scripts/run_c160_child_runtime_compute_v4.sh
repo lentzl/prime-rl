@@ -4,6 +4,7 @@ set -euo pipefail
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 harvest_a=/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1/c158-c160-step10-compute-report-curriculum-9424710-n24/natural_n1a/traces.jsonl
 harvest_b=/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1/c158-c160-step10-compute-report-curriculum-resume2-9424723-n11/natural_n1a/traces.jsonl
+harvest_c=/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1/c158-c160-step10-compute-report-curriculum-log-error-9424736-n1/natural_n1a/traces.jsonl
 replay=/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c160-child-natural-compute-replay-v2
 corpus=/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c160-child-runtime-compute-v4
 candidate=/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1/c160-child-runtime-compute-v4/weights/step_8
@@ -17,6 +18,7 @@ export PATH="$root/.venv/bin:$PATH"
 python scripts/build_q35_2b_recursive_return_trace_sft_v1.py \
   --forced-return-traces "$harvest_a" \
   --forced-return-traces "$harvest_b" \
+  --forced-return-traces "$harvest_c" \
   --child-only --scaffolded-compute-actions \
   --replay-anchor-corpus "$replay" \
   --return-repeats 3 --replay-anchor-repeats 1 \

@@ -109,7 +109,7 @@ def test_runtime_compute_update_trains_full_weights_then_uses_natural_gate() -> 
     ).read_text()
 
     assert "--scaffolded-compute-actions" in runner
-    assert runner.count("--forced-return-traces") == 2
+    assert runner.count("--forced-return-traces") == 3
     assert "--minimum-return-traces 16" in runner
     assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
     assert "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD" not in runner
