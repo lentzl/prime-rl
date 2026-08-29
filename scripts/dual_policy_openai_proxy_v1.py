@@ -388,6 +388,15 @@ def with_leaf_reporter_contract(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def force_root_text_finalization(payload: dict[str, Any]) -> dict[str, Any]:
+    """Make the post-report root turn a deterministic, tool-free final response."""
+
+    rewritten = {**payload, "temperature": 0.0}
+    for field in ("tools", "tool_choice", "parallel_tool_calls"):
+        rewritten.pop(field, None)
+    return rewritten
+
+
 def without_tool_choice_constraints(
     payload: dict[str, Any],
 ) -> tuple[dict[str, Any], tuple[str, ...]]:
@@ -1585,6 +1594,17 @@ class DualPolicyProxy:
         leaf_inline_evidence_action_sha256 = None
         leaf_compute_report_scope = False
         leaf_compute_report_action_sha256 = None
+        root_finalization_scope = False
+        if (
+            self.root_coordinator_contract
+            and self.typed_child_report
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+            and session_sha256 in self.completed_typed_child_report_hashes
+        ):
+            root_finalization_scope = True
+            routed = force_root_text_finalization(routed)
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -1975,7 +1995,9 @@ class DualPolicyProxy:
                 body=body,
                 status=upstream.status,
                 mode=(
-                    (
+                    "forwarded_root_text_finalization"
+                    if root_finalization_scope
+                    else (
                         "forwarded_typed_child_report"
                         if typed_child_report_action_sha256 is not None
                         else "forwarded_typed_child_report_untranslated"

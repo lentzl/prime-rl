@@ -525,6 +525,22 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     already_injected = module.with_root_coordinator_contract(injected)
     assert already_injected is injected
 
+    finalization = module.force_root_text_finalization(
+        {
+            **injected,
+            "temperature": 1.0,
+            "tools": [{"type": "function"}],
+            "tool_choice": "auto",
+            "parallel_tool_calls": True,
+            "stream": True,
+        }
+    )
+    assert finalization["temperature"] == 0.0
+    assert finalization["stream"] is True
+    assert "tools" not in finalization
+    assert "tool_choice" not in finalization
+    assert "parallel_tool_calls" not in finalization
+
     child = {
         "messages": [
             {
