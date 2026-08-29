@@ -1302,6 +1302,7 @@ class DualPolicyProxy:
         leaf_inline_evidence: bool = False,
         leaf_compute_report_scaffold: bool = False,
         typed_child_report: bool = False,
+        child_authored_compute: bool = False,
     ) -> None:
         self.urls = {
             "coordinator": coordinator_url.rstrip("/"),
@@ -1324,6 +1325,7 @@ class DualPolicyProxy:
         self.leaf_inline_evidence = leaf_inline_evidence
         self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
         self.typed_child_report = typed_child_report
+        self.child_authored_compute = child_authored_compute
         self.client: ClientSession | None = None
         self.sequence = 0
         self.leaked_session_hashes: dict[str, set[str]] = {
@@ -1799,7 +1801,8 @@ class DualPolicyProxy:
                     self.typed_child_report_compute_attempts.get(session_sha256, 0) + 1
                 )
                 routed = force_child_compute_report_schema(
-                    routed, operation=child_operation
+                    routed,
+                    operation=None if self.child_authored_compute else child_operation,
                 )
             else:
                 typed_child_report_scope = True
@@ -2148,6 +2151,7 @@ def main() -> None:
     parser.add_argument("--leaf-inline-evidence", action="store_true")
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
+    parser.add_argument("--child-authored-compute", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
     args = parser.parse_args()
     from transformers import AutoTokenizer
@@ -2182,6 +2186,7 @@ def main() -> None:
         leaf_inline_evidence=args.leaf_inline_evidence,
         leaf_compute_report_scaffold=args.leaf_compute_report_scaffold,
         typed_child_report=args.typed_child_report,
+        child_authored_compute=args.child_authored_compute,
     )
     web.run_app(build_app(proxy), host=args.host, port=args.port, print=None)
 

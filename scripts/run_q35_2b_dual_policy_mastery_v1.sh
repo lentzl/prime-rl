@@ -30,6 +30,7 @@ leaf_reporter_contract=${DUAL_LEAF_REPORTER_CONTRACT:-0}
 leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}
 leaf_compute_report_scaffold=${DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
+child_authored_compute=${DUAL_CHILD_AUTHORED_COMPUTE:-0}
 scaffold_profile=${DUAL_SCAFFOLD_PROFILE:-custom}
 
 cd "$root"
@@ -71,6 +72,10 @@ if [[ "$typed_child_report" != 0 && "$typed_child_report" != 1 ]]; then
   echo "DUAL_TYPED_CHILD_REPORT must be 0 or 1" >&2
   exit 1
 fi
+if [[ "$child_authored_compute" != 0 && "$child_authored_compute" != 1 ]]; then
+  echo "DUAL_CHILD_AUTHORED_COMPUTE must be 0 or 1" >&2
+  exit 1
+fi
 if [[ "$leaf_inline_evidence" != 0 && "$leaf_inline_evidence" != 1 ]]; then
   echo "DUAL_LEAF_INLINE_EVIDENCE must be 0 or 1" >&2
   exit 1
@@ -91,6 +96,10 @@ if [[ "$leaf_compute_report_scaffold" == 1 && "$leaf_inline_evidence" != 1 ]]; t
   echo "leaf compute-report scaffold requires DUAL_LEAF_INLINE_EVIDENCE=1" >&2
   exit 1
 fi
+if [[ "$child_authored_compute" == 1 && "$typed_child_report" != 1 ]]; then
+  echo "child-authored compute requires DUAL_TYPED_CHILD_REPORT=1" >&2
+  exit 1
+fi
 case "$scaffold_profile" in
   custom) ;;
   tight_answer_free_child_reporting_v1)
@@ -101,8 +110,23 @@ case "$scaffold_profile" in
       || "$leaf_reporter_contract" != 1 \
       || "$leaf_inline_evidence" != 1 \
       || "$leaf_compute_report_scaffold" != 0 \
-      || "$typed_child_report" != 1 ]]; then
+      || "$typed_child_report" != 1 \
+      || "$child_authored_compute" != 0 ]]; then
       echo "tight_answer_free_child_reporting_v1 scaffold flags do not match its frozen contract" >&2
+      exit 1
+    fi
+    ;;
+  tight_learned_semantic_probe_v1)
+    if [[ "$leak_coordinator_exact_action" != 0 \
+      || "$leak_coordinator_return_action" != 0 \
+      || "$typed_coordinator_return" != 0 \
+      || "$root_coordinator_contract" != 1 \
+      || "$leaf_reporter_contract" != 1 \
+      || "$leaf_inline_evidence" != 1 \
+      || "$leaf_compute_report_scaffold" != 0 \
+      || "$typed_child_report" != 1 \
+      || "$child_authored_compute" != 1 ]]; then
+      echo "tight_learned_semantic_probe_v1 scaffold flags do not match its frozen contract" >&2
       exit 1
     fi
     ;;
@@ -229,6 +253,9 @@ fi
 if [[ "$typed_child_report" == 1 ]]; then
   proxy_args+=(--typed-child-report)
 fi
+if [[ "$child_authored_compute" == 1 ]]; then
+  proxy_args+=(--child-authored-compute)
+fi
 
 "$uv_bin" run --no-sync scripts/dual_policy_openai_proxy_v1.py \
   "${proxy_args[@]}" \
@@ -300,6 +327,7 @@ child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
   printf 'dual_leaf_inline_evidence=%s\n' "$leaf_inline_evidence"
   printf 'dual_leaf_compute_report_scaffold=%s\n' "$leaf_compute_report_scaffold"
   printf 'dual_typed_child_report=%s\n' "$typed_child_report"
+  printf 'dual_child_authored_compute=%s\n' "$child_authored_compute"
   printf 'dual_policy_external_model=%s\n' "$external_model"
   printf 'coordinator_model_path=%s\n' "$coordinator_model"
   printf 'coordinator_model_sha256=%s\n' "$coordinator_sha"

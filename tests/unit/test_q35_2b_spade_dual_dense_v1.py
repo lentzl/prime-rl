@@ -1009,6 +1009,47 @@ def test_proxy_forces_one_step_child_compute_report_without_answer() -> None:
     ]
 
 
+def test_proxy_allows_child_to_author_compute_but_keeps_atomic_report_protocol() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "messages": [{"role": "user", "content": "compute from inline evidence"}],
+        "stream": True,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "description": "Run Python",
+                    "parameters": {"type": "object"},
+                },
+            }
+        ],
+    }
+
+    rewritten = module.force_child_compute_report_schema(payload, operation=None)
+
+    assert rewritten["tool_choice"]["function"]["name"] == "ipython"
+    assert rewritten["temperature"] == 0.0
+    function = rewritten["tools"][0]["function"]
+    assert "Use Python once to compute" in function["description"]
+    assert "harness routes that value" in function["description"]
+    assert "enum" not in function["parameters"]["properties"]["code"]
+    assert "agent_message.send" not in json.dumps(rewritten)
+
+
+def test_semantic_probe_profile_is_explicit_and_production_remains_frozen() -> None:
+    root = Path(__file__).parents[2]
+    launcher = (root / "scripts/run_q35_2b_dual_policy_mastery_v1.sh").read_text()
+    probe = (root / "scripts/run_q35_2b_tight_child_semantic_probe_v1.sh").read_text()
+    production = (root / "scripts/run_q35_2b_tight_child_reporting_eval_v1.sh").read_text()
+
+    assert "tight_learned_semantic_probe_v1" in launcher
+    assert "child-authored compute requires DUAL_TYPED_CHILD_REPORT=1" in launcher
+    assert "DUAL_CHILD_AUTHORED_COMPUTE=1" in probe
+    assert "tight_learned_semantic_probe_v1" in probe
+    assert "DUAL_CHILD_AUTHORED_COMPUTE" not in production
+
+
 def test_proxy_extracts_visible_recursive_inline_evidence() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     messages = [
