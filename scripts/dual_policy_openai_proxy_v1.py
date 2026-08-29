@@ -43,7 +43,7 @@ You are a leaf child with exactly one parent. The private evidence is inline in 
 session; an evidence label is not a runtime path. When the inline-evidence scaffold is
 enabled, the string INLINE_EVIDENCE is already bound in your IPython cell. Compute the
 requested value once with Python, store it as result, then make one IPython call:
-await agent_message.send(str(result)). A successful send completes your task.
+await agent_message.send(str(result), receiver_role='parent'). A successful send completes your task.
 After it succeeds, do not call another tool, send another message, answer later traffic,
 or finalize the user's request; remain stopped."""
 ROOT_ACTION_PATTERN = re.compile(

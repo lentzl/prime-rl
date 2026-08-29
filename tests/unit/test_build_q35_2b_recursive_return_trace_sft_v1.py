@@ -198,6 +198,36 @@ def test_scaffolded_compute_row_rejects_noncanonical_operation_body() -> None:
         module.recursive_return_row(episode, scaffolded_compute_action=True)
 
 
+def test_leaf_reporter_contract_matches_live_context_and_explicit_send() -> None:
+    module = _module()
+    row = module.recursive_return_row(
+        _episode("await agent_message.send('17', receiver_role='parent')")
+    )
+
+    aligned = module.with_leaf_reporter_contract(row)
+
+    assert [message["role"] for message in aligned["messages"]] == [
+        "system",
+        "user",
+        "assistant",
+        "tool",
+    ]
+    assert aligned["messages"][0]["content"] == module.LEAF_REPORTER_CONTRACT
+    assert "receiver_role='parent'" in aligned["messages"][0]["content"]
+    assert row["messages"][0]["role"] == "user"
+
+
+def test_leaf_reporter_contract_rejects_duplicate_injection() -> None:
+    module = _module()
+    row = module.recursive_return_row(
+        _episode("await agent_message.send('17', receiver_role='parent')")
+    )
+    aligned = module.with_leaf_reporter_contract(row)
+
+    with pytest.raises(ValueError, match="already contains"):
+        module.with_leaf_reporter_contract(aligned)
+
+
 def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> None:
     module = _module()
     traces = tmp_path / "traces.jsonl"

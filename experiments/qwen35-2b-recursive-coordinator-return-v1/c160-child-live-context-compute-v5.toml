@@ -1,0 +1,76 @@
+max_steps = 8
+output_dir = "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1"
+clean = false
+
+[run]
+name = "c160-child-live-context-compute-v5"
+dir = "c160-child-live-context-compute-v5"
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+num_gpus = 2
+
+[model]
+name = "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1/c160-child-compute-mix-v3/weights/step_10"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.compile]
+fullgraph = false
+
+[model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[tokenizer]
+name = "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1/c160-child-compute-mix-v3/weights/step_10"
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[data]
+type = "sft"
+name = "/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c160-child-live-context-compute-v5"
+batch_size = 10
+micro_batch_size = 1
+seq_len = 16384
+shuffle = false
+seed = 20260829
+
+[data.loss_mask]
+system = false
+user = false
+assistant = true
+tool = false
+
+[optim]
+type = "adamw"
+lr = 0.000001
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[scheduler]
+type = "constant"
+
+[ckpt]
+interval = 1
+keep_last = 1
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[file_monitor]
+filename = "metrics.jsonl"

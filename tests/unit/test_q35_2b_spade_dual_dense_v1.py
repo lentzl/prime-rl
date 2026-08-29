@@ -124,6 +124,31 @@ def test_runtime_compute_update_trains_full_weights_then_uses_natural_gate() -> 
     assert "step_10" in config
 
 
+def test_live_context_compute_update_excludes_answer_replay_and_keeps_gate() -> None:
+    root = Path(__file__).parents[2]
+    runner = (root / "scripts" / "run_c160_child_live_context_compute_v5.sh").read_text()
+    config = (
+        root
+        / "experiments"
+        / "qwen35-2b-recursive-coordinator-return-v1"
+        / "c160-child-live-context-compute-v5.toml"
+    ).read_text()
+
+    assert "--leaf-reporter-contract" in runner
+    assert "--replay-anchor-corpus" not in runner
+    assert ".replay_anchor_rows == 0" in runner
+    assert "LEAF_REPORTER_CONTRACT" in runner
+    assert "audited {len(rows)} live-context, answer-free compute targets" in runner
+    assert "DUAL_LEAF_REPORTER_CONTRACT=1" in runner
+    assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
+    assert "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD" not in runner
+    assert "admission_floor: 4" in runner
+    assert "max_steps = 8" in config
+    assert "lr = 0.000001" in config
+    assert "lora" not in config.lower()
+    assert "step_10" in config
+
+
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
     path = tmp_path / name
     path.mkdir()
@@ -516,7 +541,7 @@ def test_proxy_injects_idempotent_one_shot_leaf_reporter_contract() -> None:
     assert injected["messages"][1:] == child["messages"]
     contract = injected["messages"][0]["content"]
     assert "return_contract=exactly_one_parent_report" in contract
-    assert "await agent_message.send(str(result))" in contract
+    assert "await agent_message.send(str(result), receiver_role='parent')" in contract
     assert "INLINE_EVIDENCE is already bound" in contract
     assert "A successful send completes your task" in contract
     assert "do not call another tool" in contract

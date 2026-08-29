@@ -12,7 +12,11 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from dual_policy_openai_proxy_v1 import leaf_compute_report_code
+from dual_policy_openai_proxy_v1 import (
+    LEAF_REPORTER_CONTRACT,
+    LEAF_REPORTER_HEADER,
+    leaf_compute_report_code,
+)
 
 SCHEMA_VERSION = "q35-2b-recursive-coordinator-return-trace-sft/v1"
 
@@ -58,6 +62,24 @@ def wire_message(message: dict[str, Any]) -> dict[str, Any]:
             raise ValueError("recursive-return trace SFT supports text-only messages")
         result["content"] = "".join(str(part.get("text", "")) for part in content)
     return result
+
+
+def with_leaf_reporter_contract(row: dict[str, Any]) -> dict[str, Any]:
+    """Render a child SFT row in the same leading context used by the live proxy."""
+
+    messages = copy.deepcopy(row["messages"])
+    if any(
+        LEAF_REPORTER_HEADER in str(message.get("content", ""))
+        for message in messages
+    ):
+        raise ValueError("child SFT row already contains a leaf reporter contract")
+    return {
+        **row,
+        "messages": [
+            {"role": "system", "content": LEAF_REPORTER_CONTRACT},
+            *messages,
+        ],
+    }
 
 
 def _successful_trace(
@@ -337,6 +359,7 @@ def main() -> None:
     parser.add_argument("--child-only", action="store_true")
     parser.add_argument("--natural-child-actions", action="store_true")
     parser.add_argument("--scaffolded-compute-actions", action="store_true")
+    parser.add_argument("--leaf-reporter-contract", action="store_true")
     parser.add_argument("--replay-anchor-corpus", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--return-repeats", type=int, default=4)
@@ -352,6 +375,8 @@ def main() -> None:
         raise ValueError("natural child actions require --child-only")
     if args.scaffolded_compute_actions and not args.child_only:
         raise ValueError("scaffolded compute actions require --child-only")
+    if args.leaf_reporter_contract and not args.child_only:
+        raise ValueError("leaf reporter contract requires --child-only")
     if args.natural_child_actions and args.scaffolded_compute_actions:
         raise ValueError("natural and scaffolded compute actions are mutually exclusive")
     if args.replay_anchor_corpus is not None and not args.child_only:
@@ -420,6 +445,9 @@ def main() -> None:
         replay_anchors, replay_source = replay_anchor_rows(
             args.replay_anchor_corpus, args.replay_anchor_repeats
         )
+    if args.leaf_reporter_contract:
+        returns = [with_leaf_reporter_contract(row) for row in returns]
+        replay_anchors = [with_leaf_reporter_contract(row) for row in replay_anchors]
     rows = interleave_rows(returns, replay_anchors, root_anchors)
     args.output_dir.mkdir(parents=True)
     parquet_path = args.output_dir / "train.parquet"
@@ -450,6 +478,7 @@ def main() -> None:
         "replay_anchor_repeats": args.replay_anchor_repeats,
         "natural_child_actions": args.natural_child_actions,
         "scaffolded_compute_actions": args.scaffolded_compute_actions,
+        "leaf_reporter_contract": args.leaf_reporter_contract,
         "resource_family_counts": dict(sorted(Counter(row["resource_family"] for row in returns).items())),
         "sources": {
             "forced_return_traces": [
