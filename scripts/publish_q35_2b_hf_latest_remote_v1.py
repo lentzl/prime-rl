@@ -12,6 +12,9 @@ from typing import Any
 from huggingface_hub import HfApi
 
 
+_PRESERVED_REPO_FILES = {".gitattributes"}
+
+
 def _read_payload() -> tuple[str, str]:
     payload: Any = json.load(sys.stdin)
     if not isinstance(payload, dict):
@@ -33,6 +36,25 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _local_files(checkpoint_dir: Path) -> set[str]:
+    return {
+        path.relative_to(checkpoint_dir).as_posix()
+        for path in checkpoint_dir.rglob("*")
+        if path.is_file()
+    }
+
+
+def _stale_repo_files(
+    api: HfApi, *, repo_id: str, checkpoint_dir: Path
+) -> list[str]:
+    local_files = _local_files(checkpoint_dir)
+    return sorted(
+        path
+        for path in api.list_repo_files(repo_id=repo_id, repo_type="model")
+        if path not in local_files and path not in _PRESERVED_REPO_FILES
+    )
+
+
 def main() -> None:
     args = _parse_args()
     token, model_card = _read_payload()
@@ -40,11 +62,16 @@ def main() -> None:
     if not (checkpoint_dir / "model.safetensors").is_file():
         raise FileNotFoundError(checkpoint_dir / "model.safetensors")
     (checkpoint_dir / "README.md").write_text(model_card, encoding="utf-8")
-    HfApi(token=token).upload_folder(
+    api = HfApi(token=token)
+    stale_files = _stale_repo_files(
+        api, repo_id=args.repo_id, checkpoint_dir=checkpoint_dir
+    )
+    api.upload_folder(
         repo_id=args.repo_id,
         repo_type="model",
         folder_path=checkpoint_dir,
         commit_message=args.commit_message,
+        delete_patterns=stale_files or None,
     )
 
 
