@@ -1033,7 +1033,7 @@ def test_proxy_allows_child_to_author_compute_but_keeps_atomic_report_protocol()
     function = rewritten["tools"][0]["function"]
     assert "Use Python once to compute" in function["description"]
     assert "harness routes that value" in function["description"]
-    assert "enum" not in function["parameters"]["properties"]["code"]
+    assert "enum" not in json.dumps(function["parameters"])
     assert "agent_message.send" not in json.dumps(rewritten)
 
 
