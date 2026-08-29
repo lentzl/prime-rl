@@ -149,6 +149,32 @@ def test_live_context_compute_update_excludes_answer_replay_and_keeps_gate() -> 
     assert "step_10" in config
 
 
+def test_balanced_live_compute_update_uses_unique_data_and_protected_start() -> None:
+    root = Path(__file__).parents[2]
+    runner = (root / "scripts" / "run_c160_child_balanced_live_compute_v6.sh").read_text()
+    config = (
+        root
+        / "experiments"
+        / "qwen35-2b-recursive-coordinator-return-v1"
+        / "c160-child-balanced-live-compute-v6.toml"
+    ).read_text()
+
+    assert "--examples-per-family 32" in runner
+    assert ".row_count == 224" in runner
+    assert ".unique_task_count == .row_count" in runner
+    assert ".context_contract.replay_rows == 0" in runner
+    assert "green" in runner and "retry" in runner and "stable" in runner
+    assert "DUAL_LEAF_REPORTER_CONTRACT=1" in runner
+    assert "DUAL_LEAF_INLINE_EVIDENCE=1" in runner
+    assert "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD" not in runner
+    assert "admission_floor: 4" in runner
+    assert "max_steps = 8" in config
+    assert "lr = 0.000001" in config
+    assert "lora" not in config.lower()
+    assert "grpo-auto-000160-child" in config
+    assert "weights/step_4" in config
+
+
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
     path = tmp_path / name
     path.mkdir()
