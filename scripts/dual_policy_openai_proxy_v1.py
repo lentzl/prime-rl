@@ -821,6 +821,7 @@ class DualPolicyProxy:
         strip_coordinator_tool_choice: bool = False,
         root_coordinator_contract: bool = False,
         leaf_reporter_contract: bool = False,
+        typed_child_report: bool = False,
     ) -> None:
         self.urls = {
             "coordinator": coordinator_url.rstrip("/"),
@@ -840,6 +841,7 @@ class DualPolicyProxy:
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
         self.root_coordinator_contract = root_coordinator_contract
         self.leaf_reporter_contract = leaf_reporter_contract
+        self.typed_child_report = typed_child_report
         self.client: ClientSession | None = None
         self.sequence = 0
         self.leaked_session_hashes: dict[str, set[str]] = {
@@ -848,6 +850,7 @@ class DualPolicyProxy:
             "child": set(),
         }
         self.completed_typed_return_hashes: set[str] = set()
+        self.completed_typed_child_report_hashes: set[str] = set()
         self.typed_return_compute_hashes: set[str] = set()
         self.typed_return_compute_attempts: dict[str, int] = {}
 
@@ -874,6 +877,11 @@ class DualPolicyProxy:
                     and isinstance(session_sha256, str)
                 ):
                     self.completed_typed_return_hashes.add(session_sha256)
+                if (
+                    event.get("mode") == "forwarded_typed_child_report"
+                    and isinstance(session_sha256, str)
+                ):
+                    self.completed_typed_child_report_hashes.add(session_sha256)
                 if (
                     str(event.get("mode", "")).startswith("forwarded_typed_return_compute")
                     and isinstance(session_sha256, str)
@@ -998,6 +1006,7 @@ class DualPolicyProxy:
             and role == "coordinator"
             and _contains_marker(payload.get("messages"), RECURSIVE_COORDINATOR_HEADER)
         )
+        typed_child_chat = endpoint == "/v1/chat/completions" and role == "child"
         if (
             self.typed_coordinator_return
             and recursive_coordinator_chat
@@ -1022,6 +1031,30 @@ class DualPolicyProxy:
                 session_sha256=session_sha256,
             )
             return web.Response(body=response_body, content_type=content_type)
+        if (
+            self.typed_child_report
+            and typed_child_chat
+            and session_sha256 in self.completed_typed_child_report_hashes
+        ):
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model, sequence=self.sequence
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="typed_child_report_session_terminated",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         forced_chat_scope = None
         forced_chat_action_sha256 = None
         typed_compute_scope = False
@@ -1029,6 +1062,8 @@ class DualPolicyProxy:
         compute_inline_evidence = None
         typed_return_scope = False
         typed_return_action_sha256 = None
+        typed_child_report_scope = False
+        typed_child_report_action_sha256 = None
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -1108,6 +1143,24 @@ class DualPolicyProxy:
                 typed_return_scope = True
                 self.leaked_session_hashes["coordinator_return"].add(session_sha256)
                 routed = force_typed_parent_return_schema(routed)
+        if self.typed_child_report and typed_child_chat:
+            if session_sha256 is None:
+                body = json.dumps(
+                    routed, separators=(",", ":"), ensure_ascii=False
+                ).encode()
+                self._audit(
+                    role=role,
+                    endpoint=endpoint,
+                    body=body,
+                    status=400,
+                    mode="typed_child_report_rejected_missing_session",
+                )
+                return web.json_response(
+                    {"error": "typed child report requires x-session-id"},
+                    status=400,
+                )
+            typed_child_report_scope = True
+            routed = force_typed_parent_return_schema(routed)
         body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
         leak_specs = []
         if role == "coordinator" and self.leak_coordinator_exact_action:
@@ -1199,7 +1252,25 @@ class DualPolicyProxy:
                 normalized, response_rewrites = normalize_openai_finish_reason(
                     upstream_body
                 )
-                if typed_return_scope and upstream.status == 200:
+                if typed_child_report_scope and upstream.status == 200:
+                    normalized, _, typed_child_report_action_sha256 = (
+                        rewrite_typed_parent_return_response(normalized)
+                    )
+                    if (
+                        typed_child_report_action_sha256 is not None
+                        and client_requested_stream
+                    ):
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
+                    if typed_child_report_action_sha256 is not None:
+                        assert session_sha256 is not None
+                        self.completed_typed_child_report_hashes.add(session_sha256)
+                elif typed_return_scope and upstream.status == 200:
                     normalized, _, typed_return_action_sha256 = (
                         rewrite_typed_parent_return_response(normalized)
                     )
@@ -1240,6 +1311,12 @@ class DualPolicyProxy:
                 status=upstream.status,
                 mode=(
                     (
+                        "forwarded_typed_child_report"
+                        if typed_child_report_action_sha256 is not None
+                        else "forwarded_typed_child_report_untranslated"
+                    )
+                    if typed_child_report_scope
+                    else (
                         "forwarded_typed_return_compute_repaired"
                         if typed_compute_action_sha256 is not None
                         else "forwarded_typed_return_compute"
@@ -1264,7 +1341,8 @@ class DualPolicyProxy:
                     )
                 ),
                 action_sha256=(
-                    typed_return_action_sha256
+                    typed_child_report_action_sha256
+                    or typed_return_action_sha256
                     or typed_compute_action_sha256
                     or forced_chat_action_sha256
                 ),
@@ -1309,6 +1387,7 @@ def main() -> None:
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
     parser.add_argument("--root-coordinator-contract", action="store_true")
     parser.add_argument("--leaf-reporter-contract", action="store_true")
+    parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
     args = parser.parse_args()
     from transformers import AutoTokenizer
@@ -1340,6 +1419,7 @@ def main() -> None:
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,
         root_coordinator_contract=args.root_coordinator_contract,
         leaf_reporter_contract=args.leaf_reporter_contract,
+        typed_child_report=args.typed_child_report,
     )
     web.run_app(build_app(proxy), host=args.host, port=args.port, print=None)
 

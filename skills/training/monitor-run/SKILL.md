@@ -384,6 +384,12 @@ When isolating natural leaf reporting, combine the leaf contract with
 `DUAL_LEAK_COORDINATOR_EXACT_ACTION=1`. This guarantees only the disclosed
 root spawn; do not enable the coordinator-return leak, because that would force
 the child report and invalidate the natural leaf measurement.
+If the leaf repeatedly computes the right value but invalidates the trajectory
+with a path read, malformed IPython, or a second send, set
+`DUAL_TYPED_CHILD_REPORT=1`. The model still computes the payload from the
+private prompt, but a typed one-shot return schema fixes parent routing and the
+proxy terminates the child session after the native send. This is a scaffolded
+acquisition measurement, not an unscaffolded admission result.
 The early coordinator curriculum preserves the harness's first named IPython action
 and disables thinking. Because the 2B model cannot yet copy that action reliably,
 the proxy supplies one synthetic exact retained-spawn completion per coordinator

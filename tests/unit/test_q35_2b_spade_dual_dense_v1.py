@@ -44,6 +44,8 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         in launcher
     )
     assert 'proxy_args+=(--leak-coordinator-exact-action)' in launcher
+    assert "typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}" in launcher
+    assert 'proxy_args+=(--typed-child-report)' in launcher
 
 
 def _dense_candidate(tmp_path: Path, name: str, content: bytes) -> tuple[Path, str]:
@@ -910,6 +912,10 @@ def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
     assert '"forwarded_typed_return_compute"' in source
     assert 'mode="typed_return_session_terminated"' in source
     assert "session_sha256 in self.completed_typed_return_hashes" in source
+    assert "self.completed_typed_child_report_hashes" in source
+    assert 'mode="typed_child_report_session_terminated"' in source
+    assert '"forwarded_typed_child_report"' in source
+    assert "session_sha256 in self.completed_typed_child_report_hashes" in source
 
 
 @pytest.mark.parametrize(
