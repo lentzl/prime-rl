@@ -147,8 +147,10 @@ def test_child_only_natural_row_accepts_verified_terminal_send_without_ack() -> 
     assert [message["role"] for message in row["messages"]] == ["user", "assistant"]
     assert json.loads(row["messages"][1]["tool_calls"][0]["arguments"])["code"] == code
 
+    strict_episode = _episode("await agent_message.send('17', receiver_role='parent')")
+    strict_episode["traces"][0]["nodes"] = strict_episode["traces"][0]["nodes"][:4]
     with pytest.raises(ValueError, match="lacks a tool acknowledgement"):
-        module.recursive_return_row(episode)
+        module.recursive_return_row(strict_episode)
 
 
 def test_child_only_cli_rejects_root_anchors(monkeypatch, tmp_path: Path) -> None:
