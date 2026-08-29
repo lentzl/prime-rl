@@ -130,6 +130,65 @@ class _AwaitBareParentSend(ast.NodeTransformer):
         return self.generic_visit(node)
 
 
+def _report_final_value_to_parent(tree: ast.Module) -> int:
+    """Wrap a model-authored cell's final value in the native parent report."""
+
+    if not tree.body:
+        return 0
+    final = tree.body[-1]
+    value = final.value if isinstance(final, ast.Expr) else None
+    if (
+        isinstance(value, ast.Call)
+        and isinstance(value.func, ast.Name)
+        and value.func.id == "print"
+        and len(value.args) == 1
+        and not value.keywords
+    ):
+        value = value.args[0]
+    if value is None:
+        assigned_result = any(
+            isinstance(node, (ast.Assign, ast.AnnAssign))
+            and any(
+                isinstance(target, ast.Name) and target.id == "result"
+                for target in (
+                    node.targets if isinstance(node, ast.Assign) else [node.target]
+                )
+            )
+            for node in ast.walk(tree)
+        )
+        if not assigned_result:
+            return 0
+        value = ast.Name(id="result", ctx=ast.Load())
+        final = None
+    report = ast.Expr(
+        value=ast.Await(
+            value=ast.Call(
+                func=ast.Attribute(
+                    value=ast.Name(id="agent_message", ctx=ast.Load()),
+                    attr="send",
+                    ctx=ast.Load(),
+                ),
+                args=[
+                    ast.Call(
+                        func=ast.Name(id="str", ctx=ast.Load()),
+                        args=[value],
+                        keywords=[],
+                    )
+                ],
+                keywords=[
+                    ast.keyword(arg="receiver_role", value=ast.Constant(value="parent"))
+                ],
+            )
+        )
+    )
+    if final is None:
+        tree.body.append(report)
+    else:
+        tree.body[-1] = report
+    ast.fix_missing_locations(tree)
+    return 1
+
+
 def normalize_openai_finish_reason(body: bytes) -> tuple[bytes, int]:
     """Map vLLM's internal ``abort`` extension to the OpenAI ``stop`` enum.
 
@@ -750,11 +809,27 @@ def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any
     return rewritten
 
 
+def force_child_compute_report_schema(payload: dict[str, Any]) -> dict[str, Any]:
+    """Constrain one model-authored compute cell whose final value is reported."""
+
+    rewritten = force_parent_return_compute_schema(payload)
+    function = rewritten["tools"][0]["function"]
+    function["description"] = (
+        "Use Python once to compute the requested result from the inline evidence. "
+        "The harness prebinds the visible evidence as the string INLINE_EVIDENCE; "
+        "use that variable and never Path, open, or filesystem access. Do not call "
+        "agent_message yourself. End the cell with the computed result (or print it "
+        "once); the harness routes that value to the direct parent and ends the session."
+    )
+    return rewritten
+
+
 def rewrite_ipython_literal_newlines_response(
     body: bytes,
     *,
     inline_evidence: str | None = None,
     preserve_parent_send: bool = False,
+    report_final_value_to_parent: bool = False,
 ) -> tuple[bytes, int, str | None]:
     """Ground the compute cell and repair doubly escaped parse-blocking newlines."""
 
@@ -816,6 +891,10 @@ def rewrite_ipython_literal_newlines_response(
                 if send_transformer.rewrites:
                     ast.fix_missing_locations(tree)
                     repaired = ast.unparse(tree)
+            if report_final_value_to_parent:
+                if not _report_final_value_to_parent(tree):
+                    continue
+                repaired = ast.unparse(tree)
             if repaired == code:
                 continue
             parsed_arguments["code"] = repaired
@@ -1480,7 +1559,7 @@ class DualPolicyProxy:
                 self.typed_child_report_compute_attempts[session_sha256] = (
                     self.typed_child_report_compute_attempts.get(session_sha256, 0) + 1
                 )
-                routed = force_parent_return_compute_schema(routed)
+                routed = force_child_compute_report_schema(routed)
             else:
                 typed_child_report_scope = True
                 routed = force_typed_parent_return_schema(routed)
@@ -1636,8 +1715,12 @@ class DualPolicyProxy:
                         rewrite_ipython_literal_newlines_response(
                             normalized,
                             inline_evidence=typed_child_report_inline_evidence,
+                            report_final_value_to_parent=True,
                         )
                     )
+                    if typed_child_report_compute_action_sha256 is not None:
+                        assert session_sha256 is not None
+                        self.completed_typed_child_report_hashes.add(session_sha256)
                     if client_requested_stream:
                         normalized = chat_completion_to_sse(normalized)
                         response_headers = {
@@ -1728,7 +1811,7 @@ class DualPolicyProxy:
                     )
                     if typed_child_report_scope
                     else (
-                        "forwarded_typed_child_report_compute_repaired"
+                        "forwarded_typed_child_report_compute_report"
                         if typed_child_report_compute_action_sha256 is not None
                         else "forwarded_typed_child_report_compute"
                     )

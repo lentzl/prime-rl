@@ -938,6 +938,33 @@ def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
     assert "agent_message.send" not in serialized
 
 
+def test_proxy_forces_one_step_child_compute_report_without_answer() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "messages": [{"role": "user", "content": "compute from inline evidence"}],
+        "stream": True,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "description": "Run Python",
+                    "parameters": {"type": "object"},
+                },
+            }
+        ],
+    }
+
+    rewritten = module.force_child_compute_report_schema(payload)
+
+    assert rewritten["tool_choice"]["function"]["name"] == "ipython"
+    description = rewritten["tools"][0]["function"]["description"]
+    assert "End the cell with the computed result" in description
+    assert "harness routes that value" in description
+    assert "next turn" not in description
+    assert "return_to_parent" not in json.dumps(rewritten)
+
+
 def test_proxy_extracts_visible_recursive_inline_evidence() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     messages = [
@@ -1160,6 +1187,48 @@ def test_proxy_converts_compute_stage_parent_send_to_value_expression() -> None:
     assert "agent_message.send" not in grounded
     assert "str(2 + 2)" in grounded
     compile(grounded, "<grounded-compute>", "exec")
+
+
+def test_proxy_wraps_model_computed_final_value_in_first_parent_report() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    code = (
+        "result = sum(line.startswith('## ') for line in "
+        "INLINE_EVIDENCE.splitlines())\nprint(result)"
+    )
+    upstream = {
+        "choices": [
+            {
+                "message": {
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    body, rewrites, action_sha256 = module.rewrite_ipython_literal_newlines_response(
+        json.dumps(upstream).encode(),
+        inline_evidence="# Report\n## A\n## B\n",
+        report_final_value_to_parent=True,
+    )
+
+    assert rewrites == 1
+    grounded = json.loads(
+        json.loads(body)["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )["code"]
+    assert grounded.count("agent_message.send") == 1
+    assert "await agent_message.send(str(result), receiver_role='parent')" in grounded
+    assert "print(" not in grounded
+    assert action_sha256 == hashlib.sha256(grounded.encode()).hexdigest()
+    compile(grounded, "<computed-report>", "exec", flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT)
 
 
 def test_proxy_preserves_valid_python_containing_literal_newline_escape() -> None:
