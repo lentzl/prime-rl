@@ -165,6 +165,10 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
     assert "lora" not in config.lower()
     assert 'optimization_dtype = "bfloat16"' in config
     assert 'reduce_dtype = "bfloat16"' in config
+    assert module.DATASET_CONTRACTS["qwen35-2b-document-child-sft/v1"] == (
+        "child",
+        "canonical_answer_free_document_leaf_compute_report_stop",
+    )
 
 
 def test_dual_policy_launcher_exposes_inference_sibling_binaries() -> None:
@@ -174,3 +178,89 @@ def test_dual_policy_launcher_exposes_inference_sibling_binaries() -> None:
 
     assert 'inference_dir=$(cd "$(dirname "$inference_bin")" && pwd)' in launcher
     assert 'export PATH="$inference_dir:$PATH"' in launcher
+
+
+def test_document_child_export_uses_real_depth_one_context_and_answer_free_code(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_child_sft_v1")
+    nodes = [
+        {
+            "sampled": False,
+            "parent": None,
+            "message": {"role": "user", "content": "root runtime"},
+        }
+    ]
+    for stem in ("alpha", "beta", "gamma"):
+        root_index = len(nodes)
+        nodes.extend(
+            [
+                {
+                    "sampled": False,
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": (
+                            "Recursive agent depth: 1\nYou are a child agent\n"
+                            f"template={stem}"
+                        ),
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": root_index,
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "[task from parent]\nRead "
+                                    f"/workspace/document-recursion/v3-i20000/{stem}.md"
+                                ),
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+    trace = {
+        "id": "flat-three-child-template",
+        "task": {"data": {"family": "document_flat"}},
+        "nodes": nodes,
+        "tools": [
+            {
+                "name": "ipython",
+                "description": "execute code",
+                "parameters": {
+                    "type": "object",
+                    "required": ["code"],
+                    "properties": {"code": {"type": "string"}},
+                },
+                "strict": False,
+            }
+        ],
+    }
+    source = tmp_path / "flat.jsonl"
+    source.write_text(json.dumps({"traces": [trace]}) + "\n")
+    output = tmp_path / "child-dataset"
+
+    manifest = module.export(traces=[source], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 12
+    assert manifest["role"] == "child"
+    assert manifest["answer_free"] is True
+    assert manifest["tool_call_format"] == "openai_function_v1"
+    assert set(manifest["family_counts"].values()) == {4}
+    assert len(rows) == 12
+    for row in rows:
+        assert "Recursive agent depth: 1" in row["messages"][0]["content"]
+        call = row["messages"][2]["tool_calls"][0]
+        assert call["function"]["name"] == "ipython"
+        code = json.loads(call["function"]["arguments"])["code"]
+        assert "path.read_text()" in code
+        assert "len(text.split())" in code
+        assert "receiver_role='parent'" in code
+        assert '"words":' not in code
+        assert row["messages"][-1]["content"] == "Done."

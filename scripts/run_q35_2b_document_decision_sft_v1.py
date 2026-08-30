@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run one bounded full-dense coordinator update on the document decision bootstrap."""
+"""Run a bounded full-dense role update on an audited document bootstrap."""
 
 from __future__ import annotations
 
@@ -14,8 +14,16 @@ from typing import Any
 from export_q35_2b_document_decision_sft_v1 import sha256_file
 
 SCHEMA_VERSION = "qwen35-2b-document-decision-update/v1"
-DATASET_SCHEMA_VERSION = "qwen35-2b-document-decision-sft/v2"
-DATASET_OBJECTIVE = "canonical_answer_free_first_document_action"
+DATASET_CONTRACTS = {
+    "qwen35-2b-document-decision-sft/v2": (
+        "coordinator",
+        "canonical_answer_free_first_document_action",
+    ),
+    "qwen35-2b-document-child-sft/v1": (
+        "child",
+        "canonical_answer_free_document_leaf_compute_report_stop",
+    ),
+}
 PROMOTION_MINIMUM = 4
 
 
@@ -126,11 +134,11 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     manifest_path = path / "MANIFEST.json"
     parquet = path / "train.parquet"
     manifest = json.loads(manifest_path.read_text())
+    contract = DATASET_CONTRACTS.get(manifest.get("schema_version"))
     if (
-        manifest.get("schema_version") != DATASET_SCHEMA_VERSION
+        contract is None
         or manifest.get("status") != "complete"
-        or manifest.get("role") != "coordinator"
-        or manifest.get("objective") != DATASET_OBJECTIVE
+        or (manifest.get("role"), manifest.get("objective")) != contract
         or manifest.get("rows") != 12
         or set(manifest.get("family_counts", {}).values()) != {4}
         or manifest.get("answer_free") is not True
@@ -223,8 +231,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     receipt = {
         "schema_version": SCHEMA_VERSION,
         "status": "complete",
-        "algorithm": "sft_document_decision_bootstrap_v1",
-        "role": "coordinator",
+        "algorithm": f"sft_document_{dataset['role']}_bootstrap_v1",
+        "role": dataset["role"],
         "optimizer_updates": args.optimizer_updates,
         "full_dense": True,
         "promotion_minimum": PROMOTION_MINIMUM,
