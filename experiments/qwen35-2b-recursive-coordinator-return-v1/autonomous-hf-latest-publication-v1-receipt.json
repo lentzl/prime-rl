@@ -1,0 +1,38 @@
+{
+  "schema_version": "qwen35-2b-autonomous-hf-latest-publication-receipt/v1",
+  "status": "complete",
+  "recorded_at_utc": "2026-08-30T07:19:00Z",
+  "implementation": {
+    "git_commit": "63c9ede65",
+    "publisher": "scripts/sync_q35_2b_hf_promotions_v1.py",
+    "launcher": "scripts/run_q35_2b_role_grpo_autonomous_v3.sh",
+    "poll_seconds": 60,
+    "admitted_promotions_only": true,
+    "latest_only": true,
+    "independent_of_optimizer_controller": true,
+    "publication_failure_retries_without_training_replay": true,
+    "secret_mode": "0600"
+  },
+  "verification": {
+    "tests": "22 passed",
+    "ruff": "all checks passed",
+    "publication_event_count": 4,
+    "publication_events_sha256": "c99279c77d91c465a7f09581c2bd87aa27fc4811939732564fee1a2efada849c",
+    "publisher_resident_pid": 3134350
+  },
+  "repositories": {
+    "coordinator": {
+      "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-coordinator",
+      "revision": "016d933c4e193f4993009b1e74a93a5a11d94e58",
+      "model_sha256": "18f760904ba4ef6b54b785dea96307e100d8ff71719750d8a76fabd9a55a789e",
+      "lfs_sha256_verified": true
+    },
+    "child": {
+      "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-child",
+      "revision": "2c3fa1be9be2e3be92c8ca83f67f8beeadb05c0c",
+      "model_sha256": "d459b41d783eb6de9a78276cf51e02173ea2a9c537852cdd643c51f1f17308a4",
+      "lfs_sha256_verified": true,
+      "repaired_prior_drift_from_model_sha256": "aaa19e1d736c293e5aebc0714233cebdf4d8e2e1bb08506876aaf3c1067c12cf"
+    }
+  }
+}
