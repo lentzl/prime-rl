@@ -1,0 +1,77 @@
+{
+  "schema_version": "q35-2b-autonomous-role-grpo-launch-receipt/v1",
+  "status": "running",
+  "date": "2026-08-30",
+  "host": "ubuntu@216.81.200.39",
+  "state": {
+    "directory": "/home/ubuntu/rlm/prime-rl/experiments/qwen35-2b-self-bootstrap-dual-dense-v1/grpo-autonomous-v3",
+    "events": "/home/ubuntu/rlm/prime-rl/experiments/qwen35-2b-self-bootstrap-dual-dense-v1/grpo-autonomous-v3/events.jsonl",
+    "tmux_session": "q35-grpo-v3",
+    "controller_pane": "q35-grpo-v3:controller.0",
+    "watchdog_enabled": true,
+    "restart_attempts_per_unchanged_event_head": 3
+  },
+  "initial_frontier": {
+    "coordinator": {
+      "label": "C158",
+      "model_sha256": "18f760904ba4ef6b54b785dea96307e100d8ff71719750d8a76fabd9a55a789e"
+    },
+    "child": {
+      "label": "V9",
+      "model_sha256": "d459b41d783eb6de9a78276cf51e02173ea2a9c537852cdd643c51f1f17308a4"
+    }
+  },
+  "initial_admission": {
+    "label": "c158-v9-tight-production-v37-9427800-n6",
+    "profile": "tight_answer_free_child_reporting_v1",
+    "episodes": 6,
+    "complete_distinct_qualifying_trajectories": 6,
+    "promotion_minimum": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "training_policy": {
+    "roles": [
+      "coordinator",
+      "child"
+    ],
+    "alternating": true,
+    "update_type": "full_weight_grpo",
+    "optimizer_steps_per_role_action": 1,
+    "lora": false,
+    "group_size": 8,
+    "learning_rate": 1e-6,
+    "zero_advantage_filter": true,
+    "training_environment_start": "action_scaffold",
+    "training_environment_progression": "one leak-ladder step after an admitted update",
+    "permanent_admission_scaffold": "tight_answer_free_child_reporting_v1",
+    "promotion_minimum": 4,
+    "disk_free_reserve_gib": 120
+  },
+  "first_action": {
+    "cycle": 163,
+    "role": "coordinator",
+    "run_name": "grpo-auto-000163-coordinator-e0d3-uncapped-yield-exact-child-9428000",
+    "task_start_index": 9428000,
+    "task_count": 8,
+    "bootstrap_leak_level": "action_scaffold",
+    "train_started_event_sha256": "29dfb4172ca28230b6df46c983fd3906319bcc6cce2165520f76635ed7c2fecd",
+    "rollouts_observed_inflight": 8,
+    "gpu_memory_used_mib_observed": [
+      21851,
+      16372
+    ]
+  },
+  "durability": {
+    "hash_chained_events": true,
+    "interrupted_action_reconciliation": true,
+    "duplicate_optimizer_action_refusal": true,
+    "automatic_runtime_container_cleanup": true,
+    "automatic_checkpoint_pruning": true,
+    "stop_at_safe_boundary": true
+  },
+  "scope_note": "This launch restores autonomous alternating policy training and deterministic curriculum environment generation. Learned SPADE Designer-policy coevolution is not yet attached to v3 and remains a subsequent extension; admission reliability does not depend on it.",
+  "code": {
+    "v3_foundation_commit": "08d6b39",
+    "restartable_launcher_commit": "0f6cf7f"
+  }
+}
