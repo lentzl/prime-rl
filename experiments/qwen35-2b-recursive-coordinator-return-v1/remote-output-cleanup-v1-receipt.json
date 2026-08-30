@@ -1,0 +1,91 @@
+{
+  "schema_version": "q35-2b-remote-output-cleanup-receipt/v1",
+  "status": "complete",
+  "date": "2026-08-30",
+  "host": "ubuntu@216.81.200.39",
+  "authorization": "User approved the proposed targeted cleanup before starting the next training phase.",
+  "filesystem": {
+    "mount": "/dev/sda2",
+    "size_gib_displayed": 503,
+    "before": {
+      "used_gib_displayed": 455,
+      "available_gib_displayed": 28,
+      "use_percent": 95,
+      "outputs_gib_displayed": 403
+    },
+    "after": {
+      "used_gib_displayed": 173,
+      "available_gib_displayed": 310,
+      "use_percent": 36,
+      "outputs_gib_displayed": 122
+    }
+  },
+  "deleted_output_trees": [
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-v1",
+      "predelete_size_gib_displayed": 224,
+      "reason": "Superseded pre-GRPO dual-dense checkpoint history; current protected policies live in the retained dual-dense-grpo-v1 tree."
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-interaction-curriculum-v1",
+      "predelete_size_gib_displayed": 38,
+      "reason": "Superseded interaction-curriculum LoRA attempts."
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-spade-interaction-loop-v1",
+      "predelete_size_gib_displayed": 13,
+      "reason": "Superseded first SPADE interaction-loop checkpoints."
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-coordinator-dense-v1",
+      "predelete_size_gib_displayed": 8.3,
+      "reason": "Superseded coordinator-dense attempts."
+    }
+  ],
+  "retained_output_trees": [
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1",
+      "postcleanup_size_gib_displayed": 43
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1",
+      "postcleanup_size_gib_displayed": 79
+    }
+  ],
+  "protected_checkpoints_verified_after_cleanup": [
+    {
+      "label": "protected_c158_coordinator",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800/weights/step_1/model.safetensors",
+      "sha256": "18f760904ba4ef6b54b785dea96307e100d8ff71719750d8a76fabd9a55a789e"
+    },
+    {
+      "label": "protected_c160_rollback_child",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000160-child-e0c3-natural-child-minimal-sft-spawn9x4-c159-v3/weights/step_4/model.safetensors",
+      "sha256": "aaa19e1d736c293e5aebc0714233cebdf4d8e2e1bb08506876aaf3c1067c12cf"
+    },
+    {
+      "label": "promoted_v9_child",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1/c160-child-minimal-balanced-consolidation-v9/weights/step_2/model.safetensors",
+      "sha256": "d459b41d783eb6de9a78276cf51e02173ea2a9c537852cdd643c51f1f17308a4"
+    }
+  ],
+  "preserved_evidence": {
+    "artifacts_tree_untouched": true,
+    "results_tree_untouched": true,
+    "models_tree_untouched": true,
+    "git_repository_untouched_except_receipt": true,
+    "huggingface_latest_child_revision": "82eb646b7b69b8aaf6d89469d89b345e7cd73966"
+  },
+  "process_cleanup": {
+    "stale_monitor_pids_stopped": [
+      695067,
+      769598
+    ],
+    "training_processes_after_cleanup": 0,
+    "gpu_memory_used_mib_after_cleanup": [
+      1,
+      1
+    ]
+  },
+  "recoverability": "The four deleted remote checkpoint trees are not locally recoverable. Their compact experiment definitions, receipts, corpora, and evaluation evidence remain in the retained repository and evidence trees."
+}
