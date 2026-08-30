@@ -329,9 +329,7 @@ def test_admission_keeps_six_examples_but_caps_runtime_pressure() -> None:
 
 
 def test_tight_admission_profile_is_frozen_and_answer_free() -> None:
-    environment = MODULE._admission_environment(
-        "tight_answer_free_child_reporting_v1"
-    )
+    environment = MODULE._admission_environment("tight_answer_free_child_reporting_v1")
 
     assert environment == {
         "DUAL_SCAFFOLD_PROFILE": "tight_answer_free_child_reporting_v1",
@@ -430,6 +428,36 @@ def test_event_log_is_hash_chained_and_detects_tampering(tmp_path: Path) -> None
         raise AssertionError("tampered autonomous event chain was accepted")
 
 
+def test_infrastructure_failure_retries_same_role_under_next_cycle() -> None:
+    failed = MODULE.project(
+        [
+            _initialized(),
+            {
+                "kind": "train_failed",
+                "cycle": 1,
+                "role": "coordinator",
+                "phase": MODULE.COORDINATOR_PHASE,
+            },
+        ]
+    )
+    no_update = MODULE.project(
+        [
+            _initialized(),
+            {
+                "kind": "train_no_update",
+                "cycle": 1,
+                "role": "coordinator",
+                "phase": MODULE.COORDINATOR_PHASE,
+            },
+        ]
+    )
+
+    assert failed["next_role"] == "coordinator"
+    assert failed["next_cycle"] == 2
+    assert no_update["next_role"] == "child"
+    assert no_update["next_cycle"] == 2
+
+
 def test_runtime_cleanup_selects_only_new_prime_agent_containers() -> None:
     after = {
         "old": {"container_id": "old", "image": "rlm-prime-agent-runtime:v1", "name": "old"},
@@ -506,14 +534,17 @@ def test_invalid_completed_admission_records_failure_without_controller_crash(
     controller.events_path = tmp_path / "events.jsonl"
     MODULE.append_event(controller.events_path, _initialized())
 
-    assert controller._record_eval_terminal(
-        cycle=1,
-        role="child",
-        phase="e0c29_evidence_available",
-        bootstrap_leak_level="action_scaffold",
-        label=run.name,
-        frontier=frontier,
-    ) is True
+    assert (
+        controller._record_eval_terminal(
+            cycle=1,
+            role="child",
+            phase="e0c29_evidence_available",
+            bootstrap_leak_level="action_scaffold",
+            label=run.name,
+            frontier=frontier,
+        )
+        is True
+    )
     terminal = MODULE.load_events(controller.events_path)[-1]
     assert terminal["kind"] == "evaluation_failed"
     assert terminal["failure_type"] == "invalid_admission_evidence"

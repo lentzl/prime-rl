@@ -11,6 +11,7 @@ import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import time
 from datetime import UTC, datetime
@@ -29,6 +30,10 @@ EVAL_MAX_ADDRESS_SPACE_BYTES = 32 * 1024**3
 # guard while per-rollout timeouts continue to catch individual stalls.
 TRAIN_TIMEOUT_SECONDS = 10800
 EVAL_TIMEOUT_SECONDS = 1200
+TRAIN_HEALTH_GRACE_SECONDS = 180
+TRAIN_HEALTH_FAILURE_CHECKS = 3
+TRAIN_HEALTH_POLL_SECONDS = 10
+TRAIN_INFERENCE_PORTS = (8000, 8100, 8200)
 CHILD_PHASES = (
     "e0_full_actions",
     "e0c_natural_child",
@@ -189,9 +194,7 @@ def _previous_leak_level(leak_level: str) -> str:
     return "solution_replay" if index == 0 else LEAK_LADDER[index - 1]
 
 
-def _advance_single_axis_curriculum(
-    role: str, phase: str, leak_level: str
-) -> tuple[str, str]:
+def _advance_single_axis_curriculum(role: str, phase: str, leak_level: str) -> tuple[str, str]:
     next_phase = _next_phase(role, phase)
     if next_phase != phase:
         return next_phase, leak_level
@@ -210,21 +213,14 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
         "leak_levels": copy.deepcopy(
             initial.get(
                 "leak_levels",
-                {
-                    role: _default_leak_level(initial["phases"][role])
-                    for role in ("coordinator", "child")
-                },
+                {role: _default_leak_level(initial["phases"][role]) for role in ("coordinator", "child")},
             )
         ),
         "next_role": initial["next_role"],
         "next_cycle": initial["next_cycle"],
         "pending_eval": None,
-        "curriculum_policy": initial.get(
-            "curriculum_policy", COUPLED_CURRICULUM_POLICY
-        ),
-        "admission_scaffold_profile": initial.get(
-            "admission_scaffold_profile", "custom"
-        ),
+        "curriculum_policy": initial.get("curriculum_policy", COUPLED_CURRICULUM_POLICY),
+        "admission_scaffold_profile": initial.get("admission_scaffold_profile", "custom"),
     }
     for event in events[1:]:
         kind = event["kind"]
@@ -234,12 +230,13 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                 "cycle": event["cycle"],
                 "role": event["role"],
                 "phase": event["phase"],
-                "bootstrap_leak_level": event.get(
-                    "bootstrap_leak_level", _default_leak_level(event["phase"])
-                ),
+                "bootstrap_leak_level": event.get("bootstrap_leak_level", _default_leak_level(event["phase"])),
             }
         elif kind in {"train_failed", "train_no_update"}:
-            state["next_role"] = _other(event["role"])
+            # A clean no-update is learning evidence and hands control to the
+            # other role. An infrastructure failure is not policy evidence;
+            # retry the same role under the next immutable cycle label.
+            state["next_role"] = event["role"] if kind == "train_failed" else _other(event["role"])
             state["next_cycle"] = event["cycle"] + 1
             state["pending_eval"] = None
         elif kind in {"evaluation_completed", "evaluation_failed"}:
@@ -252,15 +249,11 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                 evaluated_leak = event.get("bootstrap_leak_level")
                 if evaluated_leak is not None:
                     if evaluated_leak != state["leak_levels"][role]:
-                        raise ValueError(
-                            "admission leak level does not match the projected curriculum"
-                        )
+                        raise ValueError("admission leak level does not match the projected curriculum")
                 if state["curriculum_policy"] == COUPLED_CURRICULUM_POLICY:
                     state["phases"][role] = _next_phase(role, event["phase"])
                     if evaluated_leak is not None:
-                        state["leak_levels"][role] = _next_leak_level(
-                            evaluated_leak
-                        )
+                        state["leak_levels"][role] = _next_leak_level(evaluated_leak)
                 elif state["curriculum_policy"] == SINGLE_AXIS_CURRICULUM_POLICY:
                     next_phase, next_leak = _advance_single_axis_curriculum(
                         role,
@@ -271,9 +264,7 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                     if evaluated_leak is not None:
                         state["leak_levels"][role] = next_leak
                 else:
-                    raise ValueError(
-                        f"unsupported curriculum policy: {state['curriculum_policy']}"
-                    )
+                    raise ValueError(f"unsupported curriculum policy: {state['curriculum_policy']}")
             state["next_role"] = _other(event["role"])
             state["next_cycle"] = event["cycle"] + 1
             state["pending_eval"] = None
@@ -292,20 +283,14 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
         elif kind == "curriculum_policy_changed":
             if event["from_policy"] != state["curriculum_policy"]:
                 raise ValueError("curriculum-policy migration does not match projected state")
-            if (
-                event["from_policy"] != COUPLED_CURRICULUM_POLICY
-                or event["to_policy"] != SINGLE_AXIS_CURRICULUM_POLICY
-            ):
+            if event["from_policy"] != COUPLED_CURRICULUM_POLICY or event["to_policy"] != SINGLE_AXIS_CURRICULUM_POLICY:
                 raise ValueError("unsupported curriculum-policy migration")
             state["curriculum_policy"] = event["to_policy"]
         elif kind == "curriculum_recovered":
             role = event["role"]
             current_phase = state["phases"][role]
             current_leak = state["leak_levels"][role]
-            if (
-                event["from_phase"] != current_phase
-                or event["from_leak_level"] != current_leak
-            ):
+            if event["from_phase"] != current_phase or event["from_leak_level"] != current_leak:
                 raise ValueError("curriculum recovery does not match projected state")
             to_phase = event["to_phase"]
             to_leak = event["to_leak_level"]
@@ -315,14 +300,10 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                 and to_leak == current_leak
             )
             leak_rollback = (
-                to_phase == current_phase
-                and to_leak == _previous_leak_level(current_leak)
-                and to_leak != current_leak
+                to_phase == current_phase and to_leak == _previous_leak_level(current_leak) and to_leak != current_leak
             )
             if not (phase_rollback or leak_rollback):
-                raise ValueError(
-                    "curriculum recovery must roll back exactly one axis by one step"
-                )
+                raise ValueError("curriculum recovery must roll back exactly one axis by one step")
             state["phases"][role] = to_phase
             state["leak_levels"][role] = to_leak
     return state
@@ -367,9 +348,7 @@ def _runtime_containers() -> dict[str, dict[str, str]]:
     return containers
 
 
-def _created_runtime_containers(
-    before: set[str], after: dict[str, dict[str, str]]
-) -> list[dict[str, str]]:
+def _created_runtime_containers(before: set[str], after: dict[str, dict[str, str]]) -> list[dict[str, str]]:
     return [
         after[container_id]
         for container_id in sorted(after.keys() - before)
@@ -377,8 +356,38 @@ def _created_runtime_containers(
     ]
 
 
+def _ports_listening(ports: tuple[int, ...]) -> bool:
+    for port in ports:
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=1):
+                pass
+        except OSError:
+            return False
+    return True
+
+
+def _stop_process_group(process: subprocess.Popen[Any]) -> int:
+    os.killpg(process.pid, signal.SIGINT)
+    try:
+        return process.wait(timeout=60)
+    except subprocess.TimeoutExpired:
+        os.killpg(process.pid, signal.SIGTERM)
+        try:
+            return process.wait(timeout=30)
+        except subprocess.TimeoutExpired:
+            os.killpg(process.pid, signal.SIGKILL)
+            return process.wait()
+
+
 def _run_bounded(
-    command: list[str], *, env: dict[str, str], log: Path, timeout_seconds: int
+    command: list[str],
+    *,
+    env: dict[str, str],
+    log: Path,
+    timeout_seconds: int,
+    health_ports: tuple[int, ...] = (),
+    health_grace_seconds: int = 0,
+    health_terminal: Path | None = None,
 ) -> int:
     log.parent.mkdir(parents=True, exist_ok=True)
     with log.open("a", encoding="utf-8") as handle:
@@ -389,19 +398,35 @@ def _run_bounded(
             stderr=subprocess.STDOUT,
             start_new_session=True,
         )
-        try:
-            return process.wait(timeout=timeout_seconds)
-        except subprocess.TimeoutExpired:
-            os.killpg(process.pid, signal.SIGINT)
-            try:
-                return process.wait(timeout=60)
-            except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGTERM)
-                try:
-                    return process.wait(timeout=30)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
-                    return process.wait()
+        started = time.monotonic()
+        deadline = started + timeout_seconds
+        unhealthy_checks = 0
+        while process.poll() is None:
+            now = time.monotonic()
+            if now >= deadline:
+                handle.write("autonomous guard: action timeout; stopping process group\n")
+                handle.flush()
+                return _stop_process_group(process)
+            if (
+                health_ports
+                and now >= started + health_grace_seconds
+                and not (health_terminal is not None and health_terminal.is_file())
+            ):
+                unhealthy_checks = unhealthy_checks + 1 if not _ports_listening(health_ports) else 0
+                if unhealthy_checks >= TRAIN_HEALTH_FAILURE_CHECKS:
+                    handle.write(
+                        "autonomous guard: inference ports unavailable after startup; "
+                        "stopping failed action without treating samples as learning evidence\n"
+                    )
+                    handle.flush()
+                    return _stop_process_group(process)
+            time.sleep(
+                min(
+                    TRAIN_HEALTH_POLL_SECONDS,
+                    max(0.1, deadline - time.monotonic()),
+                )
+            )
+        return process.returncode
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -429,8 +454,7 @@ def _validate_train_receipt(
         or receipt.get("sampled_session_scope") != ROLE_SCOPE[role]
         or receipt.get("optimizer_updates") != 1
         or receipt.get("promotion_minimum") != PROMOTION_MINIMUM
-        or receipt.get("env_server_max_concurrent")
-        != (1 if role == "coordinator" else 2)
+        or receipt.get("env_server_max_concurrent") != (1 if role == "coordinator" else 2)
         or receipt.get("coordinator_action_leak") is not (role == "child")
         or receipt.get("first_action_sampling")
         != ("prompted_native_spawn" if role == "coordinator" else "masked_frozen_anchor")
@@ -438,8 +462,7 @@ def _validate_train_receipt(
         or receipt.get("child_router_action_leak") is not (role == "coordinator")
         or receipt.get("child_action_sampling")
         != ("synthetic_exact_send" if role == "coordinator" else "prompted_native_send")
-        or receipt.get("reward_mode")
-        != ("event_control" if role == "coordinator" else "child_action")
+        or receipt.get("reward_mode") != ("event_control" if role == "coordinator" else "child_action")
         or receipt.get("task_bank", {}).get("group_size") != GROUP_SIZE
         or receipt.get("source", {}).get("model_sha256") != source["model_sha256"]
         or not isinstance(output, dict)
@@ -472,12 +495,7 @@ def _qualifying_evaluation(
         reward = trace.get("rewards", {}).get("harness_score", {}).get("score")
         task = trace.get("task", {})
         task_key = task.get("key") if isinstance(task, dict) else None
-        if (
-            trace.get("is_completed") is True
-            and not trace.get("errors")
-            and reward == 1
-            and isinstance(task_key, str)
-        ):
+        if trace.get("is_completed") is True and not trace.get("errors") and reward == 1 and isinstance(task_key, str):
             qualifying.append(task_key)
     audit_path = run_dir / "ROUTING_AUDIT.jsonl"
     audit = [json.loads(line) for line in audit_path.read_text().splitlines() if line.strip()]
@@ -505,8 +523,7 @@ def _qualifying_evaluation(
         or versions.get("child_model_sha256") != frontier["child"]["model_sha256"]
         or (
             admission_scaffold_profile is not None
-            and versions.get("dual_policy_scaffold_profile")
-            != admission_scaffold_profile
+            and versions.get("dual_policy_scaffold_profile") != admission_scaffold_profile
         )
     ):
         raise ValueError(f"incomplete or routing-invalid admission evaluation: {run_dir}")
@@ -567,9 +584,7 @@ class Controller:
         if self.events_path.exists():
             state = project(load_events(self.events_path))
             if state["admission_scaffold_profile"] != self.args.admission_scaffold_profile:
-                raise ValueError(
-                    "controller admission scaffold does not match durable state"
-                )
+                raise ValueError("controller admission scaffold does not match durable state")
             return
         frontier = {
             "coordinator": _candidate(self.args.coordinator_model.resolve(), self.args.coordinator_label),
@@ -578,9 +593,7 @@ class Controller:
         if self.args.initial_admission_run is None:
             raise ValueError("a fresh autonomous state requires --initial-admission-run")
         admission_run = self.args.initial_admission_run.resolve()
-        initial_admission = _qualifying_evaluation(
-            admission_run, frontier, self.args.admission_scaffold_profile
-        )
+        initial_admission = _qualifying_evaluation(admission_run, frontier, self.args.admission_scaffold_profile)
         if not initial_admission["admitted"]:
             raise ValueError("initial pair does not satisfy the four-trajectory promotion floor")
         append_event(
@@ -687,14 +700,8 @@ class Controller:
         # training attempt, and must never turn into a rapid cycle-number loop.
         for checkpoint_role, checkpoint in ((role, source), (_other(role), anchor)):
             path = Path(checkpoint["model_path"])
-            if (
-                not path.is_absolute()
-                or not (path / "STABLE").is_file()
-                or not (path / "model.safetensors").is_file()
-            ):
-                raise RuntimeError(
-                    f"{checkpoint_role} frontier checkpoint is unavailable: {path}"
-                )
+            if not path.is_absolute() or not (path / "STABLE").is_file() or not (path / "model.safetensors").is_file():
+                raise RuntimeError(f"{checkpoint_role} frontier checkpoint is unavailable: {path}")
         runtime_container_baseline = sorted(_runtime_containers())
         append_event(
             self.events_path,
@@ -730,6 +737,9 @@ class Controller:
             env=env,
             log=self.logs / f"{label}.log",
             timeout_seconds=self.args.train_timeout,
+            health_ports=TRAIN_INFERENCE_PORTS,
+            health_grace_seconds=TRAIN_HEALTH_GRACE_SECONDS,
+            health_terminal=self.args.output_root.resolve() / label / "weights/step_1/STABLE",
         )
         self._cleanup_action_containers(
             cycle=cycle,
@@ -851,9 +861,7 @@ class Controller:
         cycle, role, phase = pending["cycle"], pending["role"], pending["phase"]
         bootstrap_leak_level = pending["bootstrap_leak_level"]
         _, _, label, start = self._names(cycle, role, phase)
-        bootstrap = self._bootstrap(
-            label=label, leak=bootstrap_leak_level, start=start
-        )
+        bootstrap = self._bootstrap(label=label, leak=bootstrap_leak_level, start=start)
         runtime_container_baseline = sorted(_runtime_containers())
         append_event(
             self.events_path,
@@ -880,9 +888,7 @@ class Controller:
                 "QWEN38_QUALIFICATION_NUM_TASKS": str(EVAL_TASKS),
                 "QWEN38_QUALIFICATION_NUM_ROLLOUTS": "1",
                 "QWEN38_QUALIFICATION_MAX_CONCURRENT": str(EVAL_MAX_CONCURRENT),
-                "QWEN38_QUALIFICATION_EVAL_MAX_ADDRESS_SPACE_BYTES": str(
-                    EVAL_MAX_ADDRESS_SPACE_BYTES
-                ),
+                "QWEN38_QUALIFICATION_EVAL_MAX_ADDRESS_SPACE_BYTES": str(EVAL_MAX_ADDRESS_SPACE_BYTES),
                 "QWEN38_QUALIFICATION_START_INDEX": str(start),
                 "QWEN38_QUALIFICATION_MASTER_SEED": str(self.args.master_seed),
                 "QUALIFICATION_REASONING_EFFORT": "high",
@@ -984,9 +990,7 @@ class Controller:
                         "attempt_status": "interrupted_without_terminal_receipt",
                     },
                 )
-                raise RuntimeError(
-                    f"interrupted training has no terminal receipt: {label}"
-                )
+                raise RuntimeError(f"interrupted training has no terminal receipt: {label}")
             return True
         eval_started = next((event for event in current if event["kind"] == "evaluation_started"), None)
         eval_terminal = next(
@@ -1145,14 +1149,17 @@ def main() -> None:
     parser.add_argument("--prune-below-gib", type=int, default=40)
     parser.add_argument("--max-cycles", type=int, default=0)
     args = parser.parse_args()
-    if min(
-        args.start_cycle,
-        args.start_index,
-        args.poll_seconds,
-        args.train_timeout,
-        args.eval_timeout,
-        args.prune_below_gib,
-    ) < 1:
+    if (
+        min(
+            args.start_cycle,
+            args.start_index,
+            args.poll_seconds,
+            args.train_timeout,
+            args.eval_timeout,
+            args.prune_below_gib,
+        )
+        < 1
+    ):
         raise ValueError("numeric controller arguments must be positive")
     Controller(args).run()
 
