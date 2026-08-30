@@ -492,6 +492,10 @@ def test_role_local_designer_batch_routes_generation_to_its_own_policy() -> None
     assert "designer_model=$child_model" in launcher
     assert '--designer-role "$designer_role"' in launcher
     assert "unhinted_after_four_else_leak" in launcher
+    assert "master_seed=${SPADE_DESIGNER_MASTER_SEED:-20260824}" in launcher
+    assert '--master-seed "$master_seed"' in launcher
+    assert 'QWEN38_QUALIFICATION_MASTER_SEED="$master_seed"' in launcher
+    assert 'env["SPADE_DESIGNER_MASTER_SEED"] = str(self.args.master_seed)' in SCRIPT.read_text()
 
 
 def test_role_local_designer_batch_uses_controller_state_directory(tmp_path: Path) -> None:

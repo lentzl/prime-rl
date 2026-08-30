@@ -2427,6 +2427,29 @@ def test_spade_reward_and_hint_context_are_causal_and_answer_free() -> None:
         module._validate_spec(unsafe, forbidden_answers=set())
 
 
+def test_spade_bootstrap_matches_role_grpo_generator_coordinates() -> None:
+    module = _module("q35_2b_spade_coevolution_v1")
+    task = argparse.Namespace(
+        key="train-gen-task-1",
+        data=argparse.Namespace(oracle={"final_answer": {"answer": 37}}),
+    )
+    spec = module._repair_spec(track="yield", index=0)
+    bootstrap = module._bootstrap(
+        tasks=[task],
+        specs=[{"environment_id": "env-1", "spec": spec}],
+        assignments={task.key: "env-1"},
+        include_hint=False,
+        start_index=9_428_700,
+        master_seed=20_260_824,
+    )
+
+    assert bootstrap["master_seed"] == 20_260_824
+    assert bootstrap["private_payload_mode"] == "finding_card"
+    assert bootstrap["tasks_per_axis"] == 1
+    assert bootstrap["axes"] == [{"name": "natural_n1a", "start_index": 9_428_700}]
+    assert set(bootstrap["contexts"]) == {task.key}
+
+
 def test_spade_designer_document_grounding_is_validated_and_deterministic(tmp_path) -> None:
     module = _module("q35_2b_spade_coevolution_v1")
     documents = []

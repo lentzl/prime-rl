@@ -899,6 +899,7 @@ class Controller:
         env["SPADE_DESIGNER_DOCUMENT_CORPUS"] = str(
             self.args.designer_document_corpus.resolve()
         )
+        env["SPADE_DESIGNER_MASTER_SEED"] = str(self.args.master_seed)
         command = [
             "bash",
             str(self.repo / "scripts/run_q35_2b_spade_coevolution_batch_v1.sh"),

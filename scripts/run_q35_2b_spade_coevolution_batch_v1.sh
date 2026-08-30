@@ -16,6 +16,7 @@ memory=${11:?environment memory path required}
 external_model=${12:?external model name required}
 designer_role=${13:-coordinator}
 document_corpus=${SPADE_DESIGNER_DOCUMENT_CORPUS:-$(dirname "$memory")/prime-agent-designer-docs-v1.json}
+master_seed=${SPADE_DESIGNER_MASTER_SEED:-20260824}
 inference_bin=${INFERENCE_BIN:-$root/.venv/bin/inference}
 uv_bin=${UV_BIN:-/home/ubuntu/.local/bin/uv}
 coordinator_port=${COORDINATOR_BACKEND_PORT:-8101}
@@ -149,6 +150,7 @@ esac
   --phase "$phase" \
   --start-index "$start_index" \
   --tasks "$tasks" \
+  --master-seed "$master_seed" \
   --memory "$memory" \
   --document-corpus "$document_corpus" \
   --documents-per-candidate 3 \
@@ -193,6 +195,7 @@ run_arm() {
   QWEN38_QUALIFICATION_MAX_CONCURRENT="$tasks" \
   QWEN38_QUALIFICATION_EVAL_MAX_ADDRESS_SPACE_BYTES=$((32 * 1024 * 1024 * 1024)) \
   QWEN38_QUALIFICATION_START_INDEX="$start_index" \
+  QWEN38_QUALIFICATION_MASTER_SEED="$master_seed" \
   QUALIFICATION_REASONING_EFFORT=high \
   QUALIFICATION_SAMPLING_SEED=20260823 \
   QUALIFICATION_SAMPLING_TEMPERATURE=0.6 \

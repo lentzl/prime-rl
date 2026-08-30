@@ -484,6 +484,7 @@ def _bootstrap(
         "curriculum_phase": "spade_generated_environment",
         "leak_level": "generated_hint" if include_hint else "generated_no_hint",
         "master_seed": master_seed,
+        "private_payload_mode": "finding_card",
         "tasks_per_axis": len(tasks),
         "axes": [{"name": "natural_n1a", "start_index": start_index}],
         "heldout_allowed": False,
@@ -1024,7 +1025,7 @@ def _parser() -> argparse.ArgumentParser:
     generation.add_argument("--tasks", type=int, default=6)
     generation.add_argument("--candidates", type=int, default=2)
     generation.add_argument("--max-attempts", type=int, default=4)
-    generation.add_argument("--master-seed", type=int, default=20260819)
+    generation.add_argument("--master-seed", type=int, default=20260824)
     generation.add_argument("--seed", type=int, default=20260824)
     generation.add_argument("--memory", type=Path)
     generation.add_argument("--document-corpus", type=Path)
