@@ -35,6 +35,7 @@ case "$role:$phase" in
   *) echo "unsupported role/phase pairing for stabilized role GRPO: $role:$phase" >&2; exit 1 ;;
 esac
 bootstrap_leak_level=${Q35_2B_ROLE_GRPO_BOOTSTRAP_LEAK_LEVEL:-action_scaffold}
+bootstrap_override=${Q35_2B_ROLE_GRPO_BOOTSTRAP_PATH:-}
 max_completion_tokens=2048
 agent_max_turns=16
 agent_max_output_tokens=16384
@@ -95,13 +96,25 @@ export PATH="$root/.venv/bin:$HOME/.local/bin:$PATH"
 
 mkdir -p "$experiment_dir" "$artifact_root"
 resolved=$experiment_dir/$run_name.toml
-bootstrap=$artifact_root/$run_name-$bootstrap_leak_level-bootstrap.json
+if [[ -n "$bootstrap_override" ]]; then
+  if [[ "$bootstrap_override" != /* || ! -f "$bootstrap_override" ]]; then
+    echo "generated role-GRPO bootstrap must be an absolute existing file: $bootstrap_override" >&2
+    exit 1
+  fi
+  bootstrap=$bootstrap_override
+else
+  bootstrap=$artifact_root/$run_name-$bootstrap_leak_level-bootstrap.json
+fi
 receipt=$experiment_dir/$run_name-receipt.json
 attempt_receipt=$experiment_dir/$run_name-attempt.json
 run_output=$output_root/$run_name
 role_router_state=$experiment_dir/$run_name-role-router
 routing_audit=$role_router_state/ROUTING_AUDIT.jsonl
-for target in "$resolved" "$bootstrap" "$receipt" "$attempt_receipt" "$run_output" "$role_router_state"; do
+targets=("$resolved" "$receipt" "$attempt_receipt" "$run_output" "$role_router_state")
+if [[ -z "$bootstrap_override" ]]; then
+  targets+=("$bootstrap")
+fi
+for target in "${targets[@]}"; do
   if [[ -e "$target" ]]; then
     echo "refusing duplicate role-GRPO target: $target" >&2
     exit 1
@@ -188,12 +201,14 @@ PY
 }
 trap 'attempt_exit=$?; trap - EXIT; write_attempt_receipt "$attempt_exit"; exit "$attempt_exit"' EXIT
 
-"$uv_bin" run --frozen --no-sync scripts/build_q35_2b_environment_bootstrap_context_v1.py \
-  --output "$bootstrap" \
-  --axis "natural_n1a:$start_index" \
-  --tasks-per-axis "$task_count" \
-  --master-seed "$master_seed" \
-  --leak-level "$bootstrap_leak_level"
+if [[ -z "$bootstrap_override" ]]; then
+  "$uv_bin" run --frozen --no-sync scripts/build_q35_2b_environment_bootstrap_context_v1.py \
+    --output "$bootstrap" \
+    --axis "natural_n1a:$start_index" \
+    --tasks-per-axis "$task_count" \
+    --master-seed "$master_seed" \
+    --leak-level "$bootstrap_leak_level"
+fi
 
 "$uv_bin" run --frozen --no-sync python - \
   "$template" "$resolved" "$role" "$scope" "$model_path" "$anchor_model_path" \
@@ -281,12 +296,16 @@ for pattern, replacement, expected in replacements:
 Path(sys.argv[2]).write_text(source)
 PY
 
+validator_args=()
+if [[ -n "$bootstrap_override" ]]; then
+  validator_args+=(--allow-generated-bootstrap)
+fi
 "$uv_bin" run --frozen --no-sync scripts/validate_q35_2b_role_grpo_v1.py \
   "$resolved" --role "$role" --model-path "$model_path" \
   --anchor-model-path "$anchor_model_path" --run-name "$run_name" \
   --bootstrap-path "$bootstrap" --phase "$phase" \
   --bootstrap-leak-level "$bootstrap_leak_level" \
-  --start-index "$start_index" --task-count "$task_count"
+  --start-index "$start_index" --task-count "$task_count" "${validator_args[@]}"
 
 # Exercise the exact environment materialization before any GPU process starts.
 # This catches generator/bootstrap identity drift that a schema-only dry run cannot.

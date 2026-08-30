@@ -36,6 +36,7 @@ def audit(
     start_index: int,
     task_count: int,
     bootstrap_leak_level: str | None = None,
+    allow_generated_bootstrap: bool = False,
 ) -> dict[str, Any]:
     payload = tomllib.loads(config_path.read_text())
     expected_scope = {"coordinator": "root", "child": "non_root"}.get(role)
@@ -148,13 +149,18 @@ def audit(
     ):
         raise AuditFailure("bootstrap leak level does not match the curriculum phase")
     expected_axis = [{"name": "natural_n1a", "start_index": start_index}]
+    actual_leak_level = bootstrap.get("leak_level")
+    generated_bootstrap = allow_generated_bootstrap and actual_leak_level in {
+        "generated_hint",
+        "generated_no_hint",
+    }
     if (
         bootstrap.get("schema_version") != "qwen35-2b-environment-bootstrap-context/v1"
         or bootstrap.get("status") != "complete"
         or bootstrap.get("split") != "train_gen"
         or bootstrap.get("master_seed") != taskset.get("master_seed")
         or bootstrap.get("private_payload_mode") != taskset.get("private_payload_mode")
-        or bootstrap.get("leak_level") != expected_leak_level
+        or (not generated_bootstrap and actual_leak_level != expected_leak_level)
         or bootstrap.get("tasks_per_axis") != task_count
         or bootstrap.get("axes") != expected_axis
     ):
@@ -285,6 +291,7 @@ def main() -> None:
     parser.add_argument("--start-index", required=True, type=int)
     parser.add_argument("--task-count", required=True, type=int)
     parser.add_argument("--bootstrap-leak-level", required=True)
+    parser.add_argument("--allow-generated-bootstrap", action="store_true")
     args = parser.parse_args()
     print(
         audit(
@@ -298,6 +305,7 @@ def main() -> None:
             start_index=args.start_index,
             task_count=args.task_count,
             bootstrap_leak_level=args.bootstrap_leak_level,
+            allow_generated_bootstrap=args.allow_generated_bootstrap,
         )
     )
 

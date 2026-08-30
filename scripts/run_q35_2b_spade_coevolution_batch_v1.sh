@@ -14,6 +14,7 @@ start_index=${9:?start index required}
 tasks=${10:?task count required}
 memory=${11:?environment memory path required}
 external_model=${12:?external model name required}
+designer_role=${13:-coordinator}
 document_corpus=${SPADE_DESIGNER_DOCUMENT_CORPUS:-$(dirname "$memory")/prime-agent-designer-docs-v1.json}
 inference_bin=${INFERENCE_BIN:-$root/.venv/bin/inference}
 uv_bin=${UV_BIN:-/home/ubuntu/.local/bin/uv}
@@ -122,10 +123,27 @@ curl -fsS "http://127.0.0.1:$child_port/health" >/dev/null
 
 coordinator_sha=$(sha256sum "$coordinator_model/model.safetensors" | awk '{print $1}')
 child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
+case "$designer_role" in
+  coordinator)
+    designer_port=$coordinator_port
+    designer_model=$coordinator_model
+    designer_sha=$coordinator_sha
+    ;;
+  child)
+    designer_port=$child_port
+    designer_model=$child_model
+    designer_sha=$child_sha
+    ;;
+  *)
+    echo "unsupported Environment Designer role: $designer_role" >&2
+    exit 1
+    ;;
+esac
 "$uv_bin" run --no-sync scripts/q35_2b_spade_coevolution_v1.py generate \
-  --base-url "http://127.0.0.1:$coordinator_port/v1" \
-  --model "$coordinator_model" \
-  --model-sha256 "$coordinator_sha" \
+  --base-url "http://127.0.0.1:$designer_port/v1" \
+  --model "$designer_model" \
+  --model-sha256 "$designer_sha" \
+  --designer-role "$designer_role" \
   --batch-id "$batch_id" \
   --track "$track" \
   --phase "$phase" \
@@ -195,4 +213,56 @@ run_arm() {
 
 run_arm no-hint "$generation_dir/NO_HINT_BOOTSTRAP.json"
 run_arm hint "$generation_dir/HINT_BOOTSTRAP.json"
+for arm in no-hint hint; do
+  "$uv_bin" run --no-sync scripts/summarize_q35_2b_interaction_curriculum_v1.py \
+    "$results_root/$batch_id-$arm/natural_n1a/traces.jsonl" \
+    --phase "$phase" \
+    --output "$batch_dir/${arm^^}_SUMMARY.json"
+done
+"$uv_bin" run --no-sync scripts/q35_2b_spade_coevolution_v1.py score \
+  --generation "$generation_dir/GENERATION.json" \
+  --no-hint-summary "$batch_dir/NO-HINT_SUMMARY.json" \
+  --hint-summary "$batch_dir/HINT_SUMMARY.json" \
+  --memory "$memory" \
+  --output "$batch_dir/SCORE.json"
+"$uv_bin" run --no-sync python - \
+  "$batch_dir" "$generation_dir" "$designer_role" "$track" "$phase" <<'PY'
+import hashlib
+import json
+import sys
+from pathlib import Path
+
+batch_dir, generation_dir = Path(sys.argv[1]), Path(sys.argv[2])
+designer_role, track, phase = sys.argv[3:]
+
+def load(path):
+    return json.loads(path.read_text())
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+counts = {
+    "no-hint": len(load(batch_dir / "NO-HINT_SUMMARY.json").get("qualifying") or []),
+    "hint": len(load(batch_dir / "HINT_SUMMARY.json").get("qualifying") or []),
+}
+# Leak while capability is weak; remove the generated hint once the unhinted
+# arm independently clears the unchanged four-trajectory promotion floor.
+selected = "no-hint" if counts["no-hint"] >= 4 else "hint"
+bootstrap = generation_dir / ("NO_HINT_BOOTSTRAP.json" if selected == "no-hint" else "HINT_BOOTSTRAP.json")
+score = batch_dir / "SCORE.json"
+payload = {
+    "schema_version": "qwen35-2b-role-local-designer-selection/v1",
+    "designer_role": designer_role,
+    "track": track,
+    "phase": phase,
+    "qualifying_by_arm": counts,
+    "selected_arm": selected,
+    "selection_rule": "unhinted_after_four_else_leak",
+    "bootstrap_path": str(bootstrap.resolve()),
+    "bootstrap_sha256": digest(bootstrap),
+    "score_path": str(score.resolve()),
+    "score_sha256": digest(score),
+}
+(batch_dir / "TRAINING_SELECTION.json").write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n")
+PY
 printf 'complete\n' >"$batch_dir/PAIRED_EVALUATIONS_COMPLETE"

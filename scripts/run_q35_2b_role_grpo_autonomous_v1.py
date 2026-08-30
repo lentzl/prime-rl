@@ -34,6 +34,8 @@ TRAIN_HEALTH_GRACE_SECONDS = 180
 TRAIN_HEALTH_FAILURE_CHECKS = 3
 TRAIN_HEALTH_POLL_SECONDS = 10
 TRAIN_INFERENCE_PORTS = (8000, 8100, 8200)
+DESIGNER_TIMEOUT_SECONDS = 7200
+DESIGNER_TRACK = {"coordinator": "yield", "child": "child"}
 CHILD_PHASES = (
     "e0_full_actions",
     "e0c_natural_child",
@@ -642,6 +644,305 @@ class Controller:
         base = self.args.experiment_dir.resolve()
         return base / f"{label}-receipt.json", base / f"{label}-attempt.json"
 
+    def _designer_batch(self, state: dict[str, Any]) -> tuple[str, Path, Path]:
+        cycle, role = state["next_cycle"], state["next_role"]
+        source = state["frontier"][role]
+        anchor = state["frontier"][_other(role)]
+        identity = hashlib.sha256(
+            f"{cycle}:{role}:{source['model_sha256']}:{anchor['model_sha256']}".encode()
+        ).hexdigest()[:12]
+        batch_id = f"role-local-{cycle:06d}-{role}-{identity}"
+        batch_dir = self.args.designer_artifact_root.resolve() / role / batch_id
+        memory = self.state / f"designer-memory-{role}.jsonl"
+        return batch_id, batch_dir, memory
+
+    def _delayed_designer_source(
+        self,
+        events: list[dict[str, Any]],
+        *,
+        role: str,
+        cycle: int,
+    ) -> dict[str, Any] | None:
+        trained = {
+            event["source_batch_id"]
+            for event in events
+            if event["kind"] == "designer_policy_update_completed"
+        }
+        eligible = []
+        for event in events:
+            if (
+                event["kind"] != "designer_completed"
+                or event["role"] != role
+                or event["cycle"] >= cycle
+                or event["batch_id"] in trained
+            ):
+                continue
+            score = _read_json(Path(event["score_path"]))
+            if score.get("selected_environment_ids"):
+                eligible.append(event)
+        return eligible[0] if eligible else None
+
+    def _working_frontier(self, state: dict[str, Any]) -> dict[str, dict[str, str]]:
+        frontier = copy.deepcopy(state["frontier"])
+        cycle, role = state["next_cycle"], state["next_role"]
+        update = next(
+            (
+                event
+                for event in reversed(_cycle_events(load_events(self.events_path), cycle))
+                if event["kind"] == "designer_policy_update_completed" and event["role"] == role
+            ),
+            None,
+        )
+        if update is not None:
+            frontier[role] = copy.deepcopy(update["output_candidate"])
+        return frontier
+
+    def _record_designer_policy_update_terminal(self, started: dict[str, Any]) -> bool:
+        receipt_path = Path(started["receipt_path"])
+        if not receipt_path.is_file():
+            return False
+        receipt = _read_json(receipt_path)
+        output = receipt.get("output") or {}
+        output_path = Path(output.get("path", ""))
+        if (
+            receipt.get("schema_version") != "qwen35-2b-delayed-role-local-designer-update/v1"
+            or receipt.get("role") != started["role"]
+            or receipt.get("source_batch_id") != started["source_batch_id"]
+            or receipt.get("optimizer_updates") != 1
+            or receipt.get("full_dense") is not True
+            or receipt.get("lora") is not False
+            or receipt.get("source", {}).get("model_sha256")
+            != started["source"]["model_sha256"]
+            or not output_path.is_absolute()
+            or not (output_path / "STABLE").is_file()
+            or _sha256(output_path / "model.safetensors") != output.get("model_sha256")
+            or output.get("model_sha256") == started["source"]["model_sha256"]
+        ):
+            raise ValueError(f"invalid delayed Designer update receipt: {receipt_path}")
+        append_event(
+            self.events_path,
+            {
+                "kind": "designer_policy_update_completed",
+                "cycle": started["cycle"],
+                "role": started["role"],
+                "source_batch_id": started["source_batch_id"],
+                "receipt_path": str(receipt_path),
+                "receipt_sha256": _sha256(receipt_path),
+                "source": copy.deepcopy(started["source"]),
+                "output_candidate": {
+                    "label": started["run_name"],
+                    "model_path": str(output_path),
+                    "model_sha256": output["model_sha256"],
+                },
+                "optimizer_updates": 1,
+                "full_dense": True,
+                "training_stage": "one-update-delayed_reward_filtered_coevolution",
+            },
+        )
+        return True
+
+    def _start_delayed_designer_update(self, state: dict[str, Any]) -> None:
+        events = load_events(self.events_path)
+        cycle, role = state["next_cycle"], state["next_role"]
+        delayed = self._delayed_designer_source(events, role=role, cycle=cycle)
+        if delayed is None:
+            append_event(
+                self.events_path,
+                {
+                    "kind": "designer_policy_update_skipped",
+                    "cycle": cycle,
+                    "role": role,
+                    "reason": "no_prior_positive_reward_role_local_batch",
+                },
+            )
+            return
+        source = state["frontier"][role]
+        suffix = delayed["batch_id"].rsplit("-", 1)[-1]
+        run_name = f"designer-auto-{cycle:06d}-{role}-{suffix}"
+        corpus_dir = self.args.designer_artifact_root.resolve() / role / f"{run_name}-corpus"
+        receipt_path = self.args.experiment_dir.resolve() / f"{run_name}-receipt.json"
+        started = {
+            "kind": "designer_policy_update_started",
+            "cycle": cycle,
+            "role": role,
+            "run_name": run_name,
+            "source_batch_id": delayed["batch_id"],
+            "source": copy.deepcopy(source),
+            "generation_path": delayed["generation_path"],
+            "score_path": delayed["score_path"],
+            "corpus_dir": str(corpus_dir),
+            "receipt_path": str(receipt_path),
+        }
+        append_event(self.events_path, started)
+        env = os.environ.copy()
+        env["UV_BIN"] = str(self.args.uv_bin)
+        env["Q35_2B_DESIGNER_SFT_LR"] = "1e-6"
+        return_code = _run_bounded(
+            [
+                "bash",
+                str(self.repo / "scripts/run_q35_2b_delayed_designer_sft_v1.sh"),
+                role,
+                source["model_path"],
+                delayed["generation_path"],
+                delayed["score_path"],
+                str(corpus_dir),
+                run_name,
+            ],
+            env=env,
+            log=self.logs / f"{run_name}.log",
+            timeout_seconds=DESIGNER_TIMEOUT_SECONDS,
+        )
+        if not self._record_designer_policy_update_terminal(started):
+            append_event(
+                self.events_path,
+                {
+                    "kind": "designer_policy_update_failed",
+                    "cycle": cycle,
+                    "role": role,
+                    "run_name": run_name,
+                    "source_batch_id": delayed["batch_id"],
+                    "return_code": return_code,
+                },
+            )
+
+    def _record_designer_terminal(self, started: dict[str, Any]) -> bool:
+        batch_dir = Path(started["batch_dir"])
+        rejected = batch_dir / "DESIGNER_REJECTED"
+        if rejected.is_file():
+            append_event(
+                self.events_path,
+                {
+                    "kind": "designer_failed",
+                    "cycle": started["cycle"],
+                    "role": started["role"],
+                    "phase": started["phase"],
+                    "batch_id": started["batch_id"],
+                    "batch_dir": str(batch_dir),
+                    "failure_type": "all_generation_attempts_rejected",
+                },
+            )
+            return True
+        complete = batch_dir / "PAIRED_EVALUATIONS_COMPLETE"
+        selection_path = batch_dir / "TRAINING_SELECTION.json"
+        generation_path = batch_dir / "generation/GENERATION.json"
+        score_path = batch_dir / "SCORE.json"
+        if not all(path.is_file() for path in (complete, selection_path, generation_path, score_path)):
+            return False
+        selection = _read_json(selection_path)
+        generation = _read_json(generation_path)
+        role = started["role"]
+        expected_track = DESIGNER_TRACK[role]
+        bootstrap = Path(selection.get("bootstrap_path", ""))
+        if (
+            selection.get("schema_version") != "qwen35-2b-role-local-designer-selection/v1"
+            or selection.get("designer_role") != role
+            or selection.get("track") != expected_track
+            or selection.get("phase") != started["phase"]
+            or selection.get("selection_rule") != "unhinted_after_four_else_leak"
+            or selection.get("selected_arm") not in {"hint", "no-hint"}
+            or not bootstrap.is_absolute()
+            or not bootstrap.is_file()
+            or _sha256(bootstrap) != selection.get("bootstrap_sha256")
+            or generation.get("designer_model", {}).get("role") != role
+            or generation.get("designer_model", {}).get("weight_sha256")
+            != started["designer"]["model_sha256"]
+            or generation.get("track") != expected_track
+        ):
+            raise ValueError(f"invalid role-local Designer artifacts: {batch_dir}")
+        append_event(
+            self.events_path,
+            {
+                "kind": "designer_completed",
+                "cycle": started["cycle"],
+                "role": role,
+                "phase": started["phase"],
+                "batch_id": started["batch_id"],
+                "batch_dir": str(batch_dir),
+                "designer": copy.deepcopy(started["designer"]),
+                "memory_path": started["memory_path"],
+                "generation_path": str(generation_path),
+                "generation_sha256": _sha256(generation_path),
+                "score_path": str(score_path),
+                "score_sha256": _sha256(score_path),
+                "selection_path": str(selection_path),
+                "selected_arm": selection["selected_arm"],
+                "qualifying_by_arm": selection["qualifying_by_arm"],
+                "bootstrap_path": str(bootstrap),
+                "bootstrap_sha256": selection["bootstrap_sha256"],
+                "delayed_designer_update": "eligible_on_next_same-role_cycle",
+            },
+        )
+        return True
+
+    def _start_designer(self, state: dict[str, Any]) -> None:
+        cycle, role = state["next_cycle"], state["next_role"]
+        phase = state["phases"][role]
+        batch_id, batch_dir, memory = self._designer_batch(state)
+        working_frontier = self._working_frontier(state)
+        designer = working_frontier[role]
+        runtime_container_baseline = sorted(_runtime_containers())
+        started = {
+            "kind": "designer_started",
+            "cycle": cycle,
+            "role": role,
+            "phase": phase,
+            "batch_id": batch_id,
+            "batch_dir": str(batch_dir),
+            "memory_path": str(memory),
+            "designer": copy.deepcopy(designer),
+            "frontier": copy.deepcopy(working_frontier),
+            "runtime_container_baseline": runtime_container_baseline,
+        }
+        append_event(self.events_path, started)
+        env = os.environ.copy()
+        env["UV_BIN"] = str(self.args.uv_bin)
+        env["SPADE_DESIGNER_DOCUMENT_CORPUS"] = str(
+            self.args.designer_document_corpus.resolve()
+        )
+        command = [
+            "bash",
+            str(self.repo / "scripts/run_q35_2b_spade_coevolution_batch_v1.sh"),
+            working_frontier["coordinator"]["model_path"],
+            working_frontier["child"]["model_path"],
+            str(batch_dir),
+            str(self.args.designer_result_root.resolve()),
+            batch_id,
+            "main",
+            DESIGNER_TRACK[role],
+            phase,
+            str(self._names(cycle, role, phase)[1]),
+            str(GROUP_SIZE),
+            str(memory),
+            f"q35-role-local-designer-{cycle:06d}",
+            role,
+        ]
+        return_code = _run_bounded(
+            command,
+            env=env,
+            log=self.logs / f"{batch_id}.log",
+            timeout_seconds=DESIGNER_TIMEOUT_SECONDS,
+        )
+        self._cleanup_action_containers(
+            cycle=cycle,
+            role=role,
+            label=batch_id,
+            baseline=runtime_container_baseline,
+        )
+        if not self._record_designer_terminal(started):
+            append_event(
+                self.events_path,
+                {
+                    "kind": "designer_failed",
+                    "cycle": cycle,
+                    "role": role,
+                    "phase": phase,
+                    "batch_id": batch_id,
+                    "batch_dir": str(batch_dir),
+                    "failure_type": "missing_terminal_artifacts",
+                    "return_code": return_code,
+                },
+            )
+
     def _record_train_terminal(
         self,
         *,
@@ -701,8 +1002,9 @@ class Controller:
         phase = state["phases"][role]
         bootstrap_leak_level = state["leak_levels"][role]
         label, start, _, _ = self._names(cycle, role, phase)
-        source = state["frontier"][role]
-        anchor = state["frontier"][_other(role)]
+        working_frontier = self._working_frontier(state)
+        source = working_frontier[role]
+        anchor = working_frontier[_other(role)]
         # Validate both immutable inputs before recording train_started.  A
         # missing recovery frontier is infrastructure damage, not a completed
         # training attempt, and must never turn into a rapid cycle-number loop.
@@ -710,6 +1012,14 @@ class Controller:
             path = Path(checkpoint["model_path"])
             if not path.is_absolute() or not (path / "STABLE").is_file() or not (path / "model.safetensors").is_file():
                 raise RuntimeError(f"{checkpoint_role} frontier checkpoint is unavailable: {path}")
+        designer_event = next(
+            (
+                event
+                for event in reversed(_cycle_events(load_events(self.events_path), cycle))
+                if event["kind"] == "designer_completed" and event["role"] == role
+            ),
+            None,
+        )
         runtime_container_baseline = sorted(_runtime_containers())
         append_event(
             self.events_path,
@@ -723,12 +1033,26 @@ class Controller:
                 "task_bank": {"start_index": start, "count": GROUP_SIZE},
                 "source": copy.deepcopy(source),
                 "anchor": copy.deepcopy(anchor),
+                "learned_designer": (
+                    {
+                        "batch_id": designer_event["batch_id"],
+                        "designer_model_sha256": designer_event["designer"]["model_sha256"],
+                        "memory_path": designer_event["memory_path"],
+                        "score_sha256": designer_event["score_sha256"],
+                        "selected_arm": designer_event["selected_arm"],
+                        "bootstrap_sha256": designer_event["bootstrap_sha256"],
+                    }
+                    if designer_event is not None
+                    else None
+                ),
                 "runtime_container_baseline": runtime_container_baseline,
             },
         )
         env = os.environ.copy()
         env["UV_BIN"] = str(self.args.uv_bin)
         env["Q35_2B_ROLE_GRPO_BOOTSTRAP_LEAK_LEVEL"] = bootstrap_leak_level
+        if designer_event is not None:
+            env["Q35_2B_ROLE_GRPO_BOOTSTRAP_PATH"] = designer_event["bootstrap_path"]
         command = [
             "bash",
             str(self.repo / "scripts/run_q35_2b_role_grpo_v1.sh"),
@@ -956,6 +1280,77 @@ class Controller:
     def _reconcile(self, events: list[dict[str, Any]], state: dict[str, Any]) -> bool:
         cycle = state["pending_eval"]["cycle"] if state["pending_eval"] else state["next_cycle"]
         current = _cycle_events(events, cycle)
+        designer_update_started = next(
+            (event for event in current if event["kind"] == "designer_policy_update_started"),
+            None,
+        )
+        designer_update_terminal = next(
+            (
+                event
+                for event in current
+                if event["kind"]
+                in {
+                    "designer_policy_update_completed",
+                    "designer_policy_update_failed",
+                    "designer_policy_update_skipped",
+                }
+            ),
+            None,
+        )
+        if designer_update_started is not None and designer_update_terminal is None:
+            if _process_active(designer_update_started["run_name"]):
+                time.sleep(self.args.poll_seconds)
+                return True
+            if not self._record_designer_policy_update_terminal(designer_update_started):
+                append_event(
+                    self.events_path,
+                    {
+                        "kind": "designer_policy_update_failed",
+                        "cycle": cycle,
+                        "role": designer_update_started["role"],
+                        "run_name": designer_update_started["run_name"],
+                        "source_batch_id": designer_update_started["source_batch_id"],
+                        "return_code": None,
+                        "failure_type": "interrupted_without_terminal_receipt",
+                    },
+                )
+            return True
+        designer_started = next(
+            (event for event in current if event["kind"] == "designer_started"),
+            None,
+        )
+        designer_terminal = next(
+            (
+                event
+                for event in current
+                if event["kind"] in {"designer_completed", "designer_failed"}
+            ),
+            None,
+        )
+        if designer_started is not None and designer_terminal is None:
+            if _process_active(designer_started["batch_id"]):
+                time.sleep(self.args.poll_seconds)
+                return True
+            self._cleanup_action_containers(
+                cycle=cycle,
+                role=designer_started["role"],
+                label=designer_started["batch_id"],
+                baseline=designer_started.get("runtime_container_baseline"),
+            )
+            if not self._record_designer_terminal(designer_started):
+                append_event(
+                    self.events_path,
+                    {
+                        "kind": "designer_failed",
+                        "cycle": cycle,
+                        "role": designer_started["role"],
+                        "phase": designer_started["phase"],
+                        "batch_id": designer_started["batch_id"],
+                        "batch_dir": designer_started["batch_dir"],
+                        "failure_type": "interrupted_without_terminal_artifacts",
+                    },
+                )
+            return True
         train_started = next((event for event in current if event["kind"] == "train_started"), None)
         train_terminal = next(
             (event for event in current if event["kind"] in {"train_completed", "train_failed", "train_no_update"}),
@@ -1105,7 +1500,26 @@ class Controller:
                 if state["pending_eval"] is not None:
                     self._start_evaluation(state)
                 else:
-                    self._start_train(state)
+                    current = _cycle_events(events, state["next_cycle"])
+                    designer_update_terminal = any(
+                        event["kind"]
+                        in {
+                            "designer_policy_update_completed",
+                            "designer_policy_update_failed",
+                            "designer_policy_update_skipped",
+                        }
+                        for event in current
+                    )
+                    designer_terminal = any(
+                        event["kind"] in {"designer_completed", "designer_failed"}
+                        for event in current
+                    )
+                    if self.args.learned_designer and not designer_update_terminal:
+                        self._start_delayed_designer_update(state)
+                    elif self.args.learned_designer and not designer_terminal:
+                        self._start_designer(state)
+                    else:
+                        self._start_train(state)
                 time.sleep(1)
 
 
@@ -1156,6 +1570,24 @@ def main() -> None:
     parser.add_argument("--eval-timeout", type=int, default=EVAL_TIMEOUT_SECONDS)
     parser.add_argument("--prune-below-gib", type=int, default=40)
     parser.add_argument("--max-cycles", type=int, default=0)
+    parser.add_argument("--learned-designer", action="store_true")
+    parser.add_argument(
+        "--designer-artifact-root",
+        type=Path,
+        default=Path("/home/ubuntu/rlm/artifacts/q35-2b-role-local-spade-v1"),
+    )
+    parser.add_argument(
+        "--designer-result-root",
+        type=Path,
+        default=Path("/home/ubuntu/rlm/results/q35-2b-role-local-spade-v1"),
+    )
+    parser.add_argument(
+        "--designer-document-corpus",
+        type=Path,
+        default=Path(
+            "/home/ubuntu/rlm/prime-rl/experiments/qwen35-2b-self-bootstrap-dual-dense-v1/prime-agent-designer-docs-v1.json"
+        ),
+    )
     args = parser.parse_args()
     if (
         min(

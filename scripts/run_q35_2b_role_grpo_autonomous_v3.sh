@@ -37,6 +37,7 @@ controller() {
     --start-cycle 163 \
     --start-index 9411700 \
     --admission-scaffold-profile tight_answer_free_child_reporting_v1 \
+    --learned-designer \
     --stop-file "$stop_file" \
     --poll-seconds 30 \
     --prune-below-gib 120

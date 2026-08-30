@@ -10,6 +10,8 @@ SCRIPT = ROOT / "scripts/run_q35_2b_role_grpo_autonomous_v1.py"
 MASTERY_SCRIPT = ROOT / "scripts/run_q35_2b_dual_policy_mastery_v1.sh"
 RECOVERY_SCRIPT = ROOT / "scripts/recover_q35_2b_autonomous_frontier_v1.py"
 V3_LAUNCHER = ROOT / "scripts/run_q35_2b_role_grpo_autonomous_v3.sh"
+COEVOLUTION_BATCH = ROOT / "scripts/run_q35_2b_spade_coevolution_batch_v1.sh"
+ROLE_GRPO = ROOT / "scripts/run_q35_2b_role_grpo_v1.sh"
 SPEC = importlib.util.spec_from_file_location("role_grpo_auto", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -356,6 +358,7 @@ def test_v3_launcher_roots_fresh_loop_at_c158_v9_and_strict_gate() -> None:
     assert "--admission-scaffold-profile tight_answer_free_child_reporting_v1" in launcher
     assert "--child-phase e0c3_natural_child_minimal" in launcher
     assert "--next-role coordinator" in launcher
+    assert "--learned-designer" in launcher
     assert '--stop-file "$stop_file"' in launcher
     assert "--prune-below-gib 120" in launcher
     assert 'controller_window_shell="$controller_shell; exec bash"' in launcher
@@ -458,6 +461,45 @@ def test_non_updates_retry_same_role_and_tighten_only_clean_zero_advantage() -> 
     assert no_update["next_cycle"] == 2
     assert failed["leak_levels"]["coordinator"] == "action_scaffold"
     assert no_update["leak_levels"]["coordinator"] == "child_contract_scaffold"
+
+
+def test_learned_designer_events_do_not_mutate_policy_frontier_before_grpo() -> None:
+    initialized = _initialized()
+    state = MODULE.project(
+        [
+            initialized,
+            {
+                "kind": "designer_completed",
+                "cycle": 1,
+                "role": "coordinator",
+                "phase": MODULE.COORDINATOR_PHASE,
+                "designer": initialized["frontier"]["coordinator"],
+                "selected_arm": "hint",
+            },
+        ]
+    )
+
+    assert state["frontier"] == initialized["frontier"]
+    assert state["next_cycle"] == 1
+    assert state["next_role"] == "coordinator"
+
+
+def test_role_local_designer_batch_routes_generation_to_its_own_policy() -> None:
+    launcher = COEVOLUTION_BATCH.read_text()
+
+    assert "designer_role=${13:-coordinator}" in launcher
+    assert "designer_port=$child_port" in launcher
+    assert "designer_model=$child_model" in launcher
+    assert '--designer-role "$designer_role"' in launcher
+    assert "unhinted_after_four_else_leak" in launcher
+
+
+def test_role_grpo_accepts_only_explicit_generated_bootstrap_override() -> None:
+    launcher = ROLE_GRPO.read_text()
+
+    assert "Q35_2B_ROLE_GRPO_BOOTSTRAP_PATH" in launcher
+    assert "generated role-GRPO bootstrap must be an absolute existing file" in launcher
+    assert "--allow-generated-bootstrap" in launcher
 
 
 def test_runtime_cleanup_selects_only_new_prime_agent_containers() -> None:

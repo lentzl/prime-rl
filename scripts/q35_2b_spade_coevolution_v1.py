@@ -494,6 +494,14 @@ def _bootstrap(
 
 
 def generate(args: argparse.Namespace) -> dict[str, Any]:
+    designer_role = getattr(
+        args,
+        "designer_role",
+        "child" if args.track == "child" else "coordinator",
+    )
+    expected_role = "child" if args.track == "child" else "coordinator"
+    if designer_role != expected_role:
+        raise ValueError("Environment Designer role does not match its interaction track")
     output_dir = args.output_dir.resolve()
     generation_path = output_dir / "GENERATION.json"
     if generation_path.exists():
@@ -598,6 +606,7 @@ def generate(args: argparse.Namespace) -> dict[str, Any]:
             "track": args.track,
             "phase": args.phase,
             "designer_model": {
+                "role": designer_role,
                 "model": args.model,
                 "weight_sha256": args.model_sha256,
             },
@@ -642,6 +651,7 @@ def generate(args: argparse.Namespace) -> dict[str, Any]:
         "master_seed": args.master_seed,
         "seed": args.seed,
         "designer_model": {
+            "role": designer_role,
             "model": args.model,
             "weight_sha256": args.model_sha256,
         },
@@ -758,6 +768,7 @@ def score(args: argparse.Namespace) -> dict[str, Any]:
                 "safety_validated": safety_rejection is None,
                 "safety_rejection": safety_rejection,
                 "designer_model_sha256": generation["designer_model"]["weight_sha256"],
+                "designer_role": generation["designer_model"]["role"],
             }
         )
     ranked = sorted(candidate_scores, key=lambda item: (item["reward"], item["regret"]), reverse=True)
@@ -837,7 +848,7 @@ def export_designer(args: argparse.Namespace) -> dict[str, Any]:
                 "phase": f"spade:{generation['track']}:{generation['phase']}",
                 "task_key": environment_id,
                 "trace_id": f"spade-designer:{generation['batch_id']}:{environment_id}",
-                "role": "coordinator",
+                "role": generation["designer_model"]["role"],
                 "objective": "environment_designer",
                 "designer_reward": scored["reward"],
                 "hint_regret": scored["regret"],
@@ -852,7 +863,7 @@ def export_designer(args: argparse.Namespace) -> dict[str, Any]:
     Dataset.from_list(rows).to_parquet(str(parquet))
     manifest = {
         "schema_version": DESIGNER_CORPUS_SCHEMA_VERSION,
-        "role": "coordinator",
+        "role": generation["designer_model"]["role"],
         "objective": "environment_designer",
         "training_stage": "delayed_reward_filtered_coevolution",
         "rows": len(rows),
@@ -917,6 +928,12 @@ def export_repairs(args: argparse.Namespace) -> dict[str, Any]:
     phase = rejected.get("phase") or args.phase
     if track not in {"child", "yield"} or not isinstance(phase, str) or not phase:
         raise ValueError("designer repair input lacks its interaction track or phase")
+    role = rejected.get("designer_model", {}).get("role") or (
+        "child" if track == "child" else "coordinator"
+    )
+    expected_role = "child" if track == "child" else "coordinator"
+    if role != expected_role:
+        raise ValueError("designer repair role does not match its interaction track")
     if (
         not args.student_snapshot.is_absolute()
         or not (args.student_snapshot / "STABLE").is_file()
@@ -954,7 +971,7 @@ def export_repairs(args: argparse.Namespace) -> dict[str, Any]:
                 "phase": f"spade-repair:{track}:{phase}",
                 "task_key": f"{rejected['batch_id']}:repair:{index}",
                 "trace_id": f"spade-designer-repair:{rejected['batch_id']}:{index}",
-                "role": "coordinator",
+                "role": role,
                 "objective": "environment_designer",
                 "repair_reason": feedback,
             }
@@ -966,7 +983,7 @@ def export_repairs(args: argparse.Namespace) -> dict[str, Any]:
     Dataset.from_list(rows).to_parquet(str(parquet))
     manifest = {
         "schema_version": DESIGNER_REPAIR_CORPUS_SCHEMA_VERSION,
-        "role": "coordinator",
+        "role": role,
         "objective": "environment_designer",
         "training_stage": "scaffolded_schema_and_safety_repair",
         "hard_safety_validated": True,
@@ -999,6 +1016,7 @@ def _parser() -> argparse.ArgumentParser:
     generation.add_argument("--base-url", required=True)
     generation.add_argument("--model", required=True)
     generation.add_argument("--model-sha256", required=True)
+    generation.add_argument("--designer-role", choices=("coordinator", "child"), required=True)
     generation.add_argument("--batch-id", required=True)
     generation.add_argument("--track", choices=("child", "yield"), required=True)
     generation.add_argument("--phase", required=True)
