@@ -1,0 +1,70 @@
+{
+  "schema_version": "q35-2b-document-recursion-zero-update-result/v1",
+  "recorded_at_utc": "2026-08-30T19:15:00Z",
+  "experiment_commit": "3eb42e58e308760a28fd42873c721ef528aade00",
+  "result_commit": "6d91b43b73c2ea9627fc93a39f590b78fe9832f4",
+  "verifiers_commit": "d098a2ff33023e9d98c5e4034cad99b900f5963f",
+  "zero_optimizer_updates": true,
+  "weights_unchanged": true,
+  "models": {
+    "coordinator": {
+      "label": "C177",
+      "sha256": "b61ab9f7b1df9d787168af2edac16daee4b576401d70e9daf066c6dceba1ae06"
+    },
+    "child": {
+      "label": "H176",
+      "sha256": "83e49c420ae3970ae78e0d8028b7218ce59a08e644c5cc46bec59a3506d02c62"
+    }
+  },
+  "c177_h176_topology_probe": {
+    "label": "latent-doc-c177-h176-v2",
+    "receipt_sha256": "2e3bf285e4c336125ab0caefc92d08744baabb0b10d9f609170251b37e0d2d71",
+    "topologies": {
+      "direct": {
+        "complete_trajectories": 4,
+        "qualifying_trajectories": 0,
+        "no_visible_reply": 4,
+        "coordinator_requests": 16,
+        "coordinator_sessions": 4,
+        "child_requests": 0,
+        "child_sessions": 0
+      },
+      "flat": {
+        "complete_trajectories": 4,
+        "qualifying_trajectories": 0,
+        "no_visible_reply": 4,
+        "coordinator_requests": 16,
+        "coordinator_sessions": 4,
+        "child_requests": 0,
+        "child_sessions": 0
+      },
+      "hierarchical": {
+        "complete_trajectories": 4,
+        "qualifying_trajectories": 0,
+        "no_visible_reply": 4,
+        "coordinator_requests": 16,
+        "coordinator_sessions": 4,
+        "child_requests": 0,
+        "child_sessions": 0,
+        "nonroot_coordinator_sessions": 0
+      }
+    }
+  },
+  "h176_depth_zero_control": {
+    "label": "latent-doc-h176-direct-v1",
+    "summary_sha256": "c5e28b889b689831dcf883b4c84c06a3059d9cc4a6dc1c928598ac992afa3482",
+    "complete_trajectories": 4,
+    "qualifying_trajectories": 0,
+    "no_visible_reply": 4
+  },
+  "interpretation": {
+    "first_observed_failure": "root policy describes or reasons about the work but emits no visible tool action or terminal answer",
+    "child_leaf_capability_measured": false,
+    "reason_child_leaf_capability_unmeasured": "C177 admitted no child in either delegation topology; the H176 control ran at depth zero rather than in its trained leaf context",
+    "next_training_target": "coordinator decision and action selection before recursive aggregation"
+  },
+  "excluded_pilot": {
+    "label": "latent-doc-c177-h176-v1",
+    "reason": "document prompts accidentally inherited an unrelated checksum cue"
+  }
+}
