@@ -161,8 +161,21 @@ def reconcile_once(args: argparse.Namespace) -> int:
     for role in ROLES:
         candidate = state["promoted"][role]
         key = (role, candidate["model_sha256"])
+        reconciliation: dict[str, Any] = {}
         if key in completed:
-            continue
+            try:
+                remote_sha = publisher.remote_checkpoint_sha256(
+                    token=token,
+                    repo_id=getattr(args, f"{role}_repo"),
+                )
+            except Exception:
+                remote_sha = None
+            if remote_sha == candidate["model_sha256"]:
+                continue
+            reconciliation = {
+                "reconciliation_reason": "remote_head_missing_or_mismatched",
+                "observed_remote_model_sha256": remote_sha,
+            }
         checkpoint = Path(candidate["model_path"])
         actual_sha = controller._sha256(checkpoint / "model.safetensors")
         if actual_sha != candidate["model_sha256"]:
@@ -179,6 +192,7 @@ def reconcile_once(args: argparse.Namespace) -> int:
                 "model_path": candidate["model_path"],
                 "model_sha256": candidate["model_sha256"],
                 "admission": evidence,
+                **reconciliation,
             },
         )
         try:
@@ -189,6 +203,12 @@ def reconcile_once(args: argparse.Namespace) -> int:
                 model_card=_model_card(role=role, candidate=candidate, evidence=evidence),
                 commit_message=(f"Publish admitted {role} {candidate['label']} ({candidate['model_sha256'][:12]})"),
             )
+            published_sha = publisher.remote_checkpoint_sha256(token=token, repo_id=repo_id)
+            if published_sha != candidate["model_sha256"]:
+                raise RuntimeError(
+                    f"published {role} head hash mismatch: expected {candidate['model_sha256']}, "
+                    f"observed {published_sha}"
+                )
         except Exception as error:
             message = str(error).replace(token, "[redacted]")[:1000]
             append_publication(

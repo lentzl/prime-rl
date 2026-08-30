@@ -48,6 +48,21 @@ def _stale_repo_files(api: HfApi, *, repo_id: str, checkpoint_dir: Path) -> list
     )
 
 
+def remote_checkpoint_sha256(*, token: str, repo_id: str, revision: str | None = None) -> str | None:
+    """Return the SHA-256 of the dense checkpoint currently exposed by a repo ref."""
+    info = HfApi(token=token).model_info(
+        repo_id=repo_id,
+        revision=revision,
+        files_metadata=True,
+    )
+    for sibling in info.siblings:
+        if sibling.rfilename != "model.safetensors" or sibling.lfs is None:
+            continue
+        sha256 = sibling.lfs.sha256
+        return sha256 if isinstance(sha256, str) and sha256 else None
+    return None
+
+
 def publish_checkpoint(
     *,
     token: str,

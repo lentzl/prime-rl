@@ -36,6 +36,32 @@ class _PublishingApi(_FakeApi):
         return _Commit()
 
 
+class _Lfs:
+    sha256 = "weights-sha"
+
+
+class _Sibling:
+    rfilename = "model.safetensors"
+    lfs = _Lfs()
+
+
+class _ModelInfo:
+    siblings = [_Sibling()]
+
+
+class _InspectingApi:
+    def __init__(self, token: str) -> None:
+        assert token == "secret"
+
+    def model_info(self, **kwargs: object) -> _ModelInfo:
+        assert kwargs == {
+            "repo_id": "owner/model",
+            "revision": "main",
+            "files_metadata": True,
+        }
+        return _ModelInfo()
+
+
 def test_stale_repo_files_preserves_only_current_checkpoint_and_attributes(
     tmp_path: Path,
 ) -> None:
@@ -77,3 +103,12 @@ def test_publish_checkpoint_is_latest_only(tmp_path: Path, monkeypatch) -> None:
             "old/model-00001-of-00002.safetensors",
         ],
     }
+
+
+def test_remote_checkpoint_sha256_reads_lfs_digest(monkeypatch) -> None:
+    monkeypatch.setattr(MODULE, "HfApi", _InspectingApi)
+
+    assert (
+        MODULE.remote_checkpoint_sha256(token="secret", repo_id="owner/model", revision="main")
+        == "weights-sha"
+    )
