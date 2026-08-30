@@ -233,10 +233,18 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
                 "bootstrap_leak_level": event.get("bootstrap_leak_level", _default_leak_level(event["phase"])),
             }
         elif kind in {"train_failed", "train_no_update"}:
-            # A clean no-update is learning evidence and hands control to the
-            # other role. An infrastructure failure is not policy evidence;
-            # retry the same role under the next immutable cycle label.
-            state["next_role"] = event["role"] if kind == "train_failed" else _other(event["role"])
+            role = event["role"]
+            # Neither outcome is policy-learning evidence. Infrastructure
+            # failures retry the identical rung. A clean zero-advantage
+            # no-update tightens the leak by one baby step and retries the same
+            # role; only a role already at the tightest rung yields its turn.
+            if kind == "train_no_update" and state["leak_levels"][role] != LEAK_LADDER[-1]:
+                state["leak_levels"][role] = _next_leak_level(state["leak_levels"][role])
+                state["next_role"] = role
+            elif kind == "train_no_update":
+                state["next_role"] = _other(role)
+            else:
+                state["next_role"] = role
             state["next_cycle"] = event["cycle"] + 1
             state["pending_eval"] = None
         elif kind in {"evaluation_completed", "evaluation_failed"}:

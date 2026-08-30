@@ -428,7 +428,7 @@ def test_event_log_is_hash_chained_and_detects_tampering(tmp_path: Path) -> None
         raise AssertionError("tampered autonomous event chain was accepted")
 
 
-def test_infrastructure_failure_retries_same_role_under_next_cycle() -> None:
+def test_non_updates_retry_same_role_and_tighten_only_clean_zero_advantage() -> None:
     failed = MODULE.project(
         [
             _initialized(),
@@ -454,8 +454,10 @@ def test_infrastructure_failure_retries_same_role_under_next_cycle() -> None:
 
     assert failed["next_role"] == "coordinator"
     assert failed["next_cycle"] == 2
-    assert no_update["next_role"] == "child"
+    assert no_update["next_role"] == "coordinator"
     assert no_update["next_cycle"] == 2
+    assert failed["leak_levels"]["coordinator"] == "action_scaffold"
+    assert no_update["leak_levels"]["coordinator"] == "child_contract_scaffold"
 
 
 def test_runtime_cleanup_selects_only_new_prime_agent_containers() -> None:
