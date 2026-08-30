@@ -58,6 +58,8 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         in launcher
     )
     assert 'proxy_args+=(--leaf-compute-report-scaffold)' in launcher
+    assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
+    assert 'proxy_args+=(--depth-default-child)' in launcher
 
 
 def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -> None:
@@ -492,6 +494,50 @@ def test_proxy_routes_recursive_coordinator_context_to_coordinator_model() -> No
         ]
     }
     assert module.request_role(bounded_private_leaf) == "child"
+
+
+def test_proxy_depth_routing_supports_recursive_document_coordinator() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    root = {
+        "messages": [
+            {"role": "user", "content": "Prime Agent session\nRecursive agent depth: 0"}
+        ]
+    }
+    manager = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Recursive agent depth: 1\n"
+                    "[recursive document coordinator session contract]\n"
+                    "can_delegate=true"
+                ),
+            }
+        ]
+    }
+    worker = {
+        "messages": [
+            {"role": "user", "content": "Recursive agent depth: 2\nRead the assigned file."}
+        ]
+    }
+    kwargs = {
+        "coordinator_model": "coordinator",
+        "child_model": "child",
+        "depth_default_child": True,
+    }
+
+    assert module.routed_payload(root, **kwargs)[0] == "coordinator"
+    assert module.routed_payload(manager, **kwargs)[0] == "coordinator"
+    assert module.routed_payload(worker, **kwargs)[0] == "child"
+
+    token_kwargs = {
+        **kwargs,
+        "document_coordinator_token_ids": [71, 72],
+        "root_depth_token_ids": [81, 82],
+    }
+    assert module.routed_payload({"token_ids": [1, 81, 82]}, **token_kwargs)[0] == "coordinator"
+    assert module.routed_payload({"token_ids": [1, 71, 72]}, **token_kwargs)[0] == "coordinator"
+    assert module.routed_payload({"token_ids": [1, 91, 92]}, **token_kwargs)[0] == "child"
 
 
 def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:

@@ -109,7 +109,7 @@ def _issues(trace: dict[str, Any]) -> list[str]:
             score = _score(metrics.get(metric))
             if score is not None and score < 1.0:
                 issues.append(label)
-    if family in {"single", "parallel"}:
+    if family in {"single", "parallel", "document_flat", "document_hierarchical"}:
         score = _score(metrics.get("post_fan_in_control"))
         if score is not None and score < 1.0:
             issues.append("post-fan-in-control")

@@ -16,6 +16,7 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, web
 
 PRIVATE_EVIDENCE_HEADER = "[private evidence supplied to this reviewer]"
 RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
+DOCUMENT_COORDINATOR_HEADER = "[recursive document coordinator session contract]"
 ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
 LEAF_REPORTER_HEADER = "[leaf reporter session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
@@ -291,6 +292,9 @@ def request_role(
     *,
     private_evidence_token_ids: list[int] | None = None,
     recursive_coordinator_token_ids: list[int] | None = None,
+    document_coordinator_token_ids: list[int] | None = None,
+    root_depth_token_ids: list[int] | None = None,
+    depth_default_child: bool = False,
 ) -> str:
     messages = payload.get("messages")
     if isinstance(messages, list):
@@ -298,18 +302,32 @@ def request_role(
         has_recursive_coordinator = _contains_marker(
             messages, RECURSIVE_COORDINATOR_HEADER
         )
+        has_document_coordinator = _contains_marker(
+            messages, DOCUMENT_COORDINATOR_HEADER
+        )
         bounded_leaf = _is_bounded_leaf_session(messages)
-        if has_private and has_recursive_coordinator and not bounded_leaf:
+        if has_private and (has_recursive_coordinator or has_document_coordinator) and not bounded_leaf:
             raise ValueError("request contains conflicting delegated-session role markers")
+        if has_document_coordinator:
+            return "coordinator"
+        if depth_default_child and not _contains_marker(messages, "Recursive agent depth: 0"):
+            return "child"
         return "child" if has_private or bounded_leaf else "coordinator"
     token_ids = payload.get("token_ids")
     if isinstance(token_ids, list) and all(isinstance(item, int) for item in token_ids):
         marker_ids = private_evidence_token_ids or []
         coordinator_ids = recursive_coordinator_token_ids or []
+        document_ids = document_coordinator_token_ids or []
+        root_ids = root_depth_token_ids or []
         has_private = _contains_token_subsequence(token_ids, marker_ids)
         has_recursive_coordinator = _contains_token_subsequence(token_ids, coordinator_ids)
-        if has_private and has_recursive_coordinator:
+        has_document_coordinator = _contains_token_subsequence(token_ids, document_ids)
+        if has_private and (has_recursive_coordinator or has_document_coordinator):
             raise ValueError("request contains conflicting delegated-session role markers")
+        if has_document_coordinator:
+            return "coordinator"
+        if depth_default_child and not _contains_token_subsequence(token_ids, root_ids):
+            return "child"
         return "child" if has_private else "coordinator"
     raise ValueError("role-routed request lacks messages or token_ids")
 
@@ -321,11 +339,17 @@ def routed_payload(
     child_model: str,
     private_evidence_token_ids: list[int] | None = None,
     recursive_coordinator_token_ids: list[int] | None = None,
+    document_coordinator_token_ids: list[int] | None = None,
+    root_depth_token_ids: list[int] | None = None,
+    depth_default_child: bool = False,
 ) -> tuple[str, dict[str, Any]]:
     role = request_role(
         payload,
         private_evidence_token_ids=private_evidence_token_ids,
         recursive_coordinator_token_ids=recursive_coordinator_token_ids,
+        document_coordinator_token_ids=document_coordinator_token_ids,
+        root_depth_token_ids=root_depth_token_ids,
+        depth_default_child=depth_default_child,
     )
     model = child_model if role == "child" else coordinator_model
     return role, {**payload, "model": model}
@@ -1291,6 +1315,9 @@ class DualPolicyProxy:
         private_evidence_token_ids: list[int],
         tokenizer: Any,
         recursive_coordinator_token_ids: list[int] | None = None,
+        document_coordinator_token_ids: list[int] | None = None,
+        root_depth_token_ids: list[int] | None = None,
+        depth_default_child: bool = False,
         leak_coordinator_exact_action: bool = False,
         leak_coordinator_return_action: bool = False,
         typed_coordinator_return: bool = False,
@@ -1313,6 +1340,9 @@ class DualPolicyProxy:
         self.audit_log = audit_log
         self.private_evidence_token_ids = private_evidence_token_ids
         self.recursive_coordinator_token_ids = recursive_coordinator_token_ids or []
+        self.document_coordinator_token_ids = document_coordinator_token_ids or []
+        self.root_depth_token_ids = root_depth_token_ids or []
+        self.depth_default_child = depth_default_child
         self.tokenizer = tokenizer
         self.leak_coordinator_exact_action = leak_coordinator_exact_action
         self.leak_coordinator_return_action = leak_coordinator_return_action
@@ -1477,6 +1507,9 @@ class DualPolicyProxy:
             child_model=self.models["child"],
             private_evidence_token_ids=self.private_evidence_token_ids,
             recursive_coordinator_token_ids=self.recursive_coordinator_token_ids,
+            document_coordinator_token_ids=self.document_coordinator_token_ids,
+            root_depth_token_ids=self.root_depth_token_ids,
+            depth_default_child=self.depth_default_child,
         )
         if (
             self.root_coordinator_contract
@@ -2152,6 +2185,7 @@ def main() -> None:
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
+    parser.add_argument("--depth-default-child", action="store_true")
     parser.add_argument("--audit-log", type=Path, required=True)
     args = parser.parse_args()
     from transformers import AutoTokenizer
@@ -2161,10 +2195,18 @@ def main() -> None:
     recursive_coordinator_token_ids = tokenizer.encode(
         RECURSIVE_COORDINATOR_HEADER, add_special_tokens=False
     )
+    document_coordinator_token_ids = tokenizer.encode(
+        DOCUMENT_COORDINATOR_HEADER, add_special_tokens=False
+    )
+    root_depth_token_ids = tokenizer.encode("Recursive agent depth: 0", add_special_tokens=False)
     if not private_evidence_token_ids:
         raise RuntimeError("private-evidence role marker encoded to an empty token sequence")
     if not recursive_coordinator_token_ids:
         raise RuntimeError("recursive-coordinator role marker encoded to an empty token sequence")
+    if not document_coordinator_token_ids:
+        raise RuntimeError("document-coordinator role marker encoded to an empty token sequence")
+    if not root_depth_token_ids:
+        raise RuntimeError("root-depth role marker encoded to an empty token sequence")
     proxy = DualPolicyProxy(
         coordinator_url=args.coordinator_url,
         coordinator_model=args.coordinator_model,
@@ -2174,6 +2216,9 @@ def main() -> None:
         audit_log=args.audit_log.resolve(),
         private_evidence_token_ids=private_evidence_token_ids,
         recursive_coordinator_token_ids=recursive_coordinator_token_ids,
+        document_coordinator_token_ids=document_coordinator_token_ids,
+        root_depth_token_ids=root_depth_token_ids,
+        depth_default_child=args.depth_default_child,
         tokenizer=tokenizer,
         leak_coordinator_exact_action=args.leak_coordinator_exact_action,
         leak_coordinator_return_action=args.leak_coordinator_return_action,

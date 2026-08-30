@@ -31,6 +31,7 @@ leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}
 leaf_compute_report_scaffold=${DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
 child_authored_compute=${DUAL_CHILD_AUTHORED_COMPUTE:-0}
+depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}
 scaffold_profile=${DUAL_SCAFFOLD_PROFILE:-custom}
 
 cd "$root"
@@ -74,6 +75,10 @@ if [[ "$typed_child_report" != 0 && "$typed_child_report" != 1 ]]; then
 fi
 if [[ "$child_authored_compute" != 0 && "$child_authored_compute" != 1 ]]; then
   echo "DUAL_CHILD_AUTHORED_COMPUTE must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$depth_default_child" != 0 && "$depth_default_child" != 1 ]]; then
+  echo "DUAL_DEPTH_DEFAULT_CHILD must be 0 or 1" >&2
   exit 1
 fi
 if [[ "$leaf_inline_evidence" != 0 && "$leaf_inline_evidence" != 1 ]]; then
@@ -256,6 +261,9 @@ fi
 if [[ "$child_authored_compute" == 1 ]]; then
   proxy_args+=(--child-authored-compute)
 fi
+if [[ "$depth_default_child" == 1 ]]; then
+  proxy_args+=(--depth-default-child)
+fi
 
 "$uv_bin" run --no-sync scripts/dual_policy_openai_proxy_v1.py \
   "${proxy_args[@]}" \
@@ -328,6 +336,7 @@ child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
   printf 'dual_leaf_compute_report_scaffold=%s\n' "$leaf_compute_report_scaffold"
   printf 'dual_typed_child_report=%s\n' "$typed_child_report"
   printf 'dual_child_authored_compute=%s\n' "$child_authored_compute"
+  printf 'dual_depth_default_child=%s\n' "$depth_default_child"
   printf 'dual_policy_external_model=%s\n' "$external_model"
   printf 'coordinator_model_path=%s\n' "$coordinator_model"
   printf 'coordinator_model_sha256=%s\n' "$coordinator_sha"
