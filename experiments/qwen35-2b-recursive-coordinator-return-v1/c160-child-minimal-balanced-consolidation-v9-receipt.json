@@ -1,0 +1,169 @@
+{
+  "schema_version": "q35-2b-minimal-balanced-consolidation-receipt/v1",
+  "status": "complete_promoted",
+  "decision": {
+    "canonical_child": "c160_child_minimal_balanced_consolidation_v9_step_2",
+    "rollback_child": "protected_c160",
+    "candidate_admitted_by_production_gate": true,
+    "candidate_promoted": true,
+    "huggingface_latest_updated": true,
+    "reason": "The minimal dense update passed six of six trajectories under the unchanged strict production gate and exactly matched protected C160 on two paired semantic banks: 12/12 exact results and 7/12 immediate atomic compute-and-report actions. It is the first consolidation retry that changes all child weights without a measured regression."
+  },
+  "acceptance_contract": {
+    "minimum_complete_qualifying_trajectories": 4,
+    "relaxed": false,
+    "production_profile": "tight_answer_free_child_reporting_v1",
+    "semantic_profile": "tight_learned_semantic_probe_v1",
+    "semantic_profile_is_diagnostic_only": true,
+    "permanent_tight_scaffold": true
+  },
+  "models": {
+    "coordinator": {
+      "label": "protected_c158",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000158-coordinator-e0d3-uncapped-yield-exact-child-9415800/weights/step_1",
+      "model_sha256": "18f760904ba4ef6b54b785dea96307e100d8ff71719750d8a76fabd9a55a789e"
+    },
+    "rollback_child": {
+      "label": "protected_c160",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-self-bootstrap-dual-dense-grpo-v1/grpo-auto-000160-child-e0c3-natural-child-minimal-sft-spawn9x4-c159-v3/weights/step_4",
+      "model_sha256": "aaa19e1d736c293e5aebc0714233cebdf4d8e2e1bb08506876aaf3c1067c12cf"
+    },
+    "promoted_child": {
+      "label": "c160_child_minimal_balanced_consolidation_v9_step_2",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-recursive-coordinator-return-v1/c160-child-minimal-balanced-consolidation-v9/weights/step_2",
+      "model_sha256": "d459b41d783eb6de9a78276cf51e02173ea2a9c537852cdd643c51f1f17308a4"
+    }
+  },
+  "training": {
+    "config": "experiments/qwen35-2b-recursive-coordinator-return-v1/c160-child-minimal-balanced-consolidation-v9.toml",
+    "source_child": "protected_c160",
+    "update_type": "full_weight_sft",
+    "steps": 2,
+    "learning_rate": 1.5e-7,
+    "samples_observed": 73,
+    "tokens_observed": 393216,
+    "loss_mean_by_step": [
+      0.4047669768333435,
+      0.39734458923339844
+    ],
+    "grad_norm_by_step": [
+      274.0,
+      266.0
+    ],
+    "nan_count": 0,
+    "peak_gpu_memory_gib": 11.154296875
+  },
+  "corpus": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-recursive-coordinator-return-v1/c160-child-gentle-balanced-consolidation-v8",
+    "rows": 296,
+    "unique_tasks": 242,
+    "answer_free_targets": true,
+    "one_parent_send": true,
+    "resource_family_counts": {
+      "csv_total": 36,
+      "json_max": 44,
+      "json_sum": 40,
+      "log_error": 56,
+      "md_h2": 36,
+      "python_defs": 40,
+      "word_count": 44
+    },
+    "train_parquet_sha256": "5b03e6346cf51a9b986b0fff4afa67c77870e4daea36202da01fad6ac202ea2e",
+    "manifest_sha256": "6c9f27999cbec68bd463f86ff703cd02c5e652cddc2e210d21537da3d1edb6eb",
+    "sources": {
+      "balanced_live_compute_rows": 224,
+      "production_reporting_rows": 72
+    }
+  },
+  "production_evaluation": {
+    "label": "c158-v9-tight-production-v37-9427800-n6",
+    "path": "/home/ubuntu/rlm/results/q35-2b-recursive-coordinator-return-v1/c158-v9-tight-production-v37-9427800-n6",
+    "task_start_index": 9427800,
+    "episodes": 6,
+    "strict_passes": 6,
+    "errors": 0,
+    "immediate_atomic_compute_reports": 6,
+    "terminated_child_sessions": 6,
+    "root_json_finalizations": 6,
+    "trace_sha256": "de0f91521aab50a350b5b650344f982323de6dca07bd51fc54db1aba269c59ab",
+    "routing_audit_sha256": "50b6859b33bb6e20b4a80f91fab304c6bff5b5146c0c9c26f1ec797b4657c8fd"
+  },
+  "matched_semantic_evaluation": {
+    "task_banks": [
+      {
+        "start_index": 9427400,
+        "protected_c160": {
+          "label": "c158-c160-semantic-probe-v25-9427400-n6",
+          "passes": 6,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 4,
+          "root_wait_pending_events": 7,
+          "trace_sha256": "ae85b85d67ecab742bb06b68ff229cbc8bef2438312818497b0fa5cc77fe94c5"
+        },
+        "candidate_v9": {
+          "label": "c158-v9-semantic-probe-v35-9427400-n6",
+          "passes": 6,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 4,
+          "root_wait_pending_events": 6,
+          "trace_sha256": "4a69662b88cc65807a12646b4841592ae3cf54a23493315a78634d4574f6c1c0"
+        }
+      },
+      {
+        "start_index": 9427700,
+        "protected_c160": {
+          "label": "c158-c160-semantic-probe-v32-9427700-n6",
+          "passes": 6,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 3,
+          "root_wait_pending_events": 6,
+          "trace_sha256": "e4fc5c52e6e4ff8763905e5c81276ef55b4d9d9517d9b3e3f3dcddd465321d50"
+        },
+        "candidate_v9": {
+          "label": "c158-v9-semantic-probe-v36-9427700-n6",
+          "passes": 6,
+          "episodes": 6,
+          "immediate_atomic_compute_reports": 3,
+          "root_wait_pending_events": 6,
+          "trace_sha256": "9a64febbc64429ab5d7131f25e42583523438386c049e4b39fe5975dda8dd044"
+        }
+      }
+    ],
+    "aggregate": {
+      "protected_c160_passes": 12,
+      "candidate_v9_passes": 12,
+      "episodes_per_model": 12,
+      "protected_c160_immediate_atomic_compute_reports": 7,
+      "candidate_v9_immediate_atomic_compute_reports": 7,
+      "candidate_unique_wins": 0,
+      "candidate_unique_losses": 0
+    }
+  },
+  "rejected_retries": {
+    "v6": "Balanced live-compute update scored 5/6 with 2/6 immediate atomic reports on bank 9427400.",
+    "v7": "Production passed 6/6, but matched semantic accuracy fell to 10/12 versus protected C160 at 11/12, and immediate atomic reports fell to 3/12 versus 7/12.",
+    "v8": "Production passed 6/6 and semantic accuracy was 12/12, but immediate atomic reports fell to 5/12 versus protected C160 at 7/12."
+  },
+  "attribution": {
+    "production_reliability": "Primarily attributable to the permanent tight scaffold, which makes the production path deterministic enough for a 2B policy.",
+    "weight_update_effect": "v9 is a successful consolidation, not a demonstrated capability increase: its dense weights differ from C160 while paired semantic accuracy and atomicity are exactly unchanged.",
+    "conclusion": "Promote v9 because it preserves both the strict production behavior and the answer-free semantic capability after a real full-weight update. Retain C160 as the protected rollback source."
+  },
+  "huggingface": {
+    "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-child",
+    "policy": "latest_only_replace",
+    "previous_revision": "6ac5c29d33feea69859c8ef154b60aacd49b7e29",
+    "previous_model_sha256": "aaa19e1d736c293e5aebc0714233cebdf4d8e2e1bb08506876aaf3c1067c12cf",
+    "promoted_revision": "82eb646b7b69b8aaf6d89469d89b345e7cd73966",
+    "verified_model_sha256": "d459b41d783eb6de9a78276cf51e02173ea2a9c537852cdd643c51f1f17308a4",
+    "verified_model_size_bytes": 4426558864,
+    "stale_checkpoint_files_present": false,
+    "model_card_contains_candidate_hash": true
+  },
+  "code": {
+    "mix_builder_commit": "61a27b3",
+    "minimal_update_config_commit": "e3ed11a",
+    "latest_only_publisher_commit": "897c4b5",
+    "receipt_commit_parent": "897c4b5"
+  }
+}
