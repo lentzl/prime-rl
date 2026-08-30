@@ -43,18 +43,23 @@ def _routing_summary(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def _require_routing(topology: str, routing: dict[str, Any]) -> None:
+def _routing_observation(topology: str, routing: dict[str, Any]) -> dict[str, bool]:
     sessions = routing["unique_sessions"]
     if sessions["coordinator"] < 4:
         raise SystemExit(f"{topology}: fewer than four root coordinator sessions were routed")
     if topology == "direct":
-        if sessions["child"] != 0:
-            raise SystemExit("direct: child policy received a request")
-        return
-    if sessions["child"] < 1:
-        raise SystemExit(f"{topology}: child policy received no request")
-    if topology == "hierarchical" and sessions["coordinator"] < 5:
-        raise SystemExit("hierarchical: no distinct non-root coordinator session was routed")
+        return {
+            "expected_child_policy_usage": sessions["child"] == 0,
+            "recursive_coordinator_observed": False,
+            "topology_fully_observed": sessions["child"] == 0,
+        }
+    child_observed = sessions["child"] > 0
+    recursive_observed = topology != "hierarchical" or sessions["coordinator"] > 4
+    return {
+        "expected_child_policy_usage": child_observed,
+        "recursive_coordinator_observed": recursive_observed,
+        "topology_fully_observed": child_observed and recursive_observed,
+    }
 
 
 def build_receipt(
@@ -71,10 +76,10 @@ def build_receipt(
             raise SystemExit(f"{topology}: expected four traces, found {len(traces)}")
         trace_summary = summarize(traces)
         routing = _routing_summary(_load_jsonl(run_root / "ROUTING_AUDIT.jsonl"))
-        _require_routing(topology, routing)
         topologies[topology] = {
             "trace_summary": trace_summary,
             "routing": routing,
+            "routing_observation": _routing_observation(topology, routing),
         }
     return {
         "experiment": "q35-2b-document-recursion-zero-update-v1",
