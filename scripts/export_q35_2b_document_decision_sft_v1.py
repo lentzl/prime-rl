@@ -11,7 +11,7 @@ from typing import Any
 
 from datasets import Dataset
 
-SCHEMA_VERSION = "qwen35-2b-document-decision-sft/v1"
+SCHEMA_VERSION = "qwen35-2b-document-decision-sft/v2"
 OBJECTIVE = "canonical_answer_free_first_document_action"
 FAMILIES = {"document_direct", "document_flat", "document_hierarchical"}
 STEMS = ("alpha", "beta", "gamma")
@@ -169,8 +169,11 @@ def _canonical_row(trace: dict[str, Any], *, source: Path) -> dict[str, Any]:
         "tool_calls": [
             {
                 "id": f"document-decision-{digest}",
-                "name": "ipython",
-                "arguments": json.dumps({"code": code}, separators=(",", ":")),
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "arguments": json.dumps({"code": code}, separators=(",", ":")),
+                },
             }
         ],
     }
@@ -233,6 +236,7 @@ def export(*, traces: list[Path], output_dir: Path, expected_rows: int = 12) -> 
         "task_keys": [row["task_key"] for row in rows],
         "source_traces": source_records,
         "answer_free": True,
+        "tool_call_format": "openai_function_v1",
         "dataset": {"path": parquet.name, "sha256": sha256_file(parquet)},
     }
     (output_dir / "MANIFEST.json").write_text(

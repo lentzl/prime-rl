@@ -14,7 +14,7 @@ from typing import Any
 from export_q35_2b_document_decision_sft_v1 import sha256_file
 
 SCHEMA_VERSION = "qwen35-2b-document-decision-update/v1"
-DATASET_SCHEMA_VERSION = "qwen35-2b-document-decision-sft/v1"
+DATASET_SCHEMA_VERSION = "qwen35-2b-document-decision-sft/v2"
 DATASET_OBJECTIVE = "canonical_answer_free_first_document_action"
 PROMOTION_MINIMUM = 4
 
@@ -134,6 +134,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         or manifest.get("rows") != 12
         or set(manifest.get("family_counts", {}).values()) != {4}
         or manifest.get("answer_free") is not True
+        or manifest.get("tool_call_format") != "openai_function_v1"
         or manifest.get("dataset", {}).get("path") != parquet.name
         or manifest.get("dataset", {}).get("sha256") != sha256_file(parquet)
     ):
@@ -235,6 +236,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "rows": dataset["rows"],
             "family_counts": dataset["family_counts"],
             "answer_free": dataset["answer_free"],
+            "tool_call_format": dataset["tool_call_format"],
         },
         "training": {
             "config_path": str(config_path),

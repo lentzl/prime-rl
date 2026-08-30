@@ -128,7 +128,20 @@ def test_document_decision_export_is_balanced_and_preserves_failed_prefixes(tmp_
     assert len(rows) == 12
     assert all(row["role"] == "coordinator" for row in rows)
     assert all(len(row["messages"]) == 3 for row in rows)
-    assert all(row["messages"][-1]["tool_calls"][0]["name"] == "ipython" for row in rows)
+    assert all(
+        row["messages"][-1]["tool_calls"][0]["type"] == "function" for row in rows
+    )
+    assert all(
+        row["messages"][-1]["tool_calls"][0]["function"]["name"] == "ipython"
+        for row in rows
+    )
+    assert all(
+        json.loads(row["messages"][-1]["tool_calls"][0]["function"]["arguments"])[
+            "code"
+        ]
+        for row in rows
+    )
+    assert manifest["tool_call_format"] == "openai_function_v1"
 
 
 def test_document_decision_training_is_one_full_dense_update() -> None:
