@@ -24,6 +24,7 @@ if [[ -e "$receipt" ]]; then
 fi
 
 cd "$root"
+export PYTHONPATH="$root/deps/verifiers/environments/subagent_communication_v1:$root/deps/verifiers${PYTHONPATH:+:$PYTHONPATH}"
 coordinator_sha_before=$(sha256sum "$coordinator_model/model.safetensors" | awk '{print $1}')
 child_sha_before=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
 

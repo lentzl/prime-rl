@@ -27,9 +27,6 @@ if [[ ! -f "$config" ]]; then
 fi
 
 cd "$root"
-"$uv_bin" pip install --python "$root/.venv/bin/python" --no-deps --editable \
-  "$root/deps/verifiers/environments/subagent_communication_v1" >/dev/null
-
 mkdir -p "$run_output"
 {
   printf 'prime_rl_commit=%s\n' "$(git rev-parse HEAD)"
