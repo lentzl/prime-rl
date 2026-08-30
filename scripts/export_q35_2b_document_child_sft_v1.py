@@ -179,8 +179,15 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
                 envelope = json.loads(line)
                 for trace in envelope.get("traces") or []:
                     task = trace.get("task", {}).get("data", {})
+                    metrics = trace.get("metrics") or {}
                     roots = sum(node.get("parent") is None for node in trace.get("nodes") or [])
-                    if task.get("family") == "document_flat" and roots >= 4:
+                    if (
+                        task.get("family") == "document_flat"
+                        and roots >= 4
+                        and metrics.get("retained_handles") == 3
+                        and metrics.get("named_children") == 3
+                        and metrics.get("delegated_payloads") == 3
+                    ):
                         candidates.append((trace, path.resolve()))
     if len(candidates) != 1:
         raise ValueError(f"expected one complete three-child template trace, found {len(candidates)}")

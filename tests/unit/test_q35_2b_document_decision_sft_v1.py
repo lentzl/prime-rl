@@ -227,6 +227,11 @@ def test_document_child_export_uses_real_depth_one_context_and_answer_free_code(
     trace = {
         "id": "flat-three-child-template",
         "task": {"data": {"family": "document_flat"}},
+        "metrics": {
+            "retained_handles": 3,
+            "named_children": 3,
+            "delegated_payloads": 3,
+        },
         "nodes": nodes,
         "tools": [
             {
