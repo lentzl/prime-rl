@@ -32,6 +32,7 @@ controller() {
     --start-cycle 163 \
     --start-index 9411700 \
     --admission-scaffold-profile tight_answer_free_child_reporting_v1 \
+    --stop-file "$stop_file" \
     --poll-seconds 30 \
     --prune-below-gib 120
 }
@@ -58,12 +59,13 @@ start() {
   mkdir -p "$state_dir"
   rm -f -- "$stop_file"
 
-  local script controller_shell restart_command watchdog_shell
+  local script controller_shell controller_window_shell restart_command watchdog_shell
   script=$root/scripts/run_q35_2b_role_grpo_autonomous_v3.sh
   printf -v controller_shell '%q ' bash "$script" controller
   controller_shell+=">>$(printf '%q' "$controller_log") 2>&1"
   restart_command=$controller_shell
-  tmux new-session -d -s "$session" -n controller "$controller_shell"
+  controller_window_shell="$controller_shell; exec bash"
+  tmux new-session -d -s "$session" -n controller "$controller_window_shell"
 
   printf -v watchdog_shell '%q ' \
     bash "$root/scripts/watch_q35_2b_spade_dual_dense_v1.sh" \

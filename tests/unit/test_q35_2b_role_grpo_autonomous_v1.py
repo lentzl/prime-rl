@@ -358,7 +358,9 @@ def test_v3_launcher_roots_fresh_loop_at_c158_v9_and_strict_gate() -> None:
     assert "--admission-scaffold-profile tight_answer_free_child_reporting_v1" in launcher
     assert "--child-phase e0c3_natural_child_minimal" in launcher
     assert "--next-role coordinator" in launcher
+    assert '--stop-file "$stop_file"' in launcher
     assert "--prune-below-gib 120" in launcher
+    assert 'controller_window_shell="$controller_shell; exec bash"' in launcher
 
 
 def test_project_promotes_only_after_four_qualifiers() -> None:
