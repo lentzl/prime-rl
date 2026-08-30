@@ -151,3 +151,12 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
     assert "lora" not in config.lower()
     assert 'optimization_dtype = "bfloat16"' in config
     assert 'reduce_dtype = "bfloat16"' in config
+
+
+def test_dual_policy_launcher_exposes_inference_sibling_binaries() -> None:
+    launcher = (
+        Path(__file__).parents[2] / "scripts" / "run_q35_2b_dual_policy_mastery_v1.sh"
+    ).read_text()
+
+    assert 'inference_dir=$(cd "$(dirname "$inference_bin")" && pwd)' in launcher
+    assert 'export PATH="$inference_dir:$PATH"' in launcher

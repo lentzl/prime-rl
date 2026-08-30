@@ -10,6 +10,8 @@ output_root=${QWEN38_QUALIFICATION_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-
 run_output=$output_root/$label
 eval_driver=${EVAL_DRIVER:-scripts/run_qwen38_27b_prime_harness_qualification_v1.sh}
 inference_bin=${INFERENCE_BIN:-$root/.venv/bin/inference}
+inference_dir=$(cd "$(dirname "$inference_bin")" && pwd)
+export PATH="$inference_dir:$PATH"
 uv_bin=${UV_BIN:-$(command -v uv || true)}
 if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
   uv_bin=$HOME/.local/bin/uv
