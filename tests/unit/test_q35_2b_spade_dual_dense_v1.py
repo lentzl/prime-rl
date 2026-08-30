@@ -811,6 +811,54 @@ def test_child_grpo_proxy_leaks_only_disclosed_exact_coordinator_action() -> Non
     )
 
 
+def test_exact_coordinator_action_supports_answer_free_flat_document_spawns() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    root = "/workspace/document-recursion/v0-i20000"
+    assignments = "\n".join(
+        (
+            f"- {stem}-document-worker: Read {root}/{stem}.md using IPython. "
+            "Send one JSON object using await agent_message.send(json.dumps(result), "
+            "receiver_role='parent'). After the delivery receipt succeeds, stop."
+        )
+        for stem in ("alpha", "beta", "gamma")
+    )
+    prompt = f"Delegate these three files to the named terminal children:\n{assignments}"
+
+    action = module.disclosed_root_action(prompt)
+
+    assert action is not None
+    assert action.count('task = """') == 3
+    assert action.count("await rlm(") == 3
+    assert "receiver_role='parent'" in action
+    assert "await rlm('Read" not in action
+    assert 'name="alpha-document-worker"' in action
+    assert "alpha_words" not in action
+    assert module.disclosed_root_action_from_messages(
+        [{"role": "user", "content": prompt}]
+    ) == action
+
+
+def test_document_spawn_scaffold_rejects_partial_or_conflicting_contracts() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    partial = (
+        "- alpha-document-worker: Read /workspace/alpha.md and send using "
+        "receiver_role='parent', then stop."
+    )
+    with pytest.raises(ValueError, match="exactly three"):
+        module.disclosed_document_spawn_action(partial)
+
+    invalid = "\n".join(
+        (
+            f"- {stem}-document-worker: Read /workspace/{stem}.md "
+            f"{'\"\"\"' if stem == 'alpha' else ''}and send using "
+            "receiver_role='parent', then stop."
+        )
+        for stem in ("alpha", "beta", "gamma")
+    )
+    with pytest.raises(ValueError, match="invalid child contract"):
+        module.disclosed_document_spawn_action(invalid)
+
+
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     code = "reviewer = await rlm('review', name='relay-worker')"

@@ -510,6 +510,9 @@ def should_strip_tool_choice(
 def disclosed_root_action(prompt: str) -> str | None:
     """Extract the public training-only coordinator action from a rendered prompt."""
 
+    document_action = disclosed_document_spawn_action(prompt)
+    if document_action is not None:
+        return document_action
     if EXACT_ACTION_MARKER not in prompt:
         return None
     matches = [match.group("code").strip() for match in ROOT_ACTION_PATTERN.finditer(prompt)]
@@ -521,6 +524,44 @@ def disclosed_root_action(prompt: str) -> str | None:
     if not code.startswith("reviewer = await rlm(") or "name=" not in code:
         raise ValueError("disclosed coordinator action is not the expected retained spawn")
     return code
+
+
+def disclosed_document_spawn_action(prompt: str) -> str | None:
+    """Build one answer-free, quoting-safe flat-document admission action."""
+
+    assignments: dict[str, str] = {}
+    for line in prompt.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("- ") or ": Read " not in stripped:
+            continue
+        name, instruction = stripped[2:].split(": ", 1)
+        match = re.fullmatch(r"(alpha|beta|gamma)-document-worker", name)
+        if match is None:
+            continue
+        stem = match.group(1)
+        if (
+            f"/{stem}.md" not in instruction
+            or "receiver_role='parent'" not in instruction
+            or not instruction.endswith("stop.")
+            or '"""' in instruction
+        ):
+            raise ValueError("document spawn scaffold contains an invalid child contract")
+        if stem in assignments and assignments[stem] != instruction:
+            raise ValueError("document spawn scaffold contains conflicting child contracts")
+        assignments[stem] = instruction
+    stems = ("alpha", "beta", "gamma")
+    if not assignments:
+        return None
+    if set(assignments) != set(stems):
+        raise ValueError("document spawn scaffold requires exactly three named contracts")
+    declarations = "\n".join(
+        f'{stem}_task = """{assignments[stem]}"""' for stem in stems
+    )
+    calls = "\n".join(
+        f'{stem}_worker = await rlm({stem}_task, name="{stem}-document-worker")'
+        for stem in stems
+    )
+    return f"{declarations}\n{calls}"
 
 
 def disclosed_child_action(prompt: str) -> str | None:
