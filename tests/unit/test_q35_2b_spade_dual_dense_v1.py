@@ -827,10 +827,10 @@ def test_exact_coordinator_action_supports_answer_free_flat_document_spawns() ->
     action = module.disclosed_root_action(prompt)
 
     assert action is not None
-    assert action.count('task = """') == 3
     assert action.count("await rlm(") == 3
     assert "receiver_role='parent'" in action
     assert "await rlm('Read" not in action
+    assert 'await rlm("Read' in action
     assert 'name="alpha-document-worker"' in action
     assert "alpha_words" not in action
     assert module.disclosed_root_action_from_messages(

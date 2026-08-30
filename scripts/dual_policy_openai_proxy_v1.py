@@ -554,14 +554,13 @@ def disclosed_document_spawn_action(prompt: str) -> str | None:
         return None
     if set(assignments) != set(stems):
         raise ValueError("document spawn scaffold requires exactly three named contracts")
-    declarations = "\n".join(
-        f'{stem}_task = """{assignments[stem]}"""' for stem in stems
-    )
     calls = "\n".join(
-        f'{stem}_worker = await rlm({stem}_task, name="{stem}-document-worker")'
+        f"{stem}_worker = await rlm("
+        f"{json.dumps(assignments[stem], ensure_ascii=False)}, "
+        f'name="{stem}-document-worker")'
         for stem in stems
     )
-    return f"{declarations}\n{calls}"
+    return calls
 
 
 def disclosed_child_action(prompt: str) -> str | None:
