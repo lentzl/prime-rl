@@ -139,9 +139,10 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
         dataset_dir=Path("/data/decision"),
         output_root=Path("/outputs"),
         learning_rate=2e-6,
+        optimizer_updates=8,
     )
 
-    assert "max_steps = 1" in config
+    assert "max_steps = 8" in config
     assert "gpus_per_node = 2" in config
     assert "batch_size = 12" in config
     assert "micro_batch_size = 1" in config

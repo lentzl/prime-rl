@@ -30,8 +30,11 @@ def training_config(
     dataset_dir: Path,
     output_root: Path,
     learning_rate: float,
+    optimizer_updates: int = 1,
 ) -> str:
-    return f"""max_steps = 1
+    if not 1 <= optimizer_updates <= 8:
+        raise ValueError("document decision bootstrap requires one to eight updates")
+    return f"""max_steps = {optimizer_updates}
 output_dir = {_quote(output_root)}
 clean = false
 
@@ -186,11 +189,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         dataset_dir=dataset_dir,
         output_root=output_root,
         learning_rate=args.learning_rate,
+        optimizer_updates=args.optimizer_updates,
     )
     _write_once(config_path, config)
 
     output_dir = output_root / args.run_name
-    output_model = output_dir / "weights/step_1"
+    output_model = output_dir / f"weights/step_{args.optimizer_updates}"
     output_weight = output_model / "model.safetensors"
     metrics_path = output_dir / "metrics.jsonl"
     complete = (
@@ -220,7 +224,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         "status": "complete",
         "algorithm": "sft_document_decision_bootstrap_v1",
         "role": "coordinator",
-        "optimizer_updates": 1,
+        "optimizer_updates": args.optimizer_updates,
         "full_dense": True,
         "promotion_minimum": PROMOTION_MINIMUM,
         "source": {"model_path": str(source_model), "model_sha256": source_sha},
@@ -257,11 +261,12 @@ def main() -> None:
     parser.add_argument("--state-dir", type=Path, required=True)
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--learning-rate", type=float, default=2e-6)
+    parser.add_argument("--optimizer-updates", type=int, default=1)
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--uv-bin", type=Path, default=Path("/home/ubuntu/.local/bin/uv"))
     args = parser.parse_args()
-    if not 0 < args.learning_rate <= 1e-4:
-        parser.error("learning rate is outside the bounded range")
+    if not 0 < args.learning_rate <= 1e-4 or not 1 <= args.optimizer_updates <= 8:
+        parser.error("learning rate or optimizer update count is outside the bounded range")
     print(json.dumps(run(args), indent=2, sort_keys=True))
 
 
