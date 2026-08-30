@@ -149,5 +149,5 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
     assert "tool = false" in config
     assert "lr = 2e-06" in config
     assert "lora" not in config.lower()
-    assert "optimization_dtype" not in config
-    assert "reduce_dtype" not in config
+    assert 'optimization_dtype = "bfloat16"' in config
+    assert 'reduce_dtype = "bfloat16"' in config

@@ -47,6 +47,8 @@ num_gpus = 2
 [model]
 name = {_quote(model_path)}
 impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
 
 [model.vlm]
 vision_encoder_attr = "model.visual"
