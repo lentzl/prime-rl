@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts/run_q35_2b_role_grpo_autonomous_v1.py"
 MASTERY_SCRIPT = ROOT / "scripts/run_q35_2b_dual_policy_mastery_v1.sh"
 RECOVERY_SCRIPT = ROOT / "scripts/recover_q35_2b_autonomous_frontier_v1.py"
+V3_LAUNCHER = ROOT / "scripts/run_q35_2b_role_grpo_autonomous_v3.sh"
 SPEC = importlib.util.spec_from_file_location("role_grpo_auto", SCRIPT)
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
@@ -325,6 +326,39 @@ def test_admission_keeps_six_examples_but_caps_runtime_pressure() -> None:
     assert MODULE.EVAL_MAX_ADDRESS_SPACE_BYTES == 32 * 1024**3
     assert MODULE.TRAIN_TIMEOUT_SECONDS == 10800
     assert MODULE.EVAL_TIMEOUT_SECONDS == 1200
+
+
+def test_tight_admission_profile_is_frozen_and_answer_free() -> None:
+    environment = MODULE._admission_environment(
+        "tight_answer_free_child_reporting_v1"
+    )
+
+    assert environment == {
+        "DUAL_SCAFFOLD_PROFILE": "tight_answer_free_child_reporting_v1",
+        "DUAL_LEAK_COORDINATOR_EXACT_ACTION": "0",
+        "DUAL_LEAK_COORDINATOR_RETURN_ACTION": "0",
+        "DUAL_TYPED_COORDINATOR_RETURN": "0",
+        "DUAL_ROOT_COORDINATOR_CONTRACT": "1",
+        "DUAL_LEAF_REPORTER_CONTRACT": "1",
+        "DUAL_LEAF_INLINE_EVIDENCE": "1",
+        "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD": "0",
+        "DUAL_TYPED_CHILD_REPORT": "1",
+        "DUAL_CHILD_AUTHORED_COMPUTE": "0",
+    }
+
+
+def test_v3_launcher_roots_fresh_loop_at_c158_v9_and_strict_gate() -> None:
+    launcher = V3_LAUNCHER.read_text()
+
+    assert "grpo-autonomous-v3" in launcher
+    assert "--coordinator-label C158" in launcher
+    assert "--child-label V9" in launcher
+    assert "c160-child-minimal-balanced-consolidation-v9/weights/step_2" in launcher
+    assert "c158-v9-tight-production-v37-9427800-n6" in launcher
+    assert "--admission-scaffold-profile tight_answer_free_child_reporting_v1" in launcher
+    assert "--child-phase e0c3_natural_child_minimal" in launcher
+    assert "--next-role coordinator" in launcher
+    assert "--prune-below-gib 120" in launcher
 
 
 def test_project_promotes_only_after_four_qualifiers() -> None:

@@ -51,6 +51,29 @@ LEAK_LADDER = (
 )
 COUPLED_CURRICULUM_POLICY = "coupled_v1"
 SINGLE_AXIS_CURRICULUM_POLICY = "single_axis_v2"
+ADMISSION_SCAFFOLD_PROFILES = (
+    "custom",
+    "tight_answer_free_child_reporting_v1",
+)
+
+
+def _admission_environment(profile: str) -> dict[str, str]:
+    if profile == "custom":
+        return {"DUAL_SCAFFOLD_PROFILE": "custom"}
+    if profile != "tight_answer_free_child_reporting_v1":
+        raise ValueError(f"unsupported admission scaffold profile: {profile}")
+    return {
+        "DUAL_SCAFFOLD_PROFILE": profile,
+        "DUAL_LEAK_COORDINATOR_EXACT_ACTION": "0",
+        "DUAL_LEAK_COORDINATOR_RETURN_ACTION": "0",
+        "DUAL_TYPED_COORDINATOR_RETURN": "0",
+        "DUAL_ROOT_COORDINATOR_CONTRACT": "1",
+        "DUAL_LEAF_REPORTER_CONTRACT": "1",
+        "DUAL_LEAF_INLINE_EVIDENCE": "1",
+        "DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD": "0",
+        "DUAL_TYPED_CHILD_REPORT": "1",
+        "DUAL_CHILD_AUTHORED_COMPUTE": "0",
+    }
 
 
 def _canonical(value: Any) -> str:
@@ -198,6 +221,9 @@ def project(events: list[dict[str, Any]]) -> dict[str, Any]:
         "pending_eval": None,
         "curriculum_policy": initial.get(
             "curriculum_policy", COUPLED_CURRICULUM_POLICY
+        ),
+        "admission_scaffold_profile": initial.get(
+            "admission_scaffold_profile", "custom"
         ),
     }
     for event in events[1:]:
@@ -428,7 +454,9 @@ def _validate_train_receipt(
 
 
 def _qualifying_evaluation(
-    run_dir: Path, frontier: dict[str, dict[str, str]]
+    run_dir: Path,
+    frontier: dict[str, dict[str, str]],
+    admission_scaffold_profile: str | None = None,
 ) -> dict[str, Any]:
     summary = _read_json(run_dir / "SUMMARY.json")
     traces_path = run_dir / "natural_n1a" / "traces.jsonl"
@@ -475,6 +503,11 @@ def _qualifying_evaluation(
         or min(role_counts.values()) < 1
         or versions.get("coordinator_model_sha256") != frontier["coordinator"]["model_sha256"]
         or versions.get("child_model_sha256") != frontier["child"]["model_sha256"]
+        or (
+            admission_scaffold_profile is not None
+            and versions.get("dual_policy_scaffold_profile")
+            != admission_scaffold_profile
+        )
     ):
         raise ValueError(f"incomplete or routing-invalid admission evaluation: {run_dir}")
     return {
@@ -485,6 +518,7 @@ def _qualifying_evaluation(
         "promotion_minimum": PROMOTION_MINIMUM,
         "role_route_counts": role_counts,
         "role_route_failure_counts": role_failure_counts,
+        "admission_scaffold_profile": admission_scaffold_profile,
     }
 
 
@@ -531,6 +565,11 @@ class Controller:
 
     def _initialize(self) -> None:
         if self.events_path.exists():
+            state = project(load_events(self.events_path))
+            if state["admission_scaffold_profile"] != self.args.admission_scaffold_profile:
+                raise ValueError(
+                    "controller admission scaffold does not match durable state"
+                )
             return
         frontier = {
             "coordinator": _candidate(self.args.coordinator_model.resolve(), self.args.coordinator_label),
@@ -539,7 +578,9 @@ class Controller:
         if self.args.initial_admission_run is None:
             raise ValueError("a fresh autonomous state requires --initial-admission-run")
         admission_run = self.args.initial_admission_run.resolve()
-        initial_admission = _qualifying_evaluation(admission_run, frontier)
+        initial_admission = _qualifying_evaluation(
+            admission_run, frontier, self.args.admission_scaffold_profile
+        )
         if not initial_admission["admitted"]:
             raise ValueError("initial pair does not satisfy the four-trajectory promotion floor")
         append_event(
@@ -560,6 +601,7 @@ class Controller:
                 "next_cycle": self.args.start_cycle,
                 "promotion_minimum": PROMOTION_MINIMUM,
                 "full_dense_only": True,
+                "admission_scaffold_profile": self.args.admission_scaffold_profile,
                 "initial_admission": {
                     "run_dir": str(admission_run),
                     **initial_admission,
@@ -764,7 +806,11 @@ class Controller:
         if not (run_dir / "SUMMARY.json").is_file() or not (run_dir / "VERSIONS.txt").is_file():
             return False
         try:
-            evidence = _qualifying_evaluation(run_dir, frontier)
+            evidence = _qualifying_evaluation(
+                run_dir,
+                frontier,
+                getattr(self.args, "admission_scaffold_profile", None),
+            )
         except ValueError as error:
             # Admission is deliberately fail-closed: an errored envelope cannot
             # promote a checkpoint. Record invalid completed evidence as a
@@ -825,6 +871,7 @@ class Controller:
             },
         )
         env = os.environ.copy()
+        admission_profile = state["admission_scaffold_profile"]
         env.update(
             {
                 "UV_BIN": str(self.args.uv_bin),
@@ -842,8 +889,13 @@ class Controller:
                 "QUALIFICATION_SAMPLING_SEED": str(self.args.sampling_seed + cycle),
                 "QUALIFICATION_SAMPLING_TEMPERATURE": "1.0",
                 "QUALIFICATION_PRIVILEGED_BOOTSTRAP_PATH": str(bootstrap),
-                "PROCEDURAL_INTERACTION_CURRICULUM": phase,
+                "PROCEDURAL_INTERACTION_CURRICULUM": (
+                    "e0c4_recursive_coordinator_return"
+                    if admission_profile == "tight_answer_free_child_reporting_v1"
+                    else phase
+                ),
                 "DUAL_EXTERNAL_MODEL": f"q35-grpo-auto-{cycle:06d}",
+                **_admission_environment(admission_profile),
             }
         )
         command = [
@@ -1060,6 +1112,11 @@ def main() -> None:
     parser.add_argument("--start-index", type=int, default=9_400_000)
     parser.add_argument("--master-seed", type=int, default=20260824)
     parser.add_argument("--sampling-seed", type=int, default=20260825)
+    parser.add_argument(
+        "--admission-scaffold-profile",
+        choices=ADMISSION_SCAFFOLD_PROFILES,
+        default="custom",
+    )
     parser.add_argument("--uv-bin", type=Path, default=Path("/home/ubuntu/.local/bin/uv"))
     parser.add_argument(
         "--experiment-dir",
