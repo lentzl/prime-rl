@@ -23,6 +23,15 @@ DATASET_CONTRACTS = {
         "child",
         "canonical_answer_free_document_leaf_compute_report_stop",
     ),
+    "qwen35-2b-document-coordinator-fanin-sft/v1": (
+        "coordinator",
+        "grounded_document_coordinator_spawn_partial_yield_fanin",
+    ),
+}
+DATASET_ANSWER_FREE = {
+    "qwen35-2b-document-decision-sft/v2": True,
+    "qwen35-2b-document-child-sft/v1": True,
+    "qwen35-2b-document-coordinator-fanin-sft/v1": False,
 }
 PROMOTION_MINIMUM = 4
 
@@ -134,14 +143,15 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     manifest_path = path / "MANIFEST.json"
     parquet = path / "train.parquet"
     manifest = json.loads(manifest_path.read_text())
-    contract = DATASET_CONTRACTS.get(manifest.get("schema_version"))
+    schema_version = manifest.get("schema_version")
+    contract = DATASET_CONTRACTS.get(schema_version)
     if (
         contract is None
         or manifest.get("status") != "complete"
         or (manifest.get("role"), manifest.get("objective")) != contract
         or manifest.get("rows") != 12
         or set(manifest.get("family_counts", {}).values()) != {4}
-        or manifest.get("answer_free") is not True
+        or manifest.get("answer_free") is not DATASET_ANSWER_FREE.get(schema_version)
         or manifest.get("tool_call_format") != "openai_function_v1"
         or manifest.get("dataset", {}).get("path") != parquet.name
         or manifest.get("dataset", {}).get("sha256") != sha256_file(parquet)

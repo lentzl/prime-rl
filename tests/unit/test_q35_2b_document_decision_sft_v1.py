@@ -169,6 +169,15 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
         "child",
         "canonical_answer_free_document_leaf_compute_report_stop",
     )
+    assert module.DATASET_CONTRACTS[
+        "qwen35-2b-document-coordinator-fanin-sft/v1"
+    ] == (
+        "coordinator",
+        "grounded_document_coordinator_spawn_partial_yield_fanin",
+    )
+    assert module.DATASET_ANSWER_FREE[
+        "qwen35-2b-document-coordinator-fanin-sft/v1"
+    ] is False
 
 
 def test_dual_policy_launcher_exposes_inference_sibling_binaries() -> None:
@@ -269,3 +278,68 @@ def test_document_child_export_uses_real_depth_one_context_and_answer_free_code(
         assert "receiver_role='parent'" in code
         assert '"words":' not in code
         assert row["messages"][-1]["content"] == "Done."
+
+
+def test_document_coordinator_fanin_export_is_grounded_and_phase_balanced(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_coordinator_fanin_sft_v1")
+    traces = []
+    for variant in range(4):
+        trace = _trace("document_flat", variant)
+        root = f"/workspace/document-recursion/v{variant}-i20000"
+        trace["task"]["data"]["files"] = {
+            f"{root}/alpha.md": "# Alpha\n\n## One\n\na b c\n",
+            f"{root}/beta.md": "# Beta\n\n## One\n\n## Two\n\na b c d\n",
+            f"{root}/gamma.md": "# Gamma\n\n## One\n\na b c d e\n",
+        }
+        traces.append(trace)
+    source = tmp_path / "flat.jsonl"
+    source.write_text("\n".join(json.dumps({"traces": [trace]}) for trace in traces) + "\n")
+    output = tmp_path / "fanin-dataset"
+
+    manifest = module.export(traces=[source], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 12
+    assert manifest["answer_free"] is False
+    assert manifest["grounded_on_fixture_contents"] is True
+    assert manifest["leakage_mode"] == "environment_designer_grounded_v1"
+    assert manifest["family_counts"] == {
+        "document_coordinator_complete_fanin": 4,
+        "document_coordinator_partial_fanin": 4,
+        "document_coordinator_spawn": 4,
+    }
+    spawn_row = next(row for row in rows if row["family"].endswith("_spawn"))
+    spawn_code = json.loads(
+        spawn_row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+    )["code"]
+    assert spawn_code.count('task = """') == 3
+    assert spawn_code.count("await rlm(") == 3
+    assert "receiver_role='parent'" in spawn_code
+    assert "await rlm('Read" not in spawn_code
+
+    partial_row = next(row for row in rows if row["family"].endswith("partial_fanin"))
+    assert "waiting for beta-document-worker" in partial_row["messages"][-1]["content"]
+    assert partial_row["messages"][-1]["tool_calls"] == []
+
+    complete_row = next(row for row in rows if row["family"].endswith("complete_fanin"))
+    assert (
+        sum(
+            message["role"] == "user"
+            and "[from child:" in message.get("content", "")
+            for message in complete_row["messages"]
+        )
+        == 3
+    )
+    final = json.loads(complete_row["messages"][-1]["content"])
+    assert final == {
+        "alpha_words": 7,
+        "alpha_h2": 1,
+        "beta_words": 10,
+        "beta_h2": 2,
+        "gamma_words": 9,
+        "gamma_h2": 1,
+        "total_words": 26,
+        "total_h2": 4,
+    }
