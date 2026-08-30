@@ -494,6 +494,22 @@ def test_role_local_designer_batch_routes_generation_to_its_own_policy() -> None
     assert "unhinted_after_four_else_leak" in launcher
 
 
+def test_role_local_designer_batch_uses_controller_state_directory(tmp_path: Path) -> None:
+    controller = MODULE.Controller.__new__(MODULE.Controller)
+    controller.state_dir = tmp_path / "state"
+    controller.args = type(
+        "Args",
+        (),
+        {"designer_artifact_root": tmp_path / "designer-artifacts"},
+    )()
+
+    batch_id, batch_dir, memory = controller._designer_batch(MODULE.project([_initialized()]))
+
+    assert batch_id.startswith("role-local-000001-coordinator-")
+    assert batch_dir.parent == tmp_path / "designer-artifacts" / "coordinator"
+    assert memory == tmp_path / "state" / "designer-memory-coordinator.jsonl"
+
+
 def test_role_grpo_accepts_only_explicit_generated_bootstrap_override() -> None:
     launcher = ROLE_GRPO.read_text()
 

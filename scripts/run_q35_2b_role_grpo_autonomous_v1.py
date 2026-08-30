@@ -653,7 +653,7 @@ class Controller:
         ).hexdigest()[:12]
         batch_id = f"role-local-{cycle:06d}-{role}-{identity}"
         batch_dir = self.args.designer_artifact_root.resolve() / role / batch_id
-        memory = self.state / f"designer-memory-{role}.jsonl"
+        memory = self.state_dir / f"designer-memory-{role}.jsonl"
         return batch_id, batch_dir, memory
 
     def _delayed_designer_source(
