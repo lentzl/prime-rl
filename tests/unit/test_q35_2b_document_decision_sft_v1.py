@@ -820,6 +820,82 @@ def test_document_manager_aggregation_export_keeps_only_complete_fanin(
     assert trainer.DATASET_ANSWER_FREE[manifest["schema_version"]] is False
 
 
+def test_document_manager_permuted_aggregation_export_balances_all_orders(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_manager_aggregation_permuted_sft_v1")
+    traces = []
+    for variant in range(4):
+        trace = _trace("document_hierarchical", variant)
+        root = f"/workspace/document-recursion/v{variant}-i20000"
+        trace["task"]["data"]["files"] = {
+            f"{root}/alpha.md": "one two\n## A\n",
+            f"{root}/beta.md": "one two three\n## B\n## C\n",
+            f"{root}/gamma.md": "one two three four\n## D\n",
+        }
+        manager_root = len(trace["nodes"])
+        trace["nodes"].extend(
+            [
+                {
+                    "sampled": False,
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": "Recursive agent depth: 1\nYou are a child agent spawned by root-coordinator.",
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": manager_root,
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "[task from parent]\n\n"
+                                    "[recursive document coordinator session contract]\n"
+                                    "session_role=document_coordinator"
+                                ),
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+        traces.append(trace)
+    source = tmp_path / "depth-two-runtime.jsonl"
+    source.write_text(json.dumps({"traces": traces}) + "\n")
+    output = tmp_path / "manager-aggregation-permuted"
+
+    manifest = module.export(traces=[source], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 24
+    assert manifest["training_batch_size"] == 12
+    assert manifest["arrival_order_balanced"] is True
+    assert len(manifest["arrival_orders"]) == 6
+    assert set(manifest["family_counts"].values()) == {4}
+    for row in rows:
+        observed = [
+            message["content"].split("[from child:", 1)[1].split("-document-worker]", 1)[0]
+            for message in row["messages"]
+            if message["role"] == "user" and "[from child:" in message.get("content", "")
+        ]
+        assert "-".join(observed) == row["arrival_order"]
+        report_code = json.loads(
+            row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+        )["code"]
+        assert "'total_words': 17" in report_code
+        assert "'total_h2': 4" in report_code
+        assert "receiver_role='parent'" in report_code
+
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 24
+    assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 12
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:

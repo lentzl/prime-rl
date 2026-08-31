@@ -1757,13 +1757,39 @@ def test_proxy_keeps_document_root_passive_between_manager_admission_and_report(
     }
 
     assert module.is_incomplete_document_manager_wait_request(admitted)
+    assert module.is_incomplete_document_manager_wait_request(
+        {
+            "messages": admitted["messages"]
+            + [
+                {
+                    "role": "user",
+                    "content": (
+                        "[from child:document-manager]\n\n"
+                        "RLM child document-manager completed without sending a reply."
+                    ),
+                }
+            ]
+        }
+    )
+    final = {
+        "alpha_words": 20,
+        "alpha_h2": 2,
+        "beta_words": 30,
+        "beta_h2": 3,
+        "gamma_words": 40,
+        "gamma_h2": 4,
+        "total_words": 90,
+        "total_h2": 9,
+    }
     assert not module.is_incomplete_document_manager_wait_request(
         {
             "messages": admitted["messages"]
             + [
                 {
                     "role": "user",
-                    "content": "[from child:document-manager]\n{\"total_words\":90}",
+                    "content": (
+                        "[from child:document-manager]\n\n" + json.dumps(final)
+                    ),
                 }
             ]
         }

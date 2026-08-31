@@ -413,8 +413,10 @@ def is_incomplete_document_manager_wait_request(payload: dict[str, Any]) -> bool
         isinstance(message, dict) and message.get("role") == "tool"
         for message in messages
     )
-    manager_report_present = _contains_marker(messages, "[from child:document-manager]")
-    return manager_admitted and spawn_receipt_present and not manager_report_present
+    valid_manager_report_present = (
+        document_root_manager_report_from_messages(messages) is not None
+    )
+    return manager_admitted and spawn_receipt_present and not valid_manager_report_present
 
 
 def document_leaf_path_from_messages(messages: Any) -> str | None:

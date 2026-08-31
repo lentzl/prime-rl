@@ -51,6 +51,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "depth_two_manager_complete_fanin_parent_report",
     ),
+    "qwen35-2b-document-manager-aggregation-permuted-sft/v1": (
+        "coordinator",
+        "depth_two_manager_order_robust_complete_fanin_parent_report",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -62,10 +66,15 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-manager-admission-sft/v1": True,
     "qwen35-2b-document-manager-fanin-sft/v1": False,
     "qwen35-2b-document-manager-aggregation-sft/v1": False,
+    "qwen35-2b-document-manager-aggregation-permuted-sft/v1": False,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-sft/v1": 4,
+    "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
+}
+DATASET_BATCH_SIZES = {
+    "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
 }
 PROMOTION_MINIMUM = 4
 
@@ -246,7 +255,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         output_root=output_root,
         learning_rate=args.learning_rate,
         optimizer_updates=args.optimizer_updates,
-        batch_size=dataset["rows"],
+        batch_size=DATASET_BATCH_SIZES.get(dataset["schema_version"], dataset["rows"]),
     )
     _write_once(config_path, config)
 
