@@ -33,6 +33,7 @@ leaf_reporter_contract=${DUAL_LEAF_REPORTER_CONTRACT:-0}
 leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}
 leaf_compute_report_scaffold=${DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}
 document_leaf_compute_report_scaffold=${DUAL_DOCUMENT_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}
+document_manager_fanin_scaffold=${DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
 child_authored_compute=${DUAL_CHILD_AUTHORED_COMPUTE:-0}
 depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}
@@ -99,6 +100,10 @@ if [[ "$leaf_compute_report_scaffold" != 0 && "$leaf_compute_report_scaffold" !=
 fi
 if [[ "$document_leaf_compute_report_scaffold" != 0 && "$document_leaf_compute_report_scaffold" != 1 ]]; then
   echo "DUAL_DOCUMENT_LEAF_COMPUTE_REPORT_SCAFFOLD must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$document_manager_fanin_scaffold" != 0 && "$document_manager_fanin_scaffold" != 1 ]]; then
+  echo "DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD must be 0 or 1" >&2
   exit 1
 fi
 if [[ "$leak_coordinator_return_action" == 1 && "$typed_coordinator_return" == 1 ]]; then
@@ -273,6 +278,9 @@ fi
 if [[ "$document_leaf_compute_report_scaffold" == 1 ]]; then
   proxy_args+=(--document-leaf-compute-report-scaffold)
 fi
+if [[ "$document_manager_fanin_scaffold" == 1 ]]; then
+  proxy_args+=(--document-manager-fanin-scaffold)
+fi
 if [[ "$typed_child_report" == 1 ]]; then
   proxy_args+=(--typed-child-report)
 fi
@@ -354,6 +362,7 @@ child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
   printf 'dual_leaf_inline_evidence=%s\n' "$leaf_inline_evidence"
   printf 'dual_leaf_compute_report_scaffold=%s\n' "$leaf_compute_report_scaffold"
   printf 'dual_document_leaf_compute_report_scaffold=%s\n' "$document_leaf_compute_report_scaffold"
+  printf 'dual_document_manager_fanin_scaffold=%s\n' "$document_manager_fanin_scaffold"
   printf 'dual_typed_child_report=%s\n' "$typed_child_report"
   printf 'dual_child_authored_compute=%s\n' "$child_authored_compute"
   printf 'dual_depth_default_child=%s\n' "$depth_default_child"

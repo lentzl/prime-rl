@@ -486,6 +486,158 @@ def document_leaf_report_completed(messages: Any) -> bool:
     )
 
 
+def document_manager_reports_from_messages(
+    messages: Any,
+) -> dict[str, dict[str, int]]:
+    """Collect unique valid terminal document reports delivered to one manager."""
+
+    if not isinstance(messages, list):
+        return {}
+    reports: dict[str, dict[str, int]] = {}
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        fragments: list[str] = []
+
+        def collect(value: Any) -> None:
+            if isinstance(value, str):
+                fragments.append(value)
+            elif isinstance(value, list):
+                for item in value:
+                    collect(item)
+            elif isinstance(value, dict):
+                for item in value.values():
+                    collect(item)
+
+        collect(message.get("content"))
+        text = "\n".join(fragments)
+        sender_match = re.search(
+            r"\[from child:(alpha|beta|gamma)-document-worker\]", text
+        )
+        if sender_match is None:
+            continue
+        try:
+            payload = json.loads(text.rsplit("\n\n", 1)[-1].strip())
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != {"words", "h2"}
+            or not all(type(payload[key]) is int for key in ("words", "h2"))
+        ):
+            continue
+        stem = sender_match.group(1)
+        normalized = {"words": payload["words"], "h2": payload["h2"]}
+        if stem in reports and reports[stem] != normalized:
+            raise ValueError(f"document manager received conflicting {stem} reports")
+        reports[stem] = normalized
+    return reports
+
+
+def document_manager_parent_report(reports: dict[str, dict[str, int]]) -> dict[str, int]:
+    """Assemble the exact root-facing document report from three leaf reports."""
+
+    stems = ("alpha", "beta", "gamma")
+    if set(reports) != set(stems):
+        raise ValueError("document manager fan-in requires alpha, beta, and gamma")
+    result: dict[str, int] = {}
+    for stem in stems:
+        result[f"{stem}_words"] = reports[stem]["words"]
+        result[f"{stem}_h2"] = reports[stem]["h2"]
+    result["total_words"] = sum(reports[stem]["words"] for stem in stems)
+    result["total_h2"] = sum(reports[stem]["h2"] for stem in stems)
+    return result
+
+
+def document_manager_parent_report_code(reports: dict[str, dict[str, int]]) -> str:
+    """Return one exact serialized manager-to-root send action."""
+
+    result = document_manager_parent_report(reports)
+    return (
+        "import json\n"
+        f"document_manager_report = {result!r}\n"
+        "await agent_message.send(json.dumps(document_manager_report, "
+        "separators=(',', ':')), receiver_role='parent')"
+    )
+
+
+def document_manager_parent_report_completed(messages: Any) -> bool:
+    """Recognize the delivery receipt for a scaffolded manager parent report."""
+
+    if not isinstance(messages, list):
+        return False
+    action_index = next(
+        (
+            index
+            for index, message in enumerate(messages)
+            if isinstance(message, dict)
+            and message.get("role") == "assistant"
+            and _contains_marker(message, "document_manager_report =")
+        ),
+        None,
+    )
+    if action_index is None:
+        return False
+    return any(
+        isinstance(message, dict)
+        and message.get("role") == "tool"
+        and _contains_marker(message, "deliveryStatus")
+        for message in messages[action_index + 1 :]
+    )
+
+
+def document_root_manager_report_from_messages(messages: Any) -> dict[str, int] | None:
+    """Extract one validated final manager report delivered to the document root."""
+
+    if not isinstance(messages, list):
+        return None
+    expected = {
+        "alpha_words",
+        "alpha_h2",
+        "beta_words",
+        "beta_h2",
+        "gamma_words",
+        "gamma_h2",
+        "total_words",
+        "total_h2",
+    }
+    results = []
+    for message in messages:
+        if not isinstance(message, dict) or message.get("role") != "user":
+            continue
+        fragments: list[str] = []
+
+        def collect(value: Any) -> None:
+            if isinstance(value, str):
+                fragments.append(value)
+            elif isinstance(value, list):
+                for item in value:
+                    collect(item)
+            elif isinstance(value, dict):
+                for item in value.values():
+                    collect(item)
+
+        collect(message.get("content"))
+        text = "\n".join(fragments)
+        if "[from child:document-manager]" not in text:
+            continue
+        try:
+            payload = json.loads(text.rsplit("\n\n", 1)[-1].strip())
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if (
+            isinstance(payload, dict)
+            and set(payload) == expected
+            and all(type(payload[key]) is int for key in expected)
+        ):
+            results.append(payload)
+    if not results:
+        return None
+    if any(result != results[0] for result in results[1:]):
+        raise ValueError("document root received conflicting manager reports")
+    return results[0]
+
+
 def with_root_coordinator_contract(payload: dict[str, Any]) -> dict[str, Any]:
     """Prepend a persistent role contract to a depth-zero chat request."""
 
@@ -1563,6 +1715,7 @@ class DualPolicyProxy:
         leaf_inline_evidence: bool = False,
         leaf_compute_report_scaffold: bool = False,
         document_leaf_compute_report_scaffold: bool = False,
+        document_manager_fanin_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
     ) -> None:
@@ -1591,6 +1744,7 @@ class DualPolicyProxy:
         self.leaf_inline_evidence = leaf_inline_evidence
         self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
         self.document_leaf_compute_report_scaffold = document_leaf_compute_report_scaffold
+        self.document_manager_fanin_scaffold = document_manager_fanin_scaffold
         self.typed_child_report = typed_child_report
         self.child_authored_compute = child_authored_compute
         self.client: ClientSession | None = None
@@ -1792,6 +1946,106 @@ class DualPolicyProxy:
             if self.document_leaf_compute_report_scaffold and typed_child_chat
             else None
         )
+        document_manager_chat = (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and not is_root_coordinator_request(payload)
+            and _contains_marker(payload.get("messages"), DOCUMENT_COORDINATOR_HEADER)
+        )
+        manager_reports = (
+            document_manager_reports_from_messages(payload.get("messages"))
+            if self.document_manager_fanin_scaffold and document_manager_chat
+            else {}
+        )
+        root_manager_report = (
+            document_root_manager_report_from_messages(payload.get("messages"))
+            if self.document_manager_fanin_scaffold
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+            else None
+        )
+        if root_manager_report is not None:
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content=json.dumps(root_manager_report, separators=(",", ":")),
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_root_manager_report_finalized",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
+        if (
+            self.document_manager_fanin_scaffold
+            and document_manager_chat
+            and document_manager_parent_report_completed(payload.get("messages"))
+        ):
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Document manager report delivered.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_manager_report_session_terminated",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
+        manager_admission_complete = document_manager_chat and (
+            _contains_marker(payload.get("messages"), "alpha_worker = await rlm(")
+            and any(
+                isinstance(message, dict) and message.get("role") == "tool"
+                for message in payload.get("messages") or []
+            )
+        )
+        if (
+            self.document_manager_fanin_scaffold
+            and manager_admission_complete
+            and len(manager_reports) < 3
+        ):
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Waiting for the remaining document reports.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_manager_fanin_session_passive",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         if (
             document_leaf_path is not None
             and document_leaf_report_completed(payload.get("messages"))
@@ -1975,6 +2229,11 @@ class DualPolicyProxy:
         leaf_compute_report_scope = False
         leaf_compute_report_action_sha256 = None
         root_finalization_scope = False
+        if self.document_manager_fanin_scaffold and len(manager_reports) == 3:
+            code = document_manager_parent_report_code(manager_reports)
+            forced_chat_scope = "document_manager_fanin"
+            routed = force_ipython_code_schema(routed, code)
+            forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
         if document_leaf_path is not None:
             code = document_leaf_compute_report_code(document_leaf_path)
             forced_chat_scope = "document_leaf_report"
@@ -2516,6 +2775,7 @@ def main() -> None:
     parser.add_argument("--leaf-inline-evidence", action="store_true")
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--document-leaf-compute-report-scaffold", action="store_true")
+    parser.add_argument("--document-manager-fanin-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
     parser.add_argument("--depth-default-child", action="store_true")
@@ -2565,6 +2825,7 @@ def main() -> None:
         leaf_inline_evidence=args.leaf_inline_evidence,
         leaf_compute_report_scaffold=args.leaf_compute_report_scaffold,
         document_leaf_compute_report_scaffold=args.document_leaf_compute_report_scaffold,
+        document_manager_fanin_scaffold=args.document_manager_fanin_scaffold,
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,
     )

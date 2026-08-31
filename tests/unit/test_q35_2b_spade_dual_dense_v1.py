@@ -68,6 +68,11 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         in launcher
     )
     assert 'proxy_args+=(--document-leaf-compute-report-scaffold)' in launcher
+    assert (
+        "document_manager_fanin_scaffold=${DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-manager-fanin-scaffold)' in launcher
     assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
     assert 'proxy_args+=(--depth-default-child)' in launcher
 
@@ -1814,6 +1819,87 @@ def test_proxy_builds_one_terminal_document_leaf_compute_report_action() -> None
                 }
             ]
         )
+
+
+def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    reports = {
+        "alpha": {"words": 20, "h2": 2},
+        "beta": {"words": 30, "h2": 3},
+        "gamma": {"words": 40, "h2": 4},
+    }
+    messages = []
+    for stem, payload in reports.items():
+        messages.append(
+            {
+                "role": "user",
+                "content": (
+                    f"[from child:{stem}-document-worker]\n"
+                    "Agent-to-agent message received.\n\n"
+                    + json.dumps(payload)
+                ),
+            }
+        )
+
+    assert module.document_manager_reports_from_messages(messages) == reports
+    final = module.document_manager_parent_report(reports)
+    assert final == {
+        "alpha_words": 20,
+        "alpha_h2": 2,
+        "beta_words": 30,
+        "beta_h2": 3,
+        "gamma_words": 40,
+        "gamma_h2": 4,
+        "total_words": 90,
+        "total_h2": 9,
+    }
+    code = module.document_manager_parent_report_code(reports)
+    assert "document_manager_report =" in code
+    assert "json.dumps(document_manager_report" in code
+    assert "receiver_role='parent'" in code
+
+    manager_completed = messages + [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "ipython",
+                        "arguments": json.dumps({"code": code}),
+                    },
+                }
+            ],
+        },
+        {"role": "tool", "content": "{'deliveryStatus': 'delivered'}"},
+    ]
+    assert module.document_manager_parent_report_completed(manager_completed)
+
+    root_messages = [
+        {
+            "role": "user",
+            "content": (
+                "[from child:document-manager]\n"
+                "Agent-to-agent message received.\n\n"
+                + json.dumps(final)
+            ),
+        }
+    ]
+    assert module.document_root_manager_report_from_messages(root_messages) == final
+
+    duplicate = messages + [
+        {
+            "role": "user",
+            "content": (
+                "[from child:alpha-document-worker]\n"
+                "Agent-to-agent message received.\n\n"
+                '{"words":21,"h2":2}'
+            ),
+        }
+    ]
+    with pytest.raises(ValueError, match="conflicting alpha reports"):
+        module.document_manager_reports_from_messages(duplicate)
 
 
 def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
