@@ -1111,6 +1111,14 @@ def test_document_root_topology_classifier_rejects_ambiguous_delegation() -> Non
         )
         is None
     )
+    broken_but_unambiguous = "\n".join(
+        (
+            "alpha = await rlm(\"contains 'parent'\", name='alpha-document-worker')",
+            "beta = await rlm('contains 'parent'', name='beta-document-worker')",
+            "gamma = await rlm('task', name='gamma-document-worker')",
+        )
+    )
+    assert module.document_root_topology(broken_but_unambiguous) == "flat"
 
 
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:

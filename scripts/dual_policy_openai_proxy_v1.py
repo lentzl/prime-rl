@@ -954,28 +954,34 @@ def document_root_topology(code: str) -> str | None:
     try:
         tree = ast.parse(code)
     except SyntaxError:
-        return None
-    names = []
-    for node in ast.walk(tree):
-        if not (
-            isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id == "rlm"
-        ):
-            continue
-        name = next(
-            (
-                keyword.value.value
-                for keyword in node.keywords
-                if keyword.arg == "name"
-                and isinstance(keyword.value, ast.Constant)
-                and isinstance(keyword.value.value, str)
-            ),
-            None,
+        matches = re.findall(
+            r"\bname\s*=\s*(['\"])(?P<name>[^'\"]+)\1", code
         )
-        if name is None:
+        names = [name for _, name in matches]
+        if len(re.findall(r"\brlm\s*\(", code)) != len(names):
             return None
-        names.append(name)
+    else:
+        names = []
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "rlm"
+            ):
+                continue
+            name = next(
+                (
+                    keyword.value.value
+                    for keyword in node.keywords
+                    if keyword.arg == "name"
+                    and isinstance(keyword.value, ast.Constant)
+                    and isinstance(keyword.value.value, str)
+                ),
+                None,
+            )
+            if name is None:
+                return None
+            names.append(name)
     if not names:
         return "direct"
     if names == ["document-manager"]:
