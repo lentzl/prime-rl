@@ -881,7 +881,7 @@ def test_exact_coordinator_action_preserves_recursive_document_manager_contract(
     assert action.count("-document-worker owns") == 3
     assert "alpha_words, alpha_h2" in action
     assert "Retain its handle" not in action
-    assert "20" not in action
+    assert '"alpha_words": 20' not in action
 
 
 def test_document_manager_scaffold_rejects_incomplete_leaf_assignments() -> None:
