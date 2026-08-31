@@ -45,6 +45,11 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         in launcher
     )
     assert 'proxy_args+=(--leak-coordinator-exact-action)' in launcher
+    assert (
+        "leak_document_manager_exact_action=${DUAL_LEAK_DOCUMENT_MANAGER_EXACT_ACTION:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--leak-document-manager-exact-action)' in launcher
     assert "typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}" in launcher
     assert 'proxy_args+=(--typed-child-report)' in launcher
     assert (
@@ -882,6 +887,41 @@ def test_exact_coordinator_action_preserves_recursive_document_manager_contract(
     assert "alpha_words, alpha_h2" in action
     assert "Retain its handle" not in action
     assert '"alpha_words": 20' not in action
+
+
+def test_exact_document_manager_action_preserves_three_leaf_report_contracts() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    root = "/workspace/document-recursion/v0-i20500"
+    manager_contract = (
+        "[recursive document coordinator session contract]\n"
+        "session_role=document_coordinator\n"
+        "is_root=false\n"
+        "has_parent=true\n"
+        "can_delegate=true\n"
+        "can_finalize_user=false\n"
+        "maximum_descendant_depth=1\n"
+        "return_contract=exactly_one_parent_report\n"
+        f"You own the document directory {root}. Delegate all assignments:\n"
+        + "\n".join(
+            f"- {stem}-document-worker owns {root}/{stem}.md"
+            for stem in ("alpha", "beta", "gamma")
+        )
+        + "\nSend that object exactly once to receiver_role='parent', then stop."
+    )
+
+    action = module.disclosed_document_leaf_action(manager_contract)
+
+    assert action is not None
+    assert action.count("await rlm(") == 3
+    assert action.count("_worker = await rlm(") == 3
+    assert action.count('name="') == 3
+    assert action.count("json.dumps(result)") == 3
+    assert action.count("receiver_role='parent'") == 3
+    assert action.count("integer keys `words` and `h2`") == 3
+    assert root in action
+    assert module.disclosed_document_leaf_action_from_messages(
+        [{"role": "user", "content": [{"type": "text", "text": manager_contract}]}]
+    ) == action
 
 
 def test_document_manager_scaffold_rejects_incomplete_leaf_assignments() -> None:

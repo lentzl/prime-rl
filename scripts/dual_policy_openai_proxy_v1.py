@@ -632,6 +632,39 @@ def disclosed_document_spawn_action(prompt: str) -> str | None:
     return calls
 
 
+def disclosed_document_leaf_action(prompt: str) -> str | None:
+    """Build the exact three-leaf action for a non-root document manager."""
+
+    matches = [
+        match.group("contract").strip()
+        for match in DOCUMENT_MANAGER_CONTRACT_PATTERN.finditer(prompt)
+    ]
+    if not matches:
+        return None
+    if len(set(matches)) != 1:
+        raise ValueError("document leaf scaffold contains conflicting manager contracts")
+    root_match = re.search(
+        r"You own the document directory (?P<root>/[^\s]+)\.", matches[0]
+    )
+    if root_match is None:
+        raise ValueError("document leaf scaffold lacks one owned directory")
+    root = root_match.group("root")
+    stems = ("alpha", "beta", "gamma")
+    declarations = "\n".join(
+        f'{stem}_task = """Read {root}/{stem}.md using the CLI or IPython. '
+        "Count words with Python str.split() over the complete file contents and count "
+        "lines beginning exactly `## `. Send one JSON object with integer keys `words` "
+        "and `h2` to your parent using await agent_message.send(json.dumps(result), "
+        "receiver_role='parent'). After the delivery receipt succeeds, stop.\"\"\""
+        for stem in stems
+    )
+    calls = "\n".join(
+        f'{stem}_worker = await rlm({stem}_task, name="{stem}-document-worker")'
+        for stem in stems
+    )
+    return f"{declarations}\n{calls}"
+
+
 def disclosed_child_action(prompt: str) -> str | None:
     """Extract a hidden training-only child send action from its private context."""
 
@@ -687,6 +720,25 @@ def disclosed_root_action_from_messages(messages: Any) -> str | None:
     if EXACT_ACTION_MARKER not in prompt:
         prompt = f"{EXACT_ACTION_MARKER}\n{prompt}"
     return disclosed_root_action(prompt)
+
+
+def disclosed_document_leaf_action_from_messages(messages: Any) -> str | None:
+    """Extract the non-root document manager scaffold from structured messages."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    return disclosed_document_leaf_action("\n".join(fragments))
 
 
 def inline_evidence_from_messages(messages: Any) -> str | None:
@@ -1428,6 +1480,7 @@ class DualPolicyProxy:
         root_depth_token_ids: list[int] | None = None,
         depth_default_child: bool = False,
         leak_coordinator_exact_action: bool = False,
+        leak_document_manager_exact_action: bool = False,
         leak_coordinator_return_action: bool = False,
         typed_coordinator_return: bool = False,
         leak_child_exact_action: bool = False,
@@ -1454,6 +1507,7 @@ class DualPolicyProxy:
         self.depth_default_child = depth_default_child
         self.tokenizer = tokenizer
         self.leak_coordinator_exact_action = leak_coordinator_exact_action
+        self.leak_document_manager_exact_action = leak_document_manager_exact_action
         self.leak_coordinator_return_action = leak_coordinator_return_action
         self.typed_coordinator_return = typed_coordinator_return
         self.leak_child_exact_action = leak_child_exact_action
@@ -1469,6 +1523,7 @@ class DualPolicyProxy:
         self.sequence = 0
         self.leaked_session_hashes: dict[str, set[str]] = {
             "coordinator": set(),
+            "document_manager": set(),
             "coordinator_return": set(),
             "child": set(),
         }
@@ -1816,6 +1871,37 @@ class DualPolicyProxy:
         leaf_compute_report_scope = False
         leaf_compute_report_action_sha256 = None
         root_finalization_scope = False
+        if (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and self.leak_document_manager_exact_action
+            and not is_root_coordinator_request(payload)
+            and _contains_marker(payload.get("messages"), DOCUMENT_COORDINATOR_HEADER)
+        ):
+            code = disclosed_document_leaf_action_from_messages(payload.get("messages"))
+            if code is not None:
+                forced_chat_scope = "document_manager"
+                if session_sha256 is None:
+                    body = json.dumps(
+                        routed, separators=(",", ":"), ensure_ascii=False
+                    ).encode()
+                    self._audit(
+                        role=role,
+                        endpoint=endpoint,
+                        body=body,
+                        status=400,
+                        mode="leak_rejected_missing_document_manager_session",
+                    )
+                    return web.json_response(
+                        {"error": "exact document manager action leak requires x-session-id"},
+                        status=400,
+                    )
+                if session_sha256 in self.leaked_session_hashes[forced_chat_scope]:
+                    forced_chat_scope = None
+                else:
+                    self.leaked_session_hashes[forced_chat_scope].add(session_sha256)
+                    routed = force_ipython_code_schema(routed, code)
+                    forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
         if (
             self.root_coordinator_contract
             and self.typed_child_report
@@ -2310,6 +2396,7 @@ def main() -> None:
     parser.add_argument("--external-model", required=True)
     parser.add_argument("--tokenizer-model")
     parser.add_argument("--leak-coordinator-exact-action", action="store_true")
+    parser.add_argument("--leak-document-manager-exact-action", action="store_true")
     parser.add_argument("--leak-coordinator-return-action", action="store_true")
     parser.add_argument("--typed-coordinator-return", action="store_true")
     parser.add_argument("--leak-child-exact-action", action="store_true")
@@ -2357,6 +2444,7 @@ def main() -> None:
         depth_default_child=args.depth_default_child,
         tokenizer=tokenizer,
         leak_coordinator_exact_action=args.leak_coordinator_exact_action,
+        leak_document_manager_exact_action=args.leak_document_manager_exact_action,
         leak_coordinator_return_action=args.leak_coordinator_return_action,
         typed_coordinator_return=args.typed_coordinator_return,
         leak_child_exact_action=args.leak_child_exact_action,
