@@ -838,6 +838,70 @@ def test_exact_coordinator_action_supports_answer_free_flat_document_spawns() ->
     ) == action
 
 
+def test_exact_coordinator_action_preserves_recursive_document_manager_contract() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    root = "/workspace/document-recursion/v0-i20000"
+    manager_contract = (
+        "[recursive document coordinator session contract]\n"
+        "session_role=document_coordinator\n"
+        "is_root=false\n"
+        "has_parent=true\n"
+        "can_delegate=true\n"
+        "can_finalize_user=false\n"
+        "maximum_descendant_depth=1\n"
+        "return_contract=exactly_one_parent_report\n"
+        f"You own the document directory {root}. Do not compute the three file statistics "
+        "yourself. Delegate all three assignments below to three independent terminal children, "
+        "retaining their handles and spawning them before waiting:\n"
+        + "\n".join(
+            f"- {stem}-document-worker owns {root}/{stem}.md"
+            for stem in ("alpha", "beta", "gamma")
+        )
+        + "\nEach child must read only its assigned file, count all words with Python str.split(), "
+        "count lines beginning exactly `## `, and send one JSON object with integer keys "
+        "`words` and `h2` to you through agent_message.send. After all three explicit child "
+        "reports arrive, assemble one JSON object with the per-file values and totals. Its exact "
+        "keys are: alpha_words, alpha_h2, beta_words, beta_h2, gamma_words, gamma_h2, "
+        "total_words, total_h2. Send that object exactly once to receiver_role='parent', then stop."
+    )
+    prompt = (
+        "Delegate this directory to exactly one document-manager and preserve this contract:\n\n"
+        f"{manager_contract}\n\nRetain its handle and end the turn without polling."
+    )
+
+    action = module.disclosed_root_action_from_messages(
+        [{"role": "user", "content": prompt}]
+    )
+
+    assert action is not None
+    assert action.startswith("document_manager = await rlm(")
+    assert action.endswith('name="document-manager")')
+    assert "[recursive document coordinator session contract]" in action
+    assert "maximum_descendant_depth=1" in action
+    assert action.count("-document-worker owns") == 3
+    assert "alpha_words, alpha_h2" in action
+    assert "Retain its handle" not in action
+    assert "20" not in action
+
+
+def test_document_manager_scaffold_rejects_incomplete_leaf_assignments() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    prompt = """[recursive document coordinator session contract]
+session_role=document_coordinator
+is_root=false
+has_parent=true
+can_delegate=true
+can_finalize_user=false
+maximum_descendant_depth=1
+return_contract=exactly_one_parent_report
+You own the document directory /workspace/docs. Delegate all assignments:
+- alpha-document-worker owns /workspace/docs/alpha.md
+Send that object exactly once to receiver_role='parent', then stop."""
+
+    with pytest.raises(ValueError, match="exact three leaf assignments"):
+        module.disclosed_document_manager_action(prompt)
+
+
 def test_document_spawn_scaffold_rejects_partial_or_conflicting_contracts() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     partial = (

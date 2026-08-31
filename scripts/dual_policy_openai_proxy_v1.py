@@ -53,6 +53,18 @@ ROOT_ACTION_PATTERN = re.compile(
     r"```python\s*\n(?P<code>.*?)\n```",
     re.DOTALL,
 )
+DOCUMENT_MANAGER_CONTRACT_PATTERN = re.compile(
+    r"(?P<contract>\[recursive document coordinator session contract\]\n"
+    r"session_role=document_coordinator\n"
+    r"is_root=false\n"
+    r"has_parent=true\n"
+    r"can_delegate=true\n"
+    r"can_finalize_user=false\n"
+    r"maximum_descendant_depth=1\n"
+    r"return_contract=exactly_one_parent_report\n"
+    r".*?Send that object exactly once to receiver_role='parent', then stop\.)",
+    re.DOTALL,
+)
 CHILD_ACTION_PATTERN = re.compile(
     re.escape(CHILD_ACTION_SCAFFOLD_HEADER)
     + r".*?In your first IPython call execute exactly:\s*"
@@ -510,6 +522,9 @@ def should_strip_tool_choice(
 def disclosed_root_action(prompt: str) -> str | None:
     """Extract the public training-only coordinator action from a rendered prompt."""
 
+    manager_action = disclosed_document_manager_action(prompt)
+    if manager_action is not None:
+        return manager_action
     document_action = disclosed_document_spawn_action(prompt)
     if document_action is not None:
         return document_action
@@ -524,6 +539,43 @@ def disclosed_root_action(prompt: str) -> str | None:
     if not code.startswith("reviewer = await rlm(") or "name=" not in code:
         raise ValueError("disclosed coordinator action is not the expected retained spawn")
     return code
+
+
+def disclosed_document_manager_action(prompt: str) -> str | None:
+    """Preserve one complete answer-free recursive manager contract at admission."""
+
+    matches = [
+        match.group("contract").strip()
+        for match in DOCUMENT_MANAGER_CONTRACT_PATTERN.finditer(prompt)
+    ]
+    if not matches:
+        return None
+    if len(set(matches)) != 1:
+        raise ValueError("document manager scaffold contains conflicting recursive contracts")
+    contract = matches[0]
+    if '"""' in contract:
+        raise ValueError("document manager scaffold contains an unsafe recursive contract")
+    root_match = re.search(
+        r"You own the document directory (?P<root>/[^\s]+)\.", contract
+    )
+    if root_match is None:
+        raise ValueError("document manager scaffold lacks one owned directory")
+    root = root_match.group("root")
+    stems = ("alpha", "beta", "gamma")
+    expected_assignments = {
+        f"- {stem}-document-worker owns {root}/{stem}.md" for stem in stems
+    }
+    actual_assignments = {
+        line.strip()
+        for line in contract.splitlines()
+        if line.strip().startswith("- ")
+    }
+    if actual_assignments != expected_assignments:
+        raise ValueError("document manager scaffold lacks the exact three leaf assignments")
+    return (
+        f"document_manager = await rlm({json.dumps(contract, ensure_ascii=False)}, "
+        'name="document-manager")'
+    )
 
 
 def disclosed_document_spawn_action(prompt: str) -> str | None:
