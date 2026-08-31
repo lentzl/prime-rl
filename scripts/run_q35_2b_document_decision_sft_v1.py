@@ -43,6 +43,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "answer_free_depth_two_manager_leaf_admission",
     ),
+    "qwen35-2b-document-manager-fanin-sft/v1": (
+        "coordinator",
+        "depth_two_manager_passive_fanin_parent_report",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -52,6 +56,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-child-cleanup-sft/v1": True,
     "qwen35-2b-document-recursive-execution-sft/v1": True,
     "qwen35-2b-document-manager-admission-sft/v1": True,
+    "qwen35-2b-document-manager-fanin-sft/v1": False,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4

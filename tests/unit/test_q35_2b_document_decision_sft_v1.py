@@ -656,6 +656,95 @@ def test_document_manager_admission_export_uses_each_exact_live_depth_two_contex
     assert trainer.PROMOTION_MINIMUM == 4
 
 
+def test_document_manager_fanin_export_teaches_passive_yield_and_one_parent_report(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_manager_fanin_sft_v1")
+    traces = []
+    for variant in range(4):
+        trace = _trace("document_hierarchical", variant)
+        root = f"/workspace/document-recursion/v{variant}-i20000"
+        trace["task"]["data"]["files"] = {
+            f"{root}/alpha.md": "one two\n## A\n",
+            f"{root}/beta.md": "one two three\n## B\n## C\n",
+            f"{root}/gamma.md": "one two three four\n## D\n",
+        }
+        manager_root = len(trace["nodes"])
+        trace["nodes"].extend(
+            [
+                {
+                    "sampled": False,
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": ("Recursive agent depth: 1\nYou are a child agent spawned by root-coordinator."),
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": manager_root,
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "[task from parent]\n\n"
+                                    "[recursive document coordinator session contract]\n"
+                                    "session_role=document_coordinator"
+                                ),
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+        traces.append(trace)
+    source = tmp_path / "depth-two-runtime.jsonl"
+    source.write_text(json.dumps({"traces": traces}) + "\n")
+    output = tmp_path / "manager-fanin"
+
+    manifest = module.export(traces=[source], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 12
+    assert manifest["answer_free"] is False
+    assert manifest["exact_live_depth_two_context"] is True
+    assert manifest["manager_admission_targeted"] is False
+    assert manifest["family_counts"] == {
+        "document_manager_complete_fanin_report": 4,
+        "document_manager_partial_fanin_yield": 4,
+        "document_manager_post_admission_yield": 4,
+    }
+
+    for row in rows:
+        assert "Recursive agent depth: 1" in row["messages"][0]["content"]
+        spawn_code = json.loads(row["messages"][2]["tool_calls"][0]["function"]["arguments"])["code"]
+        assert spawn_code.count("await rlm(") == 3
+        if row["phase"].endswith("yield"):
+            assert row["messages"][-1]["tool_calls"] == []
+            assert "polling" in row["messages"][-1]["reasoning_content"]
+        else:
+            assert (
+                sum(
+                    message["role"] == "user" and "[from child:" in message.get("content", "")
+                    for message in row["messages"]
+                )
+                == 3
+            )
+            report_code = json.loads(row["messages"][-1]["tool_calls"][0]["function"]["arguments"])["code"]
+            assert "'alpha_words': 4" in report_code
+            assert "'beta_h2': 2" in report_code
+            assert "'total_words': 17" in report_code
+            assert "json.dumps(parent_report" in report_code
+            assert "receiver_role='parent'" in report_code
+
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 12
+    assert trainer.DATASET_ANSWER_FREE[manifest["schema_version"]] is False
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:
