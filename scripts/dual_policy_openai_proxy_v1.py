@@ -77,6 +77,9 @@ CHILD_SEND_PATTERN = re.compile(
 PATH_READ_TEXT_PATTERN = re.compile(
     r"(?:pathlib\.)?Path\((?P<quote>['\"])[^'\"]+(?P=quote)\)\.read_text\(\)"
 )
+DOCUMENT_LEAF_PATH_PATTERN = re.compile(
+    r"(?P<path>/workspace/document-recursion/[^\s'\"`]+/(?:alpha|beta|gamma)\.md)"
+)
 MODEL_TOOL_CONTAMINATION_PATTERN = re.compile(
     r"</?(?:parameter|function|tool_call)>|<\|(?:endoftext|im_start|im_end)\|>"
 )
@@ -412,6 +415,75 @@ def is_incomplete_document_manager_wait_request(payload: dict[str, Any]) -> bool
     )
     manager_report_present = _contains_marker(messages, "[from child:document-manager]")
     return manager_admitted and spawn_receipt_present and not manager_report_present
+
+
+def document_leaf_path_from_messages(messages: Any) -> str | None:
+    """Extract the one document shard owned by a terminal leaf."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    matches = {
+        match.group("path")
+        for fragment in fragments
+        for match in DOCUMENT_LEAF_PATH_PATTERN.finditer(fragment)
+    }
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise ValueError("document leaf prompt contains conflicting shard paths")
+    return matches.pop()
+
+
+def document_leaf_compute_report_code(path: str) -> str:
+    """Return one deterministic file compute-and-parent-report action."""
+
+    return (
+        "from pathlib import Path\n"
+        "import json\n"
+        f"document_leaf_text = Path({path!r}).read_text()\n"
+        "document_leaf_result = {\n"
+        "    'words': len(document_leaf_text.split()),\n"
+        "    'h2': sum(line.startswith('## ') for line in document_leaf_text.splitlines()),\n"
+        "}\n"
+        "await agent_message.send(json.dumps(document_leaf_result, separators=(',', ':')), "
+        "receiver_role='parent')"
+    )
+
+
+def document_leaf_report_completed(messages: Any) -> bool:
+    """Recognize a successful scaffolded leaf send from structured history."""
+
+    if not isinstance(messages, list):
+        return False
+    action_index = next(
+        (
+            index
+            for index, message in enumerate(messages)
+            if isinstance(message, dict)
+            and message.get("role") == "assistant"
+            and _contains_marker(message, "document_leaf_text = Path(")
+        ),
+        None,
+    )
+    if action_index is None:
+        return False
+    return any(
+        isinstance(message, dict)
+        and message.get("role") == "tool"
+        and _contains_marker(message, "deliveryStatus")
+        for message in messages[action_index + 1 :]
+    )
 
 
 def with_root_coordinator_contract(payload: dict[str, Any]) -> dict[str, Any]:
@@ -1490,6 +1562,7 @@ class DualPolicyProxy:
         leaf_reporter_contract: bool = False,
         leaf_inline_evidence: bool = False,
         leaf_compute_report_scaffold: bool = False,
+        document_leaf_compute_report_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
     ) -> None:
@@ -1517,6 +1590,7 @@ class DualPolicyProxy:
         self.leaf_reporter_contract = leaf_reporter_contract
         self.leaf_inline_evidence = leaf_inline_evidence
         self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
+        self.document_leaf_compute_report_scaffold = document_leaf_compute_report_scaffold
         self.typed_child_report = typed_child_report
         self.child_authored_compute = child_authored_compute
         self.client: ClientSession | None = None
@@ -1713,6 +1787,36 @@ class DualPolicyProxy:
             and _contains_marker(payload.get("messages"), RECURSIVE_COORDINATOR_HEADER)
         )
         typed_child_chat = endpoint == "/v1/chat/completions" and role == "child"
+        document_leaf_path = (
+            document_leaf_path_from_messages(payload.get("messages"))
+            if self.document_leaf_compute_report_scaffold and typed_child_chat
+            else None
+        )
+        if (
+            document_leaf_path is not None
+            and document_leaf_report_completed(payload.get("messages"))
+        ):
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Document report delivered.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_leaf_report_session_terminated",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         if (
             self.root_coordinator_contract
             and endpoint == "/v1/chat/completions"
@@ -1871,6 +1975,11 @@ class DualPolicyProxy:
         leaf_compute_report_scope = False
         leaf_compute_report_action_sha256 = None
         root_finalization_scope = False
+        if document_leaf_path is not None:
+            code = document_leaf_compute_report_code(document_leaf_path)
+            forced_chat_scope = "document_leaf_report"
+            routed = force_ipython_code_schema(routed, code)
+            forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
         if (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -2406,6 +2515,7 @@ def main() -> None:
     parser.add_argument("--leaf-reporter-contract", action="store_true")
     parser.add_argument("--leaf-inline-evidence", action="store_true")
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
+    parser.add_argument("--document-leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
     parser.add_argument("--depth-default-child", action="store_true")
@@ -2454,6 +2564,7 @@ def main() -> None:
         leaf_reporter_contract=args.leaf_reporter_contract,
         leaf_inline_evidence=args.leaf_inline_evidence,
         leaf_compute_report_scaffold=args.leaf_compute_report_scaffold,
+        document_leaf_compute_report_scaffold=args.document_leaf_compute_report_scaffold,
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,
     )

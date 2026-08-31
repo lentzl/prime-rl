@@ -63,6 +63,11 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         in launcher
     )
     assert 'proxy_args+=(--leaf-compute-report-scaffold)' in launcher
+    assert (
+        "document_leaf_compute_report_scaffold=${DUAL_DOCUMENT_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-leaf-compute-report-scaffold)' in launcher
     assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
     assert 'proxy_args+=(--depth-default-child)' in launcher
 
@@ -1752,6 +1757,63 @@ def test_proxy_keeps_document_root_passive_between_manager_admission_and_report(
     ).read_text()
     assert 'mode="document_manager_wait_session_passive"' in source
     assert "Waiting for the document manager's report." in source
+
+
+def test_proxy_builds_one_terminal_document_leaf_compute_report_action() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    path = "/workspace/document-recursion/v2-i20700/beta.md"
+    messages = [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"[task from parent]\nRead {path} and report words and h2.",
+                }
+            ],
+        }
+    ]
+
+    assert module.document_leaf_path_from_messages(messages) == path
+    code = module.document_leaf_compute_report_code(path)
+    assert f"Path({path!r}).read_text()" in code
+    assert "len(document_leaf_text.split())" in code
+    assert "line.startswith('## ')" in code
+    assert "json.dumps(document_leaf_result" in code
+    assert "receiver_role='parent'" in code
+    assert not module.document_leaf_report_completed(messages)
+
+    completed = messages + [
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "type": "function",
+                    "function": {
+                        "name": "ipython",
+                        "arguments": json.dumps({"code": code}),
+                    },
+                }
+            ],
+        },
+        {
+            "role": "tool",
+            "content": "{'deliveryStatus': 'delivered'}",
+        },
+    ]
+    assert module.document_leaf_report_completed(completed)
+
+    with pytest.raises(ValueError, match="conflicting shard paths"):
+        module.document_leaf_path_from_messages(
+            messages
+            + [
+                {
+                    "role": "user",
+                    "content": path.replace("beta.md", "gamma.md"),
+                }
+            ]
+        )
 
 
 def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
