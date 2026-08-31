@@ -28,6 +28,7 @@ max_total_tokens = 131072
 [env.agent.harness]
 id = "prime_agent"
 version = "0.7.2-beta.495.1.97b994c"
+env = { RLM_MAX_DEPTH = "2" }
 autonomous = true
 gates = ["python /workspace/.subagent-communication/completion_gate.py"]
 autonomous_max_continuations = 12
