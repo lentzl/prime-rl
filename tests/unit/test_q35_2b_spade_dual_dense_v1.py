@@ -74,6 +74,16 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     )
     assert 'proxy_args+=(--document-manager-fanin-scaffold)' in launcher
     assert (
+        "document_manager_wait_scaffold=${DUAL_DOCUMENT_MANAGER_WAIT_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-manager-wait-scaffold)' in launcher
+    assert (
+        "document_manager_termination_scaffold=${DUAL_DOCUMENT_MANAGER_TERMINATION_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-manager-termination-scaffold)' in launcher
+    assert (
         "document_root_report_relay_scaffold=${DUAL_DOCUMENT_ROOT_REPORT_RELAY_SCAFFOLD:-0}"
         in launcher
     )
@@ -1929,14 +1939,20 @@ def test_proxy_can_peel_manager_fanin_without_peeling_root_relay(
         document_manager_fanin_scaffold=True,
     )
     assert backward_compatible.document_manager_fanin_scaffold is True
+    assert backward_compatible.document_manager_wait_scaffold is True
+    assert backward_compatible.document_manager_termination_scaffold is True
     assert backward_compatible.document_root_report_relay_scaffold is True
 
     peeled = module.DualPolicyProxy(
         **common,
         document_manager_fanin_scaffold=False,
+        document_manager_wait_scaffold=True,
+        document_manager_termination_scaffold=True,
         document_root_report_relay_scaffold=True,
     )
     assert peeled.document_manager_fanin_scaffold is False
+    assert peeled.document_manager_wait_scaffold is True
+    assert peeled.document_manager_termination_scaffold is True
     assert peeled.document_root_report_relay_scaffold is True
 
 

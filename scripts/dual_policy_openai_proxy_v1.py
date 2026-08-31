@@ -1716,6 +1716,8 @@ class DualPolicyProxy:
         leaf_compute_report_scaffold: bool = False,
         document_leaf_compute_report_scaffold: bool = False,
         document_manager_fanin_scaffold: bool = False,
+        document_manager_wait_scaffold: bool = False,
+        document_manager_termination_scaffold: bool = False,
         document_root_report_relay_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
@@ -1746,6 +1748,12 @@ class DualPolicyProxy:
         self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
         self.document_leaf_compute_report_scaffold = document_leaf_compute_report_scaffold
         self.document_manager_fanin_scaffold = document_manager_fanin_scaffold
+        self.document_manager_wait_scaffold = (
+            document_manager_wait_scaffold or document_manager_fanin_scaffold
+        )
+        self.document_manager_termination_scaffold = (
+            document_manager_termination_scaffold or document_manager_fanin_scaffold
+        )
         self.document_root_report_relay_scaffold = (
             document_root_report_relay_scaffold or document_manager_fanin_scaffold
         )
@@ -1958,7 +1966,11 @@ class DualPolicyProxy:
         )
         manager_reports = (
             document_manager_reports_from_messages(payload.get("messages"))
-            if self.document_manager_fanin_scaffold and document_manager_chat
+            if (
+                self.document_manager_fanin_scaffold
+                or self.document_manager_wait_scaffold
+            )
+            and document_manager_chat
             else {}
         )
         root_manager_report = (
@@ -1992,7 +2004,7 @@ class DualPolicyProxy:
             )
             return web.Response(body=response_body, content_type=content_type)
         if (
-            self.document_manager_fanin_scaffold
+            self.document_manager_termination_scaffold
             and document_manager_chat
             and document_manager_parent_report_completed(payload.get("messages"))
         ):
@@ -2025,7 +2037,7 @@ class DualPolicyProxy:
             )
         )
         if (
-            self.document_manager_fanin_scaffold
+            self.document_manager_wait_scaffold
             and manager_admission_complete
             and len(manager_reports) < 3
         ):
@@ -2780,6 +2792,8 @@ def main() -> None:
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--document-leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--document-manager-fanin-scaffold", action="store_true")
+    parser.add_argument("--document-manager-wait-scaffold", action="store_true")
+    parser.add_argument("--document-manager-termination-scaffold", action="store_true")
     parser.add_argument("--document-root-report-relay-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
@@ -2831,6 +2845,8 @@ def main() -> None:
         leaf_compute_report_scaffold=args.leaf_compute_report_scaffold,
         document_leaf_compute_report_scaffold=args.document_leaf_compute_report_scaffold,
         document_manager_fanin_scaffold=args.document_manager_fanin_scaffold,
+        document_manager_wait_scaffold=args.document_manager_wait_scaffold,
+        document_manager_termination_scaffold=args.document_manager_termination_scaffold,
         document_root_report_relay_scaffold=args.document_root_report_relay_scaffold,
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,
