@@ -1,0 +1,114 @@
+{
+  "schema_version": "q35-2b-document-recursion-training-result/v1",
+  "recorded_at_utc": "2026-08-31T00:15:02Z",
+  "experiment_commit": "61b33793c59b02e1ccc3556cc35c76b69fc92ffa",
+  "verifiers_commit": "d098a2ff33023e9d98c5e4034cad99b900f5963f",
+  "models": {
+    "coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-coordinator-fanin-sft-v1/c177fanin8-document-fanin-grounded12-step8-v2/weights/step_8",
+      "sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31",
+      "source_sha256": "6e67132ed133f0f210a2d012d6372a3db52273f38b77335bc1c7a9d17b00b661",
+      "optimizer_updates": 8,
+      "full_dense": true,
+      "final_loss": 0.0053309304639697075,
+      "receipt_sha256": "34ed98219160d21449a964e6d4c29bc5d00792124a4c349d81302f2d56e60165"
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "source_sha256": "1009e184f37d3b45a7adbb33e98db8f66121d6745170bc6bec036cd911a44488",
+      "optimizer_updates": 8,
+      "full_dense": true,
+      "final_loss": 0.00019508288823999465,
+      "receipt_sha256": "c6e0f047ce87dc9667874266627770cfc313bf56afdfd55272fd4e0f41b00d75"
+    }
+  },
+  "evaluation": {
+    "label": "latent-doc-c177fanin16-h176child16-tightroot-v1-flat",
+    "topology": "document_flat",
+    "optimizer_updates_during_evaluation": 0,
+    "scaffold": {
+      "profile": "custom",
+      "answer_free_exact_root_spawn": true,
+      "persistent_root_coordinator_contract": true,
+      "depth_default_child": true,
+      "answer_values_disclosed_by_scaffold": false
+    },
+    "summary_sha256": "f35fc583499ee4425a5e573dc54ae3295029ce13cebbdfe07e209217301d60ef",
+    "traces_sha256": "c5eae305e31af1bb58c939a6ffbff8596772769bfc9a7325b72e56b073ad928a",
+    "versions_sha256": "95d717fc9c0549fde52661f6ed6eb65c9cad7b9fee59db72dc6cb356889c0774",
+    "coordinator_requests": 31,
+    "child_requests": 34,
+    "trace_count": 4,
+    "agent_completed": 4,
+    "overall_rewards": [
+      2.0,
+      2.0,
+      2.0,
+      2.0
+    ],
+    "answer_accuracy": 1.0,
+    "protocol_aligned": 1.0,
+    "mean_post_fan_in_control": 0.9444444444444444,
+    "per_trace": [
+      {
+        "id": "1406206ed9a748b9b5e1782d8439a378",
+        "turns": 15,
+        "failed_cells": 5,
+        "duplicate_cells": 0,
+        "post_fan_in_control": 1.0
+      },
+      {
+        "id": "81acfb8e120548679c4dc68d59765f94",
+        "turns": 17,
+        "failed_cells": 6,
+        "duplicate_cells": 0,
+        "post_fan_in_control": 0.7777777777777778
+      },
+      {
+        "id": "e92067d7087b44078f420092f351573e",
+        "turns": 14,
+        "failed_cells": 3,
+        "duplicate_cells": 0,
+        "post_fan_in_control": 1.0
+      },
+      {
+        "id": "6d1affd617e4458cb97f6f0f8b726bab",
+        "turns": 19,
+        "failed_cells": 9,
+        "duplicate_cells": 0,
+        "post_fan_in_control": 1.0
+      }
+    ],
+    "common_protocol_metrics": {
+      "spawn_calls": 3,
+      "failed_spawn_calls": 0,
+      "retained_handles": 3,
+      "named_children": 3,
+      "delegated_payloads": 3,
+      "messages_to_parent": 3,
+      "fan_in_complete": 1,
+      "coordinator_delegated_path_accesses": 0
+    }
+  },
+  "admission": {
+    "required_complete_qualifying_trajectories": 4,
+    "observed_complete_qualifying_trajectories": 4,
+    "condition_met": true,
+    "qualifying_definition": "agent_completed with answer_accuracy=1, protocol_aligned=1, three named retained child admissions, three recognized delegated payloads, three explicit child reports, and complete fan-in",
+    "clean_protocol_trajectories": 0,
+    "cleanliness_not_used_to_relax_or_redefine_admission": true
+  },
+  "comparison": {
+    "pre_consolidation_label": "latent-doc-c177fanin8-h176child8-tightroot-v1-flat",
+    "pre_consolidation_summary_sha256": "a9c2f5fee40521a75163de359221699e8df9e343d63834269e34656470fa5417",
+    "pre_consolidation_traces_sha256": "3bd9ea177c6d4a0b111782a0ee04ed774ea46a2aaf3453f5dfcfaa7f5a718613",
+    "pre_consolidation_complete_qualifying_trajectories": 1,
+    "post_consolidation_complete_qualifying_trajectories": 4
+  },
+  "interpretation": {
+    "capability_result": "The separate 2B coordinator and child policies completed four flat document delegation trajectories end to end under the fixed tight scaffold.",
+    "remaining_defect": "All four trajectories contained recoverable failed IPython cells; one also used bounded observation, so strict clean-protocol alignment remains zero.",
+    "safest_next_training_target": "Use the four successful traces as positive replay and target removal of failed child cells and unnecessary coordinator recovery actions without weakening the four-trajectory admission floor."
+  }
+}
