@@ -1,5 +1,5 @@
 model = "q35-2b-document-recursion-zero-update"
-num_tasks = 3
+num_tasks = 4
 num_rollouts = 1
 shuffle = false
 max_concurrent = 1
