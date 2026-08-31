@@ -418,7 +418,7 @@ def is_incomplete_document_manager_wait_request(payload: dict[str, Any]) -> bool
 
 
 def document_leaf_path_from_messages(messages: Any) -> str | None:
-    """Extract the one document shard owned by a terminal leaf."""
+    """Extract the one document shard owned by an unambiguous terminal leaf."""
 
     fragments: list[str] = []
 
@@ -438,10 +438,10 @@ def document_leaf_path_from_messages(messages: Any) -> str | None:
         for fragment in fragments
         for match in DOCUMENT_LEAF_PATH_PATTERN.finditer(fragment)
     }
-    if not matches:
-        return None
+    # A multi-shard prompt belongs to a manager or another non-terminal role.
+    # Decline the leaf scaffold instead of turning imperfect routing into a 500.
     if len(matches) != 1:
-        raise ValueError("document leaf prompt contains conflicting shard paths")
+        return None
     return matches.pop()
 
 

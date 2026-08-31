@@ -1814,7 +1814,7 @@ def test_proxy_builds_one_terminal_document_leaf_compute_report_action() -> None
     ]
     assert module.document_leaf_report_completed(completed)
 
-    with pytest.raises(ValueError, match="conflicting shard paths"):
+    assert (
         module.document_leaf_path_from_messages(
             messages
             + [
@@ -1824,6 +1824,8 @@ def test_proxy_builds_one_terminal_document_leaf_compute_report_action() -> None
                 }
             ]
         )
+        is None
+    )
 
 
 def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> None:
