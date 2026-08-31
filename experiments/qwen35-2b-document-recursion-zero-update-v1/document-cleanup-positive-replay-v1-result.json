@@ -1,0 +1,112 @@
+{
+  "schema_version": "q35-2b-document-cleanup-positive-replay-result/v1",
+  "recorded_at_utc": "2026-08-31T07:49:14Z",
+  "experiment_commit": "7cce42fc3",
+  "verifiers_commit": "d098a2ff33023e9d98c5e4034cad99b900f5963f",
+  "protected_rollback": {
+    "status": "canonical_fixed_profile_baseline",
+    "coordinator_sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "original_fixed_profile_qualifying_trajectories": 4,
+    "original_fixed_profile_clean_trajectories": 0,
+    "promoted_cleanup_candidate": false
+  },
+  "replay": {
+    "accepted_source_trace_ids": [
+      "1406206ed9a748b9b5e1782d8439a378",
+      "81acfb8e120548679c4dc68d59765f94",
+      "e92067d7087b44078f420092f351573e",
+      "6d1affd617e4458cb97f6f0f8b726bab"
+    ],
+    "source_traces_sha256": "c5eae305e31af1bb58c939a6ffbff8596772769bfc9a7325b72e56b073ad928a",
+    "child_manifest_sha256": "f29d7fe54a9fe3502e6c418423c440f851b5b8bfbf9f0a915971ccceb3cc7ff9",
+    "child_parquet_sha256": "52fb6ea92592dbc9aaed095b76be81d02b8be9181fae9cc42132a3c0b4656a9e",
+    "coordinator_manifest_sha256": "6360e545bce2454cb9a6a37491318d75b736b353f9dd96c7958b7eb228609717",
+    "coordinator_parquet_sha256": "2d95247800d3bc51c831148be4470865d2606f08dd398d59e43ed24d5bff62fa",
+    "rows_per_role": 12,
+    "role_separated": true,
+    "failed_prefixes_removed": true,
+    "new_task_families_added": false
+  },
+  "one_update_candidate": {
+    "learning_rate": 5e-7,
+    "updates_per_role": 1,
+    "full_dense": true,
+    "child": {
+      "loss": 0.7691389918327332,
+      "gradient_norm": 223.0,
+      "output_sha256": "53607668606e394d9eb2ce80cb0b9b2158aedb60221d7e6a436808d315f278d4",
+      "receipt_sha256": "2334d4c93b536ca3a458b60679eb20ae293394012f9e3a97e43442ad818dbea2"
+    },
+    "coordinator": {
+      "loss": 0.5150174498558044,
+      "gradient_norm": 108.0,
+      "output_sha256": "cfee2a4980f96d4c59e8568a98e14d9fd8e94702872d25dd1a676124a8c14ad4",
+      "receipt_sha256": "4dbc3fdbe2b9b2f3e04cd3d3cf367708b98d51c872267d828eedc72802afa75e"
+    },
+    "fresh_evaluation": {
+      "label": "latent-doc-cleanup-c177c1-h176c1-tightroot-v1-flat-fresh",
+      "complete_qualifying_trajectories": 0,
+      "clean_trajectories": 0,
+      "agent_completed": 2,
+      "answer_accuracy_mean": 0.25,
+      "protocol_aligned_mean": 0.5,
+      "failed_cells": [16, 6, 12, 7],
+      "summary_sha256": "28c1764de0a03f91ff420763352aeb65d7d078ef6adae10b5a15e263aa355344",
+      "traces_sha256": "0b2824d2d7732a668d9931f3935b8e48651dcf86a29d8d5303ca60960272a8e4",
+      "versions_sha256": "c93c308d00cd996590c3d5c06557707863cce20df0a17ba0f7bc2a8f7860dbb8"
+    },
+    "decision": "rejected"
+  },
+  "four_update_candidate": {
+    "learning_rate": 5e-7,
+    "total_updates_per_role_from_protected_source": 4,
+    "continuation_updates_after_one_update_candidate": 3,
+    "full_dense": true,
+    "child": {
+      "continuation_final_loss": 0.6009189486503601,
+      "continuation_final_gradient_norm": 164.0,
+      "output_sha256": "c218c3974d785f33ef407816f1443b826a1095a9d29edf378214e38c7442fea0",
+      "continuation_receipt_sha256": "3146ead8ceb3e7c2d963d74ecfb1d889dc010e3a2aef38879b1a9e6c13e5ac0b"
+    },
+    "coordinator": {
+      "continuation_final_loss": 0.43263372778892517,
+      "continuation_final_gradient_norm": 93.0,
+      "output_sha256": "c23a93b6feaed3783c7257096a21345102d09666f06bbcec71ce33c2a595f390",
+      "continuation_receipt_sha256": "d84b1ceafef9daa47f35ae1a74f78f8898b2c2bb1dc4a470910eebc6daff979a"
+    },
+    "fresh_evaluation": {
+      "label": "latent-doc-cleanup-c177c4-h176c4-tightroot-v2-flat-fresh",
+      "complete_qualifying_trajectories": 0,
+      "clean_trajectories": 0,
+      "agent_completed": 0,
+      "answer_accuracy_mean": 0.0,
+      "protocol_aligned_mean": 0.0,
+      "failed_cells": [21, 12, 23, 16],
+      "summary_sha256": "d919ce84505a289a50e959fd7c8559babc57dcb8179b37326d8521a62366de21",
+      "traces_sha256": "8e7c39e227e669b292dddaadd7cc3175bcc89d2fa7e36c60c8d1f211a6746945",
+      "versions_sha256": "44985c0d8d114312238f688fab12e8c6efc34dbddbec6d9abdb1a317701629b7"
+    },
+    "decision": "rejected"
+  },
+  "matched_protected_control": {
+    "label": "latent-doc-protected-c177fanin16-h176child16-tightroot-v2-flat-matched",
+    "same_config_as_four_update_candidate": true,
+    "complete_qualifying_trajectories": 0,
+    "clean_trajectories": 0,
+    "agent_completed": 3,
+    "answer_accuracy_mean": 0.5625,
+    "protocol_aligned_mean": 0.25,
+    "failed_cells": [6, 20, 6, 13],
+    "summary_sha256": "05ef91c84ed3254d986850a4662ae9f2ed371def0c027e17142b48e80c100316",
+    "traces_sha256": "e012758b0e6f952dc53084e6cd7ccad74f1415baa89c7f678c7d4e8ccba5483b",
+    "versions_sha256": "ff17c557aa2631eab64de31f3f8eea6a472d352cee4149b9cd8ccfce09701f4f"
+  },
+  "interpretation": {
+    "cleanup_objective_achieved": false,
+    "fixed_profile_baseline_generalized_to_fresh_bank": false,
+    "candidate_regressed_relative_to_matched_control": true,
+    "projection_defect": "Successful retry actions were projected onto clean initial child contexts while retaining retry-conditioned reasoning, creating a context-target mismatch; additional replay amplified looping and malformed state use.",
+    "next_action": "Stop this cleanup lineage, keep the protected pair canonical, and run a no-update natural first-action topology contrast before any topology optimizer update."
+  }
+}
