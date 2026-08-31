@@ -1656,6 +1656,64 @@ def test_proxy_recognizes_only_incomplete_root_gate_continuations() -> None:
     )
 
 
+def test_proxy_keeps_document_root_passive_between_manager_admission_and_report() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    admitted = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Recursive agent depth: 0\n"
+                    "[recursive document coordinator session contract]"
+                ),
+            },
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "ipython",
+                            "arguments": json.dumps(
+                                {
+                                    "code": (
+                                        "document_manager = await rlm('contract', "
+                                        "name='document-manager')"
+                                    )
+                                }
+                            ),
+                        },
+                    }
+                ],
+            },
+            {"role": "tool", "content": "RLMSpawnHandle(name='document-manager')"},
+        ]
+    }
+
+    assert module.is_incomplete_document_manager_wait_request(admitted)
+    assert not module.is_incomplete_document_manager_wait_request(
+        {
+            "messages": admitted["messages"]
+            + [
+                {
+                    "role": "user",
+                    "content": "[from child:document-manager]\n{\"total_words\":90}",
+                }
+            ]
+        }
+    )
+    assert not module.is_incomplete_document_manager_wait_request(
+        {"messages": admitted["messages"][:1]}
+    )
+
+    source = (
+        Path(__file__).parents[2] / "scripts/dual_policy_openai_proxy_v1.py"
+    ).read_text()
+    assert 'mode="document_manager_wait_session_passive"' in source
+    assert "Waiting for the document manager's report." in source
+
+
 def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:
     source = (
         Path(__file__).parents[2] / "scripts/dual_policy_openai_proxy_v1.py"

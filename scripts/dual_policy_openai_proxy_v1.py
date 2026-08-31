@@ -397,6 +397,23 @@ def is_incomplete_root_wait_request(payload: dict[str, Any]) -> bool:
     )
 
 
+def is_incomplete_document_manager_wait_request(payload: dict[str, Any]) -> bool:
+    """Keep a document root passive after manager admission until its report arrives."""
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list) or not is_root_coordinator_request(payload):
+        return False
+    manager_admitted = _contains_marker(messages, DOCUMENT_COORDINATOR_HEADER) and (
+        _contains_marker(messages, "document_manager = await rlm(")
+    )
+    spawn_receipt_present = any(
+        isinstance(message, dict) and message.get("role") == "tool"
+        for message in messages
+    )
+    manager_report_present = _contains_marker(messages, "[from child:document-manager]")
+    return manager_admitted and spawn_receipt_present and not manager_report_present
+
+
 def with_root_coordinator_contract(payload: dict[str, Any]) -> dict[str, Any]:
     """Prepend a persistent role contract to a depth-zero chat request."""
 
@@ -1641,6 +1658,33 @@ class DualPolicyProxy:
             and _contains_marker(payload.get("messages"), RECURSIVE_COORDINATOR_HEADER)
         )
         typed_child_chat = endpoint == "/v1/chat/completions" and role == "child"
+        if (
+            self.root_coordinator_contract
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_incomplete_document_manager_wait_request(payload)
+        ):
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Waiting for the document manager's report.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_manager_wait_session_passive",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         if (
             self.root_coordinator_contract
             and self.typed_child_report
