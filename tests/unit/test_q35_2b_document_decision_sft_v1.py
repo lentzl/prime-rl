@@ -745,6 +745,81 @@ def test_document_manager_fanin_export_teaches_passive_yield_and_one_parent_repo
     assert trainer.DATASET_ANSWER_FREE[manifest["schema_version"]] is False
 
 
+def test_document_manager_aggregation_export_keeps_only_complete_fanin(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_manager_aggregation_sft_v1")
+    traces = []
+    for variant in range(4):
+        trace = _trace("document_hierarchical", variant)
+        root = f"/workspace/document-recursion/v{variant}-i20000"
+        trace["task"]["data"]["files"] = {
+            f"{root}/alpha.md": "one two\n## A\n",
+            f"{root}/beta.md": "one two three\n## B\n## C\n",
+            f"{root}/gamma.md": "one two three four\n## D\n",
+        }
+        manager_root = len(trace["nodes"])
+        trace["nodes"].extend(
+            [
+                {
+                    "sampled": False,
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": "Recursive agent depth: 1\nYou are a child agent spawned by root-coordinator.",
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": manager_root,
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "[task from parent]\n\n"
+                                    "[recursive document coordinator session contract]\n"
+                                    "session_role=document_coordinator"
+                                ),
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+        traces.append(trace)
+    source = tmp_path / "depth-two-runtime.jsonl"
+    source.write_text(json.dumps({"traces": traces}) + "\n")
+    output = tmp_path / "manager-aggregation"
+
+    manifest = module.export(traces=[source], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 4
+    assert manifest["manager_aggregation_targeted"] is True
+    assert manifest["family_counts"] == {
+        "document_manager_complete_fanin_report": 4
+    }
+    assert {row["phase"] for row in rows} == {"complete_fanin_report"}
+    for row in rows:
+        assert sum(
+            message["role"] == "user" and "[from child:" in message.get("content", "")
+            for message in row["messages"]
+        ) == 3
+        report_code = json.loads(
+            row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+        )["code"]
+        assert "parent_report =" in report_code
+        assert "json.dumps(parent_report" in report_code
+        assert "receiver_role='parent'" in report_code
+
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 4
+    assert trainer.DATASET_ANSWER_FREE[manifest["schema_version"]] is False
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:
