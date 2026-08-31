@@ -55,6 +55,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "depth_two_manager_order_robust_complete_fanin_parent_report",
     ),
+    "qwen35-2b-document-topology-contrast-sft/v1": (
+        "coordinator",
+        "answer_free_root_worker_versus_manager_topology_choice",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -67,14 +71,17 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-manager-fanin-sft/v1": False,
     "qwen35-2b-document-manager-aggregation-sft/v1": False,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": False,
+    "qwen35-2b-document-topology-contrast-sft/v1": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
+    "qwen35-2b-document-topology-contrast-sft/v1": 8,
 }
 DATASET_BATCH_SIZES = {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
+    "qwen35-2b-document-topology-contrast-sft/v1": 8,
 }
 PROMOTION_MINIMUM = 4
 

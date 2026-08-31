@@ -896,6 +896,51 @@ def test_document_manager_permuted_aggregation_export_balances_all_orders(
     assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 12
 
 
+def test_document_topology_contrast_export_balances_worker_and_manager(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_topology_contrast_sft_v1")
+    sources = []
+    for family in ("document_flat", "document_hierarchical"):
+        source = tmp_path / f"{family}.jsonl"
+        source.write_text(
+            "\n".join(
+                json.dumps({"traces": [_trace(family, variant)]})
+                for variant in range(4)
+            )
+            + "\n"
+        )
+        sources.append(source)
+    output = tmp_path / "topology-contrast"
+
+    manifest = module.export(traces=sources, output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 8
+    assert manifest["training_batch_size"] == 8
+    assert manifest["family_counts"] == {
+        "document_flat": 4,
+        "document_hierarchical": 4,
+    }
+    assert manifest["answer_free"] is True
+    assert manifest["topology_choice_targeted"] is True
+    for row in rows:
+        code = json.loads(
+            row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+        )["code"]
+        if row["family"] == "document_flat":
+            assert code.count("await rlm(") == 3
+            assert "document-manager" not in code
+        else:
+            assert code.count("await rlm(") == 1
+            assert "name='document-manager'" in code
+
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 8
+    assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 8
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:
