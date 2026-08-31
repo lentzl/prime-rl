@@ -1,0 +1,85 @@
+{
+  "schema_version": "qwen35-2b-document-natural-topology-contrast/v1",
+  "status": "complete",
+  "purpose": "diagnose learned root topology selection without an exact first-action leak",
+  "admission_claim": false,
+  "acceptance_floor_unchanged": 4,
+  "run": {
+    "label": "latent-doc-protected-natural-topology-contrast-n1-v1",
+    "path": "/home/ubuntu/rlm/results/q35-2b-document-topology-contrast-v1/latent-doc-protected-natural-topology-contrast-n1-v1",
+    "task_count": 4,
+    "sampling_seed": 20260902,
+    "task_offset": 20300,
+    "scaffold": {
+      "profile": "custom",
+      "leak_coordinator_exact_action": false,
+      "root_coordinator_contract": true,
+      "depth_default_child": true
+    },
+    "artifacts": {
+      "summary_sha256": "41b7cb8aff3a0caeb584b3f90b307407a663f05b4fb123c1b8c25cfd799cb99e",
+      "traces_sha256": "b835cc0340a398d8d66dde580094feacd9d7b74920ded2572ef8bab7ae0597a2",
+      "versions_sha256": "b889fc1ec8fa8eec021e4cc37586c0cc89542e63b76fb1793da7631c6ff1b0bd",
+      "routing_audit_sha256": "e031d0e477f6c781bed0238530d597e244f9220f7a583c4c0e995a9ed98a0f79"
+    }
+  },
+  "models": {
+    "coordinator_sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "optimizer_updates": 0
+  },
+  "families": {
+    "document_direct": {
+      "count": 2,
+      "agent_completed": 2,
+      "clean": 2,
+      "answer_accuracy": 1.0,
+      "protocol_aligned": 1.0,
+      "first_action": "local_ipython",
+      "topology_selected": true
+    },
+    "document_flat": {
+      "count": 1,
+      "agent_completed": 0,
+      "clean": 0,
+      "answer_accuracy": 0.0,
+      "protocol_aligned": 0.0,
+      "stop_condition": "max_turns",
+      "spawn_calls": 3,
+      "retained_handles": 3,
+      "named_children": 3,
+      "delegated_payloads": 3,
+      "fan_in_complete": 1,
+      "failed_cells": 3,
+      "duplicate_cells": 12,
+      "first_action": "three_named_terminal_children",
+      "topology_selected": true
+    },
+    "document_hierarchical": {
+      "count": 1,
+      "agent_completed": 1,
+      "clean": 0,
+      "answer_accuracy": 0.0,
+      "protocol_aligned": 0.0,
+      "spawn_calls": 1,
+      "retained_handles": 0,
+      "named_children": 1,
+      "delegated_payloads": 1,
+      "failed_cells": 4,
+      "first_action": "one_named_document_manager",
+      "topology_selected": true
+    }
+  },
+  "diagnosis": {
+    "topology_choice_is_latent": true,
+    "direct_path_is_clean": true,
+    "flat_failure": "The root selected and admitted the correct three-child topology, but replaced passive waiting with repeated parent-to-child prompts and duplicate reports until the turn cap.",
+    "hierarchical_failure": "The root selected one document-manager, but emitted bare await rlm without retaining the handle and replaced the required recursive coordinator contract with a terminal-style summary prompt. The spawned depth-one session consequently behaved as a leaf rather than delegating.",
+    "next_training_target": "coordinator-only recursive contract fidelity, retained manager admission, depth-one three-child delegation, and passive post-admission yield",
+    "do_not_train": [
+      "direct document computation",
+      "root topology classification",
+      "child policy"
+    ]
+  }
+}

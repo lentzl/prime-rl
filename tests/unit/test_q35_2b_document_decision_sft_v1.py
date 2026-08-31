@@ -541,6 +541,83 @@ def test_document_coordinator_fanin_export_is_grounded_and_phase_balanced(
     }
 
 
+def test_document_recursive_execution_export_targets_only_missing_coordinator_phases(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_recursive_execution_sft_v1")
+    source = tmp_path / "hierarchical.jsonl"
+    source.write_text(
+        "\n".join(
+            json.dumps({"traces": [_trace("document_hierarchical", variant)]})
+            for variant in range(4)
+        )
+        + "\n"
+    )
+    runtime_trace = _trace("document_hierarchical", 9)
+    runtime_trace["nodes"].append(
+        {
+            "sampled": False,
+            "parent": None,
+            "message": {
+                "role": "user",
+                "content": (
+                    "Recursive agent depth: 1\n"
+                    "You are a child agent spawned by root-coordinator."
+                ),
+            },
+        }
+    )
+    runtime = tmp_path / "runtime.jsonl"
+    runtime.write_text(json.dumps({"traces": [runtime_trace]}) + "\n")
+    output = tmp_path / "recursive-execution"
+
+    manifest = module.export(
+        traces=[source], runtime_traces=[runtime], output_dir=output
+    )
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 12
+    assert manifest["answer_free"] is True
+    assert manifest["topology_choice_targeted"] is False
+    assert manifest["child_policy_targeted"] is False
+    assert manifest["family_counts"] == {
+        "document_recursive_manager_leaf_admission": 4,
+        "document_recursive_manager_passive_yield": 4,
+        "document_recursive_root_manager_admission": 4,
+    }
+
+    root_row = next(row for row in rows if row["phase"] == "root_manager_admission")
+    root_code = json.loads(
+        root_row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+    )["code"]
+    assert root_code.startswith("document_manager = await rlm(")
+    assert "[recursive document coordinator session contract]" in root_code
+    assert "maximum_descendant_depth=1" in root_code
+    assert "name='document-manager'" in root_code
+
+    manager_row = next(row for row in rows if row["phase"] == "manager_leaf_admission")
+    assert "Recursive agent depth: 1" in manager_row["messages"][0]["content"]
+    assert "[task from parent]" in manager_row["messages"][1]["content"]
+    manager_code = json.loads(
+        manager_row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+    )["code"]
+    assert manager_code.count("await rlm(") == 3
+    assert "alpha-document-worker" in manager_code
+    assert "gamma-document-worker" in manager_code
+
+    passive_row = next(row for row in rows if row["phase"] == "manager_passive_yield")
+    assert passive_row["messages"][-2]["role"] == "tool"
+    assert passive_row["messages"][-1]["tool_calls"] == []
+    assert "no polling or messaging call" in passive_row["messages"][-1]["reasoning_content"]
+
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    assert trainer.DATASET_CONTRACTS[manifest["schema_version"]] == (
+        "coordinator",
+        manifest["objective"],
+    )
+    assert trainer.DATASET_ANSWER_FREE[manifest["schema_version"]] is True
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:

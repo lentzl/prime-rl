@@ -35,6 +35,10 @@ DATASET_CONTRACTS = {
         "child",
         "successful_on_policy_document_child_cleanup",
     ),
+    "qwen35-2b-document-recursive-execution-sft/v1": (
+        "coordinator",
+        "answer_free_recursive_manager_admission_delegation_and_passive_yield",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -42,6 +46,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
     "qwen35-2b-document-child-cleanup-sft/v1": True,
+    "qwen35-2b-document-recursive-execution-sft/v1": True,
 }
 PROMOTION_MINIMUM = 4
 
