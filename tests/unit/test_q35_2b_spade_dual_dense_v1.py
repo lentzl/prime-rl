@@ -98,6 +98,12 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         "document root topology normalization and exact coordinator action are mutually exclusive"
         in launcher
     )
+    assert (
+        "document_root_flat_fanin_scaffold="
+        "${DUAL_DOCUMENT_ROOT_FLAT_FANIN_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-root-flat-fanin-scaffold)' in launcher
     assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
     assert 'proxy_args+=(--depth-default-child)' in launcher
 

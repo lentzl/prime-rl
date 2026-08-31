@@ -1822,6 +1822,7 @@ class DualPolicyProxy:
         document_manager_termination_scaffold: bool = False,
         document_root_report_relay_scaffold: bool = False,
         document_root_topology_normalization_scaffold: bool = False,
+        document_root_flat_fanin_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
     ) -> None:
@@ -1863,6 +1864,7 @@ class DualPolicyProxy:
         self.document_root_topology_normalization_scaffold = (
             document_root_topology_normalization_scaffold
         )
+        self.document_root_flat_fanin_scaffold = document_root_flat_fanin_scaffold
         self.typed_child_report = typed_child_report
         self.child_authored_compute = child_authored_compute
         self.client: ClientSession | None = None
@@ -2087,6 +2089,82 @@ class DualPolicyProxy:
             and is_root_coordinator_request(payload)
             else None
         )
+        root_flat_reports = (
+            document_manager_reports_from_messages(payload.get("messages"))
+            if (
+                self.document_root_flat_fanin_scaffold
+                and endpoint == "/v1/chat/completions"
+                and role == "coordinator"
+                and is_root_coordinator_request(payload)
+                and not _contains_marker(
+                    payload.get("messages"), DOCUMENT_COORDINATOR_HEADER
+                )
+            )
+            else {}
+        )
+        root_flat_admission_complete = bool(root_flat_reports) or (
+            self.document_root_flat_fanin_scaffold
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+            and all(
+                _contains_marker(
+                    payload.get("messages"), f"{stem}_worker = await rlm("
+                )
+                for stem in ("alpha", "beta", "gamma")
+            )
+            and any(
+                isinstance(message, dict) and message.get("role") == "tool"
+                for message in payload.get("messages") or []
+            )
+        )
+        if root_flat_admission_complete and len(root_flat_reports) == 3:
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content=json.dumps(
+                    document_manager_parent_report(root_flat_reports),
+                    separators=(",", ":"),
+                ),
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_root_flat_fanin_finalized",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
+        if root_flat_admission_complete and len(root_flat_reports) < 3:
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Waiting for the remaining document reports.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_root_flat_fanin_passive",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         if root_manager_report is not None:
             body = json.dumps(
                 routed, separators=(",", ":"), ensure_ascii=False
@@ -2957,6 +3035,7 @@ def main() -> None:
     parser.add_argument(
         "--document-root-topology-normalization-scaffold", action="store_true"
     )
+    parser.add_argument("--document-root-flat-fanin-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
     parser.add_argument("--depth-default-child", action="store_true")
@@ -3013,6 +3092,7 @@ def main() -> None:
         document_root_topology_normalization_scaffold=(
             args.document_root_topology_normalization_scaffold
         ),
+        document_root_flat_fanin_scaffold=args.document_root_flat_fanin_scaffold,
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,
     )
