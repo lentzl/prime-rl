@@ -73,6 +73,11 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         in launcher
     )
     assert 'proxy_args+=(--document-manager-fanin-scaffold)' in launcher
+    assert (
+        "document_root_report_relay_scaffold=${DUAL_DOCUMENT_ROOT_REPORT_RELAY_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-root-report-relay-scaffold)' in launcher
     assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
     assert 'proxy_args+=(--depth-default-child)' in launcher
 
@@ -1900,6 +1905,37 @@ def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> No
     ]
     with pytest.raises(ValueError, match="conflicting alpha reports"):
         module.document_manager_reports_from_messages(duplicate)
+
+
+def test_proxy_can_peel_manager_fanin_without_peeling_root_relay(
+    tmp_path: Path,
+) -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    common = {
+        "coordinator_url": "http://coordinator/v1",
+        "coordinator_model": "coordinator",
+        "child_url": "http://child/v1",
+        "child_model": "child",
+        "external_model": "external",
+        "audit_log": tmp_path / "audit.jsonl",
+        "private_evidence_token_ids": [1],
+        "tokenizer": object(),
+    }
+
+    backward_compatible = module.DualPolicyProxy(
+        **common,
+        document_manager_fanin_scaffold=True,
+    )
+    assert backward_compatible.document_manager_fanin_scaffold is True
+    assert backward_compatible.document_root_report_relay_scaffold is True
+
+    peeled = module.DualPolicyProxy(
+        **common,
+        document_manager_fanin_scaffold=False,
+        document_root_report_relay_scaffold=True,
+    )
+    assert peeled.document_manager_fanin_scaffold is False
+    assert peeled.document_root_report_relay_scaffold is True
 
 
 def test_proxy_tracks_completed_typed_returns_for_terminal_guard() -> None:

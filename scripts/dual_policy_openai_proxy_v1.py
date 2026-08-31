@@ -1716,6 +1716,7 @@ class DualPolicyProxy:
         leaf_compute_report_scaffold: bool = False,
         document_leaf_compute_report_scaffold: bool = False,
         document_manager_fanin_scaffold: bool = False,
+        document_root_report_relay_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
     ) -> None:
@@ -1745,6 +1746,9 @@ class DualPolicyProxy:
         self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
         self.document_leaf_compute_report_scaffold = document_leaf_compute_report_scaffold
         self.document_manager_fanin_scaffold = document_manager_fanin_scaffold
+        self.document_root_report_relay_scaffold = (
+            document_root_report_relay_scaffold or document_manager_fanin_scaffold
+        )
         self.typed_child_report = typed_child_report
         self.child_authored_compute = child_authored_compute
         self.client: ClientSession | None = None
@@ -1959,7 +1963,7 @@ class DualPolicyProxy:
         )
         root_manager_report = (
             document_root_manager_report_from_messages(payload.get("messages"))
-            if self.document_manager_fanin_scaffold
+            if self.document_root_report_relay_scaffold
             and endpoint == "/v1/chat/completions"
             and role == "coordinator"
             and is_root_coordinator_request(payload)
@@ -2776,6 +2780,7 @@ def main() -> None:
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--document-leaf-compute-report-scaffold", action="store_true")
     parser.add_argument("--document-manager-fanin-scaffold", action="store_true")
+    parser.add_argument("--document-root-report-relay-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
     parser.add_argument("--depth-default-child", action="store_true")
@@ -2826,6 +2831,7 @@ def main() -> None:
         leaf_compute_report_scaffold=args.leaf_compute_report_scaffold,
         document_leaf_compute_report_scaffold=args.document_leaf_compute_report_scaffold,
         document_manager_fanin_scaffold=args.document_manager_fanin_scaffold,
+        document_root_report_relay_scaffold=args.document_root_report_relay_scaffold,
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,
     )
