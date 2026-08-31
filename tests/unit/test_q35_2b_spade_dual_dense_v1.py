@@ -1107,6 +1107,12 @@ def test_document_root_topology_classifier_rejects_ambiguous_delegation() -> Non
     )
     assert (
         module.document_root_topology(
+            "document_manager = await rlm('task', name=document_manager)"
+        )
+        == "hierarchical"
+    )
+    assert (
+        module.document_root_topology(
             "await rlm('task', name='alpha-document-worker')"
         )
         is None

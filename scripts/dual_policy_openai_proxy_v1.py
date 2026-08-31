@@ -954,21 +954,43 @@ def document_root_topology(code: str) -> str | None:
     try:
         tree = ast.parse(code)
     except SyntaxError:
+        rlm_call_count = len(re.findall(r"\brlm\s*\(", code))
         matches = re.findall(
             r"\bname\s*=\s*(['\"])(?P<name>[^'\"]+)\1", code
         )
         names = [name for _, name in matches]
-        if len(re.findall(r"\brlm\s*\(", code)) != len(names):
+        if (
+            rlm_call_count == 1
+            and re.search(r"\bdocument_manager\s*=\s*await\s+rlm\s*\(", code)
+        ):
+            names = ["document-manager"]
+        elif rlm_call_count != len(names):
             return None
     else:
         names = []
+        rlm_calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "rlm"
+        ]
+        assigned_document_manager_calls: set[int] = set()
         for node in ast.walk(tree):
-            if not (
-                isinstance(node, ast.Call)
-                and isinstance(node.func, ast.Name)
-                and node.func.id == "rlm"
-            ):
+            if not isinstance(node, ast.Assign) or len(node.targets) != 1:
                 continue
+            value = (
+                node.value.value if isinstance(node.value, ast.Await) else node.value
+            )
+            target = node.targets[0]
+            if (
+                isinstance(value, ast.Call)
+                and value in rlm_calls
+                and isinstance(target, ast.Name)
+                and target.id == "document_manager"
+            ):
+                assigned_document_manager_calls.add(id(value))
+        for node in rlm_calls:
             name = next(
                 (
                     keyword.value.value
@@ -979,6 +1001,8 @@ def document_root_topology(code: str) -> str | None:
                 ),
                 None,
             )
+            if name is None and id(node) in assigned_document_manager_calls:
+                name = "document-manager"
             if name is None:
                 return None
             names.append(name)
