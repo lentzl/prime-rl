@@ -88,6 +88,16 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
         in launcher
     )
     assert 'proxy_args+=(--document-root-report-relay-scaffold)' in launcher
+    assert (
+        "document_root_topology_normalization_scaffold="
+        "${DUAL_DOCUMENT_ROOT_TOPOLOGY_NORMALIZATION_SCAFFOLD:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-root-topology-normalization-scaffold)' in launcher
+    assert (
+        "document root topology normalization and exact coordinator action are mutually exclusive"
+        in launcher
+    )
     assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
     assert 'proxy_args+=(--depth-default-child)' in launcher
 
@@ -986,6 +996,115 @@ def test_document_spawn_scaffold_rejects_partial_or_conflicting_contracts() -> N
     )
     with pytest.raises(ValueError, match="invalid child contract"):
         module.disclosed_document_spawn_action(invalid)
+
+
+def test_document_root_topology_normalizer_repairs_only_the_selected_topology() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    canonical = "\n".join(
+        f"{stem}_worker = await rlm('task', name='{stem}-document-worker')"
+        for stem in ("alpha", "beta", "gamma")
+    )
+    native = "\n".join(
+        f"await rlm('weaker task', name='{stem}-document-worker')"
+        for stem in ("alpha", "beta", "gamma")
+    )
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "Three terminal workers are appropriate.",
+                        "tool_calls": [
+                            {
+                                "id": "call-1",
+                                "type": "function",
+                                "function": {
+                                    "name": "ipython",
+                                    "arguments": json.dumps({"code": native}),
+                                },
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+    ).encode()
+
+    rewritten, count, action_sha, selected, expected = (
+        module.rewrite_document_root_topology_response(
+            body, canonical_code=canonical
+        )
+    )
+
+    result = json.loads(rewritten)
+    arguments = json.loads(
+        result["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )
+    assert arguments["code"] == canonical
+    assert result["choices"][0]["message"]["reasoning_content"].startswith(
+        "Three terminal"
+    )
+    assert count == 1
+    assert action_sha == hashlib.sha256(canonical.encode()).hexdigest()
+    assert selected == expected == "flat"
+
+    hierarchical = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "ipython",
+                                    "arguments": json.dumps(
+                                        {
+                                            "code": (
+                                                "await rlm('manager', "
+                                                "name='document-manager')"
+                                            )
+                                        }
+                                    ),
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ).encode()
+    untouched, count, action_sha, selected, expected = (
+        module.rewrite_document_root_topology_response(
+            hierarchical, canonical_code=canonical
+        )
+    )
+    assert untouched == hierarchical
+    assert count == 0
+    assert action_sha is None
+    assert selected == "hierarchical"
+    assert expected == "flat"
+
+
+def test_document_root_topology_classifier_rejects_ambiguous_delegation() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+
+    assert module.document_root_topology("value = 1") == "direct"
+    assert (
+        module.document_root_topology(
+            "manager = await rlm('task', name='document-manager')"
+        )
+        == "hierarchical"
+    )
+    assert (
+        module.document_root_topology(
+            "await rlm('task', name='alpha-document-worker')"
+        )
+        is None
+    )
 
 
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:

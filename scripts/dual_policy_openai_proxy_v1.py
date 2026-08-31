@@ -948,6 +948,106 @@ def disclosed_root_action_from_messages(messages: Any) -> str | None:
     return disclosed_root_action(prompt)
 
 
+def document_root_topology(code: str) -> str | None:
+    """Classify only the delegation topology selected by a root IPython action."""
+
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+    names = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "rlm"
+        ):
+            continue
+        name = next(
+            (
+                keyword.value.value
+                for keyword in node.keywords
+                if keyword.arg == "name"
+                and isinstance(keyword.value, ast.Constant)
+                and isinstance(keyword.value.value, str)
+            ),
+            None,
+        )
+        if name is None:
+            return None
+        names.append(name)
+    if not names:
+        return "direct"
+    if names == ["document-manager"]:
+        return "hierarchical"
+    if len(names) == 3 and set(names) == {
+        "alpha-document-worker",
+        "beta-document-worker",
+        "gamma-document-worker",
+    }:
+        return "flat"
+    return None
+
+
+def rewrite_document_root_topology_response(
+    body: bytes, *, canonical_code: str
+) -> tuple[bytes, int, str | None, str | None, str]:
+    """Repair mechanics only when the model selected the canonical topology."""
+
+    expected = document_root_topology(canonical_code)
+    if expected not in {"flat", "hierarchical"}:
+        raise ValueError("document root topology scaffold requires a delegation action")
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body, 0, None, None, expected
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        return body, 0, None, None, expected
+    selected = None
+    rewrites = 0
+    for choice in payload["choices"]:
+        message = choice.get("message") if isinstance(choice, dict) else None
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+        if not isinstance(tool_calls, list) or len(tool_calls) != 1:
+            continue
+        tool_call = tool_calls[0]
+        if not isinstance(tool_call, dict):
+            continue
+        function = tool_call.get("function")
+        if not isinstance(function, dict):
+            function = tool_call
+        if function.get("name") != "ipython":
+            continue
+        arguments = function.get("arguments")
+        try:
+            parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
+        except json.JSONDecodeError:
+            continue
+        code = parsed.get("code") if isinstance(parsed, dict) else None
+        if not isinstance(code, str):
+            continue
+        selected = document_root_topology(code)
+        if selected != expected:
+            continue
+        parsed["code"] = canonical_code
+        function["arguments"] = json.dumps(
+            parsed, separators=(",", ":"), ensure_ascii=False
+        )
+        rewrites += 1
+    action_sha256 = (
+        hashlib.sha256(canonical_code.encode()).hexdigest() if rewrites else None
+    )
+    if not rewrites:
+        return body, 0, action_sha256, selected, expected
+    return (
+        json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(),
+        rewrites,
+        action_sha256,
+        selected,
+        expected,
+    )
+
+
 def disclosed_document_leaf_action_from_messages(messages: Any) -> str | None:
     """Extract the non-root document manager scaffold from structured messages."""
 
@@ -1721,6 +1821,7 @@ class DualPolicyProxy:
         document_manager_wait_scaffold: bool = False,
         document_manager_termination_scaffold: bool = False,
         document_root_report_relay_scaffold: bool = False,
+        document_root_topology_normalization_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
     ) -> None:
@@ -1758,6 +1859,9 @@ class DualPolicyProxy:
         )
         self.document_root_report_relay_scaffold = (
             document_root_report_relay_scaffold or document_manager_fanin_scaffold
+        )
+        self.document_root_topology_normalization_scaffold = (
+            document_root_topology_normalization_scaffold
         )
         self.typed_child_report = typed_child_report
         self.child_authored_compute = child_authored_compute
@@ -2247,6 +2351,29 @@ class DualPolicyProxy:
         leaf_compute_report_scope = False
         leaf_compute_report_action_sha256 = None
         root_finalization_scope = False
+        root_topology_scope = False
+        root_topology_canonical_code = None
+        root_topology_action_sha256 = None
+        root_topology_selected = None
+        root_topology_expected = None
+        if (
+            self.document_root_topology_normalization_scaffold
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+            and not any(
+                isinstance(message, dict)
+                and message.get("role") in {"assistant", "tool"}
+                for message in payload.get("messages") or []
+            )
+        ):
+            root_topology_canonical_code = disclosed_root_action_from_messages(
+                payload.get("messages")
+            )
+            if root_topology_canonical_code is not None:
+                root_topology_scope = True
+                routed = {**routed, "stream": False}
+                routed.pop("stream_options", None)
         if self.document_manager_fanin_scaffold and len(manager_reports) == 3:
             code = document_manager_parent_report_code(manager_reports)
             forced_chat_scope = "document_manager_fanin"
@@ -2678,6 +2805,25 @@ class DualPolicyProxy:
                             if key.lower() != "content-type"
                         }
                         response_headers["Content-Type"] = "text/event-stream"
+                elif root_topology_scope and upstream.status == 200:
+                    assert root_topology_canonical_code is not None
+                    (
+                        normalized,
+                        _,
+                        root_topology_action_sha256,
+                        root_topology_selected,
+                        root_topology_expected,
+                    ) = rewrite_document_root_topology_response(
+                        normalized, canonical_code=root_topology_canonical_code
+                    )
+                    if client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 response = web.Response(
                     status=upstream.status,
                     headers=response_headers,
@@ -2689,7 +2835,17 @@ class DualPolicyProxy:
                 body=body,
                 status=upstream.status,
                 mode=(
-                    "forwarded_root_json_finalization"
+                    (
+                        "forwarded_document_root_topology_normalized_"
+                        f"{root_topology_selected}"
+                        if root_topology_action_sha256 is not None
+                        else (
+                            "forwarded_document_root_topology_mismatch_"
+                            f"{root_topology_selected}_expected_{root_topology_expected}"
+                        )
+                    )
+                    if root_topology_scope
+                    else "forwarded_root_json_finalization"
                     if root_finalization_scope
                     else (
                         "forwarded_typed_child_report"
@@ -2746,6 +2902,7 @@ class DualPolicyProxy:
                     or leaf_inline_evidence_action_sha256
                     or typed_return_action_sha256
                     or typed_compute_action_sha256
+                    or root_topology_action_sha256
                     or forced_chat_action_sha256
                 ),
                 session_sha256=session_sha256,
@@ -2797,6 +2954,9 @@ def main() -> None:
     parser.add_argument("--document-manager-wait-scaffold", action="store_true")
     parser.add_argument("--document-manager-termination-scaffold", action="store_true")
     parser.add_argument("--document-root-report-relay-scaffold", action="store_true")
+    parser.add_argument(
+        "--document-root-topology-normalization-scaffold", action="store_true"
+    )
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
     parser.add_argument("--depth-default-child", action="store_true")
@@ -2850,6 +3010,9 @@ def main() -> None:
         document_manager_wait_scaffold=args.document_manager_wait_scaffold,
         document_manager_termination_scaffold=args.document_manager_termination_scaffold,
         document_root_report_relay_scaffold=args.document_root_report_relay_scaffold,
+        document_root_topology_normalization_scaffold=(
+            args.document_root_topology_normalization_scaffold
+        ),
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,
     )

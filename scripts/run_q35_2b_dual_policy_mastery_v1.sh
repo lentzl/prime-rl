@@ -37,6 +37,7 @@ document_manager_fanin_scaffold=${DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD:-0}
 document_manager_wait_scaffold=${DUAL_DOCUMENT_MANAGER_WAIT_SCAFFOLD:-0}
 document_manager_termination_scaffold=${DUAL_DOCUMENT_MANAGER_TERMINATION_SCAFFOLD:-0}
 document_root_report_relay_scaffold=${DUAL_DOCUMENT_ROOT_REPORT_RELAY_SCAFFOLD:-0}
+document_root_topology_normalization_scaffold=${DUAL_DOCUMENT_ROOT_TOPOLOGY_NORMALIZATION_SCAFFOLD:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
 child_authored_compute=${DUAL_CHILD_AUTHORED_COMPUTE:-0}
 depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}
@@ -119,6 +120,14 @@ if [[ "$document_manager_termination_scaffold" != 0 && "$document_manager_termin
 fi
 if [[ "$document_root_report_relay_scaffold" != 0 && "$document_root_report_relay_scaffold" != 1 ]]; then
   echo "DUAL_DOCUMENT_ROOT_REPORT_RELAY_SCAFFOLD must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$document_root_topology_normalization_scaffold" != 0 && "$document_root_topology_normalization_scaffold" != 1 ]]; then
+  echo "DUAL_DOCUMENT_ROOT_TOPOLOGY_NORMALIZATION_SCAFFOLD must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$document_root_topology_normalization_scaffold" == 1 && "$leak_coordinator_exact_action" == 1 ]]; then
+  echo "document root topology normalization and exact coordinator action are mutually exclusive" >&2
   exit 1
 fi
 if [[ "$leak_coordinator_return_action" == 1 && "$typed_coordinator_return" == 1 ]]; then
@@ -305,6 +314,9 @@ fi
 if [[ "$document_root_report_relay_scaffold" == 1 ]]; then
   proxy_args+=(--document-root-report-relay-scaffold)
 fi
+if [[ "$document_root_topology_normalization_scaffold" == 1 ]]; then
+  proxy_args+=(--document-root-topology-normalization-scaffold)
+fi
 if [[ "$typed_child_report" == 1 ]]; then
   proxy_args+=(--typed-child-report)
 fi
@@ -390,6 +402,7 @@ child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
   printf 'dual_document_manager_wait_scaffold=%s\n' "$document_manager_wait_scaffold"
   printf 'dual_document_manager_termination_scaffold=%s\n' "$document_manager_termination_scaffold"
   printf 'dual_document_root_report_relay_scaffold=%s\n' "$document_root_report_relay_scaffold"
+  printf 'dual_document_root_topology_normalization_scaffold=%s\n' "$document_root_topology_normalization_scaffold"
   printf 'dual_typed_child_report=%s\n' "$typed_child_report"
   printf 'dual_child_authored_compute=%s\n' "$child_authored_compute"
   printf 'dual_depth_default_child=%s\n' "$depth_default_child"
