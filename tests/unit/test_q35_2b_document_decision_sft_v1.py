@@ -110,9 +110,7 @@ def _cleanup_trace(variant: int) -> dict:
                         {
                             "id": spawn_id,
                             "name": "ipython",
-                            "arguments": json.dumps(
-                                {"code": "\n".join("await rlm('task')" for _ in range(3))}
-                            ),
+                            "arguments": json.dumps({"code": "\n".join("await rlm('task')" for _ in range(3))}),
                         }
                     ],
                 },
@@ -251,8 +249,7 @@ def _cleanup_trace(variant: int) -> dict:
                     "role": "user",
                     "content": (
                         f"[from child:{stem}-document-worker]\n"
-                        "Agent-to-agent message received.\n\n"
-                        + json.dumps({"words": words, "h2": h2})
+                        "Agent-to-agent message received.\n\n" + json.dumps({"words": words, "h2": h2})
                     ),
                 },
             }
@@ -304,10 +301,7 @@ def test_document_decision_export_is_balanced_and_preserves_failed_prefixes(tmp_
     sources = []
     for family in sorted(module.FAMILIES):
         path = tmp_path / f"{family}.jsonl"
-        path.write_text(
-            "\n".join(json.dumps({"traces": [_trace(family, variant)]}) for variant in range(4))
-            + "\n"
-        )
+        path.write_text("\n".join(json.dumps({"traces": [_trace(family, variant)]}) for variant in range(4)) + "\n")
         sources.append(path)
 
     output = tmp_path / "dataset"
@@ -324,19 +318,9 @@ def test_document_decision_export_is_balanced_and_preserves_failed_prefixes(tmp_
     assert len(rows) == 12
     assert all(row["role"] == "coordinator" for row in rows)
     assert all(len(row["messages"]) == 3 for row in rows)
-    assert all(
-        row["messages"][-1]["tool_calls"][0]["type"] == "function" for row in rows
-    )
-    assert all(
-        row["messages"][-1]["tool_calls"][0]["function"]["name"] == "ipython"
-        for row in rows
-    )
-    assert all(
-        json.loads(row["messages"][-1]["tool_calls"][0]["function"]["arguments"])[
-            "code"
-        ]
-        for row in rows
-    )
+    assert all(row["messages"][-1]["tool_calls"][0]["type"] == "function" for row in rows)
+    assert all(row["messages"][-1]["tool_calls"][0]["function"]["name"] == "ipython" for row in rows)
+    assert all(json.loads(row["messages"][-1]["tool_calls"][0]["function"]["arguments"])["code"] for row in rows)
     assert manifest["tool_call_format"] == "openai_function_v1"
 
 
@@ -365,21 +349,15 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
         "child",
         "canonical_answer_free_document_leaf_compute_report_stop",
     )
-    assert module.DATASET_CONTRACTS[
-        "qwen35-2b-document-coordinator-fanin-sft/v1"
-    ] == (
+    assert module.DATASET_CONTRACTS["qwen35-2b-document-coordinator-fanin-sft/v1"] == (
         "coordinator",
         "grounded_document_coordinator_spawn_partial_yield_fanin",
     )
-    assert module.DATASET_ANSWER_FREE[
-        "qwen35-2b-document-coordinator-fanin-sft/v1"
-    ] is False
+    assert module.DATASET_ANSWER_FREE["qwen35-2b-document-coordinator-fanin-sft/v1"] is False
 
 
 def test_dual_policy_launcher_exposes_inference_sibling_binaries() -> None:
-    launcher = (
-        Path(__file__).parents[2] / "scripts" / "run_q35_2b_dual_policy_mastery_v1.sh"
-    ).read_text()
+    launcher = (Path(__file__).parents[2] / "scripts" / "run_q35_2b_dual_policy_mastery_v1.sh").read_text()
 
     assert 'inference_dir=$(cd "$(dirname "$inference_bin")" && pwd)' in launcher
     assert 'export PATH="$inference_dir:$PATH"' in launcher
@@ -405,10 +383,7 @@ def test_document_child_export_uses_real_depth_one_context_and_answer_free_code(
                     "parent": None,
                     "message": {
                         "role": "user",
-                        "content": (
-                            "Recursive agent depth: 1\nYou are a child agent\n"
-                            f"template={stem}"
-                        ),
+                        "content": (f"Recursive agent depth: 1\nYou are a child agent\ntemplate={stem}"),
                     },
                 },
                 {
@@ -419,10 +394,7 @@ def test_document_child_export_uses_real_depth_one_context_and_answer_free_code(
                         "content": [
                             {
                                 "type": "text",
-                                "text": (
-                                    "[task from parent]\nRead "
-                                    f"/workspace/document-recursion/v3-i20000/{stem}.md"
-                                ),
+                                "text": (f"[task from parent]\nRead /workspace/document-recursion/v3-i20000/{stem}.md"),
                             }
                         ],
                     },
@@ -507,9 +479,7 @@ def test_document_coordinator_fanin_export_is_grounded_and_phase_balanced(
         "document_coordinator_spawn": 4,
     }
     spawn_row = next(row for row in rows if row["family"].endswith("_spawn"))
-    spawn_code = json.loads(
-        spawn_row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
-    )["code"]
+    spawn_code = json.loads(spawn_row["messages"][-1]["tool_calls"][0]["function"]["arguments"])["code"]
     assert spawn_code.count('task = """') == 3
     assert spawn_code.count("await rlm(") == 3
     assert "receiver_role='parent'" in spawn_code
@@ -522,8 +492,7 @@ def test_document_coordinator_fanin_export_is_grounded_and_phase_balanced(
     complete_row = next(row for row in rows if row["family"].endswith("complete_fanin"))
     assert (
         sum(
-            message["role"] == "user"
-            and "[from child:" in message.get("content", "")
+            message["role"] == "user" and "[from child:" in message.get("content", "")
             for message in complete_row["messages"]
         )
         == 3
@@ -547,11 +516,7 @@ def test_document_recursive_execution_export_targets_only_missing_coordinator_ph
     module = _module("export_q35_2b_document_recursive_execution_sft_v1")
     source = tmp_path / "hierarchical.jsonl"
     source.write_text(
-        "\n".join(
-            json.dumps({"traces": [_trace("document_hierarchical", variant)]})
-            for variant in range(4)
-        )
-        + "\n"
+        "\n".join(json.dumps({"traces": [_trace("document_hierarchical", variant)]}) for variant in range(4)) + "\n"
     )
     runtime_trace = _trace("document_hierarchical", 9)
     runtime_trace["nodes"].append(
@@ -560,10 +525,7 @@ def test_document_recursive_execution_export_targets_only_missing_coordinator_ph
             "parent": None,
             "message": {
                 "role": "user",
-                "content": (
-                    "Recursive agent depth: 1\n"
-                    "You are a child agent spawned by root-coordinator."
-                ),
+                "content": ("Recursive agent depth: 1\nYou are a child agent spawned by root-coordinator."),
             },
         }
     )
@@ -571,9 +533,7 @@ def test_document_recursive_execution_export_targets_only_missing_coordinator_ph
     runtime.write_text(json.dumps({"traces": [runtime_trace]}) + "\n")
     output = tmp_path / "recursive-execution"
 
-    manifest = module.export(
-        traces=[source], runtime_traces=[runtime], output_dir=output
-    )
+    manifest = module.export(traces=[source], runtime_traces=[runtime], output_dir=output)
     rows = Dataset.from_parquet(str(output / "train.parquet"))
 
     assert manifest["rows"] == 12
@@ -587,9 +547,7 @@ def test_document_recursive_execution_export_targets_only_missing_coordinator_ph
     }
 
     root_row = next(row for row in rows if row["phase"] == "root_manager_admission")
-    root_code = json.loads(
-        root_row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
-    )["code"]
+    root_code = json.loads(root_row["messages"][-1]["tool_calls"][0]["function"]["arguments"])["code"]
     assert root_code.startswith("document_manager = await rlm(")
     assert "[recursive document coordinator session contract]" in root_code
     assert "maximum_descendant_depth=1" in root_code
@@ -598,9 +556,7 @@ def test_document_recursive_execution_export_targets_only_missing_coordinator_ph
     manager_row = next(row for row in rows if row["phase"] == "manager_leaf_admission")
     assert "Recursive agent depth: 1" in manager_row["messages"][0]["content"]
     assert "[task from parent]" in manager_row["messages"][1]["content"]
-    manager_code = json.loads(
-        manager_row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
-    )["code"]
+    manager_code = json.loads(manager_row["messages"][-1]["tool_calls"][0]["function"]["arguments"])["code"]
     assert manager_code.count("await rlm(") == 3
     assert "alpha-document-worker" in manager_code
     assert "gamma-document-worker" in manager_code
@@ -618,19 +574,97 @@ def test_document_recursive_execution_export_targets_only_missing_coordinator_ph
     assert trainer.DATASET_ANSWER_FREE[manifest["schema_version"]] is True
 
 
+def test_document_manager_admission_export_uses_each_exact_live_depth_two_context(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_manager_admission_sft_v1")
+    traces = []
+    for variant in range(4):
+        trace = _trace("document_hierarchical", variant)
+        manager_root = len(trace["nodes"])
+        trace["nodes"].extend(
+            [
+                {
+                    "sampled": False,
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": ("Recursive agent depth: 1\nYou are a child agent spawned by root-coordinator."),
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": manager_root,
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": (
+                                    "[task from parent]\n\n"
+                                    "[recursive document coordinator session contract]\n"
+                                    "session_role=document_coordinator\n"
+                                    f"variant={variant}"
+                                ),
+                            }
+                        ],
+                    },
+                },
+            ]
+        )
+        traces.append(trace)
+    source = tmp_path / "depth-two-runtime.jsonl"
+    source.write_text(json.dumps({"traces": traces}) + "\n")
+    output = tmp_path / "manager-admission"
+
+    manifest = module.export(traces=[source], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 4
+    assert manifest["family_counts"] == {"document_recursive_manager_leaf_admission": 4}
+    assert manifest["answer_free"] is True
+    assert manifest["exact_live_depth_two_context"] is True
+    assert manifest["root_policy_targeted"] is False
+    assert manifest["child_policy_targeted"] is False
+    assert {row["messages"][1]["content"].split("variant=")[-1] for row in rows} == {
+        "0",
+        "1",
+        "2",
+        "3",
+    }
+    for row in rows:
+        assert "Recursive agent depth: 1" in row["messages"][0]["content"]
+        assert "[recursive document coordinator session contract]" in row["messages"][1]["content"]
+        action = row["messages"][2]["tool_calls"][0]
+        code = json.loads(action["function"]["arguments"])["code"]
+        assert code.count("await rlm(") == 3
+        assert code.count("_worker = await rlm(") == 3
+        assert code.count('name="') == 3
+
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 4
+    config = trainer.training_config(
+        run_name="manager-admission",
+        model_path=Path("/models/c177"),
+        dataset_dir=output,
+        output_root=Path("/outputs"),
+        learning_rate=5e-7,
+        batch_size=validated["rows"],
+    )
+    assert "batch_size = 4" in config
+    assert trainer.PROMOTION_MINIMUM == 4
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:
     module = _module("export_q35_2b_document_cleanup_sft_v1")
     source = tmp_path / "successful-traces.jsonl"
-    source.write_text(
-        json.dumps({"traces": [_cleanup_trace(variant) for variant in range(4)]}) + "\n"
-    )
+    source.write_text(json.dumps({"traces": [_cleanup_trace(variant) for variant in range(4)]}) + "\n")
 
     child_dir = tmp_path / "child-cleanup"
-    child_manifest = module.export(
-        traces_path=source, output_dir=child_dir, role="child"
-    )
+    child_manifest = module.export(traces_path=source, output_dir=child_dir, role="child")
     child_rows = Dataset.from_parquet(str(child_dir / "train.parquet"))
 
     assert child_manifest["rows"] == 12
@@ -653,9 +687,7 @@ def test_document_cleanup_export_projects_only_admitted_role_lineage(
         assert row["messages"][-1]["content"] == "Done."
 
     coordinator_dir = tmp_path / "coordinator-cleanup"
-    coordinator_manifest = module.export(
-        traces_path=source, output_dir=coordinator_dir, role="coordinator"
-    )
+    coordinator_manifest = module.export(traces_path=source, output_dir=coordinator_dir, role="coordinator")
     coordinator_rows = Dataset.from_parquet(str(coordinator_dir / "train.parquet"))
 
     assert coordinator_manifest["rows"] == 12
@@ -669,7 +701,7 @@ def test_document_cleanup_export_projects_only_admitted_role_lineage(
         assert all("Traceback" not in message["content"] for message in row["messages"])
         assert row["messages"][-1]["tool_calls"] == []
         if row["family"].endswith("complete_fanin"):
-            assert sum(
-                message["role"] == "user" and "[from child:" in message["content"]
-                for message in row["messages"]
-            ) == 3
+            assert (
+                sum(message["role"] == "user" and "[from child:" in message["content"] for message in row["messages"])
+                == 3
+            )

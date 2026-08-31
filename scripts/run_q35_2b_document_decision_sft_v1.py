@@ -39,6 +39,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "answer_free_recursive_manager_admission_delegation_and_passive_yield",
     ),
+    "qwen35-2b-document-manager-admission-sft/v1": (
+        "coordinator",
+        "answer_free_depth_two_manager_leaf_admission",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -47,6 +51,10 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
     "qwen35-2b-document-child-cleanup-sft/v1": True,
     "qwen35-2b-document-recursive-execution-sft/v1": True,
+    "qwen35-2b-document-manager-admission-sft/v1": True,
+}
+DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
+    "qwen35-2b-document-manager-admission-sft/v1": 4
 }
 PROMOTION_MINIMUM = 4
 
@@ -63,9 +71,12 @@ def training_config(
     output_root: Path,
     learning_rate: float,
     optimizer_updates: int = 1,
+    batch_size: int = 12,
 ) -> str:
     if not 1 <= optimizer_updates <= 8:
         raise ValueError("document decision bootstrap requires one to eight updates")
+    if batch_size not in {4, 8, 12}:
+        raise ValueError("document decision bootstrap batch size must be 4, 8, or 12")
     return f"""max_steps = {optimizer_updates}
 output_dir = {_quote(output_root)}
 clean = false
@@ -108,7 +119,7 @@ enable_thinking = false
 [data]
 type = "sft"
 name = {_quote(dataset_dir)}
-batch_size = 12
+batch_size = {batch_size}
 micro_batch_size = 1
 seq_len = 16384
 shuffle = false
@@ -164,7 +175,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         contract is None
         or manifest.get("status") != "complete"
         or (manifest.get("role"), manifest.get("objective")) != contract
-        or manifest.get("rows") != 12
+        or manifest.get("rows") != DATASET_ROWS.get(schema_version)
         or set(manifest.get("family_counts", {}).values()) != {4}
         or manifest.get("answer_free") is not DATASET_ANSWER_FREE.get(schema_version)
         or manifest.get("tool_call_format") != "openai_function_v1"
@@ -224,6 +235,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         output_root=output_root,
         learning_rate=args.learning_rate,
         optimizer_updates=args.optimizer_updates,
+        batch_size=dataset["rows"],
     )
     _write_once(config_path, config)
 
@@ -231,11 +243,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     output_model = output_dir / f"weights/step_{args.optimizer_updates}"
     output_weight = output_model / "model.safetensors"
     metrics_path = output_dir / "metrics.jsonl"
-    complete = (
-        output_weight.is_file()
-        and (output_model / "STABLE").is_file()
-        and metrics_path.is_file()
-    )
+    complete = output_weight.is_file() and (output_model / "STABLE").is_file() and metrics_path.is_file()
     if not complete:
         if not _gpus_idle():
             raise RuntimeError("GPUs are not idle at the document decision update boundary")
