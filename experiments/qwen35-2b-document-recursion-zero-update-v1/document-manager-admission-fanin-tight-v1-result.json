@@ -1,0 +1,120 @@
+{
+  "schema_version": "qwen35-2b-document-manager-admission-fanin-tight-result/v1",
+  "status": "complete",
+  "decision": "admit_candidate_for_tight_hierarchical_scaffold_only",
+  "model_promotion_scope": "document_hierarchical_depth_two_tight_scaffold",
+  "unscaffolded_model_promotion": false,
+  "acceptance_floor": 4,
+  "acceptance_floor_relaxed": false,
+  "prime_rl_commit": "af868b875",
+  "protected_rollback": {
+    "coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-coordinator-fanin-sft-v1/c177fanin8-document-fanin-grounded12-step8-v2/weights/step_8",
+      "sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31"
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "verified_unchanged_after_run": true
+  },
+  "candidate": {
+    "coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-manager-fanin-sft-v1/c177manager1-manager-fanin12-step1-v1/weights/step_1",
+      "sha256": "e2ffe00342cd21314c720aa451589e04b7a2da555527fdea18fa0054af876d85",
+      "lineage": [
+        {
+          "stage": "manager_leaf_admission",
+          "source_sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31",
+          "dataset": "/home/ubuntu/rlm/artifacts/q35-2b-document-manager-admission-sft-v1/c177-protected-depth2-manager-admission4-v1",
+          "dataset_rows": 4,
+          "optimizer_updates": 1,
+          "learning_rate": 5e-7,
+          "loss_mean": 0.8175720572471619,
+          "gradient_norm": 191.0,
+          "output_sha256": "a7aa7abb4d6f7883fc35dcfe609fdf45bb4fad0252e3c476e2f89d4774399052"
+        },
+        {
+          "stage": "manager_passive_fanin_parent_report",
+          "source_sha256": "a7aa7abb4d6f7883fc35dcfe609fdf45bb4fad0252e3c476e2f89d4774399052",
+          "dataset": "/home/ubuntu/rlm/artifacts/q35-2b-document-manager-fanin-sft-v1/c177manager1-depth2-manager-fanin12-v1",
+          "dataset_rows": 12,
+          "optimizer_updates": 1,
+          "learning_rate": 5e-7,
+          "loss_mean": 0.7716948390007019,
+          "gradient_norm": 150.0,
+          "output_sha256": "e2ffe00342cd21314c720aa451589e04b7a2da555527fdea18fa0054af876d85"
+        }
+      ]
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "updated": false
+    }
+  },
+  "tight_scaffold": {
+    "root_exact_manager_admission": true,
+    "root_passive_manager_wait": true,
+    "manager_exact_three_leaf_admission": true,
+    "terminal_leaf_python_compute_and_single_report": true,
+    "manager_unique_report_fanin_and_single_parent_report": true,
+    "root_exact_manager_report_relay": true,
+    "maximum_depth": 2,
+    "flags": {
+      "DUAL_LEAK_COORDINATOR_EXACT_ACTION": 1,
+      "DUAL_LEAK_DOCUMENT_MANAGER_EXACT_ACTION": 1,
+      "DUAL_DOCUMENT_LEAF_COMPUTE_REPORT_SCAFFOLD": 1,
+      "DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD": 1,
+      "DUAL_ROOT_COORDINATOR_CONTRACT": 1,
+      "DUAL_DEPTH_DEFAULT_CHILD": 1
+    }
+  },
+  "candidate_gate": {
+    "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/hierarchical-tight-scaffold-fanin.toml",
+    "task_offset": 20800,
+    "seed": 20260907,
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-manager-fanin-v1/latent-doc-c177manager1fanin1-h176protected-tightfanin-v5",
+    "trace_count": 4,
+    "clean_count": 4,
+    "issue_count": 0,
+    "mean_reward": 2.0,
+    "answer_accuracy": 1.0,
+    "protocol_aligned": 1.0,
+    "clean_protocol_aligned": 1.0,
+    "post_fan_in_control": 1.0,
+    "stop_conditions": {
+      "agent_completed": 4
+    },
+    "summary_sha256": "a44be0271ee4712967f00814ca4ace03d8f595c84df16362d28e7e8daf024888",
+    "traces_sha256": "fdde4ff273f0fe58a6222426a52c2b6faecf9a5a0e6b0a744d7f510cffd330c3",
+    "routing_audit_sha256": "8988cf45ae1f0e2eaf56b877ecdfab46cfca966ad93419508788ef6a809d8cbb"
+  },
+  "matched_protected_control": {
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-manager-fanin-v1/latent-doc-protected-c177-h176-tightfanin-control-v1",
+    "same_config_and_scaffold": true,
+    "trace_count": 4,
+    "clean_count": 3,
+    "issue_count": 1,
+    "mean_reward": 2.0,
+    "answer_accuracy": 1.0,
+    "protocol_aligned": 1.0,
+    "clean_protocol_aligned": 0.75,
+    "post_fan_in_control": 1.0,
+    "failed_cells": 1,
+    "summary_sha256": "60c2e8756c94ad18ba7f2764e688987f40bb536bdeafcee1fc58e38c9946f110",
+    "traces_sha256": "a0cccd5872b203fbd7621f69bce567ef67529a8521764233b2a4dc2cc0e44826",
+    "routing_audit_sha256": "01fff8e78c0ebcab3851c41544163faaebffc369e5d6a3538fc4a2e548b3e953"
+  },
+  "causal_interpretation": {
+    "scaffold_contribution": "dominant; both candidate and protected control achieved 4/4 answer and protocol success",
+    "dense_update_contribution": "small but gate-relevant; candidate removed the protected control's one failed cell and raised clean trajectories from 3/4 to 4/4",
+    "claim_not_supported": "unscaffolded recursive hierarchy mastery"
+  },
+  "verification": {
+    "focused_remote_tests_passed": 98,
+    "gpu_processes_after_runs": 0,
+    "remote_worktree": "clean_detached"
+  },
+  "safest_next_action": "Keep the protected pair as rollback and the admitted candidate as the tight-stack coordinator. On a fresh bank, peel exactly one learned boundary at a time, starting with disabling only DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD while retaining exact admissions and terminal leaf delivery; do not update weights again until that ablation identifies the next learned-policy deficit."
+}
