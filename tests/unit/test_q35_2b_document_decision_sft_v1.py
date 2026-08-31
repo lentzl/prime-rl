@@ -78,6 +78,202 @@ def _trace(family: str, variant: int) -> dict:
     }
 
 
+def _cleanup_trace(variant: int) -> dict:
+    trace = _trace("document_flat", variant)
+    root = f"/workspace/document-recursion/v{variant}-i20000"
+    trace["metrics"] = {
+        "answer_accuracy": 1,
+        "protocol_aligned": 1,
+        "clean_protocol_aligned": 0,
+        "spawn_calls": 3,
+        "failed_spawn_calls": 0,
+        "retained_handles": 3,
+        "named_children": 3,
+        "delegated_payloads": 3,
+        "coordinator_delegated_path_accesses": 0,
+        "messages_to_parent": 3,
+        "fan_in_complete": 1,
+        "failed_cells": 3,
+    }
+    spawn_id = f"spawn-{variant}"
+    nodes = trace["nodes"][:2]
+    nodes.extend(
+        [
+            {
+                "sampled": True,
+                "parent": 1,
+                "message": {
+                    "role": "assistant",
+                    "content": "",
+                    "reasoning_content": "Spawn three workers and retain their handles.",
+                    "tool_calls": [
+                        {
+                            "id": spawn_id,
+                            "name": "ipython",
+                            "arguments": json.dumps(
+                                {"code": "\n".join("await rlm('task')" for _ in range(3))}
+                            ),
+                        }
+                    ],
+                },
+            },
+            {
+                "sampled": False,
+                "parent": 2,
+                "message": {
+                    "role": "tool",
+                    "name": "ipython",
+                    "tool_call_id": spawn_id,
+                    "content": "",
+                },
+            },
+            {
+                "sampled": True,
+                "parent": 3,
+                "message": {
+                    "role": "assistant",
+                    "content": "Waiting for explicit child reports.",
+                    "reasoning_content": "I will yield without polling.",
+                    "tool_calls": [],
+                },
+            },
+        ]
+    )
+    report_parent = 4
+    for stem in ("alpha", "beta", "gamma"):
+        child_root = len(nodes)
+        task_index = child_root + 1
+        failed_action = child_root + 2
+        failed_receipt = child_root + 3
+        successful_action = child_root + 4
+        successful_receipt = child_root + 5
+        action_id = f"child-{variant}-{stem}"
+        nodes.extend(
+            [
+                {
+                    "sampled": False,
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": "Recursive agent depth: 1\nYou are a child agent",
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": child_root,
+                    "message": {
+                        "role": "user",
+                        "content": f"Read {root}/{stem}.md and report to parent.",
+                    },
+                },
+                {
+                    "sampled": True,
+                    "parent": task_index,
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": f"failed-{action_id}",
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": "json.dumps(result)"}),
+                            }
+                        ],
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": failed_action,
+                    "message": {
+                        "role": "tool",
+                        "name": "ipython",
+                        "tool_call_id": f"failed-{action_id}",
+                        "content": "Traceback: NameError: json is not defined",
+                    },
+                },
+                {
+                    "sampled": True,
+                    "parent": failed_receipt,
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning_content": "Import json, compute, report, and stop.",
+                        "tool_calls": [
+                            {
+                                "id": action_id,
+                                "name": "ipython",
+                                "arguments": json.dumps(
+                                    {
+                                        "code": (
+                                            "from pathlib import Path\nimport json\n"
+                                            f"text = Path('{root}/{stem}.md').read_text()\n"
+                                            "result = {'words': len(text.split()), "
+                                            "'h2': sum(line.startswith('## ') for line in text.splitlines())}\n"
+                                            "await agent_message.send(json.dumps(result), "
+                                            "receiver_role='parent')"
+                                        )
+                                    }
+                                ),
+                            }
+                        ],
+                    },
+                },
+                {
+                    "sampled": False,
+                    "parent": successful_action,
+                    "message": {
+                        "role": "tool",
+                        "name": "ipython",
+                        "tool_call_id": action_id,
+                        "content": "{'deliveryStatus': 'queued'}",
+                    },
+                },
+                {
+                    "sampled": True,
+                    "parent": successful_receipt,
+                    "message": {
+                        "role": "assistant",
+                        "content": "Done.",
+                        "reasoning_content": "The report was delivered, so I stop.",
+                        "tool_calls": [],
+                    },
+                },
+            ]
+        )
+        words = trace["task"]["data"]["answer"][f"{stem}_words"]
+        h2 = trace["task"]["data"]["answer"][f"{stem}_h2"]
+        report_index = len(nodes)
+        nodes.append(
+            {
+                "sampled": False,
+                "parent": report_parent,
+                "message": {
+                    "role": "user",
+                    "content": (
+                        f"[from child:{stem}-document-worker]\n"
+                        "Agent-to-agent message received.\n\n"
+                        + json.dumps({"words": words, "h2": h2})
+                    ),
+                },
+            }
+        )
+        report_parent = report_index
+    nodes.append(
+        {
+            "sampled": True,
+            "parent": report_parent,
+            "message": {
+                "role": "assistant",
+                "content": json.dumps(trace["task"]["data"]["answer"]),
+                "reasoning_content": "All reports are present; return the exact aggregate.",
+                "tool_calls": [],
+            },
+        }
+    )
+    trace["nodes"] = nodes
+    return trace
+
+
 def test_document_decision_actions_are_topology_specific_and_answer_free() -> None:
     module = _module("export_q35_2b_document_decision_sft_v1")
     root = "/workspace/document-recursion/v0-i20000"
@@ -343,3 +539,60 @@ def test_document_coordinator_fanin_export_is_grounded_and_phase_balanced(
         "total_words": 26,
         "total_h2": 4,
     }
+
+
+def test_document_cleanup_export_projects_only_admitted_role_lineage(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_cleanup_sft_v1")
+    source = tmp_path / "successful-traces.jsonl"
+    source.write_text(
+        json.dumps({"traces": [_cleanup_trace(variant) for variant in range(4)]}) + "\n"
+    )
+
+    child_dir = tmp_path / "child-cleanup"
+    child_manifest = module.export(
+        traces_path=source, output_dir=child_dir, role="child"
+    )
+    child_rows = Dataset.from_parquet(str(child_dir / "train.parquet"))
+
+    assert child_manifest["rows"] == 12
+    assert child_manifest["successful_on_policy_sources_only"] is True
+    assert child_manifest["failed_prefixes_removed"] is True
+    assert child_manifest["answer_free"] is True
+    assert child_manifest["family_counts"] == {
+        "document_cleanup_child_alpha": 4,
+        "document_cleanup_child_beta": 4,
+        "document_cleanup_child_gamma": 4,
+    }
+    for row in child_rows:
+        assert len(row["messages"]) == 5
+        assert all("Traceback" not in message["content"] for message in row["messages"])
+        action = row["messages"][2]["tool_calls"][0]
+        assert action["function"]["name"] == "ipython"
+        code = json.loads(action["function"]["arguments"])["code"]
+        assert "import json" in code
+        assert "receiver_role='parent'" in code
+        assert row["messages"][-1]["content"] == "Done."
+
+    coordinator_dir = tmp_path / "coordinator-cleanup"
+    coordinator_manifest = module.export(
+        traces_path=source, output_dir=coordinator_dir, role="coordinator"
+    )
+    coordinator_rows = Dataset.from_parquet(str(coordinator_dir / "train.parquet"))
+
+    assert coordinator_manifest["rows"] == 12
+    assert coordinator_manifest["answer_free"] is False
+    assert coordinator_manifest["family_counts"] == {
+        "document_cleanup_coordinator_complete_fanin": 4,
+        "document_cleanup_coordinator_partial_fanin": 4,
+        "document_cleanup_coordinator_passive_yield": 4,
+    }
+    for row in coordinator_rows:
+        assert all("Traceback" not in message["content"] for message in row["messages"])
+        assert row["messages"][-1]["tool_calls"] == []
+        if row["family"].endswith("complete_fanin"):
+            assert sum(
+                message["role"] == "user" and "[from child:" in message["content"]
+                for message in row["messages"]
+            ) == 3

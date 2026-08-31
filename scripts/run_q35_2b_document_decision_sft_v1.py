@@ -27,11 +27,21 @@ DATASET_CONTRACTS = {
         "coordinator",
         "grounded_document_coordinator_spawn_partial_yield_fanin",
     ),
+    "qwen35-2b-document-coordinator-cleanup-sft/v1": (
+        "coordinator",
+        "successful_on_policy_document_coordinator_cleanup",
+    ),
+    "qwen35-2b-document-child-cleanup-sft/v1": (
+        "child",
+        "successful_on_policy_document_child_cleanup",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
     "qwen35-2b-document-child-sft/v1": True,
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
+    "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
+    "qwen35-2b-document-child-cleanup-sft/v1": True,
 }
 PROMOTION_MINIMUM = 4
 
