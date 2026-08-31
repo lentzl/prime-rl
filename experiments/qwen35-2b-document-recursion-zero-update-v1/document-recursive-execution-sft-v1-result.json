@@ -1,0 +1,92 @@
+{
+  "schema_version": "qwen35-2b-document-recursive-execution-result/v1",
+  "status": "complete_rejected",
+  "acceptance_floor": 4,
+  "protected_models": {
+    "coordinator_sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "unchanged": true
+  },
+  "curriculum": {
+    "schema_version": "qwen35-2b-document-recursive-execution-sft/v1",
+    "objective": "answer_free_recursive_manager_admission_delegation_and_passive_yield",
+    "rows": 12,
+    "family_counts": {
+      "document_recursive_root_manager_admission": 4,
+      "document_recursive_manager_leaf_admission": 4,
+      "document_recursive_manager_passive_yield": 4
+    },
+    "manifest_sha256": "532bc171198ce4484dd0b432d25197811f65dcaea6df0698b23dadcb1d214744",
+    "train_parquet_sha256": "c1e8d4cd92422af20b2fff55691e74a6f17ba2842d0e410a1ca62d4c785fe0e5",
+    "answer_free": true,
+    "child_policy_targeted": false,
+    "topology_choice_targeted": false
+  },
+  "scaffold_and_runtime_repairs": {
+    "recursive_manager_contract_preserved": true,
+    "root_manager_handle_retained": true,
+    "leaf_assignments_preserved": 3,
+    "rlm_max_depth": 2,
+    "reason": "Prime Agent defaults RLM_MAX_DEPTH to 1; depth 2 is required for root -> manager -> leaf while the manager contract permits exactly one descendant layer.",
+    "focused_tests": "5 passed"
+  },
+  "candidates": [
+    {
+      "name": "c177-recursive-execution12-step1-v1",
+      "optimizer_updates_from_protected": 1,
+      "learning_rate": 0.0000005,
+      "loss_mean": 0.7722942233085632,
+      "gradient_norm": 164.0,
+      "model_sha256": "b88250bb07b0c0353c446318d852c21ba957a1dd986989c01b2fa6f1043d3a67",
+      "decision": "rejected"
+    },
+    {
+      "name": "c177-recursive-execution12-step1plus3-v2",
+      "optimizer_updates_from_protected": 4,
+      "continuation_updates": 3,
+      "learning_rate": 0.0000005,
+      "continuation_losses": [0.7259, 0.6902, 0.6526700258255005],
+      "final_gradient_norm": 113.0,
+      "model_sha256": "7e269d43a21c47c6e7159b2a2c0b495f5596a1dcc9815fe0ac0588d0d4776a2f",
+      "decision": "rejected"
+    }
+  ],
+  "evaluations": {
+    "one_step_tight_recursive_admission": {
+      "label": "latent-doc-c177recursive1-h176protected-tightrecursive-admission-v2",
+      "complete_trajectories": 4,
+      "qualifying_trajectories": 0,
+      "clean_trajectories": 0,
+      "mean_reward": 0.6428571428571429,
+      "answer_accuracy": 0.0,
+      "protocol_aligned": 0.0,
+      "stop_conditions": ["max_turns", "max_turns", "agent_completed", "max_turns"],
+      "failed_cells": [17, 12, 18, 21],
+      "duplicate_cells": [15, 4, 15, 15],
+      "messages_to_parent": [3, 4, 0, 0],
+      "summary_sha256": "56edc6431ec501318e902320775b982b12ca0842fa74860b35dc6745f89a023b",
+      "traces_sha256": "8f7000ccc6d02f486edb24dd703a0dad051a580bf273e6c8c4bf651bc8c6d142"
+    },
+    "four_step_matched_early_rejection": {
+      "label": "latent-doc-c177recursive4-h176protected-tightrecursive-matched-v1",
+      "completed_before_stop": 2,
+      "qualifying_trajectories": 0,
+      "stopped_early": true,
+      "stop_reason": "The first two of four matched tasks failed, making the unchanged 4/4 floor mathematically unreachable.",
+      "rewards": [0.42857142857142855, 0.42857142857142855],
+      "failed_cells": [18, 24],
+      "duplicate_cells": [12, 15],
+      "messages_to_parent": [0, 0],
+      "partial_traces_sha256": "e6f5e90dee2b1250987a1ab0f39129561ee06f54159a4877ac6a4b9664e78dc7"
+    }
+  },
+  "diagnosis": {
+    "topology_selection": "present",
+    "root_to_manager_contract": "repaired in scaffold",
+    "runtime_recursion_depth": "repaired",
+    "observed_baby_step": "The depth-one coordinator attempted three leaf admissions and some leaf reports reached it.",
+    "remaining_failure": "The 2B coordinator confuses rlm admission arguments with agent_message routing, enters duplicate recovery loops, and does not reliably aggregate exactly three leaf reports into one parent report.",
+    "dose_result": "Three additional updates reduced training loss but worsened matched behavior, so this curriculum lineage must not receive further updates.",
+    "safest_next_action": "Return to the protected C/H pair. Keep the recursive scaffold and RLM_MAX_DEPTH=2 repairs. Redesign the manager curriculum around the exact live depth-two runtime and separately scaffold or teach leaf-admission syntax before any new dense update."
+  }
+}
