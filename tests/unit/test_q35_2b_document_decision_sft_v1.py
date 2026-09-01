@@ -1188,10 +1188,11 @@ def test_document_utility_routed_export_matches_live_root_contract(
     rubric_rows = Dataset.from_parquet(str(rubric_output / "train.parquet"))
     assert rubric_manifest["rows"] == 36
     assert rubric_manifest["utility_decision_rubric_aligned"] is True
+    assert rubric_manifest["leading_system_message_count"] == 1
     assert all(
-        row["messages"][0]["content"] == proxy.ROOT_COORDINATOR_CONTRACT
-        and row["messages"][1]["content"]
-        == proxy.DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT
+        row["messages"][0]["content"]
+        == proxy.ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT
+        and row["messages"][1]["role"] == "user"
         for row in rubric_rows
     )
     rubric_validated = trainer._validated_dataset(rubric_output)

@@ -45,6 +45,9 @@ depth is limited to one, and the root may admit the three terminal workers. Sele
 and that admitted manager may delegate one further depth. Do not substitute a more
 expensive or deeper plan. Emit the requested `document_topology` IPython assignment;
 the harness supplies the mechanics for that selected plan."""
+ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT = (
+    f"{ROOT_COORDINATOR_CONTRACT}\n\n{DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT}"
+)
 LEAF_REPORTER_CONTRACT = """[leaf reporter session contract]
 session_role=leaf_reporter
 is_root=false
@@ -818,13 +821,22 @@ def with_document_root_utility_decision_contract(
         return payload
     if not _contains_marker(messages, FREE_DOCUMENT_TOPOLOGY_HEADER):
         return payload
-    insertion = 1 if _contains_marker(messages[:1], ROOT_COORDINATOR_HEADER) else 0
+    if _contains_marker(messages[:1], ROOT_COORDINATOR_HEADER):
+        return {
+            **payload,
+            "messages": [
+                {
+                    **messages[0],
+                    "content": ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT,
+                },
+                *messages[1:],
+            ],
+        }
     return {
         **payload,
         "messages": [
-            *messages[:insertion],
             {"role": "system", "content": DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT},
-            *messages[insertion:],
+            *messages,
         ],
     }
 

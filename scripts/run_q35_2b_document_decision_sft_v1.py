@@ -274,7 +274,10 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         or (
             schema_version
             == "qwen35-2b-document-utility-routed-rubric-expanded-sft/v1"
-            and manifest.get("utility_decision_rubric_aligned") is not True
+            and (
+                manifest.get("utility_decision_rubric_aligned") is not True
+                or manifest.get("leading_system_message_count") != 1
+            )
         )
         or manifest.get("answer_free") is not DATASET_ANSWER_FREE.get(schema_version)
         or manifest.get("tool_call_format") != "openai_function_v1"

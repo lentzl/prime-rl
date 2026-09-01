@@ -14,6 +14,7 @@ from datasets import Dataset
 from dual_policy_openai_proxy_v1 import (
     DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT,
     ROOT_COORDINATOR_CONTRACT,
+    ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT,
 )
 from export_q35_2b_document_decision_sft_v1 import sha256_file
 from export_q35_2b_document_utility_topology_sft_v1 import (
@@ -101,17 +102,14 @@ def export(
                         for message in row["messages"]
                     ):
                         raise ValueError("source trace already contains the routed root contract")
-                    row["messages"].insert(
-                        0, {"role": "system", "content": ROOT_COORDINATOR_CONTRACT}
+                    root_contract = (
+                        ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT
+                        if utility_rubric
+                        else ROOT_COORDINATOR_CONTRACT
                     )
-                    if utility_rubric:
-                        row["messages"].insert(
-                            1,
-                            {
-                                "role": "system",
-                                "content": DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT,
-                            },
-                        )
+                    row["messages"].insert(
+                        0, {"role": "system", "content": root_contract}
+                    )
                     row["objective"] = objective
                     rows.append(row)
     rows.sort(key=_sort_key)
@@ -162,6 +160,12 @@ def export(
             if utility_rubric
             else None
         ),
+        "combined_system_contract_sha256": (
+            hashlib.sha256(ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT.encode()).hexdigest()
+            if utility_rubric
+            else None
+        ),
+        "leading_system_message_count": 1,
         "protocol_mechanics_targeted": False,
         "tool_call_format": "openai_function_v1",
         "dataset": {"path": parquet.name, "sha256": sha256_file(parquet)},

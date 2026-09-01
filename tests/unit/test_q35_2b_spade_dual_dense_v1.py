@@ -651,14 +651,12 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     with_utility_rubric = module.with_document_root_utility_decision_contract(
         rooted_free_topology
     )
-    assert with_utility_rubric["messages"][:2] == [
-        {"role": "system", "content": module.ROOT_COORDINATOR_CONTRACT},
-        {
-            "role": "system",
-            "content": module.DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT,
-        },
-    ]
-    rubric = with_utility_rubric["messages"][1]["content"]
+    assert with_utility_rubric["messages"][0] == {
+        "role": "system",
+        "content": module.ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT,
+    }
+    assert with_utility_rubric["messages"][1:] == free_topology["messages"]
+    rubric = with_utility_rubric["messages"][0]["content"]
     assert "Select `direct` when the root may inspect" in rubric
     assert "Select `flat` when the root may not inspect" in rubric
     assert "Select\n`hierarchical` when the root may not inspect" in rubric
