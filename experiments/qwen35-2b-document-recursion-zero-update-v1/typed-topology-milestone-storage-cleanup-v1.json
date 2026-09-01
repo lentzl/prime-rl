@@ -1,0 +1,134 @@
+{
+  "schema_version": "q35-2b-typed-topology-milestone-storage-cleanup/v1",
+  "recorded_at": "2026-09-01",
+  "milestone": {
+    "result_ledger": "topology-utility-causal-typed-decision-v1-v3-result.json",
+    "qualifying_trajectories": 16,
+    "trace_count": 18,
+    "acceptance_floor": 4,
+    "acceptance_floor_relaxed": false,
+    "optimizer_updates": 0
+  },
+  "git": {
+    "rlm_branch": "exp/q35-2b-root-role-contract",
+    "rlm_commit": "8dd06ff5b7780d24b38b39684093cbd076568d76",
+    "rlm_origin_commit": "8dd06ff5b7780d24b38b39684093cbd076568d76",
+    "verifiers_branch": "exp/q35-document-free-topology",
+    "verifiers_commit": "6d40ac9d0ef9205d503845842bc3c91083027b1a",
+    "verifiers_origin_commit": "6d40ac9d0ef9205d503845842bc3c91083027b1a",
+    "remote_runtime_checkout_commit": "bfa0843c564aa8eea7b58d482d3473cd096bacdc"
+  },
+  "protected_checkpoints": [
+    {
+      "role": "coordinator_current",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-liveconsolidatedrubric36-step3-v1/weights/step_3",
+      "sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+      "stable_marker_verified_after_cleanup": true
+    },
+    {
+      "role": "child_frozen",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "stable_marker_verified_after_cleanup": true
+    },
+    {
+      "role": "coordinator_topology_contrast_protected",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-topology-contrast-sft-v1/c177protected-worker-vs-manager8-step1-v1/weights/step_1",
+      "sha256": "d4c28675559e0329f4905041362d7c26230125c05dedaed178d794ccd09911ee",
+      "stable_marker_verified_after_cleanup": true
+    },
+    {
+      "role": "coordinator_admitted_rollback",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped24-routed24-step8-v2/weights/step_8",
+      "sha256": "603000fcffff2d1f6aff2a4062e13cb4e0a1e07715167ea142ac53fdcd369030",
+      "stable_marker_verified_after_cleanup": true
+    }
+  ],
+  "hugging_face_latest_only": [
+    {
+      "role": "coordinator",
+      "repo": "lentzl/rlm-prime-agent-qwen35-2b-spade-coordinator",
+      "revision": "607f7e625cb4ece19d9906d200deca75ca2c6580",
+      "model_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+      "verified_after_upload": true
+    },
+    {
+      "role": "child",
+      "repo": "lentzl/rlm-prime-agent-qwen35-2b-spade-child",
+      "revision": "20db57502f52e0d7f8b7b23ccd3c7f4f9378ffca",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "verified_after_upload": true
+    }
+  ],
+  "local_evidence_backup": {
+    "path": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-typed-topology-milestone-20260901",
+    "file_count": 106,
+    "disk_bytes": 4272128,
+    "tree_sha256": "58f9798d80d35d29cc949594f4db0602593ebf29765024ab394ca93b6210c4d6",
+    "tree_hash_method": "SHA-256 of the sorted per-file SHA-256 manifest using paths relative to the backup root",
+    "contents": [
+      "complete typed decision v1-v3 result directories and traces",
+      "typed admission v14-v16 logs",
+      "remote state receipts, run configs, diagnostics, and aggregate auditors"
+    ],
+    "secrets_included": false
+  },
+  "deleted_remote_outputs": [
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped1-typed6-step3-v2",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped12-directhier8-step4-v1",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped16-hierarchy8-step4-v1",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped20-routed24-step4-v1",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-routeddirect8-step4-v1",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-routedexpanded36-step4-v1",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-rubricexpanded36-step4-v1",
+      "size_before": "96K"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-rubricexpanded36-step4-v2",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped4-typed6-step8-v3",
+      "size_before": "4.2G"
+    },
+    {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176-document-child-real12-step8-v1",
+      "size_before": "4.2G"
+    }
+  ],
+  "cleanup": {
+    "selection": "Only superseded typed-utility and child output directories were deleted; their receipts and logs were retained and copied locally first.",
+    "estimated_reclaimed": "37.8G",
+    "free_before": "147G",
+    "free_after": "185G",
+    "free_after_bytes": 197575331840,
+    "broad_historical_milestones_deleted": false,
+    "deleted_weight_directories_byte_recoverable_from_this_backup": false,
+    "deleted_run_evidence_recoverable": true
+  },
+  "runtime_after_cleanup": {
+    "training_processes_active": false,
+    "inference_processes_active": false,
+    "publisher_processes_active": false
+  },
+  "next_experiment": "Run the same-weights P versus P+ recursive-compute comparison with the frozen C/H checkpoints and admitted typed tight scaffold; do not update weights during the comparison."
+}
