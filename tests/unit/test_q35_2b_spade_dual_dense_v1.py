@@ -1159,6 +1159,105 @@ def test_document_root_topology_classifier_rejects_ambiguous_delegation() -> Non
     assert module.document_root_topology(broken_but_unambiguous) == "flat"
 
 
+def test_free_topology_normalizer_uses_explicit_reasoning_intent_only() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    canonical_codes = {
+        "direct": "root = Path('/workspace/document-recursion/v0-i1')\nroot.glob('*.md')",
+        "flat": "\n".join(
+            f"{stem} = await rlm('task', name='{stem}-document-worker')"
+            for stem in ("alpha", "beta", "gamma")
+        ),
+        "hierarchical": (
+            "manager = await rlm('task', name='document-manager')"
+        ),
+    }
+    malformed_hierarchical = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "reasoning": (
+                            "The ownership and resource constraints select the "
+                            "hierarchical plan."
+                        ),
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "ipython",
+                                    "arguments": json.dumps(
+                                        {
+                                            "code": (
+                                                'document_topology = "hierarchical"\n'
+                                                "await rlm('incomplete'"
+                                            )
+                                        }
+                                    ),
+                                }
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+    ).encode()
+
+    rewritten, count, _, selected, expected = (
+        module.rewrite_document_root_free_topology_response(
+            malformed_hierarchical,
+            canonical_codes=canonical_codes,
+        )
+    )
+
+    arguments = json.loads(
+        json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+            "function"
+        ]["arguments"]
+    )
+    assert count == 1
+    assert selected == "hierarchical"
+    assert expected == "free"
+    assert arguments["code"] == canonical_codes["hierarchical"]
+
+    conflicting = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "reasoning_content": "The constraints select the hierarchical plan.",
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "ipython",
+                                    "arguments": json.dumps(
+                                        {'code': 'document_topology = "flat"'}
+                                    ),
+                                }
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rejected, count, _, selected, _ = (
+        module.rewrite_document_root_free_topology_response(
+            conflicting,
+            canonical_codes=canonical_codes,
+        )
+    )
+    assert count == 1
+    assert selected is None
+    assert json.loads(rejected)["choices"][0]["message"]["content"].startswith(
+        "Choose exactly one"
+    )
+    assert (
+        module.document_root_topology_intent(
+            {"reasoning": "Perhaps hierarchical could work."}
+        )
+        is None
+    )
+
+
 def test_document_root_topology_normalizer_repairs_explicit_direct_work() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     prompt = (

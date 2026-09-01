@@ -1268,6 +1268,27 @@ def document_root_topology(code: str) -> str | None:
     return None
 
 
+def document_root_topology_intent(message: dict[str, Any]) -> str | None:
+    """Read one explicit topology decision from model-authored reasoning."""
+
+    matches: set[str] = set()
+    for key in ("reasoning", "reasoning_content"):
+        value = message.get(key)
+        if not isinstance(value, str):
+            continue
+        matches.update(
+            match.group("topology").lower()
+            for match in re.finditer(
+                r"\bselect(?:s|ed)?\s+the\s+"
+                r"(?P<topology>direct|flat|hierarchical)\s+"
+                r"(?:plan|topology)\b",
+                value,
+                re.IGNORECASE,
+            )
+        )
+    return matches.pop() if len(matches) == 1 else None
+
+
 def rewrite_document_root_topology_response(
     body: bytes, *, canonical_code: str
 ) -> tuple[bytes, int, str | None, str | None, str]:
@@ -1338,7 +1359,15 @@ def _rewrite_document_root_topology_response(
         code = parsed.get("code") if isinstance(parsed, dict) else None
         if not isinstance(code, str):
             continue
-        selected = document_root_topology(code)
+        code_topology = document_root_topology(code)
+        reasoning_topology = document_root_topology_intent(message)
+        selected = (
+            None
+            if code_topology is not None
+            and reasoning_topology is not None
+            and code_topology != reasoning_topology
+            else code_topology or reasoning_topology
+        )
         canonical_code = canonical_codes.get(selected or "")
         if canonical_code is None:
             continue
