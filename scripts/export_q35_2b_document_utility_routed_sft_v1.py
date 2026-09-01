@@ -112,7 +112,7 @@ def export(
             f"routed document utility bootstrap is not balanced: {family_counts}"
         )
     if focus_family is None:
-        for start in range(0, ROWS, 6):
+        for start in range(0, expected_rows, 6):
             if {row["family"] for row in rows[start : start + 6]} != set(
                 FAMILY_TO_TOPOLOGY_FAMILY
             ):
