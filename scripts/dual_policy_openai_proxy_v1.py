@@ -114,6 +114,7 @@ MODEL_TOOL_CONTAMINATION_PATTERN = re.compile(
     r"</?(?:parameter|function|tool_call)>|<\|(?:endoftext|im_start|im_end)\|>"
 )
 TYPED_PARENT_RETURN_TOOL = "return_to_parent"
+TYPED_DOCUMENT_TOPOLOGY_TOOL = "select_document_topology"
 REQUIRED_REVIEW_MARKER = "Required review: "
 EVIDENCE_LABEL_MARKER = "Evidence label: "
 PATHLESS_INLINE_EVIDENCE_LABEL = "INLINE_EVIDENCE"
@@ -1244,6 +1245,53 @@ def disclosed_document_free_actions_from_messages(
     return disclosed_document_free_actions("\n".join(fragments))
 
 
+def document_root_policy_facts_from_messages(messages: Any) -> dict[str, Any] | None:
+    """Extract the public causal resource facts adjacent to topology selection."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    marker = "Current resource policy:"
+    candidates = [fragment.rsplit(marker, 1)[1] for fragment in fragments if marker in fragment]
+    facts = []
+    for policy in candidates:
+        if "The root is permitted to inspect the directory" in policy:
+            root_can_inspect = True
+        elif "The root is not permitted to inspect the directory" in policy:
+            root_can_inspect = False
+        else:
+            continue
+        if "may admit up to three agents" in policy:
+            root_admission_limit = 3
+        elif "may admit at most one agent" in policy:
+            root_admission_limit = 1
+        else:
+            continue
+        manager_can_delegate = "may delegate at one further depth" in policy
+        facts.append(
+            {
+                "root_can_inspect": root_can_inspect,
+                "root_admission_limit": root_admission_limit,
+                "manager_can_delegate": manager_can_delegate,
+            }
+        )
+    if not facts:
+        return None
+    if any(candidate != facts[0] for candidate in facts[1:]):
+        raise ValueError("document topology prompt contains conflicting resource facts")
+    return facts[0]
+
+
 def document_root_topology(code: str) -> str | None:
     """Classify only the delegation topology selected by a root IPython action."""
 
@@ -1383,7 +1431,10 @@ def rewrite_document_root_topology_response(
 
 
 def rewrite_document_root_free_topology_response(
-    body: bytes, *, canonical_codes: dict[str, str]
+    body: bytes,
+    *,
+    canonical_codes: dict[str, str],
+    expected_policy_facts: dict[str, Any] | None = None,
 ) -> tuple[bytes, int, str | None, str | None, str]:
     """Normalize any one legal graph selected by a free-topology document policy."""
 
@@ -1396,6 +1447,7 @@ def rewrite_document_root_free_topology_response(
         canonical_codes=canonical_codes,
         expected="free",
         reject_unclassified=True,
+        expected_policy_facts=expected_policy_facts,
     )
 
 
@@ -1405,6 +1457,7 @@ def _rewrite_document_root_topology_response(
     canonical_codes: dict[str, str],
     expected: str,
     reject_unclassified: bool = False,
+    expected_policy_facts: dict[str, Any] | None = None,
 ) -> tuple[bytes, int, str | None, str | None, str]:
     """Rewrite mechanics after, and only after, a recognized legal graph choice."""
 
@@ -1427,25 +1480,69 @@ def _rewrite_document_root_topology_response(
         function = tool_call.get("function")
         if not isinstance(function, dict):
             function = tool_call
-        if function.get("name") != "ipython":
+        function_name = function.get("name")
+        if function_name not in {"ipython", TYPED_DOCUMENT_TOPOLOGY_TOOL}:
             continue
         arguments = function.get("arguments")
         try:
             parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
         except json.JSONDecodeError:
             continue
-        code = parsed.get("code") if isinstance(parsed, dict) else None
-        if not isinstance(code, str):
-            continue
-        code_topology = document_root_topology(code)
-        reasoning_topology = document_root_topology_intent(message)
-        selected = (
-            None
-            if code_topology is not None
-            and reasoning_topology is not None
-            and code_topology != reasoning_topology
-            else code_topology or reasoning_topology
-        )
+        if function_name == TYPED_DOCUMENT_TOPOLOGY_TOOL:
+            if not isinstance(parsed, dict) or set(parsed) != {
+                "root_can_inspect",
+                "root_admission_limit",
+                "manager_can_delegate",
+                "topology",
+            }:
+                continue
+            submitted_facts = {
+                key: parsed[key]
+                for key in (
+                    "root_can_inspect",
+                    "root_admission_limit",
+                    "manager_can_delegate",
+                )
+            }
+            if (
+                type(submitted_facts["root_can_inspect"]) is not bool
+                or type(submitted_facts["root_admission_limit"]) is not int
+                or submitted_facts["root_admission_limit"] not in {1, 3}
+                or type(submitted_facts["manager_can_delegate"]) is not bool
+                or submitted_facts != expected_policy_facts
+            ):
+                continue
+            inferred_topology = (
+                "direct"
+                if submitted_facts["root_can_inspect"]
+                else "flat"
+                if submitted_facts["root_admission_limit"] == 3
+                else "hierarchical"
+                if submitted_facts["manager_can_delegate"]
+                else None
+            )
+            submitted_topology = (
+                parsed["topology"] if isinstance(parsed["topology"], str) else None
+            )
+            if submitted_topology != inferred_topology:
+                selected = None
+                continue
+            selected = submitted_topology
+            function["name"] = "ipython"
+            parsed = {"code": canonical_codes.get(selected, "")}
+        else:
+            code = parsed.get("code") if isinstance(parsed, dict) else None
+            if not isinstance(code, str):
+                continue
+            code_topology = document_root_topology(code)
+            reasoning_topology = document_root_topology_intent(message)
+            selected = (
+                None
+                if code_topology is not None
+                and reasoning_topology is not None
+                and code_topology != reasoning_topology
+                else code_topology or reasoning_topology
+            )
         canonical_code = canonical_codes.get(selected or "")
         if canonical_code is None:
             continue
@@ -1867,6 +1964,67 @@ def force_typed_parent_return_schema(payload: dict[str, Any]) -> dict[str, Any]:
     return rewritten
 
 
+def force_typed_document_topology_schema(payload: dict[str, Any]) -> dict[str, Any]:
+    """Require an auditable causal decision while leaving topology model-authored."""
+
+    tools = payload.get("tools")
+    if not isinstance(tools, list) or not any(
+        isinstance(tool, dict)
+        and isinstance(tool.get("function"), dict)
+        and tool["function"].get("name") == "ipython"
+        for tool in tools
+    ):
+        raise ValueError("typed document topology requires the IPython tool")
+    rewritten = {
+        **payload,
+        "stream": False,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": TYPED_DOCUMENT_TOPOLOGY_TOOL,
+                    "description": (
+                        "Extract the current public resource facts, then select exactly one "
+                        "document topology. Use direct when root inspection is allowed; otherwise "
+                        "use flat when the root can admit all three terminal workers; otherwise "
+                        "use hierarchical when one admitted manager can delegate. The harness "
+                        "executes the selected graph but never changes the selection."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "root_can_inspect": {"type": "boolean"},
+                            "root_admission_limit": {
+                                "type": "integer",
+                                "enum": [1, 3],
+                            },
+                            "manager_can_delegate": {"type": "boolean"},
+                            "topology": {
+                                "type": "string",
+                                "enum": ["direct", "flat", "hierarchical"],
+                            },
+                        },
+                        "required": [
+                            "root_can_inspect",
+                            "root_admission_limit",
+                            "manager_can_delegate",
+                            "topology",
+                        ],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        ],
+        "tool_choice": {
+            "type": "function",
+            "function": {"name": TYPED_DOCUMENT_TOPOLOGY_TOOL},
+        },
+        "parallel_tool_calls": False,
+    }
+    rewritten.pop("stream_options", None)
+    return rewritten
+
+
 def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any]:
     """Constrain the first recursive turn to one model-authored IPython computation."""
 
@@ -2270,6 +2428,7 @@ class DualPolicyProxy:
         document_manager_termination_scaffold: bool = False,
         document_root_report_relay_scaffold: bool = False,
         document_root_topology_normalization_scaffold: bool = False,
+        document_root_typed_topology_decision: bool = False,
         document_root_flat_fanin_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
@@ -2323,6 +2482,14 @@ class DualPolicyProxy:
         self.document_root_topology_normalization_scaffold = (
             document_root_topology_normalization_scaffold
         )
+        self.document_root_typed_topology_decision = (
+            document_root_typed_topology_decision
+        )
+        if (
+            self.document_root_typed_topology_decision
+            and not self.document_root_topology_normalization_scaffold
+        ):
+            raise ValueError("typed document topology requires topology normalization")
         self.document_root_flat_fanin_scaffold = document_root_flat_fanin_scaffold
         self.typed_child_report = typed_child_report
         self.child_authored_compute = child_authored_compute
@@ -3029,6 +3196,7 @@ class DualPolicyProxy:
         root_topology_free_scope = False
         root_topology_canonical_code = None
         root_topology_canonical_codes = None
+        root_topology_expected_policy_facts = None
         root_topology_action_sha256 = None
         root_topology_selected = None
         root_topology_expected = None
@@ -3064,6 +3232,15 @@ class DualPolicyProxy:
                 root_topology_free_scope = True
                 routed = {**routed, "stream": False}
                 routed.pop("stream_options", None)
+                if self.document_root_typed_topology_decision:
+                    root_topology_expected_policy_facts = (
+                        document_root_policy_facts_from_messages(payload.get("messages"))
+                    )
+                    if root_topology_expected_policy_facts is None:
+                        raise ValueError(
+                            "typed document topology lacks action-boundary resource facts"
+                        )
+                    routed = force_typed_document_topology_schema(routed)
             else:
                 root_topology_canonical_code = disclosed_root_action_from_messages(
                     payload.get("messages")
@@ -3513,7 +3690,9 @@ class DualPolicyProxy:
                             root_topology_selected,
                             root_topology_expected,
                         ) = rewrite_document_root_free_topology_response(
-                            normalized, canonical_codes=root_topology_canonical_codes
+                            normalized,
+                            canonical_codes=root_topology_canonical_codes,
+                            expected_policy_facts=root_topology_expected_policy_facts,
                         )
                     else:
                         assert root_topology_canonical_code is not None
@@ -3682,6 +3861,7 @@ def main() -> None:
     parser.add_argument(
         "--document-root-topology-normalization-scaffold", action="store_true"
     )
+    parser.add_argument("--document-root-typed-topology-decision", action="store_true")
     parser.add_argument("--document-root-flat-fanin-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
@@ -3744,6 +3924,9 @@ def main() -> None:
         document_root_report_relay_scaffold=args.document_root_report_relay_scaffold,
         document_root_topology_normalization_scaffold=(
             args.document_root_topology_normalization_scaffold
+        ),
+        document_root_typed_topology_decision=(
+            args.document_root_typed_topology_decision
         ),
         document_root_flat_fanin_scaffold=args.document_root_flat_fanin_scaffold,
         typed_child_report=args.typed_child_report,

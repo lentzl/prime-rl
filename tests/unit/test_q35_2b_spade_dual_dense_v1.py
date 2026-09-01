@@ -95,6 +95,13 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     )
     assert 'proxy_args+=(--document-root-topology-normalization-scaffold)' in launcher
     assert (
+        "document_root_typed_topology_decision="
+        "${DUAL_DOCUMENT_ROOT_TYPED_TOPOLOGY_DECISION:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-root-typed-topology-decision)' in launcher
+    assert "typed document topology requires document root topology normalization" in launcher
+    assert (
         "document_root_utility_decision_contract="
         "${DUAL_DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT:-0}"
         in launcher
@@ -1461,6 +1468,71 @@ def test_free_document_topology_normalizer_preserves_any_legal_choice() -> None:
         assert selected == topology
         assert expected == "free"
 
+    typed_facts = {
+        "root_can_inspect": False,
+        "root_admission_limit": 3,
+        "manager_can_delegate": True,
+    }
+    typed_body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": module.TYPED_DOCUMENT_TOPOLOGY_TOOL,
+                                    "arguments": json.dumps(
+                                        {**typed_facts, "topology": "flat"}
+                                    ),
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rewritten, count, action_sha, selected, expected = (
+        module.rewrite_document_root_free_topology_response(
+            typed_body,
+            canonical_codes=actions,
+            expected_policy_facts=typed_facts,
+        )
+    )
+    typed_function = json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+        "function"
+    ]
+    assert typed_function["name"] == "ipython"
+    assert json.loads(typed_function["arguments"])["code"] == actions["flat"]
+    assert count == 1
+    assert action_sha == hashlib.sha256(actions["flat"].encode()).hexdigest()
+    assert selected == "flat"
+    assert expected == "free"
+
+    inconsistent_payload = json.loads(typed_body)
+    inconsistent_function = inconsistent_payload["choices"][0]["message"]["tool_calls"][
+        0
+    ]["function"]
+    inconsistent_arguments = json.loads(inconsistent_function["arguments"])
+    inconsistent_arguments["topology"] = "hierarchical"
+    inconsistent_function["arguments"] = json.dumps(inconsistent_arguments)
+    inconsistent_typed_body = json.dumps(inconsistent_payload).encode()
+    rejected, count, action_sha, selected, expected = (
+        module.rewrite_document_root_free_topology_response(
+            inconsistent_typed_body,
+            canonical_codes=actions,
+            expected_policy_facts=typed_facts,
+        )
+    )
+    assert json.loads(rejected)["choices"][0]["message"]["content"].startswith(
+        "Choose exactly one"
+    )
+    assert count == 1
+    assert action_sha is None
+    assert selected is None
+    assert expected == "free"
+
     broken_direct_transport = (
         "await agent_message.send('Read "
         f"{root}/alpha.md, beta.md, and gamma.md, then compute the requested values "
@@ -1733,6 +1805,52 @@ def test_proxy_exposes_typed_parent_return_without_answer_or_routing_fields() ->
     assert "receiver_role" not in serialized
     assert "agent_message.send" not in serialized
     assert "17" not in serialized
+
+
+def test_proxy_exposes_typed_document_topology_facts_without_selecting() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    prompt = (
+        f"{module.FREE_DOCUMENT_TOPOLOGY_HEADER}\n"
+        "Current resource policy: The root is not permitted to inspect the directory "
+        "and may admit up to three agents. An admitted coordinator may delegate at "
+        "one further depth. Emit exactly one assignment."
+    )
+    payload = {
+        "messages": [{"role": "user", "content": prompt}],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "parameters": {"type": "object"},
+                },
+            }
+        ],
+    }
+
+    facts = module.document_root_policy_facts_from_messages(payload["messages"])
+    rewritten = module.force_typed_document_topology_schema(payload)
+
+    assert facts == {
+        "root_can_inspect": False,
+        "root_admission_limit": 3,
+        "manager_can_delegate": True,
+    }
+    assert rewritten["stream"] is False
+    assert "stream_options" not in rewritten
+    assert rewritten["tool_choice"]["function"]["name"] == (
+        module.TYPED_DOCUMENT_TOPOLOGY_TOOL
+    )
+    function = rewritten["tools"][0]["function"]
+    assert function["name"] == module.TYPED_DOCUMENT_TOPOLOGY_TOOL
+    assert function["parameters"]["properties"]["topology"]["enum"] == [
+        "direct",
+        "flat",
+        "hierarchical",
+    ]
+    assert "The root is not permitted" not in json.dumps(rewritten["tools"])
 
 
 def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
