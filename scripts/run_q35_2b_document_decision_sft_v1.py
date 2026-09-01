@@ -107,6 +107,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "answer_free_causal_matched_root_topology_choice",
     ),
+    "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": (
+        "coordinator",
+        "answer_free_causal_matched_root_topology_choice",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -132,6 +136,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2": True,
     "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": True,
     "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1": True,
+    "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4,
@@ -150,6 +155,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2": 36,
     "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": 36,
     "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1": 48,
+    "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 36,
 }
 DATASET_BATCH_SIZES = {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
@@ -166,6 +172,7 @@ DATASET_BATCH_SIZES = {
     "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2": 12,
     "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": 12,
     "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1": 12,
+    "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 12,
 }
 PROMOTION_MINIMUM = 4
 
@@ -293,6 +300,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         "qwen35-2b-document-utility-routed-direct-consolidated-sft/v2": 8,
         "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2": 12,
         "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": 12,
+        "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 12,
     }.get(schema_version, 4)
     family_counts = manifest.get("family_counts", {})
     family_counts_valid = set(family_counts.values()) == {expected_family_count}
@@ -322,6 +330,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                 "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2",
                 "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2",
                 "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1",
+                "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1",
             }
             and manifest.get("root_coordinator_contract_aligned") is not True
         )
@@ -331,6 +340,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                 "qwen35-2b-document-utility-routed-rubric-expanded-sft/v1",
                 "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2",
                 "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1",
+                "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1",
             }
             and (
                 manifest.get("utility_decision_rubric_aligned") is not True
@@ -350,6 +360,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                 "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2",
                 "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2",
                 "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1",
+                "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1",
             }
             and (
                 manifest.get("vllm_developer_system_consolidation_aligned")

@@ -51,6 +51,9 @@ EXPANDED_PER_FAMILY = 12
 CAUSAL_SCHEMA_VERSION = (
     "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1"
 )
+CAUSAL_BALANCED_SCHEMA_VERSION = (
+    "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1"
+)
 CAUSAL_OBJECTIVE = "answer_free_causal_matched_root_topology_choice"
 HISTORICAL_POLICIES = {
     "document_utility_direct": (
@@ -162,7 +165,12 @@ def export(
         {focus_family} if focus_family else set(FAMILY_TO_TOPOLOGY_FAMILY)
     )
     if causal_matched:
-        schema_version, objective = CAUSAL_SCHEMA_VERSION, CAUSAL_OBJECTIVE
+        schema_version = (
+            CAUSAL_BALANCED_SCHEMA_VERSION
+            if flat_repeat == 1
+            else CAUSAL_SCHEMA_VERSION
+        )
+        objective = CAUSAL_OBJECTIVE
     elif utility_rubric:
         schema_version, objective = RUBRIC_SCHEMA_VERSION, RUBRIC_OBJECTIVE
     elif focus_family:

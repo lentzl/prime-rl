@@ -1273,6 +1273,25 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert causal_validated["rows"] == 48
     assert trainer.DATASET_BATCH_SIZES[causal_manifest["schema_version"]] == 12
 
+    balanced_output = tmp_path / "routed-utility-causal-balanced"
+    balanced_manifest = module.export(
+        traces=[causal_source],
+        output_dir=balanced_output,
+        expanded=True,
+        utility_rubric=True,
+        causal_matched=True,
+    )
+    assert balanced_manifest["schema_version"] == module.CAUSAL_BALANCED_SCHEMA_VERSION
+    assert balanced_manifest["rows"] == 36
+    assert balanced_manifest["family_counts"] == {
+        "document_utility_direct": 12,
+        "document_utility_flat": 12,
+        "document_utility_hierarchical": 12,
+    }
+    balanced_validated = trainer._validated_dataset(balanced_output)
+    assert balanced_validated["rows"] == 36
+    assert trainer.DATASET_BATCH_SIZES[balanced_manifest["schema_version"]] == 12
+
 
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
