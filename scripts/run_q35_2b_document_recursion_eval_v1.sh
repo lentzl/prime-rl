@@ -8,6 +8,7 @@ config=${DOCUMENT_RECURSION_CONFIG:?DOCUMENT_RECURSION_CONFIG is required}
 output_root=${QWEN38_QUALIFICATION_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-document-recursion-zero-update-v1}
 run_output=$output_root/$label/document
 eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
+runtime_python=${EVAL_PYTHON_BIN:-$root/.venv/bin/python}
 uv_bin=${UV_BIN:-$(command -v uv || true)}
 
 if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
@@ -21,10 +22,29 @@ if [[ ! -x "$eval_bin" ]]; then
   echo "eval executable not found: $eval_bin" >&2
   exit 1
 fi
+if [[ ! -x "$runtime_python" ]]; then
+  echo "evaluation Python is missing: $runtime_python" >&2
+  exit 1
+fi
 if [[ ! -f "$config" ]]; then
   echo "document recursion config not found: $config" >&2
   exit 1
 fi
+expected_count=$("$runtime_python" - "$config" <<'PY'
+import sys
+import tomllib
+from pathlib import Path
+
+config = tomllib.loads(Path(sys.argv[1]).read_text())
+num_tasks = config.get("num_tasks")
+num_rollouts = config.get("num_rollouts")
+if not isinstance(num_tasks, int) or num_tasks < 1:
+    raise SystemExit("document recursion config requires a positive num_tasks")
+if not isinstance(num_rollouts, int) or num_rollouts < 1:
+    raise SystemExit("document recursion config requires a positive num_rollouts")
+print(num_tasks * num_rollouts)
+PY
+)
 
 cd "$root"
 mkdir -p "$run_output"
@@ -45,10 +65,10 @@ mkdir -p "$run_output"
 
 "$uv_bin" run --no-sync scripts/summarize_prime_agent_mastery_v2.py \
   "$run_output/document" \
-  --expected-count 4 \
+  --expected-count "$expected_count" \
   >"$run_output/SUMMARY.txt"
 "$uv_bin" run --no-sync scripts/summarize_prime_agent_mastery_v2.py \
   "$run_output/document" \
-  --expected-count 4 \
+  --expected-count "$expected_count" \
   --json \
   >"$run_output/SUMMARY.json"

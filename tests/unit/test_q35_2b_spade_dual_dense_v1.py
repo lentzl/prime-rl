@@ -108,6 +108,19 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'proxy_args+=(--depth-default-child)' in launcher
 
 
+def test_document_eval_runner_derives_trace_count_from_config() -> None:
+    runner = (
+        Path(__file__).parents[2]
+        / "scripts"
+        / "run_q35_2b_document_recursion_eval_v1.sh"
+    ).read_text()
+
+    assert 'expected_count=$("$runtime_python" - "$config"' in runner
+    assert 'print(num_tasks * num_rollouts)' in runner
+    assert '--expected-count "$expected_count"' in runner
+    assert "--expected-count 4" not in runner
+
+
 def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -> None:
     root = Path(__file__).parents[2]
     runner = (root / "scripts" / "run_c160_natural_child_replay_v2.sh").read_text()
