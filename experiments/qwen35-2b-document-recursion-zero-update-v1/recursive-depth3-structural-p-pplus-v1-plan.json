@@ -42,6 +42,16 @@
     "selector": "Choose the first attempt satisfying the answer-free structural eligibility rule; if none is eligible, choose the first attempt.",
     "selector_uses_expected_answer": false
   },
+  "preflight_smoke": {
+    "task_key": "document_utility_depth3-v4-i31100",
+    "p_config": "recursive-depth3-structural-smoke-p-v1.toml",
+    "p_plus_config": "recursive-depth3-structural-smoke-pplus-v1.toml",
+    "attempts_per_arm": 1,
+    "required_before_full_bank": [
+      "P selects hierarchical and admits document-manager plus both subgroup managers but does not complete the terminal leaf layer",
+      "P+ executes the exact six-admission D3 graph and passes answer and clean protocol gates"
+    ]
+  },
   "qualifying_structural_gap": {
     "p_requirements": [
       "typed hierarchical topology selected",
