@@ -2332,6 +2332,38 @@ def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> No
         module.document_manager_reports_from_messages(duplicate)
 
 
+def test_proxy_recovers_only_a_complete_canonical_direct_document_result() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    result = {
+        "alpha_words": 20,
+        "alpha_h2": 2,
+        "beta_words": 30,
+        "beta_h2": 3,
+        "gamma_words": 40,
+        "gamma_h2": 4,
+        "total_words": 90,
+        "total_h2": 9,
+    }
+    messages = [
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "toolCall",
+                    "name": "ipython",
+                    "arguments": {"code": "document_result = {...}\ndocument_result"},
+                }
+            ],
+        },
+        {"role": "tool", "content": repr(result)},
+    ]
+
+    assert module.document_root_direct_result_from_messages(messages) == result
+    assert module.document_root_direct_result_from_messages(
+        [messages[0], {"role": "tool", "content": "{'total_words': 90}"}]
+    ) is None
+
+
 def test_proxy_accumulates_flat_reports_across_child_message_resumptions(
     tmp_path: Path,
 ) -> None:

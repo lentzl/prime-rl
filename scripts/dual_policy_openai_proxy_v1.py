@@ -717,6 +717,68 @@ def document_root_manager_report_from_messages(messages: Any) -> dict[str, int] 
     return results[0]
 
 
+def document_root_direct_result_from_messages(messages: Any) -> dict[str, int] | None:
+    """Recover one canonical direct-compute result from root tool history."""
+
+    if not isinstance(messages, list):
+        return None
+    action_index = next(
+        (
+            index
+            for index, message in enumerate(messages)
+            if isinstance(message, dict)
+            and message.get("role") == "assistant"
+            and _contains_marker(message, "document_result =")
+        ),
+        None,
+    )
+    if action_index is None:
+        return None
+    expected = {
+        "alpha_words",
+        "alpha_h2",
+        "beta_words",
+        "beta_h2",
+        "gamma_words",
+        "gamma_h2",
+        "total_words",
+        "total_h2",
+    }
+    results: list[dict[str, int]] = []
+    for message in messages[action_index + 1 :]:
+        if not isinstance(message, dict) or message.get("role") != "tool":
+            continue
+        fragments: list[str] = []
+
+        def collect(value: Any) -> None:
+            if isinstance(value, str):
+                fragments.append(value)
+            elif isinstance(value, list):
+                for item in value:
+                    collect(item)
+            elif isinstance(value, dict):
+                for item in value.values():
+                    collect(item)
+
+        collect(message.get("content"))
+        for fragment in fragments:
+            try:
+                candidate = ast.literal_eval(fragment.strip())
+            except (SyntaxError, ValueError):
+                continue
+            if (
+                isinstance(candidate, dict)
+                and set(candidate) == expected
+                and all(type(candidate[key]) is int for key in expected)
+            ):
+                results.append(candidate)
+    if not results:
+        return None
+    if any(result != results[0] for result in results[1:]):
+        raise ValueError("document root produced conflicting direct results")
+    return results[0]
+
+
 def with_root_coordinator_contract(payload: dict[str, Any]) -> dict[str, Any]:
     """Prepend a persistent role contract to a depth-zero chat request."""
 
@@ -2382,6 +2444,16 @@ class DualPolicyProxy:
             and is_root_coordinator_request(payload)
             else None
         )
+        root_direct_result = (
+            document_root_direct_result_from_messages(payload.get("messages"))
+            if (
+                endpoint == "/v1/chat/completions"
+                and role == "coordinator"
+                and session_sha256 is not None
+                and self.root_document_topologies.get(session_sha256) == "direct"
+            )
+            else None
+        )
         root_flat_reports = (
             self.accumulate_document_reports(
                 "root_flat",
@@ -2415,6 +2487,28 @@ class DualPolicyProxy:
                 for message in payload.get("messages") or []
             )
         )
+        if root_direct_result is not None:
+            body = json.dumps(
+                routed, separators=(",", ":"), ensure_ascii=False
+            ).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content=json.dumps(root_direct_result, separators=(",", ":")),
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="document_root_direct_result_finalized",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
         if root_flat_admission_complete and len(root_flat_reports) == 3:
             body = json.dumps(
                 routed, separators=(",", ":"), ensure_ascii=False
