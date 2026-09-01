@@ -59,6 +59,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "answer_free_root_worker_versus_manager_topology_choice",
     ),
+    "qwen35-2b-document-utility-topology-sft/v1": (
+        "coordinator",
+        "answer_free_root_topology_choice_from_ownership_and_resource_constraints",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -72,16 +76,19 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-manager-aggregation-sft/v1": False,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": False,
     "qwen35-2b-document-topology-contrast-sft/v1": True,
+    "qwen35-2b-document-utility-topology-sft/v1": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
+    "qwen35-2b-document-utility-topology-sft/v1": 6,
 }
 DATASET_BATCH_SIZES = {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
+    "qwen35-2b-document-utility-topology-sft/v1": 6,
 }
 PROMOTION_MINIMUM = 4
 
@@ -102,8 +109,8 @@ def training_config(
 ) -> str:
     if not 1 <= optimizer_updates <= 8:
         raise ValueError("document decision bootstrap requires one to eight updates")
-    if batch_size not in {4, 8, 12}:
-        raise ValueError("document decision bootstrap batch size must be 4, 8, or 12")
+    if batch_size not in {4, 6, 8, 12}:
+        raise ValueError("document decision bootstrap batch size must be 4, 6, 8, or 12")
     return f"""max_steps = {optimizer_updates}
 output_dir = {_quote(output_root)}
 clean = false
@@ -203,7 +210,8 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         or manifest.get("status") != "complete"
         or (manifest.get("role"), manifest.get("objective")) != contract
         or manifest.get("rows") != DATASET_ROWS.get(schema_version)
-        or set(manifest.get("family_counts", {}).values()) != {4}
+        or set(manifest.get("family_counts", {}).values())
+        != ({2} if schema_version == "qwen35-2b-document-utility-topology-sft/v1" else {4})
         or manifest.get("answer_free") is not DATASET_ANSWER_FREE.get(schema_version)
         or manifest.get("tool_call_format") != "openai_function_v1"
         or manifest.get("dataset", {}).get("path") != parquet.name

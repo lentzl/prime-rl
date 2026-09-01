@@ -941,6 +941,50 @@ def test_document_topology_contrast_export_balances_worker_and_manager(
     assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 8
 
 
+def test_document_utility_topology_export_targets_constraints_not_mechanics(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_utility_topology_sft_v1")
+    traces = [
+        _trace(family, variant)
+        for family in (
+            "document_utility_direct",
+            "document_utility_flat",
+            "document_utility_hierarchical",
+        )
+        for variant in range(2)
+    ]
+    source = tmp_path / "utility-topology.jsonl"
+    source.write_text(json.dumps({"traces": traces}) + "\n")
+    output = tmp_path / "utility-topology"
+
+    manifest = module.export(traces=[source], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 6
+    assert manifest["training_batch_size"] == 6
+    assert set(manifest["family_counts"].values()) == {2}
+    assert manifest["answer_free"] is True
+    assert manifest["topology_choice_targeted"] is True
+    assert manifest["utility_constraints_targeted"] is True
+    for row in rows:
+        code = json.loads(
+            row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+        )["code"]
+        if row["family"] == "document_utility_direct":
+            assert "await rlm(" not in code
+        elif row["family"] == "document_utility_flat":
+            assert code.count("await rlm(") == 3
+        else:
+            assert code.count("await rlm(") == 1
+            assert "document-manager" in code
+
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 6
+    assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 6
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:
