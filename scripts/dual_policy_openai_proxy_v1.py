@@ -2160,6 +2160,7 @@ class DualPolicyProxy:
         action_sha256: str | None = None,
         session_sha256: str | None = None,
         response_rewrites: int = 0,
+        document_report_stems: tuple[str, ...] | None = None,
     ) -> None:
         event = {
             "schema_version": "qwen35-2b-dual-policy-route/v1",
@@ -2179,6 +2180,8 @@ class DualPolicyProxy:
             event["response_rewrites"] = {
                 "abort_finish_reason_to_stop": response_rewrites
             }
+        if document_report_stems is not None:
+            event["document_report_stems"] = list(document_report_stems)
         with self.audit_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
         self.sequence += 1
@@ -2322,6 +2325,7 @@ class DualPolicyProxy:
                 status=200,
                 mode="document_root_flat_fanin_finalized",
                 session_sha256=session_sha256,
+                document_report_stems=tuple(sorted(root_flat_reports)),
             )
             return web.Response(body=response_body, content_type=content_type)
         if root_flat_admission_complete and len(root_flat_reports) < 3:
@@ -2344,6 +2348,7 @@ class DualPolicyProxy:
                 status=200,
                 mode="document_root_flat_fanin_passive",
                 session_sha256=session_sha256,
+                document_report_stems=tuple(sorted(root_flat_reports)),
             )
             return web.Response(body=response_body, content_type=content_type)
         if root_manager_report is not None:
