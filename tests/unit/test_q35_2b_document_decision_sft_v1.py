@@ -1115,9 +1115,9 @@ def test_document_utility_routed_export_matches_live_root_contract(
         for row in rows
     )
     for start in range(0, 24, 6):
-        assert {row["family"] for row in rows[start : start + 6]} == set(
-            manifest["family_counts"]
-        )
+        assert {
+            rows[index]["family"] for index in range(start, start + 6)
+        } == set(manifest["family_counts"])
     trainer = _module("run_q35_2b_document_decision_sft_v1")
     validated = trainer._validated_dataset(output)
     assert validated["rows"] == 24
