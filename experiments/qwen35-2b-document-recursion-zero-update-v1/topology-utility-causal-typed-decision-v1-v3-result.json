@@ -1,0 +1,79 @@
+{
+  "schema_version": "q35-2b-document-topology-causal-typed-decision-result/v1",
+  "decision": "admit_typed_topology_scaffold_for_robust_tight_stack_selection",
+  "acceptance_floor": 4,
+  "acceptance_floor_relaxed": false,
+  "optimizer_updates": 0,
+  "coordinator": {
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-liveconsolidatedrubric36-step3-v1/weights/step_3",
+    "sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9"
+  },
+  "child": {
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+    "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "frozen": true
+  },
+  "code": {
+    "prime_rl_commit": "bfa0843c5",
+    "verifiers_commit": "6d40ac9d0"
+  },
+  "scaffold": {
+    "utility_policy_profile": "causal_decision_boundary_v4",
+    "typed_decision_tool": "select_document_topology",
+    "required_model_authored_fields": [
+      "root_can_inspect",
+      "root_admission_limit",
+      "manager_can_delegate",
+      "topology"
+    ],
+    "fail_closed": true,
+    "harness_corrects_topology": false,
+    "harness_owns_graph_mechanics": true
+  },
+  "banks": [
+    {
+      "label": "typed-v1",
+      "config": "topology-utility-causal-typed-decision-admission-v1.toml",
+      "result": "/home/ubuntu/rlm/results/q35-2b-document-topology-utility-causal-typed-decision-admission-v1/latent-doc-c177liveconsolidated35-h176protected-causal-typed-decision-v1",
+      "qualifying_trajectories": 5,
+      "trace_count": 6,
+      "passed": true
+    },
+    {
+      "label": "typed-v2",
+      "config": "topology-utility-causal-typed-decision-admission-v2.toml",
+      "result": "/home/ubuntu/rlm/results/q35-2b-document-topology-utility-causal-typed-decision-admission-v2/latent-doc-c177liveconsolidated35-h176protected-causal-typed-decision-v2",
+      "qualifying_trajectories": 6,
+      "trace_count": 6,
+      "passed": true
+    },
+    {
+      "label": "typed-v3",
+      "config": "topology-utility-causal-typed-decision-admission-v3.toml",
+      "result": "/home/ubuntu/rlm/results/q35-2b-document-topology-utility-causal-typed-decision-admission-v3/latent-doc-c177liveconsolidated35-h176protected-causal-typed-decision-v3",
+      "qualifying_trajectories": 5,
+      "trace_count": 6,
+      "passed": true
+    }
+  ],
+  "aggregate": {
+    "qualifying_trajectories": 16,
+    "trace_count": 18,
+    "passed_bank_count": 3,
+    "bank_count": 3,
+    "direct": "6/6",
+    "flat": "4/6",
+    "hierarchical": "6/6"
+  },
+  "failure_interpretation": "The two flat misses exhausted typed-decision retries without an accepted decision, so no graph was executed. The task metric labels no-spawn trajectories as direct, but the proxy did not normalize a wrong topology into success.",
+  "remote_auditor": {
+    "path": "/home/ubuntu/rlm/state/q35-2b-document-topology-causal-typed-v1-v3.json",
+    "sha256": "f748fc9458090617ac6349aa3f21e78674fd7df59887b5988b462e43a66218d6"
+  },
+  "promotion": {
+    "canonical_replacement": false,
+    "hugging_face_publication": false,
+    "weights_changed": false
+  },
+  "next_experiment": "Use these same C/H weights and the admitted typed tight scaffold for a same-weights P versus P+ recursive-compute comparison."
+}
