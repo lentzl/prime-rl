@@ -1078,6 +1078,51 @@ def test_document_hierarchy_remedial_export_focuses_missing_class(
     assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 8
 
 
+def test_document_utility_routed_export_matches_live_root_contract(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_utility_routed_sft_v1")
+    proxy = _module("dual_policy_openai_proxy_v1")
+    sources = []
+    for instance in range(4):
+        source = tmp_path / f"routed-utility-{instance}.jsonl"
+        traces = []
+        for family in (
+            "document_utility_direct",
+            "document_utility_flat",
+            "document_utility_hierarchical",
+        ):
+            for variant in range(2):
+                trace = _trace(family, variant)
+                trace["id"] = f"{family}-{instance}-{variant}"
+                trace["task"]["data"]["name"] = (
+                    f"{family}-v{variant}-i{20000 + instance}"
+                )
+                traces.append(trace)
+        source.write_text(json.dumps({"traces": traces}) + "\n")
+        sources.append(source)
+    output = tmp_path / "routed-utility"
+
+    manifest = module.export(traces=sources, output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 24
+    assert set(manifest["family_counts"].values()) == {8}
+    assert manifest["root_coordinator_contract_aligned"] is True
+    assert all(row["messages"][0] == {
+        "role": "system",
+        "content": proxy.ROOT_COORDINATOR_CONTRACT,
+    } for row in rows)
+    for start in range(0, 24, 6):
+        assert {row["family"] for row in rows[start : start + 6]} == set(
+            manifest["family_counts"]
+        )
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 24
+    assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 12
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:
