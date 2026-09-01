@@ -2078,6 +2078,7 @@ class DualPolicyProxy:
         self.document_report_state: dict[
             tuple[str, str], dict[str, dict[str, int]]
         ] = {}
+        self.root_flat_passive_hashes: set[str] = set()
 
     def accumulate_document_reports(
         self,
@@ -2146,6 +2147,11 @@ class DualPolicyProxy:
                         self.typed_child_report_compute_attempts.get(session_sha256, 0)
                         + 1
                     )
+                if (
+                    event.get("mode") == "document_root_flat_fanin_passive"
+                    and isinstance(session_sha256, str)
+                ):
+                    self.root_flat_passive_hashes.add(session_sha256)
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
     async def cleanup(self, _: web.Application) -> None:
@@ -2362,7 +2368,12 @@ class DualPolicyProxy:
                 document_report_stems=tuple(sorted(root_flat_reports)),
             )
             return web.Response(body=response_body, content_type=content_type)
-        if root_flat_admission_complete and len(root_flat_reports) < 3:
+        if (
+            root_flat_admission_complete
+            and len(root_flat_reports) < 3
+            and session_sha256 not in self.root_flat_passive_hashes
+        ):
+            self.root_flat_passive_hashes.add(session_sha256)
             body = json.dumps(
                 routed, separators=(",", ":"), ensure_ascii=False
             ).encode()

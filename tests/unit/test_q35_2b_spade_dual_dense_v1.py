@@ -2322,6 +2322,7 @@ def test_proxy_accumulates_flat_reports_across_child_message_resumptions(
         tokenizer=object(),
         document_root_flat_fanin_scaffold=True,
     )
+    assert proxy.root_flat_passive_hashes == set()
     session = "session-a"
     assert proxy.accumulate_document_reports(
         "root_flat", session, {"gamma": {"words": 40, "h2": 4}}
