@@ -2509,11 +2509,13 @@ class DualPolicyProxy:
                 and endpoint == "/v1/chat/completions"
                 and role == "coordinator"
                 and (
-                    is_root_coordinator_request(payload)
-                    or session_document_topology == "flat"
-                )
-                and not _contains_marker(
-                    payload.get("messages"), DOCUMENT_COORDINATOR_HEADER
+                    session_document_topology == "flat"
+                    or (
+                        is_root_coordinator_request(payload)
+                        and not _contains_marker(
+                            payload.get("messages"), DOCUMENT_COORDINATOR_HEADER
+                        )
+                    )
                 )
             )
             else {}

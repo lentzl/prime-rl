@@ -2228,6 +2228,9 @@ def test_selected_topology_authorizes_root_finalizers_after_identity_elision() -
 
     assert 'or session_document_topology == "flat"' in source
     assert 'or session_document_topology == "hierarchical"' in source
+    assert (
+        'session_document_topology == "flat"\n                    or (' in source
+    )
     assert "Waiting for the document manager's report." in source
 
 
