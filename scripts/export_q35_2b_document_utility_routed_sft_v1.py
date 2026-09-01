@@ -22,17 +22,21 @@ from export_q35_2b_document_utility_topology_sft_v1 import (
     _utility_row,
 )
 
-SCHEMA_VERSION = "qwen35-2b-document-utility-routed-sft/v1"
+SCHEMA_VERSION = "qwen35-2b-document-utility-routed-consolidated-sft/v2"
 OBJECTIVE = (
     "answer_free_root_topology_choice_from_routed_ownership_and_resource_constraints"
 )
-DIRECT_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-direct-sft/v1"
+DIRECT_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-direct-consolidated-sft/v2"
 DIRECT_OBJECTIVE = "answer_free_root_direct_utility_choice_from_routed_constraints"
-EXPANDED_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-expanded-sft/v1"
+EXPANDED_SCHEMA_VERSION = (
+    "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2"
+)
 EXPANDED_OBJECTIVE = (
     "answer_free_root_topology_choice_from_expanded_routed_ownership_and_resource_constraints"
 )
-RUBRIC_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-rubric-expanded-sft/v1"
+RUBRIC_SCHEMA_VERSION = (
+    "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2"
+)
 RUBRIC_OBJECTIVE = (
     "answer_free_root_topology_choice_from_routed_resource_decision_rubric"
 )
@@ -107,9 +111,21 @@ def export(
                         if utility_rubric
                         else ROOT_COORDINATOR_CONTRACT
                     )
-                    row["messages"].insert(
-                        0, {"role": "system", "content": root_contract}
-                    )
+                    prime_instruction = row["messages"][0]
+                    if (
+                        prime_instruction.get("role") != "user"
+                        or not isinstance(prime_instruction.get("content"), str)
+                        or not prime_instruction["content"].strip()
+                    ):
+                        raise ValueError(
+                            "routed utility row lacks the Prime Agent instruction prefix"
+                        )
+                    row["messages"][0] = {
+                        "role": "system",
+                        "content": (
+                            f"{root_contract}\n\n{prime_instruction['content'].strip()}"
+                        ),
+                    }
                     row["objective"] = objective
                     rows.append(row)
     rows.sort(key=_sort_key)
@@ -131,6 +147,12 @@ def export(
                 FAMILY_TO_TOPOLOGY_FAMILY
             ):
                 raise ValueError("routed document utility ordering is not locally balanced")
+    system_prefix_hashes = {
+        hashlib.sha256(row["messages"][0]["content"].encode()).hexdigest()
+        for row in rows
+    }
+    if len(system_prefix_hashes) != 1:
+        raise ValueError("routed utility rows do not share one live system prefix")
 
     output_dir.mkdir(parents=True)
     parquet = output_dir / "train.parquet"
@@ -151,8 +173,11 @@ def export(
         "root_coordinator_contract_aligned": True,
         "utility_decision_rubric_aligned": utility_rubric,
         "utility_decision_rubric_serialization": (
-            "renderer_compatible_merged_system_v1" if utility_rubric else None
+            "vllm_developer_consolidated_system_v1" if utility_rubric else None
         ),
+        "vllm_developer_system_consolidation_aligned": True,
+        "prime_agent_instruction_consolidated": True,
+        "live_system_prefix_sha256": next(iter(system_prefix_hashes)),
         "expanded_prompt_bank": expanded,
         "remedial_classes": sorted(selected_families) if focus_family else [],
         "root_coordinator_contract_sha256": hashlib.sha256(

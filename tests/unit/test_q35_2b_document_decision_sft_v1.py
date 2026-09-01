@@ -1110,9 +1110,15 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert manifest["root_coordinator_contract_aligned"] is True
     assert all(
         row["messages"][0]["role"] == "system"
-        and row["messages"][0]["content"] == proxy.ROOT_COORDINATOR_CONTRACT
+        and row["messages"][0]["content"].startswith(
+            proxy.ROOT_COORDINATOR_CONTRACT + "\n\n"
+        )
+        and row["messages"][1]["role"] == "user"
         for row in rows
     )
+    assert all(len(row["messages"]) == 3 for row in rows)
+    assert manifest["vllm_developer_system_consolidation_aligned"] is True
+    assert manifest["prime_agent_instruction_consolidated"] is True
     for start in range(0, 24, 6):
         assert {
             rows[index]["family"] for index in range(start, start + 6)
@@ -1171,7 +1177,9 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert set(expanded_manifest["family_counts"].values()) == {12}
     assert expanded_manifest["expanded_prompt_bank"] is True
     assert all(
-        row["messages"][0]["content"] == proxy.ROOT_COORDINATOR_CONTRACT
+        row["messages"][0]["content"].startswith(
+            proxy.ROOT_COORDINATOR_CONTRACT + "\n\n"
+        )
         for row in expanded_rows
     )
     expanded_validated = trainer._validated_dataset(expanded_output)
@@ -1190,12 +1198,13 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert rubric_manifest["utility_decision_rubric_aligned"] is True
     assert (
         rubric_manifest["utility_decision_rubric_serialization"]
-        == "renderer_compatible_merged_system_v1"
+        == "vllm_developer_consolidated_system_v1"
     )
     assert rubric_manifest["leading_system_message_count"] == 1
     assert all(
-        row["messages"][0]["content"]
-        == proxy.ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT
+        row["messages"][0]["content"].startswith(
+            proxy.ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT + "\n\n"
+        )
         and row["messages"][1]["role"] == "user"
         for row in rubric_rows
     )
