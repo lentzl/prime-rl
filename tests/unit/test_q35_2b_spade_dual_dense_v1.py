@@ -1285,6 +1285,46 @@ def test_free_document_topology_normalizer_preserves_any_legal_choice() -> None:
         assert selected == topology
         assert expected == "free"
 
+    broken_direct_transport = (
+        "await agent_message.send('Read "
+        f"{root}/alpha.md, beta.md, and gamma.md, then compute the requested values "
+        "via direct inspection and return the JSON object.', receiver_role='parent')"
+    )
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "ipython",
+                                    "arguments": json.dumps(
+                                        {"code": broken_direct_transport}
+                                    ),
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rewritten, count, _, selected, expected = (
+        module.rewrite_document_root_free_topology_response(
+            body, canonical_codes=actions
+        )
+    )
+    arguments = json.loads(
+        json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+            "function"
+        ]["arguments"]
+    )
+    assert count == 1
+    assert selected == "direct"
+    assert expected == "free"
+    assert arguments["code"] == actions["direct"]
+
 
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:
     module = _module("dual_policy_openai_proxy_v1")

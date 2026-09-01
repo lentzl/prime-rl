@@ -1124,7 +1124,21 @@ def document_root_topology(code: str) -> str | None:
             marker in code
             for marker in ("Path(", "read_text(", ".glob(", "open(", "listdir(")
         )
-        return "direct" if has_document_root and has_local_file_action else None
+        has_explicit_direct_intent = bool(
+            re.search(r"\b(?:direct inspection|directly inspect)\b", code, re.IGNORECASE)
+        )
+        names_all_documents = all(f"{stem}.md" in code for stem in ("alpha", "beta", "gamma"))
+        direct_intent_action = (
+            has_explicit_direct_intent
+            and names_all_documents
+            and "document-manager" not in code
+            and not re.search(r"\bdelegate\b", code, re.IGNORECASE)
+        )
+        return (
+            "direct"
+            if has_document_root and (has_local_file_action or direct_intent_action)
+            else None
+        )
     if names == ["document-manager"]:
         return "hierarchical"
     if len(names) == 3 and set(names) == {
