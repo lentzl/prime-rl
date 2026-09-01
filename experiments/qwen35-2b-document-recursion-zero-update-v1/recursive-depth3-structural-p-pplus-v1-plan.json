@@ -1,0 +1,66 @@
+{
+  "schema_version": "q35-2b-recursive-depth3-structural-plan/v1",
+  "status": "prospectively_defined",
+  "claim_class": "structural_depth_gap",
+  "optimizer_updates": 0,
+  "weights": {
+    "coordinator_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "shared": {
+    "task_family": "document_utility_depth3",
+    "task_count": 8,
+    "task_variants": [4, 5],
+    "instances_per_template": 4,
+    "instance_offset": 31100,
+    "task_seed": 20261110,
+    "sampling_seed": 20261110,
+    "sampling_temperature": 0.4,
+    "utility_policy_profile": "causal_decision_boundary_v4",
+    "typed_decision_tool": "select_document_topology",
+    "same_task_information": true,
+    "same_ownership_permissions": true,
+    "same_answer_free_scaffold": true,
+    "same_correctness_and_protocol_gates": true
+  },
+  "ownership_graph": {
+    "root": "May admit only document-manager and may not inspect document files.",
+    "top_manager": "Owns directory decomposition, may admit only ab-document-manager and gamma-document-manager, and may not inspect document files.",
+    "subgroup_managers": "Own disjoint file groups, may admit only their named terminal file workers, and may not inspect document files.",
+    "leaves": "Each owns and reads exactly one Markdown file and reports only to its direct parent.",
+    "required_success_path": "root -> document-manager -> subgroup manager -> terminal file worker"
+  },
+  "p": {
+    "config": "recursive-depth3-structural-p-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 1
+  },
+  "p_plus": {
+    "config": "recursive-depth3-structural-pplus-v1.toml",
+    "maximum_depth": 3,
+    "attempts_per_task": 3,
+    "selector": "Choose the first attempt satisfying the answer-free structural eligibility rule; if none is eligible, choose the first attempt.",
+    "selector_uses_expected_answer": false
+  },
+  "qualifying_structural_gap": {
+    "p_requirements": [
+      "typed hierarchical topology selected",
+      "top manager and both subgroup managers admitted",
+      "terminal leaf layer blocked or incomplete under the depth-two cap",
+      "hard task failure"
+    ],
+    "p_plus_requirements": [
+      "typed hierarchical topology selected",
+      "exact root -> top manager -> two subgroup managers -> three terminal leaves graph executed",
+      "all direct-parent reports delivered exactly once",
+      "answer_accuracy = 1",
+      "clean hard protocol success",
+      "maximum exercised coordination depth = 3"
+    ]
+  },
+  "minimum_useful_signal": {
+    "distinct_task_keys": 4,
+    "acceptance_floor_relaxed": false
+  },
+  "interpretation_boundary": "A pass establishes that extra recursive depth expands reachable system capability. It does not establish that the structural gap can be compressed into a depth-two deployment policy. No policy update follows directly from this screen."
+}

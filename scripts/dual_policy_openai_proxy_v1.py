@@ -95,6 +95,21 @@ DOCUMENT_MANAGER_CONTRACT_PATTERN = re.compile(
     r".*?Send that object exactly once to receiver_role='parent', then stop\.)",
     re.DOTALL,
 )
+DOCUMENT_DEPTH3_TOP_CONTRACT_PATTERN = re.compile(
+    r"(?P<contract>\[recursive document coordinator session contract\]\n"
+    r"session_role=document_coordinator\n"
+    r"document_coordinator_level=top\n"
+    r".*?\ndepth3_contract_end=top)",
+    re.DOTALL,
+)
+DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN = re.compile(
+    r"(?P<contract>\[recursive document coordinator session contract\]\n"
+    r"session_role=document_coordinator\n"
+    r"document_coordinator_level=subgroup\n"
+    r"document_group=(?P<group>alpha,beta|gamma)\n"
+    r".*?\ndepth3_contract_end=subgroup)",
+    re.DOTALL,
+)
 CHILD_ACTION_PATTERN = re.compile(
     re.escape(CHILD_ACTION_SCAFFOLD_HEADER)
     + r".*?In your first IPython call execute exactly:\s*"
@@ -643,6 +658,133 @@ def document_manager_reports_from_messages(
     return reports
 
 
+def document_coordinator_level_from_messages(messages: Any) -> str | None:
+    """Classify the document coordinator contract without confusing embedded children."""
+
+    if _contains_marker(messages, "document_coordinator_level=top"):
+        return "top"
+    if _contains_marker(messages, "document_coordinator_level=subgroup"):
+        return "subgroup"
+    if _contains_marker(messages, DOCUMENT_COORDINATOR_HEADER):
+        return "legacy"
+    return None
+
+
+def document_manager_expected_stems(messages: Any) -> tuple[str, ...]:
+    """Return the terminal files directly owned by this manager session."""
+
+    level = document_coordinator_level_from_messages(messages)
+    if level == "subgroup":
+        if _contains_marker(messages, "document_group=alpha,beta"):
+            return ("alpha", "beta")
+        if _contains_marker(messages, "document_group=gamma"):
+            return ("gamma",)
+        raise ValueError("depth-three subgroup manager lacks a valid document group")
+    return ("alpha", "beta", "gamma") if level == "legacy" else ()
+
+
+def document_subgroup_reports_from_messages(
+    messages: Any,
+) -> dict[str, dict[str, int]]:
+    """Collect the two strict partial reports delivered to a top manager."""
+
+    if not isinstance(messages, list):
+        return {}
+    reports: dict[str, dict[str, int]] = {}
+    expected_keys = {
+        "ab-document-manager": {
+            "alpha_words",
+            "alpha_h2",
+            "beta_words",
+            "beta_h2",
+        },
+        "gamma-document-manager": {"gamma_words", "gamma_h2"},
+    }
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        fragments: list[str] = []
+
+        def collect(value: Any) -> None:
+            if isinstance(value, str):
+                fragments.append(value)
+            elif isinstance(value, list):
+                for item in value:
+                    collect(item)
+            elif isinstance(value, dict):
+                for item in value.values():
+                    collect(item)
+
+        collect(message)
+        text = "\n".join(fragments)
+        sender = next(
+            (
+                name
+                for name in expected_keys
+                if f"[from child:{name}]" in text
+            ),
+            None,
+        )
+        if sender is None:
+            continue
+        payload = None
+        for fragment in reversed(fragments):
+            try:
+                candidate = json.loads(fragment.rsplit("\n\n", 1)[-1].strip())
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if isinstance(candidate, dict):
+                payload = candidate
+                break
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != expected_keys[sender]
+            or not all(type(payload[key]) is int for key in expected_keys[sender])
+        ):
+            continue
+        if sender in reports and reports[sender] != payload:
+            raise ValueError(f"top document manager received conflicting {sender} reports")
+        reports[sender] = payload
+    return reports
+
+
+def document_subgroup_parent_report(
+    reports: dict[str, dict[str, int]], stems: tuple[str, ...]
+) -> dict[str, int]:
+    """Normalize leaf reports into the strict partial schema for the top manager."""
+
+    if set(reports) != set(stems):
+        raise ValueError("subgroup manager fan-in is incomplete")
+    return {
+        key: value
+        for stem in stems
+        for key, value in (
+            (f"{stem}_words", reports[stem]["words"]),
+            (f"{stem}_h2", reports[stem]["h2"]),
+        )
+    }
+
+
+def document_depth3_parent_report(
+    reports: dict[str, dict[str, int]],
+) -> dict[str, int]:
+    """Combine the two disjoint subgroup reports into the root-facing schema."""
+
+    if set(reports) != {"ab-document-manager", "gamma-document-manager"}:
+        raise ValueError("top document manager fan-in requires both subgroup managers")
+    flat = {key: value for report in reports.values() for key, value in report.items()}
+    expected = {
+        f"{stem}_{metric}"
+        for stem in ("alpha", "beta", "gamma")
+        for metric in ("words", "h2")
+    }
+    if set(flat) != expected:
+        raise ValueError("top document manager received an invalid partial schema")
+    flat["total_words"] = sum(flat[f"{stem}_words"] for stem in ("alpha", "beta", "gamma"))
+    flat["total_h2"] = sum(flat[f"{stem}_h2"] for stem in ("alpha", "beta", "gamma"))
+    return flat
+
+
 def document_manager_parent_report(reports: dict[str, dict[str, int]]) -> dict[str, int]:
     """Assemble the exact root-facing document report from three leaf reports."""
 
@@ -670,6 +812,34 @@ def document_manager_parent_report_code(reports: dict[str, dict[str, int]]) -> s
     )
 
 
+def document_subgroup_parent_report_code(
+    reports: dict[str, dict[str, int]], stems: tuple[str, ...]
+) -> str:
+    """Return one exact subgroup-to-top send action."""
+
+    result = document_subgroup_parent_report(reports, stems)
+    return (
+        "import json\n"
+        f"document_subgroup_report = {result!r}\n"
+        "await agent_message.send(json.dumps(document_subgroup_report, "
+        "separators=(',', ':')), receiver_role='parent')"
+    )
+
+
+def document_depth3_parent_report_code(
+    reports: dict[str, dict[str, int]],
+) -> str:
+    """Return one exact top-manager-to-root send action."""
+
+    result = document_depth3_parent_report(reports)
+    return (
+        "import json\n"
+        f"document_manager_report = {result!r}\n"
+        "await agent_message.send(json.dumps(document_manager_report, "
+        "separators=(',', ':')), receiver_role='parent')"
+    )
+
+
 def document_manager_parent_report_completed(messages: Any) -> bool:
     """Recognize the delivery receipt for a scaffolded manager parent report."""
 
@@ -681,7 +851,10 @@ def document_manager_parent_report_completed(messages: Any) -> bool:
             for index, message in enumerate(messages)
             if isinstance(message, dict)
             and message.get("role") == "assistant"
-            and _contains_marker(message, "document_manager_report =")
+            and (
+                _contains_marker(message, "document_manager_report =")
+                or _contains_marker(message, "document_subgroup_report =")
+            )
         ),
         None,
     )
@@ -1063,6 +1236,34 @@ def disclosed_document_free_actions(prompt: str) -> dict[str, str] | None:
 def disclosed_document_manager_action(prompt: str) -> str | None:
     """Preserve one complete answer-free recursive manager contract at admission."""
 
+    depth3_matches = [
+        match.group("contract").strip()
+        for match in DOCUMENT_DEPTH3_TOP_CONTRACT_PATTERN.finditer(prompt)
+    ]
+    if depth3_matches:
+        if len(set(depth3_matches)) != 1:
+            raise ValueError("depth-three document scaffold contains conflicting top contracts")
+        contract = depth3_matches[0]
+        if '"""' in contract:
+            raise ValueError("depth-three document scaffold contains an unsafe top contract")
+        root_match = re.search(
+            r"decomposition of document directory (?P<root>/[^,\s]+),", contract
+        )
+        if root_match is None:
+            raise ValueError("depth-three document scaffold lacks one owned directory")
+        subgroup_matches = list(
+            DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN.finditer(contract)
+        )
+        if [match.group("group") for match in subgroup_matches] != [
+            "alpha,beta",
+            "gamma",
+        ]:
+            raise ValueError("depth-three document scaffold lacks its two subgroup contracts")
+        return (
+            f"document_manager = await rlm({json.dumps(contract, ensure_ascii=False)}, "
+            'name="document-manager")'
+        )
+
     matches = [
         match.group("contract").strip()
         for match in DOCUMENT_MANAGER_CONTRACT_PATTERN.finditer(prompt)
@@ -1135,7 +1336,73 @@ def disclosed_document_spawn_action(prompt: str) -> str | None:
 
 
 def disclosed_document_leaf_action(prompt: str) -> str | None:
-    """Build the exact three-leaf action for a non-root document manager."""
+    """Build the exact next-layer action for any non-root document coordinator."""
+
+    top_matches = [
+        match.group("contract").strip()
+        for match in DOCUMENT_DEPTH3_TOP_CONTRACT_PATTERN.finditer(prompt)
+    ]
+    if top_matches:
+        if len(set(top_matches)) != 1:
+            raise ValueError("depth-three top manager has conflicting contracts")
+        subgroup_matches = list(
+            DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN.finditer(top_matches[0])
+        )
+        if [match.group("group") for match in subgroup_matches] != [
+            "alpha,beta",
+            "gamma",
+        ]:
+            raise ValueError("depth-three top manager lacks exact subgroup contracts")
+        contracts = {
+            match.group("group"): match.group("contract").strip()
+            for match in subgroup_matches
+        }
+        return "\n".join(
+            (
+                f"ab_manager = await rlm({json.dumps(contracts['alpha,beta'], ensure_ascii=False)}, "
+                'name="ab-document-manager")',
+                f"gamma_manager = await rlm({json.dumps(contracts['gamma'], ensure_ascii=False)}, "
+                'name="gamma-document-manager")',
+            )
+        )
+
+    subgroup_matches = list(DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN.finditer(prompt))
+    if subgroup_matches:
+        unique = {
+            (match.group("group"), match.group("contract").strip())
+            for match in subgroup_matches
+        }
+        if len(unique) != 1:
+            raise ValueError("depth-three subgroup manager has conflicting contracts")
+        group, contract = unique.pop()
+        root_match = re.search(r"under (?P<root>/[^.\s]+)\.", contract)
+        if root_match is None:
+            raise ValueError("depth-three subgroup manager lacks one owned directory")
+        root = root_match.group("root")
+        stems = ("alpha", "beta") if group == "alpha,beta" else ("gamma",)
+        expected_assignments = {
+            f"- {stem}-document-worker owns {root}/{stem}.md" for stem in stems
+        }
+        actual_assignments = {
+            line.strip()
+            for line in contract.splitlines()
+            if line.strip().startswith("- ")
+        }
+        if actual_assignments != expected_assignments:
+            raise ValueError("depth-three subgroup lacks its exact leaf assignments")
+        declarations = "\n".join(
+            f'{stem}_task = """Read {root}/{stem}.md using the CLI or IPython. '
+            "Count words with Python str.split() over the complete file contents and count "
+            "lines beginning exactly `## `. Send one JSON object with integer keys `words` "
+            "and `h2` to your parent using await agent_message.send(json.dumps(result), "
+            "receiver_role='parent'). After the delivery receipt succeeds, stop.\"\"\""
+            for stem in stems
+        )
+        calls = "\n".join(
+            f'{stem}_worker = await rlm({stem}_task, name="{stem}-document-worker")'
+            for stem in stems
+        )
+        return f"{declarations}\n{calls}"
 
     matches = [
         match.group("contract").strip()
@@ -2762,6 +3029,16 @@ class DualPolicyProxy:
                 payload.get("messages"), FREE_DOCUMENT_TOPOLOGY_HEADER
             )
         )
+        document_coordinator_level = (
+            document_coordinator_level_from_messages(payload.get("messages"))
+            if document_manager_chat
+            else None
+        )
+        document_manager_expected_leaf_stems = (
+            document_manager_expected_stems(payload.get("messages"))
+            if document_manager_chat
+            else ()
+        )
         leaf_document_reports = (
             document_leaf_report_from_messages(
                 payload.get("messages"), document_leaf_path
@@ -2786,6 +3063,16 @@ class DualPolicyProxy:
                 or self.document_manager_wait_scaffold
             )
             and document_manager_chat
+            else {}
+        )
+        subgroup_reports = (
+            document_subgroup_reports_from_messages(payload.get("messages"))
+            if (
+                self.document_manager_fanin_scaffold
+                or self.document_manager_wait_scaffold
+            )
+            and document_manager_chat
+            and document_coordinator_level == "top"
             else {}
         )
         root_manager_report = (
@@ -2974,17 +3261,38 @@ class DualPolicyProxy:
                 session_sha256=session_sha256,
             )
             return web.Response(body=response_body, content_type=content_type)
-        manager_admission_complete = document_manager_chat and (
-            _contains_marker(payload.get("messages"), "alpha_worker = await rlm(")
+        manager_admission_marker = {
+            "top": "ab_manager = await rlm(",
+            "subgroup": (
+                f"{document_manager_expected_leaf_stems[0]}_worker = await rlm("
+                if document_manager_expected_leaf_stems
+                else ""
+            ),
+            "legacy": "alpha_worker = await rlm(",
+        }.get(document_coordinator_level, "")
+        manager_admission_complete = (
+            document_manager_chat
+            and bool(manager_admission_marker)
+            and _contains_marker(payload.get("messages"), manager_admission_marker)
             and any(
                 isinstance(message, dict) and message.get("role") == "tool"
                 for message in payload.get("messages") or []
             )
         )
+        manager_received_report_count = (
+            len(subgroup_reports)
+            if document_coordinator_level == "top"
+            else len(manager_reports)
+        )
+        manager_expected_report_count = {
+            "top": 2,
+            "subgroup": len(document_manager_expected_leaf_stems),
+            "legacy": 3,
+        }.get(document_coordinator_level, 0)
         if (
             self.document_manager_wait_scaffold
             and manager_admission_complete
-            and len(manager_reports) < 3
+            and manager_received_report_count < manager_expected_report_count
         ):
             body = json.dumps(
                 routed, separators=(",", ":"), ensure_ascii=False
@@ -3249,7 +3557,28 @@ class DualPolicyProxy:
                 root_topology_scope = True
                 routed = {**routed, "stream": False}
                 routed.pop("stream_options", None)
-        if self.document_manager_fanin_scaffold and len(manager_reports) == 3:
+        if (
+            self.document_manager_fanin_scaffold
+            and document_coordinator_level == "top"
+            and len(subgroup_reports) == 2
+        ):
+            code = document_depth3_parent_report_code(subgroup_reports)
+            forced_chat_scope = "document_depth3_top_fanin"
+            routed = force_ipython_code_schema(routed, code)
+            forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        elif (
+            self.document_manager_fanin_scaffold
+            and document_coordinator_level == "subgroup"
+            and len(manager_reports) == len(document_manager_expected_leaf_stems)
+            and document_manager_expected_leaf_stems
+        ):
+            code = document_subgroup_parent_report_code(
+                manager_reports, document_manager_expected_leaf_stems
+            )
+            forced_chat_scope = "document_depth3_subgroup_fanin"
+            routed = force_ipython_code_schema(routed, code)
+            forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        elif self.document_manager_fanin_scaffold and len(manager_reports) == 3:
             code = document_manager_parent_report_code(manager_reports)
             forced_chat_scope = "document_manager_fanin"
             routed = force_ipython_code_schema(routed, code)

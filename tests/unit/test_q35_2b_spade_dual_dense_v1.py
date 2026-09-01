@@ -2692,6 +2692,98 @@ def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> No
         module.document_manager_reports_from_messages(duplicate)
 
 
+def test_depth3_document_scaffold_preserves_each_ownership_layer_and_fans_in() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    root = "/workspace/document-recursion/v4-i31100"
+
+    def subgroup(group: str, stems: tuple[str, ...]) -> str:
+        assignments = "\n".join(
+            f"- {stem}-document-worker owns {root}/{stem}.md" for stem in stems
+        )
+        return f"""[recursive document coordinator session contract]
+session_role=document_coordinator
+document_coordinator_level=subgroup
+document_group={group}
+is_root=false
+has_parent=true
+can_delegate=true
+can_finalize_user=false
+maximum_descendant_depth=1
+return_contract=exactly_one_parent_report
+You own only document group {group} under {root}. Do not read or inspect its files. Delegate:
+{assignments}
+Send it exactly once to receiver_role='parent', then stop.
+depth3_contract_end=subgroup"""
+
+    ab_contract = subgroup("alpha,beta", ("alpha", "beta"))
+    gamma_contract = subgroup("gamma", ("gamma",))
+    top_contract = f"""[recursive document coordinator session contract]
+session_role=document_coordinator
+document_coordinator_level=top
+is_root=false
+has_parent=true
+can_delegate=true
+can_finalize_user=false
+maximum_descendant_depth=2
+return_contract=exactly_one_parent_report
+You own the decomposition of document directory {root}, but may not inspect files.
+Coordinator name: ab-document-manager
+{ab_contract}
+Coordinator name: gamma-document-manager
+{gamma_contract}
+Send that object exactly once to receiver_role='parent', then stop.
+depth3_contract_end=top"""
+
+    root_action = module.disclosed_document_manager_action(top_contract)
+    assert root_action is not None
+    assert root_action.count("await rlm(") == 1
+    assert 'name="document-manager"' in root_action
+
+    top_action = module.disclosed_document_leaf_action(top_contract)
+    assert top_action is not None
+    assert top_action.count("await rlm(") == 2
+    assert 'name="ab-document-manager"' in top_action
+    assert 'name="gamma-document-manager"' in top_action
+
+    ab_action = module.disclosed_document_leaf_action(ab_contract)
+    gamma_action = module.disclosed_document_leaf_action(gamma_contract)
+    assert ab_action is not None and ab_action.count("await rlm(") == 2
+    assert gamma_action is not None and gamma_action.count("await rlm(") == 1
+
+    leaf_reports = {
+        "alpha": {"words": 20, "h2": 2},
+        "beta": {"words": 30, "h2": 3},
+    }
+    ab_partial = module.document_subgroup_parent_report(
+        leaf_reports, ("alpha", "beta")
+    )
+    gamma_partial = {"gamma_words": 40, "gamma_h2": 4}
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"[from child:{name}]\nAgent-to-agent message received.\n\n"
+                + json.dumps(payload)
+            ),
+        }
+        for name, payload in (
+            ("ab-document-manager", ab_partial),
+            ("gamma-document-manager", gamma_partial),
+        )
+    ]
+    subgroup_reports = module.document_subgroup_reports_from_messages(messages)
+    assert module.document_depth3_parent_report(subgroup_reports) == {
+        "alpha_words": 20,
+        "alpha_h2": 2,
+        "beta_words": 30,
+        "beta_h2": 3,
+        "gamma_words": 40,
+        "gamma_h2": 4,
+        "total_words": 90,
+        "total_h2": 9,
+    }
+
+
 def test_proxy_recovers_only_a_complete_canonical_direct_document_result() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     result = {
