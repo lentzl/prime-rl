@@ -765,6 +765,9 @@ def should_strip_tool_choice(
 def disclosed_root_action(prompt: str) -> str | None:
     """Extract the public training-only coordinator action from a rendered prompt."""
 
+    direct_action = disclosed_document_direct_action(prompt)
+    if direct_action is not None:
+        return direct_action
     manager_action = disclosed_document_manager_action(prompt)
     if manager_action is not None:
         return manager_action
@@ -782,6 +785,43 @@ def disclosed_root_action(prompt: str) -> str | None:
     if not code.startswith("reviewer = await rlm(") or "name=" not in code:
         raise ValueError("disclosed coordinator action is not the expected retained spawn")
     return code
+
+
+def disclosed_document_direct_action(prompt: str) -> str | None:
+    """Build one answer-free local document action from an explicit direct contract."""
+
+    roots = set(
+        re.findall(
+            r"Inspect every Markdown file in (?P<root>/[^\s]+) yourself using "
+            r"the CLI or IPython; do not create a subagent\.",
+            prompt,
+        )
+    )
+    if not roots:
+        return None
+    if len(roots) != 1:
+        raise ValueError("document direct scaffold contains conflicting roots")
+    root = roots.pop()
+    if not re.fullmatch(r"/workspace/document-recursion/[^/\s]+", root):
+        raise ValueError("document direct scaffold contains an invalid root")
+    return f"""from pathlib import Path
+document_root = Path({root!r})
+document_paths = sorted(document_root.glob('*.md'))
+document_texts = {{path.stem: path.read_text() for path in document_paths}}
+document_stats = {{
+    stem: {{
+        'words': len(text.split()),
+        'h2': sum(line.startswith('## ') for line in text.splitlines()),
+    }}
+    for stem, text in document_texts.items()
+}}
+document_result = {{
+    **{{f'{{stem}}_words': document_stats[stem]['words'] for stem in ('alpha', 'beta', 'gamma')}},
+    **{{f'{{stem}}_h2': document_stats[stem]['h2'] for stem in ('alpha', 'beta', 'gamma')}},
+    'total_words': sum(document_stats[stem]['words'] for stem in ('alpha', 'beta', 'gamma')),
+    'total_h2': sum(document_stats[stem]['h2'] for stem in ('alpha', 'beta', 'gamma')),
+}}
+document_result"""
 
 
 def disclosed_document_manager_action(prompt: str) -> str | None:
@@ -1007,7 +1047,14 @@ def document_root_topology(code: str) -> str | None:
                 return None
             names.append(name)
     if not names:
-        return "direct"
+        has_document_root = bool(
+            re.search(r"/workspace/document-recursion/[^/'\"\s]+", code)
+        )
+        has_local_file_action = any(
+            marker in code
+            for marker in ("Path(", "read_text(", ".glob(", "open(", "listdir(")
+        )
+        return "direct" if has_document_root and has_local_file_action else None
     if names == ["document-manager"]:
         return "hierarchical"
     if len(names) == 3 and set(names) == {
@@ -1025,8 +1072,8 @@ def rewrite_document_root_topology_response(
     """Repair mechanics only when the model selected the canonical topology."""
 
     expected = document_root_topology(canonical_code)
-    if expected not in {"flat", "hierarchical"}:
-        raise ValueError("document root topology scaffold requires a delegation action")
+    if expected not in {"direct", "flat", "hierarchical"}:
+        raise ValueError("document root topology scaffold requires a document action")
     try:
         payload = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):

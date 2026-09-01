@@ -1098,7 +1098,14 @@ def test_document_root_topology_normalizer_repairs_only_the_selected_topology() 
 def test_document_root_topology_classifier_rejects_ambiguous_delegation() -> None:
     module = _module("dual_policy_openai_proxy_v1")
 
-    assert module.document_root_topology("value = 1") == "direct"
+    assert module.document_root_topology("value = 1") is None
+    assert (
+        module.document_root_topology(
+            "root = Path('/workspace/document-recursion/v0-i1')\n"
+            "texts = [path.read_text() for path in root.glob('*.md')]"
+        )
+        == "direct"
+    )
     assert (
         module.document_root_topology(
             "manager = await rlm('task', name='document-manager')"
@@ -1125,6 +1132,59 @@ def test_document_root_topology_classifier_rejects_ambiguous_delegation() -> Non
         )
     )
     assert module.document_root_topology(broken_but_unambiguous) == "flat"
+
+
+def test_document_root_topology_normalizer_repairs_explicit_direct_work() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    prompt = (
+        "Inspect every Markdown file in /workspace/document-recursion/v0-i22100 "
+        "yourself using the CLI or IPython; do not create a subagent. For each file, "
+        "count words with Python str.split()."
+    )
+    canonical = module.disclosed_document_direct_action(prompt)
+    assert canonical is not None
+    assert "rlm(" not in canonical
+    assert "/workspace/document-recursion/v0-i22100" in canonical
+    native = (
+        "from pathlib import Path\n"
+        "root = Path('/workspace/document-recursion/v0-i22100')\n"
+        "files = list(root.glob('*.md'))"
+    )
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "ipython",
+                                    "arguments": json.dumps({"code": native}),
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ).encode()
+
+    rewritten, count, action_sha, selected, expected = (
+        module.rewrite_document_root_topology_response(
+            body, canonical_code=canonical
+        )
+    )
+
+    result = json.loads(rewritten)
+    arguments = json.loads(
+        result["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )
+    assert arguments["code"] == canonical
+    assert count == 1
+    assert action_sha == hashlib.sha256(canonical.encode()).hexdigest()
+    assert selected == expected == "direct"
 
 
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:
