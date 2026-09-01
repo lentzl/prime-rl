@@ -1286,6 +1286,7 @@ def rewrite_document_root_free_topology_response(
         body,
         canonical_codes=canonical_codes,
         expected="free",
+        reject_unclassified=True,
     )
 
 
@@ -1294,6 +1295,7 @@ def _rewrite_document_root_topology_response(
     *,
     canonical_codes: dict[str, str],
     expected: str,
+    reject_unclassified: bool = False,
 ) -> tuple[bytes, int, str | None, str | None, str]:
     """Rewrite mechanics after, and only after, a recognized legal graph choice."""
 
@@ -1338,6 +1340,32 @@ def _rewrite_document_root_topology_response(
     action_sha256 = None
     if rewrites and selected is not None:
         action_sha256 = hashlib.sha256(canonical_codes[selected].encode()).hexdigest()
+    if not rewrites and selected is None and reject_unclassified:
+        rejected = 0
+        for choice in payload["choices"]:
+            if not isinstance(choice, dict) or not isinstance(
+                choice.get("message"), dict
+            ):
+                continue
+            choice["message"] = {
+                "role": "assistant",
+                "content": (
+                    "Choose exactly one legal document topology: direct, flat, "
+                    "or hierarchical."
+                ),
+            }
+            choice["finish_reason"] = "stop"
+            rejected += 1
+        if rejected:
+            return (
+                json.dumps(
+                    payload, separators=(",", ":"), ensure_ascii=False
+                ).encode(),
+                rejected,
+                None,
+                None,
+                expected,
+            )
     if not rewrites:
         return body, 0, action_sha256, selected, expected
     return (

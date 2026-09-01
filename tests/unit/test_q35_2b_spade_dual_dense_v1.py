@@ -1325,6 +1325,50 @@ def test_free_document_topology_normalizer_preserves_any_legal_choice() -> None:
     assert expected == "free"
     assert arguments["code"] == actions["direct"]
 
+    invalid = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": "ipython",
+                                    "arguments": json.dumps(
+                                        {
+                                            "code": (
+                                                "alpha = await rlm.read(alpha_file, "
+                                                "name='alpha-document-worker')"
+                                            )
+                                        }
+                                    ),
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rejected, count, action_sha, selected, expected = (
+        module.rewrite_document_root_free_topology_response(
+            invalid, canonical_codes=actions
+        )
+    )
+    rejected_choice = json.loads(rejected)["choices"][0]
+    assert rejected_choice["message"] == {
+        "role": "assistant",
+        "content": (
+            "Choose exactly one legal document topology: direct, flat, or "
+            "hierarchical."
+        ),
+    }
+    assert rejected_choice["finish_reason"] == "stop"
+    assert count == 1
+    assert action_sha is None
+    assert selected is None
+    assert expected == "free"
+
 
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:
     module = _module("dual_policy_openai_proxy_v1")
