@@ -1,0 +1,142 @@
+{
+  "schema_version": "qwen35-2b-document-topology-worker-vs-manager-tight-result/v1",
+  "status": "complete",
+  "decision": "admit_candidate_for_worker_versus_manager_topology_under_tight_scaffold",
+  "model_promotion_scope": "document_root_worker_versus_manager_topology_tight_scaffold",
+  "unscaffolded_model_promotion": false,
+  "acceptance_floor": 4,
+  "acceptance_floor_relaxed": false,
+  "prime_rl_commit": "cf5a76486",
+  "protected_rollback": {
+    "coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-coordinator-fanin-sft-v1/c177fanin8-document-fanin-grounded12-step8-v2/weights/step_8",
+      "sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31"
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "retained": true
+  },
+  "candidate": {
+    "coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-topology-contrast-sft-v1/c177protected-worker-vs-manager8-step1-v1/weights/step_1",
+      "sha256": "d4c28675559e0329f4905041362d7c26230125c05dedaed178d794ccd09911ee",
+      "source_sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31",
+      "dataset": "/home/ubuntu/rlm/datasets/q35-2b-document-topology-contrast-sft-v1/c177protected-worker-vs-manager8-v1",
+      "dataset_rows": 8,
+      "dataset_balance": {
+        "document_flat": 4,
+        "document_hierarchical": 4
+      },
+      "dataset_manifest_sha256": "30defc125716e7d16caa0929efb766faa7a9d424cc0d5f622355205b524735fe",
+      "dataset_parquet_sha256": "3f62ea3667806690da3373f342e9bf149380ad6a57ebad27877b18dc9216db13",
+      "optimizer": "adamw_full_dense",
+      "optimizer_updates": 1,
+      "learning_rate": 5e-7,
+      "loss_mean": 0.07652728259563446,
+      "gradient_norm": 93.0,
+      "loss_nan_count": 0
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "updated": false
+    },
+    "weights_verified_unchanged_after_gate": true
+  },
+  "tight_scaffold": {
+    "learned_boundary": "root policy selects flat workers versus one document manager",
+    "normalization_rule": "replace fragile root mechanics with the canonical answer-free action only after the native response unambiguously selects the expected topology; wrong or ambiguous topology passes through unchanged",
+    "root_flat_fanin": true,
+    "root_manager_contract": true,
+    "manager_exact_leaf_admission": true,
+    "manager_fanin_and_parent_report": true,
+    "terminal_leaf_python_compute_and_report": true,
+    "maximum_depth": 2,
+    "flags": {
+      "DUAL_LEAK_COORDINATOR_EXACT_ACTION": 0,
+      "DUAL_LEAK_DOCUMENT_MANAGER_EXACT_ACTION": 1,
+      "DUAL_ROOT_COORDINATOR_CONTRACT": 1,
+      "DUAL_DOCUMENT_LEAF_COMPUTE_REPORT_SCAFFOLD": 1,
+      "DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD": 1,
+      "DUAL_DOCUMENT_ROOT_TOPOLOGY_NORMALIZATION_SCAFFOLD": 1,
+      "DUAL_DOCUMENT_ROOT_FLAT_FANIN_SCAFFOLD": 1,
+      "DUAL_DEPTH_DEFAULT_CHILD": 1
+    }
+  },
+  "predecessor_gate": {
+    "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/topology-worker-vs-manager-tight-gate3.toml",
+    "task_offset": 21900,
+    "seed": 20260918,
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-topology-worker-vs-manager-tight-gate3/latent-doc-c177topology1-h176protected-worker-vs-manager-tight-gate3-v1",
+    "trace_count": 4,
+    "clean_count": 3,
+    "issue_count": 1,
+    "diagnosis": "The failed hierarchical trajectory selected one document_manager assignment, but name=document_manager raised NameError. The normalizer classified the non-string name argument as ambiguous and did not repair it.",
+    "repair": "Classify exactly one rlm call assigned to document_manager as hierarchical even when its name argument is an unquoted document_manager identifier. This changes only mechanics after explicit graph intent.",
+    "summary_sha256": "6a430d43b20c66cdf494d924b73afef523e6811b564eb2523aace9b627b5eedf",
+    "traces_sha256": "7a863fc2299025f109b8e95290fe8e7acff6cb7189d31b2cd5a1b3c0c1fafa2c",
+    "routing_audit_sha256": "7bbc70344e18bc04267623badf3bdae563ea6a5a4992f58f3201f9ccd55de2d5"
+  },
+  "admission_gate": {
+    "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/topology-worker-vs-manager-tight-gate4.toml",
+    "config_sha256": "26721ed9bbd742862334766f0681b3edb3012290f2b033c193e4f0a884b40d49",
+    "task_offset": 22000,
+    "seed": 20260919,
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-topology-worker-vs-manager-tight-gate4/latent-doc-c177topology1-h176protected-worker-vs-manager-tight-gate4-v1",
+    "trace_count": 4,
+    "clean_count": 4,
+    "issue_count": 0,
+    "mean_reward": 2.0,
+    "answer_accuracy": 1.0,
+    "protocol_aligned": 1.0,
+    "clean_protocol_aligned": 1.0,
+    "post_fan_in_control": 1.0,
+    "stop_conditions": {
+      "agent_completed": 4
+    },
+    "family_results": {
+      "document_flat": {
+        "count": 2,
+        "clean_count": 2,
+        "mean_reward": 2.0
+      },
+      "document_hierarchical": {
+        "count": 2,
+        "clean_count": 2,
+        "mean_reward": 2.0
+      }
+    },
+    "topology_selection": {
+      "eventual_expected_topology": "4/4",
+      "expected_topology_on_first_model_request": "3/4",
+      "recovered_case": "The first flat trajectory initially returned no classifiable topology, then selected the correct flat topology on the next autonomous request. No wrong topology was normalized.",
+      "normalized_flat": 2,
+      "normalized_hierarchical": 2
+    },
+    "summary_sha256": "a903c64a2e7a40418c74d12a1f9a81f95dcf083444c6581d9c02d1a9ace216ce",
+    "traces_sha256": "b0e57bd167443f174da66092a0359edca34f0424eb55257606f762692462ad67",
+    "routing_audit_sha256": "4d8ffcab884450d2052fbf2e7bc1658346c4fb726f329f7d4e4b129a29da8b23",
+    "eval_versions_sha256": "b2cc9b7b38166d2c3130e6d5d8dd1ec92720a93e2b3b7cbe48b08bfb78631abc",
+    "dual_policy_versions_sha256": "805d2dd9103bf0341f8c75d744d36e170f02b14999c81c6e66f95f28a55066ca"
+  },
+  "causal_interpretation": {
+    "supported": "The updated coordinator can select both prescribed computation graphs and execute four fresh tasks cleanly within a tight topology-preserving runtime envelope.",
+    "not_supported": [
+      "unscaffolded recursive hierarchy mastery",
+      "free-form topology optimization",
+      "perfect first-request topology selection",
+      "causal superiority over a matched protected-model control"
+    ],
+    "scaffold_contribution": "dominant for syntax, contract fidelity, waiting, leaf execution, fan-in, and finalization",
+    "learned_contribution": "worker-versus-manager graph selection before the root mechanics are normalized"
+  },
+  "verification": {
+    "focused_remote_tests_passed": 104,
+    "gpu_processes_after_run": 0,
+    "gpu_memory_after_run_mib": [1, 1],
+    "remote_worktree": "clean_detached"
+  },
+  "safest_next_action": "Keep the protected pair as rollback and use this candidate only as the scoped topology frontier. Before any broader promotion or further optimizer update, run a matched protected-coordinator control under the identical gate and add a direct-versus-delegate restraint bank; keep topology normalization strict so it never converts a wrong graph choice into success."
+}
