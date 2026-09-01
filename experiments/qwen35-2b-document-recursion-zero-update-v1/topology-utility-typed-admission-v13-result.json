@@ -1,0 +1,141 @@
+{
+  "schema_version": "qwen35-2b-document-utility-recursion-admission-result/v1",
+  "status": "complete",
+  "decision": "admit_candidate_for_utility_sensitive_depth_two_tight_scaffold",
+  "model_promotion_scope": "document_direct_flat_hierarchical_depth_two_tight_scaffold",
+  "canonical_or_unscaffolded_promotion": false,
+  "acceptance_floor": 4,
+  "acceptance_floor_relaxed": false,
+  "qualifying_trajectories": 5,
+  "prime_rl_commit": "493d26cadde020f77709532efc8ccaf3b97d0a3b",
+  "verifiers_commit": "7188ca73e21a3950e7f4076bb707b35e91fd2855",
+  "protected_rollback": {
+    "canonical_coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-topology-contrast-sft-v1/c177protected-worker-vs-manager8-step1-v1/weights/step_1",
+      "sha256": "d4c28675559e0329f4905041362d7c26230125c05dedaed178d794ccd09911ee"
+    },
+    "admitted_utility_stepping_stone": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped24-routed24-step8-v2/weights/step_8",
+      "sha256": "603000fcffff2d1f6aff2a4062e13cb4e0a1e07715167ea142ac53fdcd369030"
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "verified_stable_and_unchanged_after_run": true
+  },
+  "candidate": {
+    "coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-liveconsolidatedrubric36-step3-v1/weights/step_3",
+      "sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+      "source_sha256": "603000fcffff2d1f6aff2a4062e13cb4e0a1e07715167ea142ac53fdcd369030",
+      "full_dense": true,
+      "optimizer_updates": 3,
+      "learning_rate": 2e-6,
+      "loss_start": 0.5651,
+      "loss_end": 0.059231314808130264,
+      "gradient_norm_start": 346.0,
+      "gradient_norm_end": 44.0,
+      "loss_nan_count": 0
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "updated": false
+    }
+  },
+  "training_alignment": {
+    "diagnosis": "live Qwen inference converts the Prime Agent developer instruction to system and consolidates it with the root and utility contracts using two newlines",
+    "previous_format_sensitivity_claim_retracted": true,
+    "dataset": "/home/ubuntu/rlm/datasets/q35-2b-document-utility-routed-rubric-expanded-consolidated-sft-v2/c177utilityrubric32-liveconsolidated36-v1",
+    "schema_version": "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2",
+    "rows": 36,
+    "family_counts": {
+      "document_utility_direct": 12,
+      "document_utility_flat": 12,
+      "document_utility_hierarchical": 12
+    },
+    "train_parquet_sha256": "a13955b6643ab34e857856e21d15136c9b122ba1ef9e9e18733f1741d1a8743e",
+    "manifest_sha256": "cbaad1e2e2ccecbfb3e5b52da396225ffb90bd1b07d1f990db8a5791c26aae18",
+    "renderer_native_template_parity_rows": 36,
+    "renderer_native_template_parity": true,
+    "rendered_token_range": [
+      5993,
+      6012
+    ],
+    "training_receipt_sha256": "05562a560664533f62292feaddece3178127adbfdd48ee7189140c28b4f09bf5"
+  },
+  "tight_scaffold": {
+    "root_topology_choice_model_authored": true,
+    "utility_decision_rubric_non_forcing": true,
+    "selected_topology_immutable": true,
+    "manager_exact_three_leaf_admission": true,
+    "terminal_leaf_python_compute_and_single_report": true,
+    "manager_unique_report_fanin_and_single_parent_report": true,
+    "root_report_relay_and_finalization": true,
+    "maximum_depth": 2,
+    "flags": {
+      "DUAL_ROOT_COORDINATOR_CONTRACT": 1,
+      "DUAL_DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT": 1,
+      "DUAL_LEAK_DOCUMENT_MANAGER_EXACT_ACTION": 1,
+      "DUAL_DOCUMENT_LEAF_COMPUTE_REPORT_SCAFFOLD": 1,
+      "DUAL_DOCUMENT_MANAGER_FANIN_SCAFFOLD": 1,
+      "DUAL_DOCUMENT_ROOT_TOPOLOGY_NORMALIZATION_SCAFFOLD": 1,
+      "DUAL_DOCUMENT_ROOT_FLAT_FANIN_SCAFFOLD": 1,
+      "DUAL_DEPTH_DEFAULT_CHILD": 1
+    }
+  },
+  "candidate_gate": {
+    "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/topology-utility-typed-admission-v13.toml",
+    "config_sha256": "9b0818686584a10394af15689bb764ef7baf1e08776dced64266cc29071acb2c",
+    "task_offset": 27100,
+    "seed": 20261022,
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-topology-utility-typed-admission-v13/latent-doc-c177liveconsolidated35-h176protected-admission-v13",
+    "trace_count": 6,
+    "clean_count": 5,
+    "issue_count": 1,
+    "mean_reward": 1.8125,
+    "answer_accuracy": 1.0,
+    "protocol_aligned": 0.8333333333333334,
+    "clean_protocol_aligned": 0.8333333333333334,
+    "topology_utility_aligned": 0.8333333333333334,
+    "family_qualifiers": {
+      "document_utility_direct": "2/2",
+      "document_utility_flat": "1/2",
+      "document_utility_hierarchical": "2/2"
+    },
+    "stop_conditions": {
+      "agent_completed": 6
+    },
+    "summary_sha256": "32585bce3962f67706349512a0277fc51a13587636be205a9e6f7b4ee3164395",
+    "summary_json_sha256": "5c052b1eb5d11058c5a8189e8a140da1ad531839f14a42fc88ce15045b2cfb0b",
+    "traces_sha256": "d1dd7849b3ccd68d4434a0c11a060f1ded7b771398fdd8a7ac1f003f4c6afaf3",
+    "routing_audit_sha256": "c518bb9e327b329e3eea570281684339700965263f904c3d94f65a6d4358645b"
+  },
+  "recursive_evidence": {
+    "hierarchical_qualifiers": 2,
+    "root_manager_spawn_calls_per_trajectory": 1,
+    "manager_leaf_spawn_calls_per_trajectory": 3,
+    "coordination_spawn_calls_per_trajectory": 4,
+    "complete_fanin_per_trajectory": 1,
+    "explicit_manager_parent_reports_per_trajectory": 1,
+    "answer_accuracy": 1.0,
+    "protocol_aligned": 1.0,
+    "clean_protocol_aligned": 1.0,
+    "topology_utility_aligned": 1.0,
+    "failed_cells": 0,
+    "duplicate_cells": 0,
+    "post_parent_send_tool_calls": 0,
+    "stop_condition": "agent_completed"
+  },
+  "claim_supported": "The admitted C/H pair under the recorded tight scaffold performs utility-sensitive direct, flat, and depth-two hierarchical document execution. Fresh hierarchical trajectories completed root-to-manager delegation, manager-to-three-leaf delegation, complete fan-in, one manager-to-root report, and correct root finalization.",
+  "claim_not_supported": "Unscaffolded recursion mastery, flat 2/2 reliability, or canonical model promotion.",
+  "verification": {
+    "focused_remote_tests_passed": 1,
+    "gpu_processes_after_run": 0,
+    "candidate_and_rollbacks_stable_sha256_verified": true,
+    "remote_worktree": "clean_detached",
+    "local_branch": "exp/q35-2b-root-role-contract"
+  },
+  "safest_next_action": "Protect c54bc1ea as the admitted tight-stack recursion coordinator, retain 603000fc and d4c28675 as rollback, and broaden evaluation before peeling any scaffold boundary. Do not publish or replace the canonical model based on this six-task gate alone."
+}
