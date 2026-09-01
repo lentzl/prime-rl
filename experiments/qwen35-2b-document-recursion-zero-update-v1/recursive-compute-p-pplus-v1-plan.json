@@ -1,0 +1,63 @@
+{
+  "schema_version": "q35-2b-recursive-compute-p-pplus-plan/v1",
+  "status": "prospectively_defined",
+  "optimizer_updates": 0,
+  "weights": {
+    "coordinator_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "shared": {
+    "task_family": "document_utility_hierarchical",
+    "task_count": 12,
+    "task_variants": [4, 5],
+    "instances_per_template": 6,
+    "instance_offset": 30100,
+    "task_seed": 20261109,
+    "sampling_seed": 20261109,
+    "sampling_temperature": 0.4,
+    "utility_policy_profile": "causal_decision_boundary_v4",
+    "typed_decision_tool": "select_document_topology",
+    "same_task_information": true,
+    "same_ownership_permissions": true,
+    "same_answer_free_scaffold": true,
+    "same_correctness_and_protocol_gates": true
+  },
+  "p": {
+    "config": "recursive-compute-p-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 1
+  },
+  "p_plus": {
+    "config": "recursive-compute-pplus-v1.toml",
+    "maximum_depth": 3,
+    "attempts_per_task": 3,
+    "selector": "Choose the first attempt satisfying the answer-free structural eligibility rule; if none is eligible, choose the first attempt.",
+    "selector_uses_expected_answer": false
+  },
+  "answer_free_structural_eligibility": {
+    "required_one_metrics": [
+      "protocol_aligned",
+      "clean_protocol_aligned",
+      "topology_valid",
+      "topology_utility_aligned",
+      "fan_in_complete"
+    ],
+    "required_zero_metrics": [
+      "coordinator_delegated_path_accesses",
+      "failed_cells",
+      "duplicate_cells",
+      "post_parent_send_tool_calls"
+    ],
+    "required_stop_condition": "agent_completed"
+  },
+  "hard_success": {
+    "structural_eligibility_required": true,
+    "answer_accuracy": 1.0
+  },
+  "minimum_useful_signal": {
+    "distinct_task_keys": 4,
+    "condition": "P selected attempt hard-fails and P+ answer-free-selected attempt hard-succeeds",
+    "acceptance_floor_relaxed": false
+  },
+  "interpretation_boundary": "This first bank tests bounded same-policy attempt search on tasks already solvable at depth two; depth three is available in P+ but not forced. If fewer than four clean gaps appear, do not claim recursive-compute capability and move prospectively to a natural depth-three compositional bank rather than crippling P."
+}
