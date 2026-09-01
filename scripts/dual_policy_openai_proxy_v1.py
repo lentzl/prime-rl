@@ -17,6 +17,7 @@ from aiohttp import ClientError, ClientSession, ClientTimeout, web
 PRIVATE_EVIDENCE_HEADER = "[private evidence supplied to this reviewer]"
 RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
 DOCUMENT_COORDINATOR_HEADER = "[recursive document coordinator session contract]"
+FREE_DOCUMENT_TOPOLOGY_HEADER = "[free document topology contract]"
 ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
 LEAF_REPORTER_HEADER = "[leaf reporter session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
@@ -765,6 +766,8 @@ def should_strip_tool_choice(
 def disclosed_root_action(prompt: str) -> str | None:
     """Extract the public training-only coordinator action from a rendered prompt."""
 
+    if FREE_DOCUMENT_TOPOLOGY_HEADER in prompt:
+        return None
     direct_action = disclosed_document_direct_action(prompt)
     if direct_action is not None:
         return direct_action
@@ -822,6 +825,22 @@ document_result = {{
     'total_h2': sum(document_stats[stem]['h2'] for stem in ('alpha', 'beta', 'gamma')),
 }}
 document_result"""
+
+
+def disclosed_document_free_actions(prompt: str) -> dict[str, str] | None:
+    """Build every answer-free legal action for a free-topology document task."""
+
+    if FREE_DOCUMENT_TOPOLOGY_HEADER not in prompt:
+        return None
+    actions = {
+        "direct": disclosed_document_direct_action(prompt),
+        "flat": disclosed_document_spawn_action(prompt),
+        "hierarchical": disclosed_document_manager_action(prompt),
+    }
+    missing = [name for name, code in actions.items() if code is None]
+    if missing:
+        raise ValueError(f"free document topology scaffold lacks actions: {missing}")
+    return {name: code for name, code in actions.items() if code is not None}
 
 
 def disclosed_document_manager_action(prompt: str) -> str | None:
@@ -988,6 +1007,27 @@ def disclosed_root_action_from_messages(messages: Any) -> str | None:
     return disclosed_root_action(prompt)
 
 
+def disclosed_document_free_actions_from_messages(
+    messages: Any,
+) -> dict[str, str] | None:
+    """Extract all free-topology document actions from structured messages."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    return disclosed_document_free_actions("\n".join(fragments))
+
+
 def document_root_topology(code: str) -> str | None:
     """Classify only the delegation topology selected by a root IPython action."""
 
@@ -1074,6 +1114,37 @@ def rewrite_document_root_topology_response(
     expected = document_root_topology(canonical_code)
     if expected not in {"direct", "flat", "hierarchical"}:
         raise ValueError("document root topology scaffold requires a document action")
+    return _rewrite_document_root_topology_response(
+        body,
+        canonical_codes={expected: canonical_code},
+        expected=expected,
+    )
+
+
+def rewrite_document_root_free_topology_response(
+    body: bytes, *, canonical_codes: dict[str, str]
+) -> tuple[bytes, int, str | None, str | None, str]:
+    """Normalize any one legal graph selected by a free-topology document policy."""
+
+    if set(canonical_codes) != {"direct", "flat", "hierarchical"}:
+        raise ValueError("free document topology scaffold requires three legal actions")
+    if any(document_root_topology(code) != name for name, code in canonical_codes.items()):
+        raise ValueError("free document topology actions do not match their labels")
+    return _rewrite_document_root_topology_response(
+        body,
+        canonical_codes=canonical_codes,
+        expected="free",
+    )
+
+
+def _rewrite_document_root_topology_response(
+    body: bytes,
+    *,
+    canonical_codes: dict[str, str],
+    expected: str,
+) -> tuple[bytes, int, str | None, str | None, str]:
+    """Rewrite mechanics after, and only after, a recognized legal graph choice."""
+
     try:
         payload = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):
@@ -1104,16 +1175,17 @@ def rewrite_document_root_topology_response(
         if not isinstance(code, str):
             continue
         selected = document_root_topology(code)
-        if selected != expected:
+        canonical_code = canonical_codes.get(selected or "")
+        if canonical_code is None:
             continue
         parsed["code"] = canonical_code
         function["arguments"] = json.dumps(
             parsed, separators=(",", ":"), ensure_ascii=False
         )
         rewrites += 1
-    action_sha256 = (
-        hashlib.sha256(canonical_code.encode()).hexdigest() if rewrites else None
-    )
+    action_sha256 = None
+    if rewrites and selected is not None:
+        action_sha256 = hashlib.sha256(canonical_codes[selected].encode()).hexdigest()
     if not rewrites:
         return body, 0, action_sha256, selected, expected
     return (
@@ -2507,7 +2579,9 @@ class DualPolicyProxy:
         leaf_compute_report_action_sha256 = None
         root_finalization_scope = False
         root_topology_scope = False
+        root_topology_free_scope = False
         root_topology_canonical_code = None
+        root_topology_canonical_codes = None
         root_topology_action_sha256 = None
         root_topology_selected = None
         root_topology_expected = None
@@ -2522,9 +2596,18 @@ class DualPolicyProxy:
                 for message in payload.get("messages") or []
             )
         ):
-            root_topology_canonical_code = disclosed_root_action_from_messages(
-                payload.get("messages")
+            root_topology_canonical_codes = (
+                disclosed_document_free_actions_from_messages(payload.get("messages"))
             )
+            if root_topology_canonical_codes is not None:
+                root_topology_scope = True
+                root_topology_free_scope = True
+                routed = {**routed, "stream": False}
+                routed.pop("stream_options", None)
+            else:
+                root_topology_canonical_code = disclosed_root_action_from_messages(
+                    payload.get("messages")
+                )
             if root_topology_canonical_code is not None:
                 root_topology_scope = True
                 routed = {**routed, "stream": False}
@@ -2961,16 +3044,28 @@ class DualPolicyProxy:
                         }
                         response_headers["Content-Type"] = "text/event-stream"
                 elif root_topology_scope and upstream.status == 200:
-                    assert root_topology_canonical_code is not None
-                    (
-                        normalized,
-                        _,
-                        root_topology_action_sha256,
-                        root_topology_selected,
-                        root_topology_expected,
-                    ) = rewrite_document_root_topology_response(
-                        normalized, canonical_code=root_topology_canonical_code
-                    )
+                    if root_topology_free_scope:
+                        assert root_topology_canonical_codes is not None
+                        (
+                            normalized,
+                            _,
+                            root_topology_action_sha256,
+                            root_topology_selected,
+                            root_topology_expected,
+                        ) = rewrite_document_root_free_topology_response(
+                            normalized, canonical_codes=root_topology_canonical_codes
+                        )
+                    else:
+                        assert root_topology_canonical_code is not None
+                        (
+                            normalized,
+                            _,
+                            root_topology_action_sha256,
+                            root_topology_selected,
+                            root_topology_expected,
+                        ) = rewrite_document_root_topology_response(
+                            normalized, canonical_code=root_topology_canonical_code
+                        )
                     if client_requested_stream:
                         normalized = chat_completion_to_sse(normalized)
                         response_headers = {

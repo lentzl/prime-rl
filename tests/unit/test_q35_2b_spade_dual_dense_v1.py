@@ -1200,6 +1200,92 @@ def test_document_root_topology_normalizer_repairs_explicit_direct_work() -> Non
     assert selected == expected == "direct"
 
 
+def test_free_document_topology_normalizer_preserves_any_legal_choice() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    root = "/workspace/document-recursion/v0-i22300"
+    assignments = "\n".join(
+        (
+            f"- {stem}-document-worker: Read {root}/{stem}.md using the CLI or "
+            "IPython. Send one JSON object using await "
+            "agent_message.send(json.dumps(result), receiver_role='parent'). "
+            "After the delivery receipt succeeds, stop."
+        )
+        for stem in ("alpha", "beta", "gamma")
+    )
+    manager_contract = (
+        "[recursive document coordinator session contract]\n"
+        "session_role=document_coordinator\n"
+        "is_root=false\n"
+        "has_parent=true\n"
+        "can_delegate=true\n"
+        "can_finalize_user=false\n"
+        "maximum_descendant_depth=1\n"
+        "return_contract=exactly_one_parent_report\n"
+        f"You own the document directory {root}. Delegate all three assignments below:\n"
+        + "\n".join(
+            f"- {stem}-document-worker owns {root}/{stem}.md"
+            for stem in ("alpha", "beta", "gamma")
+        )
+        + "\nSend that object exactly once to receiver_role='parent', then stop."
+    )
+    prompt = (
+        f"{module.FREE_DOCUMENT_TOPOLOGY_HEADER}\n"
+        f"Inspect every Markdown file in {root} yourself using the CLI or IPython; "
+        "do not create a subagent.\n"
+        f"{assignments}\n{manager_contract}"
+    )
+    actions = module.disclosed_document_free_actions(prompt)
+    assert actions is not None
+    assert set(actions) == {"direct", "flat", "hierarchical"}
+    assert module.disclosed_root_action(prompt) is None
+
+    native_choices = {
+        "direct": (
+            f"root = Path('{root}')\n"
+            "paths = list(root.glob('*.md'))"
+        ),
+        "flat": actions["flat"],
+        "hierarchical": actions["hierarchical"],
+    }
+    for topology, native in native_choices.items():
+        body = json.dumps(
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": "ipython",
+                                        "arguments": json.dumps({"code": native}),
+                                    }
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ).encode()
+
+        rewritten, count, action_sha, selected, expected = (
+            module.rewrite_document_root_free_topology_response(
+                body, canonical_codes=actions
+            )
+        )
+
+        result = json.loads(rewritten)
+        arguments = json.loads(
+            result["choices"][0]["message"]["tool_calls"][0]["function"][
+                "arguments"
+            ]
+        )
+        assert arguments["code"] == actions[topology]
+        assert count == 1
+        assert action_sha == hashlib.sha256(actions[topology].encode()).hexdigest()
+        assert selected == topology
+        assert expected == "free"
+
+
 def test_child_grpo_proxy_encodes_executable_ipython_code_not_a_string_literal() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     code = "reviewer = await rlm('review', name='relay-worker')"
