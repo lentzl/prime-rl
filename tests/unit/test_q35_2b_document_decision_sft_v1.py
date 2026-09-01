@@ -981,6 +981,62 @@ def test_document_utility_topology_export_targets_constraints_not_mechanics(
     assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 6
 
 
+def test_document_utility_remedial_export_upweights_missing_classes(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_utility_remedial_sft_v1")
+    sources = []
+    for instance in range(2):
+        source = tmp_path / f"utility-remedial-{instance}.jsonl"
+        source.write_text(
+            json.dumps(
+                {
+                    "traces": [
+                        {
+                            **_trace(family, variant),
+                            "id": f"{family}-{instance}-{variant}",
+                            "task": {
+                                "data": {
+                                    **_trace(family, variant)["task"]["data"],
+                                    "name": f"{family}-v{variant}-i{20000 + instance}",
+                                }
+                            },
+                        }
+                        for family in (
+                            "document_utility_direct",
+                            "document_utility_hierarchical",
+                        )
+                        for variant in range(2)
+                    ]
+                }
+            )
+            + "\n"
+        )
+        sources.append(source)
+    output = tmp_path / "utility-remedial"
+
+    manifest = module.export(traces=sources, output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 8
+    assert manifest["family_counts"] == {
+        "document_utility_direct": 4,
+        "document_utility_hierarchical": 4,
+    }
+    assert {row["family"] for row in rows} == set(manifest["family_counts"])
+    for row in rows:
+        code = json.loads(
+            row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+        )["code"]
+        topology = row["family"].removeprefix("document_utility_")
+        assert code == f'document_topology = "{topology}"'
+        assert "await rlm(" not in code
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 8
+    assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 8
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:

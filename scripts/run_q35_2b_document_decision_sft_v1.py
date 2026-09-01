@@ -63,6 +63,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "answer_free_root_topology_choice_from_ownership_and_resource_constraints",
     ),
+    "qwen35-2b-document-utility-remedial-sft/v1": (
+        "coordinator",
+        "answer_free_root_direct_and_hierarchical_utility_remediation",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -77,6 +81,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": False,
     "qwen35-2b-document-topology-contrast-sft/v1": True,
     "qwen35-2b-document-utility-topology-sft/v1": True,
+    "qwen35-2b-document-utility-remedial-sft/v1": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4,
@@ -84,11 +89,13 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
     "qwen35-2b-document-utility-topology-sft/v1": 6,
+    "qwen35-2b-document-utility-remedial-sft/v1": 8,
 }
 DATASET_BATCH_SIZES = {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
     "qwen35-2b-document-utility-topology-sft/v1": 6,
+    "qwen35-2b-document-utility-remedial-sft/v1": 8,
 }
 PROMOTION_MINIMUM = 4
 
