@@ -18,7 +18,7 @@
     "updated": false
   },
   "latest_code": {
-    "prime_rl_commit": "6038ad415",
+    "prime_rl_commit": "a730c7cfc",
     "verifiers_commit": "680c45e73"
   },
   "evidence": [
@@ -119,6 +119,35 @@
         "coordination_spawn_calls": 4.0
       },
       "diagnosis": "Model spawned four unnamed children rather than any disclosed legal graph; report-parser fix was therefore not exercised."
+    },
+    {
+      "name": "free-topology-forced-flat-infrastructure-v1",
+      "prime_rl_commit": "a730c7cfc",
+      "verifiers_commit": "680c45e73",
+      "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/topology-free-forced-flat-infra-v1.toml",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-forced-flat-infra-v1/latent-doc-c177topology1-h176protected-free-topology-forced-flat-infra-v1",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 1,
+      "counts_toward_free_choice_admission": false,
+      "selected_topology": "forced_flat",
+      "reward": 2.0,
+      "metrics": {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "fan_in_complete": 1.0,
+        "coordination_spawn_calls": 3.0,
+        "messages_to_parent": 3.0,
+        "failed_cells": 0.0
+      },
+      "report_accumulation_audit": [
+        [],
+        ["alpha"],
+        ["alpha", "beta"],
+        ["alpha", "beta", "gamma"]
+      ],
+      "final_audit_mode": "document_root_flat_fanin_finalized",
+      "diagnosis": "The latest native-session gate, renderer-independent report parser, and cross-resumption accumulation path are validated end to end."
     }
   ],
   "validated_code": {
@@ -129,8 +158,9 @@
     "native_tool_call_shape_supported": true,
     "cross_resumption_report_accumulation_supported": true,
     "render_role_independent_report_extraction_supported": true,
-    "live_delegated_end_to_end_validation_after_latest_fix": false
+    "live_delegated_end_to_end_validation_after_latest_fix": true,
+    "latest_live_validation_was_free_choice": false
   },
   "conclusion": "The model has one qualifying direct free-choice trajectory and two cleanly observed flat selections with complete three-child fan-in, but no qualifying delegated free-choice trajectory. The unchanged four-trajectory admission floor is not met.",
-  "safest_next_action": "Run one answer-free forced-flat infrastructure probe to validate the latest renderer-independent report parser, then start a fresh four-task free-choice admission gate only if that probe qualifies. Do not train from the current free-topology evidence."
+  "safest_next_action": "Start one fresh four-task free-choice admission gate with the validated infrastructure. Keep the four-trajectory floor unchanged, stop after the first failure makes admission impossible, and do not train unless all four trajectories qualify."
 }
