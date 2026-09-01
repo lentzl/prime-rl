@@ -497,6 +497,19 @@ def document_manager_reports_from_messages(
     if not isinstance(messages, list):
         return {}
     reports: dict[str, dict[str, int]] = {}
+
+    def record(stem: str, payload: Any) -> None:
+        if (
+            not isinstance(payload, dict)
+            or set(payload) != {"words", "h2"}
+            or not all(type(payload[key]) is int for key in ("words", "h2"))
+        ):
+            return
+        normalized = {"words": payload["words"], "h2": payload["h2"]}
+        if stem in reports and reports[stem] != normalized:
+            raise ValueError(f"document manager received conflicting {stem} reports")
+        reports[stem] = normalized
+
     for message in messages:
         if not isinstance(message, dict):
             continue
@@ -517,6 +530,22 @@ def document_manager_reports_from_messages(
         # marker plus strict two-integer payload is the stable protocol boundary.
         collect(message)
         text = "\n".join(fragments)
+        relay_marker = "Observed child report map: "
+        for fragment in fragments:
+            if relay_marker not in fragment:
+                continue
+            try:
+                relayed = json.loads(fragment.split(relay_marker, 1)[1].splitlines()[0])
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if not isinstance(relayed, dict):
+                continue
+            for child_name, payload in relayed.items():
+                match = re.fullmatch(
+                    r"(alpha|beta|gamma)-document-worker", str(child_name)
+                )
+                if match is not None:
+                    record(match.group(1), payload)
         sender_match = re.search(
             r"\[from child:(alpha|beta|gamma)-document-worker\]", text
         )
@@ -533,17 +562,8 @@ def document_manager_reports_from_messages(
                 break
         if payload is None:
             continue
-        if (
-            not isinstance(payload, dict)
-            or set(payload) != {"words", "h2"}
-            or not all(type(payload[key]) is int for key in ("words", "h2"))
-        ):
-            continue
         stem = sender_match.group(1)
-        normalized = {"words": payload["words"], "h2": payload["h2"]}
-        if stem in reports and reports[stem] != normalized:
-            raise ValueError(f"document manager received conflicting {stem} reports")
-        reports[stem] = normalized
+        record(stem, payload)
     return reports
 
 

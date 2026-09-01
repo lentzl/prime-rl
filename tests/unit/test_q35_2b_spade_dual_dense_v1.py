@@ -2195,6 +2195,18 @@ def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> No
     assert module.document_manager_reports_from_messages([custom_message]) == {
         "alpha": reports["alpha"]
     }
+    gate_relay = {
+        "role": "user",
+        "content": (
+            "Autonomous quality gate failed.\n"
+            "Observed child report map: "
+            + json.dumps(
+                {f"{stem}-document-worker": payload for stem, payload in reports.items()},
+                separators=(",", ":"),
+            )
+        ),
+    }
+    assert module.document_manager_reports_from_messages([gate_relay]) == reports
     final = module.document_manager_parent_report(reports)
     assert final == {
         "alpha_words": 20,
