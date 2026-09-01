@@ -1447,6 +1447,31 @@ def test_proxy_forces_disclosed_recursive_return_in_chat_tool_schema() -> None:
     assert payload["tools"][0]["function"]["parameters"] == {"type": "object"}
 
 
+def test_document_leaf_report_receipt_is_recoverable_for_root_flat_fanin() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    path = "/workspace/document-recursion/v0-i22900/alpha.md"
+    code = module.document_leaf_compute_report_code(path)
+
+    assert "DOCUMENT_LEAF_REPORT:" in code
+    assert "receiver_role='parent'" in code
+    messages = [
+        {
+            "role": "tool",
+            "content": (
+                'DOCUMENT_LEAF_REPORT:{"words":20,"h2":2}\n'
+                "{'deliveryStatus': 'queued'}"
+            ),
+        }
+    ]
+    assert module.document_leaf_report_from_messages(messages, path) == {
+        "alpha": {"words": 20, "h2": 2}
+    }
+    assert module.document_leaf_report_from_messages(
+        [{"role": "tool", "content": 'DOCUMENT_LEAF_REPORT:{"words":20}'}],
+        path,
+    ) == {}
+
+
 def test_proxy_exposes_typed_parent_return_without_answer_or_routing_fields() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     payload = {

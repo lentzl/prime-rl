@@ -459,9 +459,55 @@ def document_leaf_compute_report_code(path: str) -> str:
         "    'words': len(document_leaf_text.split()),\n"
         "    'h2': sum(line.startswith('## ') for line in document_leaf_text.splitlines()),\n"
         "}\n"
-        "await agent_message.send(json.dumps(document_leaf_result, separators=(',', ':')), "
-        "receiver_role='parent')"
+        "document_leaf_delivery = await agent_message.send("
+        "json.dumps(document_leaf_result, separators=(',', ':')), "
+        "receiver_role='parent')\n"
+        "print('DOCUMENT_LEAF_REPORT:' + "
+        "json.dumps(document_leaf_result, separators=(',', ':')))\n"
+        "document_leaf_delivery"
     )
+
+
+def document_leaf_report_from_messages(
+    messages: Any, path: str
+) -> dict[str, dict[str, int]]:
+    """Recover one scaffolded leaf report from its structured tool receipt."""
+
+    stem = Path(path).stem
+    if stem not in {"alpha", "beta", "gamma"} or not isinstance(messages, list):
+        return {}
+    marker = "DOCUMENT_LEAF_REPORT:"
+    for message in reversed(messages):
+        if not isinstance(message, dict) or message.get("role") != "tool":
+            continue
+        fragments: list[str] = []
+
+        def collect(value: Any) -> None:
+            if isinstance(value, str):
+                fragments.append(value)
+            elif isinstance(value, list):
+                for item in value:
+                    collect(item)
+            elif isinstance(value, dict):
+                for item in value.values():
+                    collect(item)
+
+        collect(message.get("content"))
+        for fragment in reversed(fragments):
+            if marker not in fragment:
+                continue
+            candidate_text = fragment.split(marker, 1)[1].splitlines()[0].strip()
+            try:
+                candidate = json.loads(candidate_text)
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if (
+                isinstance(candidate, dict)
+                and set(candidate) == {"words", "h2"}
+                and all(type(candidate[key]) is int for key in ("words", "h2"))
+            ):
+                return {stem: {"words": candidate["words"], "h2": candidate["h2"]}}
+    return {}
 
 
 def document_leaf_report_completed(messages: Any) -> bool:
@@ -2079,6 +2125,7 @@ class DualPolicyProxy:
             tuple[str, str], dict[str, dict[str, int]]
         ] = {}
         self.root_flat_passive_hashes: set[str] = set()
+        self.root_document_topologies: dict[str, str] = {}
 
     def accumulate_document_reports(
         self,
@@ -2152,6 +2199,17 @@ class DualPolicyProxy:
                     and isinstance(session_sha256, str)
                 ):
                     self.root_flat_passive_hashes.add(session_sha256)
+                mode = str(event.get("mode", ""))
+                topology_prefix = "forwarded_document_root_topology_normalized_"
+                if (
+                    mode.startswith(topology_prefix)
+                    and mode.removeprefix(topology_prefix)
+                    in {"direct", "flat", "hierarchical"}
+                    and isinstance(session_sha256, str)
+                ):
+                    self.root_document_topologies[session_sha256] = mode.removeprefix(
+                        topology_prefix
+                    )
         self.client = ClientSession(timeout=ClientTimeout(total=None, connect=30))
 
     async def cleanup(self, _: web.Application) -> None:
@@ -2291,7 +2349,22 @@ class DualPolicyProxy:
             and role == "coordinator"
             and not is_root_coordinator_request(payload)
             and _contains_marker(payload.get("messages"), DOCUMENT_COORDINATOR_HEADER)
+            and not _contains_marker(
+                payload.get("messages"), FREE_DOCUMENT_TOPOLOGY_HEADER
+            )
         )
+        if (
+            document_leaf_path is not None
+            and session_sha256 is not None
+            and self.root_document_topologies.get(session_sha256) == "flat"
+        ):
+            self.accumulate_document_reports(
+                "root_flat",
+                session_sha256,
+                document_leaf_report_from_messages(
+                    payload.get("messages"), document_leaf_path
+                ),
+            )
         manager_reports = (
             document_manager_reports_from_messages(payload.get("messages"))
             if (
@@ -3147,6 +3220,15 @@ class DualPolicyProxy:
                             root_topology_expected,
                         ) = rewrite_document_root_topology_response(
                             normalized, canonical_code=root_topology_canonical_code
+                        )
+                    if (
+                        root_topology_action_sha256 is not None
+                        and root_topology_selected
+                        in {"direct", "flat", "hierarchical"}
+                        and session_sha256 is not None
+                    ):
+                        self.root_document_topologies[session_sha256] = (
+                            root_topology_selected
                         )
                     if client_requested_stream:
                         normalized = chat_completion_to_sse(normalized)
