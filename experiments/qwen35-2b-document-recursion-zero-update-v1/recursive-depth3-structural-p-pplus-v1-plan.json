@@ -30,6 +30,22 @@
     "leaves": "Each owns and reads exactly one Markdown file and reports only to its direct parent.",
     "required_success_path": "root -> document-manager -> subgroup manager -> terminal file worker"
   },
+  "answer_free_scaffold": {
+    "profile": "custom_depth3_tight_v1",
+    "enabled": [
+      "root coordinator role contract",
+      "causal utility decision contract",
+      "typed topology decision and selected-action normalization",
+      "exact recursive document-manager next-layer actions",
+      "deterministic terminal document compute-and-report",
+      "passive manager wait",
+      "deterministic subgroup and top-manager fan-in",
+      "manager post-report termination",
+      "root manager-report relay and strict JSON finalization"
+    ],
+    "answer_values_disclosed": false,
+    "identical_between_arms": true
+  },
   "p": {
     "config": "recursive-depth3-structural-p-v1.toml",
     "maximum_depth": 2,
