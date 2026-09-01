@@ -1434,6 +1434,13 @@ def disclosed_document_leaf_action(prompt: str) -> str | None:
     return f"{declarations}\n{calls}"
 
 
+def exact_document_manager_leak_key(session_sha256: str, code: str) -> str:
+    """Scope a once-only action to one recursive contract within a shared run."""
+
+    action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+    return f"{session_sha256}:{action_sha256}"
+
+
 def disclosed_child_action(prompt: str) -> str | None:
     """Extract a hidden training-only child send action from its private context."""
 
@@ -3613,10 +3620,18 @@ class DualPolicyProxy:
                         {"error": "exact document manager action leak requires x-session-id"},
                         status=400,
                     )
-                if session_sha256 in self.leaked_session_hashes[forced_chat_scope]:
+                document_manager_leak_key = exact_document_manager_leak_key(
+                    session_sha256, code
+                )
+                if (
+                    document_manager_leak_key
+                    in self.leaked_session_hashes[forced_chat_scope]
+                ):
                     forced_chat_scope = None
                 else:
-                    self.leaked_session_hashes[forced_chat_scope].add(session_sha256)
+                    self.leaked_session_hashes[forced_chat_scope].add(
+                        document_manager_leak_key
+                    )
                     routed = force_ipython_code_schema(routed, code)
                     forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
         if (

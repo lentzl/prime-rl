@@ -2749,6 +2749,14 @@ depth3_contract_end=top"""
     gamma_action = module.disclosed_document_leaf_action(gamma_contract)
     assert ab_action is not None and ab_action.count("await rlm(") == 2
     assert gamma_action is not None and gamma_action.count("await rlm(") == 1
+    leak_keys = {
+        module.exact_document_manager_leak_key("shared-session", action)
+        for action in (top_action, ab_action, gamma_action)
+    }
+    assert len(leak_keys) == 3
+    assert module.exact_document_manager_leak_key(
+        "shared-session", ab_action
+    ) in leak_keys
 
     leaf_reports = {
         "alpha": {"words": 20, "h2": 2},
