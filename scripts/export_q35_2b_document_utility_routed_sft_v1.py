@@ -150,6 +150,9 @@ def export(
         "utility_constraints_targeted": True,
         "root_coordinator_contract_aligned": True,
         "utility_decision_rubric_aligned": utility_rubric,
+        "utility_decision_rubric_serialization": (
+            "renderer_compatible_merged_system_v1" if utility_rubric else None
+        ),
         "expanded_prompt_bank": expanded,
         "remedial_classes": sorted(selected_families) if focus_family else [],
         "root_coordinator_contract_sha256": hashlib.sha256(

@@ -821,22 +821,13 @@ def with_document_root_utility_decision_contract(
         return payload
     if not _contains_marker(messages, FREE_DOCUMENT_TOPOLOGY_HEADER):
         return payload
-    if _contains_marker(messages[:1], ROOT_COORDINATOR_HEADER):
-        return {
-            **payload,
-            "messages": [
-                {
-                    **messages[0],
-                    "content": ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT,
-                },
-                *messages[1:],
-            ],
-        }
+    insertion = 1 if _contains_marker(messages[:1], ROOT_COORDINATOR_HEADER) else 0
     return {
         **payload,
         "messages": [
+            *messages[:insertion],
             {"role": "system", "content": DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT},
-            *messages,
+            *messages[insertion:],
         ],
     }
 

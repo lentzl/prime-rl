@@ -277,6 +277,8 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             and (
                 manifest.get("utility_decision_rubric_aligned") is not True
                 or manifest.get("leading_system_message_count") != 1
+                or manifest.get("utility_decision_rubric_serialization")
+                != "renderer_compatible_merged_system_v1"
             )
         )
         or manifest.get("answer_free") is not DATASET_ANSWER_FREE.get(schema_version)
