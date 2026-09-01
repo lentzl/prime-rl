@@ -1178,6 +1178,26 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert expanded_validated["rows"] == 36
     assert trainer.DATASET_BATCH_SIZES[expanded_manifest["schema_version"]] == 12
 
+    rubric_output = tmp_path / "routed-utility-rubric-expanded"
+    rubric_manifest = module.export(
+        traces=[*sources, expanded_source_a, expanded_source_b],
+        output_dir=rubric_output,
+        expanded=True,
+        utility_rubric=True,
+    )
+    rubric_rows = Dataset.from_parquet(str(rubric_output / "train.parquet"))
+    assert rubric_manifest["rows"] == 36
+    assert rubric_manifest["utility_decision_rubric_aligned"] is True
+    assert all(
+        row["messages"][0]["content"] == proxy.ROOT_COORDINATOR_CONTRACT
+        and row["messages"][1]["content"]
+        == proxy.DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT
+        for row in rubric_rows
+    )
+    rubric_validated = trainer._validated_dataset(rubric_output)
+    assert rubric_validated["rows"] == 36
+    assert trainer.DATASET_BATCH_SIZES[rubric_manifest["schema_version"]] == 12
+
 
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,

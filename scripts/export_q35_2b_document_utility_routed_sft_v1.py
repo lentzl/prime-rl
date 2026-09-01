@@ -11,7 +11,10 @@ from pathlib import Path
 from typing import Any
 
 from datasets import Dataset
-from dual_policy_openai_proxy_v1 import ROOT_COORDINATOR_CONTRACT
+from dual_policy_openai_proxy_v1 import (
+    DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT,
+    ROOT_COORDINATOR_CONTRACT,
+)
 from export_q35_2b_document_decision_sft_v1 import sha256_file
 from export_q35_2b_document_utility_topology_sft_v1 import (
     FAMILY_TO_TOPOLOGY_FAMILY,
@@ -27,6 +30,10 @@ DIRECT_OBJECTIVE = "answer_free_root_direct_utility_choice_from_routed_constrain
 EXPANDED_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-expanded-sft/v1"
 EXPANDED_OBJECTIVE = (
     "answer_free_root_topology_choice_from_expanded_routed_ownership_and_resource_constraints"
+)
+RUBRIC_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-rubric-expanded-sft/v1"
+RUBRIC_OBJECTIVE = (
+    "answer_free_root_topology_choice_from_routed_resource_decision_rubric"
 )
 DIRECT_FAMILY = "document_utility_direct"
 ROWS = 24
@@ -48,24 +55,25 @@ def export(
     output_dir: Path,
     focus_family: str | None = None,
     expanded: bool = False,
+    utility_rubric: bool = False,
 ) -> dict[str, Any]:
     if focus_family not in {None, DIRECT_FAMILY}:
         raise ValueError(f"unsupported routed utility focus: {focus_family!r}")
     if focus_family is not None and expanded:
         raise ValueError("expanded routed utility export cannot focus one family")
+    if utility_rubric and (not expanded or focus_family is not None):
+        raise ValueError("utility rubric export requires the expanded balanced bank")
     selected_families = (
         {focus_family} if focus_family else set(FAMILY_TO_TOPOLOGY_FAMILY)
     )
-    schema_version = (
-        DIRECT_SCHEMA_VERSION
-        if focus_family
-        else EXPANDED_SCHEMA_VERSION if expanded else SCHEMA_VERSION
-    )
-    objective = (
-        DIRECT_OBJECTIVE
-        if focus_family
-        else EXPANDED_OBJECTIVE if expanded else OBJECTIVE
-    )
+    if utility_rubric:
+        schema_version, objective = RUBRIC_SCHEMA_VERSION, RUBRIC_OBJECTIVE
+    elif focus_family:
+        schema_version, objective = DIRECT_SCHEMA_VERSION, DIRECT_OBJECTIVE
+    elif expanded:
+        schema_version, objective = EXPANDED_SCHEMA_VERSION, EXPANDED_OBJECTIVE
+    else:
+        schema_version, objective = SCHEMA_VERSION, OBJECTIVE
     per_family = EXPANDED_PER_FAMILY if expanded else PER_FAMILY
     expected_rows = per_family if focus_family else (EXPANDED_ROWS if expanded else ROWS)
     if output_dir.exists():
@@ -96,6 +104,14 @@ def export(
                     row["messages"].insert(
                         0, {"role": "system", "content": ROOT_COORDINATOR_CONTRACT}
                     )
+                    if utility_rubric:
+                        row["messages"].insert(
+                            1,
+                            {
+                                "role": "system",
+                                "content": DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT,
+                            },
+                        )
                     row["objective"] = objective
                     rows.append(row)
     rows.sort(key=_sort_key)
@@ -135,11 +151,17 @@ def export(
         "topology_choice_targeted": True,
         "utility_constraints_targeted": True,
         "root_coordinator_contract_aligned": True,
+        "utility_decision_rubric_aligned": utility_rubric,
         "expanded_prompt_bank": expanded,
         "remedial_classes": sorted(selected_families) if focus_family else [],
         "root_coordinator_contract_sha256": hashlib.sha256(
             ROOT_COORDINATOR_CONTRACT.encode()
         ).hexdigest(),
+        "utility_decision_rubric_sha256": (
+            hashlib.sha256(DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT.encode()).hexdigest()
+            if utility_rubric
+            else None
+        ),
         "protocol_mechanics_targeted": False,
         "tool_call_format": "openai_function_v1",
         "dataset": {"path": parquet.name, "sha256": sha256_file(parquet)},
@@ -156,6 +178,7 @@ def main() -> None:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--focus-family", choices=[DIRECT_FAMILY])
     parser.add_argument("--expanded", action="store_true")
+    parser.add_argument("--utility-rubric", action="store_true")
     args = parser.parse_args()
     print(
         json.dumps(
@@ -164,6 +187,7 @@ def main() -> None:
                 output_dir=args.output_dir.resolve(),
                 focus_family=args.focus_family,
                 expanded=args.expanded,
+                utility_rubric=args.utility_rubric,
             ),
             indent=2,
             sort_keys=True,
