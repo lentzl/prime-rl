@@ -1,9 +1,10 @@
 {
   "schema_version": "qwen35-2b-document-free-topology-result/v1",
-  "status": "not_admitted",
+  "status": "admitted",
   "acceptance_condition": {
     "minimum_complete_qualifying_trajectories": 4,
-    "observed_complete_qualifying_trajectories": 1,
+    "observed_complete_qualifying_trajectories": 5,
+    "fresh_gate_qualifying_trajectories": 4,
     "relaxed": false
   },
   "models": {
@@ -18,8 +19,8 @@
     "updated": false
   },
   "latest_code": {
-    "prime_rl_commit": "a730c7cfc",
-    "verifiers_commit": "680c45e73"
+    "prime_rl_commit": "2c61f37471e4e5a9a5c8120d716987f93dd4b6f1",
+    "verifiers_commit": "061f8af23c416122c91602c9803bf5c10a897c68"
   },
   "evidence": [
     {
@@ -147,20 +148,146 @@
         ["alpha", "beta", "gamma"]
       ],
       "final_audit_mode": "document_root_flat_fanin_finalized",
-      "diagnosis": "The latest native-session gate, renderer-independent report parser, and cross-resumption accumulation path are validated end to end."
+      "diagnosis": "The native-session gate, renderer-independent report parser, and cross-resumption accumulation path were validated end to end under the earlier forced-flat implementation."
+    },
+    {
+      "name": "free-topology-gate5",
+      "prime_rl_commit": "f40bd8c",
+      "verifiers_commit": "061f8af23",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-gate5/latent-doc-c177topology1-h176protected-free-topology-gate5",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 0,
+      "selected_topology": "flat",
+      "reward": 0.7142857142857143,
+      "metrics": {
+        "answer_accuracy": 0.0,
+        "protocol_aligned": 0.0,
+        "clean_protocol_aligned": 0.0,
+        "topology_valid": 1.0,
+        "fan_in_complete": 1.0,
+        "failed_cells": 16.0
+      },
+      "diagnosis": "Three valid reports arrived, but root resumptions lost the report map and repeated invalid parent sends until max turns; the remaining tasks were stopped after 4/4 became impossible."
+    },
+    {
+      "name": "free-topology-forced-flat-infrastructure-v3",
+      "prime_rl_commit": "c253e33",
+      "verifiers_commit": "061f8af23",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-forced-flat-infra-v3/latent-doc-c177topology1-h176protected-free-topology-forced-flat-infra-v3",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 1,
+      "counts_toward_free_choice_admission": false,
+      "selected_topology": "forced_flat",
+      "reward": 2.0,
+      "metrics": {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "fan_in_complete": 1.0,
+        "failed_cells": 0.0
+      },
+      "diagnosis": "Leaf reports were retained from their tool receipts and the flat path finalized cleanly."
+    },
+    {
+      "name": "free-topology-direct-finalizer-replay-infrastructure-v1",
+      "prime_rl_commit": "ac3dcc7",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-direct-finalizer-replay-infra-v1/latent-doc-c177topology1-h176protected-free-topology-direct-finalizer-replay-infra-v1",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 1,
+      "counts_toward_free_choice_admission": false,
+      "selected_topology": "direct",
+      "reward": 2.0,
+      "metrics": {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "topology_valid": 1.0,
+        "failed_cells": 0.0
+      },
+      "diagnosis": "A previously observed direct choice finalized from the canonical direct-compute result without reopening delegation."
+    },
+    {
+      "name": "free-topology-persistent-guard-replay-infrastructure-v1",
+      "prime_rl_commit": "7dd7869",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-persistent-guard-replay-infra-v1/latent-doc-c177topology1-h176protected-free-topology-persistent-guard-replay-infra-v1",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 1,
+      "counts_toward_free_choice_admission": false,
+      "selected_topology": "direct",
+      "reward": 2.0,
+      "metrics": {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "topology_valid": 1.0,
+        "failed_cells": 0.0
+      },
+      "diagnosis": "An unclassifiable first response was blocked before execution; the guard remained active until a legal direct choice was selected and finalized."
+    },
+    {
+      "name": "free-topology-session-state-replay-infrastructure-v2",
+      "prime_rl_commit": "dca6b58",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-session-state-replay-infra-v2/latent-doc-c177topology1-h176protected-free-topology-session-state-replay-infra-v2",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 1,
+      "counts_toward_free_choice_admission": false,
+      "selected_topology": "flat",
+      "reward": 2.0,
+      "metrics": {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "topology_valid": 1.0,
+        "fan_in_complete": 1.0,
+        "failed_cells": 0.0
+      },
+      "diagnosis": "The exact prior flat failure was repaired: session topology authorized root finalization despite root-identity elision and the nested manager contract in the free prompt."
+    },
+    {
+      "name": "free-topology-gate10",
+      "prime_rl_commit": "2c61f37471e4e5a9a5c8120d716987f93dd4b6f1",
+      "verifiers_commit": "061f8af23c416122c91602c9803bf5c10a897c68",
+      "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/topology-free-gate7.toml",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-gate10/latent-doc-c177topology1-h176protected-free-topology-gate10",
+      "complete_trajectories": 4,
+      "qualifying_trajectories": 4,
+      "selected_topologies": ["flat", "flat", "flat", "flat"],
+      "rewards": [2.0, 2.0, 2.0, 2.0],
+      "metrics": {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "topology_valid": 1.0,
+        "fan_in_complete": 1.0,
+        "coordination_spawn_calls_per_trajectory": 3.0,
+        "messages_to_parent_per_trajectory": 3.0,
+        "coordinator_delegated_path_accesses": 0.0,
+        "failed_cells": 0.0,
+        "duplicate_cells": 0.0
+      },
+      "stop_conditions": [
+        "agent_completed",
+        "agent_completed",
+        "agent_completed",
+        "agent_completed"
+      ],
+      "diagnosis": "The unchanged 4/4 free-choice gate passed under the tight scaffold. Every trajectory chose the legal flat graph and completed exact clean fan-in."
     }
   ],
   "validated_code": {
     "tests": {
-      "proxy_and_scaffold": "95 passed",
+      "proxy_and_scaffold": "99 passed",
       "free_document_completion_gate": "2 passed"
     },
     "native_tool_call_shape_supported": true,
     "cross_resumption_report_accumulation_supported": true,
     "render_role_independent_report_extraction_supported": true,
     "live_delegated_end_to_end_validation_after_latest_fix": true,
-    "latest_live_validation_was_free_choice": false
+    "latest_live_validation_was_free_choice": true,
+    "invalid_free_topology_actions_blocked_before_execution": true,
+    "chosen_topology_is_immutable_for_execution": true,
+    "root_finalization_uses_session_topology_after_identity_elision": true
   },
-  "conclusion": "The model has one qualifying direct free-choice trajectory and two cleanly observed flat selections with complete three-child fan-in, but no qualifying delegated free-choice trajectory. The unchanged four-trajectory admission floor is not met.",
-  "safest_next_action": "Start one fresh four-task free-choice admission gate with the validated infrastructure. Keep the four-trajectory floor unchanged, stop after the first failure makes admission impossible, and do not train unless all four trajectories qualify."
+  "conclusion": "The candidate is admitted for reliable free-choice document-topology execution under the tight scaffold: a fresh bank passed 4/4 with exact, protocol-aligned, strict-clean legal trajectories. All four selected flat, so this is not evidence of cost-sensitive topology diversity or optimal delegation restraint.",
+  "safest_next_action": "Freeze this C/H pair and scaffold as the admitted rollback point. Build the next coordinator-only learning ramp around utility-sensitive direct-versus-flat-versus-hierarchical decisions, while preserving the tight execution envelope and evaluating production reliability separately from semantic choice capability."
 }
