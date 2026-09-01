@@ -1185,6 +1185,16 @@ def document_root_topology(code: str) -> str | None:
         elif rlm_call_count != len(names):
             return None
     else:
+        if len(tree.body) == 1 and isinstance(tree.body[0], ast.Assign):
+            declaration = tree.body[0]
+            if (
+                len(declaration.targets) == 1
+                and isinstance(declaration.targets[0], ast.Name)
+                and declaration.targets[0].id == "document_topology"
+                and isinstance(declaration.value, ast.Constant)
+                and declaration.value.value in {"direct", "flat", "hierarchical"}
+            ):
+                return declaration.value.value
         names = []
         rlm_calls = [
             node

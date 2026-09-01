@@ -29,6 +29,14 @@ def _utility_row(trace: dict[str, Any], *, source: Path) -> dict[str, Any]:
     canonical_trace = copy.deepcopy(trace)
     canonical_trace["task"]["data"]["family"] = topology_family
     row = _canonical_row(canonical_trace, source=source)
+    topology = topology_family.removeprefix("document_")
+    target = row["messages"][-1]
+    target["reasoning_content"] = (
+        f"The ownership and resource constraints select the {topology} plan."
+    )
+    target["tool_calls"][0]["function"]["arguments"] = json.dumps(
+        {"code": f'document_topology = "{topology}"'}, separators=(",", ":")
+    )
     row.update(
         {
             "family": family,

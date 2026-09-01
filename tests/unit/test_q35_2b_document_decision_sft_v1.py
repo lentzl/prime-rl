@@ -971,13 +971,9 @@ def test_document_utility_topology_export_targets_constraints_not_mechanics(
         code = json.loads(
             row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
         )["code"]
-        if row["family"] == "document_utility_direct":
-            assert "await rlm(" not in code
-        elif row["family"] == "document_utility_flat":
-            assert code.count("await rlm(") == 3
-        else:
-            assert code.count("await rlm(") == 1
-            assert "document-manager" in code
+        topology = row["family"].removeprefix("document_utility_")
+        assert code == f'document_topology = "{topology}"'
+        assert "await rlm(" not in code
 
     trainer = _module("run_q35_2b_document_decision_sft_v1")
     validated = trainer._validated_dataset(output)

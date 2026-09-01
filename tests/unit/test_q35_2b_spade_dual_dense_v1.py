@@ -1112,6 +1112,18 @@ def test_document_root_topology_classifier_rejects_ambiguous_delegation() -> Non
     module = _module("dual_policy_openai_proxy_v1")
 
     assert module.document_root_topology("value = 1") is None
+    assert module.document_root_topology('document_topology = "direct"') == "direct"
+    assert module.document_root_topology('document_topology = "flat"') == "flat"
+    assert (
+        module.document_root_topology('document_topology = "hierarchical"')
+        == "hierarchical"
+    )
+    assert (
+        module.document_root_topology(
+            'document_topology = "direct"\nextra = "mixed action"'
+        )
+        is None
+    )
     assert (
         module.document_root_topology(
             "root = Path('/workspace/document-recursion/v0-i1')\n"
