@@ -1,0 +1,134 @@
+{
+  "schema_version": "q35-2b-recursive-depth3-structural-result/v1",
+  "decision": "structural_depth_gap_admitted",
+  "acceptance_floor": 4,
+  "acceptance_floor_relaxed": false,
+  "optimizer_updates": 0,
+  "weights": {
+    "coordinator_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "unchanged_after_both_arms": true
+  },
+  "code": {
+    "evaluation_commit": "557a18c9a",
+    "auditor_commit": "97bdb616a",
+    "verifiers_commit": "0b6caf4958f22b30bcb6498f39bd04273a9f1df6"
+  },
+  "shared_contract": {
+    "task_family": "document_utility_depth3",
+    "task_count": 8,
+    "instance_offset": 31100,
+    "task_seed": 20261110,
+    "sampling_seed": 20261110,
+    "sampling_temperature": 0.4,
+    "utility_policy_profile": "causal_decision_boundary_v4",
+    "typed_decision_tool": "select_document_topology",
+    "task_contracts_identical": true,
+    "same_task_information": true,
+    "same_ownership_permissions": true,
+    "same_answer_free_scaffold": true,
+    "same_correctness_and_protocol_gates": true,
+    "ownership_path": "root -> document-manager -> subgroup manager -> terminal file worker"
+  },
+  "preflight": {
+    "invalid_attempt": {
+      "label": "d3-smoke-p-depth2-v1",
+      "counted": false,
+      "reason": "The original exact-action guard keyed only on a run-wide x-session-id and suppressed subgroup actions. The run was stopped and retained solely as infrastructure diagnosis."
+    },
+    "p": {
+      "label": "d3-smoke-p-depth2-v2",
+      "maximum_depth": 2,
+      "topology_hierarchical": 1,
+      "top_manager_spawns": 1,
+      "subgroup_manager_spawns": 2,
+      "failed_leaf_admissions": 3,
+      "leaf_spawns": 0,
+      "answer_accuracy": 0,
+      "clean_protocol_aligned": 0
+    },
+    "p_plus": {
+      "label": "d3-smoke-pplus-depth3-v1",
+      "maximum_depth": 3,
+      "coordination_spawn_calls": 6,
+      "depth3_graph_complete": 1,
+      "maximum_exercised_coordination_depth": 3,
+      "answer_accuracy": 1,
+      "clean_protocol_aligned": 1
+    }
+  },
+  "p": {
+    "label": "d3-p-depth2-v1",
+    "config": "recursive-depth3-structural-p-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 1,
+    "trace_count": 8,
+    "hard_successes": 0,
+    "boundary_eligible_count": 7,
+    "ineligible_task": {
+      "task": "document_utility_depth3-v5-i31102",
+      "reason": "The top manager was admitted but both subgroup managers were not, so this trace does not prove the terminal depth boundary."
+    },
+    "traces_sha256": "71ad1aec4644ab5095b7e102a497b00fe2cd6a447aa9c5e52a0c726f867bc2f3",
+    "routing_audit_sha256": "c86b1f70411e8f7f6e9bfe436c3f2cbea3d6b2f8c622c8e97b617fa3ca58407d"
+  },
+  "p_plus": {
+    "label": "d3-pplus-depth3-v1",
+    "config": "recursive-depth3-structural-pplus-v1.toml",
+    "maximum_depth": 3,
+    "attempts_per_task": 3,
+    "trace_count": 24,
+    "raw_clean_hard_successes": 20,
+    "selected_clean_hard_successes": 8,
+    "selected_attempts_by_task": {
+      "document_utility_depth3-v4-i31100": 2,
+      "document_utility_depth3-v4-i31101": 2,
+      "document_utility_depth3-v4-i31102": 1,
+      "document_utility_depth3-v4-i31103": 1,
+      "document_utility_depth3-v5-i31100": 1,
+      "document_utility_depth3-v5-i31101": 1,
+      "document_utility_depth3-v5-i31102": 1,
+      "document_utility_depth3-v5-i31103": 1
+    },
+    "selector": "first attempt satisfying the answer-free exact-D3 structural rule, otherwise first attempt",
+    "selector_uses_expected_answer": false,
+    "traces_sha256": "b7ed7a89745727f80ea39803460ab66f004592ff7f8c0f8bd2147c00ad5a0193",
+    "routing_audit_sha256": "c22aba5f8cdc7bf561119cc5358e13eb64b1709378205429c8e1ef2435555114"
+  },
+  "aggregate": {
+    "qualifying_structural_gap_count": 7,
+    "required_structural_gap_count": 4,
+    "passed": true,
+    "qualifying_tasks": [
+      "document_utility_depth3-v4-i31100",
+      "document_utility_depth3-v4-i31101",
+      "document_utility_depth3-v4-i31102",
+      "document_utility_depth3-v4-i31103",
+      "document_utility_depth3-v5-i31100",
+      "document_utility_depth3-v5-i31101",
+      "document_utility_depth3-v5-i31103"
+    ],
+    "remote_auditor_path": "/home/ubuntu/rlm/state/q35-2b-recursive-depth3-structural-v1.json",
+    "remote_auditor_sha256": "6420bc3c8d32220fd81d6a9eee4b6f52ca9b261c318c293017dc8f900c181321"
+  },
+  "postflight_recovery": {
+    "event": "The controlling SSH transport reset after six P+ traces, while the remote evaluator and model services continued to completion.",
+    "duplicate_evaluation_launched": false,
+    "raw_trace_count_verified": 24,
+    "deterministic_summary_regenerated_from_completed_traces": true
+  },
+  "interpretation": {
+    "deeper_graph_observed": true,
+    "recursive_composition_capability_gap_established": true,
+    "compressibility_established": false,
+    "boundary": "This screen proves that one extra recursive harness level expands reachable capability under the frozen tight scaffold. It does not prove that the D3 behavior can be distilled into a D2 deployment policy."
+  },
+  "local_evidence_backup": {
+    "path": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-recursive-depth3-structural-v1",
+    "file_count": 62,
+    "disk_kib": 6516,
+    "tree_sha256": "b95ae7ca495f1d825f0777e86555fd127df7efd9765372d46af795b1d0c3f66d",
+    "secrets_included": false
+  },
+  "next_experiment": "Build a compressible-search gap bank: bounded D3 teacher search should produce trajectories or decisions that a D2 policy can be trained and evaluated to reproduce. Keep the current structural result as a capability theorem, not training evidence by itself."
+}
