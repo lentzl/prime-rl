@@ -895,7 +895,6 @@ def test_document_manager_permuted_aggregation_export_balances_all_orders(
     assert validated["rows"] == 24
     assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 12
 
-
 def test_document_topology_contrast_export_balances_worker_and_manager(
     tmp_path: Path,
 ) -> None:
@@ -1122,6 +1121,27 @@ def test_document_utility_routed_export_matches_live_root_contract(
     validated = trainer._validated_dataset(output)
     assert validated["rows"] == 24
     assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 12
+
+    direct_output = tmp_path / "routed-direct"
+    direct_manifest = module.export(
+        traces=sources,
+        output_dir=direct_output,
+        focus_family="document_utility_direct",
+    )
+    direct_rows = Dataset.from_parquet(str(direct_output / "train.parquet"))
+    assert direct_manifest["rows"] == 8
+    assert direct_manifest["family_counts"] == {"document_utility_direct": 8}
+    assert direct_manifest["remedial_classes"] == ["document_utility_direct"]
+    assert all(
+        json.loads(row["messages"][-1]["tool_calls"][0]["function"]["arguments"])[
+            "code"
+        ]
+        == 'document_topology = "direct"'
+        for row in direct_rows
+    )
+    direct_validated = trainer._validated_dataset(direct_output)
+    assert direct_validated["rows"] == 8
+    assert trainer.DATASET_BATCH_SIZES[direct_manifest["schema_version"]] == 8
 
 
 def test_document_cleanup_export_projects_only_admitted_role_lineage(

@@ -22,6 +22,9 @@ SCHEMA_VERSION = "qwen35-2b-document-utility-routed-sft/v1"
 OBJECTIVE = (
     "answer_free_root_topology_choice_from_routed_ownership_and_resource_constraints"
 )
+DIRECT_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-direct-sft/v1"
+DIRECT_OBJECTIVE = "answer_free_root_direct_utility_choice_from_routed_constraints"
+DIRECT_FAMILY = "document_utility_direct"
 ROWS = 24
 PER_FAMILY = 8
 
@@ -33,7 +36,17 @@ def _sort_key(row: dict[str, Any]) -> tuple[int, int, str]:
     return int(match.group("instance")), int(match.group("variant")), row["family"]
 
 
-def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
+def export(
+    *, traces: list[Path], output_dir: Path, focus_family: str | None = None
+) -> dict[str, Any]:
+    if focus_family not in {None, DIRECT_FAMILY}:
+        raise ValueError(f"unsupported routed utility focus: {focus_family!r}")
+    selected_families = (
+        {focus_family} if focus_family else set(FAMILY_TO_TOPOLOGY_FAMILY)
+    )
+    schema_version = DIRECT_SCHEMA_VERSION if focus_family else SCHEMA_VERSION
+    objective = DIRECT_OBJECTIVE if focus_family else OBJECTIVE
+    expected_rows = PER_FAMILY if focus_family else ROWS
     if output_dir.exists():
         raise FileExistsError(
             f"refusing to overwrite routed document utility bootstrap: {output_dir}"
@@ -51,7 +64,7 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
                     continue
                 for trace in json.loads(line).get("traces") or []:
                     family = trace.get("task", {}).get("data", {}).get("family")
-                    if family not in FAMILY_TO_TOPOLOGY_FAMILY:
+                    if family not in selected_families:
                         continue
                     row = _utility_row(trace, source=resolved)
                     if any(
@@ -62,35 +75,38 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
                     row["messages"].insert(
                         0, {"role": "system", "content": ROOT_COORDINATOR_CONTRACT}
                     )
-                    row["objective"] = OBJECTIVE
+                    row["objective"] = objective
                     rows.append(row)
     rows.sort(key=_sort_key)
-    if len(rows) != ROWS or len({row["task_key"] for row in rows}) != ROWS:
-        raise ValueError("routed document utility bootstrap requires 24 unique rows")
+    if len(rows) != expected_rows or len({row["task_key"] for row in rows}) != expected_rows:
+        raise ValueError(
+            f"routed document utility bootstrap requires {expected_rows} unique rows"
+        )
     family_counts = {
         family: sum(row["family"] == family for row in rows)
-        for family in sorted(FAMILY_TO_TOPOLOGY_FAMILY)
+        for family in sorted(selected_families)
     }
     if set(family_counts.values()) != {PER_FAMILY}:
         raise ValueError(
             f"routed document utility bootstrap is not balanced: {family_counts}"
         )
-    for start in range(0, ROWS, 6):
-        if {row["family"] for row in rows[start : start + 6]} != set(
-            FAMILY_TO_TOPOLOGY_FAMILY
-        ):
-            raise ValueError("routed document utility ordering is not locally balanced")
+    if focus_family is None:
+        for start in range(0, ROWS, 6):
+            if {row["family"] for row in rows[start : start + 6]} != set(
+                FAMILY_TO_TOPOLOGY_FAMILY
+            ):
+                raise ValueError("routed document utility ordering is not locally balanced")
 
     output_dir.mkdir(parents=True)
     parquet = output_dir / "train.parquet"
     Dataset.from_list(rows).to_parquet(str(parquet))
     manifest = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "status": "complete",
         "role": "coordinator",
-        "objective": OBJECTIVE,
-        "rows": ROWS,
-        "training_batch_size": 12,
+        "objective": objective,
+        "rows": expected_rows,
+        "training_batch_size": 8 if focus_family else 12,
         "family_counts": family_counts,
         "task_keys": [row["task_key"] for row in rows],
         "source_traces": sources,
@@ -98,6 +114,7 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
         "topology_choice_targeted": True,
         "utility_constraints_targeted": True,
         "root_coordinator_contract_aligned": True,
+        "remedial_classes": sorted(selected_families) if focus_family else [],
         "root_coordinator_contract_sha256": hashlib.sha256(
             ROOT_COORDINATOR_CONTRACT.encode()
         ).hexdigest(),
@@ -115,12 +132,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--traces", action="append", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--focus-family", choices=[DIRECT_FAMILY])
     args = parser.parse_args()
     print(
         json.dumps(
             export(
                 traces=[path.resolve() for path in args.traces],
                 output_dir=args.output_dir.resolve(),
+                focus_family=args.focus_family,
             ),
             indent=2,
             sort_keys=True,
