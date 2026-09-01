@@ -2243,6 +2243,44 @@ def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> No
         module.document_manager_reports_from_messages(duplicate)
 
 
+def test_proxy_accumulates_flat_reports_across_child_message_resumptions(
+    tmp_path: Path,
+) -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    proxy = module.DualPolicyProxy(
+        coordinator_url="http://coordinator/v1",
+        coordinator_model="coordinator",
+        child_url="http://child/v1",
+        child_model="child",
+        external_model="external",
+        audit_log=tmp_path / "audit.jsonl",
+        private_evidence_token_ids=[1],
+        tokenizer=object(),
+        document_root_flat_fanin_scaffold=True,
+    )
+    session = "session-a"
+    assert proxy.accumulate_document_reports(
+        "root_flat", session, {"gamma": {"words": 40, "h2": 4}}
+    ) == {"gamma": {"words": 40, "h2": 4}}
+    assert proxy.accumulate_document_reports(
+        "root_flat", session, {"alpha": {"words": 20, "h2": 2}}
+    ) == {
+        "alpha": {"words": 20, "h2": 2},
+        "gamma": {"words": 40, "h2": 4},
+    }
+    assert proxy.accumulate_document_reports(
+        "root_flat", session, {"beta": {"words": 30, "h2": 3}}
+    ) == {
+        "alpha": {"words": 20, "h2": 2},
+        "beta": {"words": 30, "h2": 3},
+        "gamma": {"words": 40, "h2": 4},
+    }
+    with pytest.raises(ValueError, match="conflicting alpha reports"):
+        proxy.accumulate_document_reports(
+            "root_flat", session, {"alpha": {"words": 21, "h2": 2}}
+        )
+
+
 def test_proxy_can_peel_manager_fanin_without_peeling_root_relay(
     tmp_path: Path,
 ) -> None:

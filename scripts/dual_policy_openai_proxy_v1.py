@@ -2031,6 +2031,24 @@ class DualPolicyProxy:
         self.typed_return_compute_attempts: dict[str, int] = {}
         self.typed_child_report_compute_hashes: set[str] = set()
         self.typed_child_report_compute_attempts: dict[str, int] = {}
+        self.document_report_state: dict[
+            tuple[str, str], dict[str, dict[str, int]]
+        ] = {}
+
+    def accumulate_document_reports(
+        self,
+        scope: str,
+        session_sha256: str,
+        reports: dict[str, dict[str, int]],
+    ) -> dict[str, dict[str, int]]:
+        """Retain reports across asynchronous child-message resumptions."""
+
+        accumulated = self.document_report_state.setdefault((scope, session_sha256), {})
+        for stem, report in reports.items():
+            if stem in accumulated and accumulated[stem] != report:
+                raise ValueError(f"document {scope} received conflicting {stem} reports")
+            accumulated[stem] = report
+        return dict(accumulated)
 
     async def startup(self, _: web.Application) -> None:
         self.audit_log.parent.mkdir(parents=True, exist_ok=True)
@@ -2239,7 +2257,11 @@ class DualPolicyProxy:
             else None
         )
         root_flat_reports = (
-            document_manager_reports_from_messages(payload.get("messages"))
+            self.accumulate_document_reports(
+                "root_flat",
+                session_sha256,
+                document_manager_reports_from_messages(payload.get("messages")),
+            )
             if (
                 self.document_root_flat_fanin_scaffold
                 and endpoint == "/v1/chat/completions"
