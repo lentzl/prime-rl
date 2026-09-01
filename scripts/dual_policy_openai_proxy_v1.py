@@ -498,7 +498,7 @@ def document_manager_reports_from_messages(
         return {}
     reports: dict[str, dict[str, int]] = {}
     for message in messages:
-        if not isinstance(message, dict) or message.get("role") != "user":
+        if not isinstance(message, dict):
             continue
         fragments: list[str] = []
 
@@ -512,16 +512,26 @@ def document_manager_reports_from_messages(
                 for item in value.values():
                     collect(item)
 
-        collect(message.get("content"))
+        # Prime Agent persists agent messages as a custom role and renderers may
+        # expose them as user, developer, or custom input. The exact directional
+        # marker plus strict two-integer payload is the stable protocol boundary.
+        collect(message)
         text = "\n".join(fragments)
         sender_match = re.search(
             r"\[from child:(alpha|beta|gamma)-document-worker\]", text
         )
         if sender_match is None:
             continue
-        try:
-            payload = json.loads(text.rsplit("\n\n", 1)[-1].strip())
-        except (json.JSONDecodeError, ValueError):
+        payload = None
+        for fragment in reversed(fragments):
+            try:
+                candidate = json.loads(fragment.rsplit("\n\n", 1)[-1].strip())
+            except (json.JSONDecodeError, ValueError):
+                continue
+            if isinstance(candidate, dict):
+                payload = candidate
+                break
+        if payload is None:
             continue
         if (
             not isinstance(payload, dict)

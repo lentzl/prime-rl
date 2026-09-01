@@ -2183,6 +2183,18 @@ def test_proxy_fans_in_three_document_reports_and_relays_one_root_answer() -> No
         )
 
     assert module.document_manager_reports_from_messages(messages) == reports
+    custom_message = {
+        "role": "custom",
+        "customType": "agent_message",
+        "content": "[from child:alpha-document-worker]",
+        "details": {
+            "from": {"sessionName": "alpha-document-worker"},
+            "message": json.dumps(reports["alpha"]),
+        },
+    }
+    assert module.document_manager_reports_from_messages([custom_message]) == {
+        "alpha": reports["alpha"]
+    }
     final = module.document_manager_parent_report(reports)
     assert final == {
         "alpha_words": 20,
