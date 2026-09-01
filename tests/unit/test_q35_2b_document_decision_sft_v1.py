@@ -1143,6 +1143,41 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert direct_validated["rows"] == 8
     assert trainer.DATASET_BATCH_SIZES[direct_manifest["schema_version"]] == 8
 
+    expanded_source_a = tmp_path / "routed-utility-expanded-a.jsonl"
+    expanded_source_b = tmp_path / "routed-utility-expanded-b.jsonl"
+    for instance, source in enumerate((expanded_source_a, expanded_source_b), start=4):
+        traces = []
+        for family in (
+            "document_utility_direct",
+            "document_utility_flat",
+            "document_utility_hierarchical",
+        ):
+            for variant in range(2):
+                trace = _trace(family, variant)
+                trace["id"] = f"{family}-{instance}-{variant}"
+                trace["task"]["data"]["name"] = (
+                    f"{family}-v{variant}-i{20000 + instance}"
+                )
+                traces.append(trace)
+        source.write_text(json.dumps({"traces": traces}) + "\n")
+    expanded_output = tmp_path / "routed-utility-expanded"
+    expanded_manifest = module.export(
+        traces=[*sources, expanded_source_a, expanded_source_b],
+        output_dir=expanded_output,
+        expanded=True,
+    )
+    expanded_rows = Dataset.from_parquet(str(expanded_output / "train.parquet"))
+    assert expanded_manifest["rows"] == 36
+    assert set(expanded_manifest["family_counts"].values()) == {12}
+    assert expanded_manifest["expanded_prompt_bank"] is True
+    assert all(
+        row["messages"][0]["content"] == proxy.ROOT_COORDINATOR_CONTRACT
+        for row in expanded_rows
+    )
+    expanded_validated = trainer._validated_dataset(expanded_output)
+    assert expanded_validated["rows"] == 36
+    assert trainer.DATASET_BATCH_SIZES[expanded_manifest["schema_version"]] == 12
+
 
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,

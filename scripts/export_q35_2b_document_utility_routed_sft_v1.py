@@ -24,9 +24,15 @@ OBJECTIVE = (
 )
 DIRECT_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-direct-sft/v1"
 DIRECT_OBJECTIVE = "answer_free_root_direct_utility_choice_from_routed_constraints"
+EXPANDED_SCHEMA_VERSION = "qwen35-2b-document-utility-routed-expanded-sft/v1"
+EXPANDED_OBJECTIVE = (
+    "answer_free_root_topology_choice_from_expanded_routed_ownership_and_resource_constraints"
+)
 DIRECT_FAMILY = "document_utility_direct"
 ROWS = 24
 PER_FAMILY = 8
+EXPANDED_ROWS = 36
+EXPANDED_PER_FAMILY = 12
 
 
 def _sort_key(row: dict[str, Any]) -> tuple[int, int, str]:
@@ -37,16 +43,31 @@ def _sort_key(row: dict[str, Any]) -> tuple[int, int, str]:
 
 
 def export(
-    *, traces: list[Path], output_dir: Path, focus_family: str | None = None
+    *,
+    traces: list[Path],
+    output_dir: Path,
+    focus_family: str | None = None,
+    expanded: bool = False,
 ) -> dict[str, Any]:
     if focus_family not in {None, DIRECT_FAMILY}:
         raise ValueError(f"unsupported routed utility focus: {focus_family!r}")
+    if focus_family is not None and expanded:
+        raise ValueError("expanded routed utility export cannot focus one family")
     selected_families = (
         {focus_family} if focus_family else set(FAMILY_TO_TOPOLOGY_FAMILY)
     )
-    schema_version = DIRECT_SCHEMA_VERSION if focus_family else SCHEMA_VERSION
-    objective = DIRECT_OBJECTIVE if focus_family else OBJECTIVE
-    expected_rows = PER_FAMILY if focus_family else ROWS
+    schema_version = (
+        DIRECT_SCHEMA_VERSION
+        if focus_family
+        else EXPANDED_SCHEMA_VERSION if expanded else SCHEMA_VERSION
+    )
+    objective = (
+        DIRECT_OBJECTIVE
+        if focus_family
+        else EXPANDED_OBJECTIVE if expanded else OBJECTIVE
+    )
+    per_family = EXPANDED_PER_FAMILY if expanded else PER_FAMILY
+    expected_rows = per_family if focus_family else (EXPANDED_ROWS if expanded else ROWS)
     if output_dir.exists():
         raise FileExistsError(
             f"refusing to overwrite routed document utility bootstrap: {output_dir}"
@@ -86,7 +107,7 @@ def export(
         family: sum(row["family"] == family for row in rows)
         for family in sorted(selected_families)
     }
-    if set(family_counts.values()) != {PER_FAMILY}:
+    if set(family_counts.values()) != {per_family}:
         raise ValueError(
             f"routed document utility bootstrap is not balanced: {family_counts}"
         )
@@ -114,6 +135,7 @@ def export(
         "topology_choice_targeted": True,
         "utility_constraints_targeted": True,
         "root_coordinator_contract_aligned": True,
+        "expanded_prompt_bank": expanded,
         "remedial_classes": sorted(selected_families) if focus_family else [],
         "root_coordinator_contract_sha256": hashlib.sha256(
             ROOT_COORDINATOR_CONTRACT.encode()
@@ -133,6 +155,7 @@ def main() -> None:
     parser.add_argument("--traces", action="append", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--focus-family", choices=[DIRECT_FAMILY])
+    parser.add_argument("--expanded", action="store_true")
     args = parser.parse_args()
     print(
         json.dumps(
@@ -140,6 +163,7 @@ def main() -> None:
                 traces=[path.resolve() for path in args.traces],
                 output_dir=args.output_dir.resolve(),
                 focus_family=args.focus_family,
+                expanded=args.expanded,
             ),
             indent=2,
             sort_keys=True,
