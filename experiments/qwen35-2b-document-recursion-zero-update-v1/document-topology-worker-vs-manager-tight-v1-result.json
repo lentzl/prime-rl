@@ -121,16 +121,34 @@
     "eval_versions_sha256": "b2cc9b7b38166d2c3130e6d5d8dd1ec92720a93e2b3b7cbe48b08bfb78631abc",
     "dual_policy_versions_sha256": "805d2dd9103bf0341f8c75d744d36e170f02b14999c81c6e66f95f28a55066ca"
   },
+  "matched_protected_control": {
+    "same_config_tasks_seed_and_scaffold": true,
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-topology-worker-vs-manager-tight-gate4-control/latent-doc-c177protected-h176protected-worker-vs-manager-tight-gate4-control-v1",
+    "coordinator_sha256": "1494fbaeb2bde829b4312c360e7b57fd8fbb218eb5a973cec4b786b10d617e31",
+    "trace_count": 4,
+    "clean_count": 3,
+    "issue_count": 1,
+    "mean_reward": 1.5714285714285714,
+    "answer_accuracy": 0.75,
+    "protocol_aligned": 0.75,
+    "clean_protocol_aligned": 0.75,
+    "post_fan_in_control": 0.75,
+    "failure": "On document_hierarchical-v0-i22000 the protected coordinator explicitly selected the flat three-worker graph. The topology-preserving scaffold recorded forwarded_document_root_topology_mismatch_flat_expected_hierarchical and did not normalize it.",
+    "summary_sha256": "24d3fab43cfa3d95506a33329cf9a6cbe4bab9693b9125dac3d49190f8137ff3",
+    "traces_sha256": "cc4d3bfee39e00e24e1b43893fce7be2e13c67ea98f628bd9b33b254a6d3fee4",
+    "routing_audit_sha256": "c3b579645d1fdca63b9883299d81cde8e2226e43f104de6271fb21e0df52a535",
+    "eval_versions_sha256": "78c26b3896ba78418ed7fbdbfde4672dd7e070457b97e349c42c81337a07f896",
+    "dual_policy_versions_sha256": "edbd46af4c7d71bc692cb3d29c67feff59380ef197567bf581b8dcf386c97c31"
+  },
   "causal_interpretation": {
-    "supported": "The updated coordinator can select both prescribed computation graphs and execute four fresh tasks cleanly within a tight topology-preserving runtime envelope.",
+    "supported": "The updated coordinator selected both prescribed computation graphs and executed four matched tasks cleanly within a tight topology-preserving runtime envelope, while the protected coordinator selected the wrong flat graph on one hierarchical task and reached only 3/4.",
     "not_supported": [
       "unscaffolded recursive hierarchy mastery",
       "free-form topology optimization",
-      "perfect first-request topology selection",
-      "causal superiority over a matched protected-model control"
+      "perfect first-request topology selection"
     ],
     "scaffold_contribution": "dominant for syntax, contract fidelity, waiting, leaf execution, fan-in, and finalization",
-    "learned_contribution": "worker-versus-manager graph selection before the root mechanics are normalized"
+    "learned_contribution": "worker-versus-manager graph selection before the root mechanics are normalized; matched evidence is candidate 4/4 versus protected control 3/4"
   },
   "verification": {
     "focused_remote_tests_passed": 104,
@@ -138,5 +156,5 @@
     "gpu_memory_after_run_mib": [1, 1],
     "remote_worktree": "clean_detached"
   },
-  "safest_next_action": "Keep the protected pair as rollback and use this candidate only as the scoped topology frontier. Before any broader promotion or further optimizer update, run a matched protected-coordinator control under the identical gate and add a direct-versus-delegate restraint bank; keep topology normalization strict so it never converts a wrong graph choice into success."
+  "safest_next_action": "Keep the protected pair as rollback and use this candidate as the scoped worker-versus-manager topology frontier. Before any broader promotion or further optimizer update, add a direct-versus-delegate restraint bank; keep topology normalization strict so it never converts a wrong graph choice into success."
 }
