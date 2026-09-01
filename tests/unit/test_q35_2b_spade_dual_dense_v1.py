@@ -95,6 +95,12 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     )
     assert 'proxy_args+=(--document-root-topology-normalization-scaffold)' in launcher
     assert (
+        "document_root_utility_decision_contract="
+        "${DUAL_DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-root-utility-decision-contract)' in launcher
+    assert (
         "document root topology normalization and exact coordinator action are mutually exclusive"
         in launcher
     )
@@ -629,6 +635,38 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     assert "Do not message the child, poll, or call another tool" in injected["messages"][0][
         "content"
     ]
+
+    free_topology = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    "Prime Agent session\nRecursive agent depth: 0\n"
+                    f"{module.FREE_DOCUMENT_TOPOLOGY_HEADER}\nChoose a topology."
+                ),
+            }
+        ]
+    }
+    rooted_free_topology = module.with_root_coordinator_contract(free_topology)
+    with_utility_rubric = module.with_document_root_utility_decision_contract(
+        rooted_free_topology
+    )
+    assert with_utility_rubric["messages"][:2] == [
+        {"role": "system", "content": module.ROOT_COORDINATOR_CONTRACT},
+        {
+            "role": "system",
+            "content": module.DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT,
+        },
+    ]
+    rubric = with_utility_rubric["messages"][1]["content"]
+    assert "Select `direct` when the root may inspect" in rubric
+    assert "Select `flat` when the root may not inspect" in rubric
+    assert "Select `hierarchical` when the root may not inspect" in rubric
+    assert (
+        module.with_document_root_utility_decision_contract(with_utility_rubric)
+        is with_utility_rubric
+    )
+    assert module.with_document_root_utility_decision_contract(injected) is injected
 
     already_injected = module.with_root_coordinator_contract(injected)
     assert already_injected is injected

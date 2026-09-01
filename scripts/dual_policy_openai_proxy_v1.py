@@ -19,6 +19,7 @@ RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
 DOCUMENT_COORDINATOR_HEADER = "[recursive document coordinator session contract]"
 FREE_DOCUMENT_TOPOLOGY_HEADER = "[free document topology contract]"
 ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
+DOCUMENT_ROOT_UTILITY_DECISION_HEADER = "[document root utility decision rubric]"
 LEAF_REPORTER_HEADER = "[leaf reporter session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
@@ -35,6 +36,15 @@ your result to receiver_role='parent'. After a child report arrives, remain the 
 coordinator and treat that first report as the final child evidence.
 Do not message the child, poll, or call another tool after delivery; apply the user's simple formula
 directly and finalize the requested answer."""
+DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT = """[document root utility decision rubric]
+For a free document-topology task, classify only the stated resource policy before
+acting. Select `direct` when the root may inspect the directory and the total agent
+admission budget is zero. Select `flat` when the root may not inspect, descendant
+depth is limited to one, and the root may admit the three terminal workers. Select
+`hierarchical` when the root may not inspect, the root may admit at most one agent,
+and that admitted manager may delegate one further depth. Do not substitute a more
+expensive or deeper plan. Emit the requested `document_topology` IPython assignment;
+the harness supplies the mechanics for that selected plan."""
 LEAF_REPORTER_CONTRACT = """[leaf reporter session contract]
 session_role=leaf_reporter
 is_root=false
@@ -792,6 +802,29 @@ def with_root_coordinator_contract(payload: dict[str, Any]) -> dict[str, Any]:
         "messages": [
             {"role": "system", "content": ROOT_COORDINATOR_CONTRACT},
             *messages,
+        ],
+    }
+
+
+def with_document_root_utility_decision_contract(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Teach the free-topology resource decision without selecting it for the model."""
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        raise ValueError("document root utility decision contract requires chat messages")
+    if _contains_marker(messages, DOCUMENT_ROOT_UTILITY_DECISION_HEADER):
+        return payload
+    if not _contains_marker(messages, FREE_DOCUMENT_TOPOLOGY_HEADER):
+        return payload
+    insertion = 1 if _contains_marker(messages[:1], ROOT_COORDINATOR_HEADER) else 0
+    return {
+        **payload,
+        "messages": [
+            *messages[:insertion],
+            {"role": "system", "content": DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT},
+            *messages[insertion:],
         ],
     }
 
@@ -2181,6 +2214,7 @@ class DualPolicyProxy:
         strip_child_tool_choice: bool = False,
         strip_coordinator_tool_choice: bool = False,
         root_coordinator_contract: bool = False,
+        document_root_utility_decision_contract: bool = False,
         leaf_reporter_contract: bool = False,
         leaf_inline_evidence: bool = False,
         leaf_compute_report_scaffold: bool = False,
@@ -2215,6 +2249,9 @@ class DualPolicyProxy:
         self.strip_child_tool_choice = strip_child_tool_choice
         self.strip_coordinator_tool_choice = strip_coordinator_tool_choice
         self.root_coordinator_contract = root_coordinator_contract
+        self.document_root_utility_decision_contract = (
+            document_root_utility_decision_contract
+        )
         self.leaf_reporter_contract = leaf_reporter_contract
         self.leaf_inline_evidence = leaf_inline_evidence
         self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
@@ -2440,6 +2477,13 @@ class DualPolicyProxy:
             and is_root_coordinator_request(payload)
         ):
             routed = with_root_coordinator_contract(routed)
+        if (
+            self.document_root_utility_decision_contract
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+        ):
+            routed = with_document_root_utility_decision_contract(routed)
         if (
             self.leaf_reporter_contract
             and endpoint == "/v1/chat/completions"
@@ -3560,6 +3604,9 @@ def main() -> None:
     parser.add_argument("--strip-child-tool-choice", action="store_true")
     parser.add_argument("--strip-coordinator-tool-choice", action="store_true")
     parser.add_argument("--root-coordinator-contract", action="store_true")
+    parser.add_argument(
+        "--document-root-utility-decision-contract", action="store_true"
+    )
     parser.add_argument("--leaf-reporter-contract", action="store_true")
     parser.add_argument("--leaf-inline-evidence", action="store_true")
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
@@ -3617,6 +3664,9 @@ def main() -> None:
         strip_child_tool_choice=args.strip_child_tool_choice,
         strip_coordinator_tool_choice=args.strip_coordinator_tool_choice,
         root_coordinator_contract=args.root_coordinator_contract,
+        document_root_utility_decision_contract=(
+            args.document_root_utility_decision_contract
+        ),
         leaf_reporter_contract=args.leaf_reporter_contract,
         leaf_inline_evidence=args.leaf_inline_evidence,
         leaf_compute_report_scaffold=args.leaf_compute_report_scaffold,
