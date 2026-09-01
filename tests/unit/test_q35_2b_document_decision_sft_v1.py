@@ -1109,10 +1109,11 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert manifest["rows"] == 24
     assert set(manifest["family_counts"].values()) == {8}
     assert manifest["root_coordinator_contract_aligned"] is True
-    assert all(row["messages"][0] == {
-        "role": "system",
-        "content": proxy.ROOT_COORDINATOR_CONTRACT,
-    } for row in rows)
+    assert all(
+        row["messages"][0]["role"] == "system"
+        and row["messages"][0]["content"] == proxy.ROOT_COORDINATOR_CONTRACT
+        for row in rows
+    )
     for start in range(0, 24, 6):
         assert {row["family"] for row in rows[start : start + 6]} == set(
             manifest["family_counts"]
