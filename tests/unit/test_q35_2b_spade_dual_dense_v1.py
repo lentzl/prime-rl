@@ -2219,6 +2219,15 @@ def test_free_topology_guard_remains_active_until_a_legal_choice_is_selected() -
     assert "pending_free_topology_turn = (" in source
     assert "session_sha256 not in self.root_document_topologies" in source
     assert "pending_free_topology_turn\n                or (" in source
+
+
+def test_selected_topology_authorizes_root_finalizers_after_identity_elision() -> None:
+    source = (
+        Path(__file__).parents[2] / "scripts" / "dual_policy_openai_proxy_v1.py"
+    ).read_text(encoding="utf-8")
+
+    assert 'or session_document_topology == "flat"' in source
+    assert 'or session_document_topology == "hierarchical"' in source
     assert "Waiting for the document manager's report." in source
 
 

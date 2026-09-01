@@ -2426,6 +2426,11 @@ class DualPolicyProxy:
         session_sha256 = (
             hashlib.sha256(session_id.encode()).hexdigest() if session_id else None
         )
+        session_document_topology = (
+            self.root_document_topologies.get(session_sha256)
+            if session_sha256 is not None
+            else None
+        )
         recursive_coordinator_chat = (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
@@ -2453,11 +2458,6 @@ class DualPolicyProxy:
             if document_leaf_path is not None
             else {}
         )
-        session_document_topology = (
-            self.root_document_topologies.get(session_sha256)
-            if session_sha256 is not None
-            else None
-        )
         if (
             document_leaf_path is not None
             and session_sha256 is not None
@@ -2482,7 +2482,10 @@ class DualPolicyProxy:
             if self.document_root_report_relay_scaffold
             and endpoint == "/v1/chat/completions"
             and role == "coordinator"
-            and is_root_coordinator_request(payload)
+            and (
+                is_root_coordinator_request(payload)
+                or session_document_topology == "hierarchical"
+            )
             else None
         )
         root_direct_result = (
@@ -2505,7 +2508,10 @@ class DualPolicyProxy:
                 self.document_root_flat_fanin_scaffold
                 and endpoint == "/v1/chat/completions"
                 and role == "coordinator"
-                and is_root_coordinator_request(payload)
+                and (
+                    is_root_coordinator_request(payload)
+                    or session_document_topology == "flat"
+                )
                 and not _contains_marker(
                     payload.get("messages"), DOCUMENT_COORDINATOR_HEADER
                 )
@@ -2516,7 +2522,10 @@ class DualPolicyProxy:
             self.document_root_flat_fanin_scaffold
             and endpoint == "/v1/chat/completions"
             and role == "coordinator"
-            and is_root_coordinator_request(payload)
+            and (
+                is_root_coordinator_request(payload)
+                or session_document_topology == "flat"
+            )
             and all(
                 _contains_marker(
                     payload.get("messages"), f"{stem}_worker = await rlm("
