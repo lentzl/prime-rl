@@ -1,0 +1,103 @@
+{
+  "schema_version": "q35-2b-recursive-compute-p-pplus-result/v1",
+  "decision": "bounded_search_signal_observed_but_recursive_compute_admission_rejected",
+  "acceptance_floor": 4,
+  "acceptance_floor_relaxed": false,
+  "optimizer_updates": 0,
+  "weights": {
+    "coordinator_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "unchanged_after_both_arms": true
+  },
+  "code": {
+    "run_commit": "71cfcb2390509e7ff9b104d924ac322b8016bb15",
+    "auditor_commit": "3c9d0e98a0e3d361ddc4944348c1132dffff33fa",
+    "verifiers_commit": "6d40ac9d0ef9205d503845842bc3c91083027b1a"
+  },
+  "shared_contract": {
+    "task_family": "document_utility_hierarchical",
+    "task_count": 12,
+    "instance_offset": 30100,
+    "task_seed": 20261109,
+    "sampling_seed": 20261109,
+    "sampling_temperature": 0.4,
+    "utility_policy_profile": "causal_decision_boundary_v4",
+    "typed_decision_tool": "select_document_topology",
+    "task_contracts_identical": true,
+    "same_task_information": true,
+    "same_ownership_permissions": true,
+    "same_answer_free_scaffold": true,
+    "same_correctness_and_protocol_gates": true
+  },
+  "p": {
+    "config": "recursive-compute-p-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 1,
+    "trace_count": 12,
+    "hard_successes": 9,
+    "hard_failures": 3
+  },
+  "p_plus": {
+    "config": "recursive-compute-pplus-v1.toml",
+    "maximum_depth": 3,
+    "attempts_per_task": 3,
+    "trace_count": 36,
+    "selected_hard_successes": 11,
+    "selected_hard_failures": 1,
+    "selector": "first answer-free structurally eligible attempt, otherwise first attempt",
+    "selector_uses_expected_answer": false
+  },
+  "compute_gaps": [
+    {
+      "task": "document_utility_hierarchical-v4-i30100",
+      "p_selected_topology": "direct",
+      "p_plus_selected_attempt": 1,
+      "p_plus_selected_topology": "hierarchical",
+      "p_plus_coordination_spawn_calls": 4,
+      "clean_hard_success": true
+    },
+    {
+      "task": "document_utility_hierarchical-v4-i30104",
+      "p_selected_topology": "direct",
+      "p_plus_selected_attempt": 3,
+      "p_plus_selected_topology": "hierarchical",
+      "p_plus_coordination_spawn_calls": 4,
+      "clean_hard_success": true
+    }
+  ],
+  "unrecovered_p_failure": {
+    "task": "document_utility_hierarchical-v5-i30105",
+    "p_selected_topology": "direct",
+    "p_plus_attempt_topologies": [
+      "direct",
+      "direct",
+      "direct"
+    ],
+    "reason": "all three typed-decision attempts failed to select the required hierarchical graph"
+  },
+  "aggregate": {
+    "compute_gap_count": 2,
+    "required_compute_gap_count": 4,
+    "passed": false,
+    "remote_auditor": {
+      "path": "/home/ubuntu/rlm/state/q35-2b-recursive-compute-p-pplus-v1.json",
+      "sha256": "248e0eb88297493b8e1c6b3c4970d93a8757cf91545cc4791c85d68b664daa61"
+    },
+    "p_routing_audit_sha256": "61975d04db08f1c078b7a6f7c3943403d4c30fda2b0d70c960bd154b59218871",
+    "p_plus_routing_audit_sha256": "0c5ab00432587074dafc48e90066617e47574a6dce63e762342434a272485400"
+  },
+  "interpretation": {
+    "bounded_attempt_search_helped": true,
+    "deeper_graph_observed": false,
+    "recursive_composition_capability_gap_established": false,
+    "reason": "Both recovered P+ successes used the already-demonstrated depth-two graph (root, one manager, three leaves). The extra allowed depth was not exercised, and only two distinct answer-free-selected gaps were found."
+  },
+  "local_evidence_backup": {
+    "path": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-recursive-compute-p-pplus-v1",
+    "file_count": 29,
+    "disk_bytes": 12374016,
+    "tree_sha256": "4716c420f754dfb1a36bd3d7ec0479b55f7ffd174c1ff31bb4076d74fd185a0a",
+    "secrets_included": false
+  },
+  "next_experiment": "Prospectively define a natural depth-three compositional document bank whose ownership structure requires root -> manager -> subgroup manager -> leaf execution. Keep P at the ordinary depth-two envelope and P+ at depth three with the same C/H weights, typed fail-closed semantics, information, and hard gates; require at least four distinct P-fail/P+-clean-success keys."
+}
