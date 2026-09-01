@@ -2877,15 +2877,28 @@ class DualPolicyProxy:
         root_topology_action_sha256 = None
         root_topology_selected = None
         root_topology_expected = None
+        pristine_root_topology_turn = not any(
+            isinstance(message, dict)
+            and message.get("role") in {"assistant", "tool"}
+            for message in payload.get("messages") or []
+        )
+        pending_free_topology_turn = (
+            session_sha256 is not None
+            and session_sha256 not in self.root_document_topologies
+            and _contains_marker(
+                payload.get("messages"), FREE_DOCUMENT_TOPOLOGY_HEADER
+            )
+        )
         if (
             self.document_root_topology_normalization_scaffold
             and endpoint == "/v1/chat/completions"
             and role == "coordinator"
-            and is_root_coordinator_request(payload)
-            and not any(
-                isinstance(message, dict)
-                and message.get("role") in {"assistant", "tool"}
-                for message in payload.get("messages") or []
+            and (
+                pending_free_topology_turn
+                or (
+                    is_root_coordinator_request(payload)
+                    and pristine_root_topology_turn
+                )
             )
         ):
             root_topology_canonical_codes = (

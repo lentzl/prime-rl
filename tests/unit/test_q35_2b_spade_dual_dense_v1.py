@@ -2209,6 +2209,16 @@ def test_proxy_keeps_document_root_passive_between_manager_admission_and_report(
         Path(__file__).parents[2] / "scripts/dual_policy_openai_proxy_v1.py"
     ).read_text()
     assert 'mode="document_manager_wait_session_passive"' in source
+
+
+def test_free_topology_guard_remains_active_until_a_legal_choice_is_selected() -> None:
+    source = (
+        Path(__file__).parents[2] / "scripts" / "dual_policy_openai_proxy_v1.py"
+    ).read_text(encoding="utf-8")
+
+    assert "pending_free_topology_turn = (" in source
+    assert "session_sha256 not in self.root_document_topologies" in source
+    assert "pending_free_topology_turn\n                or (" in source
     assert "Waiting for the document manager's report." in source
 
 
