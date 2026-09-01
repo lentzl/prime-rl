@@ -219,13 +219,16 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     manifest = json.loads(manifest_path.read_text())
     schema_version = manifest.get("schema_version")
     contract = DATASET_CONTRACTS.get(schema_version)
+    expected_family_count = {
+        "qwen35-2b-document-utility-topology-sft/v1": 2,
+        "qwen35-2b-document-hierarchy-remedial-sft/v1": 8,
+    }.get(schema_version, 4)
     if (
         contract is None
         or manifest.get("status") != "complete"
         or (manifest.get("role"), manifest.get("objective")) != contract
         or manifest.get("rows") != DATASET_ROWS.get(schema_version)
-        or set(manifest.get("family_counts", {}).values())
-        != ({2} if schema_version == "qwen35-2b-document-utility-topology-sft/v1" else {4})
+        or set(manifest.get("family_counts", {}).values()) != {expected_family_count}
         or manifest.get("answer_free") is not DATASET_ANSWER_FREE.get(schema_version)
         or manifest.get("tool_call_format") != "openai_function_v1"
         or manifest.get("dataset", {}).get("path") != parquet.name
