@@ -1,8 +1,8 @@
 {
   "schema_version": "qwen35-2b-document-topology-worker-vs-manager-tight-result/v1",
   "status": "complete",
-  "decision": "admit_candidate_for_worker_versus_manager_topology_under_tight_scaffold",
-  "model_promotion_scope": "document_root_worker_versus_manager_topology_tight_scaffold",
+  "decision": "admit_candidate_for_prescribed_three_way_document_topology_under_tight_scaffold",
+  "model_promotion_scope": "document_root_direct_flat_hierarchical_topology_tight_scaffold",
   "unscaffolded_model_promotion": false,
   "acceptance_floor": 4,
   "acceptance_floor_relaxed": false,
@@ -140,15 +140,90 @@
     "eval_versions_sha256": "78c26b3896ba78418ed7fbdbfde4672dd7e070457b97e349c42c81337a07f896",
     "dual_policy_versions_sha256": "edbd46af4c7d71bc692cb3d29c67feff59380ef197567bf581b8dcf386c97c31"
   },
+  "direct_restraint_gate": {
+    "optimizer_updates": 0,
+    "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/topology-direct-vs-flat-tight-v1.toml",
+    "config_sha256": "da0bc1cdf69aeed6c4a05cd5bc15e5eba7338b2c06defea26f6cc0192fa09279",
+    "task_offset": 22100,
+    "seed": 20260920,
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-topology-direct-vs-flat-tight-v1/latent-doc-c177topology1-h176protected-direct-vs-flat-tight-v1",
+    "trace_count": 4,
+    "clean_count": 4,
+    "issue_count": 0,
+    "mean_reward": 2.0,
+    "family_counts": {
+      "document_direct": 2,
+      "document_flat": 2
+    },
+    "topology_selection": {
+      "eventual_expected_topology": "4/4",
+      "expected_topology_on_first_model_request": "3/4",
+      "normalized_direct": 2,
+      "normalized_flat": 2,
+      "wrong_topologies_normalized": 0
+    },
+    "summary_sha256": "fc1e746cfe7ea3ec92f19038102b5070a80e90856246480ec7beae89a197b173",
+    "traces_sha256": "6e7f348bcdabeae5a74e7258d8f76da7ef01b6b46ae3592f729a46b85bffbe2b",
+    "routing_audit_sha256": "81a85c0fb3e9700c4c50e69f6ae608cb29a067c998e5ce2bb0eefd5a4fafdaa3",
+    "eval_versions_sha256": "0962ba85a06559586f8f6d8cb04d766962ecdac6ee322f8cfd99ce2986907d64",
+    "dual_policy_versions_sha256": "1d250c132472461444c968bb7a4b18e94e377b6603b64221c10f48ecacddb439"
+  },
+  "combined_three_way_gate": {
+    "optimizer_updates": 0,
+    "prime_rl_commit": "003367239",
+    "config": "experiments/qwen35-2b-document-recursion-zero-update-v1/topology-direct-flat-hierarchical-tight-v1.toml",
+    "config_sha256": "5e28bad924f9dd4c1cecf71696211d0fcc29f7922c3b0d1a21ff623de20491fd",
+    "task_offset": 22200,
+    "seed": 20260921,
+    "run": "/home/ubuntu/rlm/results/q35-2b-document-topology-three-way-tight-v1/latent-doc-c177topology1-h176protected-three-way-tight-v1",
+    "trace_count": 6,
+    "clean_count": 6,
+    "issue_count": 0,
+    "mean_reward": 2.0,
+    "answer_accuracy": 1.0,
+    "protocol_aligned": 1.0,
+    "clean_protocol_aligned": 1.0,
+    "family_results": {
+      "document_direct": {
+        "count": 2,
+        "clean_count": 2,
+        "mean_reward": 2.0
+      },
+      "document_flat": {
+        "count": 2,
+        "clean_count": 2,
+        "mean_reward": 2.0
+      },
+      "document_hierarchical": {
+        "count": 2,
+        "clean_count": 2,
+        "mean_reward": 2.0
+      }
+    },
+    "topology_selection": {
+      "expected_topology_on_first_model_request": "6/6",
+      "normalized_direct": 2,
+      "normalized_flat": 2,
+      "normalized_hierarchical": 2,
+      "wrong_topologies_normalized": 0
+    },
+    "summary_sha256": "5429d22d0ae2f796a786ed7b7ed036a3e222bdd0c4034ad551618cae1e51ab0b",
+    "traces_sha256": "d779ff32b89e3c9d5600d5ea7d07decde3f13851f1cc1bbb6d5b73a83f36cc1a",
+    "routing_audit_sha256": "5d5724f26bcdb09da057bc2b6449acf08fd30def57fb2af48bade78d1320fc01",
+    "eval_versions_sha256": "2c52093a5f97d2b175f5a9f2eedf961e7b5cf3a7d116660ea95ecac28b0a886f",
+    "launcher_note": "Evaluation completed all six trajectories. The wrapper then rejected six traces because its summarizer expected four; the existing traces were rescored with expected_count=6 and the wrapper was fixed to derive num_tasks*num_rollouts from TOML.",
+    "launcher_fix_commit": "614f3100a",
+    "launcher_fix_tests_passed": 106
+  },
   "causal_interpretation": {
-    "supported": "The updated coordinator selected both prescribed computation graphs and executed four matched tasks cleanly within a tight topology-preserving runtime envelope, while the protected coordinator selected the wrong flat graph on one hierarchical task and reached only 3/4.",
+    "supported": "The updated coordinator selected direct, flat, and hierarchical prescribed graphs on the first model request in a fresh 6/6 clean gate. In the matched worker-versus-manager bank it reached 4/4 while the protected coordinator selected the wrong flat graph on one hierarchical task and reached only 3/4.",
     "not_supported": [
       "unscaffolded recursive hierarchy mastery",
       "free-form topology optimization",
-      "perfect first-request topology selection"
+      "topology choice when the user does not prescribe the graph"
     ],
     "scaffold_contribution": "dominant for syntax, contract fidelity, waiting, leaf execution, fan-in, and finalization",
-    "learned_contribution": "worker-versus-manager graph selection before the root mechanics are normalized; matched evidence is candidate 4/4 versus protected control 3/4"
+    "learned_contribution": "prescribed direct-versus-flat-versus-manager graph selection before root mechanics are normalized; matched worker-versus-manager evidence is candidate 4/4 versus protected control 3/4"
   },
   "verification": {
     "focused_remote_tests_passed": 104,
@@ -156,5 +231,5 @@
     "gpu_memory_after_run_mib": [1, 1],
     "remote_worktree": "clean_detached"
   },
-  "safest_next_action": "Keep the protected pair as rollback and use this candidate as the scoped worker-versus-manager topology frontier. Before any broader promotion or further optimizer update, add a direct-versus-delegate restraint bank; keep topology normalization strict so it never converts a wrong graph choice into success."
+  "safest_next_action": "Keep the protected pair as rollback and use this candidate as the scoped prescribed three-way topology frontier. The next scientific boundary is a free-topology document environment where the objective specifies ownership and cost but does not prescribe direct, flat, or hierarchical structure; retain the strict topology-preserving normalizer and score any legal successful graph rather than a hidden gold tree."
 }
