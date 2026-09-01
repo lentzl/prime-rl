@@ -2349,6 +2349,7 @@ class DualPolicyProxy:
         session_sha256: str | None = None,
         response_rewrites: int = 0,
         document_report_stems: tuple[str, ...] | None = None,
+        document_root_topology: str | None = None,
     ) -> None:
         event = {
             "schema_version": "qwen35-2b-dual-policy-route/v1",
@@ -2370,6 +2371,8 @@ class DualPolicyProxy:
             }
         if document_report_stems is not None:
             event["document_report_stems"] = list(document_report_stems)
+        if document_root_topology is not None:
+            event["document_root_topology"] = document_root_topology
         with self.audit_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
         self.sequence += 1
@@ -2443,17 +2446,27 @@ class DualPolicyProxy:
                 payload.get("messages"), FREE_DOCUMENT_TOPOLOGY_HEADER
             )
         )
+        leaf_document_reports = (
+            document_leaf_report_from_messages(
+                payload.get("messages"), document_leaf_path
+            )
+            if document_leaf_path is not None
+            else {}
+        )
+        session_document_topology = (
+            self.root_document_topologies.get(session_sha256)
+            if session_sha256 is not None
+            else None
+        )
         if (
             document_leaf_path is not None
             and session_sha256 is not None
-            and self.root_document_topologies.get(session_sha256) == "flat"
+            and session_document_topology == "flat"
         ):
             self.accumulate_document_reports(
                 "root_flat",
                 session_sha256,
-                document_leaf_report_from_messages(
-                    payload.get("messages"), document_leaf_path
-                ),
+                leaf_document_reports,
             )
         manager_reports = (
             document_manager_reports_from_messages(payload.get("messages"))
@@ -2695,6 +2708,8 @@ class DualPolicyProxy:
                 status=200,
                 mode="document_leaf_report_session_terminated",
                 session_sha256=session_sha256,
+                document_report_stems=tuple(sorted(leaf_document_reports)),
+                document_root_topology=session_document_topology,
             )
             return web.Response(body=response_body, content_type=content_type)
         if (
