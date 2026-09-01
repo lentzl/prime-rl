@@ -20,6 +20,9 @@ DOCUMENT_COORDINATOR_HEADER = "[recursive document coordinator session contract]
 FREE_DOCUMENT_TOPOLOGY_HEADER = "[free document topology contract]"
 ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
 DOCUMENT_ROOT_UTILITY_DECISION_HEADER = "[document root utility decision rubric]"
+DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_HEADER = (
+    "[document root causal utility decision rubric]"
+)
 LEAF_REPORTER_HEADER = "[leaf reporter session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
@@ -47,6 +50,19 @@ expensive or deeper plan. Emit the requested `document_topology` IPython assignm
 the harness supplies the mechanics for that selected plan."""
 ROOT_COORDINATOR_UTILITY_DECISION_CONTRACT = (
     f"{ROOT_COORDINATOR_CONTRACT}\n\n{DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT}"
+)
+DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_CONTRACT = """[document root causal utility decision rubric]
+For a free document-topology task, apply the stated ownership and admission facts
+before acting. If the root may inspect the directory, select `direct`: it uses zero
+admissions. If the root may not inspect and can admit all three terminal workers,
+select `flat`: deeper delegation is available but adds an unnecessary manager and
+admission. If the root may not inspect and may admit at most one agent, select
+`hierarchical` when that manager may delegate one further depth. Availability of
+deeper recursion is not an obligation. Among equally reliable legal plans, select
+the one with the fewest total agent admissions. Emit the requested
+`document_topology` IPython assignment; the harness supplies graph mechanics."""
+ROOT_COORDINATOR_CAUSAL_UTILITY_DECISION_CONTRACT = (
+    f"{ROOT_COORDINATOR_CONTRACT}\n\n{DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_CONTRACT}"
 )
 LEAF_REPORTER_CONTRACT = """[leaf reporter session contract]
 session_role=leaf_reporter
@@ -827,6 +843,32 @@ def with_document_root_utility_decision_contract(
         "messages": [
             *messages[:insertion],
             {"role": "system", "content": DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT},
+            *messages[insertion:],
+        ],
+    }
+
+
+def with_document_root_causal_utility_decision_contract(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Teach causal ownership/admission choice without selecting it for the model."""
+
+    messages = payload.get("messages")
+    if not isinstance(messages, list):
+        raise ValueError("document root causal utility contract requires chat messages")
+    if _contains_marker(messages, DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_HEADER):
+        return payload
+    if not _contains_marker(messages, FREE_DOCUMENT_TOPOLOGY_HEADER):
+        return payload
+    insertion = 1 if _contains_marker(messages[:1], ROOT_COORDINATOR_HEADER) else 0
+    return {
+        **payload,
+        "messages": [
+            *messages[:insertion],
+            {
+                "role": "system",
+                "content": DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_CONTRACT,
+            },
             *messages[insertion:],
         ],
     }
@@ -2218,6 +2260,7 @@ class DualPolicyProxy:
         strip_coordinator_tool_choice: bool = False,
         root_coordinator_contract: bool = False,
         document_root_utility_decision_contract: bool = False,
+        document_root_causal_utility_decision_contract: bool = False,
         leaf_reporter_contract: bool = False,
         leaf_inline_evidence: bool = False,
         leaf_compute_report_scaffold: bool = False,
@@ -2255,6 +2298,14 @@ class DualPolicyProxy:
         self.document_root_utility_decision_contract = (
             document_root_utility_decision_contract
         )
+        self.document_root_causal_utility_decision_contract = (
+            document_root_causal_utility_decision_contract
+        )
+        if (
+            self.document_root_utility_decision_contract
+            and self.document_root_causal_utility_decision_contract
+        ):
+            raise ValueError("historical and causal document utility contracts are exclusive")
         self.leaf_reporter_contract = leaf_reporter_contract
         self.leaf_inline_evidence = leaf_inline_evidence
         self.leaf_compute_report_scaffold = leaf_compute_report_scaffold
@@ -2487,6 +2538,13 @@ class DualPolicyProxy:
             and is_root_coordinator_request(payload)
         ):
             routed = with_document_root_utility_decision_contract(routed)
+        if (
+            self.document_root_causal_utility_decision_contract
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and is_root_coordinator_request(payload)
+        ):
+            routed = with_document_root_causal_utility_decision_contract(routed)
         if (
             self.leaf_reporter_contract
             and endpoint == "/v1/chat/completions"
@@ -3610,6 +3668,9 @@ def main() -> None:
     parser.add_argument(
         "--document-root-utility-decision-contract", action="store_true"
     )
+    parser.add_argument(
+        "--document-root-causal-utility-decision-contract", action="store_true"
+    )
     parser.add_argument("--leaf-reporter-contract", action="store_true")
     parser.add_argument("--leaf-inline-evidence", action="store_true")
     parser.add_argument("--leaf-compute-report-scaffold", action="store_true")
@@ -3669,6 +3730,9 @@ def main() -> None:
         root_coordinator_contract=args.root_coordinator_contract,
         document_root_utility_decision_contract=(
             args.document_root_utility_decision_contract
+        ),
+        document_root_causal_utility_decision_contract=(
+            args.document_root_causal_utility_decision_contract
         ),
         leaf_reporter_contract=args.leaf_reporter_contract,
         leaf_inline_evidence=args.leaf_inline_evidence,

@@ -30,6 +30,7 @@ leak_coordinator_return_action=${DUAL_LEAK_COORDINATOR_RETURN_ACTION:-0}
 typed_coordinator_return=${DUAL_TYPED_COORDINATOR_RETURN:-0}
 root_coordinator_contract=${DUAL_ROOT_COORDINATOR_CONTRACT:-0}
 document_root_utility_decision_contract=${DUAL_DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT:-0}
+document_root_causal_utility_decision_contract=${DUAL_DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_CONTRACT:-0}
 leaf_reporter_contract=${DUAL_LEAF_REPORTER_CONTRACT:-0}
 leaf_inline_evidence=${DUAL_LEAF_INLINE_EVIDENCE:-0}
 leaf_compute_report_scaffold=${DUAL_LEAF_COMPUTE_REPORT_SCAFFOLD:-0}
@@ -82,6 +83,14 @@ if [[ "$root_coordinator_contract" != 0 && "$root_coordinator_contract" != 1 ]];
 fi
 if [[ "$document_root_utility_decision_contract" != 0 && "$document_root_utility_decision_contract" != 1 ]]; then
   echo "DUAL_DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$document_root_causal_utility_decision_contract" != 0 && "$document_root_causal_utility_decision_contract" != 1 ]]; then
+  echo "DUAL_DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_CONTRACT must be 0 or 1" >&2
+  exit 1
+fi
+if [[ "$document_root_utility_decision_contract" == 1 && "$document_root_causal_utility_decision_contract" == 1 ]]; then
+  echo "historical and causal document utility contracts are mutually exclusive" >&2
   exit 1
 fi
 if [[ "$leaf_reporter_contract" != 0 && "$leaf_reporter_contract" != 1 ]]; then
@@ -303,6 +312,9 @@ fi
 if [[ "$document_root_utility_decision_contract" == 1 ]]; then
   proxy_args+=(--document-root-utility-decision-contract)
 fi
+if [[ "$document_root_causal_utility_decision_contract" == 1 ]]; then
+  proxy_args+=(--document-root-causal-utility-decision-contract)
+fi
 if [[ "$leaf_reporter_contract" == 1 ]]; then
   proxy_args+=(--leaf-reporter-contract)
 fi
@@ -411,6 +423,7 @@ child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
   printf 'dual_typed_coordinator_return=%s\n' "$typed_coordinator_return"
   printf 'dual_root_coordinator_contract=%s\n' "$root_coordinator_contract"
   printf 'dual_document_root_utility_decision_contract=%s\n' "$document_root_utility_decision_contract"
+  printf 'dual_document_root_causal_utility_decision_contract=%s\n' "$document_root_causal_utility_decision_contract"
   printf 'dual_leaf_reporter_contract=%s\n' "$leaf_reporter_contract"
   printf 'dual_leaf_inline_evidence=%s\n' "$leaf_inline_evidence"
   printf 'dual_leaf_compute_report_scaffold=%s\n' "$leaf_compute_report_scaffold"

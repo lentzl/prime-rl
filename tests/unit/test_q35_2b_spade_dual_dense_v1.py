@@ -101,6 +101,13 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     )
     assert 'proxy_args+=(--document-root-utility-decision-contract)' in launcher
     assert (
+        "document_root_causal_utility_decision_contract="
+        "${DUAL_DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_CONTRACT:-0}"
+        in launcher
+    )
+    assert 'proxy_args+=(--document-root-causal-utility-decision-contract)' in launcher
+    assert "historical and causal document utility contracts are mutually exclusive" in launcher
+    assert (
         "document root topology normalization and exact coordinator action are mutually exclusive"
         in launcher
     )
@@ -668,6 +675,25 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
         is with_utility_rubric
     )
     assert module.with_document_root_utility_decision_contract(injected) is injected
+
+    with_causal_rubric = module.with_document_root_causal_utility_decision_contract(
+        rooted_free_topology
+    )
+    assert with_causal_rubric["messages"][:2] == [
+        {"role": "system", "content": module.ROOT_COORDINATOR_CONTRACT},
+        {
+            "role": "system",
+            "content": module.DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_CONTRACT,
+        },
+    ]
+    causal_rubric = with_causal_rubric["messages"][1]["content"]
+    assert "Availability of\ndeeper recursion is not an obligation" in causal_rubric
+    assert "fewest total agent admissions" in causal_rubric
+    assert (
+        module.with_document_root_causal_utility_decision_contract(with_causal_rubric)
+        is with_causal_rubric
+    )
+    assert module.with_document_root_causal_utility_decision_contract(injected) is injected
 
     already_injected = module.with_root_coordinator_contract(injected)
     assert already_injected is injected

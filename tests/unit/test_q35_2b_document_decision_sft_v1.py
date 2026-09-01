@@ -1213,6 +1213,66 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert rubric_validated["rows"] == 36
     assert trainer.DATASET_BATCH_SIZES[rubric_manifest["schema_version"]] == 12
 
+    causal_source = tmp_path / "routed-utility-causal-source.jsonl"
+    causal_traces = []
+    for instance in range(6):
+        for family in (
+            "document_utility_direct",
+            "document_utility_flat",
+            "document_utility_hierarchical",
+        ):
+            for variant in range(2):
+                trace = _trace(family, variant)
+                trace["id"] = f"causal-{family}-{instance}-{variant}"
+                trace["task"]["data"]["name"] = (
+                    f"{family}-v{variant}-i{21000 + instance}"
+                )
+                prompt = (
+                    "Resource policy: "
+                    f"{module.HISTORICAL_POLICIES[family]} First select the plan."
+                )
+                trace["task"]["data"]["prompt"] = prompt
+                trace["nodes"][1]["message"]["content"] = prompt
+                causal_traces.append(trace)
+    causal_source.write_text(json.dumps({"traces": causal_traces}) + "\n")
+    causal_output = tmp_path / "routed-utility-causal"
+    causal_manifest = module.export(
+        traces=[causal_source],
+        output_dir=causal_output,
+        expanded=True,
+        utility_rubric=True,
+        causal_matched=True,
+        flat_repeat=2,
+    )
+    causal_rows = Dataset.from_parquet(str(causal_output / "train.parquet"))
+    assert causal_manifest["rows"] == 48
+    assert causal_manifest["family_counts"] == {
+        "document_utility_direct": 12,
+        "document_utility_flat": 24,
+        "document_utility_hierarchical": 12,
+    }
+    assert causal_manifest["causal_one_fact_pairs"] is True
+    assert causal_manifest["utility_policy_profile"] == "causal_matched_v2"
+    assert causal_manifest["flat_repeat"] == 2
+    assert all(
+        row["messages"][0]["content"].startswith(
+            proxy.ROOT_COORDINATOR_CAUSAL_UTILITY_DECISION_CONTRACT + "\n\n"
+        )
+        for row in causal_rows
+    )
+    assert all(
+        module.CAUSAL_POLICIES[row["family"]] in row["messages"][1]["content"]
+        for row in causal_rows
+    )
+    assert not any(
+        module.HISTORICAL_POLICIES[row["family"]]
+        in row["messages"][1]["content"]
+        for row in causal_rows
+    )
+    causal_validated = trainer._validated_dataset(causal_output)
+    assert causal_validated["rows"] == 48
+    assert trainer.DATASET_BATCH_SIZES[causal_manifest["schema_version"]] == 12
+
 
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
