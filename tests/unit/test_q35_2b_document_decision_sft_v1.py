@@ -1119,6 +1119,7 @@ def test_document_utility_routed_export_matches_live_root_contract(
     assert all(len(row["messages"]) == 3 for row in rows)
     assert manifest["vllm_developer_system_consolidation_aligned"] is True
     assert manifest["prime_agent_instruction_consolidated"] is True
+    assert manifest["live_system_prefix_count"] == 24
     for start in range(0, 24, 6):
         assert {
             rows[index]["family"] for index in range(start, start + 6)

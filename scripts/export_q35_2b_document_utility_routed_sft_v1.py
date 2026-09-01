@@ -151,8 +151,9 @@ def export(
         hashlib.sha256(row["messages"][0]["content"].encode()).hexdigest()
         for row in rows
     }
-    if len(system_prefix_hashes) != 1:
-        raise ValueError("routed utility rows do not share one live system prefix")
+    system_prefix_set_sha256 = hashlib.sha256(
+        "\n".join(sorted(system_prefix_hashes)).encode()
+    ).hexdigest()
 
     output_dir.mkdir(parents=True)
     parquet = output_dir / "train.parquet"
@@ -177,7 +178,8 @@ def export(
         ),
         "vllm_developer_system_consolidation_aligned": True,
         "prime_agent_instruction_consolidated": True,
-        "live_system_prefix_sha256": next(iter(system_prefix_hashes)),
+        "live_system_prefix_count": len(system_prefix_hashes),
+        "live_system_prefix_set_sha256": system_prefix_set_sha256,
         "expanded_prompt_bank": expanded,
         "remedial_classes": sorted(selected_families) if focus_family else [],
         "root_coordinator_contract_sha256": hashlib.sha256(

@@ -329,7 +329,10 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                 manifest.get("vllm_developer_system_consolidation_aligned")
                 is not True
                 or manifest.get("prime_agent_instruction_consolidated") is not True
-                or not isinstance(manifest.get("live_system_prefix_sha256"), str)
+                or manifest.get("live_system_prefix_count") != manifest.get("rows")
+                or not isinstance(
+                    manifest.get("live_system_prefix_set_sha256"), str
+                )
             )
         )
         or manifest.get("answer_free") is not DATASET_ANSWER_FREE.get(schema_version)
