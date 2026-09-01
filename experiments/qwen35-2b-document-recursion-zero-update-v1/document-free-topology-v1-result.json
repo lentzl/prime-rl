@@ -1,0 +1,136 @@
+{
+  "schema_version": "qwen35-2b-document-free-topology-result/v1",
+  "status": "not_admitted",
+  "acceptance_condition": {
+    "minimum_complete_qualifying_trajectories": 4,
+    "observed_complete_qualifying_trajectories": 1,
+    "relaxed": false
+  },
+  "models": {
+    "coordinator": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-topology-contrast-sft-v1/c177protected-worker-vs-manager8-step1-v1/weights/step_1",
+      "sha256": "d4c28675559e0329f4905041362d7c26230125c05dedaed178d794ccd09911ee"
+    },
+    "child": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "updated": false
+  },
+  "latest_code": {
+    "prime_rl_commit": "6038ad415",
+    "verifiers_commit": "680c45e73"
+  },
+  "evidence": [
+    {
+      "name": "free-topology-smoke-v1",
+      "prime_rl_commit": "562be3a",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-smoke-v1/latent-doc-c177topology1-h176protected-free-topology-smoke-v1",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 0,
+      "selected_topology": "flat",
+      "reward": 0.8571428571428571,
+      "diagnosis": "No dynamic completion gate; root closed before child reports."
+    },
+    {
+      "name": "free-topology-smoke-v2",
+      "prime_rl_commit": "ea986b3",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-smoke-v2/latent-doc-c177topology1-h176protected-free-topology-smoke-v2",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 1,
+      "selected_topology": "direct",
+      "reward": 2.0,
+      "metrics": {
+        "answer_accuracy": 1.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "topology_valid": 1.0
+      }
+    },
+    {
+      "name": "free-topology-gate1",
+      "prime_rl_commit": "794ab7a",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-gate1/latent-doc-c177topology1-h176protected-free-topology-gate1",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 0,
+      "selected_topology": "flat",
+      "reward": 0.8571428571428571,
+      "diagnosis": "Gate parsed normalized OpenAI tool calls, not Prime Agent's native persisted content/toolCall shape; stopped after the first failure made four qualifiers impossible."
+    },
+    {
+      "name": "free-topology-delegated-smoke-v3",
+      "prime_rl_commit": "a9ae15a",
+      "verifiers_commit": "680c45e73",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-delegated-smoke-v3/latent-doc-c177topology1-h176protected-free-topology-delegated-smoke-v3",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 0,
+      "selected_topology": "flat",
+      "reward": 1.0,
+      "metrics": {
+        "answer_accuracy": 0.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 0.0,
+        "fan_in_complete": 1.0,
+        "messages_to_parent": 3.0
+      },
+      "diagnosis": "Native gate parser waited for all three reports; flat fan-in proxy repeatedly returned waiting instead of the aggregate."
+    },
+    {
+      "name": "free-topology-delegated-smoke-v4",
+      "prime_rl_commit": "0ae29cd",
+      "verifiers_commit": "680c45e73",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-delegated-smoke-v4/latent-doc-c177topology1-h176protected-free-topology-delegated-smoke-v4",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 0,
+      "selected_topology": "flat",
+      "reward": 1.0,
+      "metrics": {
+        "answer_accuracy": 0.0,
+        "protocol_aligned": 1.0,
+        "clean_protocol_aligned": 1.0,
+        "fan_in_complete": 1.0,
+        "messages_to_parent": 3.0
+      },
+      "diagnosis": "Session-keyed accumulation was present, but report extraction still assumed user-role rendering."
+    },
+    {
+      "name": "free-topology-delegated-smoke-v5",
+      "prime_rl_commit": "8150a6a",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-delegated-smoke-v5/latent-doc-c177topology1-h176protected-free-topology-delegated-smoke-v5",
+      "complete_trajectories": 0,
+      "qualifying_trajectories": 0,
+      "selected_topology": "invalid",
+      "stopped_early": true,
+      "diagnosis": "Repeated unclassifiable root actions; stopped to avoid spending on a non-qualifying smoke."
+    },
+    {
+      "name": "free-topology-delegated-smoke-v6",
+      "prime_rl_commit": "6038ad415",
+      "verifiers_commit": "680c45e73",
+      "result_path": "/home/ubuntu/rlm/results/q35-2b-document-topology-free-delegated-smoke-v6/latent-doc-c177topology1-h176protected-free-topology-delegated-smoke-v6",
+      "complete_trajectories": 1,
+      "qualifying_trajectories": 0,
+      "selected_topology": "invalid",
+      "reward": 0.5,
+      "metrics": {
+        "answer_accuracy": 0.0,
+        "protocol_aligned": 0.0,
+        "topology_valid": 0.0,
+        "coordination_spawn_calls": 4.0
+      },
+      "diagnosis": "Model spawned four unnamed children rather than any disclosed legal graph; report-parser fix was therefore not exercised."
+    }
+  ],
+  "validated_code": {
+    "tests": {
+      "proxy_and_scaffold": "95 passed",
+      "free_document_completion_gate": "2 passed"
+    },
+    "native_tool_call_shape_supported": true,
+    "cross_resumption_report_accumulation_supported": true,
+    "render_role_independent_report_extraction_supported": true,
+    "live_delegated_end_to_end_validation_after_latest_fix": false
+  },
+  "conclusion": "The model has one qualifying direct free-choice trajectory and two cleanly observed flat selections with complete three-child fan-in, but no qualifying delegated free-choice trajectory. The unchanged four-trajectory admission floor is not met.",
+  "safest_next_action": "Run one answer-free forced-flat infrastructure probe to validate the latest renderer-independent report parser, then start a fresh four-task free-choice admission gate only if that probe qualifies. Do not train from the current free-topology evidence."
+}
