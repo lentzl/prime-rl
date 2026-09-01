@@ -661,7 +661,7 @@ def test_proxy_injects_root_coordinator_contract_only_at_depth_zero() -> None:
     rubric = with_utility_rubric["messages"][1]["content"]
     assert "Select `direct` when the root may inspect" in rubric
     assert "Select `flat` when the root may not inspect" in rubric
-    assert "Select `hierarchical` when the root may not inspect" in rubric
+    assert "Select\n`hierarchical` when the root may not inspect" in rubric
     assert (
         module.with_document_root_utility_decision_contract(with_utility_rubric)
         is with_utility_rubric
