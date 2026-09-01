@@ -1037,6 +1037,47 @@ def test_document_utility_remedial_export_upweights_missing_classes(
     assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 8
 
 
+def test_document_hierarchy_remedial_export_focuses_missing_class(
+    tmp_path: Path,
+) -> None:
+    module = _module("export_q35_2b_document_utility_remedial_sft_v1")
+    sources = []
+    for instance in range(4):
+        source = tmp_path / f"hierarchy-remedial-{instance}.jsonl"
+        traces = []
+        for variant in range(2):
+            trace = _trace("document_utility_hierarchical", variant)
+            trace["id"] = f"hierarchical-{instance}-{variant}"
+            trace["task"]["data"]["name"] = (
+                f"document_utility_hierarchical-v{variant}-i{20000 + instance}"
+            )
+            traces.append(trace)
+        source.write_text(json.dumps({"traces": traces}) + "\n")
+        sources.append(source)
+    output = tmp_path / "hierarchy-remedial"
+
+    manifest = module.export(
+        traces=sources,
+        output_dir=output,
+        focus_family="document_utility_hierarchical",
+    )
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 8
+    assert manifest["family_counts"] == {"document_utility_hierarchical": 8}
+    assert manifest["remedial_classes"] == ["document_utility_hierarchical"]
+    assert {
+        json.loads(row["messages"][-1]["tool_calls"][0]["function"]["arguments"])[
+            "code"
+        ]
+        for row in rows
+    } == {'document_topology = "hierarchical"'}
+    trainer = _module("run_q35_2b_document_decision_sft_v1")
+    validated = trainer._validated_dataset(output)
+    assert validated["rows"] == 8
+    assert trainer.DATASET_BATCH_SIZES[manifest["schema_version"]] == 8
+
+
 def test_document_cleanup_export_projects_only_admitted_role_lineage(
     tmp_path: Path,
 ) -> None:
