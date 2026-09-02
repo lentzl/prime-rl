@@ -18,6 +18,8 @@ PRIVATE_EVIDENCE_HEADER = "[private evidence supplied to this reviewer]"
 RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
 DOCUMENT_COORDINATOR_HEADER = "[recursive document coordinator session contract]"
 FREE_DOCUMENT_TOPOLOGY_HEADER = "[free document topology contract]"
+ADAPTIVE_DOCUMENT_COGNITION_HEADER = "[adaptive document cognition contract]"
+LOCAL_COGNITION_FACTS_HEADER = "[local cognition facts]"
 ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
 DOCUMENT_ROOT_UTILITY_DECISION_HEADER = "[document root utility decision rubric]"
 DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_HEADER = (
@@ -130,6 +132,7 @@ MODEL_TOOL_CONTAMINATION_PATTERN = re.compile(
 )
 TYPED_PARENT_RETURN_TOOL = "return_to_parent"
 TYPED_DOCUMENT_TOPOLOGY_TOOL = "select_document_topology"
+TYPED_COGNITIVE_ACTION_TOOL = "select_cognitive_action"
 REQUIRED_REVIEW_MARKER = "Required review: "
 EVIDENCE_LABEL_MARKER = "Evidence label: "
 PATHLESS_INLINE_EVIDENCE_LABEL = "INLINE_EVIDENCE"
@@ -1220,7 +1223,13 @@ document_result"""
 def disclosed_document_free_actions(prompt: str) -> dict[str, str] | None:
     """Build every answer-free legal action for a free-topology document task."""
 
-    if FREE_DOCUMENT_TOPOLOGY_HEADER not in prompt:
+    if not any(
+        marker in prompt
+        for marker in (
+            FREE_DOCUMENT_TOPOLOGY_HEADER,
+            ADAPTIVE_DOCUMENT_COGNITION_HEADER,
+        )
+    ):
         return None
     actions = {
         "direct": disclosed_document_direct_action(prompt),
@@ -1564,6 +1573,56 @@ def document_root_policy_facts_from_messages(messages: Any) -> dict[str, Any] | 
     if any(candidate != facts[0] for candidate in facts[1:]):
         raise ValueError("document topology prompt contains conflicting resource facts")
     return facts[0]
+
+
+def local_cognition_facts_from_messages(messages: Any) -> dict[str, bool] | None:
+    """Extract one level-invariant public cognition-state card."""
+
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    joined = "\n".join(fragments)
+    cards = re.findall(
+        re.escape(LOCAL_COGNITION_FACTS_HEADER)
+        + r"\s*\n"
+        + r"owns_required_evidence=(true|false)\s*\n"
+        + r"remaining_work_requires_decomposition=(true|false)\s*\n"
+        + r"terminal_shards_ready=(true|false)",
+        joined,
+    )
+    if not cards:
+        return None
+    owns, decomposes, terminal = cards[0]
+    facts = {
+        "owns_required_evidence": owns == "true",
+        "remaining_work_requires_decomposition": decomposes == "true",
+        "terminal_shards_ready": terminal == "true",
+    }
+    if sum(facts.values()) != 1:
+        raise ValueError("local cognition facts must authorize exactly one next action")
+    return facts
+
+
+def cognitive_action_from_facts(facts: dict[str, bool]) -> str:
+    """Apply the level-invariant next-action rule to public local facts."""
+
+    if facts["owns_required_evidence"]:
+        return "solve_owned"
+    if facts["remaining_work_requires_decomposition"]:
+        return "delegate_coordinator"
+    if facts["terminal_shards_ready"]:
+        return "delegate_terminal"
+    raise ValueError("local cognition facts do not select an action")
 
 
 def document_root_topology(code: str) -> str | None:
@@ -2299,6 +2358,71 @@ def force_typed_document_topology_schema(payload: dict[str, Any]) -> dict[str, A
     return rewritten
 
 
+def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, Any]:
+    """Require a generic next-action decision without exposing a topology label."""
+
+    tools = payload.get("tools")
+    if not isinstance(tools, list) or not any(
+        isinstance(tool, dict)
+        and isinstance(tool.get("function"), dict)
+        and tool["function"].get("name") == "ipython"
+        for tool in tools
+    ):
+        raise ValueError("typed cognitive action requires the IPython tool")
+    rewritten = {
+        **payload,
+        "stream": False,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": TYPED_COGNITIVE_ACTION_TOOL,
+                    "description": (
+                        "Read the current session's public local cognition facts and choose "
+                        "one next action. Solve owned evidence locally; delegate another "
+                        "coordinator when the remaining scoped work still requires "
+                        "decomposition; otherwise delegate terminal specialists when shards "
+                        "are ready. The harness supplies legal mechanics but never changes "
+                        "the selected action."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "owns_required_evidence": {"type": "boolean"},
+                            "remaining_work_requires_decomposition": {
+                                "type": "boolean"
+                            },
+                            "terminal_shards_ready": {"type": "boolean"},
+                            "action": {
+                                "type": "string",
+                                "enum": [
+                                    "solve_owned",
+                                    "delegate_terminal",
+                                    "delegate_coordinator",
+                                ],
+                            },
+                        },
+                        "required": [
+                            "owns_required_evidence",
+                            "remaining_work_requires_decomposition",
+                            "terminal_shards_ready",
+                            "action",
+                        ],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        ],
+        "tool_choice": {
+            "type": "function",
+            "function": {"name": TYPED_COGNITIVE_ACTION_TOOL},
+        },
+        "parallel_tool_calls": False,
+    }
+    rewritten.pop("stream_options", None)
+    return rewritten
+
+
 def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any]:
     """Constrain the first recursive turn to one model-authored IPython computation."""
 
@@ -2543,6 +2667,84 @@ def rewrite_typed_parent_return_response(body: bytes) -> tuple[bytes, int, str |
     )
 
 
+def rewrite_typed_cognitive_action_response(
+    body: bytes,
+    *,
+    canonical_actions: dict[str, str],
+    expected_facts: dict[str, bool],
+) -> tuple[bytes, int, str | None, str | None]:
+    """Translate a valid model-authored generic action into legal IPython mechanics."""
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body, 0, None, None
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        return body, 0, None, None
+    expected_action = cognitive_action_from_facts(expected_facts)
+    rewrites = 0
+    action_sha256 = None
+    selected_action = None
+    for choice in payload["choices"]:
+        message = choice.get("message") if isinstance(choice, dict) else None
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+        if not isinstance(tool_calls, list) or len(tool_calls) != 1:
+            continue
+        tool_call = tool_calls[0]
+        function = tool_call.get("function") if isinstance(tool_call, dict) else None
+        if not isinstance(function, dict) or function.get("name") != TYPED_COGNITIVE_ACTION_TOOL:
+            continue
+        arguments = function.get("arguments")
+        try:
+            parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(parsed, dict) or set(parsed) != {
+            "owns_required_evidence",
+            "remaining_work_requires_decomposition",
+            "terminal_shards_ready",
+            "action",
+        }:
+            continue
+        submitted_facts = {
+            key: parsed[key]
+            for key in (
+                "owns_required_evidence",
+                "remaining_work_requires_decomposition",
+                "terminal_shards_ready",
+            )
+        }
+        if (
+            any(type(value) is not bool for value in submitted_facts.values())
+            or submitted_facts != expected_facts
+            or parsed["action"] != expected_action
+        ):
+            selected_action = (
+                parsed.get("action") if isinstance(parsed.get("action"), str) else None
+            )
+            continue
+        code = canonical_actions.get(expected_action)
+        if code is None:
+            raise ValueError(
+                f"selected cognitive action is unavailable in this scope: {expected_action}"
+            )
+        function["name"] = "ipython"
+        function["arguments"] = json.dumps(
+            {"code": code}, separators=(",", ":"), ensure_ascii=False
+        )
+        selected_action = expected_action
+        action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        rewrites += 1
+    if not rewrites:
+        return body, 0, None, selected_action
+    return (
+        json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(),
+        rewrites,
+        action_sha256,
+        selected_action,
+    )
+
+
 def chat_completion_to_sse(body: bytes) -> bytes:
     """Bridge one non-streaming chat completion back to an OpenAI SSE stream."""
 
@@ -2703,6 +2905,7 @@ class DualPolicyProxy:
         document_root_report_relay_scaffold: bool = False,
         document_root_topology_normalization_scaffold: bool = False,
         document_root_typed_topology_decision: bool = False,
+        adaptive_document_decision: bool = False,
         document_root_flat_fanin_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
@@ -2759,11 +2962,12 @@ class DualPolicyProxy:
         self.document_root_typed_topology_decision = (
             document_root_typed_topology_decision
         )
+        self.adaptive_document_decision = adaptive_document_decision
         if (
-            self.document_root_typed_topology_decision
+            (self.document_root_typed_topology_decision or self.adaptive_document_decision)
             and not self.document_root_topology_normalization_scaffold
         ):
-            raise ValueError("typed document topology requires topology normalization")
+            raise ValueError("typed document decisions require topology normalization")
         self.document_root_flat_fanin_scaffold = document_root_flat_fanin_scaffold
         self.typed_child_report = typed_child_report
         self.child_authored_compute = child_authored_compute
@@ -3515,6 +3719,11 @@ class DualPolicyProxy:
         root_topology_action_sha256 = None
         root_topology_selected = None
         root_topology_expected = None
+        adaptive_cognitive_scope = False
+        adaptive_cognitive_root_scope = False
+        adaptive_canonical_actions = None
+        adaptive_expected_facts = None
+        adaptive_selected_action = None
         pristine_root_topology_turn = not any(
             isinstance(message, dict)
             and message.get("role") in {"assistant", "tool"}
@@ -3523,8 +3732,12 @@ class DualPolicyProxy:
         pending_free_topology_turn = (
             session_sha256 is not None
             and session_sha256 not in self.root_document_topologies
-            and _contains_marker(
-                payload.get("messages"), FREE_DOCUMENT_TOPOLOGY_HEADER
+            and any(
+                _contains_marker(payload.get("messages"), marker)
+                for marker in (
+                    FREE_DOCUMENT_TOPOLOGY_HEADER,
+                    ADAPTIVE_DOCUMENT_COGNITION_HEADER,
+                )
             )
         )
         if (
@@ -3543,11 +3756,33 @@ class DualPolicyProxy:
                 disclosed_document_free_actions_from_messages(payload.get("messages"))
             )
             if root_topology_canonical_codes is not None:
-                root_topology_scope = True
-                root_topology_free_scope = True
                 routed = {**routed, "stream": False}
                 routed.pop("stream_options", None)
-                if self.document_root_typed_topology_decision:
+                if (
+                    self.adaptive_document_decision
+                    and _contains_marker(
+                        payload.get("messages"), ADAPTIVE_DOCUMENT_COGNITION_HEADER
+                    )
+                ):
+                    adaptive_expected_facts = local_cognition_facts_from_messages(
+                        payload.get("messages")
+                    )
+                    if adaptive_expected_facts is None:
+                        raise ValueError("adaptive root decision lacks local cognition facts")
+                    adaptive_canonical_actions = {
+                        "solve_owned": root_topology_canonical_codes["direct"],
+                        "delegate_terminal": root_topology_canonical_codes["flat"],
+                        "delegate_coordinator": root_topology_canonical_codes[
+                            "hierarchical"
+                        ],
+                    }
+                    adaptive_cognitive_scope = True
+                    adaptive_cognitive_root_scope = True
+                    routed = force_typed_cognitive_action_schema(routed)
+                else:
+                    root_topology_scope = True
+                    root_topology_free_scope = True
+                if self.document_root_typed_topology_decision and not adaptive_cognitive_scope:
                     root_topology_expected_policy_facts = (
                         document_root_policy_facts_from_messages(payload.get("messages"))
                     )
@@ -3564,6 +3799,28 @@ class DualPolicyProxy:
                 root_topology_scope = True
                 routed = {**routed, "stream": False}
                 routed.pop("stream_options", None)
+        pristine_document_manager_turn = document_manager_chat and not any(
+            isinstance(message, dict)
+            and message.get("role") in {"assistant", "tool"}
+            for message in payload.get("messages") or []
+        )
+        if (
+            self.adaptive_document_decision
+            and pristine_document_manager_turn
+            and not adaptive_cognitive_scope
+        ):
+            adaptive_expected_facts = local_cognition_facts_from_messages(
+                payload.get("messages")
+            )
+            manager_code = disclosed_document_leaf_action_from_messages(
+                payload.get("messages")
+            )
+            if adaptive_expected_facts is None or manager_code is None:
+                raise ValueError("adaptive manager decision lacks facts or legal action")
+            expected_action = cognitive_action_from_facts(adaptive_expected_facts)
+            adaptive_canonical_actions = {expected_action: manager_code}
+            adaptive_cognitive_scope = True
+            routed = force_typed_cognitive_action_schema(routed)
         if (
             self.document_manager_fanin_scaffold
             and document_coordinator_level == "top"
@@ -4024,6 +4281,37 @@ class DualPolicyProxy:
                             if key.lower() != "content-type"
                         }
                         response_headers["Content-Type"] = "text/event-stream"
+                elif adaptive_cognitive_scope and upstream.status == 200:
+                    assert adaptive_canonical_actions is not None
+                    assert adaptive_expected_facts is not None
+                    (
+                        normalized,
+                        _,
+                        root_topology_action_sha256,
+                        adaptive_selected_action,
+                    ) = rewrite_typed_cognitive_action_response(
+                        normalized,
+                        canonical_actions=adaptive_canonical_actions,
+                        expected_facts=adaptive_expected_facts,
+                    )
+                    if (
+                        root_topology_action_sha256 is not None
+                        and adaptive_cognitive_root_scope
+                        and session_sha256 is not None
+                    ):
+                        self.root_document_topologies[session_sha256] = {
+                            "solve_owned": "direct",
+                            "delegate_terminal": "flat",
+                            "delegate_coordinator": "hierarchical",
+                        }[adaptive_selected_action]
+                    if client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 elif root_topology_scope and upstream.status == 200:
                     if root_topology_free_scope:
                         assert root_topology_canonical_codes is not None
@@ -4087,6 +4375,14 @@ class DualPolicyProxy:
                         )
                     )
                     if root_topology_scope
+                    else (
+                        "forwarded_adaptive_cognitive_action_"
+                        f"{adaptive_selected_action}"
+                        if adaptive_cognitive_scope
+                        and root_topology_action_sha256 is not None
+                        else "forwarded_adaptive_cognitive_action_untranslated"
+                    )
+                    if adaptive_cognitive_scope
                     else "forwarded_root_json_finalization"
                     if root_finalization_scope
                     else (
@@ -4206,6 +4502,7 @@ def main() -> None:
         "--document-root-topology-normalization-scaffold", action="store_true"
     )
     parser.add_argument("--document-root-typed-topology-decision", action="store_true")
+    parser.add_argument("--adaptive-document-decision", action="store_true")
     parser.add_argument("--document-root-flat-fanin-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
@@ -4272,6 +4569,7 @@ def main() -> None:
         document_root_typed_topology_decision=(
             args.document_root_typed_topology_decision
         ),
+        adaptive_document_decision=args.adaptive_document_decision,
         document_root_flat_fanin_scaffold=args.document_root_flat_fanin_scaffold,
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,

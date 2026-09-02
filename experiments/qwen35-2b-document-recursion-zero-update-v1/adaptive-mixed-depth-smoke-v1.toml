@@ -1,0 +1,69 @@
+model = "q35-2b-adaptive-mixed-depth"
+num_tasks = 4
+num_rollouts = 1
+shuffle = false
+max_concurrent = 1
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 7
+
+[env.taskset]
+id = "subagent-communication-v1"
+split = "eval"
+families = [
+  "document_adaptive_d0",
+  "document_adaptive_d1",
+  "document_adaptive_d2",
+  "document_adaptive_d3",
+]
+instruction_level = "standard"
+instances_per_template = 1
+instance_offset = 33100
+seed = 20261112
+
+[env.agent]
+max_turns = 44
+max_output_tokens = 24576
+max_total_tokens = 163840
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_max_continuations = 16
+autonomous_max_turns = 44
+autonomous_max_tokens = 163840
+autonomous_timeout_ms = 1200000
+process_timeout_ms = 1140000
+
+[env.agent.harness.env]
+RLM_MAX_DEPTH = "3"
+
+[env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-default-parent-v1"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8100/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+seed = 20261112
+temperature = 0.4
+top_p = 0.95
+top_k = 20
+min_p = 0.0
+reasoning_effort = "high"
+max_tokens = 4096

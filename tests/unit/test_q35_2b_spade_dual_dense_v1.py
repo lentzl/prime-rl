@@ -101,6 +101,9 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     )
     assert 'proxy_args+=(--document-root-typed-topology-decision)' in launcher
     assert "typed document topology requires document root topology normalization" in launcher
+    assert "adaptive_document_decision=${DUAL_ADAPTIVE_DOCUMENT_DECISION:-0}" in launcher
+    assert 'proxy_args+=(--adaptive-document-decision)' in launcher
+    assert "adaptive document decision requires document root topology normalization" in launcher
     assert (
         "document_root_utility_decision_contract="
         "${DUAL_DOCUMENT_ROOT_UTILITY_DECISION_CONTRACT:-0}"
@@ -1851,6 +1854,124 @@ def test_proxy_exposes_typed_document_topology_facts_without_selecting() -> None
         "hierarchical",
     ]
     assert "The root is not permitted" not in json.dumps(rewritten["tools"])
+
+
+def test_proxy_exposes_level_invariant_cognitive_action_schema() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "messages": [{"role": "user", "content": "choose local cognition"}],
+        "stream": True,
+        "stream_options": {"include_usage": True},
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "ipython",
+                    "parameters": {"type": "object"},
+                },
+            }
+        ],
+    }
+
+    rewritten = module.force_typed_cognitive_action_schema(payload)
+    function = rewritten["tools"][0]["function"]
+
+    assert rewritten["stream"] is False
+    assert "stream_options" not in rewritten
+    assert function["name"] == module.TYPED_COGNITIVE_ACTION_TOOL
+    assert function["parameters"]["properties"]["action"]["enum"] == [
+        "solve_owned",
+        "delegate_terminal",
+        "delegate_coordinator",
+    ]
+    serialized = json.dumps(rewritten)
+    assert "document_topology" not in serialized
+    assert '"direct"' not in serialized
+    assert '"flat"' not in serialized
+    assert '"hierarchical"' not in serialized
+
+
+def test_adaptive_cognitive_action_uses_current_card_and_rewrites_only_match() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    current = """[local cognition facts]
+owns_required_evidence=false
+remaining_work_requires_decomposition=true
+terminal_shards_ready=false"""
+    nested = """[local cognition facts]
+owns_required_evidence=false
+remaining_work_requires_decomposition=false
+terminal_shards_ready=true"""
+    facts = module.local_cognition_facts_from_messages(
+        [{"role": "user", "content": f"{current}\nmanager contract:\n{nested}"}]
+    )
+    assert facts == {
+        "owns_required_evidence": False,
+        "remaining_work_requires_decomposition": True,
+        "terminal_shards_ready": False,
+    }
+    assert module.cognitive_action_from_facts(facts) == "delegate_coordinator"
+
+    canonical = "document_manager = await rlm('contract', name='document-manager')"
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "function": {
+                                    "name": module.TYPED_COGNITIVE_ACTION_TOOL,
+                                    "arguments": json.dumps(
+                                        {**facts, "action": "delegate_coordinator"}
+                                    ),
+                                }
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rewritten, count, action_sha, selected = (
+        module.rewrite_typed_cognitive_action_response(
+            body,
+            canonical_actions={"delegate_coordinator": canonical},
+            expected_facts=facts,
+        )
+    )
+    function = json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+        "function"
+    ]
+    assert function["name"] == "ipython"
+    assert json.loads(function["arguments"])["code"] == canonical
+    assert count == 1
+    assert action_sha == hashlib.sha256(canonical.encode()).hexdigest()
+    assert selected == "delegate_coordinator"
+
+    mismatch_payload = json.loads(body)
+    arguments = json.loads(
+        mismatch_payload["choices"][0]["message"]["tool_calls"][0]["function"][
+            "arguments"
+        ]
+    )
+    arguments["action"] = "delegate_terminal"
+    mismatch_payload["choices"][0]["message"]["tool_calls"][0]["function"][
+        "arguments"
+    ] = json.dumps(arguments)
+    rejected, count, action_sha, selected = (
+        module.rewrite_typed_cognitive_action_response(
+            json.dumps(mismatch_payload).encode(),
+            canonical_actions={"delegate_coordinator": canonical},
+            expected_facts=facts,
+        )
+    )
+    assert json.loads(rejected)["choices"][0]["message"]["content"].startswith(
+        "Choose the one next action"
+    )
+    assert count == 1
+    assert action_sha is None
+    assert selected == "delegate_terminal"
 
 
 def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:

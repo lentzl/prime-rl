@@ -1,0 +1,34 @@
+{
+  "experiment": "adaptive-mixed-depth-v1",
+  "objective": "Train one coordinator policy to choose adaptive local cognition across unfamiliar document tasks without model-visible topology labels.",
+  "protected_inputs": {
+    "coordinator_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "prospective_workload": {
+    "hidden_required_depths": [0, 1, 2, 3],
+    "public_facts": [
+      "owns_required_evidence",
+      "remaining_work_requires_decomposition",
+      "terminal_shards_ready"
+    ],
+    "model_actions": [
+      "solve_owned",
+      "delegate_terminal",
+      "delegate_coordinator"
+    ],
+    "smoke_tasks": 4,
+    "baseline_tasks": 16,
+    "heldout_template_variants": [4, 5],
+    "instance_offset": 33100,
+    "seed": 20261112
+  },
+  "training_boundary": "Coordinator-only full-dense update; child checkpoint remains frozen.",
+  "promotion_rule": {
+    "minimum_complete_qualifying_trajectories": 4,
+    "require_action_depth_alignment": true,
+    "require_exact_answer": true,
+    "require_clean_protocol": true,
+    "retention": "Do not promote if established document recursion anchors regress materially."
+  }
+}
