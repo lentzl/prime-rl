@@ -58,6 +58,13 @@ def _trace(index: int, family: str, expert: str | None, success: bool) -> dict:
     }
 
 
+def test_selected_expert_accepts_literal_newlines_from_rlm_assignment() -> None:
+    module = _module()
+    assert module.SELECTED_EXPERT.findall(
+        'await rlm("[selected terminal capability]\\nexpert_id=table_analyst\\nobjective=x")'
+    ) == ["table_analyst"]
+
+
 def _write_traces(path: Path, traces: list[dict]) -> None:
     path.write_text(json.dumps({"traces": traces}) + "\n", encoding="utf-8")
 

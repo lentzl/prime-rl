@@ -10,7 +10,9 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-SELECTED_EXPERT = re.compile(r"\[selected terminal capability\]\s*expert_id=([a-z_]+)")
+SELECTED_EXPERT = re.compile(
+    r"\[selected terminal capability\](?:\s|\\n)*expert_id=([a-z_]+)"
+)
 SPECIALISTS = ("table_analyst", "source_inspector")
 
 
