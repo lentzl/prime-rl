@@ -1,0 +1,184 @@
+import importlib.util
+import json
+import sys
+from pathlib import Path
+
+
+def _module():
+    path = Path(__file__).parents[2] / "scripts/summarize_q35_2b_specialist_population_v1.py"
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _trace(index: int, family: str, expert: str | None, success: bool) -> dict:
+    root = f"/workspace/specialist-worker/v4-i{35100 + index}"
+    metrics = {
+        "answer_accuracy": int(success),
+        "protocol_aligned": int(success),
+        "clean_protocol_aligned": int(success),
+        "coordination_spawn_calls": int(expert is not None),
+        "failed_cells": int(not success),
+    }
+    nodes = []
+    if expert is not None:
+        code = (
+            f"assignment = '''[selected terminal capability]\nexpert_id={expert}\n'''\n"
+            f"text = Path('{root}/data.json').read_text()\n"
+            "await agent_message.send(json.dumps({'value': len(text)}), receiver_role='parent')"
+        )
+        nodes.append(
+            {
+                "sampled": True,
+                "message": {
+                    "role": "assistant",
+                    "tool_calls": [{"name": "ipython", "arguments": json.dumps({"code": code})}],
+                },
+            }
+        )
+    return {
+        "id": f"trace-{index}",
+        "task": {
+            "data": {
+                "name": f"{family}-v4-i{35100 + index}",
+                "family": family,
+                "template_variant": 4,
+                "answer": {"result": index},
+                "files": {f"{root}/data.json": "[]"} if expert else {},
+                "child_paths": {"task-worker": root} if expert else {},
+                "preferred_expert": expert,
+            }
+        },
+        "metrics": metrics,
+        "nodes": nodes,
+        "stop_condition": "agent_completed",
+    }
+
+
+def _write_traces(path: Path, traces: list[dict]) -> None:
+    path.write_text(json.dumps({"traces": traces}) + "\n", encoding="utf-8")
+
+
+def _write_audit(path: Path, traces: list[dict], models: dict[str, str]) -> None:
+    sequence = 0
+    with path.open("w", encoding="utf-8") as stream:
+        for trace in traces:
+            expert = trace["task"]["data"].get("preferred_expert")
+            if expert is None:
+                continue
+            stream.write(
+                json.dumps(
+                    {
+                        "sequence": sequence,
+                        "mode": f"forwarded_specialist_cognitive_action_delegate_terminal_{expert}",
+                        "expert_id": expert,
+                        "upstream_model": models[expert],
+                        "latency_ms": 10.0,
+                        "session_sha256": f"session-{sequence}",
+                    }
+                )
+                + "\n"
+            )
+            sequence += 1
+
+
+def test_paired_specialist_gate_requires_real_multi_niche_recoveries(tmp_path: Path) -> None:
+    module = _module()
+    families = [
+        ("specialist_local", None),
+        ("specialist_local", None),
+        ("specialist_generic", "generic_worker"),
+        ("specialist_generic", "generic_worker"),
+        ("specialist_table_join", "table_analyst"),
+        ("specialist_table_reconcile", "table_analyst"),
+        ("specialist_source_ast", "source_inspector"),
+        ("specialist_source_config", "source_inspector"),
+    ]
+    control = [
+        _trace(index, family, "generic_worker" if expert else None, expert is None)
+        for index, (family, expert) in enumerate(families)
+    ]
+    treatment = [_trace(index, family, expert, True) for index, (family, expert) in enumerate(families)]
+    control_traces = tmp_path / "control.jsonl"
+    treatment_traces = tmp_path / "treatment.jsonl"
+    control_audit = tmp_path / "control-audit.jsonl"
+    treatment_audit = tmp_path / "treatment-audit.jsonl"
+    _write_traces(control_traces, control)
+    _write_traces(treatment_traces, treatment)
+    _write_audit(control_audit, control, {"generic_worker": "H176"})
+    _write_audit(
+        treatment_audit,
+        treatment,
+        {
+            "generic_worker": "H176",
+            "table_analyst": "TABLE",
+            "source_inspector": "SOURCE",
+        },
+    )
+
+    result = module.summarize(
+        control_traces=control_traces,
+        control_audit=control_audit,
+        treatment_traces=treatment_traces,
+        treatment_audit=treatment_audit,
+        control_models={"generic_worker": "H176"},
+        treatment_models={
+            "generic_worker": "H176",
+            "table_analyst": "TABLE",
+            "source_inspector": "SOURCE",
+        },
+        expected_tasks=8,
+        recovery_floor=4,
+    )
+
+    assert result["paired_recovery_count"] == 6
+    assert result["recoveries_attributed_to_specialists"] == {
+        "source_inspector": 2,
+        "table_analyst": 2,
+    }
+    assert result["maximum_worker_activation_fraction"] == 1 / 3
+    assert result["paired_population_gate_passed"] is True
+    assert result["acceptance_gates_relaxed"] is False
+
+
+def test_route_model_mismatch_fails_provenance_gate(tmp_path: Path) -> None:
+    module = _module()
+    control = [_trace(0, "specialist_local", None, True)]
+    treatment = [_trace(0, "specialist_local", None, True)]
+    control_traces = tmp_path / "control.jsonl"
+    treatment_traces = tmp_path / "treatment.jsonl"
+    control_audit = tmp_path / "control-audit.jsonl"
+    treatment_audit = tmp_path / "treatment-audit.jsonl"
+    _write_traces(control_traces, control)
+    _write_traces(treatment_traces, treatment)
+    control_audit.write_text("", encoding="utf-8")
+    treatment_audit.write_text(
+        json.dumps(
+            {
+                "mode": "forwarded_specialist_cognitive_action_delegate_terminal_table_analyst",
+                "expert_id": "table_analyst",
+                "upstream_model": "WRONG",
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    result = module.summarize(
+        control_traces=control_traces,
+        control_audit=control_audit,
+        treatment_traces=treatment_traces,
+        treatment_audit=treatment_audit,
+        control_models={},
+        treatment_models={"table_analyst": "TABLE"},
+        expected_tasks=1,
+        recovery_floor=1,
+    )
+
+    assert result["treatment"]["exact_route_sequence"] is False
+    assert result["treatment"]["route_models_exact"] is False
+    assert result["acceptance"]["exact_route_provenance"] is False
+    assert result["paired_population_gate_passed"] is False
