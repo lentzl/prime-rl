@@ -2736,6 +2736,30 @@ def rewrite_typed_cognitive_action_response(
         action_sha256 = hashlib.sha256(code.encode()).hexdigest()
         rewrites += 1
     if not rewrites:
+        rejected = 0
+        for choice in payload["choices"]:
+            if not isinstance(choice, dict) or not isinstance(
+                choice.get("message"), dict
+            ):
+                continue
+            choice["message"] = {
+                "role": "assistant",
+                "content": (
+                    "Choose the one next action justified by the current local "
+                    "cognition facts."
+                ),
+            }
+            choice["finish_reason"] = "stop"
+            rejected += 1
+        if rejected:
+            return (
+                json.dumps(
+                    payload, separators=(",", ":"), ensure_ascii=False
+                ).encode(),
+                rejected,
+                None,
+                selected_action,
+            )
         return body, 0, None, selected_action
     return (
         json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(),
