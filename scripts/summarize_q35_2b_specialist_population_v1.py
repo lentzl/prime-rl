@@ -123,17 +123,40 @@ def _trace_row(trace: dict[str, Any]) -> dict[str, Any]:
 
 
 def _audit_terminal_routes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [
-        {
-            "sequence": row.get("sequence"),
-            "expert_id": row.get("expert_id"),
-            "upstream_model": row.get("upstream_model"),
-            "latency_ms": row.get("latency_ms"),
-            "session_sha256": row.get("session_sha256"),
-        }
-        for row in rows
-        if "specialist_cognitive_action_delegate_terminal_" in str(row.get("mode"))
-    ]
+    """Join coordinator route decisions to the worker calls they activated.
+
+    The typed decision row is served by the coordinator checkpoint.  Subsequent
+    ``forwarded`` rows with the same session and expert id are the calls served by
+    the selected worker checkpoint.  Keeping the two identities separate avoids
+    accidentally treating coordinator provenance as worker provenance.
+    """
+    worker_models: dict[tuple[Any, Any], list[Any]] = {}
+    for row in rows:
+        expert_id = row.get("expert_id")
+        if row.get("mode") != "forwarded" or not isinstance(expert_id, str):
+            continue
+        key = (row.get("session_sha256"), expert_id)
+        worker_models.setdefault(key, []).append(row.get("upstream_model"))
+
+    routes = []
+    for row in rows:
+        if "specialist_cognitive_action_delegate_terminal_" not in str(row.get("mode")):
+            continue
+        expert_id = row.get("expert_id")
+        session_sha256 = row.get("session_sha256")
+        models = worker_models.get((session_sha256, expert_id), [])
+        routes.append(
+            {
+                "sequence": row.get("sequence"),
+                "expert_id": expert_id,
+                "coordinator_model": row.get("upstream_model"),
+                "worker_models": sorted(set(models), key=str),
+                "worker_model_call_count": len(models),
+                "latency_ms": row.get("latency_ms"),
+                "session_sha256": session_sha256,
+            }
+        )
+    return routes
 
 
 def _arm(
@@ -155,7 +178,8 @@ def _arm(
     route_models_exact = all(
         isinstance(route["expert_id"], str)
         and route["expert_id"] in expected_models
-        and route["upstream_model"] == expected_models[route["expert_id"]]
+        and route["worker_model_call_count"] > 0
+        and route["worker_models"] == [expected_models[route["expert_id"]]]
         for route in routes
     )
     activations = Counter(trace_experts)

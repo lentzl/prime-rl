@@ -62,7 +62,13 @@ def _write_traces(path: Path, traces: list[dict]) -> None:
     path.write_text(json.dumps({"traces": traces}) + "\n", encoding="utf-8")
 
 
-def _write_audit(path: Path, traces: list[dict], models: dict[str, str]) -> None:
+def _write_audit(
+    path: Path,
+    traces: list[dict],
+    models: dict[str, str],
+    *,
+    worker_model_override: str | None = None,
+) -> None:
     sequence = 0
     with path.open("w", encoding="utf-8") as stream:
         for trace in traces:
@@ -75,14 +81,27 @@ def _write_audit(path: Path, traces: list[dict], models: dict[str, str]) -> None
                         "sequence": sequence,
                         "mode": f"forwarded_specialist_cognitive_action_delegate_terminal_{expert}",
                         "expert_id": expert,
-                        "upstream_model": models[expert],
+                        "upstream_model": "COORDINATOR",
                         "latency_ms": 10.0,
                         "session_sha256": f"session-{sequence}",
                     }
                 )
                 + "\n"
             )
-            sequence += 1
+            stream.write(
+                json.dumps(
+                    {
+                        "sequence": sequence + 1,
+                        "mode": "forwarded",
+                        "expert_id": expert,
+                        "upstream_model": worker_model_override or models[expert],
+                        "latency_ms": 10.0,
+                        "session_sha256": f"session-{sequence}",
+                    }
+                )
+                + "\n"
+            )
+            sequence += 2
 
 
 def test_paired_specialist_gate_requires_real_multi_niche_recoveries(tmp_path: Path) -> None:
@@ -155,16 +174,11 @@ def test_route_model_mismatch_fails_provenance_gate(tmp_path: Path) -> None:
     _write_traces(control_traces, control)
     _write_traces(treatment_traces, treatment)
     control_audit.write_text("", encoding="utf-8")
-    treatment_audit.write_text(
-        json.dumps(
-            {
-                "mode": "forwarded_specialist_cognitive_action_delegate_terminal_table_analyst",
-                "expert_id": "table_analyst",
-                "upstream_model": "WRONG",
-            }
-        )
-        + "\n",
-        encoding="utf-8",
+    _write_audit(
+        treatment_audit,
+        [_trace(0, "specialist_table_join", "table_analyst", False)],
+        {"table_analyst": "TABLE"},
+        worker_model_override="WRONG",
     )
 
     result = module.summarize(
