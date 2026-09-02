@@ -1,0 +1,98 @@
+{
+  "schema_version": "q35-2b-recursive-same-depth-search-p-pplus-plan/v1",
+  "status": "prospectively_defined",
+  "claim_class": "same_depth_search_gap",
+  "optimizer_updates": 0,
+  "weights": {
+    "coordinator_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "shared": {
+    "task_family": "document_utility_flat",
+    "task_count": 12,
+    "task_variants": [4, 5],
+    "instances_per_template": 6,
+    "instance_offset": 32100,
+    "task_seed": 20261111,
+    "sampling_seed": 20261111,
+    "sampling_temperature": 0.4,
+    "utility_policy_profile": "causal_decision_boundary_v4",
+    "maximum_depth": 2,
+    "maximum_concurrent_agents": 5,
+    "same_task_information": true,
+    "same_ownership_permissions": true,
+    "same_answer_free_scaffold": true,
+    "same_correctness_and_protocol_gates": true,
+    "same_reachable_graph": true
+  },
+  "difficulty_rationale": {
+    "prospective_basis": "Across the independently frozen v14-v16 topology replications, flat was the weakest topology at 4/6 while direct and hierarchical were each 6/6.",
+    "not_task_id_tuned": true,
+    "natural_d2_ambiguity": "Both flat and hierarchical decompositions are legal at D2. Flat is the required utility choice because it uses three total admissions rather than a manager plus three leaves.",
+    "fresh_task_keys": true
+  },
+  "answer_free_scaffold": {
+    "profile": "custom_flat_tight_v1",
+    "enabled": [
+      "root coordinator role contract",
+      "causal utility decision contract",
+      "typed topology decision and selected-action normalization",
+      "deterministic terminal document compute-and-report",
+      "root flat passive fan-in and strict finalization"
+    ],
+    "answer_values_disclosed": false,
+    "identical_between_arms": true
+  },
+  "p": {
+    "config": "recursive-same-depth-search-p-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 1
+  },
+  "p_plus": {
+    "config": "recursive-same-depth-search-pplus-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 4,
+    "reviewer_attempts": 0,
+    "selector": "Choose the first attempt satisfying the answer-free structural eligibility rule; if none is eligible, choose the first attempt.",
+    "selector_uses_expected_answer": false,
+    "selection_never_skips_an_earlier_structurally_eligible_wrong_answer": true
+  },
+  "answer_free_structural_eligibility": {
+    "required_one_metrics": [
+      "protocol_aligned",
+      "clean_protocol_aligned",
+      "topology_valid",
+      "topology_utility_aligned",
+      "fan_in_complete"
+    ],
+    "required_zero_metrics": [
+      "coordinator_delegated_path_accesses",
+      "failed_cells",
+      "duplicate_cells",
+      "post_parent_send_tool_calls"
+    ],
+    "required_stop_condition": "agent_completed"
+  },
+  "hard_success": {
+    "structural_eligibility_required": true,
+    "answer_accuracy": 1.0
+  },
+  "minimum_useful_signal": {
+    "distinct_task_keys": 4,
+    "condition": "P hard-fails and P+ answer-free-selected attempt hard-succeeds",
+    "acceptance_floor_relaxed": false
+  },
+  "post_gap_attribution": {
+    "required_before_training": true,
+    "categories": [
+      "root topology or role decision",
+      "decomposition or scoping content",
+      "manager synthesis or return",
+      "worker computation or reporting",
+      "retry or search selection",
+      "combination"
+    ],
+    "compression_eligibility": "Only winning behavior representable inside the ordinary D2 P envelope is eligible."
+  },
+  "interpretation_boundary": "A pass establishes that bounded extra inference search finds better trajectories within the same D2 reachable graph. It does not establish compute-to-weights compression, which requires a later causal role-local update and ordinary-compute P-prime evaluation."
+}
