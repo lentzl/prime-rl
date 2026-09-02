@@ -1,0 +1,156 @@
+{
+  "schema_version": "q35-2b-recursive-same-depth-search-p-pplus-result/v1",
+  "decision": "same_depth_search_gap_rejected_baseline_saturated",
+  "acceptance_floor": 4,
+  "acceptance_floor_relaxed": false,
+  "optimizer_updates": 0,
+  "weights": {
+    "coordinator_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+    "child_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "unchanged_after_both_arms": true
+  },
+  "code": {
+    "prospective_plan_and_runner_commit": "b6d17544549d359266a5938760514c43418bce2e",
+    "pair_auditor_commit": "3c9d0e98a0e3d361ddc4944348c1132dffff33fa",
+    "verifiers_submodule_commit": "0b6caf4958f22b30bcb6498f39bd04273a9f1df6",
+    "runtime_trace_verifiers_commit": "6b4ca3116b2086bbdad9d63b743148ebe7f48e19"
+  },
+  "shared_contract": {
+    "task_family": "document_utility_flat",
+    "task_count": 12,
+    "task_variants": [4, 5],
+    "instances_per_template": 6,
+    "instance_offset": 32100,
+    "task_seed": 20261111,
+    "sampling_seed": 20261111,
+    "sampling_temperature": 0.4,
+    "utility_policy_profile": "causal_decision_boundary_v4",
+    "maximum_depth": 2,
+    "maximum_concurrent_agents": 5,
+    "task_contracts_identical": true,
+    "same_task_information": true,
+    "same_ownership_permissions": true,
+    "same_answer_free_scaffold": true,
+    "same_correctness_and_protocol_gates": true,
+    "same_reachable_graph": true
+  },
+  "prospective_difficulty_basis": {
+    "independent_replication_evidence": "Flat was the weakest topology in frozen v14-v16 replication evidence at 4/6, versus direct 6/6 and hierarchical 6/6.",
+    "fresh_task_keys": true,
+    "tuned_against_prior_recovered_task_ids": false,
+    "natural_d2_ambiguity": "Flat and hierarchical were both legal D2 decompositions; flat was utility-optimal because it required three admissions instead of four."
+  },
+  "preflight_smoke": {
+    "task": "document_utility_flat-v4-i32100",
+    "counted_in_bank": false,
+    "p": {
+      "hard_success": false,
+      "selected_topology": "direct",
+      "reason": "The model selected direct while root inspection was forbidden."
+    },
+    "p_plus_launch_path": {
+      "hard_success": true,
+      "selected_topology": "flat",
+      "coordination_spawn_calls": 3,
+      "clean_protocol_aligned": 1
+    },
+    "interpretation": "The paired launch and same-depth scaffold paths were valid before the full bank. Smoke sampling was not used as bank evidence."
+  },
+  "p": {
+    "config": "recursive-same-depth-search-p-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 1,
+    "trace_count": 12,
+    "hard_successes": 12,
+    "hard_failures": 0,
+    "selected_topology_flat": 12,
+    "clean_protocol_successes": 12
+  },
+  "p_plus": {
+    "config": "recursive-same-depth-search-pplus-v1.toml",
+    "maximum_depth": 2,
+    "attempts_per_task": 4,
+    "reviewer_attempts": 0,
+    "trace_count": 48,
+    "raw_hard_successes": 45,
+    "raw_hard_failures": 3,
+    "selected_hard_successes": 12,
+    "selected_hard_failures": 0,
+    "selected_attempts": {
+      "attempt_1": 12,
+      "attempt_2": 0,
+      "attempt_3": 0,
+      "attempt_4": 0
+    },
+    "selector": "first answer-free structurally eligible attempt, otherwise first attempt",
+    "selector_uses_expected_answer": false,
+    "selection_skipped_earlier_structurally_eligible_wrong_answer": false,
+    "raw_failures": [
+      {
+        "task": "document_utility_flat-v4-i32102",
+        "attempt": 4,
+        "trace_id": "51c05f60ec0841b6a1b4b11de5b95895",
+        "selected_topology": "direct"
+      },
+      {
+        "task": "document_utility_flat-v4-i32104",
+        "attempt": 2,
+        "trace_id": "ddc2497f828b4d20a869f3c7719b855c",
+        "selected_topology": "direct"
+      },
+      {
+        "task": "document_utility_flat-v4-i32104",
+        "attempt": 3,
+        "trace_id": "25964855a073442889a2461982867d4f",
+        "selected_topology": "direct"
+      }
+    ]
+  },
+  "aggregate": {
+    "compute_gap_count": 0,
+    "required_compute_gap_count": 4,
+    "passed": false,
+    "combined_raw_hard_successes": 57,
+    "combined_raw_trace_count": 60,
+    "selected_p_and_p_plus_hard_successes": 24,
+    "selected_p_and_p_plus_trace_count": 24,
+    "remote_auditor": {
+      "path": "/home/ubuntu/rlm/state/q35-2b-same-depth-search-p-pplus-v1.json",
+      "sha256": "d630f7904defe8f980f32433e5f06009ddd374e039855d752beaf13de6f1d87a"
+    },
+    "p_traces_sha256": "c34c64d6a4c899f1ed18c3c8f75243529c4e342e32f68ca9906c4c4efe7e3cb0",
+    "p_plus_traces_sha256": "4a7980809e40b8399868a5a5bb1fa8ffe168f9bba92ffe01e6495c336e2a75a3",
+    "p_routing_audit_sha256": "a8bcbc7072b84ce0d86e60bb4acbe7cc3c1a71b07075ad8a232de63300e9813c",
+    "p_plus_routing_audit_sha256": "b7e16995272e50d29de06d4fe867970a19faaaacf1b07a16c068361d2e063955",
+    "p_summary_sha256": "2bf5463a300219969a4da1c13f04c3375c7446dfdacf2927253ce779c7eddbc2",
+    "p_plus_summary_sha256": "a168851855e3946b14af0263c8403ba71a16ab641a8b060710245335b7c4d6f9"
+  },
+  "no_gradient_attribution": {
+    "performed": true,
+    "qualifying_gap_count": 0,
+    "compression_eligible_teacher_trajectories": 0,
+    "earliest_causal_differences": [],
+    "nonselected_failure_observation": "All three raw P+ failures were coordinator-side topology decisions selecting direct. They are not teacher gaps because ordinary P succeeded on every matching key and each P+ group already had an earlier clean structurally eligible attempt."
+  },
+  "interpretation": {
+    "same_depth_search_gap_established": false,
+    "compute_to_weights_compression_established": false,
+    "baseline_saturated_on_frozen_bank": true,
+    "reason": "Ordinary single-attempt P solved all twelve fresh tasks, leaving no P-fail key for bounded P+ search to recover. The result is a clean rejection of this bank as a compression source, not evidence against search helping on other naturally difficult workloads.",
+    "structural_d3_theorem_unchanged": true
+  },
+  "local_evidence_backup": {
+    "path": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-same-depth-search-p-pplus-v1",
+    "file_count": 54,
+    "disk_bytes": 7802880,
+    "tree_sha256": "e76adeb54cf408473f481f4add7801c4ae83e10fce199fcf213c955dbfb6f4ca",
+    "tree_hash_method": "SHA-256 of the sorted per-file SHA-256 manifest using paths relative to the backup root",
+    "secrets_included": false
+  },
+  "runtime_after_completion": {
+    "training_processes_active": false,
+    "inference_processes_active": false,
+    "gpus_idle": true
+  },
+  "next_experiment": "Do not post-hoc harden this bank or update weights. Preserve it as a saturated same-depth control and move to an adaptive mixed-depth inference bank over unfamiliar D0/D1/D2/D3 tasks without exposing gold topology or depth labels. Let future naturally occurring applied-workload failures create candidate search and specialization signals."
+}
