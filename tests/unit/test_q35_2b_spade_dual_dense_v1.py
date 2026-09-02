@@ -2081,6 +2081,19 @@ def test_adaptive_cognition_sft_is_balanced_across_root_and_nonroot_roles() -> N
         assert "maximum_descendant_depth=" not in serialized_messages
         assert "depth3_contract_end=" not in serialized_messages
 
+    for action in ("delegate_terminal", "delegate_coordinator"):
+        pools[action].sort(
+            key=lambda row: (row["role_scope"] == "root", row["task_key"])
+        )
+    curriculum = [
+        pools[action][index]
+        for index in range(module.ROWS_PER_ACTION)
+        for action in module.ACTIONS
+    ]
+    for row in curriculum[:24]:
+        if row["action"] != "solve_owned":
+            assert row["role_scope"] != "root"
+
 
 def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
     module = _module("dual_policy_openai_proxy_v1")

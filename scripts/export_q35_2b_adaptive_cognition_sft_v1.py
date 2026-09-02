@@ -28,7 +28,7 @@ from subagent_communication_v1.taskset import (
     _without_adaptive_topology_labels,
 )
 
-SCHEMA_VERSION = "qwen35-2b-adaptive-cognition-sft/v2"
+SCHEMA_VERSION = "qwen35-2b-adaptive-cognition-sft/v3"
 OBJECTIVE = "answer_free_level_invariant_local_cognition_action"
 ACTIONS = ("solve_owned", "delegate_terminal", "delegate_coordinator")
 FAMILIES = tuple(ADAPTIVE_DOCUMENT_DEPTHS)
@@ -270,6 +270,10 @@ def export(*, runtime_traces: list[Path], output_dir: Path) -> dict[str, Any]:
         raise FileExistsError(f"refusing to overwrite adaptive cognition SFT: {output_dir}")
     runtime, sources = _runtime_messages(runtime_traces)
     pools = _candidate_rows(runtime)
+    for action in ("delegate_terminal", "delegate_coordinator"):
+        pools[action].sort(
+            key=lambda row: (row["role_scope"] == "root", row["task_key"])
+        )
     rows = [pools[action][index] for index in range(ROWS_PER_ACTION) for action in ACTIONS]
     if len(rows) != ROWS or len({row["task_key"] for row in rows}) != ROWS:
         raise ValueError("adaptive cognition SFT requires 48 unique rows")
@@ -295,7 +299,8 @@ def export(*, runtime_traces: list[Path], output_dir: Path) -> dict[str, Any]:
         "role": "coordinator",
         "objective": OBJECTIVE,
         "rows": ROWS,
-        "training_batch_size": 16,
+        "training_batch_size": 12,
+        "curriculum_order": "nonroot_delegation_first",
         "family_counts": {f"adaptive_{key}": value for key, value in action_counts.items()},
         "action_counts": action_counts,
         "task_keys": [row["task_key"] for row in rows],

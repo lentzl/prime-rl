@@ -119,6 +119,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "answer_free_level_invariant_local_cognition_action",
     ),
+    "qwen35-2b-adaptive-cognition-sft/v3": (
+        "coordinator",
+        "answer_free_level_invariant_local_cognition_action",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -147,6 +151,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": True,
     "qwen35-2b-adaptive-cognition-sft/v1": True,
     "qwen35-2b-adaptive-cognition-sft/v2": True,
+    "qwen35-2b-adaptive-cognition-sft/v3": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4,
@@ -168,6 +173,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 36,
     "qwen35-2b-adaptive-cognition-sft/v1": 48,
     "qwen35-2b-adaptive-cognition-sft/v2": 48,
+    "qwen35-2b-adaptive-cognition-sft/v3": 48,
 }
 DATASET_BATCH_SIZES = {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
@@ -187,6 +193,7 @@ DATASET_BATCH_SIZES = {
     "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 12,
     "qwen35-2b-adaptive-cognition-sft/v1": 16,
     "qwen35-2b-adaptive-cognition-sft/v2": 16,
+    "qwen35-2b-adaptive-cognition-sft/v3": 12,
 }
 PROMOTION_MINIMUM = 4
 
@@ -319,6 +326,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 12,
         "qwen35-2b-adaptive-cognition-sft/v1": 16,
         "qwen35-2b-adaptive-cognition-sft/v2": 16,
+        "qwen35-2b-adaptive-cognition-sft/v3": 16,
     }.get(schema_version, 4)
     family_counts = manifest.get("family_counts", {})
     family_counts_valid = set(family_counts.values()) == {expected_family_count}
@@ -341,14 +349,27 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             in {
                 "qwen35-2b-adaptive-cognition-sft/v1",
                 "qwen35-2b-adaptive-cognition-sft/v2",
+                "qwen35-2b-adaptive-cognition-sft/v3",
             }
             and (
                 manifest.get("model_visible_topology_labels") is not False
                 or manifest.get("level_invariant_action_contract") is not True
                 or manifest.get("root_and_nonroot_coordinator_rows") is not True
                 or (
-                    schema_version == "qwen35-2b-adaptive-cognition-sft/v2"
+                    schema_version
+                    in {
+                        "qwen35-2b-adaptive-cognition-sft/v2",
+                        "qwen35-2b-adaptive-cognition-sft/v3",
+                    }
                     and manifest.get("action_only_tool_arguments") is not True
+                )
+                or (
+                    schema_version == "qwen35-2b-adaptive-cognition-sft/v3"
+                    and (
+                        manifest.get("training_batch_size") != 12
+                        or manifest.get("curriculum_order")
+                        != "nonroot_delegation_first"
+                    )
                 )
                 or manifest.get("action_counts")
                 != {
