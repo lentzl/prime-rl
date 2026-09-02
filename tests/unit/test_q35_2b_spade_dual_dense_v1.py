@@ -2007,6 +2007,38 @@ def test_specialist_routing_preserves_model_authored_expert_choice() -> None:
     assert selected_expert == "generic_worker"
 
 
+def test_specialist_terminal_synthesis_without_tools_is_not_an_action_turn() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    terminal_payload = {
+        "messages": [
+            {
+                "role": "user",
+                "content": (
+                    f"{module.SPECIALIST_WORKER_ROUTING_HEADER}\n"
+                    "Return the best final answer from the completed trajectory."
+                ),
+            }
+        ]
+    }
+
+    assert module.request_has_ipython_tool(terminal_payload) is False
+    with pytest.raises(ValueError, match="requires the IPython tool"):
+        module.force_typed_specialist_action_schema(
+            terminal_payload, ("generic_worker",)
+        )
+
+    action_payload = {
+        **terminal_payload,
+        "tools": [
+            {
+                "type": "function",
+                "function": {"name": "ipython", "parameters": {"type": "object"}},
+            }
+        ],
+    }
+    assert module.request_has_ipython_tool(action_payload) is True
+
+
 def test_specialist_routing_fails_closed_for_unregistered_expert() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     facts = {

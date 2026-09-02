@@ -2650,16 +2650,22 @@ def force_typed_document_topology_schema(payload: dict[str, Any]) -> dict[str, A
     return rewritten
 
 
-def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, Any]:
-    """Require a generic next-action decision without exposing a topology label."""
+def request_has_ipython_tool(payload: dict[str, Any]) -> bool:
+    """Return whether a Chat Completions request exposes the live IPython tool."""
 
     tools = payload.get("tools")
-    if not isinstance(tools, list) or not any(
+    return isinstance(tools, list) and any(
         isinstance(tool, dict)
         and isinstance(tool.get("function"), dict)
         and tool["function"].get("name") == "ipython"
         for tool in tools
-    ):
+    )
+
+
+def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, Any]:
+    """Require a generic next-action decision without exposing a topology label."""
+
+    if not request_has_ipython_tool(payload):
         raise ValueError("typed cognitive action requires the IPython tool")
     rewritten = {
         **payload,
@@ -4394,6 +4400,10 @@ class DualPolicyProxy:
         pristine_specialist_turn = (
             endpoint == "/v1/chat/completions"
             and role == "coordinator"
+            # Prime Agent deliberately removes tools for its terminal synthesis
+            # request. The specialist contract remains in that compacted prompt,
+            # but it is no longer a legal action-selection turn.
+            and request_has_ipython_tool(payload)
             and any(
                 _contains_marker(payload.get("messages"), marker)
                 for marker in (SPECIALIST_WORKER_ROUTING_HEADER, SPECIALIST_MANAGER_HEADER)
