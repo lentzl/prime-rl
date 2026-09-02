@@ -2755,20 +2755,42 @@ def rewrite_typed_cognitive_action_response(
     rewrites = 0
     action_sha256 = None
     selected_action = None
-    for choice in payload["choices"]:
+    for choice_index, choice in enumerate(payload["choices"]):
         message = choice.get("message") if isinstance(choice, dict) else None
         tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
-        if not isinstance(tool_calls, list) or len(tool_calls) != 1:
-            continue
-        tool_call = tool_calls[0]
-        function = tool_call.get("function") if isinstance(tool_call, dict) else None
-        if not isinstance(function, dict) or function.get("name") != TYPED_COGNITIVE_ACTION_TOOL:
-            continue
-        arguments = function.get("arguments")
-        try:
-            parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
-        except json.JSONDecodeError:
-            continue
+        function = None
+        parsed = None
+        normalized_reasoning_transport = False
+        if isinstance(tool_calls, list) and len(tool_calls) == 1:
+            tool_call = tool_calls[0]
+            candidate = (
+                tool_call.get("function") if isinstance(tool_call, dict) else None
+            )
+            if (
+                isinstance(candidate, dict)
+                and candidate.get("name") == TYPED_COGNITIVE_ACTION_TOOL
+            ):
+                function = candidate
+                arguments = function.get("arguments")
+                try:
+                    parsed = (
+                        json.loads(arguments) if isinstance(arguments, str) else arguments
+                    )
+                except json.JSONDecodeError:
+                    parsed = None
+        elif isinstance(message, dict):
+            for field in ("reasoning", "reasoning_content"):
+                candidate = message.get(field)
+                if not isinstance(candidate, str):
+                    continue
+                try:
+                    parsed_candidate = json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_candidate, dict):
+                    parsed = parsed_candidate
+                    normalized_reasoning_transport = True
+                    break
         if not isinstance(parsed, dict) or set(parsed) != {
             "owns_required_evidence",
             "remaining_work_requires_decomposition",
@@ -2798,10 +2820,27 @@ def rewrite_typed_cognitive_action_response(
             raise ValueError(
                 f"selected cognitive action is unavailable in this scope: {expected_action}"
             )
-        function["name"] = "ipython"
-        function["arguments"] = json.dumps(
-            {"code": code}, separators=(",", ":"), ensure_ascii=False
-        )
+        if normalized_reasoning_transport:
+            assert isinstance(message, dict)
+            message["tool_calls"] = [
+                {
+                    "id": f"adaptive-cognition-normalized-{choice_index}",
+                    "type": "function",
+                    "function": {
+                        "name": "ipython",
+                        "arguments": json.dumps(
+                            {"code": code}, separators=(",", ":"), ensure_ascii=False
+                        ),
+                    },
+                }
+            ]
+            message["content"] = ""
+        else:
+            assert function is not None
+            function["name"] = "ipython"
+            function["arguments"] = json.dumps(
+                {"code": code}, separators=(",", ":"), ensure_ascii=False
+            )
         selected_action = expected_action
         action_sha256 = hashlib.sha256(code.encode()).hexdigest()
         rewrites += 1

@@ -1973,6 +1973,37 @@ terminal_shards_ready=true"""
     assert action_sha is None
     assert selected == "delegate_terminal"
 
+    reasoning_body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": "",
+                        "reasoning": json.dumps(
+                            {**facts, "action": "delegate_coordinator"}
+                        ),
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rewritten, count, action_sha, selected = (
+        module.rewrite_typed_cognitive_action_response(
+            reasoning_body,
+            canonical_actions={"delegate_coordinator": canonical},
+            expected_facts=facts,
+        )
+    )
+    normalized_message = json.loads(rewritten)["choices"][0]["message"]
+    assert normalized_message["tool_calls"][0]["function"]["name"] == "ipython"
+    assert json.loads(
+        normalized_message["tool_calls"][0]["function"]["arguments"]
+    )["code"] == canonical
+    assert count == 1
+    assert action_sha == hashlib.sha256(canonical.encode()).hexdigest()
+    assert selected == "delegate_coordinator"
+
 
 def test_adaptive_cognition_sft_is_balanced_across_root_and_nonroot_roles() -> None:
     module = _module("export_q35_2b_adaptive_cognition_sft_v1")
