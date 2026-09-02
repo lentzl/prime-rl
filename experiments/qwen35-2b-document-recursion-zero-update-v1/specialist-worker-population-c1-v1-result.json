@@ -1,0 +1,143 @@
+{
+  "schema_version": "q35-2b-specialist-worker-population-c1-result/v1",
+  "recorded_at": "2026-09-02",
+  "status": "latent_screen_complete_no_optimizer",
+  "objective": "Measure zero-update specialist routing and the matched generic-only baseline before any specialist or coordinator weight update.",
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates": 0,
+      "verified_unchanged": true
+    },
+    "generic_worker": {
+      "label": "H176",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates": 0,
+      "verified_unchanged": true
+    }
+  },
+  "attempts": [
+    {
+      "label": "c1-latent-population-alias-h176-v1",
+      "status": "invalid_infrastructure",
+      "reason": "A child computed the correct value but its plain-text parent report was not forwarded by the initial report-lifecycle scaffold.",
+      "optimizer_updates": 0
+    },
+    {
+      "label": "c1-latent-population-alias-h176-v2",
+      "status": "invalid_infrastructure",
+      "reason": "The specialist action schema was incorrectly retained for tool-free terminal synthesis and caused three HTTP 500 responses.",
+      "optimizer_updates": 0,
+      "artifacts": {
+        "traces_sha256": "01fc0af55eb1b148c3a68dcf35dffaeef55d3e995a862631fc9491e0a5eeb93e",
+        "routing_audit_sha256": "592db8e5931b32e8f3d6ad0373a04abf5c474eb33822346156d9db6eb0911ea9",
+        "gpu_metrics_sha256": "5528ddfb057a987188c9b8f58ae59158520bd290a97c7fab8c24e49b03930529"
+      }
+    },
+    {
+      "label": "c1-latent-population-alias-h176-v3",
+      "status": "valid_complete",
+      "evaluated_git_commit": "22d6edacdae0a6a45c7a4d5158be63c033226ba6",
+      "trace_total": 16,
+      "hard_successes": 1,
+      "worker_activations": {
+        "generic_worker": 1,
+        "table_analyst": 9,
+        "source_inspector": 0
+      },
+      "maximum_worker_activation_fraction": 0.9,
+      "model_call_failures": 0,
+      "optimizer_updates": 0,
+      "artifacts": {
+        "run_dir": "/home/ubuntu/rlm/results/q35-2b-specialist-population-c1-v1/c1-latent-population-alias-h176-v3",
+        "traces_sha256": "84c6284fa959c422a2db72ca907616fa8fd108b93c41635714b4da5b7ef7b893",
+        "routing_audit_sha256": "b72018f3e456ae79e72441772c337b7c313828703e6e055500e720eb11f7c3aa",
+        "gpu_metrics_sha256": "e90162f989dd41ef4853eb988c33910f07b4b857c392158bc01e605c58763e9a"
+      }
+    },
+    {
+      "label": "c1-generic-control-h176-v1",
+      "status": "valid_complete",
+      "evaluated_git_commit": "22d6edacdae0a6a45c7a4d5158be63c033226ba6",
+      "trace_total": 16,
+      "hard_successes": 2,
+      "hard_success_families": {
+        "specialist_local": 2
+      },
+      "stop_conditions": {
+        "agent_completed": 10,
+        "max_turns": 6
+      },
+      "model_call_failures": 0,
+      "optimizer_updates": 0,
+      "artifacts": {
+        "run_dir": "/home/ubuntu/rlm/results/q35-2b-specialist-population-c1-v1/c1-generic-control-h176-v1",
+        "traces_sha256": "c0e235688df52810bb42279f85e9332ce1aba35bb6f15eaf1d273e5f0aefb8a8",
+        "routing_audit_sha256": "ea836b4026414b1b8ae29c9000f27f9ab673431bfa97406d7e25c9027c640149",
+        "gpu_metrics_sha256": "9bb17a279e7a4bb91e77f6648dc9018e5b63db2dd46cd8085465ecfaddff1cf6"
+      }
+    }
+  ],
+  "paired_latent_screen": {
+    "task_contracts_identical": true,
+    "control_hard_successes": 2,
+    "registry_treatment_hard_successes": 1,
+    "paired_recoveries": 0,
+    "recoveries_attributed_to_specialists": {},
+    "exact_route_sequence": true,
+    "activated_worker_models_exact": true,
+    "acceptance_gates_relaxed": false,
+    "paired_population_gate_passed": false,
+    "summary_path": "/home/ubuntu/rlm/results/q35-2b-specialist-population-c1-v1/LATENT_PAIRED_SUMMARY.json",
+    "summary_sha256": "fcc0027f04ce8f75f7a53f181f5079edc962a4eee2d7c32380e0e04656936c75"
+  },
+  "specialist_training_corpora": {
+    "status": "exported_validated_not_trained",
+    "training_template_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "heldout_template_variants_excluded": [
+      4,
+      5
+    ],
+    "table_analyst": {
+      "rows": 64,
+      "unique_task_keys": 64,
+      "family_counts": {
+        "specialist_table_join": 32,
+        "specialist_table_reconcile": 32
+      },
+      "parquet_sha256": "828540ced30b76fa578f42c8d394bfc5192e9407ef21c3e1c85aa2142a23852d"
+    },
+    "source_inspector": {
+      "rows": 64,
+      "unique_task_keys": 64,
+      "family_counts": {
+        "specialist_source_ast": 32,
+        "specialist_source_config": 32
+      },
+      "parquet_sha256": "01d7359cac90f5664ff0364520b3c98cc31227c56496b1d78f704712f9a5bab3"
+    }
+  },
+  "decision": {
+    "finding": "The frozen coordinator has connected but collapsed table routing and no source-inspector routing. Training specialist workers alone cannot satisfy the unchanged multi-niche attribution gate.",
+    "next_action": "Prospectively freeze a fresh C1 routing-calibration phase, derive the smallest answer-free route-only coordinator candidate from e33, and use that same candidate in both arms of a fresh paired worker-population bank. Preserve e33 and H176 unchanged.",
+    "final_population_acceptance_floor": 4,
+    "acceptance_floor_relaxed": false,
+    "new_infrastructure_or_training_launched": false
+  },
+  "verification": {
+    "result_summarizer_commit": "f2496ae65",
+    "summarizer_tests": "3 passed",
+    "ruff": "passed",
+    "gpu_memory_after_run": "1 MiB per GPU",
+    "gpu_utilization_after_run": "0 percent per GPU",
+    "active_training_processes": false
+  }
+}
