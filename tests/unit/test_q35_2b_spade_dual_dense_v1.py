@@ -1955,9 +1955,7 @@ terminal_shards_ready=true"""
                 {
                     "message": {
                         "role": "assistant",
-                        "content": json.dumps(
-                            {**facts, "action": "delegate_coordinator"}
-                        ),
+                        "content": json.dumps({"action": "delegate_coordinator"}),
                     }
                 }
             ]
@@ -2069,6 +2067,10 @@ def test_adaptive_cognition_sft_is_balanced_across_root_and_nonroot_roles() -> N
     for row in rows:
         tools = json.loads(row["tools"])
         assert [tool["name"] for tool in tools] == ["select_cognitive_action"]
+        arguments = json.loads(
+            row["messages"][-1]["tool_calls"][0]["function"]["arguments"]
+        )
+        assert arguments == {"action": row["action"]}
         serialized_tools = json.dumps(tools)
         assert "document_topology" not in serialized_tools
         assert '"direct"' not in serialized_tools

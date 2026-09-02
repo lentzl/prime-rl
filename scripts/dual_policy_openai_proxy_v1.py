@@ -2448,8 +2448,8 @@ def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, An
                 "function": {
                     "name": TYPED_COGNITIVE_ACTION_TOOL,
                     "description": (
-                        "Read the current session's public local cognition facts and choose "
-                        "one next action. Solve owned evidence locally; delegate another "
+                        "Choose one next action from the current session's public local "
+                        "cognition facts. Solve owned evidence locally; delegate another "
                         "coordinator when the remaining scoped work still requires "
                         "decomposition; otherwise delegate terminal specialists when shards "
                         "are ready. The harness supplies legal mechanics but never changes "
@@ -2458,11 +2458,6 @@ def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, An
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "owns_required_evidence": {"type": "boolean"},
-                            "remaining_work_requires_decomposition": {
-                                "type": "boolean"
-                            },
-                            "terminal_shards_ready": {"type": "boolean"},
                             "action": {
                                 "type": "string",
                                 "enum": [
@@ -2472,12 +2467,7 @@ def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, An
                                 ],
                             },
                         },
-                        "required": [
-                            "owns_required_evidence",
-                            "remaining_work_requires_decomposition",
-                            "terminal_shards_ready",
-                            "action",
-                        ],
+                        "required": ["action"],
                         "additionalProperties": False,
                     },
                 },
@@ -2791,29 +2781,38 @@ def rewrite_typed_cognitive_action_response(
                     parsed = parsed_candidate
                     normalized_json_transport = True
                     break
-        if not isinstance(parsed, dict) or set(parsed) != {
+        if not isinstance(parsed, dict):
+            continue
+        submitted_facts = None
+        if set(parsed) == {
             "owns_required_evidence",
             "remaining_work_requires_decomposition",
             "terminal_shards_ready",
             "action",
         }:
+            submitted_facts = {
+                key: parsed[key]
+                for key in (
+                    "owns_required_evidence",
+                    "remaining_work_requires_decomposition",
+                    "terminal_shards_ready",
+                )
+            }
+        elif set(parsed) != {"action"}:
             continue
-        submitted_facts = {
-            key: parsed[key]
-            for key in (
-                "owns_required_evidence",
-                "remaining_work_requires_decomposition",
-                "terminal_shards_ready",
-            )
-        }
+        selected_action = (
+            parsed.get("action") if isinstance(parsed.get("action"), str) else None
+        )
         if (
-            any(type(value) is not bool for value in submitted_facts.values())
-            or submitted_facts != expected_facts
-            or parsed["action"] != expected_action
-        ):
-            selected_action = (
-                parsed.get("action") if isinstance(parsed.get("action"), str) else None
+            selected_action != expected_action
+            or (
+                submitted_facts is not None
+                and (
+                    any(type(value) is not bool for value in submitted_facts.values())
+                    or submitted_facts != expected_facts
+                )
             )
+        ):
             continue
         code = canonical_actions.get(expected_action)
         if code is None:

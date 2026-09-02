@@ -28,7 +28,7 @@ from subagent_communication_v1.taskset import (
     _without_adaptive_topology_labels,
 )
 
-SCHEMA_VERSION = "qwen35-2b-adaptive-cognition-sft/v1"
+SCHEMA_VERSION = "qwen35-2b-adaptive-cognition-sft/v2"
 OBJECTIVE = "answer_free_level_invariant_local_cognition_action"
 ACTIONS = ("solve_owned", "delegate_terminal", "delegate_coordinator")
 FAMILIES = tuple(ADAPTIVE_DOCUMENT_DEPTHS)
@@ -112,9 +112,7 @@ def _target(*, facts: dict[str, bool], action: str, key: str) -> dict[str, Any]:
                 "type": "function",
                 "function": {
                     "name": "select_cognitive_action",
-                    "arguments": json.dumps(
-                        {**facts, "action": action}, separators=(",", ":")
-                    ),
+                    "arguments": json.dumps({"action": action}, separators=(",", ":")),
                 },
             }
         ],
@@ -305,6 +303,7 @@ def export(*, runtime_traces: list[Path], output_dir: Path) -> dict[str, Any]:
         "answer_free": True,
         "model_visible_topology_labels": False,
         "level_invariant_action_contract": True,
+        "action_only_tool_arguments": True,
         "root_and_nonroot_coordinator_rows": True,
         "heldout_variants": [4, 5],
         "training_variants": [0, 1, 2, 3],
