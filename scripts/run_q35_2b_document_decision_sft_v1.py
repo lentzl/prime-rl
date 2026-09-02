@@ -111,6 +111,10 @@ DATASET_CONTRACTS = {
         "coordinator",
         "answer_free_causal_matched_root_topology_choice",
     ),
+    "qwen35-2b-adaptive-cognition-sft/v1": (
+        "coordinator",
+        "answer_free_level_invariant_local_cognition_action",
+    ),
 }
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
@@ -137,6 +141,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": True,
     "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1": True,
     "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": True,
+    "qwen35-2b-adaptive-cognition-sft/v1": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-manager-admission-sft/v1": 4,
@@ -156,6 +161,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": 36,
     "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1": 48,
     "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 36,
+    "qwen35-2b-adaptive-cognition-sft/v1": 48,
 }
 DATASET_BATCH_SIZES = {
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
@@ -173,6 +179,7 @@ DATASET_BATCH_SIZES = {
     "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": 12,
     "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1": 12,
     "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 12,
+    "qwen35-2b-adaptive-cognition-sft/v1": 16,
 }
 PROMOTION_MINIMUM = 4
 
@@ -193,8 +200,10 @@ def training_config(
 ) -> str:
     if not 1 <= optimizer_updates <= 8:
         raise ValueError("document decision bootstrap requires one to eight updates")
-    if batch_size not in {4, 6, 8, 12}:
-        raise ValueError("document decision bootstrap batch size must be 4, 6, 8, or 12")
+    if batch_size not in {4, 6, 8, 12, 16}:
+        raise ValueError(
+            "document decision bootstrap batch size must be 4, 6, 8, 12, or 16"
+        )
     return f"""max_steps = {optimizer_updates}
 output_dir = {_quote(output_root)}
 clean = false
@@ -301,6 +310,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         "qwen35-2b-document-utility-routed-expanded-consolidated-sft/v2": 12,
         "qwen35-2b-document-utility-routed-rubric-expanded-consolidated-sft/v2": 12,
         "qwen35-2b-document-utility-routed-causal-matched-balanced-consolidated-sft/v1": 12,
+        "qwen35-2b-adaptive-cognition-sft/v1": 16,
     }.get(schema_version, 4)
     family_counts = manifest.get("family_counts", {})
     family_counts_valid = set(family_counts.values()) == {expected_family_count}
@@ -318,6 +328,20 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         or (manifest.get("role"), manifest.get("objective")) != contract
         or manifest.get("rows") != DATASET_ROWS.get(schema_version)
         or not family_counts_valid
+        or (
+            schema_version == "qwen35-2b-adaptive-cognition-sft/v1"
+            and (
+                manifest.get("model_visible_topology_labels") is not False
+                or manifest.get("level_invariant_action_contract") is not True
+                or manifest.get("root_and_nonroot_coordinator_rows") is not True
+                or manifest.get("action_counts")
+                != {
+                    "solve_owned": 16,
+                    "delegate_terminal": 16,
+                    "delegate_coordinator": 16,
+                }
+            )
+        )
         or (
             schema_version
             in {

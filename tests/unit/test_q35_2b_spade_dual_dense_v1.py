@@ -1974,6 +1974,46 @@ terminal_shards_ready=true"""
     assert selected == "delegate_terminal"
 
 
+def test_adaptive_cognition_sft_is_balanced_across_root_and_nonroot_roles() -> None:
+    module = _module("export_q35_2b_adaptive_cognition_sft_v1")
+    runtime = {
+        depth: {
+            "role": "user",
+            "content": (
+                "You are a general purpose agent.\n"
+                f"Recursive agent depth: {depth}\n"
+                "You are a child agent spawned by a parent."
+                if depth
+                else "You are a general purpose agent.\nRecursive agent depth: 0"
+            ),
+        }
+        for depth in (0, 1, 2)
+    }
+
+    pools = module._candidate_rows(runtime)
+
+    assert {action: len(rows) for action, rows in pools.items()} == {
+        "solve_owned": 16,
+        "delegate_terminal": 16,
+        "delegate_coordinator": 16,
+    }
+    rows = [row for action_rows in pools.values() for row in action_rows]
+    assert len({row["task_key"] for row in rows}) == 48
+    assert {row["role_scope"] for row in rows} == {
+        "root",
+        "nonroot_manager",
+        "nonroot_subgroup_manager",
+    }
+    for row in rows:
+        tools = json.loads(row["tools"])
+        assert [tool["name"] for tool in tools] == ["select_cognitive_action"]
+        serialized_tools = json.dumps(tools)
+        assert "document_topology" not in serialized_tools
+        assert '"direct"' not in serialized_tools
+        assert '"flat"' not in serialized_tools
+        assert '"hierarchical"' not in serialized_tools
+
+
 def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     payload = {
