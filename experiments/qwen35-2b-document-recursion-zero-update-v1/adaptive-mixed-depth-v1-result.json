@@ -1,0 +1,217 @@
+{
+  "schema_version": "q35-2b-adaptive-mixed-depth-result/v1",
+  "recorded_at": "2026-09-02",
+  "status": "admitted",
+  "objective": "Train one coordinator policy to choose adaptive local cognition across unfamiliar document tasks without model-visible topology labels.",
+  "contract": {
+    "model_visible_topology_labels": false,
+    "model_visible_decision": "exact generic action-only JSON",
+    "actions": [
+      "solve_owned",
+      "delegate_terminal",
+      "delegate_coordinator"
+    ],
+    "legacy_four_field_decisions_remain_validated": true,
+    "mechanical_scaffold": "The proxy validates the chosen local action and supplies only canonical execution mechanics; external answer and protocol scoring remains unchanged."
+  },
+  "protected_inputs": {
+    "coordinator": {
+      "label": "C54",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-utility-topology-sft-v1/c177utilitytyped32-liveconsolidatedrubric36-step3-v1/weights/step_3",
+      "model_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9"
+    },
+    "child": {
+      "label": "H176",
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates": 0,
+      "verified_unchanged_after_evaluation": true
+    }
+  },
+  "training": {
+    "role": "coordinator_only",
+    "update_type": "full_dense",
+    "total_steps": 14,
+    "stages": [
+      {
+        "label": "c54-adaptive48-step8-v2",
+        "parent_model_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+        "steps": 8,
+        "learning_rate": 0.000002,
+        "dataset_schema": "qwen35-2b-adaptive-cognition-sft/v1",
+        "dataset_sha256": "fe4b41415ebe336219a2b280ed4f1c92937b68011c3d2498b9c1ef059bc4bd39",
+        "model_sha256": "f6811ac8abf5400922ba47bf1eb1b514d0b42ea590f608160b3f711132eea8ae",
+        "final_loss": 0.06272003799676895,
+        "nan_count": 0,
+        "disposition": "not admitted; no clean D3 trajectory under the original echoed-facts schema"
+      },
+      {
+        "label": "c54-step8-adaptive-action48-step4-v3",
+        "parent_model_sha256": "f6811ac8abf5400922ba47bf1eb1b514d0b42ea590f608160b3f711132eea8ae",
+        "steps": 4,
+        "learning_rate": 0.000001,
+        "dataset_schema": "qwen35-2b-adaptive-cognition-sft/v2",
+        "dataset_sha256": "62d56811103f5c3a66a6d42477de15082327001a2df9b0f5297fede5451aefed",
+        "model_sha256": "41ea014396d61dc402a9a3d8f11a0c7d8f5b4a70bbf7072669de53638836189a",
+        "final_loss": 0.08834564685821533,
+        "nan_count": 0,
+        "disposition": "not admitted; smoke reached D3 recursion but failed one subgroup decision"
+      },
+      {
+        "label": "c54-step8-action4-adaptive-nonroot-step2-v4",
+        "parent_model_sha256": "41ea014396d61dc402a9a3d8f11a0c7d8f5b4a70bbf7072669de53638836189a",
+        "steps": 2,
+        "learning_rate": 0.000002,
+        "dataset_schema": "qwen35-2b-adaptive-cognition-sft/v3",
+        "dataset_sha256": "256328cbdb33dc8880370688e2c6f4256341f644757a9d9d033bb5febc74e12e",
+        "curriculum_order": "nonroot_delegation_first",
+        "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+        "final_loss": 0.01721964403986931,
+        "nan_count": 0,
+        "disposition": "admitted"
+      }
+    ]
+  },
+  "prospective_evaluation": {
+    "heldout_template_variants": [
+      4,
+      5
+    ],
+    "instance_offset": 33100,
+    "training_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "baseline": {
+      "run_dir": "/home/ubuntu/rlm/results/q35-2b-adaptive-mixed-depth-v1/adaptive-baseline-unlabeled-c54-h176-v2",
+      "clean_total": 6,
+      "trace_total": 16,
+      "clean_by_hidden_depth": {
+        "D0": "0/4",
+        "D1": "4/4",
+        "D2": "2/4",
+        "D3": "0/4"
+      }
+    },
+    "candidate_smoke": {
+      "run_dir": "/home/ubuntu/rlm/results/q35-2b-adaptive-mixed-depth-v1/adaptive-smoke-nonroot-e33bd4-h176-v1",
+      "clean_total": 4,
+      "trace_total": 4,
+      "clean_by_hidden_depth": {
+        "D0": "1/1",
+        "D1": "1/1",
+        "D2": "1/1",
+        "D3": "1/1"
+      },
+      "depth3_graph_complete": true
+    },
+    "candidate_admission": {
+      "run_dir": "/home/ubuntu/rlm/results/q35-2b-adaptive-mixed-depth-v1/adaptive-admission-nonroot-e33bd4-h176-v1",
+      "clean_total": 14,
+      "trace_total": 16,
+      "clean_by_hidden_depth": {
+        "D0": "4/4",
+        "D1": "4/4",
+        "D2": "4/4",
+        "D3": "2/4"
+      },
+      "failed_tasks": [
+        "document_adaptive_d3-v4-i33101",
+        "document_adaptive_d3-v5-i33101"
+      ],
+      "delta_clean_vs_baseline": 8,
+      "conclusion": "Adaptive depth selection learned across all four hidden depths, with residual D3 brittleness."
+    }
+  },
+  "retention": {
+    "legacy_execution_stack": {
+      "run_dir": "/home/ubuntu/rlm/results/q35-2b-adaptive-retention-v1/adaptive-e33bd4-h176-typed-v3",
+      "clean_total": 4,
+      "trace_total": 6,
+      "clean_by_class": {
+        "direct": "2/2",
+        "flat": "2/2",
+        "hierarchical": "0/2"
+      },
+      "note": "Both hierarchy topology choices were correct; execution failed after the manager phase."
+    },
+    "fanin_only_stack": {
+      "run_dir": "/home/ubuntu/rlm/results/q35-2b-adaptive-retention-v1/adaptive-e33bd4-h176-tight-typed-v3",
+      "clean_total": 4,
+      "trace_total": 6,
+      "clean_by_class": {
+        "direct": "2/2",
+        "flat": "2/2",
+        "hierarchical": "0/2"
+      },
+      "note": "Manager fan-in mechanics alone did not help because the pristine manager turn remained free-form."
+    },
+    "role_stable_tight_stack": {
+      "run_dir": "/home/ubuntu/rlm/results/q35-2b-adaptive-retention-v1/adaptive-e33bd4-h176-role-stable-typed-v3",
+      "clean_total": 5,
+      "trace_total": 6,
+      "clean_by_class": {
+        "direct": "2/2",
+        "flat": "2/2",
+        "hierarchical": "1/2"
+      },
+      "failed_tasks": [
+        "document_utility_hierarchical-v4-i28700"
+      ],
+      "note": "The established typed selector remains at root; adaptive generic action selection and tight fan-in apply to sub-coordinators."
+    },
+    "retention_floor": 4,
+    "retention_passed": true
+  },
+  "promotion": {
+    "minimum_complete_qualifying_trajectories": 4,
+    "acceptance_floor_relaxed": false,
+    "qualifying_trajectories": 14,
+    "all_hidden_depths_represented": true,
+    "exact_answer_required": true,
+    "clean_protocol_required": true,
+    "admitted": true
+  },
+  "hugging_face_latest_only": {
+    "coordinator": {
+      "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-coordinator",
+      "previous_revision": "607f7e625cb4ece19d9906d200deca75ca2c6580",
+      "previous_model_sha256": "c54bc1ea5ae083bce57782222cf78224e6c51c387a77866703e47989f5049ec9",
+      "revision": "790a7ea3109c5445995d2ea5a31c01e9adee46bf",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "verified_after_upload": true,
+      "latest_only_file_set_verified": true
+    },
+    "child": {
+      "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-child",
+      "revision": "20db57502f52e0d7f8b7b23ccd3c7f4f9378ffca",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "verified_unchanged": true
+    }
+  },
+  "verification": {
+    "git_branch": "exp/q35-2b-root-role-contract",
+    "evaluated_git_commit": "79a95fc8a6d394ff8af0b0e2a07a8e6fed3b28e1",
+    "focused_remote_tests": "122 passed",
+    "candidate_hash_verified_after_all_evaluations": true,
+    "child_hash_verified_after_all_evaluations": true,
+    "training_processes_active_after_milestone": false,
+    "inference_processes_active_after_milestone": false
+  },
+  "local_evidence_backup": {
+    "path": "/Users/ilkkalehto/Documents/rlm/artifacts/q35-2b-adaptive-mixed-depth-milestone-20260902",
+    "file_count": 136,
+    "disk_bytes": 9780859,
+    "tree_sha256": "fcf2f78d6b6a018aa3e4d32580703c185ea30f97ef4c545a2cfc88ef8ee86449",
+    "tree_hash_method": "SHA-256 of the sorted per-file SHA-256 manifest using paths relative to the backup root",
+    "contents": [
+      "seven complete evaluation result trees and traces",
+      "three training configs, metrics, and logs without dense tensor files",
+      "three exact 48-row training datasets and manifests"
+    ],
+    "secrets_included": false,
+    "dense_weights_included": false
+  }
+}
