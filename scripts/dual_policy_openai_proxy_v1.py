@@ -2760,7 +2760,7 @@ def rewrite_typed_cognitive_action_response(
         tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
         function = None
         parsed = None
-        normalized_reasoning_transport = False
+        normalized_json_transport = False
         if isinstance(tool_calls, list) and len(tool_calls) == 1:
             tool_call = tool_calls[0]
             candidate = (
@@ -2779,7 +2779,7 @@ def rewrite_typed_cognitive_action_response(
                 except json.JSONDecodeError:
                     parsed = None
         elif isinstance(message, dict):
-            for field in ("reasoning", "reasoning_content"):
+            for field in ("reasoning", "reasoning_content", "content"):
                 candidate = message.get(field)
                 if not isinstance(candidate, str):
                     continue
@@ -2789,7 +2789,7 @@ def rewrite_typed_cognitive_action_response(
                     continue
                 if isinstance(parsed_candidate, dict):
                     parsed = parsed_candidate
-                    normalized_reasoning_transport = True
+                    normalized_json_transport = True
                     break
         if not isinstance(parsed, dict) or set(parsed) != {
             "owns_required_evidence",
@@ -2820,7 +2820,7 @@ def rewrite_typed_cognitive_action_response(
             raise ValueError(
                 f"selected cognitive action is unavailable in this scope: {expected_action}"
             )
-        if normalized_reasoning_transport:
+        if normalized_json_transport:
             assert isinstance(message, dict)
             message["tool_calls"] = [
                 {

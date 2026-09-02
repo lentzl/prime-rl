@@ -1949,6 +1949,37 @@ terminal_shards_ready=true"""
     assert action_sha == hashlib.sha256(canonical.encode()).hexdigest()
     assert selected == "delegate_coordinator"
 
+    content_body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps(
+                            {**facts, "action": "delegate_coordinator"}
+                        ),
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rewritten, count, action_sha, selected = (
+        module.rewrite_typed_cognitive_action_response(
+            content_body,
+            canonical_actions={"delegate_coordinator": canonical},
+            expected_facts=facts,
+        )
+    )
+    normalized_message = json.loads(rewritten)["choices"][0]["message"]
+    assert normalized_message["content"] == ""
+    assert normalized_message["tool_calls"][0]["function"]["name"] == "ipython"
+    assert json.loads(
+        normalized_message["tool_calls"][0]["function"]["arguments"]
+    )["code"] == canonical
+    assert count == 1
+    assert action_sha == hashlib.sha256(canonical.encode()).hexdigest()
+    assert selected == "delegate_coordinator"
+
     mismatch_payload = json.loads(body)
     arguments = json.loads(
         mismatch_payload["choices"][0]["message"]["tool_calls"][0]["function"][
