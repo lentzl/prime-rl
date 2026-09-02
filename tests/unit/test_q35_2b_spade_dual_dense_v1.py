@@ -2012,6 +2012,10 @@ def test_adaptive_cognition_sft_is_balanced_across_root_and_nonroot_roles() -> N
         assert '"direct"' not in serialized_tools
         assert '"flat"' not in serialized_tools
         assert '"hierarchical"' not in serialized_tools
+        serialized_messages = json.dumps(row["messages"])
+        assert "document_coordinator_level=" not in serialized_messages
+        assert "maximum_descendant_depth=" not in serialized_messages
+        assert "depth3_contract_end=" not in serialized_messages
 
 
 def test_proxy_forces_one_model_authored_ipython_compute_turn() -> None:

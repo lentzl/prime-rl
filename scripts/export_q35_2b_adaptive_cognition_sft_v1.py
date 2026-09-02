@@ -25,6 +25,7 @@ from subagent_communication_v1.taskset import (
     _document_depth3_manager_instruction,
     _document_manager_instruction,
     _document_subgroup_manager_instruction,
+    _without_adaptive_topology_labels,
 )
 
 SCHEMA_VERSION = "qwen35-2b-adaptive-cognition-sft/v1"
@@ -196,7 +197,9 @@ def _candidate_rows(runtime: dict[int, dict[str, Any]]) -> dict[str, list[dict[s
     d2_managers = [
         _row(
             runtime=runtime[1],
-            prompt=_document_manager_instruction(_root_path(task)),
+            prompt=_without_adaptive_topology_labels(
+                _document_manager_instruction(_root_path(task))
+            ),
             key=f"{task.data.name}:manager",
             depth=1,
             role_scope="nonroot_manager",
@@ -207,7 +210,9 @@ def _candidate_rows(runtime: dict[int, dict[str, Any]]) -> dict[str, list[dict[s
     d3_tops = [
         _row(
             runtime=runtime[1],
-            prompt=_document_depth3_manager_instruction(_root_path(task)),
+            prompt=_without_adaptive_topology_labels(
+                _document_depth3_manager_instruction(_root_path(task))
+            ),
             key=f"{task.data.name}:top-manager",
             depth=2,
             role_scope="nonroot_manager",
@@ -218,8 +223,10 @@ def _candidate_rows(runtime: dict[int, dict[str, Any]]) -> dict[str, list[dict[s
     d3_subgroups = [
         _row(
             runtime=runtime[2],
-            prompt=_document_subgroup_manager_instruction(
-                _root_path(task), group, stems
+            prompt=_without_adaptive_topology_labels(
+                _document_subgroup_manager_instruction(
+                    _root_path(task), group, stems
+                )
             ),
             key=f"{task.data.name}:{group}-manager",
             depth=1,

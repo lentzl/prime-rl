@@ -112,6 +112,39 @@ DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN = re.compile(
     r".*?\ndepth3_contract_end=subgroup)",
     re.DOTALL,
 )
+ADAPTIVE_MANAGER_CONTRACT_PATTERN = re.compile(
+    r"(?P<contract>\[recursive document coordinator session contract\]\n"
+    r"session_role=document_coordinator\n"
+    r"is_root=false\n"
+    r"has_parent=true\n"
+    r"can_delegate=true\n"
+    r"can_finalize_user=false\n"
+    r"return_contract=exactly_one_parent_report\n"
+    r".*?Send that object exactly once to receiver_role='parent', then stop\.)",
+    re.DOTALL,
+)
+ADAPTIVE_DEPTH3_TOP_CONTRACT_PATTERN = re.compile(
+    r"(?P<contract>\[recursive document coordinator session contract\]\n"
+    r"session_role=document_coordinator\n"
+    r"is_root=false\n"
+    r"has_parent=true\n"
+    r"can_delegate=true\n"
+    r"can_finalize_user=false\n"
+    r"return_contract=exactly_one_parent_report\n"
+    r"\[local cognition facts\]\n"
+    r"owns_required_evidence=false\n"
+    r"remaining_work_requires_decomposition=true\n"
+    r"terminal_shards_ready=false\n"
+    r".*?\nadaptive_recursive_contract_end=coordinator)",
+    re.DOTALL,
+)
+ADAPTIVE_DEPTH3_SUBGROUP_CONTRACT_PATTERN = re.compile(
+    r"(?P<contract>\[recursive document coordinator session contract\]\n"
+    r"session_role=document_coordinator\n"
+    r"document_group=(?P<group>alpha,beta|gamma)\n"
+    r".*?\nadaptive_recursive_contract_end=group)",
+    re.DOTALL,
+)
 CHILD_ACTION_PATTERN = re.compile(
     re.escape(CHILD_ACTION_SCAFFOLD_HEADER)
     + r".*?In your first IPython call execute exactly:\s*"
@@ -668,6 +701,16 @@ def document_coordinator_level_from_messages(messages: Any) -> str | None:
         return "top"
     if _contains_marker(messages, "document_coordinator_level=subgroup"):
         return "subgroup"
+    facts = local_cognition_facts_from_messages(messages)
+    if facts is not None:
+        if facts["remaining_work_requires_decomposition"]:
+            return "top"
+        if facts["terminal_shards_ready"] and _contains_marker(
+            messages, "document_group="
+        ):
+            return "subgroup"
+        if facts["terminal_shards_ready"]:
+            return "legacy"
     if _contains_marker(messages, DOCUMENT_COORDINATOR_HEADER):
         return "legacy"
     return None
@@ -1247,7 +1290,11 @@ def disclosed_document_manager_action(prompt: str) -> str | None:
 
     depth3_matches = [
         match.group("contract").strip()
-        for match in DOCUMENT_DEPTH3_TOP_CONTRACT_PATTERN.finditer(prompt)
+        for pattern in (
+            DOCUMENT_DEPTH3_TOP_CONTRACT_PATTERN,
+            ADAPTIVE_DEPTH3_TOP_CONTRACT_PATTERN,
+        )
+        for match in pattern.finditer(prompt)
     ]
     if depth3_matches:
         if len(set(depth3_matches)) != 1:
@@ -1260,9 +1307,14 @@ def disclosed_document_manager_action(prompt: str) -> str | None:
         )
         if root_match is None:
             raise ValueError("depth-three document scaffold lacks one owned directory")
-        subgroup_matches = list(
-            DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN.finditer(contract)
-        )
+        subgroup_matches = [
+            match
+            for pattern in (
+                DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN,
+                ADAPTIVE_DEPTH3_SUBGROUP_CONTRACT_PATTERN,
+            )
+            for match in pattern.finditer(contract)
+        ]
         if [match.group("group") for match in subgroup_matches] != [
             "alpha,beta",
             "gamma",
@@ -1275,7 +1327,8 @@ def disclosed_document_manager_action(prompt: str) -> str | None:
 
     matches = [
         match.group("contract").strip()
-        for match in DOCUMENT_MANAGER_CONTRACT_PATTERN.finditer(prompt)
+        for pattern in (DOCUMENT_MANAGER_CONTRACT_PATTERN, ADAPTIVE_MANAGER_CONTRACT_PATTERN)
+        for match in pattern.finditer(prompt)
     ]
     if not matches:
         return None
@@ -1349,14 +1402,23 @@ def disclosed_document_leaf_action(prompt: str) -> str | None:
 
     top_matches = [
         match.group("contract").strip()
-        for match in DOCUMENT_DEPTH3_TOP_CONTRACT_PATTERN.finditer(prompt)
+        for pattern in (
+            DOCUMENT_DEPTH3_TOP_CONTRACT_PATTERN,
+            ADAPTIVE_DEPTH3_TOP_CONTRACT_PATTERN,
+        )
+        for match in pattern.finditer(prompt)
     ]
     if top_matches:
         if len(set(top_matches)) != 1:
             raise ValueError("depth-three top manager has conflicting contracts")
-        subgroup_matches = list(
-            DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN.finditer(top_matches[0])
-        )
+        subgroup_matches = [
+            match
+            for pattern in (
+                DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN,
+                ADAPTIVE_DEPTH3_SUBGROUP_CONTRACT_PATTERN,
+            )
+            for match in pattern.finditer(top_matches[0])
+        ]
         if [match.group("group") for match in subgroup_matches] != [
             "alpha,beta",
             "gamma",
@@ -1375,7 +1437,14 @@ def disclosed_document_leaf_action(prompt: str) -> str | None:
             )
         )
 
-    subgroup_matches = list(DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN.finditer(prompt))
+    subgroup_matches = [
+        match
+        for pattern in (
+            DOCUMENT_DEPTH3_SUBGROUP_CONTRACT_PATTERN,
+            ADAPTIVE_DEPTH3_SUBGROUP_CONTRACT_PATTERN,
+        )
+        for match in pattern.finditer(prompt)
+    ]
     if subgroup_matches:
         unique = {
             (match.group("group"), match.group("contract").strip())
@@ -1415,7 +1484,8 @@ def disclosed_document_leaf_action(prompt: str) -> str | None:
 
     matches = [
         match.group("contract").strip()
-        for match in DOCUMENT_MANAGER_CONTRACT_PATTERN.finditer(prompt)
+        for pattern in (DOCUMENT_MANAGER_CONTRACT_PATTERN, ADAPTIVE_MANAGER_CONTRACT_PATTERN)
+        for match in pattern.finditer(prompt)
     ]
     if not matches:
         return None
