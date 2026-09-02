@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 import pytest
@@ -129,6 +130,14 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'proxy_args+=(--document-root-flat-fanin-scaffold)' in launcher
     assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
     assert 'proxy_args+=(--depth-default-child)' in launcher
+    assert "specialist_worker_routing=${DUAL_SPECIALIST_WORKER_ROUTING:-0}" in launcher
+    assert "--specialist-worker-routing" in launcher
+    assert "--specialist-route table_analyst" in launcher
+    assert "--specialist-route source_inspector" in launcher
+    assert "launch_table_analyst" in launcher
+    assert "launch_source_inspector" in launcher
+    assert "table_analyst_model_sha256" in launcher
+    assert "source_inspector_model_sha256" in launcher
 
 
 def test_document_eval_runner_derives_trace_count_from_config() -> None:
@@ -142,6 +151,36 @@ def test_document_eval_runner_derives_trace_count_from_config() -> None:
     assert 'print(num_tasks * num_rollouts)' in runner
     assert '--expected-count "$expected_count"' in runner
     assert "--expected-count 4" not in runner
+
+
+def test_specialist_population_pair_differs_only_by_visible_registry() -> None:
+    root = Path(__file__).parents[2]
+    experiment = root / "experiments" / "qwen35-2b-document-recursion-zero-update-v1"
+    control = tomllib.loads(
+        (experiment / "specialist-population-control-heldout-v1.toml").read_text()
+    )
+    treatment = tomllib.loads(
+        (experiment / "specialist-population-treatment-heldout-v1.toml").read_text()
+    )
+    control_experts = control["env"]["taskset"].pop("available_experts")
+    treatment_experts = treatment["env"]["taskset"].pop("available_experts")
+
+    assert control == treatment
+    assert control["num_tasks"] == 16
+    assert control["env"]["taskset"]["split"] == "eval"
+    assert control_experts == ["generic_worker"]
+    assert treatment_experts == [
+        "generic_worker",
+        "table_analyst",
+        "source_inspector",
+    ]
+
+    runner = (root / "scripts" / "run_q35_2b_specialist_population_eval_v1.sh").read_text()
+    assert "DUAL_SPECIALIST_WORKER_ROUTING=1" in runner
+    assert "DUAL_TABLE_ANALYST_MODEL" in runner
+    assert "DUAL_SOURCE_INSPECTOR_MODEL" in runner
+    assert "DUAL_DEPTH_DEFAULT_CHILD=1" in runner
+    assert "changed during specialist population evaluation" in runner
 
 
 def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -> None:
@@ -1889,6 +1928,127 @@ def test_proxy_exposes_level_invariant_cognitive_action_schema() -> None:
     assert '"direct"' not in serialized
     assert '"flat"' not in serialized
     assert '"hierarchical"' not in serialized
+
+
+def test_specialist_routing_preserves_model_authored_expert_choice() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    assignment = {
+        "worker_name": "task-worker",
+        "objective": (
+            "Read /workspace/specialist-worker/v4-i1/table.csv and send "
+            "one JSON value to the parent."
+        ),
+        "paths": ["/workspace/specialist-worker/v4-i1/table.csv"],
+    }
+    prompt = "\n".join(
+        (
+            module.SPECIALIST_WORKER_ROUTING_HEADER,
+            module.LOCAL_COGNITION_FACTS_HEADER,
+            "owns_required_evidence=false",
+            "remaining_work_requires_decomposition=false",
+            "terminal_shards_ready=true",
+            "[capability registry]",
+            json.dumps({"expert_id": "generic_worker"}),
+            json.dumps({"expert_id": "table_analyst"}),
+            module.SPECIALIST_ASSIGNMENT_HEADER,
+            json.dumps(assignment, separators=(",", ":")),
+        )
+    )
+    messages = [{"role": "user", "content": prompt}]
+    actions, expert_ids = module.disclosed_specialist_actions_from_messages(messages)
+
+    assert expert_ids == ("generic_worker", "table_analyst")
+    assert set(actions) == {
+        ("delegate_terminal", "generic_worker"),
+        ("delegate_terminal", "table_analyst"),
+    }
+    assert "expert_id=generic_worker" in actions[("delegate_terminal", "generic_worker")]
+    assert "expert_id=table_analyst" in actions[("delegate_terminal", "table_analyst")]
+
+    facts = {
+        "owns_required_evidence": False,
+        "remaining_work_requires_decomposition": False,
+        "terminal_shards_ready": True,
+    }
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps(
+                            {
+                                "action": "delegate_terminal",
+                                "expert_id": "generic_worker",
+                            }
+                        ),
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rewritten, count, action_sha, selected_action, selected_expert = (
+        module.rewrite_typed_specialist_action_response(
+            body,
+            canonical_actions=actions,
+            expected_facts=facts,
+            expert_ids=expert_ids,
+        )
+    )
+    function = json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+        "function"
+    ]
+    selected_code = actions[("delegate_terminal", "generic_worker")]
+    assert function["name"] == "ipython"
+    assert json.loads(function["arguments"])["code"] == selected_code
+    assert count == 1
+    assert action_sha == hashlib.sha256(selected_code.encode()).hexdigest()
+    assert selected_action == "delegate_terminal"
+    assert selected_expert == "generic_worker"
+
+
+def test_specialist_routing_fails_closed_for_unregistered_expert() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    facts = {
+        "owns_required_evidence": False,
+        "remaining_work_requires_decomposition": False,
+        "terminal_shards_ready": True,
+    }
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": json.dumps(
+                            {
+                                "action": "delegate_terminal",
+                                "expert_id": "source_inspector",
+                            }
+                        ),
+                    }
+                }
+            ]
+        }
+    ).encode()
+    rewritten, count, action_sha, selected_action, selected_expert = (
+        module.rewrite_typed_specialist_action_response(
+            body,
+            canonical_actions={
+                ("delegate_terminal", "generic_worker"): "generic_code"
+            },
+            expected_facts=facts,
+            expert_ids=("generic_worker",),
+        )
+    )
+
+    assert json.loads(rewritten)["choices"][0]["message"]["content"].startswith(
+        "Choose one legal local action"
+    )
+    assert count == 1
+    assert action_sha is None
+    assert selected_action == "delegate_terminal"
+    assert selected_expert == "source_inspector"
 
 
 def test_adaptive_cognitive_action_uses_current_card_and_rewrites_only_match() -> None:

@@ -9,6 +9,7 @@ import asyncio
 import hashlib
 import json
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -19,6 +20,11 @@ RECURSIVE_COORDINATOR_HEADER = "[recursive coordinator session contract]"
 DOCUMENT_COORDINATOR_HEADER = "[recursive document coordinator session contract]"
 FREE_DOCUMENT_TOPOLOGY_HEADER = "[free document topology contract]"
 ADAPTIVE_DOCUMENT_COGNITION_HEADER = "[adaptive document cognition contract]"
+SPECIALIST_WORKER_ROUTING_HEADER = "[specialist worker routing contract]"
+SPECIALIST_ASSIGNMENT_HEADER = "[terminal specialist assignment]"
+SPECIALIST_MANAGER_HEADER = "[recursive specialist coordinator session contract]"
+SPECIALIST_LOCAL_VALUES_HEADER = "[owned specialist-local values]"
+SELECTED_TERMINAL_CAPABILITY_HEADER = "[selected terminal capability]"
 LOCAL_COGNITION_FACTS_HEADER = "[local cognition facts]"
 ROOT_COORDINATOR_HEADER = "[root coordinator session contract]"
 DOCUMENT_ROOT_UTILITY_DECISION_HEADER = "[document root utility decision rubric]"
@@ -28,6 +34,7 @@ DOCUMENT_ROOT_CAUSAL_UTILITY_DECISION_HEADER = (
 LEAF_REPORTER_HEADER = "[leaf reporter session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
+SPECIALIST_EXPERT_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
 ROOT_COORDINATOR_CONTRACT = """[root coordinator session contract]
 session_role=root_coordinator
 is_root=true
@@ -1683,6 +1690,212 @@ def local_cognition_facts_from_messages(messages: Any) -> dict[str, bool] | None
     return facts
 
 
+def _message_fragments(messages: Any) -> list[str]:
+    fragments: list[str] = []
+
+    def collect(value: Any) -> None:
+        if isinstance(value, str):
+            fragments.append(value)
+        elif isinstance(value, list):
+            for item in value:
+                collect(item)
+        elif isinstance(value, dict):
+            for item in value.values():
+                collect(item)
+
+    collect(messages)
+    return fragments
+
+
+def specialist_registry_ids_from_messages(messages: Any) -> tuple[str, ...] | None:
+    """Extract public expert ids without inferring which one should be selected."""
+
+    ids = []
+    for fragment in _message_fragments(messages):
+        if "[capability registry]" not in fragment:
+            continue
+        for line in fragment.splitlines():
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            expert_id = entry.get("expert_id") if isinstance(entry, dict) else None
+            if isinstance(expert_id, str) and SPECIALIST_EXPERT_ID_PATTERN.fullmatch(
+                expert_id
+            ):
+                ids.append(expert_id)
+    if not ids:
+        return None
+    unique = tuple(dict.fromkeys(ids))
+    if "generic_worker" not in unique:
+        raise ValueError("specialist registry must retain generic_worker")
+    return unique
+
+
+def specialist_assignment_from_messages(messages: Any) -> dict[str, Any] | None:
+    assignments = []
+    for fragment in _message_fragments(messages):
+        lines = fragment.splitlines()
+        for index, line in enumerate(lines[:-1]):
+            if line.strip() != SPECIALIST_ASSIGNMENT_HEADER:
+                continue
+            try:
+                assignment = json.loads(lines[index + 1])
+            except json.JSONDecodeError as error:
+                raise ValueError("specialist assignment is not valid JSON") from error
+            if not isinstance(assignment, dict):
+                raise ValueError("specialist assignment must be an object")
+            assignments.append(assignment)
+    if not assignments:
+        return None
+    if any(assignment != assignments[0] for assignment in assignments[1:]):
+        raise ValueError("specialist prompt contains conflicting assignments")
+    assignment = assignments[0]
+    if set(assignment) != {"worker_name", "objective", "paths"}:
+        raise ValueError("specialist assignment has unexpected fields")
+    if assignment["worker_name"] != "task-worker" or not isinstance(
+        assignment["objective"], str
+    ):
+        raise ValueError("specialist assignment has invalid worker metadata")
+    paths = assignment["paths"]
+    if (
+        not isinstance(paths, list)
+        or not paths
+        or not all(
+            isinstance(path, str)
+            and re.fullmatch(r"/workspace/specialist-worker/[^\s]+", path)
+            for path in paths
+        )
+    ):
+        raise ValueError("specialist assignment has invalid artifact paths")
+    return assignment
+
+
+def specialist_local_values_from_messages(messages: Any) -> list[int] | None:
+    values = []
+    for fragment in _message_fragments(messages):
+        lines = fragment.splitlines()
+        for index, line in enumerate(lines[:-1]):
+            if line.strip() != SPECIALIST_LOCAL_VALUES_HEADER:
+                continue
+            try:
+                candidate = json.loads(lines[index + 1])
+            except json.JSONDecodeError as error:
+                raise ValueError("specialist local values are not valid JSON") from error
+            if not isinstance(candidate, list) or not all(
+                isinstance(value, int) and not isinstance(value, bool)
+                for value in candidate
+            ):
+                raise ValueError("specialist local values must be integers")
+            values.append(candidate)
+    if not values:
+        return None
+    if any(candidate != values[0] for candidate in values[1:]):
+        raise ValueError("specialist prompt contains conflicting local values")
+    return values[0]
+
+
+def specialist_manager_contract_from_messages(messages: Any) -> str | None:
+    contracts = []
+    pattern = re.compile(
+        r"(?P<contract>\[recursive document coordinator session contract\]\n"
+        r"\[recursive specialist coordinator session contract\].*?"
+        r"specialist_recursive_contract_end=manager)",
+        re.DOTALL,
+    )
+    for fragment in _message_fragments(messages):
+        contracts.extend(match.group("contract").strip() for match in pattern.finditer(fragment))
+    if not contracts:
+        return None
+    if any(contract != contracts[0] for contract in contracts[1:]):
+        raise ValueError("specialist prompt contains conflicting manager contracts")
+    return contracts[0]
+
+
+def selected_terminal_expert_from_messages(messages: Any) -> str | None:
+    selected = []
+    pattern = re.compile(
+        re.escape(SELECTED_TERMINAL_CAPABILITY_HEADER)
+        + r"\s*\nexpert_id=(?P<expert>[a-z][a-z0-9_]{1,63})"
+    )
+    for fragment in _message_fragments(messages):
+        selected.extend(match.group("expert") for match in pattern.finditer(fragment))
+    if not selected:
+        return None
+    if any(expert != selected[0] for expert in selected[1:]):
+        raise ValueError("child request contains conflicting selected experts")
+    return selected[0]
+
+
+def specialist_report_from_messages(messages: Any) -> dict[str, int] | None:
+    reports = []
+    for fragment in _message_fragments(messages):
+        if not fragment.lstrip().startswith("[from child:"):
+            continue
+        for match in re.finditer(r"\{[^{}]+\}", fragment):
+            try:
+                payload = json.loads(match.group(0))
+            except json.JSONDecodeError:
+                continue
+            if (
+                isinstance(payload, dict)
+                and set(payload) in ({"value"}, {"result"})
+                and all(isinstance(value, int) and not isinstance(value, bool) for value in payload.values())
+            ):
+                reports.append(payload)
+    if not reports:
+        return None
+    if any(report != reports[0] for report in reports[1:]):
+        raise ValueError("specialist session contains conflicting child reports")
+    return reports[0]
+
+
+def disclosed_specialist_actions_from_messages(
+    messages: Any,
+) -> tuple[dict[tuple[str, str], str], tuple[str, ...]] | None:
+    if not _contains_marker(messages, SPECIALIST_WORKER_ROUTING_HEADER) and not _contains_marker(
+        messages, SPECIALIST_MANAGER_HEADER
+    ):
+        return None
+    registry = specialist_registry_ids_from_messages(messages)
+    if registry is None:
+        raise ValueError("specialist routing contract lacks a capability registry")
+    actions: dict[tuple[str, str], str] = {}
+    local_values = specialist_local_values_from_messages(messages)
+    if local_values is not None:
+        actions[("solve_owned", "none")] = (
+            f"specialist_local_values = {local_values!r}\n"
+            "specialist_local_result = sum((index + 1) * value for index, value in "
+            "enumerate(specialist_local_values))\n"
+            "specialist_local_result"
+        )
+    assignment = specialist_assignment_from_messages(messages)
+    if assignment is not None:
+        for expert_id in registry:
+            child_prompt = (
+                f"{SELECTED_TERMINAL_CAPABILITY_HEADER}\n"
+                f"expert_id={expert_id}\n"
+                "session_role=terminal_worker\n"
+                "is_root=false\n"
+                "has_parent=true\n"
+                "can_delegate=false\n"
+                "can_finalize_user=false\n"
+                "return_contract=exactly_one_parent_report\n"
+                f"{assignment['objective']}"
+            )
+            actions[("delegate_terminal", expert_id)] = (
+                f"task_worker = await rlm({json.dumps(child_prompt, ensure_ascii=False)}, "
+                'name="task-worker")'
+            )
+    manager_contract = specialist_manager_contract_from_messages(messages)
+    if manager_contract is not None:
+        actions[("delegate_coordinator", "none")] = (
+            f"specialist_manager = await rlm({json.dumps(manager_contract, ensure_ascii=False)}, "
+            'name="specialist-manager")'
+        )
+    return actions, registry
+
+
 def cognitive_action_from_facts(facts: dict[str, bool]) -> str:
     """Apply the level-invariant next-action rule to public local facts."""
 
@@ -2483,6 +2696,28 @@ def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, An
     return rewritten
 
 
+def force_typed_specialist_action_schema(
+    payload: dict[str, Any], expert_ids: tuple[str, ...]
+) -> dict[str, Any]:
+    """Require local cognition plus an explicit, registry-bounded worker choice."""
+
+    rewritten = force_typed_cognitive_action_schema(payload)
+    function = rewritten["tools"][0]["function"]
+    function["description"] = (
+        "Choose the generic next action from the public local cognition facts. For terminal "
+        "delegation, also choose one expert_id from the public capability registry. Use `none` "
+        "for owned work or coordinator delegation. The harness validates and executes the exact "
+        "choice; it never substitutes another expert."
+    )
+    parameters = function["parameters"]
+    parameters["properties"]["expert_id"] = {
+        "type": "string",
+        "enum": ["none", *expert_ids],
+    }
+    parameters["required"] = ["action", "expert_id"]
+    return rewritten
+
+
 def force_parent_return_compute_schema(payload: dict[str, Any]) -> dict[str, Any]:
     """Constrain the first recursive turn to one model-authored IPython computation."""
 
@@ -2877,6 +3112,122 @@ def rewrite_typed_cognitive_action_response(
     )
 
 
+def rewrite_typed_specialist_action_response(
+    body: bytes,
+    *,
+    canonical_actions: dict[tuple[str, str], str],
+    expected_facts: dict[str, bool],
+    expert_ids: tuple[str, ...],
+) -> tuple[bytes, int, str | None, str | None, str | None]:
+    """Translate a model-authored action and expert id without correcting either."""
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body, 0, None, None, None
+    if not isinstance(payload, dict) or not isinstance(payload.get("choices"), list):
+        return body, 0, None, None, None
+    expected_action = cognitive_action_from_facts(expected_facts)
+    rewrites = 0
+    action_sha256 = None
+    selected_action = None
+    selected_expert = None
+    for choice_index, choice in enumerate(payload["choices"]):
+        message = choice.get("message") if isinstance(choice, dict) else None
+        tool_calls = message.get("tool_calls") if isinstance(message, dict) else None
+        function = None
+        parsed = None
+        normalized_json_transport = False
+        if isinstance(tool_calls, list) and len(tool_calls) == 1:
+            tool_call = tool_calls[0]
+            candidate = tool_call.get("function") if isinstance(tool_call, dict) else None
+            if (
+                isinstance(candidate, dict)
+                and candidate.get("name") == TYPED_COGNITIVE_ACTION_TOOL
+            ):
+                function = candidate
+                arguments = function.get("arguments")
+                try:
+                    parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
+                except json.JSONDecodeError:
+                    parsed = None
+        elif isinstance(message, dict):
+            for field in ("reasoning", "reasoning_content", "content"):
+                candidate = message.get(field)
+                if not isinstance(candidate, str):
+                    continue
+                try:
+                    parsed_candidate = json.loads(candidate)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(parsed_candidate, dict):
+                    parsed = parsed_candidate
+                    normalized_json_transport = True
+                    break
+        if not isinstance(parsed, dict) or set(parsed) != {"action", "expert_id"}:
+            continue
+        selected_action = parsed.get("action") if isinstance(parsed.get("action"), str) else None
+        selected_expert = (
+            parsed.get("expert_id") if isinstance(parsed.get("expert_id"), str) else None
+        )
+        valid_expert = (
+            selected_expert in expert_ids
+            if selected_action == "delegate_terminal"
+            else selected_expert == "none"
+        )
+        if selected_action != expected_action or not valid_expert:
+            continue
+        code = canonical_actions.get((selected_action, selected_expert))
+        if code is None:
+            raise ValueError(
+                f"selected specialist action is unavailable: {selected_action}/{selected_expert}"
+            )
+        arguments = json.dumps({"code": code}, separators=(",", ":"), ensure_ascii=False)
+        if normalized_json_transport:
+            assert isinstance(message, dict)
+            message["tool_calls"] = [
+                {
+                    "id": f"specialist-routing-normalized-{choice_index}",
+                    "type": "function",
+                    "function": {"name": "ipython", "arguments": arguments},
+                }
+            ]
+            message["content"] = ""
+        else:
+            assert function is not None
+            function["name"] = "ipython"
+            function["arguments"] = arguments
+        action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        rewrites += 1
+    if not rewrites:
+        rejected = 0
+        for choice in payload["choices"]:
+            if not isinstance(choice, dict) or not isinstance(choice.get("message"), dict):
+                continue
+            choice["message"] = {
+                "role": "assistant",
+                "content": "Choose one legal local action and an explicit registered expert id.",
+            }
+            choice["finish_reason"] = "stop"
+            rejected += 1
+        if rejected:
+            return (
+                json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(),
+                rejected,
+                None,
+                selected_action,
+                selected_expert,
+            )
+        return body, 0, None, selected_action, selected_expert
+    return (
+        json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode(),
+        rewrites,
+        action_sha256,
+        selected_action,
+        selected_expert,
+    )
+
+
 def chat_completion_to_sse(body: bytes) -> bytes:
     """Bridge one non-streaming chat completion back to an OpenAI SSE stream."""
 
@@ -3013,6 +3364,7 @@ class DualPolicyProxy:
         audit_log: Path,
         private_evidence_token_ids: list[int],
         tokenizer: Any,
+        specialist_routes: dict[str, tuple[str, str]] | None = None,
         recursive_coordinator_token_ids: list[int] | None = None,
         document_coordinator_token_ids: list[int] | None = None,
         root_depth_token_ids: list[int] | None = None,
@@ -3038,6 +3390,7 @@ class DualPolicyProxy:
         document_root_topology_normalization_scaffold: bool = False,
         document_root_typed_topology_decision: bool = False,
         adaptive_document_decision: bool = False,
+        specialist_worker_routing: bool = False,
         document_root_flat_fanin_scaffold: bool = False,
         typed_child_report: bool = False,
         child_authored_compute: bool = False,
@@ -3047,6 +3400,17 @@ class DualPolicyProxy:
             "child": child_url.rstrip("/"),
         }
         self.models = {"coordinator": coordinator_model, "child": child_model}
+        self.specialist_worker_routing = specialist_worker_routing
+        self.specialist_route_keys: dict[str, str] = {"generic_worker": "child"}
+        for expert_id, (url, model) in (specialist_routes or {}).items():
+            if not SPECIALIST_EXPERT_ID_PATTERN.fullmatch(expert_id):
+                raise ValueError(f"invalid specialist expert id: {expert_id}")
+            if expert_id in self.specialist_route_keys:
+                raise ValueError(f"duplicate specialist expert id: {expert_id}")
+            route_key = f"specialist:{expert_id}"
+            self.specialist_route_keys[expert_id] = route_key
+            self.urls[route_key] = url.rstrip("/")
+            self.models[route_key] = model
         self.external_model = external_model
         self.audit_log = audit_log
         self.private_evidence_token_ids = private_evidence_token_ids
@@ -3114,6 +3478,7 @@ class DualPolicyProxy:
         self.completed_typed_return_hashes: set[str] = set()
         self.completed_typed_child_report_hashes: set[str] = set()
         self.completed_leaf_compute_report_hashes: set[str] = set()
+        self.completed_specialist_manager_report_hashes: set[str] = set()
         self.typed_return_compute_hashes: set[str] = set()
         self.typed_return_compute_attempts: dict[str, int] = {}
         self.typed_child_report_compute_hashes: set[str] = set()
@@ -3257,6 +3622,9 @@ class DualPolicyProxy:
         response_rewrites: int = 0,
         document_report_stems: tuple[str, ...] | None = None,
         document_root_topology: str | None = None,
+        upstream_model: str | None = None,
+        expert_id: str | None = None,
+        latency_ms: float | None = None,
     ) -> None:
         event = {
             "schema_version": "qwen35-2b-dual-policy-route/v1",
@@ -3264,7 +3632,7 @@ class DualPolicyProxy:
             "role": role,
             "endpoint": endpoint,
             "request_sha256": hashlib.sha256(body).hexdigest(),
-            "upstream_model": self.models[role],
+            "upstream_model": upstream_model or self.models[role],
             "status": status,
             "mode": mode,
         }
@@ -3280,11 +3648,16 @@ class DualPolicyProxy:
             event["document_report_stems"] = list(document_report_stems)
         if document_root_topology is not None:
             event["document_root_topology"] = document_root_topology
+        if expert_id is not None:
+            event["expert_id"] = expert_id
+        if latency_ms is not None:
+            event["latency_ms"] = round(latency_ms, 3)
         with self.audit_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
         self.sequence += 1
 
     async def _route_json(self, request: web.Request, *, endpoint: str) -> web.StreamResponse:
+        request_started = time.perf_counter()
         if self.client is None:
             raise RuntimeError("proxy client is not initialized")
         received = await request.read()
@@ -3301,6 +3674,31 @@ class DualPolicyProxy:
             root_depth_token_ids=self.root_depth_token_ids,
             depth_default_child=self.depth_default_child,
         )
+        route_key = role
+        routed_expert_id = None
+        if role == "child":
+            routed_expert_id = selected_terminal_expert_from_messages(
+                payload.get("messages")
+            )
+            if routed_expert_id is not None:
+                route_key = self.specialist_route_keys.get(routed_expert_id, "")
+                if not self.specialist_worker_routing or not route_key:
+                    body = json.dumps(
+                        routed, separators=(",", ":"), ensure_ascii=False
+                    ).encode()
+                    self._audit(
+                        role=role,
+                        endpoint=endpoint,
+                        body=body,
+                        status=400,
+                        mode="specialist_route_rejected",
+                        expert_id=routed_expert_id,
+                    )
+                    return web.json_response(
+                        {"error": f"unavailable terminal expert: {routed_expert_id}"},
+                        status=400,
+                    )
+                routed = {**routed, "model": self.models[route_key]}
         if (
             self.root_coordinator_contract
             and endpoint == "/v1/chat/completions"
@@ -3371,6 +3769,19 @@ class DualPolicyProxy:
             and not _contains_marker(
                 payload.get("messages"), FREE_DOCUMENT_TOPOLOGY_HEADER
             )
+        )
+        specialist_manager_chat = (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and _contains_marker(payload.get("messages"), SPECIALIST_MANAGER_HEADER)
+            and not is_root_coordinator_request(payload)
+        )
+        specialist_report = (
+            specialist_report_from_messages(payload.get("messages"))
+            if self.specialist_worker_routing
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            else None
         )
         document_coordinator_level = (
             document_coordinator_level_from_messages(payload.get("messages"))
@@ -3575,6 +3986,91 @@ class DualPolicyProxy:
                 body=body,
                 status=200,
                 mode="document_root_manager_report_finalized",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
+        if (
+            self.specialist_worker_routing
+            and specialist_report is not None
+            and is_root_coordinator_request(payload)
+        ):
+            value = specialist_report.get("result", specialist_report.get("value"))
+            body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content=json.dumps({"result": value}, separators=(",", ":")),
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="specialist_root_report_finalized",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
+        if (
+            self.specialist_worker_routing
+            and specialist_manager_chat
+            and specialist_report is not None
+            and session_sha256 in self.completed_specialist_manager_report_hashes
+        ):
+            body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Specialist manager report delivered.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="specialist_manager_report_session_terminated",
+                session_sha256=session_sha256,
+            )
+            return web.Response(body=response_body, content_type=content_type)
+        specialist_spawned = any(
+            _contains_marker(payload.get("messages"), marker)
+            for marker in (
+                "task_worker = await rlm(",
+                "specialist_manager = await rlm(",
+            )
+        ) and any(
+            isinstance(message, dict) and message.get("role") == "tool"
+            for message in payload.get("messages") or []
+        )
+        if (
+            self.specialist_worker_routing
+            and role == "coordinator"
+            and specialist_spawned
+            and specialist_report is None
+        ):
+            body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
+            response_body = synthetic_chat_stop_response(
+                model=self.external_model,
+                sequence=self.sequence,
+                content="Waiting for the selected specialist report.",
+            )
+            content_type = "application/json"
+            if client_requested_stream:
+                response_body = chat_completion_to_sse(response_body)
+                content_type = "text/event-stream"
+            self._audit(
+                role=role,
+                endpoint=endpoint,
+                body=body,
+                status=200,
+                mode="specialist_report_session_passive",
                 session_sha256=session_sha256,
             )
             return web.Response(body=response_body, content_type=content_type)
@@ -3856,6 +4352,12 @@ class DualPolicyProxy:
         adaptive_canonical_actions = None
         adaptive_expected_facts = None
         adaptive_selected_action = None
+        specialist_cognitive_scope = False
+        specialist_canonical_actions = None
+        specialist_expected_facts = None
+        specialist_registry_ids = None
+        specialist_selected_action = None
+        specialist_selected_expert = None
         pristine_root_topology_turn = not any(
             isinstance(message, dict)
             and message.get("role") in {"assistant", "tool"}
@@ -3872,6 +4374,33 @@ class DualPolicyProxy:
                 )
             )
         )
+        pristine_specialist_turn = (
+            endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            and any(
+                _contains_marker(payload.get("messages"), marker)
+                for marker in (SPECIALIST_WORKER_ROUTING_HEADER, SPECIALIST_MANAGER_HEADER)
+            )
+            and not any(
+                isinstance(message, dict)
+                and message.get("role") in {"assistant", "tool"}
+                for message in payload.get("messages") or []
+            )
+        )
+        if self.specialist_worker_routing and pristine_specialist_turn:
+            specialist_expected_facts = local_cognition_facts_from_messages(
+                payload.get("messages")
+            )
+            disclosed = disclosed_specialist_actions_from_messages(
+                payload.get("messages")
+            )
+            if specialist_expected_facts is None or disclosed is None:
+                raise ValueError("specialist decision lacks public facts or legal mechanics")
+            specialist_canonical_actions, specialist_registry_ids = disclosed
+            specialist_cognitive_scope = True
+            routed = force_typed_specialist_action_schema(
+                routed, specialist_registry_ids
+            )
         if (
             self.document_root_topology_normalization_scaffold
             and endpoint == "/v1/chat/completions"
@@ -3940,6 +4469,7 @@ class DualPolicyProxy:
             self.adaptive_document_decision
             and pristine_document_manager_turn
             and not adaptive_cognitive_scope
+            and not specialist_cognitive_scope
         ):
             adaptive_expected_facts = local_cognition_facts_from_messages(
                 payload.get("messages")
@@ -3977,6 +4507,20 @@ class DualPolicyProxy:
         elif self.document_manager_fanin_scaffold and len(manager_reports) == 3:
             code = document_manager_parent_report_code(manager_reports)
             forced_chat_scope = "document_manager_fanin"
+            routed = force_ipython_code_schema(routed, code)
+            forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
+        if specialist_manager_chat and specialist_report is not None:
+            value = specialist_report.get("value")
+            if value is None:
+                raise ValueError("specialist manager requires a terminal value report")
+            code = (
+                "import json\n"
+                "specialist_manager_delivery = await agent_message.send("
+                f"json.dumps({{'result': {value}}}, separators=(',', ':')), "
+                "receiver_role='parent')\n"
+                "specialist_manager_delivery"
+            )
+            forced_chat_scope = "specialist_manager_fanin"
             routed = force_ipython_code_schema(routed, code)
             forced_chat_action_sha256 = hashlib.sha256(code.encode()).hexdigest()
         if document_leaf_path is not None:
@@ -4281,7 +4825,7 @@ class DualPolicyProxy:
             if key.lower() not in HOP_BY_HOP and key.lower() != "host"
         }
         async with self.client.post(
-            f"{self.urls[role].removesuffix('/v1')}{endpoint}",
+            f"{self.urls[route_key].removesuffix('/v1')}{endpoint}",
             data=body,
             headers=headers,
         ) as upstream:
@@ -4413,6 +4957,30 @@ class DualPolicyProxy:
                             if key.lower() != "content-type"
                         }
                         response_headers["Content-Type"] = "text/event-stream"
+                elif specialist_cognitive_scope and upstream.status == 200:
+                    assert specialist_canonical_actions is not None
+                    assert specialist_expected_facts is not None
+                    assert specialist_registry_ids is not None
+                    (
+                        normalized,
+                        _,
+                        root_topology_action_sha256,
+                        specialist_selected_action,
+                        specialist_selected_expert,
+                    ) = rewrite_typed_specialist_action_response(
+                        normalized,
+                        canonical_actions=specialist_canonical_actions,
+                        expected_facts=specialist_expected_facts,
+                        expert_ids=specialist_registry_ids,
+                    )
+                    if client_requested_stream:
+                        normalized = chat_completion_to_sse(normalized)
+                        response_headers = {
+                            key: value
+                            for key, value in response_headers.items()
+                            if key.lower() != "content-type"
+                        }
+                        response_headers["Content-Type"] = "text/event-stream"
                 elif adaptive_cognitive_scope and upstream.status == 200:
                     assert adaptive_canonical_actions is not None
                     assert adaptive_expected_facts is not None
@@ -4491,80 +5059,87 @@ class DualPolicyProxy:
                     headers=response_headers,
                     body=normalized,
                 )
+            if (
+                forced_chat_scope == "specialist_manager_fanin"
+                and upstream.status == 200
+                and session_sha256 is not None
+            ):
+                self.completed_specialist_manager_report_hashes.add(session_sha256)
+            if root_topology_scope:
+                audit_mode = (
+                    "forwarded_document_root_topology_normalized_"
+                    f"{root_topology_selected}"
+                    if root_topology_action_sha256 is not None
+                    else (
+                        "forwarded_document_root_topology_mismatch_"
+                        f"{root_topology_selected}_expected_{root_topology_expected}"
+                    )
+                )
+            elif specialist_cognitive_scope:
+                audit_mode = (
+                    "forwarded_specialist_cognitive_action_"
+                    f"{specialist_selected_action}_{specialist_selected_expert}"
+                    if root_topology_action_sha256 is not None
+                    else "forwarded_specialist_cognitive_action_untranslated"
+                )
+            elif adaptive_cognitive_scope:
+                audit_mode = (
+                    f"forwarded_adaptive_cognitive_action_{adaptive_selected_action}"
+                    if root_topology_action_sha256 is not None
+                    else "forwarded_adaptive_cognitive_action_untranslated"
+                )
+            elif root_finalization_scope:
+                audit_mode = "forwarded_root_json_finalization"
+            elif typed_child_report_scope:
+                audit_mode = (
+                    "forwarded_typed_child_report"
+                    if typed_child_report_action_sha256 is not None
+                    else "forwarded_typed_child_report_untranslated"
+                )
+            elif typed_child_report_compute_scope:
+                audit_mode = (
+                    "forwarded_typed_child_report_compute_report"
+                    if typed_child_report_compute_action_sha256 is not None
+                    else "forwarded_typed_child_report_compute"
+                )
+            elif leaf_compute_report_scope:
+                audit_mode = (
+                    "forwarded_leaf_compute_report"
+                    if leaf_compute_report_action_sha256 is not None
+                    else "forwarded_leaf_compute_report_untranslated"
+                )
+            elif leaf_inline_evidence_scope:
+                audit_mode = (
+                    "forwarded_leaf_inline_evidence_repaired"
+                    if leaf_inline_evidence_action_sha256 is not None
+                    else "forwarded_leaf_inline_evidence_unmodified"
+                )
+            elif typed_compute_scope:
+                audit_mode = (
+                    "forwarded_typed_return_compute_repaired"
+                    if typed_compute_action_sha256 is not None
+                    else "forwarded_typed_return_compute"
+                )
+            elif typed_return_scope:
+                audit_mode = (
+                    "forwarded_typed_coordinator_return"
+                    if typed_return_action_sha256 is not None
+                    else "forwarded_typed_coordinator_return_untranslated"
+                )
+            elif forced_chat_scope is not None:
+                audit_mode = f"forwarded_forced_exact_{forced_chat_scope}_schema"
+            elif response_rewrites:
+                audit_mode = "forwarded_normalized_abort_finish_reason"
+            elif stripped_sampling_fields:
+                audit_mode = "forwarded_without_tool_choice"
+            else:
+                audit_mode = "forwarded"
             self._audit(
                 role=role,
                 endpoint=endpoint,
                 body=body,
                 status=upstream.status,
-                mode=(
-                    (
-                        "forwarded_document_root_topology_normalized_"
-                        f"{root_topology_selected}"
-                        if root_topology_action_sha256 is not None
-                        else (
-                            "forwarded_document_root_topology_mismatch_"
-                            f"{root_topology_selected}_expected_{root_topology_expected}"
-                        )
-                    )
-                    if root_topology_scope
-                    else (
-                        "forwarded_adaptive_cognitive_action_"
-                        f"{adaptive_selected_action}"
-                        if adaptive_cognitive_scope
-                        and root_topology_action_sha256 is not None
-                        else "forwarded_adaptive_cognitive_action_untranslated"
-                    )
-                    if adaptive_cognitive_scope
-                    else "forwarded_root_json_finalization"
-                    if root_finalization_scope
-                    else (
-                        "forwarded_typed_child_report"
-                        if typed_child_report_action_sha256 is not None
-                        else "forwarded_typed_child_report_untranslated"
-                    )
-                    if typed_child_report_scope
-                    else (
-                        "forwarded_typed_child_report_compute_report"
-                        if typed_child_report_compute_action_sha256 is not None
-                        else "forwarded_typed_child_report_compute"
-                    )
-                    if typed_child_report_compute_scope
-                    else (
-                        "forwarded_leaf_compute_report"
-                        if leaf_compute_report_action_sha256 is not None
-                        else "forwarded_leaf_compute_report_untranslated"
-                    )
-                    if leaf_compute_report_scope
-                    else (
-                        "forwarded_leaf_inline_evidence_repaired"
-                        if leaf_inline_evidence_action_sha256 is not None
-                        else "forwarded_leaf_inline_evidence_unmodified"
-                    )
-                    if leaf_inline_evidence_scope
-                    else (
-                        "forwarded_typed_return_compute_repaired"
-                        if typed_compute_action_sha256 is not None
-                        else "forwarded_typed_return_compute"
-                    )
-                    if typed_compute_scope
-                    else (
-                        "forwarded_typed_coordinator_return"
-                        if typed_return_action_sha256 is not None
-                        else "forwarded_typed_coordinator_return_untranslated"
-                    )
-                    if typed_return_scope
-                    else f"forwarded_forced_exact_{forced_chat_scope}_schema"
-                    if forced_chat_scope is not None
-                    else (
-                        "forwarded_normalized_abort_finish_reason"
-                        if response_rewrites
-                        else (
-                            "forwarded_without_tool_choice"
-                            if stripped_sampling_fields
-                            else "forwarded"
-                        )
-                    )
-                ),
+                mode=audit_mode,
                 action_sha256=(
                     typed_child_report_action_sha256
                     or typed_child_report_compute_action_sha256
@@ -4577,6 +5152,9 @@ class DualPolicyProxy:
                 ),
                 session_sha256=session_sha256,
                 response_rewrites=response_rewrites,
+                upstream_model=self.models[route_key],
+                expert_id=specialist_selected_expert or routed_expert_id,
+                latency_ms=(time.perf_counter() - request_started) * 1000,
             )
             return response
 
@@ -4606,6 +5184,13 @@ def main() -> None:
     parser.add_argument("--coordinator-model", required=True)
     parser.add_argument("--child-url", required=True)
     parser.add_argument("--child-model", required=True)
+    parser.add_argument(
+        "--specialist-route",
+        action="append",
+        nargs=3,
+        metavar=("EXPERT_ID", "URL", "MODEL"),
+        default=[],
+    )
     parser.add_argument("--external-model", required=True)
     parser.add_argument("--tokenizer-model")
     parser.add_argument("--leak-coordinator-exact-action", action="store_true")
@@ -4635,6 +5220,7 @@ def main() -> None:
     )
     parser.add_argument("--document-root-typed-topology-decision", action="store_true")
     parser.add_argument("--adaptive-document-decision", action="store_true")
+    parser.add_argument("--specialist-worker-routing", action="store_true")
     parser.add_argument("--document-root-flat-fanin-scaffold", action="store_true")
     parser.add_argument("--typed-child-report", action="store_true")
     parser.add_argument("--child-authored-compute", action="store_true")
@@ -4660,11 +5246,17 @@ def main() -> None:
         raise RuntimeError("document-coordinator role marker encoded to an empty token sequence")
     if not root_depth_token_ids:
         raise RuntimeError("root-depth role marker encoded to an empty token sequence")
+    specialist_routes = {
+        expert_id: (url, model) for expert_id, url, model in args.specialist_route
+    }
+    if len(specialist_routes) != len(args.specialist_route):
+        raise ValueError("specialist route ids must be unique")
     proxy = DualPolicyProxy(
         coordinator_url=args.coordinator_url,
         coordinator_model=args.coordinator_model,
         child_url=args.child_url,
         child_model=args.child_model,
+        specialist_routes=specialist_routes,
         external_model=args.external_model,
         audit_log=args.audit_log.resolve(),
         private_evidence_token_ids=private_evidence_token_ids,
@@ -4702,6 +5294,7 @@ def main() -> None:
             args.document_root_typed_topology_decision
         ),
         adaptive_document_decision=args.adaptive_document_decision,
+        specialist_worker_routing=args.specialist_worker_routing,
         document_root_flat_fanin_scaffold=args.document_root_flat_fanin_scaffold,
         typed_child_report=args.typed_child_report,
         child_authored_compute=args.child_authored_compute,
