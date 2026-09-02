@@ -1,0 +1,127 @@
+{
+  "schema_version": "q35-2b-specialist-worker-population-c1-plan/v1",
+  "recorded_at": "2026-09-02",
+  "status": "prospective",
+  "objective": "Test whether an unchanged adaptive coordinator can select and benefit from a small population of independently trained terminal specialists using only public capability metadata.",
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates_allowed": 0
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates_allowed": 0
+    }
+  },
+  "specialist_lineages": [
+    {
+      "expert_id": "table_analyst",
+      "parent": "H176",
+      "capability": "Read CSV and JSON artifacts with Python; join, filter, group, reconcile, and compute exact integer results.",
+      "training_scope": "terminal worker only"
+    },
+    {
+      "expert_id": "source_inspector",
+      "parent": "H176",
+      "capability": "Inspect Python source and text configuration with Python AST and file tools; derive exact structural facts and integer results.",
+      "training_scope": "terminal worker only"
+    }
+  ],
+  "registry_contract": {
+    "public_fields": [
+      "expert_id",
+      "role",
+      "capability",
+      "tools",
+      "limitations",
+      "relative_cost"
+    ],
+    "hidden_task_class_exposed": false,
+    "coordinator_authors_expert_id": true,
+    "wrong_selection_silently_corrected": false,
+    "unknown_expert_fails_closed": true,
+    "harness_responsibility": "Validate registry membership and execute the authored route; never choose or replace the expert.",
+    "worker_responsibility": "Author and execute the file computation and send one grounded parent report."
+  },
+  "data_boundary": {
+    "discovery": "Existing historical worker failures and a fresh non-held-out diagnostic split may identify generic-worker weaknesses.",
+    "training_template_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "heldout_template_variants": [
+      4,
+      5
+    ],
+    "heldout_instance_offset": 35100,
+    "heldout_keys": 16,
+    "heldout_composition": {
+      "coordinator_local": 2,
+      "generic_worker_sufficient": 2,
+      "table_analyst_niche": 4,
+      "source_inspector_niche": 4,
+      "recursive_mixed_specialist_recruitment": 4
+    },
+    "training_answers_or_heldout_artifacts_reused": false
+  },
+  "evaluation_conditions": {
+    "generalist_control": "Frozen adaptive coordinator plus H176 as the only registered terminal worker.",
+    "specialist_population": "The exact same coordinator plus frozen H176 and the two candidate specialist workers.",
+    "matched": [
+      "task keys and artifacts",
+      "task information and ownership",
+      "maximum structural depth",
+      "sampling settings",
+      "attempt count",
+      "answer and protocol gates"
+    ],
+    "treatment_difference": "Available worker cognition and public registry entries only."
+  },
+  "acceptance": {
+    "minimum_distinct_paired_recoveries": 4,
+    "minimum_recoveries_attributed_to_each_specialist": 1,
+    "require_treatment_clean_total_exceeds_control_by": 4,
+    "require_exact_answer": true,
+    "require_clean_protocol": true,
+    "require_model_authored_worker_computation": true,
+    "require_exact_route_provenance": true,
+    "routing_diversity": {
+      "minimum_distinct_worker_ids_activated": 2,
+      "maximum_fraction_for_any_one_worker_id": 0.75,
+      "coordinator_local_tasks_must_not_delegate": true
+    },
+    "protected_adaptive_mixed_depth": {
+      "minimum_clean_total": 12,
+      "trace_total": 16,
+      "minimum_clean_per_hidden_depth": 1
+    },
+    "protected_typed_retention": {
+      "minimum_clean_total": 4,
+      "trace_total": 6,
+      "minimum_clean_per_class": 1
+    },
+    "gates_may_be_relaxed": false
+  },
+  "sequence": [
+    "Implement and test registry and fail-closed expert routing.",
+    "Run a zero-update latent-routing screen with all expert ids backed by unchanged H176.",
+    "Measure the generic-only held-out control before specialist training.",
+    "Train the two H176-derived full-dense specialist candidates independently on disjoint role-local corpora.",
+    "Run the paired treatment once on the frozen held-out bank.",
+    "Run protected adaptive-depth and typed-retention gates before any promotion.",
+    "Publish only admitted lineages; otherwise retain H176 and the adaptive coordinator unchanged."
+  ],
+  "economics_observability": [
+    "active checkpoint identity per node",
+    "model-call GPU seconds",
+    "wall-clock latency",
+    "peak VRAM",
+    "agent activation count",
+    "maximum exercised depth",
+    "specialist hit and fallback rates"
+  ]
+}
