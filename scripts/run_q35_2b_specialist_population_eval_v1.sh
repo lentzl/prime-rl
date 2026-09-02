@@ -22,6 +22,16 @@ for model in "${models[@]}"; do
   before+=("$(sha256sum "$model/model.safetensors" | awk '{print $1}')")
 done
 
+evaluation_pid=
+cleanup() {
+  trap - EXIT INT TERM
+  if [[ -n "$evaluation_pid" ]]; then
+    kill -TERM "$evaluation_pid" 2>/dev/null || true
+    wait "$evaluation_pid" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
 DUAL_SCAFFOLD_PROFILE=custom \
 DUAL_EXTERNAL_MODEL=q35-2b-specialist-population \
 DUAL_ROOT_COORDINATOR_CONTRACT=1 \
@@ -33,7 +43,17 @@ DOCUMENT_RECURSION_CONFIG="$config" \
 EVAL_DRIVER=scripts/run_q35_2b_document_recursion_eval_v1.sh \
 QWEN38_QUALIFICATION_OUTPUT_ROOT="$output_root" \
 "$root/scripts/run_q35_2b_dual_policy_mastery_v1.sh" \
-  "$coordinator_model" "$generic_worker_model" "$label" "$revision"
+  "$coordinator_model" "$generic_worker_model" "$label" "$revision" &
+evaluation_pid=$!
+set +e
+wait "$evaluation_pid"
+evaluation_status=$?
+set -e
+evaluation_pid=
+trap - EXIT INT TERM
+if [[ $evaluation_status -ne 0 ]]; then
+  exit "$evaluation_status"
+fi
 
 for index in "${!models[@]}"; do
   after=$(sha256sum "${models[$index]}/model.safetensors" | awk '{print $1}')

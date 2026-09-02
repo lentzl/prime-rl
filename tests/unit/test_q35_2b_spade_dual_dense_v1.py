@@ -2051,6 +2051,32 @@ def test_specialist_routing_fails_closed_for_unregistered_expert() -> None:
     assert selected_expert == "source_inspector"
 
 
+def test_specialist_noncanonical_child_report_is_observed_but_not_corrected() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    messages = [
+        {
+            "role": "user",
+            "content": "[from child:task-worker]\nAgent-to-agent message received.\n\n833",
+        }
+    ]
+
+    assert module.specialist_child_message_observed(messages) is True
+    assert module.specialist_report_from_messages(messages) is None
+
+
+def test_dual_policy_launchers_own_subprocess_groups_for_cleanup() -> None:
+    root = Path(__file__).parents[2]
+    launcher = (root / "scripts" / "run_q35_2b_dual_policy_mastery_v1.sh").read_text()
+    wrapper = (root / "scripts" / "run_q35_2b_specialist_population_eval_v1.sh").read_text()
+
+    assert "setsid env CUDA_VISIBLE_DEVICES=0" in launcher
+    assert "setsid env CUDA_VISIBLE_DEVICES=1" in launcher
+    assert 'kill -TERM -- "-$pid"' in launcher
+    assert "setsid env" in launcher
+    assert "evaluation_pid=$!" in wrapper
+    assert "trap cleanup EXIT INT TERM" in wrapper
+
+
 def test_adaptive_cognitive_action_uses_current_card_and_rewrites_only_match() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     current = """[local cognition facts]

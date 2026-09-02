@@ -1850,6 +1850,15 @@ def specialist_report_from_messages(messages: Any) -> dict[str, int] | None:
     return reports[0]
 
 
+def specialist_child_message_observed(messages: Any) -> bool:
+    """Return whether a child reported, without interpreting or correcting its body."""
+
+    return any(
+        fragment.lstrip().startswith("[from child:")
+        for fragment in _message_fragments(messages)
+    )
+
+
 def disclosed_specialist_actions_from_messages(
     messages: Any,
 ) -> tuple[dict[tuple[str, str], str], tuple[str, ...]] | None:
@@ -3783,6 +3792,13 @@ class DualPolicyProxy:
             and role == "coordinator"
             else None
         )
+        specialist_child_message = (
+            specialist_child_message_observed(payload.get("messages"))
+            if self.specialist_worker_routing
+            and endpoint == "/v1/chat/completions"
+            and role == "coordinator"
+            else False
+        )
         document_coordinator_level = (
             document_coordinator_level_from_messages(payload.get("messages"))
             if document_manager_chat
@@ -4054,6 +4070,7 @@ class DualPolicyProxy:
             and role == "coordinator"
             and specialist_spawned
             and specialist_report is None
+            and not specialist_child_message
         ):
             body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
             response_body = synthetic_chat_stop_response(
