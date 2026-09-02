@@ -1,0 +1,142 @@
+{
+  "schema_version": "q35-2b-specialist-routing-calibration-c1a-plan/v1",
+  "recorded_at": "2026-09-02",
+  "status": "prospective",
+  "objective": "Repair the smallest missing public-registry expert-selection decision before training or evaluating specialist worker lineages.",
+  "causal_basis": {
+    "source": "specialist-worker-population-c1-v1-result.json",
+    "valid_latent_worker_selections": {
+      "generic_worker": 1,
+      "table_analyst": 9,
+      "source_inspector": 0
+    },
+    "finding": "Source routing is disconnected and table routing occupies 90 percent of typed terminal selections."
+  },
+  "protected_models": {
+    "coordinator_parent": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "overwrite_allowed": false
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates": 0,
+      "overwrite_allowed": false
+    }
+  },
+  "training": {
+    "role": "coordinator_only",
+    "update_type": "full_dense",
+    "answer_free": true,
+    "public_inputs_only": true,
+    "target": "exact typed action and registry-bounded expert_id",
+    "training_template_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "route_classes": [
+      "solve_owned:none",
+      "delegate_terminal:generic_worker",
+      "delegate_terminal:table_analyst",
+      "delegate_terminal:source_inspector",
+      "delegate_coordinator:none"
+    ],
+    "rows_per_route_class": 16,
+    "rows": 80,
+    "first_rung": {
+      "optimizer_updates": 1,
+      "batch_size": 16,
+      "learning_rate": 0.000001
+    },
+    "maximum_predeclared_rungs": 2,
+    "second_rung_if_needed": {
+      "optimizer_updates_from_parent": 2,
+      "batch_size": 16,
+      "learning_rate": 0.000001,
+      "requires_distinct_unseen_routing_screen": true
+    }
+  },
+  "data_boundary": {
+    "observed_bank_excluded_from_promotion": {
+      "instance_offset": 35100,
+      "template_variants": [
+        4,
+        5
+      ]
+    },
+    "rung1_routing_screen": {
+      "instance_offset": 37100,
+      "template_variants": [
+        4,
+        5
+      ],
+      "baseline_measured_before_training": true
+    },
+    "rung2_routing_screen": {
+      "instance_offset": 37200,
+      "template_variants": [
+        4,
+        5
+      ]
+    },
+    "fresh_final_population_bank": {
+      "instance_offset": 38100,
+      "template_variants": [
+        4,
+        5
+      ]
+    },
+    "training_answers_used": false,
+    "heldout_artifacts_used_for_training": false
+  },
+  "routing_screen_acceptance": {
+    "minimum_correct_root_routes": 12,
+    "root_routes": 16,
+    "minimum_correct_per_route_class": 1,
+    "minimum_correct_source_routes": 3,
+    "source_routes": 4,
+    "minimum_correct_table_routes": 3,
+    "table_routes": 4,
+    "minimum_correct_recursive_root_routes": 3,
+    "recursive_root_routes": 4,
+    "minimum_correct_recursive_manager_expert_routes": 3,
+    "recursive_manager_routes": 4,
+    "local_tasks_must_not_delegate": true,
+    "exact_typed_route_provenance": true,
+    "activated_worker_models_exact": true,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "protected_regressions_before_population_use": {
+    "adaptive_mixed_depth": {
+      "minimum_clean_total": 12,
+      "trace_total": 16,
+      "minimum_clean_per_hidden_depth": 1
+    },
+    "typed_retention": {
+      "minimum_clean_total": 4,
+      "trace_total": 6,
+      "minimum_clean_per_class": 1
+    }
+  },
+  "final_population_acceptance": {
+    "minimum_distinct_paired_recoveries": 4,
+    "minimum_recoveries_attributed_to_each_specialist": 1,
+    "require_treatment_clean_total_exceeds_control_by": 4,
+    "same_routing_calibrated_coordinator_in_both_arms": true,
+    "exact_answer_and_clean_protocol_required": true,
+    "model_authored_worker_computation_required": true,
+    "exact_route_provenance_required": true,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "sequence": [
+    "Export and validate the balanced answer-free route corpus.",
+    "Freeze and measure the e33 baseline on routing screen 37100.",
+    "Run exactly one first-rung coordinator update.",
+    "Measure the candidate once on the same routing screen and apply the frozen route gates.",
+    "Run protected adaptive-depth and typed-retention gates before using the candidate in population work.",
+    "Only then train the isolated table and source workers and evaluate both arms on fresh bank 38100."
+  ]
+}
