@@ -2007,6 +2007,68 @@ def test_specialist_routing_preserves_model_authored_expert_choice() -> None:
     assert selected_expert == "generic_worker"
 
 
+def test_specialist_router_projection_keeps_only_public_routing_evidence() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    registry = [
+        {
+            "expert_id": "source_inspector",
+            "role": "terminal_worker",
+            "capability": "Inspect Python source and configuration structure.",
+            "limitations": "Not specialized for tabular joins.",
+            "relative_cost": 1,
+            "tools": ["ipython", "agent_message"],
+        },
+        {
+            "expert_id": "generic_worker",
+            "role": "terminal_worker",
+            "capability": "Read files and perform straightforward calculations.",
+            "limitations": "No source or table specialization.",
+            "relative_cost": 1,
+            "tools": ["ipython", "agent_message"],
+        },
+    ]
+    assignment = {
+        "worker_name": "task-worker",
+        "objective": "Count the Python functions decorated with @router.get.",
+        "paths": ["/workspace/specialist-worker/source-task/app.py"],
+    }
+    public_prompt = "\n".join(
+        (
+            module.SPECIALIST_WORKER_ROUTING_HEADER,
+            "[capability registry]",
+            *(json.dumps(row, separators=(",", ":")) for row in registry),
+            module.SPECIALIST_ASSIGNMENT_HEADER,
+            json.dumps(assignment, separators=(",", ":")),
+        )
+    )
+    messages = [
+        {
+            "role": "system",
+            "content": "large runtime contract with irrelevant tools and role history",
+        },
+        {"role": "user", "content": public_prompt},
+    ]
+
+    compact = module.compact_specialist_expert_messages(messages)
+
+    assert compact[0] == {
+        "role": "system",
+        "content": module.SPECIALIST_EXPERT_ROUTER_CONTRACT,
+    }
+    assert compact[1]["role"] == "user"
+    projected = compact[1]["content"]
+    assert "large runtime contract" not in projected
+    assert "tools" not in projected
+    assert "worker_name" not in projected
+    assert "paths" not in projected
+    assert assignment["objective"] in projected
+    assert [
+        json.loads(line)["expert_id"]
+        for line in projected.splitlines()
+        if line.startswith("{") and "expert_id" in line
+    ] == ["source_inspector", "generic_worker"]
+
+
 def test_specialist_terminal_synthesis_without_tools_is_not_an_action_turn() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     terminal_payload = {

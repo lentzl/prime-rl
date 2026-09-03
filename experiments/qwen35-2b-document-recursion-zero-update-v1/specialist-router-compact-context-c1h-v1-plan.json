@@ -1,0 +1,65 @@
+{
+  "schema_version": "q35-2b-specialist-router-compact-context-c1h-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Test whether the c1g router's heldout failure is caused by the full runtime transcript rather than absent capability matching by screening the same frozen candidate through a routing-only scaffold matched to its training interface.",
+  "causal_basis": {
+    "source": "specialist-router-balanced-grpo-c1g-v1-result.json",
+    "finding": "Balanced outcome updates achieved strong sampled rewards, but the full-context heldout screen scored 4/10 root and 2/4 manager with zero generic and source root correctness. Training requests were approximately 244 tokens while heldout requests included the full coordinator runtime transcript."
+  },
+  "architecture": {
+    "protected_action_policy": "adaptive-core-v1-e33",
+    "protected_worker_policy": "document-child-h176",
+    "protected_policies_frozen": true,
+    "experimental_router": "c1g-balanced-step3",
+    "experimental_router_sha256": "1a8b42628b8f126b075ac49e0b42af1bef99430726d3c4bb329283e19c11a4a9",
+    "optimizer_updates": 0
+  },
+  "compact_router_scaffold": {
+    "preserved": [
+      "complete assignment objective",
+      "public expert_id",
+      "public role",
+      "public capability",
+      "public limitations",
+      "public relative_cost",
+      "registry order and causal identity permutation"
+    ],
+    "removed": [
+      "general runtime contract",
+      "unrelated tool definitions",
+      "coordinator role history",
+      "worker_name",
+      "paths outside the complete objective",
+      "hidden task class"
+    ],
+    "output_contract": "exactly one JSON object with one string field named expert_id"
+  },
+  "heldout_expert_screen": {
+    "instance_offset": 38500,
+    "seed": 20261216,
+    "frozen_before_model_call": true
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_screen_passes": "Retain c1g as an isolated router candidate and implement the compact projection in the live split scaffold before an end-to-end population evaluation.",
+    "if_screen_fails": "Reject c1g and use the observed errors to design a prospective harness-shaped training rung; do not update weights automatically.",
+    "promotion_requires": "A later live end-to-end population evaluation with at least four complete qualifying trajectories."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

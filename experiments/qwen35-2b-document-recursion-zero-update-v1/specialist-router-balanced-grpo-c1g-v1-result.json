@@ -1,0 +1,75 @@
+{
+  "schema_version": "q35-2b-specialist-router-balanced-grpo-c1g-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected_after_step3",
+  "plan": "specialist-router-balanced-grpo-c1g-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "update": {
+    "run_name": "c1g-balanced-step3",
+    "initialization": "c1f-outcome-step1",
+    "optimizer_updates": 3,
+    "learning_rate": 0.000001,
+    "full_dense": true,
+    "complete_rollouts_per_step": 24,
+    "required_profiles_per_step": {
+      "generic_worker": 8,
+      "table_analyst": 8,
+      "source_inspector": 8
+    },
+    "loss_by_step": [
+      0.010993285104632378,
+      0.0006264728726819158,
+      -0.0016122350934892893
+    ],
+    "gradient_norm_by_step": [
+      20.346302032470703,
+      14.483065605163574,
+      17.271778106689453
+    ],
+    "all_optimizer_updates_succeeded": true,
+    "candidate_model_sha256": "1a8b42628b8f126b075ac49e0b42af1bef99430726d3c4bb329283e19c11a4a9",
+    "config_sha256": {
+      "trainer": "b27c26af6593704f9846d56939a3b020e9fe5a403df6c583da26dd83c100b939",
+      "orchestrator": "b10e78d2689213514455fd818dc5c465fbf005e520257ee1e42e459bd888bc46",
+      "inference": "3fe30942234d09cee9b75821e1fdf4b3916eeea64e6c5a5fa7d07f800d518a8e"
+    },
+    "metrics_sha256": "71f52ee3e116d990b0b43d8009cc494c0e0b6a9652bac89e5f591d86cb63c584",
+    "final_summary_sha256": "30fe7622023a6c9af3bb2e6f947c8b223801fa7f48bebcbe93e9c8cd358448e7",
+    "token_export_sha256_by_step": {
+      "1": "9f40f03356ef182e740ed1bc83729824c5bdbb9615936257c1e04626d0397dc5",
+      "2": "4fe32e7bb13b41573707c6711881c6d9101f812118fe1b63af170057086bdf70",
+      "3": "5e1ed577dfb5356366513866bf55f94e56e44ea0775c251a0d266b4bb3ec882a"
+    }
+  },
+  "heldout_screen": {
+    "instance_offset": 38400,
+    "seed": 20261215,
+    "root_expert_correct": 4,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 0,
+      "source_inspector": 0,
+      "table_analyst": 4
+    },
+    "recursive_manager_expert_correct": 2,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "generic_worker": 2,
+      "source_inspector": 4,
+      "table_analyst": 8
+    },
+    "maximum_selected_expert_share": 0.5714285714285714,
+    "normalizable_one_field_transport": true,
+    "probe_sha256": "16efc26dd97da18c2eeb63b1f9246c80e88da5ef073b176e0cc3fb3458d6ba2e",
+    "gate_passed": false
+  },
+  "diagnosis": "Profile-balanced outcome GRPO produced three successful dense updates and balanced training exports, but the heldout router screen still failed generic and source matching. The screen supplied the full Prime Agent runtime transcript while the router environment trained on a compact routing-only request, leaving a large train-to-inference context mismatch.",
+  "decision": "Reject c1g as promotable and preserve e33. Retain c1g only as an isolated candidate for one no-update compact-context screen before deciding whether further router training is justified.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

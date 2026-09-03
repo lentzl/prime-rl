@@ -39,6 +39,10 @@ SPECIALIST_EXPERT_DECISION_PROMPT = """[split specialist decision phase]
 The legal cognitive action has already been fixed as delegate_terminal. Use only the
 public capability registry and complete assignment to select one expert_id. Do not
 solve the task or inspect any file."""
+SPECIALIST_EXPERT_ROUTER_CONTRACT = """You are a terminal-expert routing policy.
+The cognitive action is already delegate_terminal. Read the public capability registry
+and assignment, then select the cheapest sufficient registered worker. Return exactly
+one JSON object with one string field named expert_id. Do not solve the assignment."""
 ROOT_COORDINATOR_CONTRACT = """[root coordinator session contract]
 session_role=root_coordinator
 is_root=true
@@ -1773,6 +1777,78 @@ def specialist_assignment_from_messages(messages: Any) -> dict[str, Any] | None:
     ):
         raise ValueError("specialist assignment has invalid artifact paths")
     return assignment
+
+
+def compact_specialist_expert_messages(messages: Any) -> list[dict[str, str]]:
+    """Project a coordinator request onto only public terminal-routing evidence."""
+
+    registry_ids = specialist_registry_ids_from_messages(messages)
+    assignment = specialist_assignment_from_messages(messages)
+    if registry_ids is None or assignment is None:
+        raise ValueError(
+            "specialist router projection lacks a complete public registry or assignment"
+        )
+    registries: list[list[dict[str, Any]]] = []
+    for fragment in _message_fragments(messages):
+        lines = fragment.splitlines()
+        for index, line in enumerate(lines):
+            if line.strip() != "[capability registry]":
+                continue
+            registry: list[dict[str, Any]] = []
+            cursor = index + 1
+            while (
+                cursor < len(lines)
+                and lines[cursor].strip() != SPECIALIST_ASSIGNMENT_HEADER
+            ):
+                value = lines[cursor].strip()
+                cursor += 1
+                if not value:
+                    continue
+                try:
+                    row = json.loads(value)
+                except json.JSONDecodeError:
+                    continue
+                if isinstance(row, dict) and row.get("expert_id") in registry_ids:
+                    registry.append(row)
+            if registry:
+                registries.append(registry)
+    if not registries or any(registry != registries[0] for registry in registries[1:]):
+        raise ValueError("specialist router projection found conflicting public registries")
+    canonical_registry = [
+        {
+            key: row[key]
+            for key in (
+                "expert_id",
+                "role",
+                "capability",
+                "limitations",
+                "relative_cost",
+            )
+            if key in row
+        }
+        for row in registries[0]
+    ]
+    if tuple(row.get("expert_id") for row in canonical_registry) != registry_ids:
+        raise ValueError("specialist router projection changed registry identity order")
+    prompt = (
+        "[capability registry]\n"
+        + "\n".join(
+            json.dumps(row, separators=(",", ":"), ensure_ascii=False)
+            for row in canonical_registry
+        )
+        + "\n"
+        + SPECIALIST_ASSIGNMENT_HEADER
+        + "\n"
+        + json.dumps(
+            {"objective": assignment["objective"]},
+            separators=(",", ":"),
+            ensure_ascii=False,
+        )
+    )
+    return [
+        {"role": "system", "content": SPECIALIST_EXPERT_ROUTER_CONTRACT},
+        {"role": "user", "content": prompt},
+    ]
 
 
 def specialist_local_values_from_messages(messages: Any) -> list[int] | None:

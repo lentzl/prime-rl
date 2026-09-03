@@ -15,6 +15,7 @@ import httpx
 from dual_policy_openai_proxy_v1 import (
     ROOT_COORDINATOR_CONTRACT,
     SPECIALIST_EXPERT_DECISION_PROMPT,
+    compact_specialist_expert_messages,
     force_typed_cognitive_action_schema,
     force_typed_specialist_expert_schema,
     specialist_manager_contract_from_messages,
@@ -165,7 +166,11 @@ def _manager_messages(runtime: dict[str, Any], prompt: str) -> list[dict[str, An
     ]
 
 
-def _expert_phase_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _expert_phase_messages(
+    messages: list[dict[str, Any]], *, compact: bool = False
+) -> list[dict[str, Any]]:
+    if compact:
+        return compact_specialist_expert_messages(messages)
     result = copy.deepcopy(messages)
     result.append(
         {

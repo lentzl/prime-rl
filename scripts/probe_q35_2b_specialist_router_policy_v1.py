@@ -35,6 +35,7 @@ FROZEN_SCREENS = {
     38200: 20261213,
     38300: 20261214,
     38400: 20261215,
+    38500: 20261216,
 }
 
 
@@ -79,7 +80,9 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
                     endpoint=endpoint,
                     payload=_expert_payload(
                         model=args.model,
-                        messages=_expert_phase_messages(messages),
+                        messages=_expert_phase_messages(
+                            messages, compact=args.compact_router_context
+                        ),
                         seed=_selector_seed(f"{task.data.name}:router", args.seed),
                     ),
                     tool_name="select_expert",
@@ -107,7 +110,9 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
                     endpoint=endpoint,
                     payload=_expert_payload(
                         model=args.model,
-                        messages=_expert_phase_messages(messages),
+                        messages=_expert_phase_messages(
+                            messages, compact=args.compact_router_context
+                        ),
                         seed=_selector_seed(f"{task.data.name}:manager-router", args.seed),
                     ),
                     tool_name="select_expert",
@@ -180,6 +185,7 @@ def main() -> None:
     parser.add_argument("--instance-offset", type=int, required=True)
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--model-optimizer-updates", type=int, default=0)
+    parser.add_argument("--compact-router-context", action="store_true")
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
