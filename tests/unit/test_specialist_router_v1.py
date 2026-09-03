@@ -77,3 +77,26 @@ def test_router_taskset_can_pin_one_required_profile_without_pinning_identity() 
             for task in tasks
         }
     ) == 6
+
+
+def test_router_taskset_can_use_diverse_harness_shaped_assignments() -> None:
+    module = _module()
+    tasks = module.SpecialistRouterTaskset(
+        module.SpecialistRouterConfig(
+            count=24,
+            required_profile="table_analyst",
+            start_index=39400,
+            assignment_style="harness_shaped",
+        )
+    ).load()
+
+    objectives = {
+        task.data.prompt.split("[terminal specialist assignment]\n", 1)[1]
+        for task in tasks
+    }
+    assert len(objectives) == 4
+    assert all("/workspace/specialist-worker/" in objective for objective in objectives)
+    assert all("receiver_role='parent'" in objective for objective in objectives)
+    assert Counter(task.data.answer for task in tasks) == Counter(
+        {expert_id: 8 for expert_id in module.EXPERT_IDS}
+    )

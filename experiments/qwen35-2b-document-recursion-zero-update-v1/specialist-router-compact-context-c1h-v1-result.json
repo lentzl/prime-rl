@@ -1,0 +1,46 @@
+{
+  "schema_version": "q35-2b-specialist-router-compact-context-c1h-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected",
+  "plan": "specialist-router-compact-context-c1h-v1-plan.json",
+  "optimizer_updates": 0,
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "experimental_router_sha256": "1a8b42628b8f126b075ac49e0b42af1bef99430726d3c4bb329283e19c11a4a9",
+  "heldout_screen": {
+    "instance_offset": 38500,
+    "seed": 20261216,
+    "root_expert_correct": 4,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 0,
+      "source_inspector": 4,
+      "table_analyst": 0
+    },
+    "recursive_manager_expert_correct": 3,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "source_inspector": 13,
+      "table_analyst": 1
+    },
+    "maximum_selected_expert_share": 0.9285714285714286,
+    "normalizable_one_field_transport": true,
+    "raw_function_tool_call_transport": false,
+    "probe_path": "/home/ubuntu/rlm/results/q35-2b-specialist-router-compact-context-c1h-v1/ROUTER_PROBE.json",
+    "probe_sha256": "470adc694aed4d49eef93682dee3d47eea4306112da81dfb8ba6d142acbcc99c",
+    "gate_passed": false
+  },
+  "runtime_trace": {
+    "path": "/home/ubuntu/rlm/results/q35-2b-adaptive-mixed-depth-v1/adaptive-admission-nonroot-e33bd4-h176-v1/document/document/traces.jsonl",
+    "sha256": "ccd1e22125d8be1f0f0109843bb75b4508dce3a504694a71a6c1c1ffece6ee31"
+  },
+  "inference_log_sha256": "f7e03dfd64eee633f9deef857a64578debdb89f3a8860dedd0a832ae9dd5be8a",
+  "diagnosis": "Removing the long runtime transcript did not recover robust routing. The candidate collapsed to source_inspector on 13 of 14 decisions, proving that c1g learned an unstable profile mode rather than reliable capability-to-ID matching. The outcome environment repeated one abstract objective per capability, while the heldout harness uses diverse concrete generic, tabular, AST, and configuration objectives.",
+  "decision": "Reject c1g and do not integrate it into the live split scaffold. The next training rung, if run, must be prospective, initialize before the c1g collapse, and use diverse harness-shaped objectives behind the same compact public-evidence projection.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

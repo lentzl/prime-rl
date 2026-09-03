@@ -43,6 +43,7 @@ def test_router_probe_screens_are_frozen_and_disjoint() -> None:
         38300: 20261214,
         38400: 20261215,
         38500: 20261216,
+        38600: 20261217,
     }
     assert not set(module.FROZEN_SCREENS) & {
         35100,

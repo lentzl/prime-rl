@@ -1,0 +1,76 @@
+{
+  "schema_version": "q35-2b-specialist-router-harness-grpo-c1i-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Teach the isolated router capability-to-ID matching on diverse harness-shaped objectives through the same compact public-evidence interface used at inference.",
+  "causal_basis": {
+    "source": "specialist-router-compact-context-c1h-v1-result.json",
+    "finding": "c1g collapsed to source_inspector on 13/14 compact heldout decisions. Its outcome environment repeated only one abstract assignment per capability, unlike the concrete harness objectives."
+  },
+  "architecture": {
+    "protected_action_policy": "adaptive-core-v1-e33",
+    "protected_worker_policy": "document-child-h176",
+    "protected_policies_frozen": true,
+    "experimental_router_initialization": "c1f-outcome-step1",
+    "experimental_router_initialization_sha256": "bb8c510fdca91ec26e76be7f55dda0aae7158d869e046e92adf6ddb62ab1c427",
+    "separate_full_dense_checkpoint": true
+  },
+  "training": {
+    "optimizer_updates": 6,
+    "learning_rate": 0.0000005,
+    "batch_size": 24,
+    "group_size": 8,
+    "comparison_groups_per_step": 3,
+    "required_groups_per_step": {
+      "generic_worker": 1,
+      "table_analyst": 1,
+      "source_inspector": 1
+    },
+    "assignment_templates_per_profile": 4,
+    "every_template_crossed_with_all_registry_permutations": true,
+    "zero_advantage_groups_rejected": true,
+    "full_dense": true,
+    "checkpoint_interval": 3
+  },
+  "environment": {
+    "id": "specialist-router-v1",
+    "assignment_style": "harness_shaped",
+    "registry_permutations": 6,
+    "answer_free": true,
+    "hidden_task_class_exposed": false,
+    "public_profile_text_matches_live_harness": true,
+    "source_coordinates": {
+      "generic_worker": 39400,
+      "table_analyst": 39500,
+      "source_inspector": 39600
+    }
+  },
+  "heldout_expert_screen": {
+    "instance_offset": 38600,
+    "seed": 20261217,
+    "compact_router_context": true,
+    "frozen_before_training": true
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_screen_passes": "Retain c1i as an isolated router candidate and implement the compact projection in the live split scaffold before an end-to-end population evaluation.",
+    "if_screen_fails": "Reject c1i without replacing e33, inspect per-step profile rewards and heldout identity selection, and do not automatically extend this lineage.",
+    "promotion_requires": "A later live end-to-end population evaluation with at least four complete qualifying trajectories."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
