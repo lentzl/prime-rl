@@ -1779,7 +1779,9 @@ def specialist_assignment_from_messages(messages: Any) -> dict[str, Any] | None:
     return assignment
 
 
-def compact_specialist_expert_messages(messages: Any) -> list[dict[str, str]]:
+def compact_specialist_expert_messages(
+    messages: Any, *, relative_cost_overrides: dict[str, float] | None = None
+) -> list[dict[str, str]]:
     """Project a coordinator request onto only public terminal-routing evidence."""
 
     registry_ids = specialist_registry_ids_from_messages(messages)
@@ -1788,6 +1790,12 @@ def compact_specialist_expert_messages(messages: Any) -> list[dict[str, str]]:
         raise ValueError(
             "specialist router projection lacks a complete public registry or assignment"
         )
+    cost_overrides = relative_cost_overrides or {}
+    if not set(cost_overrides).issubset(registry_ids) or not all(
+        isinstance(cost, (int, float)) and cost > 0
+        for cost in cost_overrides.values()
+    ):
+        raise ValueError("specialist router projection has invalid cost overrides")
     registries: list[list[dict[str, Any]]] = []
     for fragment in _message_fragments(messages):
         lines = fragment.splitlines()
@@ -1828,6 +1836,10 @@ def compact_specialist_expert_messages(messages: Any) -> list[dict[str, str]]:
         }
         for row in registries[0]
     ]
+    for row in canonical_registry:
+        expert_id = row.get("expert_id")
+        if expert_id in cost_overrides:
+            row["relative_cost"] = cost_overrides[expert_id]
     if tuple(row.get("expert_id") for row in canonical_registry) != registry_ids:
         raise ValueError("specialist router projection changed registry identity order")
     prompt = (

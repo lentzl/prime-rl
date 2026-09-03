@@ -1,0 +1,60 @@
+{
+  "schema_version": "q35-2b-specialist-router-cost-causal-c1m-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Determine without training whether a public cost distinction makes the required generic route causally identifiable to the c1l router while preserving specialist routing.",
+  "causal_basis": {
+    "source": "specialist-router-generic-anchor-c1l-v1-result.json",
+    "finding": "c1l routes every table, source, and recursive-manager task correctly but sends both plain-JSON generic tasks to table_analyst. All three workers currently have equal cost and overlapping file/Python affordances, so generic is not uniquely cheapest sufficient from public evidence."
+  },
+  "architecture": {
+    "protected_action_policy": "adaptive-core-v1-e33",
+    "protected_worker_policy": "document-child-h176",
+    "protected_policies_frozen": true,
+    "experimental_router": "c1l-generic-anchor-step4",
+    "experimental_router_sha256": "60e85d46eb1137c289e35ec56357b9394021e86b819b1161bc42651823c46c59",
+    "optimizer_updates": 0,
+    "total_router_lineage_updates": 11
+  },
+  "public_intervention": {
+    "generic_worker_relative_cost": 0.5,
+    "table_analyst_relative_cost": 1.0,
+    "source_inspector_relative_cost": 1.0,
+    "capability_descriptions_changed": false,
+    "assignment_changed": false,
+    "expected_routes_changed": false,
+    "interpretation": "Generic becomes uniquely cheaper for work it can handle. Its published limitations still exclude reconciliation and source structure, so specialists remain necessary for their niches."
+  },
+  "request_contract": {
+    "compact_router_context": true,
+    "natural_json_transport": true,
+    "strict_one_field_normalization": true
+  },
+  "heldout_expert_screen": {
+    "instance_offset": 39000,
+    "seed": 20261221,
+    "frozen_before_model_call": true
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_screen_passes": "Implement the public cost contract in the live specialist registry and run a fresh end-to-end split-scaffold population evaluation before any promotion.",
+    "if_screen_fails": "Do not train further. Move generic-versus-specialist shortlisting into a deterministic capability-envelope scaffold or redesign the worker affordances so wrong routes fail causally.",
+    "promotion_requires": "A later live end-to-end population evaluation with at least four complete qualifying trajectories."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

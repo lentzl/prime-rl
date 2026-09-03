@@ -167,10 +167,17 @@ def _manager_messages(runtime: dict[str, Any], prompt: str) -> list[dict[str, An
 
 
 def _expert_phase_messages(
-    messages: list[dict[str, Any]], *, compact: bool = False
+    messages: list[dict[str, Any]],
+    *,
+    compact: bool = False,
+    relative_cost_overrides: dict[str, float] | None = None,
 ) -> list[dict[str, Any]]:
     if compact:
-        return compact_specialist_expert_messages(messages)
+        return compact_specialist_expert_messages(
+            messages, relative_cost_overrides=relative_cost_overrides
+        )
+    if relative_cost_overrides:
+        raise ValueError("cost overrides require compact router context")
     result = copy.deepcopy(messages)
     result.append(
         {

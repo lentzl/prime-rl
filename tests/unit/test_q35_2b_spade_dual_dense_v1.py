@@ -2068,6 +2068,19 @@ def test_specialist_router_projection_keeps_only_public_routing_evidence() -> No
         if line.startswith("{") and "expert_id" in line
     ] == ["source_inspector", "generic_worker"]
 
+    cheaper = module.compact_specialist_expert_messages(
+        messages, relative_cost_overrides={"generic_worker": 0.5}
+    )
+    cost_rows = [
+        json.loads(line)
+        for line in cheaper[1]["content"].splitlines()
+        if line.startswith("{") and "expert_id" in line
+    ]
+    assert {row["expert_id"]: row["relative_cost"] for row in cost_rows} == {
+        "source_inspector": 1,
+        "generic_worker": 0.5,
+    }
+
 
 def test_specialist_terminal_synthesis_without_tools_is_not_an_action_turn() -> None:
     module = _module("dual_policy_openai_proxy_v1")

@@ -41,6 +41,7 @@ FROZEN_SCREENS = {
     38700: 20261218,
     38800: 20261219,
     38900: 20261220,
+    39000: 20261221,
 }
 
 
@@ -60,6 +61,21 @@ def _router_payload(
     if args.natural_json_transport:
         return _base_payload(model=args.model, messages=messages, seed=seed)
     return _expert_payload(model=args.model, messages=messages, seed=seed)
+
+
+def _router_messages(
+    args: argparse.Namespace, messages: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    cost_overrides = (
+        {"generic_worker": args.generic_relative_cost}
+        if args.generic_relative_cost is not None
+        else None
+    )
+    return _expert_phase_messages(
+        messages,
+        compact=args.compact_router_context,
+        relative_cost_overrides=cost_overrides,
+    )
 
 
 def probe(args: argparse.Namespace) -> dict[str, Any]:
@@ -93,9 +109,7 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
                     endpoint=endpoint,
                     payload=_router_payload(
                         args,
-                        messages=_expert_phase_messages(
-                            messages, compact=args.compact_router_context
-                        ),
+                        messages=_router_messages(args, messages),
                         seed=_selector_seed(f"{task.data.name}:router", args.seed),
                     ),
                     tool_name="select_expert",
@@ -123,9 +137,7 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
                     endpoint=endpoint,
                     payload=_router_payload(
                         args,
-                        messages=_expert_phase_messages(
-                            messages, compact=args.compact_router_context
-                        ),
+                        messages=_router_messages(args, messages),
                         seed=_selector_seed(f"{task.data.name}:manager-router", args.seed),
                     ),
                     tool_name="select_expert",
@@ -165,6 +177,7 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
         "model": args.model,
         "optimizer_updates": args.model_optimizer_updates,
         "natural_json_transport": args.natural_json_transport,
+        "generic_relative_cost": args.generic_relative_cost,
         "instance_offset": args.instance_offset,
         "seed": args.seed,
         "runtime_sources": runtime_sources,
@@ -201,6 +214,7 @@ def main() -> None:
     parser.add_argument("--model-optimizer-updates", type=int, default=0)
     parser.add_argument("--compact-router-context", action="store_true")
     parser.add_argument("--natural-json-transport", action="store_true")
+    parser.add_argument("--generic-relative-cost", type=float)
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
