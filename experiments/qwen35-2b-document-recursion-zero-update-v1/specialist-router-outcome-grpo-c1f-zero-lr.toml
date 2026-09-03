@@ -7,8 +7,8 @@ output_dir = "/home/ubuntu/rlm/outputs/q35-2b-specialist-router-outcome-grpo-c1f
 clean = false
 
 [run]
-name = "c1f-zero-lr-audit"
-dir = "c1f-zero-lr-audit"
+name = "c1f-zero-lr-audit-v2"
+dir = "c1f-zero-lr-audit-v2"
 
 [deployment]
 gpus_per_node = 2
@@ -72,6 +72,18 @@ enforce = false
 
 [[orchestrator.pre_batch_filters]]
 type = "repetition"
+enforce = false
+
+[[orchestrator.post_batch_filters]]
+type = "gibberish"
+enforce = false
+
+[[orchestrator.post_batch_filters]]
+type = "repetition"
+enforce = false
+
+[[orchestrator.post_batch_filters]]
+type = "zero_advantage"
 enforce = false
 
 [orchestrator.renderer]
