@@ -1,0 +1,84 @@
+{
+  "schema_version": "q35-2b-specialist-split-routing-probe-c1b-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Test whether frozen e33 can route specialists when the mastered cognitive action and the registry expert identity are requested as two separate one-field typed decisions.",
+  "causal_basis": {
+    "source": "specialist-routing-calibration-c1a-v1-result.json",
+    "finding": "The joint two-field action-plus-expert schema degraded typed transport and never connected source or recursive-manager expert selection.",
+    "hypothesis": "A tight split interface reduces the 2B decision to two stable one-field classifications without moving weights."
+  },
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates": 0,
+      "overwrite_allowed": false
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates": 0,
+      "overwrite_allowed": false
+    }
+  },
+  "probe": {
+    "optimizer_updates": 0,
+    "instance_offset": 37300,
+    "template_variants": [
+      4,
+      5
+    ],
+    "seed": 20261205,
+    "root_tasks": 16,
+    "terminal_expert_decisions": 10,
+    "recursive_manager_expert_decisions": 4,
+    "stage_one": {
+      "tool": "select_cognitive_action",
+      "arguments": [
+        "action"
+      ],
+      "choices": [
+        "solve_owned",
+        "delegate_terminal",
+        "delegate_coordinator"
+      ]
+    },
+    "stage_two": {
+      "condition": "run only for prompts whose public facts make delegate_terminal the legal action",
+      "tool": "select_expert",
+      "arguments": [
+        "expert_id"
+      ],
+      "choices": [
+        "generic_worker",
+        "table_analyst",
+        "source_inspector"
+      ]
+    },
+    "hidden_task_answer_exposed": false,
+    "worker_execution_performed": false
+  },
+  "acceptance": {
+    "minimum_correct_root_actions": 12,
+    "root_actions": 16,
+    "minimum_correct_per_root_action_class": 1,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "exact_one_field_typed_transport_required": true,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_pass": "Implement the same two-stage decision in the live tight scaffold and run a separate no-update end-to-end screen before specialist training.",
+    "if_expert_stage_fails": "Keep e33 canonical and preregister expert-only SFT; do not retrain the mastered cognitive action.",
+    "if_action_stage_fails": "Reject the probe context as inconsistent with the protected adaptive contract before changing weights."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
