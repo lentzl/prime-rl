@@ -1,0 +1,61 @@
+{
+  "schema_version": "q35-2b-specialist-router-outcome-grpo-c1f-audit-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_passed",
+  "plan": "specialist-router-outcome-grpo-c1f-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "invalid_attempt": {
+    "run_name": "c1f-zero-lr-audit",
+    "status": "stopped_before_rollouts",
+    "optimizer_updates": 0,
+    "reason": "Resolved defaults added an enforcing post-batch zero-advantage filter. This conflicted with the prospective monitoring-only audit, so the process was terminated before policy inference or a trainer step."
+  },
+  "audit": {
+    "run_name": "c1f-zero-lr-audit-v2",
+    "optimizer_steps": 1,
+    "learning_rate": 0.0,
+    "checkpoint_written": false,
+    "complete_rollouts": 8,
+    "valid_transports": 8,
+    "correct_samples": 1,
+    "incorrect_samples": 7,
+    "routing_outcome_mean": 0.125,
+    "routing_outcome_min": 0.0,
+    "routing_outcome_max": 1.0,
+    "selected_identity_counts": {
+      "generic_worker": 1,
+      "table_analyst": 1,
+      "source_inspector": 6
+    },
+    "trainable_tokens": 72,
+    "nonzero_advantage_trainable_tokens": 72,
+    "loss_mean": 0.014461014419794083,
+    "gradient_norm": 25.41503143310547,
+    "gradient_finite_positive": true,
+    "optimizer_update_succeeded": true,
+    "peak_trainer_memory_gib": 38.2,
+    "config_sha256": {
+      "trainer": "14d1ec8826215b8804d19ef3f5c9d0a93a79676893015199bc830c7d246819a7",
+      "orchestrator": "b2d2f62764887efc1178b6b95859673d20a0b13dc4b7b10902fa3c382eb1b7a4",
+      "inference": "169278a3c83b8cc5f3ec321588d6acfd3410639c97698d613baf94b3f279939c"
+    },
+    "metrics_sha256": "0f5fa552b21741a3cf09a4f92ddcbaf1e770662226248b2b667125770c7232c9",
+    "final_summary_sha256": "c7286d623c4d2c6a7c0641a1cdcd466ca0d67cfd58237cc4b1b062131f1781e1",
+    "token_export_sha256": "5ff0cd9dbdc618ab40b7a10768612d84a5a414ae9382f954bde22981601361f1"
+  },
+  "audit_gate": {
+    "complete_group_size": true,
+    "minimum_valid_transports": true,
+    "minimum_correct_samples": true,
+    "minimum_incorrect_samples": true,
+    "positive_trainable_token_mass": true,
+    "finite_positive_gradient_norm": true,
+    "passed": true
+  },
+  "decision": "The isolated router has a direct, nonzero GRPO learning signal on valid sampled expert identities. Run the preregistered single full-dense update from e33, then evaluate only on the untouched 38300 screen.",
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
