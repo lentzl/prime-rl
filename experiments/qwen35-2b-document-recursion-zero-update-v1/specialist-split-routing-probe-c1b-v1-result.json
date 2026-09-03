@@ -1,0 +1,82 @@
+{
+  "schema_version": "q35-2b-specialist-split-routing-probe-c1b-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected",
+  "plan": "specialist-split-routing-probe-c1b-v1-plan.json",
+  "optimizer_updates": 0,
+  "protected_models_unchanged": true,
+  "coordinator": {
+    "label": "adaptive-core-v1-e33",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+  },
+  "runtime_trace": {
+    "path": "/home/ubuntu/rlm/results/q35-2b-adaptive-mixed-depth-v1/adaptive-admission-nonroot-e33bd4-h176-v1/document/document/traces.jsonl",
+    "sha256": "ccd1e22125d8be1f0f0109843bb75b4508dce3a504694a71a6c1c1ffece6ee31"
+  },
+  "result": {
+    "path": "/home/ubuntu/rlm/results/q35-2b-specialist-split-routing-c1b-v1/SPLIT_ROUTING_PROBE.json",
+    "sha256": "46c415ef7f44893396e887485ad2193e590c42c3cc020e6868622f258402936a",
+    "instance_offset": 37300,
+    "seed": 20261205,
+    "root_action_correct": 13,
+    "root_action_total": 16,
+    "root_action_correct_by_family": {
+      "specialist_generic": 2,
+      "specialist_local": 2,
+      "specialist_recursive_source": 2,
+      "specialist_recursive_table": 2,
+      "specialist_source_config": 2,
+      "specialist_table_join": 2,
+      "specialist_table_reconcile": 1
+    },
+    "root_expert_correct": {
+      "generic_worker": 0,
+      "source_inspector": 0,
+      "table_analyst": 4
+    },
+    "root_expert_total": {
+      "generic_worker": 2,
+      "source_inspector": 4,
+      "table_analyst": 4
+    },
+    "recursive_manager_expert_correct": {
+      "source_inspector": 2,
+      "table_analyst": 0
+    },
+    "recursive_manager_expert_total": {
+      "source_inspector": 2,
+      "table_analyst": 2
+    },
+    "raw_function_tool_calls": 0,
+    "exact_one_field_json_in_reasoning": 30,
+    "decisions": 30,
+    "split_routing_probe_passed": false
+  },
+  "acceptance": {
+    "minimum_correct_root_actions": true,
+    "minimum_correct_per_root_action_class": true,
+    "minimum_correct_generic_experts": false,
+    "minimum_correct_table_experts": true,
+    "minimum_correct_source_experts": false,
+    "minimum_correct_recursive_manager_experts": false,
+    "exact_one_field_typed_transport": false
+  },
+  "transport_interpretation": "Every model response was an exact one-field JSON object in the reasoning field, the normalized format already accepted by the live tight scaffold. The preregistered stricter raw function-tool-call gate is nevertheless recorded as failed and was not reclassified after observation.",
+  "diagnosis": "The split preserved the mastered action decision and exposed a connected but role-position-biased expert classifier: root decisions selected table_analyst for all table, generic, and most source tasks, while recursive managers selected source_inspector for both niches. This is expert identity learning, not another action-policy problem.",
+  "decision": "Keep e33 canonical. Follow the preregistered failure branch with an answer-free expert-only SFT lineage balanced across expert identity and root/nonroot role; do not apply a third joint-schema update and do not train the cognitive action.",
+  "startup_incident": {
+    "model_loaded": false,
+    "probe_requests_sent": 0,
+    "cause": "The first standalone inference attempt omitted the virtual-environment PATH required to resolve vllm-router.",
+    "retained_log": "/home/ubuntu/rlm/results/q35-2b-specialist-split-routing-c1b-v1/coordinator-inference.log",
+    "retained_log_sha256": "5bb215563dff2c6a3367b8faad3f49b4e94c32da8c25267dfd63c39c2ebfc91a"
+  },
+  "successful_inference_log": {
+    "path": "/home/ubuntu/rlm/results/q35-2b-specialist-split-routing-c1b-v1/coordinator-inference-v2.log",
+    "sha256": "070348cd0b4fbc2f01e803ee53e076b4518fba5b47d480b39aa36264d553a3d8"
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false,
+  "hugging_face_published": false
+}
