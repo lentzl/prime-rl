@@ -2228,6 +2228,30 @@ def test_split_specialist_router_decision_is_strict_and_composes_with_action() -
     ) is None
 
 
+def test_live_split_action_uses_frozen_probe_sampling_contract() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    payload = {
+        "temperature": 0.4,
+        "top_p": 0.95,
+        "top_k": 20,
+        "min_p": 0.0,
+        "reasoning_effort": "high",
+        "max_tokens": 4096,
+        "seed": 20261231,
+        "messages": [],
+    }
+
+    rewritten = module.with_specialist_action_sampling_contract(payload)
+
+    assert rewritten["temperature"] == 0.4
+    assert rewritten["top_p"] == 0.95
+    assert rewritten["max_tokens"] == 256
+    assert rewritten["seed"] == 20261231
+    assert "top_k" not in rewritten
+    assert "min_p" not in rewritten
+    assert "reasoning_effort" not in rewritten
+
+
 def test_specialist_terminal_synthesis_without_tools_is_not_an_action_turn() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     terminal_payload = {

@@ -2970,6 +2970,22 @@ def force_typed_cognitive_action_schema(payload: dict[str, Any]) -> dict[str, An
     return rewritten
 
 
+def with_specialist_action_sampling_contract(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Match the frozen one-field action probe's sampling boundary."""
+
+    rewritten = {
+        **payload,
+        "temperature": 0.4,
+        "top_p": 0.95,
+        "max_tokens": 256,
+    }
+    for field in ("top_k", "min_p", "reasoning_effort"):
+        rewritten.pop(field, None)
+    return rewritten
+
+
 def force_typed_specialist_action_schema(
     payload: dict[str, Any], expert_ids: tuple[str, ...]
 ) -> dict[str, Any]:
@@ -4815,7 +4831,9 @@ class DualPolicyProxy:
             specialist_canonical_actions, specialist_registry_ids = disclosed
             specialist_cognitive_scope = True
             if self.specialist_router_enabled:
-                routed = force_typed_cognitive_action_schema(routed)
+                routed = force_typed_cognitive_action_schema(
+                    with_specialist_action_sampling_contract(routed)
+                )
             else:
                 routed = force_typed_specialist_action_schema(
                     routed, specialist_registry_ids

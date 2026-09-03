@@ -1,0 +1,64 @@
+{
+  "schema_version": "q35-2b-specialist-split-router-live-c1n-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected_early_stop",
+  "plan": "specialist-split-router-live-c1n-v1-plan.json",
+  "optimizer_updates": 0,
+  "protected_models_unchanged": true,
+  "protected_model_sha256": {
+    "e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "c1l": "60e85d46eb1137c289e35ec56357b9394021e86b819b1161bc42651823c46c59"
+  },
+  "infrastructure_attempts": [
+    {
+      "label": "c1n-live-split-router-h176-alias-v1",
+      "status": "invalid_startup",
+      "model_calls": 0,
+      "cause": "The 20 percent router allocation left no vLLM KV-cache blocks.",
+      "router_log_sha256": "833d1394623d3e5f31f6f1d8766141470004b557882b055a56bc93a3dc26226e"
+    },
+    {
+      "label": "c1n-live-split-router-h176-alias-v2",
+      "status": "invalid_startup",
+      "model_calls": 0,
+      "cause": "Percentage-based cache sizing counted the colocated coordinator allocation as non-torch memory and again left negative router KV capacity.",
+      "router_log_sha256": "76fa7c96f80f5058cc7590b6d8d52ea651dbef0699184e52cf932f4a60783e95"
+    },
+    {
+      "label": "c1n-live-split-router-h176-alias-v3",
+      "status": "valid_partial_stopped_when_admission_impossible",
+      "services_healthy": true,
+      "explicit_kv_cache_bytes_per_service": 4294967296,
+      "completed_traces": 5,
+      "observed_root_action_decisions": 6,
+      "correct_root_action_decisions": 1,
+      "router_calls": 0,
+      "complete_qualifying_trajectories": 1,
+      "maximum_possible_root_routes_after_fifth_rejection": 11,
+      "required_root_routes": 12,
+      "artifacts": {
+        "traces_sha256": "049eb988bd8f50303ed34f5b6a0812b42ec6890075ef0f54d70b9f7aa0e59fab",
+        "routing_audit_sha256": "9625e91f61d893a294140ea41df33730efa8eadb7c030a528b1af1d7ba8e5151",
+        "gpu_metrics_sha256": "e70c652a300208ccd04d3d4e43923bc5322d85a4de3cf3341129e06e1d6ca434",
+        "launcher_log_sha256": "f4389b675d58304e8beae2e9658d2bff025b2a68e75d89d4472896e519eeb1af"
+      }
+    }
+  ],
+  "diagnosis": {
+    "boundary": "action-policy request sampling",
+    "finding": "The c1b action probe omitted top_k, min_p, and reasoning_effort and capped max_tokens at 256, while the live evaluator passed top_k=20, min_p=0, reasoning_effort=high, and max_tokens=4096 through the typed action request.",
+    "same_bank_replay": {
+      "validated_probe_sampling_correct": 14,
+      "live_sampling_correct": 5,
+      "total": 16,
+      "live_failure_mode": "Most non-local decisions collapsed to solve_owned."
+    },
+    "router_implicated": false,
+    "worker_implicated": false
+  },
+  "decision": "Reject c1n without relaxing any gate. Normalize only the split action request to the already validated c1b sampling boundary, keep the isolated c1l request unchanged, and replace hidden exact-expert admission with a fresh prospective end-to-end causal-utility bank.",
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false,
+  "hugging_face_published": false
+}
