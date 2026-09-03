@@ -1,0 +1,81 @@
+{
+  "schema_version": "q35-2b-specialist-router-policy-c1d-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected_after_rung1",
+  "plan": "specialist-router-policy-c1d-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "dataset": {
+    "manifest_sha256": "27223a5e97cff760808de7dea788f9c7840c105f00d5b8e5e0e72508510026f7",
+    "train_parquet_sha256": "8d3a821d39f836f6a0410bb85fb99885121fd0df569fcf6ff8db9aa26f4105c4",
+    "rows": 48,
+    "answer_free": true,
+    "cognitive_action_labels_present": false
+  },
+  "baseline": {
+    "instance_offset": 37700,
+    "seed": 20261209,
+    "root_expert_correct": 4,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 1,
+      "source_inspector": 0,
+      "table_analyst": 3
+    },
+    "recursive_manager_expert_correct": 2,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "generic_worker": 4,
+      "source_inspector": 4,
+      "table_analyst": 6
+    },
+    "normalizable_one_field_transport": true,
+    "probe_sha256": "8b77865a5cc62e52e3cb8b3d5c957874894764721ee9ae642b2db34adf5a911a",
+    "gate_passed": false
+  },
+  "rung1": {
+    "optimizer_updates_from_e33": 4,
+    "epochs": 1,
+    "batch_size": 12,
+    "learning_rate": 0.000001,
+    "candidate_model_sha256": "876634d5838414eeea2f62089e990ab6b2d5d04830d37ecc789f2b5a36a99bf1",
+    "receipt_sha256": "3cf6b4be2d8c1c670f40bcb6138575dcabd1919475b46d6970b7d36085795580",
+    "loss_mean": 0.47875481843948364,
+    "loss_nan_count": 0,
+    "gradient_norm": 143.0,
+    "time_per_step_seconds": 34.22701040701941,
+    "screen": {
+      "instance_offset": 37700,
+      "seed": 20261209,
+      "root_expert_correct": 4,
+      "root_expert_total": 10,
+      "root_correct_by_expert": {
+        "generic_worker": 0,
+        "source_inspector": 0,
+        "table_analyst": 4
+      },
+      "recursive_manager_expert_correct": 2,
+      "recursive_manager_expert_total": 4,
+      "selected_expert_counts": {
+        "generic_worker": 0,
+        "source_inspector": 4,
+        "table_analyst": 10
+      },
+      "maximum_selected_expert_share": 0.7142857142857143,
+      "normalizable_one_field_transport": true,
+      "probe_sha256": "54e7f920e8f9aab89d23eb6a4832eeb0d400d9abf3439ea9eddbf8b5aeafb6c5",
+      "gate_passed": false
+    }
+  },
+  "rung2": {
+    "optimizer_updates": 0,
+    "run": false,
+    "reason": "The preregistered prerequisite required improvement in multiple expert classes. Rung 1 improved only table by one while generic regressed and source/manager accuracy stayed unchanged."
+  },
+  "diagnosis": "Separating the router prevents damage to e33, but one epoch of plain answer-free SFT still learns the dominant surface/role correlation instead of the semantic expert boundary. The limiting factor is now the learning examples or objective, not shared-policy interference.",
+  "decision": "Reject the isolated-router SFT formulation at rung 1 and do not run the eight-update rung. Preserve e33/H176 and use the next experiment to strengthen causal contrast in the routing examples or introduce an outcome-based routing objective.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
