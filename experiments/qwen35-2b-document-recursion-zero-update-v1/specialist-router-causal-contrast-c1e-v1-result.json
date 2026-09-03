@@ -1,0 +1,83 @@
+{
+  "schema_version": "q35-2b-specialist-router-causal-contrast-c1e-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected_after_rung1",
+  "plan": "specialist-router-causal-contrast-c1e-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "dataset": {
+    "manifest_sha256": "7b1bc742f5a559b3476f7c5392c531f6c726206680d27602674be2abdd467ba6",
+    "train_parquet_sha256": "ae7ed985a22583f3df5aa18a4cb1d53c227751618b241049fddf4e288b2befa8",
+    "base_assignment_groups": 16,
+    "registry_permutations_per_group": 6,
+    "rows": 96,
+    "rows_per_target_expert_id": 32,
+    "answer_free": true,
+    "causal_registry_permutations": true
+  },
+  "baseline": {
+    "instance_offset": 38000,
+    "seed": 20261212,
+    "root_expert_correct": 5,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 1,
+      "source_inspector": 0,
+      "table_analyst": 4
+    },
+    "recursive_manager_expert_correct": 2,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "generic_worker": 3,
+      "source_inspector": 4,
+      "table_analyst": 7
+    },
+    "probe_sha256": "d6c295084d9aca183f61a95c0ed485a9c6f57ed8e8dcf12ee37f8a97d0301c16",
+    "gate_passed": false
+  },
+  "rung1": {
+    "optimizer_updates_from_e33": 4,
+    "batch_size": 12,
+    "learning_rate": 0.000001,
+    "coverage": "each causal assignment group once per target expert identity",
+    "candidate_model_sha256": "997003e10b3dbc91fe441b7127ae1d9dfc025f0ef7864a4fb635d3f4af3c1666",
+    "receipt_sha256": "5795f844cfc688cad3110a5e20f8b3f6d380b2ccbe3d6704b7fbe7727d79a839",
+    "loss_mean": 0.462173730134964,
+    "loss_nan_count": 0,
+    "gradient_norm": 139.0,
+    "time_per_step_seconds": 33.52800083393231,
+    "screen": {
+      "instance_offset": 38000,
+      "seed": 20261212,
+      "root_expert_correct": 4,
+      "root_expert_total": 10,
+      "root_correct_by_expert": {
+        "generic_worker": 0,
+        "source_inspector": 0,
+        "table_analyst": 4
+      },
+      "recursive_manager_expert_correct": 2,
+      "recursive_manager_expert_total": 4,
+      "selected_expert_counts": {
+        "generic_worker": 0,
+        "source_inspector": 4,
+        "table_analyst": 10
+      },
+      "maximum_selected_expert_share": 0.7142857142857143,
+      "normalizable_one_field_transport": true,
+      "probe_sha256": "77f2070e6cb261ea0775a19025554c6c9dc516c21f8464f939e51b42876bd244",
+      "gate_passed": false
+    }
+  },
+  "rung2": {
+    "optimizer_updates": 0,
+    "run": false,
+    "reason": "The preregistered prerequisite required improvement in at least two previously weak classes. Generic regressed, source stayed disconnected, and manager accuracy did not move."
+  },
+  "diagnosis": "Registry permutation removed fixed-ID, role, and assignment-wording shortcuts, yet assistant-token SFT still converged toward the same table-root/source-manager modes. Additional SFT dose is not supported; the next learning signal must score the sampled expert decision itself.",
+  "decision": "Reject causal-contrast SFT at rung 1 and move the isolated router to outcome-based policy learning. Keep e33 and H176 unchanged.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
