@@ -2082,6 +2082,152 @@ def test_specialist_router_projection_keeps_only_public_routing_evidence() -> No
     }
 
 
+def test_live_specialist_router_request_is_compact_natural_json() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    registry = [
+        {
+            "expert_id": "generic_worker",
+            "role": "terminal_worker",
+            "capability": "Read files and perform straightforward calculations.",
+            "limitations": "No source or table specialization.",
+            "relative_cost": 1,
+        },
+        {
+            "expert_id": "table_analyst",
+            "role": "terminal_worker",
+            "capability": "Reconcile tables.",
+            "limitations": "Not specialized for source structure.",
+            "relative_cost": 1,
+        },
+    ]
+    assignment = {
+        "worker_name": "task-worker",
+        "objective": "Read a JSON list and return its weighted sum.",
+        "paths": ["/workspace/specialist-worker/generic/data.json"],
+    }
+    payload = {
+        "model": "coordinator",
+        "seed": 91,
+        "messages": [
+            {
+                "role": "user",
+                "content": "\n".join(
+                    (
+                        module.SPECIALIST_WORKER_ROUTING_HEADER,
+                        "[capability registry]",
+                        *(json.dumps(row, separators=(",", ":")) for row in registry),
+                        module.SPECIALIST_ASSIGNMENT_HEADER,
+                        json.dumps(assignment, separators=(",", ":")),
+                    )
+                ),
+            }
+        ],
+        "tools": [{"type": "function", "function": {"name": "ipython"}}],
+        "tool_choice": "required",
+    }
+
+    routed = module.specialist_router_payload(
+        payload, model="router", generic_relative_cost=0.5
+    )
+
+    assert routed["model"] == "router"
+    assert routed["seed"] == 91
+    assert "tools" not in routed
+    assert "tool_choice" not in routed
+    assert "parallel_tool_calls" not in routed
+    assert routed["messages"][0]["content"] == module.SPECIALIST_EXPERT_ROUTER_CONTRACT
+    rows = [
+        json.loads(line)
+        for line in routed["messages"][1]["content"].splitlines()
+        if line.startswith("{") and "expert_id" in line
+    ]
+    assert {row["expert_id"]: row["relative_cost"] for row in rows} == {
+        "generic_worker": 0.5,
+        "table_analyst": 1,
+    }
+
+
+def test_split_specialist_router_decision_is_strict_and_composes_with_action() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    router_body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": None,
+                        "reasoning": '{"expert_id":"table_analyst"}',
+                    }
+                }
+            ]
+        }
+    ).encode()
+    assert module.natural_specialist_expert_from_response(
+        router_body, expert_ids=("generic_worker", "table_analyst")
+    ) == "table_analyst"
+    action_body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": module.TYPED_COGNITIVE_ACTION_TOOL,
+                                    "arguments": '{"action":"delegate_terminal"}',
+                                },
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+    ).encode()
+    assert module.cognitive_action_from_response(action_body) == "delegate_terminal"
+    combined = module.with_specialist_expert_decision(
+        action_body, expert_id="table_analyst"
+    )
+    code = "await rlm('table', name='task-worker')"
+    rewritten, count, action_sha, selected_action, selected_expert = (
+        module.rewrite_typed_specialist_action_response(
+            combined,
+            canonical_actions={("delegate_terminal", "table_analyst"): code},
+            expected_facts={
+                "owns_required_evidence": False,
+                "remaining_work_requires_decomposition": False,
+                "terminal_shards_ready": True,
+            },
+            expert_ids=("generic_worker", "table_analyst"),
+        )
+    )
+    function = json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+        "function"
+    ]
+    assert json.loads(function["arguments"])["code"] == code
+    assert count == 1
+    assert action_sha == hashlib.sha256(code.encode()).hexdigest()
+    assert selected_action == "delegate_terminal"
+    assert selected_expert == "table_analyst"
+
+    ambiguous = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "reasoning": '{"expert_id":"table_analyst"}',
+                        "content": '{"expert_id":"generic_worker"}',
+                    }
+                }
+            ]
+        }
+    ).encode()
+    assert module.natural_specialist_expert_from_response(
+        ambiguous, expert_ids=("generic_worker", "table_analyst")
+    ) is None
+
+
 def test_specialist_terminal_synthesis_without_tools_is_not_an_action_turn() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     terminal_payload = {

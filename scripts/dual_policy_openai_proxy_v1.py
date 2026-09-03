@@ -1863,6 +1863,173 @@ def compact_specialist_expert_messages(
     ]
 
 
+def specialist_router_payload(
+    payload: dict[str, Any],
+    *,
+    model: str,
+    generic_relative_cost: float,
+) -> dict[str, Any]:
+    """Build the compact natural-JSON request used by the isolated router."""
+
+    routed = {
+        "model": model,
+        "messages": compact_specialist_expert_messages(
+            payload.get("messages"),
+            relative_cost_overrides={"generic_worker": generic_relative_cost},
+        ),
+        "temperature": 0.4,
+        "top_p": 0.95,
+        "max_tokens": 256,
+        "stream": False,
+    }
+    if isinstance(payload.get("seed"), int):
+        routed["seed"] = payload["seed"]
+    return routed
+
+
+def natural_specialist_expert_from_response(
+    body: bytes, *, expert_ids: tuple[str, ...]
+) -> str | None:
+    """Read exactly one registry-bounded natural-JSON expert decision."""
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if not isinstance(choices, list) or len(choices) != 1:
+        return None
+    message = choices[0].get("message") if isinstance(choices[0], dict) else None
+    if not isinstance(message, dict) or message.get("tool_calls"):
+        return None
+    decisions = []
+    for field in ("reasoning", "reasoning_content", "content"):
+        value = message.get(field)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        try:
+            candidate = json.loads(value)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(candidate, dict) and set(candidate) == {"expert_id"}:
+            decisions.append(candidate["expert_id"])
+    if len(decisions) != 1 or decisions[0] not in expert_ids:
+        return None
+    return decisions[0]
+
+
+def cognitive_action_from_response(body: bytes) -> str | None:
+    """Read one typed or natural-JSON cognitive action without repairing it."""
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return None
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if not isinstance(choices, list) or len(choices) != 1:
+        return None
+    message = choices[0].get("message") if isinstance(choices[0], dict) else None
+    if not isinstance(message, dict):
+        return None
+    tool_calls = message.get("tool_calls")
+    parsed = None
+    if isinstance(tool_calls, list) and len(tool_calls) == 1:
+        function = (
+            tool_calls[0].get("function")
+            if isinstance(tool_calls[0], dict)
+            else None
+        )
+        if (
+            isinstance(function, dict)
+            and function.get("name") == TYPED_COGNITIVE_ACTION_TOOL
+        ):
+            arguments = function.get("arguments")
+            try:
+                parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
+            except json.JSONDecodeError:
+                parsed = None
+    else:
+        values = []
+        for field in ("reasoning", "reasoning_content", "content"):
+            value = message.get(field)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            try:
+                candidate = json.loads(value)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(candidate, dict) and set(candidate) == {"action"}:
+                values.append(candidate)
+        if len(values) == 1:
+            parsed = values[0]
+    if not isinstance(parsed, dict) or set(parsed) != {"action"}:
+        return None
+    action = parsed.get("action")
+    return (
+        action
+        if action in {"solve_owned", "delegate_terminal", "delegate_coordinator"}
+        else None
+    )
+
+
+def with_specialist_expert_decision(body: bytes, *, expert_id: str) -> bytes:
+    """Attach an isolated router decision to a valid one-field action response."""
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        return body
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if not isinstance(choices, list) or len(choices) != 1:
+        return body
+    message = choices[0].get("message") if isinstance(choices[0], dict) else None
+    if not isinstance(message, dict):
+        return body
+    tool_calls = message.get("tool_calls")
+    if isinstance(tool_calls, list) and len(tool_calls) == 1:
+        function = (
+            tool_calls[0].get("function")
+            if isinstance(tool_calls[0], dict)
+            else None
+        )
+        if (
+            not isinstance(function, dict)
+            or function.get("name") != TYPED_COGNITIVE_ACTION_TOOL
+        ):
+            return body
+        arguments = function.get("arguments")
+        try:
+            parsed = json.loads(arguments) if isinstance(arguments, str) else arguments
+        except json.JSONDecodeError:
+            return body
+        if not isinstance(parsed, dict) or set(parsed) != {"action"}:
+            return body
+        function["arguments"] = json.dumps(
+            {"action": parsed["action"], "expert_id": expert_id},
+            separators=(",", ":"),
+        )
+    else:
+        matches = []
+        for field in ("reasoning", "reasoning_content", "content"):
+            value = message.get(field)
+            if not isinstance(value, str) or not value.strip():
+                continue
+            try:
+                parsed = json.loads(value)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(parsed, dict) and set(parsed) == {"action"}:
+                matches.append((field, parsed))
+        if len(matches) != 1:
+            return body
+        field, parsed = matches[0]
+        message[field] = json.dumps(
+            {"action": parsed["action"], "expert_id": expert_id},
+            separators=(",", ":"),
+        )
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+
+
 def specialist_local_values_from_messages(messages: Any) -> list[int] | None:
     values = []
     for fragment in _message_fragments(messages):
@@ -3521,6 +3688,9 @@ class DualPolicyProxy:
         private_evidence_token_ids: list[int],
         tokenizer: Any,
         specialist_routes: dict[str, tuple[str, str]] | None = None,
+        specialist_router_url: str | None = None,
+        specialist_router_model: str | None = None,
+        specialist_router_generic_relative_cost: float = 0.5,
         recursive_coordinator_token_ids: list[int] | None = None,
         document_coordinator_token_ids: list[int] | None = None,
         root_depth_token_ids: list[int] | None = None,
@@ -3557,6 +3727,19 @@ class DualPolicyProxy:
         }
         self.models = {"coordinator": coordinator_model, "child": child_model}
         self.specialist_worker_routing = specialist_worker_routing
+        if (specialist_router_url is None) != (specialist_router_model is None):
+            raise ValueError("specialist router URL and model must be configured together")
+        if specialist_router_url is not None and not specialist_worker_routing:
+            raise ValueError("separate specialist router requires specialist worker routing")
+        if specialist_router_generic_relative_cost <= 0:
+            raise ValueError("specialist router generic relative cost must be positive")
+        self.specialist_router_enabled = specialist_router_url is not None
+        self.specialist_router_generic_relative_cost = (
+            specialist_router_generic_relative_cost
+        )
+        if specialist_router_url is not None and specialist_router_model is not None:
+            self.urls["specialist_router"] = specialist_router_url.rstrip("/")
+            self.models["specialist_router"] = specialist_router_model
         self.specialist_route_keys: dict[str, str] = {"generic_worker": "child"}
         for expert_id, (url, model) in (specialist_routes or {}).items():
             if not SPECIALIST_EXPERT_ID_PATTERN.fullmatch(expert_id):
@@ -3780,6 +3963,7 @@ class DualPolicyProxy:
         document_root_topology: str | None = None,
         upstream_model: str | None = None,
         expert_id: str | None = None,
+        response_sha256: str | None = None,
         latency_ms: float | None = None,
     ) -> None:
         event = {
@@ -3806,11 +3990,75 @@ class DualPolicyProxy:
             event["document_root_topology"] = document_root_topology
         if expert_id is not None:
             event["expert_id"] = expert_id
+        if response_sha256 is not None:
+            event["response_sha256"] = response_sha256
         if latency_ms is not None:
             event["latency_ms"] = round(latency_ms, 3)
         with self.audit_log.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(event, sort_keys=True, separators=(",", ":")) + "\n")
         self.sequence += 1
+
+    async def _select_specialist_expert(
+        self,
+        payload: dict[str, Any],
+        *,
+        expert_ids: tuple[str, ...],
+        session_sha256: str | None,
+    ) -> str | None:
+        """Call the isolated router with compact public evidence and fail closed."""
+
+        if self.client is None or not self.specialist_router_enabled:
+            raise RuntimeError("specialist router is not initialized")
+        routed = specialist_router_payload(
+            payload,
+            model=self.models["specialist_router"],
+            generic_relative_cost=self.specialist_router_generic_relative_cost,
+        )
+        body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
+        started = time.perf_counter()
+        try:
+            async with self.client.post(
+                f"{self.urls['specialist_router'].removesuffix('/v1')}/v1/chat/completions",
+                data=body,
+                headers={"Content-Type": "application/json"},
+            ) as upstream:
+                response_body = await upstream.read()
+                selected = (
+                    natural_specialist_expert_from_response(
+                        response_body, expert_ids=expert_ids
+                    )
+                    if upstream.status == 200
+                    else None
+                )
+                self._audit(
+                    role="specialist_router",
+                    endpoint="/v1/chat/completions",
+                    body=body,
+                    status=upstream.status,
+                    mode=(
+                        f"forwarded_specialist_expert_router_{selected}"
+                        if selected is not None
+                        else "forwarded_specialist_expert_router_untranslated"
+                    ),
+                    session_sha256=session_sha256,
+                    upstream_model=self.models["specialist_router"],
+                    expert_id=selected,
+                    response_sha256=hashlib.sha256(response_body).hexdigest(),
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                )
+                return selected
+        except ClientError:
+            self._audit(
+                role="specialist_router",
+                endpoint="/v1/chat/completions",
+                body=body,
+                status=502,
+                mode="specialist_expert_router_unavailable",
+                session_sha256=session_sha256,
+                upstream_model=self.models["specialist_router"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+            return None
 
     async def _route_json(self, request: web.Request, *, endpoint: str) -> web.StreamResponse:
         request_started = time.perf_counter()
@@ -4566,9 +4814,12 @@ class DualPolicyProxy:
                 raise ValueError("specialist decision lacks public facts or legal mechanics")
             specialist_canonical_actions, specialist_registry_ids = disclosed
             specialist_cognitive_scope = True
-            routed = force_typed_specialist_action_schema(
-                routed, specialist_registry_ids
-            )
+            if self.specialist_router_enabled:
+                routed = force_typed_cognitive_action_schema(routed)
+            else:
+                routed = force_typed_specialist_action_schema(
+                    routed, specialist_registry_ids
+                )
         if (
             self.document_root_topology_normalization_scaffold
             and endpoint == "/v1/chat/completions"
@@ -5129,6 +5380,23 @@ class DualPolicyProxy:
                     assert specialist_canonical_actions is not None
                     assert specialist_expected_facts is not None
                     assert specialist_registry_ids is not None
+                    if self.specialist_router_enabled:
+                        selected_action = cognitive_action_from_response(normalized)
+                        selected_expert = "none"
+                        if (
+                            selected_action == "delegate_terminal"
+                            and cognitive_action_from_facts(specialist_expected_facts)
+                            == "delegate_terminal"
+                        ):
+                            selected_expert = await self._select_specialist_expert(
+                                payload,
+                                expert_ids=specialist_registry_ids,
+                                session_sha256=session_sha256,
+                            )
+                        if selected_expert is not None:
+                            normalized = with_specialist_expert_decision(
+                                normalized, expert_id=selected_expert
+                            )
                     (
                         normalized,
                         _,
@@ -5359,6 +5627,11 @@ def main() -> None:
         metavar=("EXPERT_ID", "URL", "MODEL"),
         default=[],
     )
+    parser.add_argument("--specialist-router-url")
+    parser.add_argument("--specialist-router-model")
+    parser.add_argument(
+        "--specialist-router-generic-relative-cost", type=float, default=0.5
+    )
     parser.add_argument("--external-model", required=True)
     parser.add_argument("--tokenizer-model")
     parser.add_argument("--leak-coordinator-exact-action", action="store_true")
@@ -5425,6 +5698,11 @@ def main() -> None:
         child_url=args.child_url,
         child_model=args.child_model,
         specialist_routes=specialist_routes,
+        specialist_router_url=args.specialist_router_url,
+        specialist_router_model=args.specialist_router_model,
+        specialist_router_generic_relative_cost=(
+            args.specialist_router_generic_relative_cost
+        ),
         external_model=args.external_model,
         audit_log=args.audit_log.resolve(),
         private_evidence_token_ids=private_evidence_token_ids,

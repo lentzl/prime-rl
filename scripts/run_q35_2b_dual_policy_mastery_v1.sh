@@ -25,6 +25,7 @@ coordinator_backend_port=${COORDINATOR_BACKEND_PORT:-8101}
 child_backend_port=${CHILD_BACKEND_PORT:-8102}
 table_analyst_backend_port=${TABLE_ANALYST_BACKEND_PORT:-8103}
 source_inspector_backend_port=${SOURCE_INSPECTOR_BACKEND_PORT:-8104}
+specialist_router_backend_port=${SPECIALIST_ROUTER_BACKEND_PORT:-8105}
 proxy_port=${DUAL_PROXY_PORT:-8100}
 leak_coordinator_exact_action=${DUAL_LEAK_COORDINATOR_EXACT_ACTION:-0}
 leak_document_manager_exact_action=${DUAL_LEAK_DOCUMENT_MANAGER_EXACT_ACTION:-0}
@@ -47,6 +48,8 @@ adaptive_document_decision=${DUAL_ADAPTIVE_DOCUMENT_DECISION:-0}
 specialist_worker_routing=${DUAL_SPECIALIST_WORKER_ROUTING:-0}
 table_analyst_model=${DUAL_TABLE_ANALYST_MODEL:-}
 source_inspector_model=${DUAL_SOURCE_INSPECTOR_MODEL:-}
+specialist_router_model=${DUAL_SPECIALIST_ROUTER_MODEL:-}
+specialist_router_generic_relative_cost=${DUAL_SPECIALIST_ROUTER_GENERIC_RELATIVE_COST:-0.5}
 document_root_flat_fanin_scaffold=${DUAL_DOCUMENT_ROOT_FLAT_FANIN_SCAFFOLD:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
 child_authored_compute=${DUAL_CHILD_AUTHORED_COMPUTE:-0}
@@ -172,6 +175,24 @@ if [[ "$specialist_worker_routing" == 1 ]]; then
     fi
   done
 fi
+if [[ -n "$specialist_router_model" ]]; then
+  if [[ "$specialist_worker_routing" != 1 ]]; then
+    echo "separate specialist router requires DUAL_SPECIALIST_WORKER_ROUTING=1" >&2
+    exit 1
+  fi
+  if [[ "$specialist_router_model" != /* \
+    || ! -f "$specialist_router_model/STABLE" \
+    || ! -f "$specialist_router_model/model.safetensors" ]]; then
+    echo "separate specialist router is not an absolute complete checkpoint: $specialist_router_model" >&2
+    exit 1
+  fi
+  if ! [[ "$specialist_router_generic_relative_cost" =~ ^[0-9]+([.][0-9]+)?$ ]] \
+    || [[ "$specialist_router_generic_relative_cost" == 0 \
+      || "$specialist_router_generic_relative_cost" == 0.0 ]]; then
+    echo "DUAL_SPECIALIST_ROUTER_GENERIC_RELATIVE_COST must be positive" >&2
+    exit 1
+  fi
+fi
 if [[ "$adaptive_document_decision" == 1 && "$document_root_topology_normalization_scaffold" != 1 ]]; then
   echo "adaptive document decision requires document root topology normalization" >&2
   exit 1
@@ -279,6 +300,7 @@ coordinator_config=$run_output/coordinator-inference.toml
 child_config=$run_output/child-inference.toml
 table_analyst_config=$run_output/table-analyst-inference.toml
 source_inspector_config=$run_output/source-inspector-inference.toml
+specialist_router_config=$run_output/specialist-router-inference.toml
 routing_audit=$run_output/ROUTING_AUDIT.jsonl
 gpu_metrics=$run_output/GPU_METRICS.csv
 launch_table_analyst=0
@@ -300,6 +322,12 @@ elif ((unique_specialist_processes == 2)); then
 fi
 write_inference_config "$coordinator_config" "$coordinator_model" "$coordinator_backend_port" 8001 13346 0.80
 write_inference_config "$child_config" "$child_model" "$child_backend_port" 8002 13347 "$worker_memory"
+if [[ -n "$specialist_router_model" ]]; then
+  write_inference_config "$coordinator_config" "$coordinator_model" \
+    "$coordinator_backend_port" 8001 13346 0.70
+  write_inference_config "$specialist_router_config" "$specialist_router_model" \
+    "$specialist_router_backend_port" 8005 13350 0.20
+fi
 table_analyst_url="http://127.0.0.1:$child_backend_port/v1"
 source_inspector_url="http://127.0.0.1:$child_backend_port/v1"
 if ((launch_table_analyst == 1)); then
@@ -319,12 +347,13 @@ coordinator_pid=
 child_pid=
 table_analyst_pid=
 source_inspector_pid=
+specialist_router_pid=
 proxy_pid=
 eval_pid=
 monitor_pid=
 cleanup() {
   trap - EXIT INT TERM
-  for pid in "$monitor_pid" "$eval_pid" "$proxy_pid" "$source_inspector_pid" \
+  for pid in "$monitor_pid" "$eval_pid" "$proxy_pid" "$specialist_router_pid" "$source_inspector_pid" \
     "$table_analyst_pid" "$child_pid" "$coordinator_pid"; do
     if [[ -n "$pid" ]]; then
       kill -TERM -- "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true
@@ -347,6 +376,13 @@ health_urls=(
   "http://127.0.0.1:$coordinator_backend_port/health"
   "http://127.0.0.1:$child_backend_port/health"
 )
+if [[ -n "$specialist_router_model" ]]; then
+  setsid env CUDA_VISIBLE_DEVICES=0 "$inference_bin" @ "$specialist_router_config" \
+    >"$run_output/specialist-router-inference.log" 2>&1 &
+  specialist_router_pid=$!
+  service_pids+=("$specialist_router_pid")
+  health_urls+=("http://127.0.0.1:$specialist_router_backend_port/health")
+fi
 if ((launch_table_analyst == 1)); then
   setsid env CUDA_VISIBLE_DEVICES=1 "$inference_bin" @ "$table_analyst_config" \
     >"$run_output/table-analyst-inference.log" 2>&1 &
@@ -457,6 +493,13 @@ if [[ "$specialist_worker_routing" == 1 ]]; then
     --specialist-route source_inspector "$source_inspector_url" "$source_inspector_model"
   )
 fi
+if [[ -n "$specialist_router_model" ]]; then
+  proxy_args+=(
+    --specialist-router-url "http://127.0.0.1:$specialist_router_backend_port/v1"
+    --specialist-router-model "$specialist_router_model"
+    --specialist-router-generic-relative-cost "$specialist_router_generic_relative_cost"
+  )
+fi
 if [[ "$document_root_flat_fanin_scaffold" == 1 ]]; then
   proxy_args+=(--document-root-flat-fanin-scaffold)
 fi
@@ -536,9 +579,13 @@ coordinator_sha=$(sha256sum "$coordinator_model/model.safetensors" | awk '{print
 child_sha=$(sha256sum "$child_model/model.safetensors" | awk '{print $1}')
 table_analyst_sha=
 source_inspector_sha=
+specialist_router_sha=
 if [[ "$specialist_worker_routing" == 1 ]]; then
   table_analyst_sha=$(sha256sum "$table_analyst_model/model.safetensors" | awk '{print $1}')
   source_inspector_sha=$(sha256sum "$source_inspector_model/model.safetensors" | awk '{print $1}')
+fi
+if [[ -n "$specialist_router_model" ]]; then
+  specialist_router_sha=$(sha256sum "$specialist_router_model/model.safetensors" | awk '{print $1}')
 fi
 {
   printf 'dual_policy_scaffold_profile=%s\n' "$scaffold_profile"
@@ -561,6 +608,8 @@ fi
   printf 'dual_document_root_typed_topology_decision=%s\n' "$document_root_typed_topology_decision"
   printf 'dual_adaptive_document_decision=%s\n' "$adaptive_document_decision"
   printf 'dual_specialist_worker_routing=%s\n' "$specialist_worker_routing"
+  printf 'dual_specialist_router_enabled=%s\n' "$([[ -n "$specialist_router_model" ]] && echo 1 || echo 0)"
+  printf 'dual_specialist_router_generic_relative_cost=%s\n' "$specialist_router_generic_relative_cost"
   printf 'dual_document_root_flat_fanin_scaffold=%s\n' "$document_root_flat_fanin_scaffold"
   printf 'dual_typed_child_report=%s\n' "$typed_child_report"
   printf 'dual_child_authored_compute=%s\n' "$child_authored_compute"
@@ -575,6 +624,11 @@ fi
     printf 'table_analyst_model_sha256=%s\n' "$table_analyst_sha"
     printf 'source_inspector_model_path=%s\n' "$source_inspector_model"
     printf 'source_inspector_model_sha256=%s\n' "$source_inspector_sha"
+  fi
+  if [[ -n "$specialist_router_model" ]]; then
+    printf 'specialist_router_model_path=%s\n' "$specialist_router_model"
+    printf 'specialist_router_model_sha256=%s\n' "$specialist_router_sha"
+    sha256sum "$specialist_router_config"
   fi
   sha256sum "$routing_audit" "$gpu_metrics" "$coordinator_config" "$child_config"
   if ((launch_table_analyst == 1)); then
