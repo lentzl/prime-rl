@@ -1,0 +1,136 @@
+{
+  "schema_version": "q35-2b-specialist-expert-only-calibration-c1c-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Teach only registry-bounded terminal expert identity while preserving e33's admitted generic cognitive-action policy.",
+  "causal_basis": {
+    "source": "specialist-split-routing-probe-c1b-v1-result.json",
+    "root_action_correct": 13,
+    "root_actions": 16,
+    "expert_correct": 6,
+    "expert_decisions": 14,
+    "finding": "The one-field action policy remains strong, while the separate expert classifier is connected but role-position-biased."
+  },
+  "protected_models": {
+    "coordinator_parent": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "overwrite_allowed": false
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates": 0,
+      "overwrite_allowed": false
+    }
+  },
+  "training": {
+    "role": "coordinator_only",
+    "update_type": "full_dense",
+    "answer_free": true,
+    "public_inputs_only": true,
+    "target_tool": "select_expert",
+    "target_arguments": [
+      "expert_id"
+    ],
+    "cognitive_action_labels_present": false,
+    "expert_ids": [
+      "generic_worker",
+      "table_analyst",
+      "source_inspector"
+    ],
+    "rows_per_expert": 16,
+    "rows": 48,
+    "root_and_nonroot_examples": true,
+    "table_and_source_examples_per_role": 8,
+    "training_template_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "first_rung": {
+      "optimizer_updates": 1,
+      "batch_size": 12,
+      "learning_rate": 0.000001
+    },
+    "maximum_predeclared_rungs": 2,
+    "second_rung_if_needed": {
+      "optimizer_updates_from_e33": 2,
+      "batch_size": 12,
+      "learning_rate": 0.000001,
+      "requires_distinct_unseen_split_screen": true
+    }
+  },
+  "data_boundary": {
+    "observed_split_screen_excluded": {
+      "instance_offset": 37300,
+      "template_variants": [
+        4,
+        5
+      ]
+    },
+    "rung1_split_screen": {
+      "instance_offset": 37400,
+      "template_variants": [
+        4,
+        5
+      ],
+      "seed": 20261206,
+      "baseline_measured_before_training": true
+    },
+    "rung2_split_screen": {
+      "instance_offset": 37500,
+      "template_variants": [
+        4,
+        5
+      ],
+      "seed": 20261207
+    },
+    "fresh_final_population_bank": {
+      "instance_offset": 38100,
+      "template_variants": [
+        4,
+        5
+      ]
+    },
+    "training_answers_used": false,
+    "heldout_artifacts_used_for_training": false
+  },
+  "split_screen_acceptance": {
+    "minimum_correct_root_actions": 12,
+    "root_actions": 16,
+    "minimum_correct_per_root_action_class": 1,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "raw_function_tool_call_transport_recorded_separately": true,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "protected_regressions_before_population_use": {
+    "adaptive_mixed_depth": {
+      "minimum_clean_total": 12,
+      "trace_total": 16,
+      "minimum_clean_per_hidden_depth": 1
+    },
+    "typed_retention": {
+      "minimum_clean_total": 4,
+      "trace_total": 6,
+      "minimum_clean_per_class": 1
+    }
+  },
+  "decision_rule": {
+    "if_rung1_passes": "Run both protected regression suites before any population work.",
+    "if_rung1_fails_but_is_connected": "Run only the predeclared two-update lineage from e33 and evaluate once on untouched screen 37500.",
+    "if_rung2_fails": "Reject this expert-only SFT formulation and keep e33 canonical.",
+    "promotion_requires": "split screen plus both protected regression suites"
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

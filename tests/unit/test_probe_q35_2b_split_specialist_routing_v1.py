@@ -60,21 +60,23 @@ def test_response_parser_distinguishes_typed_call_from_json_fallback() -> None:
             }
         ]
     }
-    selected, exact, _ = module._arguments_from_response(
+    selected, exact, normalizable, _ = module._arguments_from_response(
         response, tool_name="select_expert", field="expert_id"
     )
     assert selected == "table_analyst"
     assert exact is True
+    assert normalizable is True
 
     response["choices"][0]["message"] = {
         "role": "assistant",
         "content": json.dumps({"expert_id": "source_inspector"}),
     }
-    selected, exact, _ = module._arguments_from_response(
+    selected, exact, normalizable, _ = module._arguments_from_response(
         response, tool_name="select_expert", field="expert_id"
     )
     assert selected == "source_inspector"
     assert exact is False
+    assert normalizable is True
 
 
 def test_expected_root_routes_cover_all_specialist_families() -> None:

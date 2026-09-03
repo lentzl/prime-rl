@@ -35,6 +35,10 @@ LEAF_REPORTER_HEADER = "[leaf reporter session contract]"
 CHILD_ACTION_SCAFFOLD_HEADER = "[training-only child action scaffold]"
 EXACT_ACTION_MARKER = "[interaction-curriculum exact action]"
 SPECIALIST_EXPERT_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]{1,63}$")
+SPECIALIST_EXPERT_DECISION_PROMPT = """[split specialist decision phase]
+The legal cognitive action has already been fixed as delegate_terminal. Use only the
+public capability registry and complete assignment to select one expert_id. Do not
+solve the task or inspect any file."""
 ROOT_COORDINATOR_CONTRACT = """[root coordinator session contract]
 session_role=root_coordinator
 is_root=true
@@ -2730,6 +2734,55 @@ def force_typed_specialist_action_schema(
         "enum": ["none", *expert_ids],
     }
     parameters["required"] = ["action", "expert_id"]
+    return rewritten
+
+
+def force_typed_specialist_expert_schema(
+    payload: dict[str, Any], expert_ids: tuple[str, ...]
+) -> dict[str, Any]:
+    """Require only a registry-bounded expert identity after terminal action selection."""
+
+    if not request_has_ipython_tool(payload):
+        raise ValueError("typed specialist expert selection requires the IPython tool")
+    if (
+        not expert_ids
+        or len(set(expert_ids)) != len(expert_ids)
+        or any(not SPECIALIST_EXPERT_ID_PATTERN.fullmatch(value) for value in expert_ids)
+    ):
+        raise ValueError("typed specialist expert ids must be unique valid identifiers")
+    rewritten = {
+        **payload,
+        "stream": False,
+        "tools": [
+            {
+                "type": "function",
+                "function": {
+                    "name": "select_expert",
+                    "description": (
+                        "The cognitive action is already delegate_terminal. Select exactly "
+                        "one terminal worker from the public capability registry."
+                    ),
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "expert_id": {
+                                "type": "string",
+                                "enum": list(expert_ids),
+                            }
+                        },
+                        "required": ["expert_id"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        ],
+        "tool_choice": {
+            "type": "function",
+            "function": {"name": "select_expert"},
+        },
+        "parallel_tool_calls": False,
+    }
+    rewritten.pop("stream_options", None)
     return rewritten
 
 

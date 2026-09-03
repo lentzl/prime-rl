@@ -14,7 +14,9 @@ from typing import Any
 import httpx
 from dual_policy_openai_proxy_v1 import (
     ROOT_COORDINATOR_CONTRACT,
+    SPECIALIST_EXPERT_DECISION_PROMPT,
     force_typed_cognitive_action_schema,
+    force_typed_specialist_expert_schema,
     specialist_manager_contract_from_messages,
 )
 from export_q35_2b_adaptive_cognition_sft_v1 import (
@@ -28,8 +30,13 @@ from subagent_communication_v1.taskset import (
     SubagentCommunicationTaskset,
 )
 
-SCHEMA_VERSION = "qwen35-2b-split-specialist-routing-probe/v1"
+SCHEMA_VERSION = "qwen35-2b-split-specialist-routing-probe/v2"
 EXPERT_IDS = tuple(SPECIALIST_EXPERTS)
+FROZEN_SCREENS = {
+    37300: 20261205,
+    37400: 20261206,
+    37500: 20261207,
+}
 
 
 def _selector_seed(key: str, seed: int) -> int:
@@ -71,50 +78,28 @@ def _expert_payload(
     *, model: str, messages: list[dict[str, Any]], seed: int
 ) -> dict[str, Any]:
     payload = _base_payload(model=model, messages=messages, seed=seed)
-    payload.update(
+    payload["tools"] = [
         {
-            "tools": [
-                {
-                    "type": "function",
-                    "function": {
-                        "name": "select_expert",
-                        "description": (
-                            "The cognitive action is already delegate_terminal. Select exactly "
-                            "one terminal worker from the public capability registry."
-                        ),
-                        "parameters": {
-                            "type": "object",
-                            "properties": {
-                                "expert_id": {
-                                    "type": "string",
-                                    "enum": list(EXPERT_IDS),
-                                }
-                            },
-                            "required": ["expert_id"],
-                            "additionalProperties": False,
-                        },
-                    },
-                }
-            ],
-            "tool_choice": {
-                "type": "function",
-                "function": {"name": "select_expert"},
+            "type": "function",
+            "function": {
+                "name": "ipython",
+                "description": "Execute Python in the persistent kernel.",
+                "parameters": {"type": "object"},
             },
-            "parallel_tool_calls": False,
         }
-    )
-    return payload
+    ]
+    return force_typed_specialist_expert_schema(payload, EXPERT_IDS)
 
 
 def _arguments_from_response(
     response: dict[str, Any], *, tool_name: str, field: str
-) -> tuple[str | None, bool, dict[str, Any]]:
+) -> tuple[str | None, bool, bool, dict[str, Any]]:
     choices = response.get("choices")
     if not isinstance(choices, list) or len(choices) != 1:
-        return None, False, {}
+        return None, False, False, {}
     message = choices[0].get("message")
     if not isinstance(message, dict):
-        return None, False, {}
+        return None, False, False, {}
     parsed = None
     typed = False
     tool_calls = message.get("tool_calls")
@@ -146,7 +131,7 @@ def _arguments_from_response(
                 parsed = candidate
                 break
     valid = isinstance(parsed, dict) and set(parsed) == {field} and isinstance(parsed[field], str)
-    return (parsed[field] if valid else None), typed and valid, message
+    return (parsed[field] if valid else None), typed and valid, valid, message
 
 
 def _expected_root_route(family: str) -> tuple[str, str | None]:
@@ -185,12 +170,7 @@ def _expert_phase_messages(messages: list[dict[str, Any]]) -> list[dict[str, Any
     result.append(
         {
             "role": "user",
-            "content": (
-                "[split specialist decision phase]\n"
-                "The legal cognitive action has already been fixed as delegate_terminal. "
-                "Use only the public capability registry and complete assignment to select "
-                "one expert_id. Do not solve the task or inspect any file."
-            ),
+            "content": SPECIALIST_EXPERT_DECISION_PROMPT,
         }
     )
     return result
@@ -207,12 +187,13 @@ def _request(
     response = client.post(endpoint, json=payload)
     response.raise_for_status()
     body = response.json()
-    selected, exact_typed, message = _arguments_from_response(
+    selected, exact_typed, normalizable, message = _arguments_from_response(
         body, tool_name=tool_name, field=field
     )
     return {
         "selected": selected,
         "exact_one_field_typed": exact_typed,
+        "normalizable_one_field_transport": normalizable,
         "response_message": message,
         "response_sha256": hashlib.sha256(response.content).hexdigest(),
     }
@@ -316,8 +297,10 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
     action_correct = sum(row["correct"] for row in action_rows)
     action_classes = {row["expected"] for row in action_rows}
     correct_action_classes = {row["expected"] for row in action_rows if row["correct"]}
-    expert_correct = Counter(
-        row["expected"] for row in expert_rows if row["correct"]
+    expert_correct = Counter(row["expected"] for row in expert_rows if row["correct"])
+    root_expert_rows = [row for row in expert_rows if row["role_scope"] == "root"]
+    root_expert_correct = Counter(
+        row["expected"] for row in root_expert_rows if row["correct"]
     )
     manager_rows = [
         row for row in expert_rows if row["role_scope"] == "nonroot_specialist_manager"
@@ -325,22 +308,31 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
     exact_transport = all(
         row["exact_one_field_typed"] for row in [*action_rows, *expert_rows]
     )
+    normalizable_transport = all(
+        row["normalizable_one_field_transport"]
+        for row in [*action_rows, *expert_rows]
+    )
+    required_transport = (
+        exact_transport
+        if args.transport_gate == "raw_tool_call"
+        else normalizable_transport
+    )
     acceptance = {
         "minimum_correct_root_actions": action_correct >= 12,
         "minimum_correct_per_root_action_class": action_classes <= correct_action_classes,
-        "minimum_correct_generic_experts": expert_correct["generic_worker"] >= 1,
-        "minimum_correct_table_experts": expert_correct["table_analyst"] >= 3,
-        "minimum_correct_source_experts": expert_correct["source_inspector"] >= 3,
+        "minimum_correct_generic_experts": root_expert_correct["generic_worker"] >= 1,
+        "minimum_correct_table_experts": root_expert_correct["table_analyst"] >= 3,
+        "minimum_correct_source_experts": root_expert_correct["source_inspector"] >= 3,
         "minimum_correct_recursive_manager_experts": sum(
             row["correct"] for row in manager_rows
         )
         >= 3,
-        "exact_one_field_typed_transport": exact_transport,
+        "required_transport": required_transport,
     }
     return {
         "schema_version": SCHEMA_VERSION,
         "model": args.model,
-        "optimizer_updates": 0,
+        "optimizer_updates": args.model_optimizer_updates,
         "instance_offset": args.instance_offset,
         "seed": args.seed,
         "runtime_sources": runtime_sources,
@@ -350,9 +342,15 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
         "expert_total_by_id": dict(
             sorted(Counter(row["expected"] for row in expert_rows).items())
         ),
+        "root_expert_correct_by_id": dict(sorted(root_expert_correct.items())),
+        "root_expert_total_by_id": dict(
+            sorted(Counter(row["expected"] for row in root_expert_rows).items())
+        ),
         "recursive_manager_expert_correct": sum(row["correct"] for row in manager_rows),
         "recursive_manager_expert_total": len(manager_rows),
         "exact_one_field_typed_transport": exact_transport,
+        "normalizable_one_field_transport": normalizable_transport,
+        "transport_gate": args.transport_gate,
         "action_rows": action_rows,
         "expert_rows": expert_rows,
         "acceptance_gates_relaxed": False,
@@ -368,11 +366,19 @@ def main() -> None:
     parser.add_argument("--runtime-traces", action="append", type=Path, required=True)
     parser.add_argument("--instance-offset", type=int, default=37300)
     parser.add_argument("--seed", type=int, default=20261205)
+    parser.add_argument("--model-optimizer-updates", type=int, default=0)
     parser.add_argument("--timeout", type=float, default=180.0)
+    parser.add_argument(
+        "--transport-gate",
+        choices=("raw_tool_call", "normalizable_one_field"),
+        default="raw_tool_call",
+    )
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
-    if args.instance_offset != 37300 or args.seed != 20261205:
+    if FROZEN_SCREENS.get(args.instance_offset) != args.seed:
         parser.error("split-routing probe offset and seed are frozen")
+    if args.model_optimizer_updates not in {0, 1, 2}:
+        parser.error("model optimizer updates must be zero, one, or two")
     args.runtime_traces = [path.resolve() for path in args.runtime_traces]
     result = probe(args)
     rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
