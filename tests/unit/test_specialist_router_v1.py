@@ -90,13 +90,19 @@ def test_router_taskset_can_use_diverse_harness_shaped_assignments() -> None:
         )
     ).load()
 
-    objectives = {
-        task.data.prompt.split("[terminal specialist assignment]\n", 1)[1]
-        for task in tasks
+    assert Counter(task.data.assignment_variant for task in tasks) == Counter(
+        {variant: 6 for variant in range(4)}
+    )
+    mappings_by_variant = defaultdict(set)
+    for task in tasks:
+        mappings_by_variant[task.data.assignment_variant].add(
+            tuple(sorted(task.data.profile_by_expert_id.items()))
+        )
+    assert {variant: len(mappings) for variant, mappings in mappings_by_variant.items()} == {
+        variant: 6 for variant in range(4)
     }
-    assert len(objectives) == 4
-    assert all("/workspace/specialist-worker/" in objective for objective in objectives)
-    assert all("receiver_role='parent'" in objective for objective in objectives)
+    assert all("/workspace/specialist-worker/" in task.data.prompt for task in tasks)
+    assert all("receiver_role='parent'" in task.data.prompt for task in tasks)
     assert Counter(task.data.answer for task in tasks) == Counter(
         {expert_id: 8 for expert_id in module.EXPERT_IDS}
     )

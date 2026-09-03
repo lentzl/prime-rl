@@ -87,6 +87,7 @@ class SpecialistRouterData(vf.TaskData):
     answer: str
     required_profile: str
     profile_by_expert_id: dict[str, str]
+    assignment_variant: int | None
 
 
 class SpecialistRouterTask(vf.Task[SpecialistRouterData]):
@@ -147,6 +148,7 @@ class SpecialistRouterTaskset(
                 for expert_id, profile_id in profile_by_expert_id.items()
                 if profile_id == required_profile
             )
+            assignment_variant = None
             if self.config.assignment_style == "harness_shaped":
                 assignment_templates = HARNESS_ASSIGNMENTS[required_profile]
                 assignment_variant = (
@@ -194,6 +196,7 @@ class SpecialistRouterTaskset(
                         answer=answer,
                         required_profile=required_profile,
                         profile_by_expert_id=profile_by_expert_id,
+                        assignment_variant=assignment_variant,
                     ),
                     self.config.task,
                 )
