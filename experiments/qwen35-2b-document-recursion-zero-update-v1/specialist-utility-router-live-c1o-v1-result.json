@@ -1,0 +1,66 @@
+{
+  "schema_version": "q35-2b-specialist-utility-router-live-c1o-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected",
+  "plan": "specialist-utility-router-live-c1o-v1-plan.json",
+  "run": {
+    "path": "/home/ubuntu/rlm/results/q35-2b-specialist-utility-router-live-c1o-v1/c1o-public-utility-zero-update-v1",
+    "prime_rl_commit": "4462278a896fcbde087c754813a88de4d0ce4743",
+    "verifiers_commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "optimizer_updates": 0,
+    "completed_tasks": 16,
+    "infrastructure_valid": true,
+    "weights_unchanged": true
+  },
+  "protected_models": {
+    "e33_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "h176_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "c1l_sha256": "60e85d46eb1137c289e35ec56357b9394021e86b819b1161bc42651823c46c59"
+  },
+  "utility_screen": {
+    "gate_passed": false,
+    "root_actions_correct": "11/16",
+    "capability_valid_terminal_routes": "3/14",
+    "utility_nondominated_terminal_routes": "3/14",
+    "selected_expert_counts": {
+      "table_analyst": 5
+    },
+    "maximum_selected_expert_share": 1.0,
+    "complete_qualifying_trajectories": [
+      "specialist_local-v4-i42000",
+      "specialist_local-v5-i42000"
+    ],
+    "complete_qualifying_count": 2,
+    "minimum_complete_qualifying": 4,
+    "public_registry_consistent": true,
+    "exact_route_sequence": true,
+    "activated_worker_models_exact": true,
+    "isolated_router_provenance_exact": true
+  },
+  "family_outcome": {
+    "specialist_local": "2/2 hard success",
+    "all_delegated_families": "0/14 hard success",
+    "table_niche_routes": "3/6 cost-nondominated",
+    "source_niche_routes": "0/6 cost-nondominated",
+    "generic_cheap_paths": "0/2",
+    "recursive_manager_cells": "0/4 complete"
+  },
+  "diagnosis": {
+    "router_boundary": "The same frozen c1l that selected diverse routes and cleared 13/14 terminal decisions under c1m selected table_analyst on all five c1o calls after the router projection added previously unseen structured affordance fields and stricter limitation prose. Treat this as a request-interface distribution shift until a zero-gradient exact-projection ablation disproves it; do not add router gradient.",
+    "worker_boundary": "Frozen H176 produced no correct delegated answer. A capability-valid table route misparsed CSV and reported zero. A source/config worker derived 32 but sent a bare string rather than the required compact JSON object, and the root repeatedly used IPython instead of finalizing. Recursive managers did not complete terminal routing.",
+    "infrastructure_boundary": "All three inference services and the proxy were healthy; routing and worker provenance were exact. Two closing-transport proxy messages occurred after client disconnects and did not invalidate the completed run."
+  },
+  "artifact_sha256": {
+    "utility_summary": "844ccdfd2c1231e9199ed2a3006ac8b0dfe4c2fe82c5f5dd5f3e1c812b449c22",
+    "master_summary": "86a1d778cdab2129bc3aeee5ddde432cb634287f8d6d23550825aaabb20e6e99",
+    "traces": "c259192ddf64ace59a72dd21a99358f0bb4c27fa9da7f5dfbd014366d664d9cf",
+    "routing_audit": "c677536dea97045d771e1e33051f1ca2503cfbb596d2805dbc1a0cead3073318",
+    "gpu_metrics": "1f732f2a700ae0914121bcc386850da655928faf002ae5be6dae7ebb76bdd278",
+    "versions": "48ddaab48383061aab36200427bf3102978e8e979fbcd4efe36d158440545508",
+    "launcher_log": "7a297856b38803533b04e96fb666ff10493e37fedc286eac5b066aaa4ce78a8f"
+  },
+  "decision": "Reject c1o without relaxing any gate. Preserve e33, H176, and c1l. Before any update, run only a fresh zero-gradient router-interface ablation that retains the public task registry but restores the already validated c1m compact router projection. Separately treat the zero-delegated-success result as evidence that real H_table and H_source competence plus tight harness-owned return/finalization mechanics are required.",
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false,
+  "hugging_face_published": false
+}
