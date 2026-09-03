@@ -1,0 +1,30 @@
+backend_port = 8101
+
+[server]
+port = 8001
+liveness_timeout_seconds = 30.0
+
+[vllm]
+model = "/home/ubuntu/rlm/outputs/q35-2b-specialist-router-c1d-v1/e33-specialist-router-step4-v1/weights/step_4"
+revision = "specialist-router-policy-c1d-step4-v1"
+dtype = "bfloat16"
+max_model_len = 32768
+language_model_only = true
+enforce_eager = true
+trust_remote_code = false
+tool_call_parser = "qwen3_coder"
+reasoning_parser = "qwen3"
+tensor_parallel_size = 1
+disable_custom_all_reduce = false
+data_parallel_size = 1
+data_parallel_rpc_port = 13346
+gpu_memory_utilization = 0.80
+max_num_seqs = 8
+max_num_batched_tokens = 4096
+
+[log]
+level = "info"
+vf_level = "info"
+json_logging = false
+log_data = false
+interval = 10.0
