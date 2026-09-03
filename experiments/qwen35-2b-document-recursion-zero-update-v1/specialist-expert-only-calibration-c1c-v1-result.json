@@ -1,0 +1,89 @@
+{
+  "schema_version": "q35-2b-specialist-expert-only-calibration-c1c-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected",
+  "plan": "specialist-expert-only-calibration-c1c-v1-plan.json",
+  "protected_models_unchanged": true,
+  "coordinator_parent": {
+    "label": "adaptive-core-v1-e33",
+    "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+  },
+  "dataset": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-specialist-expert-c1c-v1/expert-sft-v1",
+    "manifest_sha256": "27223a5e97cff760808de7dea788f9c7840c105f00d5b8e5e0e72508510026f7",
+    "train_parquet_sha256": "8d3a821d39f836f6a0410bb85fb99885121fd0df569fcf6ff8db9aa26f4105c4",
+    "rows": 48,
+    "rows_per_expert": 16,
+    "first_batch_per_expert": 4,
+    "answer_free": true,
+    "cognitive_action_labels_present": false
+  },
+  "rung1": {
+    "optimizer_updates": 1,
+    "candidate_model_sha256": "2d08e05570fcd5ad878e58449c8452729138a95eddfd3ec7b4d280cf67ef023f",
+    "receipt_sha256": "0e662d5484263357e9c12f3274eabf465601c6504e2b71c448d14c416ab95425",
+    "loss_mean": 1.0580825805664062,
+    "loss_nan_count": 0,
+    "gradient_norm": 424.0,
+    "time_per_step_seconds": 42.99078147299588,
+    "screen": {
+      "instance_offset": 37400,
+      "seed": 20261206,
+      "baseline": {
+        "root_action_correct": 13,
+        "root_action_total": 16,
+        "root_expert_correct": {
+          "generic_worker": 1,
+          "source_inspector": 0,
+          "table_analyst": 4
+        },
+        "recursive_manager_expert_correct": 2,
+        "probe_sha256": "2f1806cf5751fdc9c27cd71f8df75adfec966ae94d9de18f7257457261d79086"
+      },
+      "candidate": {
+        "root_action_correct": 13,
+        "root_action_total": 16,
+        "root_expert_correct": {
+          "generic_worker": 0,
+          "source_inspector": 0,
+          "table_analyst": 4
+        },
+        "recursive_manager_expert_correct": 2,
+        "probe_sha256": "138e275b5400f5ba45ca9d4f7643f4e3a6c85403cb4026dd2b837199e6f450b6"
+      },
+      "normalizable_one_field_transport": true,
+      "gate_passed": false
+    }
+  },
+  "rung2": {
+    "optimizer_updates_from_e33": 2,
+    "candidate_model_sha256": "f25bb9b8a12af05b481c7852802f4f89160f15cee1a06bd37b94419819f5b2a8",
+    "receipt_sha256": "f73ad8441917c73dac563b6c7c4879ca2eca0731d1e160840a8cc18b16f8b204",
+    "loss_mean": 0.695199191570282,
+    "loss_nan_count": 0,
+    "gradient_norm": 262.0,
+    "time_per_step_seconds": 34.17833929089829,
+    "screen": {
+      "instance_offset": 37500,
+      "seed": 20261207,
+      "root_action_correct": 10,
+      "root_action_total": 16,
+      "root_expert_correct": {
+        "generic_worker": 0,
+        "source_inspector": 0,
+        "table_analyst": 4
+      },
+      "recursive_manager_expert_correct": 2,
+      "normalizable_one_field_transport": true,
+      "probe_sha256": "ce818cf17661b823c97485e64698ad23cc587fe554645d54a7cc9b34182625ae",
+      "gate_passed": false
+    }
+  },
+  "diagnosis": "Expert-only dense loss decreased, but the deployed classifier did not improve: root contexts stayed table-biased, nonroot manager contexts stayed source-biased, and the second dose damaged the otherwise preserved action decision. Updating the shared e33 weights for a sequential micro-policy causes interference without solving semantic expert identity.",
+  "decision": "Reject both candidates, skip protected regressions, and keep e33 canonical. The next viable architecture should isolate expert selection in a separate policy/checkpoint or change the learning signal; do not add more SFT dose to shared e33.",
+  "protected_regressions_run": false,
+  "specialist_workers_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
