@@ -55,3 +55,25 @@ def test_selected_expert_requires_one_valid_exact_object() -> None:
         )
         is None
     )
+
+
+def test_router_taskset_can_pin_one_required_profile_without_pinning_identity() -> None:
+    module = _module()
+    tasks = module.SpecialistRouterTaskset(
+        module.SpecialistRouterConfig(
+            count=18,
+            required_profile="source_inspector",
+            start_index=39100,
+        )
+    ).load()
+
+    assert {task.data.required_profile for task in tasks} == {"source_inspector"}
+    assert Counter(task.data.answer for task in tasks) == Counter(
+        {expert_id: 6 for expert_id in module.EXPERT_IDS}
+    )
+    assert len(
+        {
+            tuple(sorted(task.data.profile_by_expert_id.items()))
+            for task in tasks
+        }
+    ) == 6

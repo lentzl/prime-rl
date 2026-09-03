@@ -95,6 +95,9 @@ class SpecialistRouterConfig(vf.TasksetConfig):
     split: Literal["train", "eval"] = "train"
     count: int = Field(default=96, ge=6)
     start_index: int = 39000
+    required_profile: Literal[
+        "generic_worker", "table_analyst", "source_inspector"
+    ] | None = None
 
 
 class SpecialistRouterTaskset(
@@ -105,9 +108,17 @@ class SpecialistRouterTaskset(
         tasks = []
         split_offset = 0 if self.config.split == "train" else 10_000
         for position in range(self.config.count):
-            required_profile = EXPERT_IDS[position % len(EXPERT_IDS)]
+            required_profile = (
+                self.config.required_profile
+                or EXPERT_IDS[position % len(EXPERT_IDS)]
+            )
+            permutation_round = (
+                position
+                if self.config.required_profile is not None
+                else position // len(EXPERT_IDS)
+            )
             permutation = permutations[
-                (position // len(EXPERT_IDS) + split_offset) % len(permutations)
+                (permutation_round + split_offset) % len(permutations)
             ]
             profile_by_expert_id = dict(zip(EXPERT_IDS, permutation, strict=True))
             answer = next(
