@@ -1,0 +1,93 @@
+{
+  "schema_version": "q35-2b-specialist-router-policy-c1d-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Isolate registry expert selection in a separately trained policy so routing gradients cannot damage the admitted e33 cognitive-action policy.",
+  "causal_basis": {
+    "source": "specialist-expert-only-calibration-c1c-v1-result.json",
+    "finding": "Two shared-e33 expert-only updates lowered training loss without improving expert semantics and reduced heldout cognitive-action accuracy from 13/16 to 10/16."
+  },
+  "architecture": {
+    "action_policy": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "frozen": true,
+      "output": "solve_owned, delegate_terminal, or delegate_coordinator"
+    },
+    "expert_router_policy": {
+      "initialization": "adaptive-core-v1-e33",
+      "separate_full_dense_checkpoint": true,
+      "invocation_condition": "only after action_policy selects delegate_terminal",
+      "output": "one registry-bounded expert_id",
+      "may_change_action": false
+    },
+    "worker_policies_changed": false
+  },
+  "training": {
+    "dataset_manifest_sha256": "27223a5e97cff760808de7dea788f9c7840c105f00d5b8e5e0e72508510026f7",
+    "dataset_parquet_sha256": "8d3a821d39f836f6a0410bb85fb99885121fd0df569fcf6ff8db9aa26f4105c4",
+    "rows": 48,
+    "rows_per_expert": 16,
+    "answer_free": true,
+    "cognitive_action_labels_present": false,
+    "first_rung": {
+      "optimizer_updates_from_e33": 4,
+      "batch_size": 12,
+      "learning_rate": 0.000001
+    },
+    "maximum_predeclared_rungs": 2,
+    "second_rung_if_needed": {
+      "optimizer_updates_from_e33": 8,
+      "batch_size": 12,
+      "learning_rate": 0.000001,
+      "requires_distinct_unseen_expert_screen": true
+    }
+  },
+  "data_boundary": {
+    "training_instance_offset": 37600,
+    "observed_offsets_excluded": [
+      35100,
+      37100,
+      37200,
+      37300,
+      37400,
+      37500
+    ],
+    "rung1_expert_screen": {
+      "instance_offset": 37700,
+      "seed": 20261209,
+      "baseline_measured_before_training": true
+    },
+    "rung2_expert_screen": {
+      "instance_offset": 37800,
+      "seed": 20261210
+    },
+    "template_variants": [
+      4,
+      5
+    ]
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_rung1_passes": "Implement the live split scaffold with frozen e33 plus the isolated router and run a no-update end-to-end screen.",
+    "if_rung1_fails_but_improves_multiple_expert_classes": "Run only the predeclared eight-update lineage and evaluate on untouched 37800.",
+    "if_rung2_fails": "Reject this isolated-router SFT formulation without changing e33.",
+    "promotion_requires": "a later live end-to-end population result; expert-screen passage alone never replaces e33"
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

@@ -23,7 +23,7 @@ from export_q35_2b_specialist_expert_sft_v1 import (
 from run_q35_2b_document_decision_sft_v1 import training_config
 from run_q35_2b_specialist_worker_sft_v1 import _gpus_idle, _metrics, _write_once
 
-SCHEMA_VERSION = "qwen35-2b-specialist-expert-update/v1"
+SCHEMA_VERSION = "qwen35-2b-specialist-expert-update/v2"
 
 
 def _validated_dataset(path: Path) -> dict[str, Any]:
@@ -120,11 +120,13 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if output_sha == source_sha:
         raise ValueError("expert-only update did not change the dense weights")
 
+    policy_role = "specialist_router" if args.isolated_router else "coordinator"
     receipt = {
         "schema_version": SCHEMA_VERSION,
         "status": "complete",
         "algorithm": "sft_public_registry_expert_only_v1",
-        "role": "coordinator",
+        "role": policy_role,
+        "isolated_router_policy": args.isolated_router,
         "optimizer_updates": args.optimizer_updates,
         "full_dense": True,
         "cognitive_action_trained": False,
@@ -178,6 +180,7 @@ def main() -> None:
     parser.add_argument("--learning-rate", type=float, default=1e-6)
     parser.add_argument("--optimizer-updates", type=int, default=1)
     parser.add_argument("--batch-size", type=int, default=12)
+    parser.add_argument("--isolated-router", action="store_true")
     parser.add_argument("--timeout", type=int, default=7200)
     parser.add_argument(
         "--uv-bin", type=Path, default=Path("/home/ubuntu/.local/bin/uv")
@@ -185,8 +188,11 @@ def main() -> None:
     args = parser.parse_args()
     if not 0 < args.learning_rate <= 2e-6:
         parser.error("learning rate is outside the preregistered bounded range")
-    if args.optimizer_updates not in {1, 2}:
-        parser.error("expert-only update count must be one or two")
+    allowed_updates = {4, 8} if args.isolated_router else {1, 2}
+    if args.optimizer_updates not in allowed_updates:
+        parser.error(
+            "expert-only update count is outside the preregistered policy-role ladder"
+        )
     if args.batch_size != 12:
         parser.error("expert-only batch size must remain 12")
     print(json.dumps(run(args), indent=2, sort_keys=True))
