@@ -1,6 +1,7 @@
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 
 def _module():
@@ -45,6 +46,7 @@ def test_router_probe_screens_are_frozen_and_disjoint() -> None:
         38500: 20261216,
         38600: 20261217,
         38700: 20261218,
+        38800: 20261219,
     }
     assert not set(module.FROZEN_SCREENS) & {
         35100,
@@ -56,3 +58,15 @@ def test_router_probe_screens_are_frozen_and_disjoint() -> None:
         37600,
         37900,
     }
+
+
+def test_natural_router_payload_omits_tool_metadata() -> None:
+    module = _module()
+    messages = [{"role": "user", "content": "route this"}]
+    args = SimpleNamespace(model="router", natural_json_transport=True)
+
+    payload = module._router_payload(args, messages=messages, seed=7)
+
+    assert payload["messages"] == messages
+    assert "tools" not in payload
+    assert "tool_choice" not in payload

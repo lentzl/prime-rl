@@ -1,0 +1,53 @@
+{
+  "schema_version": "q35-2b-specialist-router-natural-json-c1k-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Test c1j through the exact no-tool natural-JSON request interface used during training, while retaining strict output validation and the compact routing scaffold.",
+  "causal_basis": {
+    "source": "specialist-router-fixed-identity-grpo-c1j-v1-result.json",
+    "finding": "Training requests contained no tools, but the 38700 screen injected a select_expert tool schema; every response appeared as valid plain JSON in reasoning rather than a tool call."
+  },
+  "architecture": {
+    "protected_action_policy": "adaptive-core-v1-e33",
+    "protected_worker_policy": "document-child-h176",
+    "protected_policies_frozen": true,
+    "experimental_router": "c1j-fixed-identity-step6",
+    "experimental_router_sha256": "800841cae83b756ef68d33590ef40b62aa29b98c73e0d81a9a033b84d1142883",
+    "optimizer_updates": 0,
+    "total_router_lineage_updates": 7
+  },
+  "request_contract": {
+    "compact_router_context": true,
+    "tools_supplied": false,
+    "tool_choice_supplied": false,
+    "accepted_output": "Exactly one JSON object with one string expert_id field, parsed from assistant content or reasoning and then normalized by the tight scaffold.",
+    "invalid_or_multiple_objects_rejected": true
+  },
+  "heldout_expert_screen": {
+    "instance_offset": 38800,
+    "seed": 20261219,
+    "frozen_before_model_call": true
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_screen_passes": "Retain c1j as an isolated router candidate and implement no-tool natural-JSON routing plus strict normalization in the live split scaffold before end-to-end evaluation.",
+    "if_screen_fails": "Reject c1j completely and stop this router lineage for architectural diagnosis rather than adding updates.",
+    "promotion_requires": "A later live end-to-end population evaluation with at least four complete qualifying trajectories."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

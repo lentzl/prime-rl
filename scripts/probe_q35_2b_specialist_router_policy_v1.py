@@ -14,6 +14,7 @@ from dual_policy_openai_proxy_v1 import specialist_manager_contract_from_message
 from export_q35_2b_adaptive_cognition_sft_v1 import _runtime_messages
 from probe_q35_2b_split_specialist_routing_v1 import (
     EXPERT_IDS,
+    _base_payload,
     _expert_payload,
     _expert_phase_messages,
     _manager_messages,
@@ -38,6 +39,7 @@ FROZEN_SCREENS = {
     38500: 20261216,
     38600: 20261217,
     38700: 20261218,
+    38800: 20261219,
 }
 
 
@@ -49,6 +51,14 @@ def _root_expert(family: str) -> str | None:
     if family.startswith("specialist_source_"):
         return "source_inspector"
     return None
+
+
+def _router_payload(
+    args: argparse.Namespace, *, messages: list[dict[str, Any]], seed: int
+) -> dict[str, Any]:
+    if args.natural_json_transport:
+        return _base_payload(model=args.model, messages=messages, seed=seed)
+    return _expert_payload(model=args.model, messages=messages, seed=seed)
 
 
 def probe(args: argparse.Namespace) -> dict[str, Any]:
@@ -80,8 +90,8 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
                 result = _request(
                     client,
                     endpoint=endpoint,
-                    payload=_expert_payload(
-                        model=args.model,
+                    payload=_router_payload(
+                        args,
                         messages=_expert_phase_messages(
                             messages, compact=args.compact_router_context
                         ),
@@ -110,8 +120,8 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
                 result = _request(
                     client,
                     endpoint=endpoint,
-                    payload=_expert_payload(
-                        model=args.model,
+                    payload=_router_payload(
+                        args,
                         messages=_expert_phase_messages(
                             messages, compact=args.compact_router_context
                         ),
@@ -153,6 +163,7 @@ def probe(args: argparse.Namespace) -> dict[str, Any]:
         "schema_version": SCHEMA_VERSION,
         "model": args.model,
         "optimizer_updates": args.model_optimizer_updates,
+        "natural_json_transport": args.natural_json_transport,
         "instance_offset": args.instance_offset,
         "seed": args.seed,
         "runtime_sources": runtime_sources,
@@ -188,6 +199,7 @@ def main() -> None:
     parser.add_argument("--seed", type=int, required=True)
     parser.add_argument("--model-optimizer-updates", type=int, default=0)
     parser.add_argument("--compact-router-context", action="store_true")
+    parser.add_argument("--natural-json-transport", action="store_true")
     parser.add_argument("--timeout", type=float, default=180.0)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()

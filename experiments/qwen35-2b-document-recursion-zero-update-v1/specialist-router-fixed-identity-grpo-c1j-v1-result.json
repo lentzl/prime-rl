@@ -1,0 +1,82 @@
+{
+  "schema_version": "q35-2b-specialist-router-fixed-identity-grpo-c1j-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected_under_tool_schema_screen",
+  "plan": "specialist-router-fixed-identity-grpo-c1j-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "update": {
+    "run_name": "c1j-fixed-identity-step6",
+    "initialization": "c1f-outcome-step1",
+    "optimizer_updates": 6,
+    "total_lineage_optimizer_updates": 7,
+    "learning_rate": 0.0000005,
+    "full_dense": true,
+    "complete_rollouts_per_step": 24,
+    "required_profile_rollouts_per_step": 8,
+    "loss_by_step": [
+      0.002044418826699257,
+      0.0028646038845181465,
+      0.03615352511405945,
+      -0.0014177747070789337,
+      0.0001031951978802681,
+      0.03242823854088783
+    ],
+    "gradient_norm_by_step": [
+      12.414993286132812,
+      64.75852966308594,
+      16.42693519592285,
+      13.11486530303955,
+      11.737482070922852,
+      26.169368743896484
+    ],
+    "all_optimizer_updates_succeeded": true,
+    "candidate_model_sha256": "800841cae83b756ef68d33590ef40b62aa29b98c73e0d81a9a033b84d1142883",
+    "config_sha256": {
+      "trainer": "2072e4d6ae4e8a51be3e3071a6ebf670fe9e73c42f5f90e63c5dff7df3eee7ec",
+      "orchestrator": "8c72fc0ea0026f336469b2629930546705de6459b4484571ef2e481adefa196e",
+      "inference": "3fe30942234d09cee9b75821e1fdf4b3916eeea64e6c5a5fa7d07f800d518a8e"
+    },
+    "metrics_sha256": "3418b923eb3b8fa30113f17175ee58f1dff12662069338f8c475436bdd52d200",
+    "final_summary_sha256": "1091eb7ad61c9e720ea41f76b26918df0e76c1cc29a5b9187b26d218d19eda9e",
+    "token_export_sha256_by_step": {
+      "1": "66bfd51227541193fc56ddeedfb922f9c7803f9813661d2616b72d5cc706fec2",
+      "2": "f628f02188dd1eaaf7accf5967abb16307c94152228ac429137d8282898ec62e",
+      "3": "7473393bb961122a5bf5b9d3235f908d0c5614871abfe68093b4741d91a7952a",
+      "4": "851f9af02a42938e12a190e0fb3f2f02d27926660779dbd9b2b81ad474f3f2c3",
+      "5": "323225d3ff7ee22a2e225b2256191954a2f18d022880accc5551806f51567cbd",
+      "6": "85b235d5c51bb2a15671987c3609244340b8bcef4a5d6d8e31982a413d198463"
+    }
+  },
+  "heldout_screen": {
+    "instance_offset": 38700,
+    "seed": 20261218,
+    "root_expert_correct": 4,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 0,
+      "source_inspector": 4,
+      "table_analyst": 0
+    },
+    "recursive_manager_expert_correct": 2,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "source_inspector": 14
+    },
+    "maximum_selected_expert_share": 1.0,
+    "normalizable_one_field_transport": true,
+    "raw_function_tool_call_transport": false,
+    "tool_schema_supplied": true,
+    "probe_sha256": "6c4eed69efee819c8d2f8e8d1e2e044c17bab9f868776fe7c352316f73494351",
+    "inference_log_sha256": "aedb9bead2bc1c04aa291f5f307d58dd88a397e485c660d6847b933f99bd5911",
+    "gate_passed": false
+  },
+  "diagnosis": "The leaked fixed-identity training produced class-separated sampled rewards, but the heldout request still injected a select_expert tool schema absent from all training requests. The model ignored tool transport and returned plain JSON in reasoning. A fresh no-tool screen is required to distinguish a policy failure from request-metadata distribution shift.",
+  "decision": "Reject c1j under the preregistered tool-schema screen. Preserve its isolated checkpoint only for one prospective no-update natural-JSON screen; never replace e33 from this result.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
