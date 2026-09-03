@@ -287,6 +287,7 @@ disable_custom_all_reduce = false
 data_parallel_size = 1
 data_parallel_rpc_port = $rpc_port
 gpu_memory_utilization = $memory_utilization
+kv_cache_memory_bytes = 4294967296
 max_num_seqs = $max_num_seqs
 max_num_batched_tokens = $max_num_batched_tokens
 
