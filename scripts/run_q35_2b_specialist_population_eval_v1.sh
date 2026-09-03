@@ -17,6 +17,9 @@ models=(
   "$table_analyst_model"
   "$source_inspector_model"
 )
+if [[ -n "${DUAL_SPECIALIST_ROUTER_MODEL:-}" ]]; then
+  models+=("$DUAL_SPECIALIST_ROUTER_MODEL")
+fi
 before=()
 for model in "${models[@]}"; do
   before+=("$(sha256sum "$model/model.safetensors" | awk '{print $1}')")

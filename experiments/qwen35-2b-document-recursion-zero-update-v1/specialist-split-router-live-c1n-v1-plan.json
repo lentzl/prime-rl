@@ -1,0 +1,60 @@
+{
+  "schema_version": "q35-2b-specialist-split-router-live-c1n-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Verify that the protected action policy, isolated c1l expert router, and protected terminal worker compose into complete Prime Agent trajectories under the live split scaffold.",
+  "architecture": {
+    "action_policy": {
+      "label": "adaptive-core-v1-e33",
+      "sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "responsibility": "Choose only solve_owned, delegate_terminal, or delegate_coordinator."
+    },
+    "expert_router": {
+      "label": "c1l-generic-anchor-step4",
+      "sha256": "60e85d46eb1137c289e35ec56357b9394021e86b819b1161bc42651823c46c59",
+      "responsibility": "After delegate_terminal only, choose exactly one public expert_id from compact public evidence.",
+      "request_has_tools": false,
+      "natural_json_transport": true,
+      "generic_worker_relative_cost": 0.5
+    },
+    "terminal_worker": {
+      "label": "H176",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "aliases": [
+        "generic_worker",
+        "table_analyst",
+        "source_inspector"
+      ],
+      "specialist_weights_claimed": false
+    },
+    "optimizer_updates": 0,
+    "all_weights_frozen": true
+  },
+  "heldout_bank": {
+    "config": "specialist-split-router-live-c1n-heldout-v1.toml",
+    "task_count": 16,
+    "instance_offset": 41000,
+    "seed": 20261231,
+    "frozen_before_model_calls": true
+  },
+  "acceptance": {
+    "minimum_correct_root_routes": 12,
+    "minimum_one_correct_per_root_route_class": true,
+    "minimum_correct_source_routes": 3,
+    "minimum_correct_table_routes": 3,
+    "minimum_correct_recursive_root_routes": 3,
+    "minimum_correct_recursive_manager_expert_routes": 3,
+    "local_tasks_must_not_delegate": true,
+    "exact_action_router_worker_provenance": true,
+    "minimum_complete_qualifying_trajectories": 4,
+    "complete_qualifying_definition": "Every expected route is exact, the answer is exact, protocol and clean protocol pass, the trace stops as agent_completed, and delegated worker computation is model-authored.",
+    "gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_passes": "Admit the split scaffold and c1l as an experimental router component. Keep e33 and H176 protected; specialist-weight training remains a separate later experiment.",
+    "if_fails": "Do not update weights or relax gates. Diagnose the first failing boundary from action, router, worker, or lifecycle provenance.",
+    "publication": "No Hugging Face publication in this evaluation."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

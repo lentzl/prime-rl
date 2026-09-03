@@ -12,6 +12,7 @@ from typing import Any
 from summarize_q35_2b_specialist_population_v1 import (
     SELECTED_EXPERT,
     _audit_terminal_routes,
+    _hard_success,
     _load_jsonl,
     _load_traces,
     _task_data,
@@ -83,6 +84,7 @@ def _row(trace: dict[str, Any]) -> dict[str, Any]:
             if len(expected) == 1
             else len(observed) >= 2 and observed[1] == expected[1]
         ),
+        "hard_success": _hard_success(trace),
     }
 
 
@@ -92,6 +94,8 @@ def summarize(
     audit_path: Path,
     expected_models: dict[str, str],
     expected_tasks: int = 16,
+    expected_router_model: str | None = None,
+    minimum_complete_qualifying: int = 0,
 ) -> dict[str, Any]:
     traces = _load_traces(traces_path)
     if len(traces) != expected_tasks:
@@ -100,7 +104,8 @@ def summarize(
     if len({_row["task"] for _row in rows}) != expected_tasks:
         raise ValueError("routing-screen task names are not unique")
 
-    routes = _audit_terminal_routes(_load_jsonl(audit_path))
+    audit_rows = _load_jsonl(audit_path)
+    routes = _audit_terminal_routes(audit_rows)
     trace_terminal_experts = [
         event["expert_id"]
         for row in rows
@@ -114,6 +119,23 @@ def summarize(
         and route["worker_model_call_count"] > 0
         and route["worker_models"] == [expected_models[route["expert_id"]]]
         for route in routes
+    )
+    router_events = [
+        event
+        for event in audit_rows
+        if str(event.get("mode", "")).startswith(
+            "forwarded_specialist_expert_router_"
+        )
+    ]
+    router_provenance_exact = expected_router_model is None or (
+        [event.get("expert_id") for event in router_events]
+        == trace_terminal_experts
+        and all(
+            event.get("status") == 200
+            and event.get("upstream_model") == expected_router_model
+            and isinstance(event.get("response_sha256"), str)
+            for event in router_events
+        )
     )
     family_root_correct = Counter(
         row["family"] for row in rows if row["root_route_correct"]
@@ -131,6 +153,9 @@ def summarize(
         for event in row["observed_routes"]
     )
     root_correct = sum(row["root_route_correct"] for row in rows)
+    complete_qualifying = [
+        row["task"] for row in rows if row["all_routes_correct"] and row["hard_success"]
+    ]
     route_class_presence = {
         f"{expected[0]['action']}:{expected[0]['expert_id']}"
         for expected in (_expected_routes(trace) for trace in traces)
@@ -165,6 +190,10 @@ def summarize(
         ),
         "exact_typed_route_provenance": exact_route_sequence,
         "activated_worker_models_exact": worker_models_exact,
+        "isolated_router_provenance_exact": router_provenance_exact,
+        "minimum_complete_qualifying_trajectories": (
+            len(complete_qualifying) >= minimum_complete_qualifying
+        ),
     }
     return {
         "schema_version": "q35-2b-specialist-routing-screen-summary/v1",
@@ -179,6 +208,12 @@ def summarize(
         "observed_route_classes": dict(sorted(route_classes.items())),
         "exact_route_sequence": exact_route_sequence,
         "activated_worker_models_exact": worker_models_exact,
+        "isolated_router_model": expected_router_model,
+        "isolated_router_provenance_exact": router_provenance_exact,
+        "isolated_router_events": router_events,
+        "complete_qualifying_trajectories": complete_qualifying,
+        "complete_qualifying_count": len(complete_qualifying),
+        "minimum_complete_qualifying": minimum_complete_qualifying,
         "routes": routes,
         "tasks": rows,
         "acceptance": acceptance,
@@ -202,6 +237,8 @@ def main() -> None:
     parser.add_argument("--audit", type=Path, required=True)
     parser.add_argument("--expected-model", action="append", default=[])
     parser.add_argument("--expected-tasks", type=int, default=16)
+    parser.add_argument("--expected-router-model")
+    parser.add_argument("--minimum-complete-qualifying", type=int, default=0)
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     result = summarize(
@@ -209,6 +246,8 @@ def main() -> None:
         audit_path=args.audit,
         expected_models=_model_map(args.expected_model),
         expected_tasks=args.expected_tasks,
+        expected_router_model=args.expected_router_model,
+        minimum_complete_qualifying=args.minimum_complete_qualifying,
     )
     rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"
     if args.output is not None:
