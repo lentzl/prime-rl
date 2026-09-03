@@ -1,0 +1,100 @@
+{
+  "schema_version": "q35-2b-specialist-router-outcome-grpo-c1f-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Learn the isolated terminal-expert routing decision from sampled outcome reward after three supervised variants failed to connect assignment requirements to public capabilities.",
+  "causal_basis": {
+    "source": "specialist-router-causal-contrast-c1e-v1-result.json",
+    "finding": "Causal registry permutation SFT lowered assistant-token loss but collapsed toward table_analyst and left source routing disconnected. The next signal directly scores the sampled expert_id."
+  },
+  "architecture": {
+    "action_policy": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "frozen": true
+    },
+    "worker_policy": {
+      "label": "document-child-h176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "frozen": true
+    },
+    "router_policy": {
+      "initialization": "adaptive-core-v1-e33",
+      "separate_full_dense_checkpoint": true,
+      "invoked_only_after_delegate_terminal": true
+    }
+  },
+  "environment": {
+    "id": "specialist-router-v1",
+    "train_start_index": 39000,
+    "task_count": 96,
+    "required_profiles": [
+      "generic_worker",
+      "table_analyst",
+      "source_inspector"
+    ],
+    "registry_permutations": 6,
+    "target_rows_per_expert_id": 32,
+    "reward": {
+      "routing_outcome": 1.0,
+      "valid_transport": 0.1
+    },
+    "answer_free": true,
+    "hidden_task_class_exposed": false,
+    "causal_intervention": "The expert identity carrying each visible capability is permuted; the rewarded identity follows the visible capability required by the assignment."
+  },
+  "mechanism_audit": {
+    "optimizer_updates": 1,
+    "learning_rate": 0.0,
+    "group_size": 8,
+    "batch_size": 8,
+    "temperature": 1.0,
+    "maximum_completion_tokens": 128,
+    "zero_advantage_groups_retained": true,
+    "checkpoint_written": false,
+    "required_before_nonzero_learning_rate": {
+      "complete_group_size": 8,
+      "minimum_valid_transports": 6,
+      "minimum_correct_samples": 1,
+      "minimum_incorrect_samples": 1,
+      "positive_trainable_token_mass": true,
+      "finite_positive_gradient_norm": true
+    }
+  },
+  "first_update_if_audit_passes": {
+    "initialization": "adaptive-core-v1-e33",
+    "optimizer_updates": 1,
+    "learning_rate": 0.000001,
+    "group_size": 8,
+    "batch_size": 8,
+    "zero_advantage_groups_rejected": true,
+    "full_dense": true,
+    "heldout_expert_screen": {
+      "instance_offset": 38300,
+      "seed": 20261214
+    }
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_audit_fails": "Do not update weights; diagnose transport, reward variance, or token attribution.",
+    "if_audit_passes": "Run exactly one nonzero full-dense GRPO update from e33 and screen only on untouched 38300.",
+    "if_screen_fails": "Reject the candidate without replacing e33; use the outcome evidence to design the next prospective rung.",
+    "if_screen_passes": "Retain the candidate as an isolated router only and require later live end-to-end population acceptance before promotion."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
