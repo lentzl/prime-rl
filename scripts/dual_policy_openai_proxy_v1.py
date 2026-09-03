@@ -1829,6 +1829,7 @@ def compact_specialist_expert_messages(
                 "expert_id",
                 "role",
                 "capability",
+                "affordances",
                 "limitations",
                 "relative_cost",
             )

@@ -1,0 +1,76 @@
+{
+  "schema_version": "q35-2b-specialist-utility-router-live-c1o-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Test whether the frozen e33 action policy, isolated c1l router, and frozen H176 worker compose end to end when route admission is defined by public affordance validity and cost utility rather than a hidden expert identity.",
+  "architecture": {
+    "action_policy": {
+      "label": "adaptive-core-v1-e33",
+      "sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "responsibility": "Choose only solve_owned, delegate_terminal, or delegate_coordinator.",
+      "sampling_boundary": "Frozen c1b contract: temperature 0.4, top_p 0.95, max_tokens 256, without top_k, min_p, or reasoning_effort."
+    },
+    "expert_router": {
+      "label": "c1l-generic-anchor-step4",
+      "sha256": "60e85d46eb1137c289e35ec56357b9394021e86b819b1161bc42651823c46c59",
+      "status": "unpromoted_frozen_candidate",
+      "responsibility": "After delegate_terminal only, choose one expert from the exact public registry under the compact no-tool natural-JSON contract."
+    },
+    "terminal_worker": {
+      "label": "H176",
+      "sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "aliases": ["generic_worker", "table_analyst", "source_inspector"],
+      "specialist_weights_claimed": false
+    },
+    "optimizer_updates": 0,
+    "all_weights_frozen": true
+  },
+  "public_utility_contract": {
+    "generic_worker": {
+      "affordances": ["single_json_arithmetic"],
+      "relative_cost": 0.5
+    },
+    "table_analyst": {
+      "affordances": ["single_json_arithmetic", "multi_artifact_table"],
+      "relative_cost": 1.0
+    },
+    "source_inspector": {
+      "affordances": ["source_config_inspection"],
+      "relative_cost": 1.0
+    },
+    "route_utility": "verified_success - 0.1 * selected_relative_cost",
+    "hard_constraint": "The selected worker must expose the public affordance required by the public assignment artifacts.",
+    "tie_rule": "Every capability-valid route at the minimum public cost is admitted; no hidden identity tie-breaker is used.",
+    "public_consistency": "The coordinator prompt and isolated-router projection contain the same structured affordances and relative costs."
+  },
+  "heldout_bank": {
+    "config": "specialist-utility-router-live-c1o-heldout-v1.toml",
+    "task_count": 16,
+    "instance_offset": 42000,
+    "seed": 20270101,
+    "frozen_before_model_calls": true
+  },
+  "acceptance": {
+    "minimum_correct_root_actions": 12,
+    "all_root_action_classes_represented": true,
+    "minimum_capability_valid_terminal_routes": 11,
+    "minimum_utility_nondominated_terminal_routes": 11,
+    "minimum_generic_cheap_paths": 1,
+    "minimum_table_niche_routes": 3,
+    "minimum_source_niche_routes": 3,
+    "minimum_recursive_manager_cells": 3,
+    "maximum_selected_expert_share": 0.75,
+    "exact_action_router_worker_provenance": true,
+    "public_registry_consistency": true,
+    "minimum_complete_qualifying_trajectories": 4,
+    "complete_qualifying_definition": "The root action is correct from public cognition facts, every terminal route is capability-valid and cost-nondominated, the answer/protocol/clean-protocol gates pass, the trace stops agent_completed, and delegated computation is model-authored.",
+    "gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_passes": "Admit c1l only as the scoped utility router and proceed to independent H_table and H_source competence training from frozen H176.",
+    "if_fails": "Do not update any weights or relax gates. Localize the first failure to action sampling, public routing utility, worker execution, lifecycle, or provenance.",
+    "publication": "No Hugging Face publication in this evaluation."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

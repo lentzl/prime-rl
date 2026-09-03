@@ -2022,6 +2022,7 @@ def test_specialist_router_projection_keeps_only_public_routing_evidence() -> No
             "expert_id": "generic_worker",
             "role": "terminal_worker",
             "capability": "Read files and perform straightforward calculations.",
+            "affordances": ["single_json_arithmetic"],
             "limitations": "No source or table specialization.",
             "relative_cost": 1,
             "tools": ["ipython", "agent_message"],
@@ -2089,6 +2090,7 @@ def test_live_specialist_router_request_is_compact_natural_json() -> None:
             "expert_id": "generic_worker",
             "role": "terminal_worker",
             "capability": "Read files and perform straightforward calculations.",
+            "affordances": ["single_json_arithmetic"],
             "limitations": "No source or table specialization.",
             "relative_cost": 1,
         },
@@ -2096,6 +2098,7 @@ def test_live_specialist_router_request_is_compact_natural_json() -> None:
             "expert_id": "table_analyst",
             "role": "terminal_worker",
             "capability": "Reconcile tables.",
+            "affordances": ["single_json_arithmetic", "multi_artifact_table"],
             "limitations": "Not specialized for source structure.",
             "relative_cost": 1,
         },
@@ -2144,6 +2147,10 @@ def test_live_specialist_router_request_is_compact_natural_json() -> None:
     assert {row["expert_id"]: row["relative_cost"] for row in rows} == {
         "generic_worker": 0.5,
         "table_analyst": 1,
+    }
+    assert {row["expert_id"]: row["affordances"] for row in rows} == {
+        "generic_worker": ["single_json_arithmetic"],
+        "table_analyst": ["single_json_arithmetic", "multi_artifact_table"],
     }
 
 
