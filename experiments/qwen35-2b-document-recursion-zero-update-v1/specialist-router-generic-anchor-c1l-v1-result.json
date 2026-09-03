@@ -1,0 +1,82 @@
+{
+  "schema_version": "q35-2b-specialist-router-generic-anchor-c1l-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected_generic_gate_failed",
+  "plan": "specialist-router-generic-anchor-c1l-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "update": {
+    "run_name": "c1l-generic-anchor-step4",
+    "initialization": "c1j-fixed-identity-step6",
+    "optimizer_updates": 4,
+    "total_lineage_optimizer_updates": 11,
+    "learning_rate": 0.0000003,
+    "full_dense": true,
+    "complete_rollouts_per_step": 32,
+    "required_rollouts_per_step": {
+      "generic_worker": 16,
+      "table_analyst": 8,
+      "source_inspector": 8
+    },
+    "routing_outcome_only_reward": true,
+    "loss_by_step": [
+      0.003938627894967794,
+      0.0016804568003863096,
+      0.003111444180831313,
+      0.019308358430862427
+    ],
+    "gradient_norm_by_step": [
+      26.9742374420166,
+      15.385668754577637,
+      14.758258819580078,
+      14.046696662902832
+    ],
+    "all_optimizer_updates_succeeded": true,
+    "candidate_model_sha256": "60e85d46eb1137c289e35ec56357b9394021e86b819b1161bc42651823c46c59",
+    "config_sha256": {
+      "trainer": "6dac5a762876b59be88bd13333cead4a6466b20ecfeb330e75ed7b6cbae1f094",
+      "orchestrator": "317ec20424fd25e3ca47e92b736fdde2ff7279f9d7494fdb0df8eea1b30965ba",
+      "inference": "ec5a643c6cee51c54703954a104fcdd5bccf3203b51ed6237d88b540e0b78fd4"
+    },
+    "metrics_sha256": "d1fdc420e1fea4e70a342d620d1df6f0d285447e1b6abdd0400fc3fb46bac8cc",
+    "final_summary_sha256": "a470be4d4fdc759758f45f31aff08afa19e1d5f121616ec2bf6023cf856bb506",
+    "token_export_sha256_by_step": {
+      "1": "32544b75693482ea6bf166c492600a686571953f1d9059c37e7a6ab16fd8f06d",
+      "2": "b756868e36e3fb315920d8e4c686cb6f6c4e9f5b77c9aac2c186ae4376925654",
+      "3": "538f5376acf5e6508ac7ada43f886360ba50f9448630e8875c56ee2a118bdcf7",
+      "4": "2fd198631833e5433772910dfa318db40197082b52f25153fd3544e871dc931a"
+    }
+  },
+  "heldout_screen": {
+    "instance_offset": 38900,
+    "seed": 20261220,
+    "natural_json_transport": true,
+    "root_expert_correct": 8,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 0,
+      "source_inspector": 4,
+      "table_analyst": 4
+    },
+    "recursive_manager_expert_correct": 4,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "source_inspector": 6,
+      "table_analyst": 8
+    },
+    "maximum_selected_expert_share": 0.5714285714285714,
+    "normalizable_one_field_transport": true,
+    "probe_path": "/home/ubuntu/rlm/results/q35-2b-specialist-router-generic-anchor-c1l-v1/ROUTER_PROBE.json",
+    "probe_sha256": "7f31db785ca105486515091b88d51ef74120637e92fbecad54de6a19529bc2aa",
+    "inference_log_sha256": "8806f1f05f4c16def8f591642c693f1e355407eef6c1db0a9c9c94b6f569634f",
+    "gate_passed": false
+  },
+  "diagnosis": "Removing the transport reward and doubling generic exposure produced correct generic samples and positive generic learning signal, while table/source anchors stayed strong. The untouched screen nevertheless routed both generic tasks to table_analyst, so the required generic decision boundary has not become reliable.",
+  "decision": "Reject c1l and stop this GRPO router lineage as preregistered. Preserve e33/H176 and all isolated router evidence. The next step must be an architectural curriculum decision, not more unplanned updates.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
