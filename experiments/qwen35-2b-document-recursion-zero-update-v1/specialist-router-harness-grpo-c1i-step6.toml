@@ -246,5 +246,3 @@ filename = "metrics.jsonl"
 
 [log]
 json_logging = false
-backend_port = 8101
-
