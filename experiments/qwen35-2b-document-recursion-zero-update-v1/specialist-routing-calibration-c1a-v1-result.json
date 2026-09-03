@@ -1,0 +1,170 @@
+{
+  "schema_version": "q35-2b-specialist-routing-calibration-c1a-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "rejected",
+  "objective": "Test whether the smallest full-dense answer-free update can add public-registry expert selection to the protected adaptive coordinator through one joint typed action-plus-expert tool.",
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "verified_unchanged": true,
+      "remains_canonical": true
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates": 0,
+      "verified_unchanged": true
+    }
+  },
+  "training_corpus": {
+    "schema_version": "qwen35-2b-specialist-routing-sft/v1",
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-specialist-routing-c1a-v1/route-sft-v1",
+    "rows": 80,
+    "rows_per_route_class": 16,
+    "answer_free": true,
+    "public_capability_registry_only": true,
+    "training_template_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "heldout_template_variants_excluded": [
+      4,
+      5
+    ],
+    "manifest_sha256": "7d02acc982a1c339e4653804f431c96cd1953bffcb75ecb040efb9b963946ed6",
+    "parquet_sha256": "6755eab223a05f4ba318aaaa8f4e56c6daf6eaa33b3123ac2754168ac2055aec"
+  },
+  "baseline": {
+    "label": "c1a-routing-baseline-e33-h176-v1",
+    "instance_offset": 37100,
+    "trace_total": 16,
+    "root_routes_correct": 8,
+    "all_routes_correct": 5,
+    "recursive_manager_routes_correct": 0,
+    "root_correct_by_family": {
+      "specialist_generic": 2,
+      "specialist_recursive_source": 2,
+      "specialist_recursive_table": 1,
+      "specialist_table_join": 1,
+      "specialist_table_reconcile": 2
+    },
+    "model_call_failures": 0,
+    "routing_gate_passed": false,
+    "artifacts": {
+      "traces_sha256": "cbb2f0efff4cfa0b7a7b607e51efe8dbba6288766e07813efa063755be6062d0",
+      "routing_audit_sha256": "f449104aa01a7f3f2f965fa625f3e9bda6be869ee40ecf4a2095ba361f8dbb64",
+      "gpu_metrics_sha256": "64a5a239023091f09e3a63dc748aa6ea6e162997fec9eed14db3dbd23bcad277",
+      "summary_sha256": "3c1eee25951fd3c63cc7cbea99d76f24d2eb948d3133c9f49f35682d70eb61f7"
+    }
+  },
+  "candidates": [
+    {
+      "label": "e33-specialist-routing-step1-v1",
+      "model_sha256": "c1bf35c8e67ee701b284f522b69f8537fe9b2a47fbb373bcf9792bb2d0339dd8",
+      "lineage_optimizer_updates": 1,
+      "learning_rate": 0.000001,
+      "batch_size": 16,
+      "loss_mean": 1.5603716373443604,
+      "loss_nan_count": 0,
+      "gradient_norm": 364.0,
+      "training_seconds": 52.12004965590313,
+      "receipt_sha256": "7614f49446f9af6a5070e5b5cee0c545166e86de807e6aeffe5617875e2d2dc1",
+      "evaluation": {
+        "label": "c1a-routing-candidate-c1bf-h176-v1",
+        "instance_offset": 37100,
+        "trace_total": 16,
+        "root_routes_correct": 8,
+        "all_routes_correct": 4,
+        "recursive_manager_routes_correct": 0,
+        "root_correct_by_family": {
+          "specialist_generic": 2,
+          "specialist_local": 2,
+          "specialist_recursive_source": 2,
+          "specialist_recursive_table": 2
+        },
+        "observed_typed_route_classes": {
+          "delegate_coordinator:none": 4,
+          "delegate_terminal:generic_worker": 7,
+          "delegate_terminal:table_analyst": 5,
+          "solve_owned:none": 2
+        },
+        "model_call_failures": 0,
+        "routing_gate_passed": false,
+        "artifacts": {
+          "traces_sha256": "484b713cbfdb115142b3354be2e36b078ccf0cfe13b99c66a6079129b27853e1",
+          "routing_audit_sha256": "f1f55395e6ed4ee2d2d42f42d5ea0cd3d4eed4b599e3c0718d92154d03ccb293",
+          "gpu_metrics_sha256": "b2fe26d27c4e33a47f93682d93439c8286759bac23e6f5ddcccb73df18d952b8",
+          "summary_sha256": "bf7df76e1eea287211df2d17c8139aafdc0e4016b76d63a8a48770c903fd173c"
+        }
+      },
+      "disposition": "rejected; repaired local, generic, and recursive-root actions but left source and recursive-manager routing disconnected and removed table correctness"
+    },
+    {
+      "label": "e33-specialist-routing-step2-v1",
+      "model_sha256": "311373448136836fc25a7447aaa633b551abe7878cbccb2159b9b312fb7d8464",
+      "lineage_optimizer_updates": 2,
+      "learning_rate": 0.000001,
+      "batch_size": 16,
+      "loss_mean": 1.4437317848205566,
+      "loss_nan_count": 0,
+      "gradient_norm": 243.0,
+      "training_seconds": 45.79920299886726,
+      "receipt_sha256": "e32b4bf0427ae745135df03cece1a4dee7317d78d5132795bd0092b48db27a3a",
+      "evaluation": {
+        "label": "c1a-routing-rung2-311373-h176-v1",
+        "instance_offset": 37200,
+        "trace_total": 16,
+        "root_routes_correct": 2,
+        "all_routes_correct": 2,
+        "recursive_manager_routes_correct": 0,
+        "root_correct_by_family": {
+          "specialist_generic": 1,
+          "specialist_local": 1
+        },
+        "observed_typed_route_classes": {
+          "delegate_terminal:generic_worker": 6,
+          "solve_owned:none": 1
+        },
+        "model_call_failures": 0,
+        "routing_gate_passed": false,
+        "artifacts": {
+          "traces_sha256": "127f21fe97fea8c24ceea898fc51611fcd694a5cfb04bb2c419de04f669b46e4",
+          "routing_audit_sha256": "fd8d81fd7f71860ff1ab41c215cc967565d0eb917ba18ad048351db3eb710585",
+          "gpu_metrics_sha256": "4e72a33b4f0b260555c8340cb393251920162c12d07507a63746a171fa334133",
+          "summary_sha256": "4cfda353e4aadc5d09e6629ed5210f9812d9c9d9360ceeb081df010a91886b83"
+        }
+      },
+      "disposition": "rejected; joint typed transport regressed to instruction-like text and legacy generic delegation"
+    }
+  ],
+  "acceptance": {
+    "minimum_correct_root_routes": 12,
+    "minimum_correct_source_routes": 3,
+    "minimum_correct_table_routes": 3,
+    "minimum_correct_recursive_root_routes": 3,
+    "minimum_correct_recursive_manager_expert_routes": 3,
+    "acceptance_gates_relaxed": false,
+    "any_candidate_passed": false
+  },
+  "decision": {
+    "finding": "The 2B policy does not stably emit a joint two-field action-plus-expert decision. More dose shifted which broad actions worked and then degraded typed transport without connecting source or manager expert selection.",
+    "protected_regressions_run": false,
+    "protected_regressions_reason": "Both candidates failed the prerequisite routing screen and were ineligible for population use.",
+    "hugging_face_publication": false,
+    "next_action": "Keep e33 canonical. Prospectively split routing into the already learned one-field cognitive action followed, only after delegate_terminal, by a separate one-field registry-bounded expert selector. Test the scaffold without gradients before considering expert-only SFT.",
+    "additional_unregistered_optimizer_updates_allowed": false
+  },
+  "verification": {
+    "evaluated_git_commits": [
+      "30d480852",
+      "88b43418c"
+    ],
+    "focused_tests": "121 passed",
+    "gpu_memory_after_final_run": "1 MiB per GPU",
+    "gpu_utilization_after_final_run": "0 percent per GPU",
+    "active_training_processes": false
+  }
+}
