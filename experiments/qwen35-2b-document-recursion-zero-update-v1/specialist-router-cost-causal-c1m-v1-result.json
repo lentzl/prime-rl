@@ -1,0 +1,57 @@
+{
+  "schema_version": "q35-2b-specialist-router-cost-causal-c1m-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_passed_router_screen",
+  "plan": "specialist-router-cost-causal-c1m-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "router_candidate": {
+    "name": "c1l-generic-anchor-step4",
+    "sha256": "60e85d46eb1137c289e35ec56357b9394021e86b819b1161bc42651823c46c59",
+    "optimizer_updates_in_screen": 0,
+    "total_lineage_optimizer_updates": 11
+  },
+  "public_intervention": {
+    "generic_worker_relative_cost": 0.5,
+    "table_analyst_relative_cost": 1.0,
+    "source_inspector_relative_cost": 1.0,
+    "capability_descriptions_changed": false,
+    "assignment_changed": false,
+    "expected_routes_changed": false
+  },
+  "heldout_screen": {
+    "instance_offset": 39000,
+    "seed": 20261221,
+    "natural_json_transport": true,
+    "root_expert_correct": 9,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 1,
+      "source_inspector": 4,
+      "table_analyst": 4
+    },
+    "recursive_manager_expert_correct": 4,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "generic_worker": 1,
+      "source_inspector": 6,
+      "table_analyst": 7
+    },
+    "maximum_selected_expert_share": 0.5,
+    "normalizable_one_field_transport": true,
+    "probe_path": "/home/ubuntu/rlm/results/q35-2b-specialist-router-cost-causal-c1m-v1/ROUTER_PROBE.json",
+    "probe_sha256": "f7395aa373d73678321977de04bfaf5c3e0db19d757fe609345d7b5d1ace08c3",
+    "inference_log_sha256": "c05e18f4555c3a607706028aa7c4c1d6ddf8e339d7ba3c8002f421d4f782a106",
+    "gate_passed": true,
+    "acceptance_gates_relaxed": false
+  },
+  "diagnosis": "Making generic_worker uniquely cheaper for work inside its public capability envelope restored a causally identifiable generic route while preserving every table, source, recursive-manager, transport, and anti-collapse gate. The screen used no optimizer update.",
+  "decision": "Retain c1l only as an isolated experimental router candidate. Implement the same public cost-aware compact natural-JSON contract in the live split scaffold, then require a fresh end-to-end population evaluation before promotion.",
+  "promotion_requires": "At least four complete qualifying live end-to-end trajectories under the unchanged acceptance contract.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}
