@@ -262,6 +262,9 @@ write_inference_config() {
   local router_port=$4
   local rpc_port=$5
   local memory_utilization=${6:-0.80}
+  local max_model_len=${7:-32768}
+  local max_num_seqs=${8:-8}
+  local max_num_batched_tokens=${9:-4096}
   cat >"$path" <<EOF
 backend_port = $backend_port
 
@@ -273,7 +276,7 @@ liveness_timeout_seconds = 30.0
 model = "$model"
 revision = "$revision"
 dtype = "bfloat16"
-max_model_len = 32768
+max_model_len = $max_model_len
 language_model_only = true
 enforce_eager = true
 trust_remote_code = false
@@ -284,8 +287,8 @@ disable_custom_all_reduce = false
 data_parallel_size = 1
 data_parallel_rpc_port = $rpc_port
 gpu_memory_utilization = $memory_utilization
-max_num_seqs = 8
-max_num_batched_tokens = 4096
+max_num_seqs = $max_num_seqs
+max_num_batched_tokens = $max_num_batched_tokens
 
 [log]
 level = "info"
@@ -324,9 +327,9 @@ write_inference_config "$coordinator_config" "$coordinator_model" "$coordinator_
 write_inference_config "$child_config" "$child_model" "$child_backend_port" 8002 13347 "$worker_memory"
 if [[ -n "$specialist_router_model" ]]; then
   write_inference_config "$coordinator_config" "$coordinator_model" \
-    "$coordinator_backend_port" 8001 13346 0.70
+    "$coordinator_backend_port" 8001 13346 0.60
   write_inference_config "$specialist_router_config" "$specialist_router_model" \
-    "$specialist_router_backend_port" 8005 13350 0.20
+    "$specialist_router_backend_port" 8005 13350 0.30 8192 4 2048
 fi
 table_analyst_url="http://127.0.0.1:$child_backend_port/v1"
 source_inspector_url="http://127.0.0.1:$child_backend_port/v1"
