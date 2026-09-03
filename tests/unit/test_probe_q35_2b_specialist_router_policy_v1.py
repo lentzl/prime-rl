@@ -35,5 +35,19 @@ def test_router_probe_only_maps_terminal_root_families() -> None:
 
 def test_router_probe_screens_are_frozen_and_disjoint() -> None:
     module = _module()
-    assert module.FROZEN_SCREENS == {37700: 20261209, 37800: 20261210}
-    assert not set(module.FROZEN_SCREENS) & {35100, 37100, 37200, 37300, 37400, 37500, 37600}
+    assert module.FROZEN_SCREENS == {
+        37700: 20261209,
+        37800: 20261210,
+        38000: 20261212,
+        38200: 20261213,
+    }
+    assert not set(module.FROZEN_SCREENS) & {
+        35100,
+        37100,
+        37200,
+        37300,
+        37400,
+        37500,
+        37600,
+        37900,
+    }

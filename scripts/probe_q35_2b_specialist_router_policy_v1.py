@@ -28,7 +28,12 @@ from subagent_communication_v1.taskset import (
 )
 
 SCHEMA_VERSION = "qwen35-2b-specialist-router-policy-probe/v1"
-FROZEN_SCREENS = {37700: 20261209, 37800: 20261210}
+FROZEN_SCREENS = {
+    37700: 20261209,
+    37800: 20261210,
+    38000: 20261212,
+    38200: 20261213,
+}
 
 
 def _root_expert(family: str) -> str | None:

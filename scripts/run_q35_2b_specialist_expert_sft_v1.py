@@ -38,31 +38,62 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         "table_analyst": {"root": 8, "nonroot_specialist_manager": 8},
         "source_inspector": {"root": 8, "nonroot_specialist_manager": 8},
     }
-    if (
-        manifest.get("schema_version") != DATASET_SCHEMA_VERSION
-        or manifest.get("status") != "complete"
-        or manifest.get("role") != "coordinator"
-        or manifest.get("objective") != OBJECTIVE
-        or manifest.get("rows") != ROWS
-        or manifest.get("training_batch_size") != 12
-        or manifest.get("expert_counts") != expected_counts
-        or manifest.get("role_counts") != expected_roles
-        or manifest.get("first_batch_expert_counts")
-        != {expert_id: 4 for expert_id in EXPERT_IDS}
-        or manifest.get("training_instance_offset") != 37600
-        or manifest.get("training_template_variants") != [0, 1, 2, 3]
-        or manifest.get("heldout_template_variants_excluded") != [4, 5]
-        or manifest.get("observed_instance_offsets_excluded")
-        != [35100, 37100, 37200, 37300]
-        or manifest.get("answer_free") is not True
-        or manifest.get("public_capability_registry_only") is not True
-        or manifest.get("expert_only_tool_arguments") is not True
-        or manifest.get("cognitive_action_labels_present") is not False
-        or manifest.get("root_and_nonroot_coordinator_rows") is not True
-        or manifest.get("tool_call_format") != "openai_function_v1"
-        or manifest.get("dataset", {}).get("path") != parquet.name
-        or manifest.get("dataset", {}).get("sha256") != sha256_file(parquet)
+    common_valid = (
+        manifest.get("status") == "complete"
+        and manifest.get("training_batch_size") == 12
+        and manifest.get("training_template_variants") == [0, 1, 2, 3]
+        and manifest.get("heldout_template_variants_excluded") == [4, 5]
+        and manifest.get("answer_free") is True
+        and manifest.get("public_capability_registry_only") is True
+        and manifest.get("expert_only_tool_arguments") is True
+        and manifest.get("cognitive_action_labels_present") is False
+        and manifest.get("tool_call_format") == "openai_function_v1"
+        and manifest.get("dataset", {}).get("path") == parquet.name
+        and manifest.get("dataset", {}).get("sha256") == sha256_file(parquet)
+    )
+    if manifest.get("schema_version") == DATASET_SCHEMA_VERSION:
+        dataset_valid = (
+            manifest.get("role") == "coordinator"
+            and manifest.get("objective") == OBJECTIVE
+            and manifest.get("rows") == ROWS
+            and manifest.get("expert_counts") == expected_counts
+            and manifest.get("role_counts") == expected_roles
+            and manifest.get("first_batch_expert_counts")
+            == {expert_id: 4 for expert_id in EXPERT_IDS}
+            and manifest.get("training_instance_offset") == 37600
+            and manifest.get("observed_instance_offsets_excluded")
+            == [35100, 37100, 37200, 37300]
+            and manifest.get("root_and_nonroot_coordinator_rows") is True
+        )
+    elif manifest.get("schema_version") == (
+        "qwen35-2b-specialist-router-contrast-sft/v1"
     ):
+        dataset_valid = (
+            manifest.get("role") == "specialist_router"
+            and manifest.get("objective")
+            == "answer_free_causal_registry_capability_matching"
+            and manifest.get("rows") == 96
+            and manifest.get("expert_counts")
+            == {expert_id: 32 for expert_id in EXPERT_IDS}
+            and manifest.get("role_counts")
+            == {
+                expert_id: {"root": 20, "nonroot_specialist_manager": 12}
+                for expert_id in EXPERT_IDS
+            }
+            and manifest.get("first_batch_expert_counts")
+            == {expert_id: 4 for expert_id in EXPERT_IDS}
+            and manifest.get("first_half_expert_counts")
+            == {expert_id: 16 for expert_id in EXPERT_IDS}
+            and manifest.get("base_assignment_groups") == 16
+            and manifest.get("registry_permutations_per_group") == 6
+            and manifest.get("causal_registry_permutations") is True
+            and manifest.get("training_instance_offset") == 37900
+            and manifest.get("observed_instance_offsets_excluded")
+            == [35100, 37100, 37200, 37300, 37400, 37500, 37700]
+        )
+    else:
+        dataset_valid = False
+    if not common_valid or not dataset_valid:
         raise ValueError(f"invalid specialist expert dataset: {path}")
     return manifest
 
@@ -124,7 +155,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     receipt = {
         "schema_version": SCHEMA_VERSION,
         "status": "complete",
-        "algorithm": "sft_public_registry_expert_only_v1",
+        "algorithm": (
+            "sft_causal_registry_contrast_v1"
+            if dataset.get("causal_registry_permutations") is True
+            else "sft_public_registry_expert_only_v1"
+        ),
         "role": policy_role,
         "isolated_router_policy": args.isolated_router,
         "optimizer_updates": args.optimizer_updates,
