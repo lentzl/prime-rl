@@ -1,0 +1,83 @@
+{
+  "schema_version": "q35-2b-specialist-router-harness-grpo-c1i-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_rejected_after_step6",
+  "plan": "specialist-router-harness-grpo-c1i-v1-plan.json",
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "update": {
+    "run_name": "c1i-harness-step6",
+    "initialization": "c1f-outcome-step1",
+    "optimizer_updates": 6,
+    "total_lineage_optimizer_updates": 7,
+    "learning_rate": 0.0000005,
+    "full_dense": true,
+    "complete_rollouts_per_step": 24,
+    "required_profile_rollouts_per_step": 8,
+    "loss_by_step": [
+      -0.0009289553854614496,
+      0.00932397972792387,
+      0.007795829325914383,
+      0.04007750377058983,
+      0.0010036583989858627,
+      -0.0003471504896879196
+    ],
+    "gradient_norm_by_step": [
+      32.24142837524414,
+      11.29239559173584,
+      19.988435745239258,
+      13.506942749023438,
+      9.728129386901855,
+      12.010605812072754
+    ],
+    "all_optimizer_updates_succeeded": true,
+    "candidate_model_sha256": "000f62a7222b7b29572d88cb7f1b852fda8c425cd640d684361b21bdfe2532b6",
+    "config_sha256": {
+      "trainer": "c3a2f8becce5eb523c564e39579656184c94543ae006e36cc3e9d6a577df8099",
+      "orchestrator": "abcc023d136b80bb58221971462a25806116a0c1e1f26af613a9deee6a7b8507",
+      "inference": "3fe30942234d09cee9b75821e1fdf4b3916eeea64e6c5a5fa7d07f800d518a8e"
+    },
+    "metrics_sha256": "70f4f9865c566cfcd706f8cda0a400a1dba4c31eff3f367489c564258cfb2d2c",
+    "final_summary_sha256": "68e74d5865a86fb59e8748de45d2bf7b8d05c12b889c9e885baae2e02de0526b",
+    "token_export_sha256_by_step": {
+      "1": "351c102f16945eae24e0d20e98d5a9128579d91f312037b50cde59a28b36420d",
+      "2": "ce9272ae371affdb5986fb42c63826c8cca3e6bf77e9362bc1343200ccf3bca4",
+      "3": "f5af6578c64244f8d577058891eab89c75fa10ea8eeccac666c57560ab9a6b50",
+      "4": "dc23fc0e1d1ad5e6812fcb68593c4fd26f89d59255ff69f4e19f1eab8f3f012c",
+      "5": "b65249bb7e481f36c02d1a3cca5b07f9a75ee618ab797bd612b39d005c0b7b38",
+      "6": "3e08503ca8d5b991c3a6a2911966f7ba585cad0daee9dd00a929e8f0d72e3ea0"
+    }
+  },
+  "heldout_screen": {
+    "instance_offset": 38600,
+    "seed": 20261217,
+    "root_expert_correct": 4,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 0,
+      "source_inspector": 4,
+      "table_analyst": 0
+    },
+    "recursive_manager_expert_correct": 2,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "source_inspector": 14
+    },
+    "maximum_selected_expert_share": 1.0,
+    "normalizable_one_field_transport": true,
+    "raw_function_tool_call_transport": false,
+    "probe_path": "/home/ubuntu/rlm/results/q35-2b-specialist-router-harness-grpo-c1i-v1/ROUTER_PROBE.json",
+    "probe_sha256": "4677a7cc5563d323ee47e8f15f62357a930706c4411ef79d4bce2a35fe92a85d",
+    "inference_log_sha256": "c81f968ad7a720a2a12e76c24144e8a099db53f8f9b4dffe93eca9fe40e1e47f",
+    "gate_passed": false,
+    "metadata_note": "The immutable raw probe records optimizer_updates=8 because the probe validator did not yet permit the true lineage count 7. The checkpoint has one c1f update plus six c1i updates, exactly seven."
+  },
+  "training_trace_diagnosis": "All six token exports contained exactly eight rows from each capability source. Within each comparison group, positive advantages reinforced the identity carrying the required permuted capability, but the target identity changed with the registry permutation. Six updates were insufficient for the 2B router to learn that second-order binding; it converged to a source_inspector identity mode on the fixed-identity live registry.",
+  "decision": "Reject c1i and do not extend its weights. Return to c1f for a leaked fixed-identity harness curriculum, then tighten with registry permutations only after fixed live-registry routing passes.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

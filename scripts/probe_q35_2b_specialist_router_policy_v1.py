@@ -37,6 +37,7 @@ FROZEN_SCREENS = {
     38400: 20261215,
     38500: 20261216,
     38600: 20261217,
+    38700: 20261218,
 }
 
 
@@ -192,8 +193,8 @@ def main() -> None:
     args = parser.parse_args()
     if FROZEN_SCREENS.get(args.instance_offset) != args.seed:
         parser.error("specialist-router probe offset and seed are frozen")
-    if args.model_optimizer_updates not in {0, 1, 4, 8}:
-        parser.error("router optimizer updates must be zero, one, four, or eight")
+    if args.model_optimizer_updates not in {0, 1, 4, 7, 8}:
+        parser.error("router optimizer updates must be zero, one, four, seven, or eight")
     args.runtime_traces = [path.resolve() for path in args.runtime_traces]
     result = probe(args)
     rendered = json.dumps(result, indent=2, sort_keys=True) + "\n"

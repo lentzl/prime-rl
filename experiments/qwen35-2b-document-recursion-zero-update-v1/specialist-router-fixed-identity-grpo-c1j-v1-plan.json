@@ -1,0 +1,67 @@
+{
+  "schema_version": "q35-2b-specialist-router-fixed-identity-grpo-c1j-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Establish the first reliable specialist-routing baby step by leaking the stable live expert identities while preserving varied harness-shaped objectives and direct outcome learning.",
+  "causal_basis": {
+    "source": "specialist-router-harness-grpo-c1i-v1-result.json",
+    "finding": "The 2B router received correct direct rewards but failed to bind capability profiles through arbitrary identity permutations in six updates, then selected source_inspector on every heldout decision."
+  },
+  "curriculum": {
+    "leak_stage": "Each live identity retains its real capability: generic_worker for plain files, table_analyst for table reconciliation, and source_inspector for source/config inspection.",
+    "retained_difficulty": [
+      "four varied concrete objective templates per capability",
+      "unique artifact paths",
+      "balanced generic, table, and source groups every update",
+      "sampled one-field transport",
+      "no answer values or hidden task class"
+    ],
+    "later_tightening": "Introduce registry identity permutations only after the fixed live-registry screen passes."
+  },
+  "architecture": {
+    "protected_action_policy": "adaptive-core-v1-e33",
+    "protected_worker_policy": "document-child-h176",
+    "protected_policies_frozen": true,
+    "experimental_router_initialization": "c1f-outcome-step1",
+    "experimental_router_initialization_sha256": "bb8c510fdca91ec26e76be7f55dda0aae7158d869e046e92adf6ddb62ab1c427",
+    "separate_full_dense_checkpoint": true
+  },
+  "training": {
+    "optimizer_updates": 6,
+    "learning_rate": 0.0000005,
+    "batch_size": 24,
+    "group_size": 8,
+    "required_profile_rollouts_per_step": 8,
+    "zero_advantage_groups_rejected": true,
+    "full_dense": true,
+    "checkpoint_interval": 3
+  },
+  "heldout_expert_screen": {
+    "instance_offset": 38700,
+    "seed": 20261218,
+    "compact_router_context": true,
+    "frozen_before_training": true
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_screen_passes": "Retain c1j as the first isolated live-registry router candidate and implement the compact split scaffold before end-to-end evaluation.",
+    "if_screen_fails": "Reject c1j without replacing e33 and stop this router lineage for architectural diagnosis rather than adding updates.",
+    "promotion_requires": "A later live end-to-end population evaluation with at least four complete qualifying trajectories."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

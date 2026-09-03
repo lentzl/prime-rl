@@ -106,3 +106,22 @@ def test_router_taskset_can_use_diverse_harness_shaped_assignments() -> None:
     assert Counter(task.data.answer for task in tasks) == Counter(
         {expert_id: 8 for expert_id in module.EXPERT_IDS}
     )
+
+
+def test_router_taskset_can_leak_stable_live_registry_identities() -> None:
+    module = _module()
+    tasks = module.SpecialistRouterTaskset(
+        module.SpecialistRouterConfig(
+            count=24,
+            required_profile="table_analyst",
+            assignment_style="harness_shaped",
+            registry_mode="fixed",
+        )
+    ).load()
+
+    expected_mapping = {expert_id: expert_id for expert_id in module.EXPERT_IDS}
+    assert {task.data.answer for task in tasks} == {"table_analyst"}
+    assert all(task.data.profile_by_expert_id == expected_mapping for task in tasks)
+    assert Counter(task.data.assignment_variant for task in tasks) == Counter(
+        {variant: 6 for variant in range(4)}
+    )

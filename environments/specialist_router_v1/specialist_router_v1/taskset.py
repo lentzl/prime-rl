@@ -120,6 +120,7 @@ class SpecialistRouterConfig(vf.TasksetConfig):
         "generic_worker", "table_analyst", "source_inspector"
     ] | None = None
     assignment_style: Literal["abstract", "harness_shaped"] = "abstract"
+    registry_mode: Literal["permuted", "fixed"] = "permuted"
 
 
 class SpecialistRouterTaskset(
@@ -139,9 +140,12 @@ class SpecialistRouterTaskset(
                 if self.config.required_profile is not None
                 else position // len(EXPERT_IDS)
             )
-            permutation = permutations[
-                (permutation_round + split_offset) % len(permutations)
-            ]
+            if self.config.registry_mode == "fixed":
+                permutation = EXPERT_IDS
+            else:
+                permutation = permutations[
+                    (permutation_round + split_offset) % len(permutations)
+                ]
             profile_by_expert_id = dict(zip(EXPERT_IDS, permutation, strict=True))
             answer = next(
                 expert_id
@@ -152,7 +156,9 @@ class SpecialistRouterTaskset(
             if self.config.assignment_style == "harness_shaped":
                 assignment_templates = HARNESS_ASSIGNMENTS[required_profile]
                 assignment_variant = (
-                    permutation_round // len(permutations)
+                    permutation_round
+                    if self.config.registry_mode == "fixed"
+                    else permutation_round // len(permutations)
                 ) % len(assignment_templates)
                 assignment = assignment_templates[assignment_variant].format(
                     root=(
