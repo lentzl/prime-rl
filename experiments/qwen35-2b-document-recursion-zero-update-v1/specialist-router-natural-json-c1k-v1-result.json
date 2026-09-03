@@ -1,0 +1,44 @@
+{
+  "schema_version": "q35-2b-specialist-router-natural-json-c1k-result/v1",
+  "recorded_at": "2026-09-03",
+  "status": "complete_near_pass_generic_gate_failed",
+  "plan": "specialist-router-natural-json-c1k-v1-plan.json",
+  "optimizer_updates": 0,
+  "protected_coordinator_unchanged": true,
+  "protected_coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+  "protected_worker_unchanged": true,
+  "protected_worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+  "experimental_router_sha256": "800841cae83b756ef68d33590ef40b62aa29b98c73e0d81a9a033b84d1142883",
+  "heldout_screen": {
+    "instance_offset": 38800,
+    "seed": 20261219,
+    "natural_json_transport": true,
+    "tool_schema_supplied": false,
+    "root_expert_correct": 8,
+    "root_expert_total": 10,
+    "root_correct_by_expert": {
+      "generic_worker": 0,
+      "source_inspector": 4,
+      "table_analyst": 4
+    },
+    "recursive_manager_expert_correct": 4,
+    "recursive_manager_expert_total": 4,
+    "selected_expert_counts": {
+      "source_inspector": 8,
+      "table_analyst": 6
+    },
+    "maximum_selected_expert_share": 0.5714285714285714,
+    "normalizable_one_field_transport": true,
+    "raw_function_tool_call_transport": false,
+    "probe_path": "/home/ubuntu/rlm/results/q35-2b-specialist-router-natural-json-c1k-v1/ROUTER_PROBE.json",
+    "probe_sha256": "f4ae24df91c27a7a85468d8ffc7ef4a401a4bba9dceaf660e3d6e06571adfe4b",
+    "inference_log_sha256": "c5cdcfba51ba45201505520439e3aef336b71a402add59a10259188de920c5da",
+    "gate_passed": false
+  },
+  "diagnosis": "Matching the no-tool training transport recovered all table, source, and recursive-manager decisions. Only generic routing remained absent. Token exports show generic groups sometimes had no correct sample, while the auxiliary transport reward still created positive advantage for valid but wrong expert IDs.",
+  "decision": "Do not promote c1j because the unchanged generic gate failed. Retain it as the starting point for one prospective generic-heavy anchor rung whose advantages are computed only from correct routing outcomes; transport remains validation telemetry, not reward.",
+  "worker_policies_trained": false,
+  "hugging_face_published": false,
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

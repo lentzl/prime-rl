@@ -99,7 +99,7 @@ class SpecialistRouterTask(vf.Task[SpecialistRouterData]):
     async def routing_outcome(self, trace: vf.Trace) -> float:
         return float(selected_expert(trace.last_reply) == self.data.answer)
 
-    @vf.reward(weight=0.1)
+    @vf.metric
     async def valid_transport(self, trace: vf.Trace) -> float:
         return float(selected_expert(trace.last_reply) is not None)
 

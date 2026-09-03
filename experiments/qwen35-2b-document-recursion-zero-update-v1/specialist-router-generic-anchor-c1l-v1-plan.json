@@ -1,0 +1,70 @@
+{
+  "schema_version": "q35-2b-specialist-router-generic-anchor-c1l-plan/v1",
+  "recorded_at": "2026-09-03",
+  "status": "prospective",
+  "objective": "Recover the sole missing generic route without losing c1j's complete table, source, and recursive-manager routing.",
+  "causal_basis": {
+    "source": "specialist-router-natural-json-c1k-v1-result.json",
+    "finding": "The matched-interface screen scored 8/10 root and 4/4 manager, with only generic at 0/2. Generic token groups showed valid wrong identities receiving positive advantage from the transport bonus even when no route was correct."
+  },
+  "reward_correction": {
+    "routing_outcome_weight": 1.0,
+    "valid_transport_reward_removed": true,
+    "valid_transport_retained_as_metric": true,
+    "reason": "A valid wrong identity must never outrank an invalid response when no sampled route is correct."
+  },
+  "architecture": {
+    "protected_action_policy": "adaptive-core-v1-e33",
+    "protected_worker_policy": "document-child-h176",
+    "protected_policies_frozen": true,
+    "experimental_router_initialization": "c1j-fixed-identity-step6",
+    "experimental_router_initialization_sha256": "800841cae83b756ef68d33590ef40b62aa29b98c73e0d81a9a033b84d1142883",
+    "separate_full_dense_checkpoint": true
+  },
+  "training": {
+    "optimizer_updates": 4,
+    "total_lineage_optimizer_updates_after_rung": 11,
+    "learning_rate": 0.0000003,
+    "batch_size": 32,
+    "group_size": 8,
+    "required_rollouts_per_step": {
+      "generic_worker": 16,
+      "table_analyst": 8,
+      "source_inspector": 8
+    },
+    "sampling_temperature": 1.2,
+    "assignment_style": "harness_shaped",
+    "registry_mode": "fixed",
+    "full_dense": true,
+    "checkpoint_interval": 2
+  },
+  "heldout_expert_screen": {
+    "instance_offset": 38900,
+    "seed": 20261220,
+    "compact_router_context": true,
+    "natural_json_transport": true,
+    "frozen_before_training": true
+  },
+  "expert_screen_acceptance": {
+    "minimum_correct_root_experts": 7,
+    "root_expert_decisions": 10,
+    "minimum_correct_generic_experts": 1,
+    "generic_expert_decisions": 2,
+    "minimum_correct_table_experts": 3,
+    "table_expert_decisions": 4,
+    "minimum_correct_source_experts": 3,
+    "source_expert_decisions": 4,
+    "minimum_correct_recursive_manager_experts": 3,
+    "recursive_manager_expert_decisions": 4,
+    "normalizable_exact_one_field_transport_required": true,
+    "maximum_selected_expert_share": 0.75,
+    "acceptance_gates_may_be_relaxed": false
+  },
+  "decision_rule": {
+    "if_screen_passes": "Retain c1l as an isolated router candidate and integrate the compact natural-JSON split scaffold for live end-to-end population evaluation.",
+    "if_screen_fails": "Reject c1l without replacing e33 and stop this router lineage for architectural diagnosis.",
+    "promotion_requires": "A later live end-to-end population evaluation with at least four complete qualifying trajectories."
+  },
+  "final_population_acceptance_floor": 4,
+  "final_population_acceptance_floor_relaxed": false
+}

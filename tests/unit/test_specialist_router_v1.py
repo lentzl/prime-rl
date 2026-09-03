@@ -57,6 +57,15 @@ def test_selected_expert_requires_one_valid_exact_object() -> None:
     )
 
 
+def test_only_correct_routing_contributes_reward_advantage() -> None:
+    module = _module()
+
+    assert module.SpecialistRouterTask.routing_outcome.reward is True
+    assert module.SpecialistRouterTask.routing_outcome._vf_weight == 1.0
+    assert not hasattr(module.SpecialistRouterTask.valid_transport, "reward")
+    assert module.SpecialistRouterTask.valid_transport.metric is True
+
+
 def test_router_taskset_can_pin_one_required_profile_without_pinning_identity() -> None:
     module = _module()
     tasks = module.SpecialistRouterTaskset(
