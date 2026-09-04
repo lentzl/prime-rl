@@ -131,7 +131,9 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert "depth_default_child=${DUAL_DEPTH_DEFAULT_CHILD:-0}" in launcher
     assert 'proxy_args+=(--depth-default-child)' in launcher
     assert "specialist_worker_routing=${DUAL_SPECIALIST_WORKER_ROUTING:-0}" in launcher
+    assert "specialist_fixed_expert=${DUAL_SPECIALIST_FIXED_EXPERT:-}" in launcher
     assert "--specialist-worker-routing" in launcher
+    assert 'proxy_args+=(--specialist-fixed-expert "$specialist_fixed_expert")' in launcher
     assert "--specialist-route table_analyst" in launcher
     assert "--specialist-route source_inspector" in launcher
     assert "launch_table_analyst" in launcher
@@ -178,6 +180,21 @@ def test_specialist_population_pair_differs_only_by_visible_registry() -> None:
     runner = (root / "scripts" / "run_q35_2b_specialist_population_eval_v1.sh").read_text()
     assert "DUAL_SPECIALIST_WORKER_ROUTING=1" in runner
     assert "DUAL_TABLE_ANALYST_MODEL" in runner
+
+
+def test_specialist_competence_runner_fixes_identity_not_cognitive_action() -> None:
+    runner = (
+        Path(__file__).parents[2]
+        / "scripts"
+        / "run_q35_2b_specialist_competence_eval_v1.sh"
+    ).read_text()
+
+    assert 'DUAL_SPECIALIST_FIXED_EXPERT="$expert_id"' in runner
+    assert "DUAL_SPECIALIST_WORKER_ROUTING=1" in runner
+    assert "DUAL_ROOT_COORDINATOR_CONTRACT=1" in runner
+    assert "DUAL_LEAK_COORDINATOR_EXACT_ACTION" not in runner
+    assert "DUAL_SPECIALIST_ROUTER_MODEL" not in runner
+    assert "model weights changed during specialist competence evaluation" in runner
     assert "DUAL_SOURCE_INSPECTOR_MODEL" in runner
     assert "DUAL_DEPTH_DEFAULT_CHILD=1" in runner
     assert "changed during specialist population evaluation" in runner
@@ -2005,6 +2022,44 @@ def test_specialist_routing_preserves_model_authored_expert_choice() -> None:
     assert action_sha == hashlib.sha256(selected_code.encode()).hexdigest()
     assert selected_action == "delegate_terminal"
     assert selected_expert == "generic_worker"
+
+
+def test_fixed_specialist_expert_attaches_identity_to_model_authored_action() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "type": "function",
+                                "function": {
+                                    "name": module.TYPED_COGNITIVE_ACTION_TOOL,
+                                    "arguments": json.dumps(
+                                        {"action": "delegate_terminal"}
+                                    ),
+                                },
+                            }
+                        ],
+                    }
+                }
+            ]
+        }
+    ).encode()
+
+    rewritten = module.with_specialist_expert_decision(
+        body, expert_id="table_analyst"
+    )
+    function = json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+        "function"
+    ]
+
+    assert json.loads(function["arguments"]) == {
+        "action": "delegate_terminal",
+        "expert_id": "table_analyst",
+    }
 
 
 def test_specialist_router_projection_keeps_only_public_routing_evidence() -> None:

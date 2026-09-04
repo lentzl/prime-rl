@@ -49,6 +49,7 @@ specialist_worker_routing=${DUAL_SPECIALIST_WORKER_ROUTING:-0}
 table_analyst_model=${DUAL_TABLE_ANALYST_MODEL:-}
 source_inspector_model=${DUAL_SOURCE_INSPECTOR_MODEL:-}
 specialist_router_model=${DUAL_SPECIALIST_ROUTER_MODEL:-}
+specialist_fixed_expert=${DUAL_SPECIALIST_FIXED_EXPERT:-}
 specialist_router_generic_relative_cost=${DUAL_SPECIALIST_ROUTER_GENERIC_RELATIVE_COST:-0.5}
 document_root_flat_fanin_scaffold=${DUAL_DOCUMENT_ROOT_FLAT_FANIN_SCAFFOLD:-0}
 typed_child_report=${DUAL_TYPED_CHILD_REPORT:-0}
@@ -190,6 +191,21 @@ if [[ -n "$specialist_router_model" ]]; then
     || [[ "$specialist_router_generic_relative_cost" == 0 \
       || "$specialist_router_generic_relative_cost" == 0.0 ]]; then
     echo "DUAL_SPECIALIST_ROUTER_GENERIC_RELATIVE_COST must be positive" >&2
+    exit 1
+  fi
+fi
+if [[ -n "$specialist_fixed_expert" ]]; then
+  if [[ "$specialist_worker_routing" != 1 ]]; then
+    echo "DUAL_SPECIALIST_FIXED_EXPERT requires DUAL_SPECIALIST_WORKER_ROUTING=1" >&2
+    exit 1
+  fi
+  if [[ -n "$specialist_router_model" ]]; then
+    echo "fixed specialist expert and separate specialist router are mutually exclusive" >&2
+    exit 1
+  fi
+  if [[ "$specialist_fixed_expert" != table_analyst \
+    && "$specialist_fixed_expert" != source_inspector ]]; then
+    echo "DUAL_SPECIALIST_FIXED_EXPERT must be table_analyst or source_inspector" >&2
     exit 1
   fi
 fi
@@ -504,6 +520,9 @@ if [[ -n "$specialist_router_model" ]]; then
     --specialist-router-generic-relative-cost "$specialist_router_generic_relative_cost"
   )
 fi
+if [[ -n "$specialist_fixed_expert" ]]; then
+  proxy_args+=(--specialist-fixed-expert "$specialist_fixed_expert")
+fi
 if [[ "$document_root_flat_fanin_scaffold" == 1 ]]; then
   proxy_args+=(--document-root-flat-fanin-scaffold)
 fi
@@ -613,6 +632,7 @@ fi
   printf 'dual_adaptive_document_decision=%s\n' "$adaptive_document_decision"
   printf 'dual_specialist_worker_routing=%s\n' "$specialist_worker_routing"
   printf 'dual_specialist_router_enabled=%s\n' "$([[ -n "$specialist_router_model" ]] && echo 1 || echo 0)"
+  printf 'dual_specialist_fixed_expert=%s\n' "$specialist_fixed_expert"
   printf 'dual_specialist_router_generic_relative_cost=%s\n' "$specialist_router_generic_relative_cost"
   printf 'dual_document_root_flat_fanin_scaffold=%s\n' "$document_root_flat_fanin_scaffold"
   printf 'dual_typed_child_report=%s\n' "$typed_child_report"

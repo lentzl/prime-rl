@@ -1,0 +1,124 @@
+{
+  "schema_version": "q35-2b-specialist-competence-plan/v1",
+  "experiment_id": "specialist-table-competence-s1-v1",
+  "recorded_at": "2026-09-04",
+  "status": "prospective",
+  "execution_authorization": "pending_root_heldout_freeze_and_explicit_approval",
+  "objective": "Test whether one balanced full-dense H176-derived table specialist improves model-authored table computation and exactly-once typed parent reporting independently of expert-router taxonomy.",
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates_allowed": 0
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates_allowed": 0,
+      "hugging_face_repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-child",
+      "hugging_face_revision": "20db57502f52e0d7f8b7b23ccd3c7f4f9378ffca"
+    }
+  },
+  "candidate": {
+    "label": "H_table_s1",
+    "parent": "H176",
+    "role": "terminal_worker",
+    "update_type": "full_dense",
+    "generic_worker_overwrite_allowed": false
+  },
+  "training_corpus": {
+    "generator": "scripts/export_q35_2b_specialist_worker_sft_v1.py",
+    "expert_id": "table_analyst",
+    "rows": 64,
+    "family_counts": {
+      "table_join": 32,
+      "table_reconcile": 32
+    },
+    "training_template_variants": [0, 1, 2, 3],
+    "heldout_template_variants_excluded": [4, 5],
+    "answer_free": true,
+    "model_authored_file_computation": true,
+    "strict_json_parent_report": true,
+    "legacy_parquet_sha256_if_recovered": "828540ced30b76fa578f42c8d394bfc5192e9407ef21c3e1c85aa2142a23852d",
+    "artifact_choice": "Recover the legacy corpus by exact hash or freeze a regenerated corpus as a new artifact before optimizer launch; never silently substitute one for the other."
+  },
+  "training": {
+    "runner": "scripts/run_q35_2b_specialist_worker_sft_v1.py",
+    "optimizer_updates": 4,
+    "batch_size": 16,
+    "learning_rate": 0.000002,
+    "reason_four_updates_is_minimal_balanced_dose": "With shuffle disabled, four batches expose all 64 rows exactly once; a one-update dose would see only one training template variant.",
+    "maximum_predeclared_rungs": 1,
+    "additional_updates_require_new_plan": true
+  },
+  "paired_evaluation": {
+    "control": "Frozen e33 plus frozen H176 routed under expert_id=table_analyst.",
+    "treatment": "The same frozen e33 plus H_table_s1 routed under expert_id=table_analyst.",
+    "router_taxonomy_evaluated": false,
+    "fixed_route_mechanism": "DUAL_SPECIALIST_FIXED_EXPERT=table_analyst",
+    "root_decision": "e33 still authors solve_owned/delegate_terminal/delegate_coordinator; the fixed evaluator supplies only the expert identity after delegate_terminal.",
+    "tight_runtime_semantics": [
+      "model-authored IPython file computation",
+      "exactly one compact JSON parent report with integer value",
+      "harness-owned passive waiting",
+      "harness-owned root report finalization",
+      "exact route and worker-checkpoint provenance"
+    ],
+    "proposed_task_count": 16,
+    "proposed_family_counts": {
+      "specialist_table_join": 8,
+      "specialist_table_reconcile": 8
+    },
+    "proposed_families": [
+      "specialist_table_join",
+      "specialist_table_reconcile"
+    ],
+    "required_heldout_template_variants": [4, 5],
+    "required_fresh_artifacts_and_values": true,
+    "required_task_key_and_artifact_disjointness_from_training": true,
+    "control_and_treatment_task_contracts_must_be_identical": true,
+    "num_rollouts": 1,
+    "heldout_must_be_hashed_before_any_model_call": true,
+    "heldout_seed": "pending_root_freeze",
+    "heldout_instance_offset": "pending_root_freeze",
+    "heldout_config_sha256": "pending_root_freeze",
+    "sampling_contract_sha256": "pending_root_freeze",
+    "summarizer": "scripts/summarize_q35_2b_specialist_competence_v1.py",
+    "runner": "scripts/run_q35_2b_specialist_competence_eval_v1.sh"
+  },
+  "admission": {
+    "final_thresholds": "pending_root_and_strand_e_freeze",
+    "existing_minimum_complete_qualifying_floor_may_not_be_relaxed": 4,
+    "required_dimensions": [
+      "minimum worker activations",
+      "minimum treatment hard successes",
+      "minimum paired H176-fail to candidate-success recoveries",
+      "maximum paired regressions",
+      "both table families represented among successes",
+      "fixed route and worker provenance exact",
+      "no specialist-router calls",
+      "e33 and H176 rehash unchanged"
+    ]
+  },
+  "immutable_result_contract": "specialist-competence-result-schema-v1.json",
+  "execution_sequence": [
+    "Root and Strand E freeze and hash the heldout config, sampling contract, and admission thresholds.",
+    "Retrieve e33 and H176 and verify their exact protected model hashes.",
+    "Recover the legacy table corpus by hash or freeze a newly generated corpus under a new hash.",
+    "Run the paired H176 control before any table-specialist optimizer update.",
+    "Run the single predeclared four-update H_table_s1 training dose.",
+    "Run the H_table_s1 treatment once on the frozen heldout bank.",
+    "Summarize, rehash protected models, and write one immutable result without retrospective gate changes."
+  ],
+  "resource_request": {
+    "reservation": "one exclusive 2x NVIDIA GPU node for the combined table/source sequence",
+    "gpu": "2x A6000 48 GiB or 2x L40/L40S 48 GiB",
+    "host_ram_minimum_gib": 128,
+    "local_disk_free_minimum_gib": 120,
+    "reservation_window_hours": 24,
+    "training_allocation": "both GPUs, full-dense distributed update, no colocated inference",
+    "evaluation_allocation": "GPU0 e33; GPU1 H176 and H_table_s1 colocated only when the treatment arm requires both services; 4 GiB explicit KV cache per service",
+    "concurrency": "one specialist training or evaluation arm at a time"
+  },
+  "publication": "No Hugging Face publication before competence admission and root approval."
+}

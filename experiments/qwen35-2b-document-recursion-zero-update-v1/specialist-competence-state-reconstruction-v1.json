@@ -1,0 +1,95 @@
+{
+  "schema_version": "q35-2b-specialist-competence-state-reconstruction/v1",
+  "recorded_at": "2026-09-04",
+  "repository_commit_inspected": "b151a3587ce52399ac2c44be8d6c814960cb978c",
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "immutable": true
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "immutable": true,
+      "durable_hugging_face_source": {
+        "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-child",
+        "revision": "20db57502f52e0d7f8b7b23ccd3c7f4f9378ffca",
+        "recorded_verified_unchanged": true
+      }
+    }
+  },
+  "legacy_training_corpora": {
+    "status": "exported_and_validated_on_released_remote_but_not_present_in_this_worktree",
+    "generator": "scripts/export_q35_2b_specialist_worker_sft_v1.py",
+    "generator_introduced_commit": "bf291465fbe7133fa298672b3d04b1f4c8d650d7",
+    "table_analyst": {
+      "rows": 64,
+      "families": {
+        "specialist_table_join": 32,
+        "specialist_table_reconcile": 32
+      },
+      "train_parquet_sha256": "828540ced30b76fa578f42c8d394bfc5192e9407ef21c3e1c85aa2142a23852d"
+    },
+    "source_inspector": {
+      "rows": 64,
+      "families": {
+        "specialist_source_ast": 32,
+        "specialist_source_config": 32
+      },
+      "train_parquet_sha256": "01d7359cac90f5664ff0364520b3c98cc31227c56496b1d78f704712f9a5bab3"
+    },
+    "training_template_variants": [0, 1, 2, 3],
+    "excluded_heldout_template_variants": [4, 5],
+    "bitwise_recovery_condition": "Recover the original parquet and manifest by recorded hashes. Regeneration is a new corpus because source-trace paths and hashes are embedded in the rows and manifest."
+  },
+  "specialist_checkpoints": {
+    "H_table": {
+      "status": "never_trained",
+      "checkpoint_exists": false,
+      "evaluation_exists": false
+    },
+    "H_source": {
+      "status": "never_trained",
+      "checkpoint_exists": false,
+      "evaluation_exists": false
+    }
+  },
+  "evaluation_evidence": {
+    "c1_latent_population_screen": {
+      "candidate_specialist_weights_used": false,
+      "worker_for_all_aliases": "H176",
+      "control_hard_successes": 2,
+      "registry_treatment_hard_successes": 1,
+      "paired_recoveries": 0
+    },
+    "c1o_public_utility_screen": {
+      "candidate_specialist_weights_used": false,
+      "worker_for_all_aliases": "H176",
+      "delegated_hard_successes": 0,
+      "delegated_tasks": 14,
+      "complete_qualifying_trajectories": 2,
+      "complete_qualifying_trajectories_were_local": true,
+      "worker_failures_observed": [
+        "table worker misparsed CSV and reported zero",
+        "source worker derived 32 but returned a bare string instead of the required compact JSON object"
+      ]
+    },
+    "conclusion": "There is no specialist competence result. Existing evidence is only the frozen-H176 baseline and establishes a worker deficit, not H_table or H_source performance."
+  },
+  "recoverable_now": [
+    "prospective population plan and immutable result ledgers",
+    "corpus generator and its unit coverage",
+    "bounded full-dense specialist update runner",
+    "heldout family and template boundaries",
+    "legacy parquet hashes and row/family counts",
+    "exact H176 Hugging Face repository revision and model hash"
+  ],
+  "not_present_in_strand_worktree": [
+    "legacy specialist parquet files and manifests",
+    "source trace used to capture the live terminal-child context",
+    "raw c1 and c1o remote traces, audits, and metrics",
+    "materialized e33 and H176 checkpoint directories"
+  ],
+  "next_safe_boundary": "Retrieve and hash H176, recover legacy corpora by hash or freeze newly generated corpora as new artifacts, measure paired H176 baselines, and only then authorize one balanced four-update full-dense candidate per specialist."
+}

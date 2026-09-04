@@ -3708,6 +3708,7 @@ class DualPolicyProxy:
         specialist_router_url: str | None = None,
         specialist_router_model: str | None = None,
         specialist_router_generic_relative_cost: float = 0.5,
+        specialist_fixed_expert: str | None = None,
         recursive_coordinator_token_ids: list[int] | None = None,
         document_coordinator_token_ids: list[int] | None = None,
         root_depth_token_ids: list[int] | None = None,
@@ -3748,6 +3749,10 @@ class DualPolicyProxy:
             raise ValueError("specialist router URL and model must be configured together")
         if specialist_router_url is not None and not specialist_worker_routing:
             raise ValueError("separate specialist router requires specialist worker routing")
+        if specialist_fixed_expert is not None and not specialist_worker_routing:
+            raise ValueError("fixed specialist expert requires specialist worker routing")
+        if specialist_fixed_expert is not None and specialist_router_url is not None:
+            raise ValueError("fixed specialist expert and separate router are mutually exclusive")
         if specialist_router_generic_relative_cost <= 0:
             raise ValueError("specialist router generic relative cost must be positive")
         self.specialist_router_enabled = specialist_router_url is not None
@@ -3767,6 +3772,14 @@ class DualPolicyProxy:
             self.specialist_route_keys[expert_id] = route_key
             self.urls[route_key] = url.rstrip("/")
             self.models[route_key] = model
+        if (
+            specialist_fixed_expert is not None
+            and specialist_fixed_expert not in self.specialist_route_keys
+        ):
+            raise ValueError(
+                f"fixed specialist expert has no configured route: {specialist_fixed_expert}"
+            )
+        self.specialist_fixed_expert = specialist_fixed_expert
         self.external_model = external_model
         self.audit_log = audit_log
         self.private_evidence_token_ids = private_evidence_token_ids
@@ -4831,7 +4844,7 @@ class DualPolicyProxy:
                 raise ValueError("specialist decision lacks public facts or legal mechanics")
             specialist_canonical_actions, specialist_registry_ids = disclosed
             specialist_cognitive_scope = True
-            if self.specialist_router_enabled:
+            if self.specialist_router_enabled or self.specialist_fixed_expert is not None:
                 routed = force_typed_cognitive_action_schema(
                     with_specialist_action_sampling_contract(routed)
                 )
@@ -5416,6 +5429,16 @@ class DualPolicyProxy:
                             normalized = with_specialist_expert_decision(
                                 normalized, expert_id=selected_expert
                             )
+                    elif self.specialist_fixed_expert is not None:
+                        selected_action = cognitive_action_from_response(normalized)
+                        selected_expert = (
+                            self.specialist_fixed_expert
+                            if selected_action == "delegate_terminal"
+                            else "none"
+                        )
+                        normalized = with_specialist_expert_decision(
+                            normalized, expert_id=selected_expert
+                        )
                     (
                         normalized,
                         _,
@@ -5648,6 +5671,7 @@ def main() -> None:
     )
     parser.add_argument("--specialist-router-url")
     parser.add_argument("--specialist-router-model")
+    parser.add_argument("--specialist-fixed-expert")
     parser.add_argument(
         "--specialist-router-generic-relative-cost", type=float, default=0.5
     )
@@ -5722,6 +5746,7 @@ def main() -> None:
         specialist_router_generic_relative_cost=(
             args.specialist_router_generic_relative_cost
         ),
+        specialist_fixed_expert=args.specialist_fixed_expert,
         external_model=args.external_model,
         audit_log=args.audit_log.resolve(),
         private_evidence_token_ids=private_evidence_token_ids,

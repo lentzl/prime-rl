@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "q35-2b-specialist-competence-result/v1",
+  "title": "Immutable paired specialist competence result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "experiment_id",
+    "recorded_at",
+    "status",
+    "plan_sha256",
+    "evaluated_git_commit",
+    "verifiers_commit",
+    "protected_models",
+    "candidate",
+    "dataset",
+    "training",
+    "heldout",
+    "paired_summary",
+    "artifacts",
+    "resource_usage",
+    "decision"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "q35-2b-specialist-competence-result/v1"
+    },
+    "experiment_id": {"type": "string", "minLength": 1},
+    "recorded_at": {"type": "string", "minLength": 1},
+    "status": {
+      "enum": ["complete_admitted", "complete_rejected", "infrastructure_invalid"]
+    },
+    "plan_sha256": {"$ref": "#/$defs/sha256"},
+    "evaluated_git_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "verifiers_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+    "protected_models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["e33_sha256", "h176_sha256", "verified_unchanged"],
+      "properties": {
+        "e33_sha256": {"$ref": "#/$defs/sha256"},
+        "h176_sha256": {"$ref": "#/$defs/sha256"},
+        "verified_unchanged": {"const": true}
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expert_id", "source_sha256", "model_sha256", "full_dense"],
+      "properties": {
+        "expert_id": {"enum": ["table_analyst", "source_inspector"]},
+        "source_sha256": {"$ref": "#/$defs/sha256"},
+        "model_sha256": {"$ref": "#/$defs/sha256"},
+        "full_dense": {"const": true}
+      }
+    },
+    "dataset": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["manifest_sha256", "train_parquet_sha256", "rows", "family_counts"],
+      "properties": {
+        "manifest_sha256": {"$ref": "#/$defs/sha256"},
+        "train_parquet_sha256": {"$ref": "#/$defs/sha256"},
+        "rows": {"type": "integer", "minimum": 1},
+        "family_counts": {
+          "type": "object",
+          "minProperties": 2,
+          "additionalProperties": {"type": "integer", "minimum": 1}
+        }
+      }
+    },
+    "training": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["receipt_sha256", "optimizer_updates", "loss_mean", "loss_nan_count", "gradient_norm"],
+      "properties": {
+        "receipt_sha256": {"$ref": "#/$defs/sha256"},
+        "optimizer_updates": {"type": "integer", "minimum": 1},
+        "loss_mean": {"type": "number"},
+        "loss_nan_count": {"const": 0},
+        "gradient_norm": {"type": "number"}
+      }
+    },
+    "heldout": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["config_sha256", "seed", "instance_offset", "task_count", "frozen_before_model_calls"],
+      "properties": {
+        "config_sha256": {"$ref": "#/$defs/sha256"},
+        "seed": {"type": "integer"},
+        "instance_offset": {"type": "integer"},
+        "task_count": {"type": "integer", "minimum": 1},
+        "frozen_before_model_calls": {"const": true}
+      }
+    },
+    "paired_summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary_sha256", "router_taxonomy_evaluated", "control_hard_successes", "treatment_hard_successes", "paired_recoveries", "paired_regressions", "competence_gate_passed"],
+      "properties": {
+        "summary_sha256": {"$ref": "#/$defs/sha256"},
+        "router_taxonomy_evaluated": {"const": false},
+        "control_hard_successes": {"type": "integer", "minimum": 0},
+        "treatment_hard_successes": {"type": "integer", "minimum": 0},
+        "paired_recoveries": {"type": "integer", "minimum": 0},
+        "paired_regressions": {"type": "integer", "minimum": 0},
+        "competence_gate_passed": {"type": "boolean"}
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "minProperties": 6,
+      "additionalProperties": {"$ref": "#/$defs/sha256"}
+    },
+    "resource_usage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["training_gpu_seconds", "evaluation_gpu_seconds", "peak_vram_mib", "wall_clock_seconds"],
+      "properties": {
+        "training_gpu_seconds": {"type": "number", "minimum": 0},
+        "evaluation_gpu_seconds": {"type": "number", "minimum": 0},
+        "peak_vram_mib": {"type": "number", "minimum": 0},
+        "wall_clock_seconds": {"type": "number", "minimum": 0}
+      }
+    },
+    "decision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["admitted", "reason", "hugging_face_published"],
+      "properties": {
+        "admitted": {"type": "boolean"},
+        "reason": {"type": "string", "minLength": 1},
+        "hugging_face_published": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    }
+  }
+}
