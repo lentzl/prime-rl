@@ -29,7 +29,7 @@ if [[ "$(git rev-parse HEAD)" != "$revision" ]]; then
   echo "execution revision mismatch" >&2
   exit 1
 fi
-git merge-base --is-ancestor 5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f HEAD
+test "$(git -C deps/verifiers rev-parse HEAD)" = 5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f
 test "$(sha256sum "$config" | awk '{print $1}')" = "$config_sha"
 test "$(sha256sum "$sampling_contract" | awk '{print $1}')" = "$sampling_sha"
 test "$(sha256sum "$e33/model.safetensors" | awk '{print $1}')" = "$e33_sha"
