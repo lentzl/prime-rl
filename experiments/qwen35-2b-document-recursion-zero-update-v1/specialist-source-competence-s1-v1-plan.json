@@ -2,8 +2,8 @@
   "schema_version": "q35-2b-specialist-competence-plan/v1",
   "experiment_id": "specialist-source-competence-s1-v1",
   "recorded_at": "2026-09-04",
-  "status": "prospective",
-  "execution_authorization": "pending_root_heldout_freeze_and_explicit_approval",
+  "status": "prospective_frozen_before_model_calls",
+  "execution_authorization": "owner_authorized_existing_2x_a6000_host_only_2026-09-04",
   "objective": "Test whether one balanced full-dense H176-derived source specialist improves model-authored source/config computation and exactly-once typed parent reporting independently of expert-router taxonomy.",
   "protected_models": {
     "coordinator": {
@@ -79,15 +79,23 @@
     "control_and_treatment_task_contracts_must_be_identical": true,
     "num_rollouts": 1,
     "heldout_must_be_hashed_before_any_model_call": true,
-    "heldout_seed": "pending_root_freeze",
-    "heldout_instance_offset": "pending_root_freeze",
-    "heldout_config_sha256": "pending_root_freeze",
-    "sampling_contract_sha256": "pending_root_freeze",
+    "heldout_seed": 20270905,
+    "heldout_instance_offset": 43200,
+    "heldout_config": "specialist-source-competence-s1-heldout-v1.toml",
+    "heldout_config_sha256": "9a48b7108ad44cd518054463c16d64da8c9330d6c33cd9ceb8bc62dec84b3c0c",
+    "sampling_contract": "specialist-competence-s1-sampling-contract.json",
+    "sampling_contract_sha256": "10fd257ca94450086fb750301cbdb3c3b30d51f35aac4e761e19cb49d921999c",
     "summarizer": "scripts/summarize_q35_2b_specialist_competence_v1.py",
     "runner": "scripts/run_q35_2b_specialist_competence_eval_v1.sh"
   },
   "admission": {
-    "final_thresholds": "pending_root_and_strand_e_freeze",
+    "final_thresholds": {
+      "minimum_worker_activations": 12,
+      "minimum_treatment_hard_successes": 4,
+      "minimum_hard_successes_per_family": 2,
+      "minimum_paired_h176_fail_to_candidate_success_recoveries": 4,
+      "maximum_paired_regressions": 0
+    },
     "existing_minimum_complete_qualifying_floor_may_not_be_relaxed": 4,
     "required_dimensions": [
       "minimum worker activations",
@@ -113,8 +121,9 @@
   "resource_request": {
     "reservation": "one exclusive 2x NVIDIA GPU node for the combined table/source sequence",
     "gpu": "2x A6000 48 GiB or 2x L40/L40S 48 GiB",
-    "host_ram_minimum_gib": 128,
-    "local_disk_free_minimum_gib": 120,
+    "host_ram_minimum_gib": 90,
+    "local_disk_free_minimum_gib": 80,
+    "execution_host_constraint": "Use only the existing 2x RTX A6000 host; do not provision additional infrastructure.",
     "reservation_window_hours": 24,
     "training_allocation": "both GPUs, full-dense distributed update, no colocated inference",
     "evaluation_allocation": "GPU0 e33; GPU1 H176 and H_source_s1 colocated only when the treatment arm requires both services; 4 GiB explicit KV cache per service",

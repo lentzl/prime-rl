@@ -1,0 +1,69 @@
+model = "q35-2b-specialist-competence"
+num_tasks = 16
+num_rollouts = 1
+shuffle = false
+max_concurrent = 1
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 3
+
+[env.taskset]
+id = "subagent-communication-v1"
+split = "eval"
+families = [
+  "specialist_source_ast",
+  "specialist_source_config",
+]
+instruction_level = "standard"
+instances_per_template = 4
+instance_offset = 43200
+seed = 20270905
+available_experts = ["generic_worker", "table_analyst", "source_inspector"]
+specialist_relative_costs = { generic_worker = 0.5, table_analyst = 1.0, source_inspector = 1.0 }
+
+[env.agent]
+max_turns = 36
+max_output_tokens = 24576
+max_total_tokens = 131072
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_max_continuations = 12
+autonomous_max_turns = 36
+autonomous_max_tokens = 131072
+autonomous_timeout_ms = 1200000
+process_timeout_ms = 1140000
+
+[env.agent.harness.env]
+RLM_MAX_DEPTH = "2"
+
+[env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-default-parent-v1"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8100/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+seed = 20270905
+temperature = 0.4
+top_p = 0.95
+top_k = 20
+min_p = 0.0
+reasoning_effort = "high"
+max_tokens = 4096
