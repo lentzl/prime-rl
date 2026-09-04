@@ -1,0 +1,107 @@
+{
+  "schema_version": "prime-rl/latent-a0-a1-preregistration/v1",
+  "status": "draft_requires_independent_freeze",
+  "execution_authorization": "none",
+  "frozen_by": null,
+  "frozen_at_utc": null,
+  "base_code_commit": null,
+  "tokenizer_template_sha256": null,
+  "bridge_config_sha256": null,
+  "capture_spec_sha256": null,
+  "plan_sha256": null,
+  "protected_checkpoints": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "workspace_contract": {
+    "schema_version": "prime-rl/latent-workspace/v1",
+    "slots": 8,
+    "workspace_width": 256,
+    "receiver_embedding_width": 2048,
+    "capture_layer": -1,
+    "capture_boundary": "accepted_delegation",
+    "maximum_capture_tokens": 128,
+    "parent_gradient": "detached",
+    "receiver_injection_boundary": "after_child_objective_before_assistant_opening",
+    "operational_direction": "coordinator_parent_to_coordinator_child"
+  },
+  "split_information_bank": {
+    "generator_schema": "prime-rl/split-information-bank/v1",
+    "families": [
+      "keyed_numeric",
+      "relational_join",
+      "config_structure",
+      "ownership_graph"
+    ],
+    "queries_per_evidence": 3,
+    "train_seed": null,
+    "validation_seed": null,
+    "held_out_seed": null,
+    "arm_order_seed": null,
+    "train_examples_per_family": null,
+    "validation_examples_per_family": null,
+    "held_out_examples_per_family": null,
+    "train_manifest_sha256": null,
+    "validation_manifest_sha256": null,
+    "held_out_manifest_sha256": null,
+    "seed_and_manifest_owner": "independent_evaluation_strand"
+  },
+  "primary_audit_arms": [
+    "M0",
+    "MOTH",
+    "MSELF",
+    "MCUR"
+  ],
+  "diagnostic_arms": [
+    "ZERO",
+    "NOISE"
+  ],
+  "mself_compute_match": {
+    "primary_method": "equal_operation",
+    "sender_feature_forwards": 1,
+    "self_feature_forwards": 1,
+    "sender_bridge_forwards": 1,
+    "self_bridge_forwards": 1,
+    "sender_feature_input_tokens": null,
+    "self_feature_input_tokens": null,
+    "receiver_decode_budget_tokens": null,
+    "same_physical_gpu": true,
+    "arm_execution": "sequential",
+    "secondary_method": "measured_equal_cost",
+    "record": [
+      "feature_extraction_gpu_seconds",
+      "bridge_gpu_seconds",
+      "receiver_prefill_gpu_seconds",
+      "receiver_decode_gpu_seconds",
+      "peak_vram_bytes",
+      "latent_bytes",
+      "prompt_tokens",
+      "generated_tokens"
+    ]
+  },
+  "admission_thresholds": {
+    "minimum_complete_held_out_tasks": null,
+    "minimum_paired_recoveries": null,
+    "minimum_recovery_families": null,
+    "minimum_current_vs_other_utility_gap": null,
+    "practical_equivalence_margin": null,
+    "mself_gpu_seconds_relative_tolerance": null
+  },
+  "required_claim_reporting": {
+    "latent_pathway_effect": "MCUR_minus_M0",
+    "other_example_message_presence_effect": "MOTH_minus_M0",
+    "example_specific_latent_value": "MCUR_minus_MOTH",
+    "other_agent_latent_value": "MCUR_minus_MSELF",
+    "receiver_self_contribution": "MSELF_minus_MOTH"
+  },
+  "infrastructure_invalid_if": [
+    "any_workspace_provenance_check_fails",
+    "any_protected_checkpoint_hash_changes",
+    "mself_compute_match_exceeds_independently_frozen_tolerance",
+    "parent_receives_any_downstream_query_or_answer",
+    "child_receives_parent_evidence_through_text",
+    "arm_text_or_decode_budget_differs",
+    "held_out_manifest_differs_from_frozen_hash"
+  ],
+  "promotion_boundary": "A1 evidence only; no production runtime integration or Phase A2 claim"
+}
