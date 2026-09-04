@@ -1,0 +1,182 @@
+{
+  "schema_version": "q35-2b-phase-b-recurrent-sidecar-plan/v1",
+  "status": "launch_ready_unexecuted",
+  "optimizer_updates": 0,
+  "model_calls": 0,
+  "base_code_commit": "b151a35",
+  "protected_inputs": {
+    "coordinator_name": "e33",
+    "coordinator_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_name": "H176",
+    "worker_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "required_state": "bitwise_immutable"
+  },
+  "claim": "A timestep-free recurrent sidecar provides useful local coordinator depth beyond a matched-parameter non-recurrent sidecar while the protected policies remain frozen.",
+  "architecture": {
+    "module": "prime_rl.latent.recurrent.TimestepFreeRecurrentSidecar",
+    "workspace_slots": 8,
+    "workspace_dim": 256,
+    "transition_dim": 8192,
+    "default_trainable_parameters": 10562048,
+    "explicit_cycle_or_timestep_input": false,
+    "task_anchor_reinjected_each_update": true,
+    "visible_workspace": "bounded residual around immutable task anchor; only exportable cognitive tensor",
+    "private_memory": "persistent across local cycles; node-local; never communicable",
+    "memory_update": "sigmoid-gated convex interpolation with tanh-bounded candidate",
+    "visible_update": "task_anchor + tanh(output_scale) * tanh(projected_private_memory)",
+    "output_scale_initialization": "exact zero visible residual",
+    "backbone_changes": "none"
+  },
+  "policy_interface_preflight": {
+    "feature_capture": "Resolve the frozen Qwen3.5 language body and read BaseModelOutputWithPast.last_hidden_state.",
+    "soft_input_decode": "Text-only config: call the frozen causal-LM path with inputs_embeds and explicit seq_lens. VLM-shaped config: call model.model.language_model with inputs_embeds, then the existing frozen lm_head, because the current wrapper VLM branch ignores inputs_embeds.",
+    "staged_e33_config_shape": "ASSIGNED_AND_VERIFIED_BEFORE_FIRST_MODEL_CALL",
+    "capture_span": "ASSIGNED_BY_STRAND_E_OR_ROOT_BEFORE_FIRST_MODEL_CALL",
+    "chat_template_hash": "ASSIGNED_BY_STRAND_E_OR_ROOT_BEFORE_FIRST_MODEL_CALL",
+    "required_assertions": [
+      "every e33 parameter has requires_grad=false",
+      "the optimizer contains sidecar parameters only",
+      "all sidecar gradients are finite after connectivity warmup",
+      "e33 and H176 hashes are unchanged after every run",
+      "zero-scale visible output equals the task anchor exactly"
+    ]
+  },
+  "controls": {
+    "shared_conditions": [
+      "same frozen e33 checkpoint",
+      "same task-anchor extraction and soft-input decoder",
+      "same task splits, target outputs, optimizer family, token budget, and stopping rule",
+      "same harness control plane and action grammar",
+      "parameter counts and measured GPU-seconds reported per arm"
+    ],
+    "BASE": "Frozen e33 with no latent sidecar and zero trainable parameters.",
+    "STATIC": "Frozen e33 with the task anchor injected directly through the shared workspace decoder; no trainable local transition and no repeated local update.",
+    "FFN": "One-shot task-conditioned feed-forward sidecar with hidden_dim=20587 and 10562155 active parameters. It differs from RECURRENT by 107 parameters (about 0.001%) and has no persistent state or repeated update.",
+    "RECURRENT": "The shared timestep-free transition with persistent private memory, evaluated at prospectively declared cycle budgets.",
+    "primary_local_depth_contrast": "RECURRENT minus FFN",
+    "secondary_contrasts": [
+      "RECURRENT minus STATIC",
+      "STATIC minus BASE"
+    ],
+    "interpretation_boundary": "A BASE or STATIC gap is an adapter effect. RECURRENT must beat FFN before claiming local-depth value. Compute-adjusted utility is reported separately from raw capability."
+  },
+  "training_hypothesis": {
+    "connectivity_stage": {
+      "rollout_lengths": [2, 4],
+      "gradient": "full BPTT",
+      "purpose": "verify loss and finite nonzero gradients without claiming capability"
+    },
+    "primary_stage": {
+      "rollout_length_mixture": {
+        "4": 0.75,
+        "8": 0.22,
+        "16": 0.03
+      },
+      "truncated_bptt_window": 4,
+      "persistent_state_between_windows": true,
+      "window_boundary": "detach visible workspace and private memory; do not reset either value",
+      "hypothesis": "A short gradient window with a small fraction of deeper persistent rollouts is more stable and no less useful than full unrolling at the same public token budget."
+    },
+    "full_bandwidth_ideas_imported": [
+      "mostly shallow training with a small deeper-rollout fraction",
+      "bounded and normalized recurrent state pathways",
+      "explicit standard/no-recurrence control",
+      "evaluation beyond trained depth",
+      "contraction and oscillation measurement"
+    ],
+    "full_bandwidth_ideas_not_imported": [
+      "backbone fusion",
+      "top-layer feedback into token embeddings",
+      "continued language-model pretraining",
+      "any update to e33"
+    ]
+  },
+  "evaluation": {
+    "proposed_depth_grid": [0, 1, 2, 4, 8, 16, 32, 64],
+    "depth_bands": {
+      "inside_primary_training_range": [1, 2, 4, 8, 16],
+      "moderate_extrapolation": [32],
+      "far_extrapolation": [64]
+    },
+    "task_family_strata": [
+      "root coordinator solve/delegate decision",
+      "root decomposition and scope construction",
+      "non-root continuation versus return",
+      "fan-in and synthesis",
+      "recoverable malformed or incomplete child report",
+      "easy direct-solve retention anchors"
+    ],
+    "role_strata": [
+      "root coordinator",
+      "non-root coordinator"
+    ],
+    "outcome_metrics": [
+      "exact answer",
+      "clean protocol success",
+      "correct coordinator action",
+      "newly solved by depth",
+      "previously correct then regressed by depth",
+      "cycle-to-cycle action changes",
+      "stable-action depth"
+    ],
+    "state_diagnostics": [
+      "visible workspace RMS change by cycle",
+      "private memory RMS change by cycle",
+      "successive change-norm ratios",
+      "successive update-direction cosine",
+      "negative-cosine oscillation rate",
+      "non-finite state incidence"
+    ],
+    "systems_metrics": [
+      "feature-extraction GPU-seconds",
+      "sidecar GPU-seconds by cycle",
+      "decode GPU-seconds",
+      "end-to-end GPU-seconds per successful task",
+      "wall-clock latency",
+      "peak VRAM",
+      "generated text tokens",
+      "latent bytes"
+    ],
+    "heldout_seed": "ASSIGNED_BY_STRAND_E_OR_ROOT_BEFORE_FIRST_MODEL_CALL",
+    "heldout_split_hash": "ASSIGNED_BY_STRAND_E_OR_ROOT_BEFORE_FIRST_MODEL_CALL",
+    "final_admission_thresholds": "ASSIGNED_BY_STRAND_E_OR_ROOT_BEFORE_FIRST_MODEL_CALL"
+  },
+  "later_corruption_ablation": {
+    "execution_order": "only after CLEAN recurrence has finite gradients and a completed depth curve",
+    "corruptible_state": "visible_workspace only",
+    "never_corrupt": [
+      "immutable task anchor",
+      "private recurrent memory"
+    ],
+    "first_operator": "additive Gaussian noise after workspace normalization",
+    "arms": {
+      "CLEAN": "no artificial corruption",
+      "FIXED": "one prospectively fixed corruption strength",
+      "IID": "independently sampled strength at each recurrent step",
+      "ORDERED": "prospectively ordered corruption schedule across the persistent rollout"
+    },
+    "interpretation_boundary": "This tests a training curriculum, not a diffusion-model claim. No corruption arm may be selected post hoc on the held-out bank."
+  },
+  "halt_policy": {
+    "train": false,
+    "reason": "fixed-depth curves and answer-free stability diagnostics must establish local-depth value first"
+  },
+  "launch_order": [
+    "CPU unit tests and exact parameter-count assertion",
+    "independent evaluator assigns and hashes splits, seeds, and admission thresholds",
+    "root authorizes a frozen-e33 model-call preflight",
+    "gate-zero soft-input equivalence and feature-capture probe",
+    "2/4-step full-BPTT connectivity smoke",
+    "BASE/STATIC/FFN/RECURRENT primary training",
+    "fixed depth extrapolation through 64 cycles",
+    "preserve results before considering corruption or halting"
+  ],
+  "requested_resources": {
+    "preflight": "1 x NVIDIA A6000 48GB for up to 4 GPU-hours",
+    "primary_run": "2 x NVIDIA A6000 48GB for up to 24 wall-clock hours (48 GPU-hours), contingent on valid preflight",
+    "storage": "150GB local scratch plus 25GB durable artifacts",
+    "network": "not required after protected checkpoint and tokenizer are staged",
+    "reason": "one device can hold frozen e33 plus the 10.56M sidecar for correctness; two devices separate feature extraction/evaluation from sidecar training and reduce idle serialized work"
+  },
+  "authorization": "No GPU/model run, optimizer update, checkpoint mutation, halt-policy training, remote infrastructure, push, or publication is authorized by this plan."
+}
