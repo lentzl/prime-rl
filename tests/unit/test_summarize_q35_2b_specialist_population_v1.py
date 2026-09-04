@@ -90,6 +90,7 @@ def _write_audit(
     models: dict[str, str],
     *,
     worker_model_override: str | None = None,
+    forced_assignment: bool = False,
 ) -> None:
     sequence = 0
     with path.open("w", encoding="utf-8") as stream:
@@ -101,7 +102,11 @@ def _write_audit(
                 json.dumps(
                     {
                         "sequence": sequence,
-                        "mode": f"forwarded_specialist_cognitive_action_delegate_terminal_{expert}",
+                        "mode": (
+                            "forwarded_specialist_cognitive_action_"
+                            f"delegate_terminal_{expert}"
+                            f"{'_forced_assignment' if forced_assignment else ''}"
+                        ),
                         "expert_id": expert,
                         "upstream_model": "COORDINATOR",
                         "latency_ms": 10.0,
@@ -242,8 +247,18 @@ def test_fixed_route_competence_summary_is_router_independent(tmp_path: Path) ->
     treatment_audit = tmp_path / "treatment-audit.jsonl"
     _write_traces(control_traces, control)
     _write_traces(treatment_traces, treatment)
-    _write_audit(control_audit, control, {"table_analyst": "H176"})
-    _write_audit(treatment_audit, treatment, {"table_analyst": "H_TABLE"})
+    _write_audit(
+        control_audit,
+        control,
+        {"table_analyst": "H176"},
+        forced_assignment=True,
+    )
+    _write_audit(
+        treatment_audit,
+        treatment,
+        {"table_analyst": "H_TABLE"},
+        forced_assignment=True,
+    )
 
     result = module.summarize(
         expert_id="table_analyst",
@@ -259,6 +274,7 @@ def test_fixed_route_competence_summary_is_router_independent(tmp_path: Path) ->
         minimum_hard_successes_per_family=2,
         minimum_paired_recoveries=4,
         maximum_paired_regressions=0,
+        require_forced_assignment=True,
     )
 
     assert result["paired_recovery_count"] == 4
@@ -266,4 +282,7 @@ def test_fixed_route_competence_summary_is_router_independent(tmp_path: Path) ->
     assert result["router_taxonomy_evaluated"] is False
     assert result["acceptance"]["fixed_route_exact"] is True
     assert result["acceptance"]["router_absent"] is True
+    assert result["acceptance"]["forced_assignment_exact"] is True
+    assert result["control"]["forced_assignment_count"] == 4
+    assert result["treatment"]["forced_assignment_count"] == 4
     assert result["competence_gate_passed"] is True

@@ -55,6 +55,7 @@ def summarize(
     minimum_hard_successes_per_family: int,
     minimum_paired_recoveries: int,
     maximum_paired_regressions: int,
+    require_forced_assignment: bool = False,
 ) -> dict[str, Any]:
     if expert_id not in FAMILIES:
         raise ValueError(f"unsupported specialist: {expert_id}")
@@ -134,6 +135,7 @@ def summarize(
         "minimum_hard_successes_per_family": minimum_hard_successes_per_family,
         "minimum_paired_recoveries": minimum_paired_recoveries,
         "maximum_paired_regressions": maximum_paired_regressions,
+        "require_forced_assignment": require_forced_assignment,
     }
     evidence = {
         "minimum_worker_activations": (
@@ -161,6 +163,13 @@ def summarize(
         ),
         "treatment_provenance_exact": (
             treatment["exact_route_sequence"] and treatment["route_models_exact"]
+        ),
+        "forced_assignment_exact": (
+            not require_forced_assignment
+            or (
+                control["forced_assignment_count"] == expected_tasks
+                and treatment["forced_assignment_count"] == expected_tasks
+            )
         ),
     }
     return {
@@ -207,6 +216,7 @@ def main() -> None:
     parser.add_argument("--minimum-hard-successes-per-family", type=int, required=True)
     parser.add_argument("--minimum-paired-recoveries", type=int, required=True)
     parser.add_argument("--maximum-paired-regressions", type=int, required=True)
+    parser.add_argument("--require-forced-assignment", action="store_true")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     values = vars(args).copy()

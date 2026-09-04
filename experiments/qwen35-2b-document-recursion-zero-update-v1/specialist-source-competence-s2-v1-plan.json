@@ -1,0 +1,115 @@
+{
+  "schema_version": "q35-2b-specialist-competence-plan/v1",
+  "experiment_id": "specialist-source-competence-s2-v1",
+  "recorded_at": "2026-09-05",
+  "status": "prospective_frozen_before_model_calls",
+  "execution_authorization": "owner_active_goal_existing_2x_a6000_host_only_2026-09-05",
+  "objective": "Measure source-worker competence without censoring AST tasks through the root action decision, using a fresh paired bank and an eight-update full-dense H176-derived candidate.",
+  "interpretation_boundary": {
+    "claim": "scaffolded_worker_only_competence",
+    "not_claimed": [
+      "unassisted_root_routing",
+      "unassisted_end_to_end_system_admission",
+      "router_taxonomy_quality"
+    ],
+    "reason": "Both arms force the pristine delegate_terminal action and known source_inspector identity; worker computation, typed report, passive wait, and root finalization remain otherwise unchanged.",
+    "separate_future_gate": "Any worker admitted here must later pass an unforced root/system integration evaluation."
+  },
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates_allowed": 0
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates_allowed": 0
+    }
+  },
+  "candidate": {
+    "label": "H_source_s2",
+    "parent": "H176",
+    "role": "terminal_worker",
+    "update_type": "full_dense",
+    "optimizer_updates": 8,
+    "batch_size": 16,
+    "learning_rate": 0.000002,
+    "optimizer_state_continuous_across_updates": true,
+    "reason": "S1's four-update candidate reduced SFT loss but showed no integrated hard success and qualitative config failures; eight continuous updates test a stronger bounded dose without changing corpus or protected weights."
+  },
+  "training_corpus": {
+    "expert_id": "source_inspector",
+    "rows": 64,
+    "family_counts": {
+      "source_ast": 32,
+      "source_config": 32
+    },
+    "training_template_variants": [0, 1, 2, 3],
+    "heldout_template_variants_excluded": [4, 5],
+    "answer_free": true,
+    "model_authored_file_computation": true,
+    "strict_json_parent_report": true,
+    "train_parquet_sha256": "01d7359cac90f5664ff0364520b3c98cc31227c56496b1d78f704712f9a5bab3"
+  },
+  "paired_evaluation": {
+    "control": "Frozen e33 plus frozen H176 under forced source_inspector assignment.",
+    "treatment": "The same frozen e33 plus H_source_s2 under forced source_inspector assignment.",
+    "force_mechanism": "SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION=1",
+    "force_scope": "pristine specialist action and expert identity only",
+    "task_count": 16,
+    "family_counts": {
+      "specialist_source_ast": 8,
+      "specialist_source_config": 8
+    },
+    "heldout_template_variants": [4, 5],
+    "heldout_seed": 20270906,
+    "heldout_instance_offset": 44000,
+    "heldout_config": "specialist-source-competence-s2-heldout-v1.toml",
+    "heldout_config_sha256": "97c37192a9729fbfb92782b78807a5fa150499645c152eaf9c0a24855911d431",
+    "heldout_task_bank_sha256": "9c38f1dff3787222908e896a151f0889edeeefea7b781f8450736f4b8cc06bd2",
+    "s1_task_key_overlap": 0,
+    "s1_task_name_overlap": 0,
+    "taskset_code_commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "sampling_contract": "specialist-competence-s1-sampling-contract.json",
+    "sampling_contract_sha256": "10fd257ca94450086fb750301cbdb3c3b30d51f35aac4e761e19cb49d921999c",
+    "control_and_treatment_task_contracts_must_be_identical": true,
+    "num_rollouts": 1,
+    "shuffle": false
+  },
+  "admission": {
+    "final_thresholds": {
+      "forced_worker_activations_each_arm": 16,
+      "minimum_treatment_hard_successes": 4,
+      "minimum_hard_successes_per_family": 2,
+      "minimum_paired_h176_fail_to_candidate_success_recoveries": 4,
+      "maximum_paired_regressions": 0
+    },
+    "existing_minimum_complete_qualifying_floor_may_not_be_relaxed": 4,
+    "required_invariants": [
+      "forced assignment audit exact in both arms",
+      "fixed route and worker provenance exact",
+      "no specialist-router calls",
+      "e33 and H176 rehash unchanged",
+      "zero evaluation errors and 16 distinct complete task contracts"
+    ]
+  },
+  "execution": {
+    "runner": "scripts/run_q35_2b_source_worker_competence_s2_v1.sh",
+    "sequence": [
+      "fail-closed artifact/hash preflight",
+      "paired H176 forced control",
+      "eight-update full-dense training from immutable H176",
+      "paired H_source_s2 forced treatment",
+      "immutable paired summary and protected-model rehash"
+    ],
+    "duplicate_policy": "Refuse launch if any S2 control, treatment, candidate, receipt, or summary artifact already exists.",
+    "publication": "No Hugging Face publication without separate admission and owner approval."
+  },
+  "resource_constraint": {
+    "host": "existing rented host only",
+    "gpu": "2x RTX A6000 48 GiB",
+    "additional_infrastructure_allowed": false,
+    "concurrency": "one evaluation arm or one full-dense training job at a time"
+  }
+}

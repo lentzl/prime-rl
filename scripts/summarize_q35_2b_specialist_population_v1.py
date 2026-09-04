@@ -156,6 +156,9 @@ def _audit_terminal_routes(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "worker_model_call_count": len(models),
                 "latency_ms": row.get("latency_ms"),
                 "session_sha256": session_sha256,
+                "forced_assignment": str(row.get("mode")).endswith(
+                    "_forced_assignment"
+                ),
             }
         )
     return routes
@@ -191,6 +194,9 @@ def _arm(
         "hard_successes": sum(row["hard_success"] for row in rows),
         "family_hard_successes": dict(sorted(Counter(row["family"] for row in rows if row["hard_success"]).items())),
         "worker_activations": dict(sorted(activations.items())),
+        "forced_assignment_count": sum(
+            route["forced_assignment"] for route in routes
+        ),
         "exact_route_sequence": exact_route_sequence,
         "route_models_exact": route_models_exact,
         "local_tasks_did_not_delegate": bool(local_rows)

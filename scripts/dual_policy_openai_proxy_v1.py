@@ -2031,6 +2031,36 @@ def with_specialist_expert_decision(body: bytes, *, expert_id: str) -> bytes:
     return json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
 
 
+def force_specialist_assignment_decision(body: bytes, *, expert_id: str) -> bytes:
+    """Replace one valid completion choice with an explicit worker-only assignment.
+
+    This is an opt-in competence-probe scaffold. It deliberately overrides the
+    coordinator's pristine cognitive action, so callers must keep its evidence
+    separate from unassisted coordinator or end-to-end system admission.
+    """
+
+    try:
+        payload = json.loads(body)
+    except (json.JSONDecodeError, UnicodeDecodeError) as error:
+        raise ValueError("cannot force specialist assignment on invalid JSON") from error
+    choices = payload.get("choices") if isinstance(payload, dict) else None
+    if (
+        not isinstance(choices, list)
+        or len(choices) != 1
+        or not isinstance(choices[0], dict)
+    ):
+        raise ValueError("forced specialist assignment requires exactly one choice")
+    choices[0]["message"] = {
+        "role": "assistant",
+        "content": json.dumps(
+            {"action": "delegate_terminal", "expert_id": expert_id},
+            separators=(",", ":"),
+        ),
+    }
+    choices[0]["finish_reason"] = "stop"
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode()
+
+
 def specialist_local_values_from_messages(messages: Any) -> list[int] | None:
     values = []
     for fragment in _message_fragments(messages):
@@ -3709,6 +3739,7 @@ class DualPolicyProxy:
         specialist_router_model: str | None = None,
         specialist_router_generic_relative_cost: float = 0.5,
         specialist_fixed_expert: str | None = None,
+        specialist_force_fixed_action: bool = False,
         recursive_coordinator_token_ids: list[int] | None = None,
         document_coordinator_token_ids: list[int] | None = None,
         root_depth_token_ids: list[int] | None = None,
@@ -3751,6 +3782,8 @@ class DualPolicyProxy:
             raise ValueError("separate specialist router requires specialist worker routing")
         if specialist_fixed_expert is not None and not specialist_worker_routing:
             raise ValueError("fixed specialist expert requires specialist worker routing")
+        if specialist_force_fixed_action and specialist_fixed_expert is None:
+            raise ValueError("forced specialist action requires a fixed specialist expert")
         if specialist_fixed_expert is not None and specialist_router_url is not None:
             raise ValueError("fixed specialist expert and separate router are mutually exclusive")
         if specialist_router_generic_relative_cost <= 0:
@@ -3780,6 +3813,7 @@ class DualPolicyProxy:
                 f"fixed specialist expert has no configured route: {specialist_fixed_expert}"
             )
         self.specialist_fixed_expert = specialist_fixed_expert
+        self.specialist_force_fixed_action = specialist_force_fixed_action
         self.external_model = external_model
         self.audit_log = audit_log
         self.private_evidence_token_ids = private_evidence_token_ids
@@ -4800,6 +4834,7 @@ class DualPolicyProxy:
         specialist_registry_ids = None
         specialist_selected_action = None
         specialist_selected_expert = None
+        specialist_forced_assignment = False
         pristine_root_topology_turn = not any(
             isinstance(message, dict)
             and message.get("role") in {"assistant", "tool"}
@@ -5430,15 +5465,23 @@ class DualPolicyProxy:
                                 normalized, expert_id=selected_expert
                             )
                     elif self.specialist_fixed_expert is not None:
-                        selected_action = cognitive_action_from_response(normalized)
-                        selected_expert = (
-                            self.specialist_fixed_expert
-                            if selected_action == "delegate_terminal"
-                            else "none"
-                        )
-                        normalized = with_specialist_expert_decision(
-                            normalized, expert_id=selected_expert
-                        )
+                        if self.specialist_force_fixed_action:
+                            selected_action = "delegate_terminal"
+                            selected_expert = self.specialist_fixed_expert
+                            normalized = force_specialist_assignment_decision(
+                                normalized, expert_id=selected_expert
+                            )
+                            specialist_forced_assignment = True
+                        else:
+                            selected_action = cognitive_action_from_response(normalized)
+                            selected_expert = (
+                                self.specialist_fixed_expert
+                                if selected_action == "delegate_terminal"
+                                else "none"
+                            )
+                            normalized = with_specialist_expert_decision(
+                                normalized, expert_id=selected_expert
+                            )
                     (
                         normalized,
                         _,
@@ -5557,6 +5600,7 @@ class DualPolicyProxy:
                 audit_mode = (
                     "forwarded_specialist_cognitive_action_"
                     f"{specialist_selected_action}_{specialist_selected_expert}"
+                    f"{'_forced_assignment' if specialist_forced_assignment else ''}"
                     if root_topology_action_sha256 is not None
                     else "forwarded_specialist_cognitive_action_untranslated"
                 )
@@ -5672,6 +5716,7 @@ def main() -> None:
     parser.add_argument("--specialist-router-url")
     parser.add_argument("--specialist-router-model")
     parser.add_argument("--specialist-fixed-expert")
+    parser.add_argument("--specialist-force-fixed-action", action="store_true")
     parser.add_argument(
         "--specialist-router-generic-relative-cost", type=float, default=0.5
     )
@@ -5747,6 +5792,7 @@ def main() -> None:
             args.specialist_router_generic_relative_cost
         ),
         specialist_fixed_expert=args.specialist_fixed_expert,
+        specialist_force_fixed_action=args.specialist_force_fixed_action,
         external_model=args.external_model,
         audit_log=args.audit_log.resolve(),
         private_evidence_token_ids=private_evidence_token_ids,

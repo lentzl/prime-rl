@@ -10,6 +10,12 @@ label=${5:?evaluation label required}
 revision=${6:?model revision required}
 config=${7:?frozen evaluation config path required}
 output_root=${SPECIALIST_COMPETENCE_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-specialist-competence-s1-v1}
+force_fixed_action=${SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION:-0}
+
+if [[ "$force_fixed_action" != 0 && "$force_fixed_action" != 1 ]]; then
+  echo "SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION must be 0 or 1" >&2
+  exit 1
+fi
 
 case "$expert_id" in
   table_analyst)
@@ -41,6 +47,7 @@ DUAL_EXTERNAL_MODEL=q35-2b-specialist-competence \
 DUAL_ROOT_COORDINATOR_CONTRACT=1 \
 DUAL_SPECIALIST_WORKER_ROUTING=1 \
 DUAL_SPECIALIST_FIXED_EXPERT="$expert_id" \
+DUAL_SPECIALIST_FORCE_FIXED_ACTION="$force_fixed_action" \
 DUAL_TABLE_ANALYST_MODEL="$table_analyst_model" \
 DUAL_SOURCE_INSPECTOR_MODEL="$source_inspector_model" \
 DUAL_DEPTH_DEFAULT_CHILD=1 \

@@ -460,6 +460,13 @@ distinct task keys, hard success, successful coordinator and child routes, and
 the exact hashes of both evaluated checkpoints. Never weaken the four-trajectory
 promotion floor.
 
+When root action selection censors a terminal specialist's competence signal,
+an explicitly preregistered worker-only probe may set
+`SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION=1` for both paired arms. This forces
+only the pristine specialist action and known expert assignment. Label the
+result scaffolded worker-only evidence: it cannot satisfy unassisted root or
+end-to-end system admission, which must retain a separate integration gate.
+
 For disk pressure, prune only completed `grpo-auto-*` checkpoint directories
 that are explicitly absent from the initial, current, and promoted frontiers.
 Record every deletion in the hash-chained event log and retain enough recent

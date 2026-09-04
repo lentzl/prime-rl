@@ -132,8 +132,10 @@ def test_dual_policy_mastery_launcher_can_force_recursive_coordinator_return() -
     assert 'proxy_args+=(--depth-default-child)' in launcher
     assert "specialist_worker_routing=${DUAL_SPECIALIST_WORKER_ROUTING:-0}" in launcher
     assert "specialist_fixed_expert=${DUAL_SPECIALIST_FIXED_EXPERT:-}" in launcher
+    assert "specialist_force_fixed_action=${DUAL_SPECIALIST_FORCE_FIXED_ACTION:-0}" in launcher
     assert "--specialist-worker-routing" in launcher
     assert 'proxy_args+=(--specialist-fixed-expert "$specialist_fixed_expert")' in launcher
+    assert 'proxy_args+=(--specialist-force-fixed-action)' in launcher
     assert "--specialist-route table_analyst" in launcher
     assert "--specialist-route source_inspector" in launcher
     assert "launch_table_analyst" in launcher
@@ -190,6 +192,8 @@ def test_specialist_competence_runner_fixes_identity_not_cognitive_action() -> N
     ).read_text()
 
     assert 'DUAL_SPECIALIST_FIXED_EXPERT="$expert_id"' in runner
+    assert "force_fixed_action=${SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION:-0}" in runner
+    assert 'DUAL_SPECIALIST_FORCE_FIXED_ACTION="$force_fixed_action"' in runner
     assert "DUAL_SPECIALIST_WORKER_ROUTING=1" in runner
     assert "DUAL_ROOT_COORDINATOR_CONTRACT=1" in runner
     assert "DUAL_LEAK_COORDINATOR_EXACT_ACTION" not in runner
@@ -2059,6 +2063,47 @@ def test_fixed_specialist_expert_attaches_identity_to_model_authored_action() ->
         "action": "delegate_terminal",
         "expert_id": "table_analyst",
     }
+
+
+def test_forced_specialist_assignment_overrides_action_for_worker_probe() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    body = json.dumps(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "role": "assistant",
+                        "content": '{"action":"solve_owned"}',
+                    }
+                }
+            ]
+        }
+    ).encode()
+
+    forced = module.force_specialist_assignment_decision(
+        body, expert_id="source_inspector"
+    )
+    code = "await rlm('inspect', name='task-worker')"
+    rewritten, count, _, selected_action, selected_expert = (
+        module.rewrite_typed_specialist_action_response(
+            forced,
+            canonical_actions={("delegate_terminal", "source_inspector"): code},
+            expected_facts={
+                "owns_required_evidence": False,
+                "remaining_work_requires_decomposition": False,
+                "terminal_shards_ready": True,
+            },
+            expert_ids=("source_inspector",),
+        )
+    )
+    function = json.loads(rewritten)["choices"][0]["message"]["tool_calls"][0][
+        "function"
+    ]
+
+    assert count == 1
+    assert selected_action == "delegate_terminal"
+    assert selected_expert == "source_inspector"
+    assert json.loads(function["arguments"]) == {"code": code}
 
 
 def test_specialist_router_projection_keeps_only_public_routing_evidence() -> None:
