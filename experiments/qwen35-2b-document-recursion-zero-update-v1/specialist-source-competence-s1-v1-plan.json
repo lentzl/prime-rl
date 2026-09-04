@@ -83,6 +83,8 @@
     "heldout_instance_offset": 43200,
     "heldout_config": "specialist-source-competence-s1-heldout-v1.toml",
     "heldout_config_sha256": "9a48b7108ad44cd518054463c16d64da8c9330d6c33cd9ceb8bc62dec84b3c0c",
+    "heldout_task_bank_sha256": "8e18dc1cc51f12d1d757bab6c20f440cb5df0de9b58d824c5d4631af2fe56a82",
+    "taskset_code_commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
     "sampling_contract": "specialist-competence-s1-sampling-contract.json",
     "sampling_contract_sha256": "10fd257ca94450086fb750301cbdb3c3b30d51f35aac4e761e19cb49d921999c",
     "summarizer": "scripts/summarize_q35_2b_specialist_competence_v1.py",
