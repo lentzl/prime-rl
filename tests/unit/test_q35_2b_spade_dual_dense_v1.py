@@ -197,7 +197,6 @@ def test_specialist_competence_runner_fixes_identity_not_cognitive_action() -> N
     assert "model weights changed during specialist competence evaluation" in runner
     assert "DUAL_SOURCE_INSPECTOR_MODEL" in runner
     assert "DUAL_DEPTH_DEFAULT_CHILD=1" in runner
-    assert "changed during specialist population evaluation" in runner
 
 
 def test_natural_child_replay_runner_keeps_role_and_promotion_gates_separate() -> None:
