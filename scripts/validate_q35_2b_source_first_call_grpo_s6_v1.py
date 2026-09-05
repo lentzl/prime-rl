@@ -323,6 +323,17 @@ def validate_runtime(
             raise AuditFailure(f"effective trace {index} has invalid source task identity")
         if not isinstance(reward, (int, float)) or not math.isfinite(reward):
             raise AuditFailure(f"effective trace {index} has no finite S6 reward")
+        leaked_rewards = {
+            name: payload.get("score")
+            for name, payload in record.get("rewards", {}).items()
+            if name != EXPECTED_REWARD
+            and isinstance(payload, dict)
+            and payload.get("score") not in (0, 0.0)
+        }
+        if leaked_rewards:
+            raise AuditFailure(
+                f"effective trace {index} has non-S6 reward leakage: {leaked_rewards}"
+            )
         families[family] += 1
         task_rewards[task_key].append(float(reward))
         trace = vf.WireTrace.model_validate(record)

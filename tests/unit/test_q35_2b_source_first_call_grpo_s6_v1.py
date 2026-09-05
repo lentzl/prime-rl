@@ -25,6 +25,7 @@ score_first_call = REWARD.score_first_call
 AST_PATHS = ("/workspace/sample/alpha.py", "/workspace/sample/beta.py")
 CONFIG_PATHS = ("/workspace/sample/service.toml", "/workspace/sample/features.env")
 LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_first_call_grpo_s6_v1.sh"
+VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_first_call_grpo_s6_v1.py"
 
 
 def test_atomic_ast_loop_receives_full_reward() -> None:
@@ -174,3 +175,10 @@ def test_launcher_checks_s5_exactness_at_task_schema_location() -> None:
     assert 'treatment_tasks = summary.get("treatment", {}).get("tasks", [])' in launcher
     assert 'task.get("answer_accuracy") != 0' in launcher
     assert 'get("exact_answers")' not in launcher
+
+
+def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
+    validator = VALIDATOR_PATH.read_text()
+    assert "if name != EXPECTED_REWARD" in validator
+    assert 'payload.get("score") not in (0, 0.0)' in validator
+    assert "has non-S6 reward leakage" in validator
