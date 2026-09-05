@@ -1,0 +1,91 @@
+{
+  "cache": false,
+  "candidate_artifact_validity": {
+    "disposition": "invalid_unclassified_do_not_use",
+    "present_file_hashes": {},
+    "reason": "No candidate module is valid unless paired with the exact atomic SUCCESS.json receipt",
+    "valid": false
+  },
+  "elapsed_seconds": 256.3973824977875,
+  "error": "",
+  "error_type": "KeyboardInterrupt",
+  "failure_class": "infrastructure_invalid",
+  "generation": false,
+  "plan_sha256": "6013e4ade15fba3a85c7e202008ef8222504796203348b8cee2d3b1e366dc00d",
+  "post_failure_hash_audit": {
+    "audit_complete": true,
+    "compact_checkpoint_hashes": {},
+    "completed_optimizer_updates": {
+      "FFN": 2,
+      "STATIC": 4
+    },
+    "cuda_memory": {
+      "allocated_bytes": 4601165312,
+      "maximum_allocated_bytes": 33097241600,
+      "maximum_reserved_bytes": 34978398208,
+      "reserved_bytes": 31966887936
+    },
+    "e33_file": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "e33_file_matches": true,
+    "e33_has_gradient": false,
+    "e33_tensor_current": "eedbc421bdefa3db5d00c546da176f5021e4423f099ce3d0f6b3c1cd30496f54",
+    "e33_tensor_matches_pre": true,
+    "execution_breadcrumbs": {
+      "arm": "FFN",
+      "stage": "training",
+      "task_key": "document_adaptive_d2-v2-i34100",
+      "update_index": 3
+    },
+    "hash_probe_error": null,
+    "immutable_inputs": {
+      "br5_preflight_log": "9349a182847564f66c37880e678271ac84df75fca7ff316f7c1b2c2d298262de",
+      "br5_run_log": "ecfe72ede951f1212effcb5067649c137f87ecd7f6317b03a0ff97324a6cb0bf",
+      "br5_snapshot_manifest": "8907b07627a3e77d2cde853f58fb7693715ff881b95d52b43d21db4170326ad2",
+      "br5_success": "3e9a9d26a076382dd873ac1c1ec8d35d15dc05983b9f645340315fcb1cd080b9",
+      "heldout_generator_source": "0c799ff8cbaef65113b4208996e05a3995736461e4772e490b263cebfad6ce39",
+      "heldout_manifest": "a1b9fa94dc65640cf5bf174edf6cf6581bb1e50e32f454cf474c9230e116f10e",
+      "heldout_parquet": "951bd90164e5c43a5730081c63fba8d6c78362cd3bf4fa48dfc68598fc92871d",
+      "heldout_runtime_source": "4f8156c32ff97dcef1752e35fe282385c182bc6101ebe6e0500ea42ee0f6080a",
+      "heldout_selection": "e086b751155c2c5e8d000cd60d3ff999bbdd91e6faaf3a3c68a5913de5957aca",
+      "heldout_taskset_source": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499",
+      "plan": "6013e4ade15fba3a85c7e202008ef8222504796203348b8cee2d3b1e366dc00d",
+      "train_selection": "f049818029e3b241d0b3b777696e500d0f7320f9614f6a49cc57def13dfc9b1b",
+      "training_manifest": "52b50f8f57d2ad6cf084c13bfe429293b304824c76df2c979b6e7793d1344575",
+      "training_parquet": "256328cbdb33dc8880370688e2c6f4256341f644757a9d9d033bb5febc74e12e"
+    },
+    "metadata": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "metadata_matches": true,
+    "module_tensor_current": {
+      "FFN.codec": "72271fb51199de087295dca21a6fbd15268171ad6d7dfb9ee6409e85d762f0ea",
+      "FFN.sidecar": "b63c595a7f1db596f259798253ba1e303728e5a116c4b0aa62162438af25d088",
+      "RECURRENT.codec": "5617435308306db1dc5a8ae32f4f57f663bf7049daba923b4c89fb514a2a3e6a",
+      "RECURRENT.sidecar": "2a12b44b8f4ef4edfa5d1848cd46099eb812669400a3135615c786e933011039",
+      "STATIC.codec": "b860cf4c4c777bf68d6594710308b9266f30cc2f466f7b617216a55ca910948a"
+    },
+    "module_tensor_initial": {
+      "FFN.codec": "5617435308306db1dc5a8ae32f4f57f663bf7049daba923b4c89fb514a2a3e6a",
+      "FFN.sidecar": "7ab3d82f4ee8230bcb34528dac76abec6048bec6f2fc8aa6348a8fd33cdb8960",
+      "RECURRENT.codec": "5617435308306db1dc5a8ae32f4f57f663bf7049daba923b4c89fb514a2a3e6a",
+      "RECURRENT.sidecar": "2a12b44b8f4ef4edfa5d1848cd46099eb812669400a3135615c786e933011039",
+      "STATIC.codec": "5617435308306db1dc5a8ae32f4f57f663bf7049daba923b4c89fb514a2a3e6a"
+    }
+  },
+  "promotion_floor_unchanged": 4,
+  "schema_version": "q35-2b-phase-b-teacher-forced-value-screen-failure/v1",
+  "status": "FAILURE",
+  "strand_a_combined": false,
+  "wall_clock_contract": {
+    "compute_seconds": 14040,
+    "failure_audit_seconds": 300,
+    "outer_seconds": 14400,
+    "terminal_publication_headroom_seconds": 60
+  },
+  "worker_loaded": false
+}

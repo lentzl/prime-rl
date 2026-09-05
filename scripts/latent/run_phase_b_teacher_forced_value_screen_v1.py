@@ -49,7 +49,7 @@ from prime_rl.phase_b_value_screen import (
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-DRAFT_PLAN = EXPERIMENT / "phase-b-teacher-forced-value-screen-b1-plan.json"
+DRAFT_PLAN = EXPERIMENT / "phase-b-teacher-forced-value-screen-b1r-plan.json"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
     "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src:"
@@ -62,6 +62,109 @@ OUTER_WALL_CLOCK_SECONDS = 14_400
 COMPUTE_LIMIT_SECONDS = 14_040
 FAILURE_AUDIT_LIMIT_SECONDS = 300
 TERMINAL_PUBLICATION_HEADROOM_SECONDS = 60
+CUDA_MEMORY_CAP_BYTES = 32 * 1024**3
+
+
+class ResourceContractExceeded(PhaseBContractError):
+    """Raised when the prospective B1R CUDA allocator contract is exceeded."""
+
+
+def _cuda_memory_values(torch: Any) -> dict[str, int]:
+    return {
+        "current_allocated_bytes": int(torch.cuda.memory_allocated(0)),
+        "current_reserved_bytes": int(torch.cuda.memory_reserved(0)),
+        "maximum_allocated_bytes": int(torch.cuda.max_memory_allocated(0)),
+        "maximum_reserved_bytes": int(torch.cuda.max_memory_reserved(0)),
+    }
+
+
+def _enforce_cuda_memory_cap(torch: Any, audit_context: dict[str, Any], checkpoint: str) -> dict[str, Any]:
+    contract = audit_context.get("cuda_memory_contract")
+    if not isinstance(contract, dict) or contract.get("cap_bytes") != CUDA_MEMORY_CAP_BYTES:
+        raise ResourceContractExceeded("B1R CUDA memory contract was not initialized")
+    snapshot: dict[str, Any] = {"checkpoint": checkpoint, **_cuda_memory_values(torch)}
+    contract.setdefault("checkpoint_ledger", []).append(snapshot)
+    exceeded = {
+        key: value
+        for key, value in snapshot.items()
+        if key.endswith("_bytes") and isinstance(value, int) and value > CUDA_MEMORY_CAP_BYTES
+    }
+    if exceeded:
+        raise ResourceContractExceeded(
+            f"B1R CUDA memory cap exceeded at {checkpoint}: {json.dumps(exceeded, sort_keys=True)}"
+        )
+    return snapshot
+
+
+def _expected_memory_checkpoint_labels(tokenizer_context: dict[str, Any]) -> list[str]:
+    labels = ["after_model_load"]
+    labels.extend(f"capture:training:{row['task_key']}" for row in tokenizer_context["training_rows"])
+    labels.extend(f"capture:heldout:{row['task_key']}" for row in tokenizer_context["heldout_rows"])
+    labels.append("after_module_construction")
+
+    def evaluation(name: str, arms: tuple[str, ...]) -> None:
+        for row in tokenizer_context["heldout_rows"]:
+            key = row["task_key"]
+            if "BASE" in arms:
+                labels.append(f"eval:{name}:BASE:{key}")
+            for arm in ("STATIC", "FFN"):
+                if arm in arms:
+                    labels.append(f"eval:{name}:{arm}:{key}")
+            if "RECURRENT" in arms:
+                labels.extend(f"eval:{name}:RECURRENT_T{depth}:{key}" for depth in EVALUATION_DEPTHS)
+        labels.append(f"eval:{name}:complete")
+
+    evaluation("step0", ("BASE", "STATIC", "FFN", "RECURRENT"))
+    for arm in TRAINING_ARMS:
+        for batch in tokenizer_context["batches"]:
+            for key in batch.task_keys:
+                labels.append(f"train:{arm}:update{batch.update_index}:row:{key}:post_backward")
+            labels.append(f"train:{arm}:update{batch.update_index}:post_clip")
+            labels.append(f"train:{arm}:update{batch.update_index}:post_step")
+        labels.append(f"train:{arm}:optimizer_destroyed")
+        evaluation(f"post_{arm}", (arm,))
+        labels.append(f"arm:{arm}:complete")
+    labels.append("after_final_audits")
+    for name in ("STATIC.final.pt", "FFN.final.pt", "RECURRENT.final.pt"):
+        labels.extend((f"checkpoint:{name}:before_write", f"checkpoint:{name}:after_write"))
+    labels.append("before_success")
+    return labels
+
+
+def _validated_cuda_memory_contract(audit_context: dict[str, Any]) -> dict[str, Any]:
+    contract = audit_context.get("cuda_memory_contract")
+    expected_labels = audit_context.get("expected_memory_checkpoint_labels")
+    if not isinstance(contract, dict) or not isinstance(expected_labels, list):
+        raise ResourceContractExceeded("B1R CUDA memory ledger is absent")
+    ledger = contract.get("checkpoint_ledger")
+    if not isinstance(ledger, list) or [item.get("checkpoint") for item in ledger] != expected_labels:
+        raise ResourceContractExceeded("B1R CUDA memory checkpoint ledger order or count differs")
+    if contract.get("cap_bytes") != CUDA_MEMORY_CAP_BYTES:
+        raise ResourceContractExceeded("B1R CUDA memory cap differs")
+    requested = contract.get("requested_fraction")
+    observed = contract.get("observed_fraction")
+    if not isinstance(requested, float) or not isinstance(observed, float) or not math.isclose(
+        requested, observed, rel_tol=0.0, abs_tol=1e-12
+    ):
+        raise ResourceContractExceeded("B1R CUDA allocator fraction was not applied exactly")
+    if any(
+        item[key] > CUDA_MEMORY_CAP_BYTES
+        for item in ledger
+        for key in (
+            "current_allocated_bytes",
+            "current_reserved_bytes",
+            "maximum_allocated_bytes",
+            "maximum_reserved_bytes",
+        )
+    ):
+        raise ResourceContractExceeded("B1R CUDA memory ledger contains a cap violation")
+    return {
+        **deepcopy(contract),
+        "expected_checkpoint_count": len(expected_labels),
+        "observed_checkpoint_count": len(ledger),
+        "ordered_checkpoint_labels_sha256": canonical_json_sha256(expected_labels),
+        "validated": True,
+    }
 
 
 def _timeout_handler(_signum: int, _frame: Any) -> None:
@@ -153,6 +256,72 @@ def _validate_br5_receipt(plan: dict[str, Any]) -> dict[str, Any]:
     return receipt
 
 
+def _validate_b1_invalid_receipt(plan: dict[str, Any]) -> dict[str, Any]:
+    dependency = plan["b1_invalid_dependency"]
+    receipt_path = Path(dependency["receipt_path"])
+    if file_sha256(receipt_path) != dependency["receipt_file_sha256"]:
+        raise PhaseBContractError("B1R does not bind the exact invalid B1 FAILURE")
+    receipt = load_json_file(receipt_path)
+    audit = receipt.get("post_failure_hash_audit")
+    breadcrumbs = audit.get("execution_breadcrumbs") if isinstance(audit, dict) else None
+    cuda_memory = audit.get("cuda_memory") if isinstance(audit, dict) else None
+    expected_top = {
+        "status": "FAILURE",
+        "failure_class": "infrastructure_invalid",
+        "error_type": "KeyboardInterrupt",
+        "plan_sha256": dependency["prior_plan_file_sha256"],
+    }
+    if any(receipt.get(key) != value for key, value in expected_top.items()):
+        raise PhaseBContractError("B1R invalid-run terminal predicates differ")
+    if not isinstance(audit, dict) or audit.get("audit_complete") is not True or audit.get("hash_probe_error") is not None:
+        raise PhaseBContractError("B1R invalid-run preservation audit is incomplete")
+    if audit.get("completed_optimizer_updates") != {"FFN": 2, "STATIC": 4}:
+        raise PhaseBContractError("B1R invalid-run update boundary differs")
+    if breadcrumbs != {
+        "arm": "FFN",
+        "stage": "training",
+        "task_key": "document_adaptive_d2-v2-i34100",
+        "update_index": 3,
+    }:
+        raise PhaseBContractError("B1R invalid-run interruption breadcrumb differs")
+    if not isinstance(cuda_memory, dict) or (
+        cuda_memory.get("maximum_allocated_bytes"), cuda_memory.get("maximum_reserved_bytes")
+    ) != (33_097_241_600, 34_978_398_208):
+        raise PhaseBContractError("B1R invalid-run peak memory evidence differs")
+    if cuda_memory["maximum_allocated_bytes"] > CUDA_MEMORY_CAP_BYTES:
+        raise PhaseBContractError("B1R invalid-run allocated peak unexpectedly exceeded the cap")
+    if cuda_memory["maximum_reserved_bytes"] <= CUDA_MEMORY_CAP_BYTES:
+        raise PhaseBContractError("B1R invalid-run did not prove the material reserved-memory violation")
+    if audit.get("compact_checkpoint_hashes") != {} or receipt.get("candidate_artifact_validity", {}).get("valid") is not False:
+        raise PhaseBContractError("B1R invalid run unexpectedly retained a valid candidate")
+    if not (
+        audit.get("e33_file_matches") is True
+        and audit.get("e33_tensor_matches_pre") is True
+        and audit.get("e33_has_gradient") is False
+        and audit.get("metadata_matches") is True
+    ):
+        raise PhaseBContractError("B1R invalid-run e33 preservation differs")
+    prior_plan = subprocess.run(
+        [
+            "git",
+            "show",
+            f"{dependency['prior_freeze_commit']}:{dependency['prior_plan_repository_path']}",
+        ],
+        cwd=WORKTREE,
+        capture_output=True,
+        check=True,
+    ).stdout
+    if hashlib.sha256(prior_plan).hexdigest() != dependency["prior_plan_file_sha256"]:
+        raise PhaseBContractError("B1R prior plan bytes differ from the bound invalid-run plan")
+    prior_plan_object = json.loads(prior_plan)
+    if (
+        prior_plan_object.get("plan_sha256") != dependency["prior_plan_internal_sha256"]
+        or prior_plan_object.get("mechanism_code_commit") != dependency["prior_mechanism_commit"]
+    ):
+        raise PhaseBContractError("B1R prior plan internal provenance differs")
+    return receipt
+
+
 def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     plan_hash = file_sha256(args.plan)
     if plan_hash != args.authorized_plan_sha256:
@@ -204,6 +373,7 @@ def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, 
     if os.environ.get("PYTHONPATH") != EXPECTED_PYTHONPATH:
         raise PhaseBContractError("B1 PYTHONPATH differs")
     br5_receipt = _validate_br5_receipt(plan)
+    invalid_b1_receipt = _validate_b1_invalid_receipt(plan)
     plan["_plan_path"] = str(args.plan)
     plan["_plan_sha256"] = plan_hash
     return (
@@ -213,6 +383,8 @@ def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, 
         | {
             "_br5_receipt_sha256": file_sha256(Path(plan["br5_dependency"]["receipt_path"])),
             "_br5_receipt": br5_receipt,
+            "_invalid_b1_receipt_sha256": file_sha256(Path(plan["b1_invalid_dependency"]["receipt_path"])),
+            "_invalid_b1_receipt": invalid_b1_receipt,
         },
     )
 
@@ -493,6 +665,8 @@ def _evaluate(
     diagnose_recurrent_states: Any,
     torch: Any,
     smoke: ModuleType,
+    audit_context: dict[str, Any],
+    evaluation_name: str,
     arms: tuple[str, ...] = ("BASE", "STATIC", "FFN", "RECURRENT"),
 ) -> dict[str, Any]:
     metrics: dict[str, list[dict[str, Any]]] = {}
@@ -518,6 +692,7 @@ def _evaluate(
                 )
                 metrics["BASE"].append(_metric_from_output(base, example, torch=torch, smoke=smoke))
                 del base, labels
+                _enforce_cuda_memory_cap(torch, audit_context, f"eval:{evaluation_name}:BASE:{example['task_key']}")
             hidden = example["captured_hidden"].to("cuda:0")
             mask = torch.ones(hidden.shape[:2], dtype=torch.long, device="cuda:0")
             anchors = {arm: codecs[arm].encode(hidden, mask) for arm in TRAINING_ARMS if arm in arms}
@@ -536,6 +711,7 @@ def _evaluate(
                 )
                 metrics[arm].append(_metric_from_output(output, example, torch=torch, smoke=smoke))
                 del visible, output
+                _enforce_cuda_memory_cap(torch, audit_context, f"eval:{evaluation_name}:{arm}:{example['task_key']}")
             if "RECURRENT" in arms:
                 trajectory = sidecars["RECURRENT"].rollout(anchors["RECURRENT"], 8, return_trajectory=True)
                 diagnostic = diagnose_recurrent_states(trajectory)
@@ -561,9 +737,13 @@ def _evaluate(
                         metric.update({"retention": retention, "stability_T8": stability})
                     metrics[f"RECURRENT_T{depth}"].append(metric)
                     del output
+                    _enforce_cuda_memory_cap(
+                        torch, audit_context, f"eval:{evaluation_name}:RECURRENT_T{depth}:{example['task_key']}"
+                    )
                 del trajectory, diagnostic, retention, stability
             del hidden, mask, anchors
             torch.cuda.empty_cache()
+    _enforce_cuda_memory_cap(torch, audit_context, f"eval:{evaluation_name}:complete")
     return metrics
 
 
@@ -629,6 +809,9 @@ def _train_arm(
                 raise PhaseBContractError(f"B1 {arm} accumulated a non-finite row gradient")
             del output, visible, anchor, mask, hidden
             torch.cuda.empty_cache()
+            _enforce_cuda_memory_cap(
+                torch, audit_context, f"train:{arm}:update{batch.update_index}:row:{key}:post_backward"
+            )
         named = [(f"codec.{name}", parameter) for name, parameter in codec.named_parameters()]
         if sidecar is not None:
             named.extend((f"sidecar.{name}", parameter) for name, parameter in sidecar.named_parameters())
@@ -667,7 +850,9 @@ def _train_arm(
         gradient_norm = torch.nn.utils.clip_grad_norm_(parameters, optimizer_plan["gradient_clip_norm"])
         if not bool(torch.isfinite(gradient_norm)):
             raise PhaseBContractError(f"B1 {arm} gradient norm is non-finite")
+        _enforce_cuda_memory_cap(torch, audit_context, f"train:{arm}:update{batch.update_index}:post_clip")
         optimizer.step()
+        _enforce_cuda_memory_cap(torch, audit_context, f"train:{arm}:update{batch.update_index}:post_step")
         audit_context["completed_optimizer_updates"][arm] = batch.update_index
         if any(parameter.grad is not None for parameter in model.parameters()):
             raise PhaseBContractError(f"B1 {arm} caused an e33 gradient after update {batch.update_index}")
@@ -708,6 +893,7 @@ def _train_arm(
     gc.collect()
     torch.cuda.empty_cache()
     audit_context.update({"stage": "optimizer_destroyed", "arm": arm, "task_key": None})
+    _enforce_cuda_memory_cap(torch, audit_context, f"train:{arm}:optimizer_destroyed")
     return history, {
         "internal_gradient_update_passes": internal_gradient_update_passes,
         "optimizer_destroyed_before_next_arm": True,
@@ -805,6 +991,7 @@ def _post_failure_hash_audit(
             "br5_run_log": file_sha256(Path(plan["br5_dependency"]["run_log_path"])),
             "br5_preflight_log": file_sha256(Path(plan["br5_dependency"]["preflight_log_path"])),
             "br5_snapshot_manifest": file_sha256(Path(plan["br5_dependency"]["snapshot_manifest_path"])),
+            "invalid_b1_failure": file_sha256(Path(plan["b1_invalid_dependency"]["receipt_path"])),
         }
     except BaseException as error:
         errors.append(f"immutable_inputs: {type(error).__name__}: {error}")
@@ -823,12 +1010,8 @@ def _post_failure_hash_audit(
     }
     torch_module = audit_context.get("torch")
     if torch_module is not None and torch_module.cuda.is_initialized():
-        evidence["cuda_memory"] = {
-            "allocated_bytes": int(torch_module.cuda.memory_allocated(0)),
-            "reserved_bytes": int(torch_module.cuda.memory_reserved(0)),
-            "maximum_allocated_bytes": int(torch_module.cuda.max_memory_allocated(0)),
-            "maximum_reserved_bytes": int(torch_module.cuda.max_memory_reserved(0)),
-        }
+        evidence["cuda_memory"] = _cuda_memory_values(torch_module)
+    evidence["cuda_memory_contract"] = deepcopy(audit_context.get("cuda_memory_contract"))
     return {"audit_complete": not errors, "hash_probe_error": "; ".join(errors) or None, **evidence}
 
 
@@ -852,12 +1035,27 @@ def execute_value_screen(
     smoke._validate_torch_runtime(plan, torch=torch)
     smoke._validate_transformers_runtime(plan, transformers=transformers)
     torch.cuda.set_device(0)
+    total_device_bytes = int(torch.cuda.get_device_properties(0).total_memory)
+    requested_fraction = CUDA_MEMORY_CAP_BYTES / total_device_bytes
+    torch.cuda.set_per_process_memory_fraction(requested_fraction, 0)
+    observed_fraction = float(torch.cuda.get_per_process_memory_fraction(0))
+    torch.cuda.reset_peak_memory_stats(0)
+    audit_context["cuda_memory_contract"] = {
+        "cap_bytes": CUDA_MEMORY_CAP_BYTES,
+        "total_device_bytes": total_device_bytes,
+        "requested_fraction": requested_fraction,
+        "observed_fraction": observed_fraction,
+        "peak_stats_reset_after_allocator_fraction": True,
+        "checkpoint_ledger": [],
+    }
+    audit_context["expected_memory_checkpoint_labels"] = _expected_memory_checkpoint_labels(tokenizer_context)
     seed = plan["training"]["initialization_seed"]
     model_path = Path(plan["protected_model"]["path"])
     model = AutoModelForImageTextToText.from_pretrained(
         model_path, local_files_only=True, torch_dtype=torch.bfloat16, attn_implementation="eager"
     ).to("cuda:0")
     audit_context.update({"model": model, "model_path": model_path, "torch": torch})
+    _enforce_cuda_memory_cap(torch, audit_context, "after_model_load")
     model.eval()
     for parameter in model.parameters():
         parameter.requires_grad_(False)
@@ -868,12 +1066,14 @@ def execute_value_screen(
     e33_file_pre = file_sha256(smoke._model_file(model_path))
     metadata_pre = smoke._metadata_hashes(model_path)
     shell = smoke._mean_embedding_norm(model.get_input_embeddings().weight, torch)
-    train_examples = [
-        smoke._prepare_example(row, model=model, torch=torch) for row in tokenizer_context["training_rows"]
-    ]
-    heldout_examples = [
-        smoke._prepare_example(row, model=model, torch=torch) for row in tokenizer_context["heldout_rows"]
-    ]
+    train_examples = []
+    for row in tokenizer_context["training_rows"]:
+        train_examples.append(smoke._prepare_example(row, model=model, torch=torch))
+        _enforce_cuda_memory_cap(torch, audit_context, f"capture:training:{row['task_key']}")
+    heldout_examples = []
+    for row in tokenizer_context["heldout_rows"]:
+        heldout_examples.append(smoke._prepare_example(row, model=model, torch=torch))
+        _enforce_cuda_memory_cap(torch, audit_context, f"capture:heldout:{row['task_key']}")
     for prepared, rendered in zip(train_examples, tokenizer_context["training_rows"], strict=True):
         prepared["action"] = rendered["action"]
     for prepared, rendered in zip(heldout_examples, tokenizer_context["heldout_rows"], strict=True):
@@ -900,6 +1100,7 @@ def execute_value_screen(
     }
     module_pre = {name: smoke._module_tensor_sha256(module, torch) for name, module in modules.items()}
     audit_context.update({"modules": modules, "module_pre": module_pre, "completed_optimizer_updates": {}})
+    _enforce_cuda_memory_cap(torch, audit_context, "after_module_construction")
     initial_codec_hashes = {module_pre[f"{arm}.codec"] for arm in TRAINING_ARMS}
     if len(initial_codec_hashes) != 1:
         raise PhaseBContractError("B1 codecs are not bitwise-identical at initialization")
@@ -921,6 +1122,8 @@ def execute_value_screen(
         diagnose_recurrent_states=diagnose_recurrent_states,
         torch=torch,
         smoke=smoke,
+        audit_context=audit_context,
+        evaluation_name="step0",
     )
     step0_parity = _validate_step0_parity(heldout_step0)
     audit_context.update({"stage": "baseline_complete", "arm": None, "task_key": None})
@@ -955,10 +1158,13 @@ def execute_value_screen(
             diagnose_recurrent_states=diagnose_recurrent_states,
             torch=torch,
             smoke=smoke,
+            audit_context=audit_context,
+            evaluation_name=f"post_{arm}",
             arms=(arm,),
         )
         heldout_final.update(arm_metrics)
         audit_context.update({"stage": "post_arm_evaluation_complete", "arm": arm, "task_key": None})
+        _enforce_cuda_memory_cap(torch, audit_context, f"arm:{arm}:complete")
     module_post = {name: smoke._module_tensor_sha256(module, torch) for name, module in modules.items()}
     if any(module_pre[name] == module_post[name] for name in modules):
         raise PhaseBContractError("B1 expected every trained module tensor tree to change")
@@ -977,6 +1183,7 @@ def execute_value_screen(
         raise PhaseBContractError("B1 detached host feature cache changed")
     nomination = evaluate_nomination(heldout_step0, heldout_final, safety_gate_passed=True)
     audit_context.update({"stage": "audits_complete", "arm": None, "task_key": None})
+    _enforce_cuda_memory_cap(torch, audit_context, "after_final_audits")
     immutable_input_hashes = {
         "plan": file_sha256(Path(plan["_plan_path"])),
         "training_selection": file_sha256(Path(plan["training_source"]["selection_path"])),
@@ -992,6 +1199,7 @@ def execute_value_screen(
         "br5_run_log": file_sha256(Path(plan["br5_dependency"]["run_log_path"])),
         "br5_preflight_log": file_sha256(Path(plan["br5_dependency"]["preflight_log_path"])),
         "br5_snapshot_manifest": file_sha256(Path(plan["br5_dependency"]["snapshot_manifest_path"])),
+        "invalid_b1_failure": file_sha256(Path(plan["b1_invalid_dependency"]["receipt_path"])),
     }
     expected_input_hashes = {
         "plan": plan["_plan_sha256"],
@@ -1008,6 +1216,7 @@ def execute_value_screen(
         "br5_run_log": plan["br5_dependency"]["run_log_sha256"],
         "br5_preflight_log": plan["br5_dependency"]["preflight_log_sha256"],
         "br5_snapshot_manifest": plan["br5_dependency"]["snapshot_manifest_sha256"],
+        "invalid_b1_failure": plan["b1_invalid_dependency"]["receipt_file_sha256"],
     }
     if immutable_input_hashes != expected_input_hashes:
         raise PhaseBContractError("B1 immutable input hashes changed during execution")
@@ -1017,36 +1226,30 @@ def execute_value_screen(
         "RECURRENT_T4_minus_STATIC": paired_loss_deltas(heldout_final, "RECURRENT_T4", "STATIC"),
         "STATIC_minus_BASE": paired_loss_deltas(heldout_final, "STATIC", "BASE"),
     }
-    checkpoint_hashes = {
-        "STATIC.final.pt": _exclusive_torch_save(
-            output,
-            "STATIC.final.pt",
-            {"schema_version": "phase-b1-module-state/v1", "arm": "STATIC", "codec": _cpu_state_dict(codecs["STATIC"])},
-            torch=torch,
-        ),
-        "FFN.final.pt": _exclusive_torch_save(
-            output,
-            "FFN.final.pt",
-            {
-                "schema_version": "phase-b1-module-state/v1",
-                "arm": "FFN",
-                "codec": _cpu_state_dict(codecs["FFN"]),
-                "sidecar": _cpu_state_dict(sidecars["FFN"]),
-            },
-            torch=torch,
-        ),
-        "RECURRENT.final.pt": _exclusive_torch_save(
-            output,
-            "RECURRENT.final.pt",
-            {
-                "schema_version": "phase-b1-module-state/v1",
-                "arm": "RECURRENT",
-                "codec": _cpu_state_dict(codecs["RECURRENT"]),
-                "sidecar": _cpu_state_dict(sidecars["RECURRENT"]),
-            },
-            torch=torch,
-        ),
+    checkpoint_payloads = {
+        "STATIC.final.pt": {
+            "schema_version": "phase-b1-module-state/v1",
+            "arm": "STATIC",
+            "codec": _cpu_state_dict(codecs["STATIC"]),
+        },
+        "FFN.final.pt": {
+            "schema_version": "phase-b1-module-state/v1",
+            "arm": "FFN",
+            "codec": _cpu_state_dict(codecs["FFN"]),
+            "sidecar": _cpu_state_dict(sidecars["FFN"]),
+        },
+        "RECURRENT.final.pt": {
+            "schema_version": "phase-b1-module-state/v1",
+            "arm": "RECURRENT",
+            "codec": _cpu_state_dict(codecs["RECURRENT"]),
+            "sidecar": _cpu_state_dict(sidecars["RECURRENT"]),
+        },
     }
+    checkpoint_hashes: dict[str, str] = {}
+    for name, payload in checkpoint_payloads.items():
+        _enforce_cuda_memory_cap(torch, audit_context, f"checkpoint:{name}:before_write")
+        checkpoint_hashes[name] = _exclusive_torch_save(output, name, payload, torch=torch)
+        _enforce_cuda_memory_cap(torch, audit_context, f"checkpoint:{name}:after_write")
     if sum(path.stat().st_size for path in output.iterdir() if path.is_file()) >= ARTIFACT_CAP:
         raise PhaseBContractError("B1 artifacts reached the 512 MiB cap")
     return {
@@ -1124,8 +1327,8 @@ def execute_value_screen(
             "complete_live_trajectory_count": 0,
         },
         "br5_success_sha256": plan["br5_dependency"]["receipt_file_sha256"],
+        "invalid_b1_failure_sha256": plan["b1_invalid_dependency"]["receipt_file_sha256"],
         "immutable_input_hashes": immutable_input_hashes,
-        "maximum_cuda_allocated_bytes": int(torch.cuda.max_memory_allocated(0)),
     }
 
 
@@ -1201,6 +1404,9 @@ def main() -> int:
             "failure_audit_seconds": FAILURE_AUDIT_LIMIT_SECONDS,
             "terminal_publication_headroom_seconds": TERMINAL_PUBLICATION_HEADROOM_SECONDS,
         }
+        _enforce_cuda_memory_cap(torch, audit_context, "before_success")
+        receipt["cuda_memory_contract"] = _validated_cuda_memory_contract(audit_context)
+        receipt["cuda_memory"] = _cuda_memory_values(torch)
         signal.alarm(0)
         atomic_exclusive_json(args.output_dir, "SUCCESS.json", receipt, maximum_directory_bytes=ARTIFACT_CAP)
         return 0
@@ -1228,6 +1434,13 @@ def main() -> int:
                 },
                 "post_failure_hash_audit": post_failure_hash_audit,
                 "failure_class": "infrastructure_invalid",
+                "resource_failure_class": (
+                    "memory_cap_exceeded"
+                    if isinstance(error, ResourceContractExceeded)
+                    else "cuda_allocator_oom"
+                    if type(error).__name__ in {"OutOfMemoryError", "CUDAOutOfMemoryError"}
+                    else None
+                ),
                 "wall_clock_contract": {
                     "outer_seconds": OUTER_WALL_CLOCK_SECONDS,
                     "compute_seconds": COMPUTE_LIMIT_SECONDS,

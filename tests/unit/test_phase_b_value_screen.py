@@ -1,8 +1,10 @@
 import ast
 import hashlib
+import importlib.util
 import json
 from collections import Counter
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -23,6 +25,15 @@ from prime_rl.phase_b_value_screen import (
 
 def _repository() -> Path:
     return Path(__file__).resolve().parents[2]
+
+
+def _runner_module():
+    path = _repository() / "scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py"
+    spec = importlib.util.spec_from_file_location("phase_b1r_test_runtime", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def _balanced_rows() -> list[dict[str, str]]:
@@ -57,6 +68,36 @@ def test_plan_internal_hash_omits_only_its_self_referential_field() -> None:
     assert canonical_plan_sha256(changed) != expected
     with pytest.raises(PhaseBContractError, match="internal canonical hash"):
         canonical_plan_sha256({"schema_version": "example"})
+
+
+def test_b1r_cuda_memory_cap_checks_current_and_peak_allocated_and_reserved() -> None:
+    runner = _runner_module()
+
+    class FakeCuda:
+        values = {
+            "memory_allocated": 10,
+            "memory_reserved": 20,
+            "max_memory_allocated": 30,
+            "max_memory_reserved": 40,
+        }
+
+        def __getattr__(self, name):
+            return lambda _device: self.values[name]
+
+    torch = SimpleNamespace(cuda=FakeCuda())
+    audit = {"cuda_memory_contract": {"cap_bytes": runner.CUDA_MEMORY_CAP_BYTES, "checkpoint_ledger": []}}
+    snapshot = runner._enforce_cuda_memory_cap(torch, audit, "bounded")
+    assert snapshot == {
+        "checkpoint": "bounded",
+        "current_allocated_bytes": 10,
+        "current_reserved_bytes": 20,
+        "maximum_allocated_bytes": 30,
+        "maximum_reserved_bytes": 40,
+    }
+    torch.cuda.values["max_memory_reserved"] = runner.CUDA_MEMORY_CAP_BYTES + 1
+    with pytest.raises(runner.ResourceContractExceeded, match="maximum_reserved_bytes"):
+        runner._enforce_cuda_memory_cap(torch, audit, "violation")
+    assert audit["cuda_memory_contract"]["checkpoint_ledger"][-1]["checkpoint"] == "violation"
 
 
 def test_training_batches_are_four_disjoint_balanced_updates_covering_all_rows() -> None:
@@ -193,13 +234,18 @@ def test_runner_has_exact_update_surface_and_no_promotion_or_optimizer_checkpoin
     assert "optimizers: dict" not in source
     assert "optimizer.state.clear()" in source
     assert "evaluate_nomination(" in source
-    assert source.index("nomination = evaluate_nomination(") < source.index("checkpoint_hashes = {")
-    assert source.index("immutable_input_hashes = {") < source.index("checkpoint_hashes = {")
+    assert source.index("nomination = evaluate_nomination(") < source.index("checkpoint_payloads = {")
+    assert source.index("immutable_input_hashes = {") < source.index("checkpoint_payloads = {")
     assert '"minimum_complete_live_trajectories_unchanged": 4' in source
     assert '"teacher_forced_rows_count_as_live_trajectories": False' in source
     assert '"valid_only_with_exact_terminal_receipt": "SUCCESS.json"' in source
     assert source.count('"invalid_unclassified_do_not_use"') == 2
     assert '"present_file_hashes": post_failure_hash_audit.get("compact_checkpoint_hashes", {})' in source
+    assert "torch.cuda.set_per_process_memory_fraction(requested_fraction, 0)" in source
+    assert "torch.cuda.reset_peak_memory_stats(0)" in source
+    assert 'f"checkpoint:{name}:before_write"' in source
+    assert 'f"checkpoint:{name}:after_write"' in source
+    assert '"before_success"' in source
     assert ".generate(" not in source
     assert "use_cache=True" not in source
     assert not any(
