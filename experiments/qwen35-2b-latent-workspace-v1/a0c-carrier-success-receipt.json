@@ -1,0 +1,365 @@
+{
+  "a1_blocker": "A0R cached/full gate remains rejected; live typed-harness action acceptance and capture timing remain unvalidated",
+  "artifact_contract": {
+    "expected_files": [
+      "receipt.json"
+    ],
+    "maximum_directory_bytes": 16777216
+  },
+  "asset_sha256": {
+    "experiments/qwen35-2b-latent-workspace-v1/a0-failed-runtime-version-failure.json": "60a8d884b338bf035788ff5db07115aa1fcc413a95f484917f8c386e22b413fc",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-failed-runtime-version.log": "429d201c769b8ea7de51afddefc7b25f1c95fb4b8419fafd020cfb4b9da1bdc2",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-bank-v1.json": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-plan-v1.json": "105490570f48144f677662758927b08e930ae317140ee51cec2db678d5316c5a",
+    "experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-plan-v1.json": "965df64a2a98b13238d4366294de60ecf6368f7d009e15cfec0210863f7a36fa",
+    "experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-rejected-failure.json": "b38319aedb72f1cffe9cf1b4cb90adca430813a24f1d1120efd9213ea0256a20",
+    "experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-rejected.log": "815da07bedc55794db1cb87cc0222bf18034d074c8678005b04d9227674111fa",
+    "scripts/latent/run_a0_mechanism_v1.py": "15d407c822477d8558ade8e8ef597fbd05e283cf735af53b3857ff4366bc5426",
+    "scripts/latent/run_a0c_carrier_v1.sh": "2c4cb8ff97c946fa4cfc8735b5d7e3c743d88a0930036866c965ad086b536468",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/a0c.py": "7e191ba210df5790176014707a8da5939bd7884d38ff4c1f9c791f89c55d1bf4",
+    "src/prime_rl/latent/a0r.py": "128f98b20f3872c0057ea08a87047b51a2f6642b4867b1f25a5fb54ea86e37cd",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81"
+  },
+  "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+  "checkpoint_created": false,
+  "checkpoint_metadata_after": {
+    "coordinator_e33": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "worker_h176": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    }
+  },
+  "checkpoint_metadata_before": {
+    "coordinator_e33": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "worker_h176": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    }
+  },
+  "claim": "four-probe pre-cache carrier/autograd validation for B dependency only",
+  "complete_probes": 4,
+  "dependency_scope": {
+    "does_not_support": [
+      "A0 cache mechanism",
+      "A1 latent bridge",
+      "A1 semantic communication",
+      "generation or cached decoding",
+      "model admission"
+    ],
+    "may_support": [
+      "B frozen-decoder teacher-forced carrier dependency"
+    ]
+  },
+  "execution_commit": "81e10c5ff362a4ac586fc9ecd81cdfe6f2196583",
+  "gpu": {
+    "name": "NVIDIA RTX A6000",
+    "total_memory_gib": 47.40179443359375
+  },
+  "host": {
+    "free_disk_bytes_before": 93639290880,
+    "ram_bytes": 101344653312
+  },
+  "mechanism_code_commit": "7a35cfd34406305c42109e2f7318d91120119996",
+  "model_runtime": {
+    "class": "Qwen3_5ForConditionalGeneration",
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "hidden_size": 2048
+  },
+  "optimizer_created": false,
+  "plan_sha256": "0def45abb5981761eaf34a9228313cf9494e2fdf23c39055a36e095fd70482be",
+  "probes": [
+    {
+      "capture": {
+        "capture_spec_sha256": "7111d391a40a831efd983cd9b7b1774ce7a2bb00c5494f49c88942bea8a8e3e8",
+        "claim_boundary": "rendered_transcript_end_not_harness_acceptance",
+        "detached": true,
+        "finite": true,
+        "hidden_padding_content_exact": true,
+        "layer": -1,
+        "mask_and_indices_exact": true,
+        "repeat_bitwise_equal": true,
+        "shape": [
+          1,
+          128,
+          2048
+        ],
+        "tensor_bytes_sha256": "4b193dd686cbb562833df96eef32218080f23045f5ef15a0e011ea4f4b8d2a66"
+      },
+      "example_id": "a0-mechanism-0001",
+      "hard_bypass": {
+        "additional_positions": 0,
+        "bitwise_equal": true,
+        "four_token_greedy_continuation_equal": true,
+        "four_token_greedy_logits_finite": true,
+        "greedy_token_ids": [
+          40,
+          4021,
+          2528,
+          8976
+        ],
+        "labels_mask_positions_preserved": true,
+        "logits_finite": true,
+        "maximum_absolute_logit_difference": 0.0
+      },
+      "prompt_tokens": {
+        "child_with_assistant_opening": 47,
+        "child_without_assistant_opening": 40,
+        "parent": 93
+      },
+      "soft_insertion": {
+        "base_parameter_gradients": 0,
+        "claim": "carrier_and_autograd_connectivity_only",
+        "gate_gradient_finite_nonzero": true,
+        "inserted_attention_mask_ones": 8,
+        "inserted_loss_mask_negative_100": 8,
+        "logits_finite": true,
+        "loss_finite": true,
+        "no_other_loss_masking": true,
+        "original_tokens_mask_labels_preserved": true,
+        "positions": 8,
+        "positions_sequential_shifted": true,
+        "workspace_gradient_finite_nonzero": true,
+        "workspace_span": [
+          40,
+          48
+        ]
+      },
+      "status": "complete"
+    },
+    {
+      "capture": {
+        "capture_spec_sha256": "7111d391a40a831efd983cd9b7b1774ce7a2bb00c5494f49c88942bea8a8e3e8",
+        "claim_boundary": "rendered_transcript_end_not_harness_acceptance",
+        "detached": true,
+        "finite": true,
+        "hidden_padding_content_exact": true,
+        "layer": -1,
+        "mask_and_indices_exact": true,
+        "repeat_bitwise_equal": true,
+        "shape": [
+          1,
+          128,
+          2048
+        ],
+        "tensor_bytes_sha256": "5c5742895d277f73e418c807973d03aa401d1471acd61d098b8486b711e5333a"
+      },
+      "example_id": "a0-mechanism-0002",
+      "hard_bypass": {
+        "additional_positions": 0,
+        "bitwise_equal": true,
+        "four_token_greedy_continuation_equal": true,
+        "four_token_greedy_logits_finite": true,
+        "greedy_token_ids": [
+          35139,
+          248046,
+          198,
+          248044
+        ],
+        "labels_mask_positions_preserved": true,
+        "logits_finite": true,
+        "maximum_absolute_logit_difference": 0.0
+      },
+      "prompt_tokens": {
+        "child_with_assistant_opening": 42,
+        "child_without_assistant_opening": 35,
+        "parent": 84
+      },
+      "soft_insertion": {
+        "base_parameter_gradients": 0,
+        "claim": "carrier_and_autograd_connectivity_only",
+        "gate_gradient_finite_nonzero": true,
+        "inserted_attention_mask_ones": 8,
+        "inserted_loss_mask_negative_100": 8,
+        "logits_finite": true,
+        "loss_finite": true,
+        "no_other_loss_masking": true,
+        "original_tokens_mask_labels_preserved": true,
+        "positions": 8,
+        "positions_sequential_shifted": true,
+        "workspace_gradient_finite_nonzero": true,
+        "workspace_span": [
+          35,
+          43
+        ]
+      },
+      "status": "complete"
+    },
+    {
+      "capture": {
+        "capture_spec_sha256": "7111d391a40a831efd983cd9b7b1774ce7a2bb00c5494f49c88942bea8a8e3e8",
+        "claim_boundary": "rendered_transcript_end_not_harness_acceptance",
+        "detached": true,
+        "finite": true,
+        "hidden_padding_content_exact": true,
+        "layer": -1,
+        "mask_and_indices_exact": true,
+        "repeat_bitwise_equal": true,
+        "shape": [
+          1,
+          128,
+          2048
+        ],
+        "tensor_bytes_sha256": "1d7daa4098308b5cd5d727624aad4e0dd2159d462a6eaba3c496c7dc093cdd4f"
+      },
+      "example_id": "a0-mechanism-0003",
+      "hard_bypass": {
+        "additional_positions": 0,
+        "bitwise_equal": true,
+        "four_token_greedy_continuation_equal": true,
+        "four_token_greedy_logits_finite": true,
+        "greedy_token_ids": [
+          40,
+          635,
+          524,
+          599
+        ],
+        "labels_mask_positions_preserved": true,
+        "logits_finite": true,
+        "maximum_absolute_logit_difference": 0.0
+      },
+      "prompt_tokens": {
+        "child_with_assistant_opening": 35,
+        "child_without_assistant_opening": 28,
+        "parent": 77
+      },
+      "soft_insertion": {
+        "base_parameter_gradients": 0,
+        "claim": "carrier_and_autograd_connectivity_only",
+        "gate_gradient_finite_nonzero": true,
+        "inserted_attention_mask_ones": 8,
+        "inserted_loss_mask_negative_100": 8,
+        "logits_finite": true,
+        "loss_finite": true,
+        "no_other_loss_masking": true,
+        "original_tokens_mask_labels_preserved": true,
+        "positions": 8,
+        "positions_sequential_shifted": true,
+        "workspace_gradient_finite_nonzero": true,
+        "workspace_span": [
+          28,
+          36
+        ]
+      },
+      "status": "complete"
+    },
+    {
+      "capture": {
+        "capture_spec_sha256": "7111d391a40a831efd983cd9b7b1774ce7a2bb00c5494f49c88942bea8a8e3e8",
+        "claim_boundary": "rendered_transcript_end_not_harness_acceptance",
+        "detached": true,
+        "finite": true,
+        "hidden_padding_content_exact": true,
+        "layer": -1,
+        "mask_and_indices_exact": true,
+        "repeat_bitwise_equal": true,
+        "shape": [
+          1,
+          128,
+          2048
+        ],
+        "tensor_bytes_sha256": "d8570cdef714cf94ea7bf213bb887b749a837a22322b482aaf56eab9b1e7a785"
+      },
+      "example_id": "a0-mechanism-0004",
+      "hard_bypass": {
+        "additional_positions": 0,
+        "bitwise_equal": true,
+        "four_token_greedy_continuation_equal": true,
+        "four_token_greedy_logits_finite": true,
+        "greedy_token_ids": [
+          40,
+          4021,
+          3300,
+          1928
+        ],
+        "labels_mask_positions_preserved": true,
+        "logits_finite": true,
+        "maximum_absolute_logit_difference": 0.0
+      },
+      "prompt_tokens": {
+        "child_with_assistant_opening": 40,
+        "child_without_assistant_opening": 33,
+        "parent": 74
+      },
+      "soft_insertion": {
+        "base_parameter_gradients": 0,
+        "claim": "carrier_and_autograd_connectivity_only",
+        "gate_gradient_finite_nonzero": true,
+        "inserted_attention_mask_ones": 8,
+        "inserted_loss_mask_negative_100": 8,
+        "logits_finite": true,
+        "loss_finite": true,
+        "no_other_loss_masking": true,
+        "original_tokens_mask_labels_preserved": true,
+        "positions": 8,
+        "positions_sequential_shifted": true,
+        "workspace_gradient_finite_nonzero": true,
+        "workspace_span": [
+          33,
+          41
+        ]
+      },
+      "status": "complete"
+    }
+  ],
+  "promotion_boundary": "A0C carrier-only dependency evidence for B; no A0/A1, bridge, semantic communication, generation, cache, training, or model admission claim",
+  "protected_hashes_after": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "protected_hashes_before": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "receipt_sha256": "40dde68d34deb592f864739b48da8c22faafe470f2f0bc6708bce608ae482de7",
+  "resources": {
+    "peak_cuda_memory_bytes": 4910813184,
+    "wall_seconds": 28.76415806589648
+  },
+  "schema_version": "prime-rl/latent-a0c-mechanism-receipt/v1",
+  "status": "carrier_only_mechanism_validated_for_b_dependency",
+  "transformers_runtime_sources": {
+    "transformers.cache_utils": {
+      "path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+      "sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+    },
+    "transformers.generation.utils": {
+      "path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/generation/utils.py",
+      "sha256": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c"
+    },
+    "transformers.models.qwen3_5.modeling_qwen3_5": {
+      "path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/models/qwen3_5/modeling_qwen3_5.py",
+      "sha256": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "versions": {
+    "python": "3.12.14",
+    "torch_distribution": "2.11.0+cu128",
+    "torch_runtime": "2.11.0+cu128",
+    "transformers": "5.6.2"
+  }
+}
