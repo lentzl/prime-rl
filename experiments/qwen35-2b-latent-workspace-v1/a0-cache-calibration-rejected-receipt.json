@@ -1,0 +1,4857 @@
+{
+  "asset_sha256": {
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-bank-v1.json": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+    "experiments/qwen35-2b-latent-workspace-v1/a0c-carrier-success-receipt.json": "d88dd97eb37c9c3dd61bc07fe422df6c7fa0034837897346e43ed16bb634e63c",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-cache-diagnostic-plan-v1.json": "22b6a441b5a6b4a62d2f2a9c30f5544c1c97d15b9e30c90b2f44ca11d59695f0",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-diagnostic-complete-receipt.json": "6ed279ce60a7162aee7fb70f07b554d84a6ebd57e87ddc1a70a8e3f350238fab",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-diagnostic-complete-run.log": "778b7655044f3d0c0697d28b616afae88c026423958fa29da2f102997286c544",
+    "scripts/latent/run_a0_cache_calibration_v1.py": "9d2e7375c482905279e6467df6b6b01b47226c19b1dffe6f0872597ad21e8b3e",
+    "scripts/latent/run_a0_cache_calibration_v1.sh": "8d40d7fbe6f03500c3f185fe847f217c5a2a93c61c1cabaf23677d91d35967e4",
+    "scripts/latent/run_a0dr2_cache_diagnostic_v1.py": "d15f0435d6f986ad975c0992dff3d4a34e359c98e7e6e1830cc60f6fa1cd059b",
+    "scripts/latent/run_a0dr_cache_diagnostic_v1.py": "950c1e4bbfc502fdecaab20b51bbf61af98645f186d865f92aff2396a00d1dcb",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/a0c.py": "7e191ba210df5790176014707a8da5939bd7884d38ff4c1f9c791f89c55d1bf4",
+    "src/prime_rl/latent/a0cal.py": "873ab738a1384f63aaf5cbc0c877f2d9a60ed96d9c9fc4ddb23d38c4a25fa269",
+    "src/prime_rl/latent/a0d.py": "307c617b5f46a61472d7a042fe705bbf228974bb45ea495c9c90a21273a16ebc",
+    "src/prime_rl/latent/a0dr.py": "c765e7c3fe5618b3577f202d3f2525f55b8fb2b61ff20d5255063db63bd69c00",
+    "src/prime_rl/latent/a0dr2.py": "40a628aff96527d01d964c865b5a26b2d9cb58e3da0c4660c0162504022df42a",
+    "src/prime_rl/latent/a0r.py": "128f98b20f3872c0057ea08a87047b51a2f6642b4867b1f25a5fb54ea86e37cd",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81"
+  },
+  "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+  "checkpoint_created": false,
+  "checkpoint_metadata_after": {
+    "coordinator_e33": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "worker_h176": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    }
+  },
+  "checkpoint_metadata_before": {
+    "coordinator_e33": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "worker_h176": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    }
+  },
+  "claim": "relative soft-vs-discrete cache calibration only",
+  "complete_distinct_probes": 4,
+  "criterion": {
+    "all_probes_must_qualify": true,
+    "arms": [
+      "L_ID",
+      "L_E",
+      "S"
+    ],
+    "cached_full_greedy_equal_each_step": true,
+    "complete_distinct_probe_floor": 4,
+    "continuation_tokens_per_probe": 4,
+    "discrete_interface_parity": "L_ID and L_E prefill/step metrics and cached/full logit hashes exact",
+    "fresh_cache_per_arm": true,
+    "maximum_absolute_logit_difference_per_step": 0.5,
+    "maximum_soft_minus_discrete_nrms_per_step": 0.005,
+    "mean_excess_floor": 0.0025,
+    "mean_relative_excess_fraction": 0.25,
+    "position_branch": "explicit_next_position",
+    "posthoc_threshold_change_allowed": false,
+    "required_probe_ids": [
+      "a0-mechanism-0001",
+      "a0-mechanism-0002",
+      "a0-mechanism-0003",
+      "a0-mechanism-0004"
+    ],
+    "soft_mean_nrms_rule": "soft_mean <= discrete_mean + max(0.0025, 0.25 * discrete_mean)"
+  },
+  "execution_commit": "2b7d3c8b26c6813da4fb7e534c0061b3814769ec",
+  "gpu": {
+    "name": "NVIDIA RTX A6000",
+    "total_memory_gib": 47.40179443359375
+  },
+  "host": {
+    "free_disk_bytes_before": 93617758208,
+    "ram_bytes": 101344653312
+  },
+  "interpretation_boundary": "prospective relative cache calibration only; A0R remains rejected and A1 remains blocked during this run; a validated result clears only the cache-specific relative-calibration question for later root/evaluator review, not live harness capture, bridge learnability, model admission, training, or A1 authorization",
+  "mechanism_code_commit": "1125a84c6124433c990cb9be2247ece65cb0e3be",
+  "model_runtime": {
+    "class": "Qwen3_5ForConditionalGeneration",
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "hidden_size": 2048
+  },
+  "model_update_attempted": false,
+  "optimizer_created": false,
+  "plan_sha256": "eeda1c571359b29882f16acbd50f573ecd3fa71238882f9f95bb99040e8e7578",
+  "probes": [
+    {
+      "arms": [
+        {
+          "arm": "L_ID",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 55,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "db540947699f9df80db7ee73115a571db97ca837985f617ccc37c2af92b0d809",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 56,
+              "cached_logits_sha256": "1d3ecfbea6371aa30a46e93435cc116dd10cc3cc4f04e72b743539d2cb92573f",
+              "full_logits_sha256": "2d9a59c79dbe33a1b0b1b8bd6de675403bfd617b05f866940f9e8bffdc5d9e22",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.01861029863357544,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "1d190d513d034ab7b94c9a419af38b09b41f439fc7f99baae914dc4650d30e4a",
+                    "shape": [
+                      1,
+                      56
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "048db3815473d7aab19caa136e5cd923a3ac45293f3df2aa5a759cfa96c81332",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      55
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 55
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "048db3815473d7aab19caa136e5cd923a3ac45293f3df2aa5a759cfa96c81332",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      55
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 57,
+              "cached_logits_sha256": "fb31ba13e2dd0ba0ca7ea58e131d0714b16921f612b84019a1788a6fc74a9395",
+              "full_logits_sha256": "a8a552c21abbaca339ca40dc66f5caa82aa79179fd6cc4cdc2fccd7fd90a9d08",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.014709149487316608,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "066bb97602868bae85071d461b84a23263dfc98199499fce5338ef7d46546342",
+                    "shape": [
+                      1,
+                      57
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ee5d1a3591fb90a9074af648cd8683a4c94173dd843ac9afa3f282c2612304c5",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      56
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 56
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ee5d1a3591fb90a9074af648cd8683a4c94173dd843ac9afa3f282c2612304c5",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      56
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 58,
+              "cached_logits_sha256": "dfbb993617e560ae176134109295fac2709272b1c11995f0a93bcb1b16a5814b",
+              "full_logits_sha256": "749ecd3335e0743d49866969583493a4926299c029fd9668776518a7bb98aa18",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.3125,
+              "normalized_rms": 0.021004561334848404,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c74ea70b162b9219f081866db1c7df9a73b971d847cf32b58d72466e3cc6e37a",
+                    "shape": [
+                      1,
+                      58
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "aa5b32a6d61a6f373077d40bc01eb6b408eee56ec9a5eaec649dd267c6b348cf",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      57
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 57
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "aa5b32a6d61a6f373077d40bc01eb6b408eee56ec9a5eaec649dd267c6b348cf",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      57
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 59,
+              "cached_logits_sha256": "d87492575bbf9f03e3627c5ce77e8acad351f6b9eead9e72159a300bf292ab50",
+              "full_logits_sha256": "9891fa6ac1e88994bf7960c5943e5173356549ee64a794741799a2275ada2fe3",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.25,
+              "normalized_rms": 0.016306336969137192,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "98d50d3e4e79e2932964b86f7ec54e360385f10a0b3620de48ffdd82dc751315",
+                    "shape": [
+                      1,
+                      59
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ede2d8b56206c63b527986f4a6058aff91d29e810acd8f7b5f653141625b5b0d",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      58
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 58
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ede2d8b56206c63b527986f4a6058aff91d29e810acd8f7b5f653141625b5b0d",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      58
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "L_E",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 55,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "db540947699f9df80db7ee73115a571db97ca837985f617ccc37c2af92b0d809",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 56,
+              "cached_logits_sha256": "1d3ecfbea6371aa30a46e93435cc116dd10cc3cc4f04e72b743539d2cb92573f",
+              "full_logits_sha256": "2d9a59c79dbe33a1b0b1b8bd6de675403bfd617b05f866940f9e8bffdc5d9e22",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.01861029863357544,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "1d190d513d034ab7b94c9a419af38b09b41f439fc7f99baae914dc4650d30e4a",
+                    "shape": [
+                      1,
+                      56
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "048db3815473d7aab19caa136e5cd923a3ac45293f3df2aa5a759cfa96c81332",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      55
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 55
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "048db3815473d7aab19caa136e5cd923a3ac45293f3df2aa5a759cfa96c81332",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      55
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 57,
+              "cached_logits_sha256": "fb31ba13e2dd0ba0ca7ea58e131d0714b16921f612b84019a1788a6fc74a9395",
+              "full_logits_sha256": "a8a552c21abbaca339ca40dc66f5caa82aa79179fd6cc4cdc2fccd7fd90a9d08",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.014709149487316608,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "066bb97602868bae85071d461b84a23263dfc98199499fce5338ef7d46546342",
+                    "shape": [
+                      1,
+                      57
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ee5d1a3591fb90a9074af648cd8683a4c94173dd843ac9afa3f282c2612304c5",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      56
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 56
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ee5d1a3591fb90a9074af648cd8683a4c94173dd843ac9afa3f282c2612304c5",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      56
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 58,
+              "cached_logits_sha256": "dfbb993617e560ae176134109295fac2709272b1c11995f0a93bcb1b16a5814b",
+              "full_logits_sha256": "749ecd3335e0743d49866969583493a4926299c029fd9668776518a7bb98aa18",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.3125,
+              "normalized_rms": 0.021004561334848404,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c74ea70b162b9219f081866db1c7df9a73b971d847cf32b58d72466e3cc6e37a",
+                    "shape": [
+                      1,
+                      58
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "aa5b32a6d61a6f373077d40bc01eb6b408eee56ec9a5eaec649dd267c6b348cf",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      57
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 57
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "aa5b32a6d61a6f373077d40bc01eb6b408eee56ec9a5eaec649dd267c6b348cf",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      57
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 59,
+              "cached_logits_sha256": "d87492575bbf9f03e3627c5ce77e8acad351f6b9eead9e72159a300bf292ab50",
+              "full_logits_sha256": "9891fa6ac1e88994bf7960c5943e5173356549ee64a794741799a2275ada2fe3",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.25,
+              "normalized_rms": 0.016306336969137192,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "98d50d3e4e79e2932964b86f7ec54e360385f10a0b3620de48ffdd82dc751315",
+                    "shape": [
+                      1,
+                      59
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ede2d8b56206c63b527986f4a6058aff91d29e810acd8f7b5f653141625b5b0d",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      58
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 58
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ede2d8b56206c63b527986f4a6058aff91d29e810acd8f7b5f653141625b5b0d",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      58
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "S",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 55,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "2cd6b115bc0b2bdbc05913a609f9261a8ac9f7d0db5fa69d4308da0082b2c2d5",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 56,
+              "cached_logits_sha256": "c5c7bffa44fb93b853823a863fe615ec1eb426f3927b4ac7f305eee1f3b511dc",
+              "full_logits_sha256": "7fbcc3c6e03afd73ada20e18aa426725fcea7c021d768e7d12134cdd1638d915",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.015026240609586239,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "1d190d513d034ab7b94c9a419af38b09b41f439fc7f99baae914dc4650d30e4a",
+                    "shape": [
+                      1,
+                      56
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "048db3815473d7aab19caa136e5cd923a3ac45293f3df2aa5a759cfa96c81332",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      55
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 55
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "048db3815473d7aab19caa136e5cd923a3ac45293f3df2aa5a759cfa96c81332",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      55
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 57,
+              "cached_logits_sha256": "06c7be98b9c9c7edb3dfc810817480fd11ca7acc28ee84a1571ab3ee2c6aa761",
+              "full_logits_sha256": "6121437afb191d5b36c52ed4f2328a2c85a96d929c18f09d4075ad0747559c35",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.016429338604211807,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "066bb97602868bae85071d461b84a23263dfc98199499fce5338ef7d46546342",
+                    "shape": [
+                      1,
+                      57
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ee5d1a3591fb90a9074af648cd8683a4c94173dd843ac9afa3f282c2612304c5",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      56
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 56
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ee5d1a3591fb90a9074af648cd8683a4c94173dd843ac9afa3f282c2612304c5",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      56
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 58,
+              "cached_logits_sha256": "cd320f9f2b94534599f80339745ae43a5122dd5ec90c7595c4caee6a81370beb",
+              "full_logits_sha256": "6953399180b44c9b8ac00a0b394c6e58013175d58d9e623220c05a05c4700cbf",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.234375,
+              "normalized_rms": 0.018103117123246193,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c74ea70b162b9219f081866db1c7df9a73b971d847cf32b58d72466e3cc6e37a",
+                    "shape": [
+                      1,
+                      58
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "aa5b32a6d61a6f373077d40bc01eb6b408eee56ec9a5eaec649dd267c6b348cf",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      57
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 57
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "aa5b32a6d61a6f373077d40bc01eb6b408eee56ec9a5eaec649dd267c6b348cf",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      57
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 59,
+              "cached_logits_sha256": "76d1442cb2e4e44f61bde6b7d0aff27d3428f1dc2abb98ea001bbac08b56cb9c",
+              "full_logits_sha256": "44b41e65b9945e3b7161017486959868f0064b6ddfb8e3c803cf8e276919fdc4",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.2109375,
+              "normalized_rms": 0.015317561104893684,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "98d50d3e4e79e2932964b86f7ec54e360385f10a0b3620de48ffdd82dc751315",
+                    "shape": [
+                      1,
+                      59
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ede2d8b56206c63b527986f4a6058aff91d29e810acd8f7b5f653141625b5b0d",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      58
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 58
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "ede2d8b56206c63b527986f4a6058aff91d29e810acd8f7b5f653141625b5b0d",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      58
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        }
+      ],
+      "criterion_result": {
+        "absolute_max_ok": true,
+        "discrete_interface_exact": true,
+        "discrete_mean_nrms": 0.01765758660621941,
+        "finite": true,
+        "greedy_equal_all": true,
+        "mean_excess_allowance": 0.004414396651554853,
+        "mean_relative_ok": true,
+        "qualifies": true,
+        "soft_mean_nrms": 0.01621906436048448,
+        "soft_minus_discrete_nrms_by_step": [
+          -0.0035840580239892006,
+          0.0017201891168951988,
+          -0.002901444211602211,
+          -0.0009887758642435074
+        ],
+        "step_relative_ok": true
+      },
+      "example_id": "a0-mechanism-0001",
+      "fixture": {
+        "child_input_ids_sha256": "c3fca41fc6ec196cd694ce9475a9c9d099bd6d7d12bfaaaafc33c07b5f8531ce",
+        "child_token_count": 47,
+        "continuation_input_ids_sha256": "726453758d1f0abf9317cae503eb31e5b949b58083b89984eb312ba66c42bed1",
+        "continuation_token_ids": [
+          49265,
+          48338,
+          3438,
+          321
+        ],
+        "injection_index": 40,
+        "length_control_input_ids_sha256": "d7d1873f83e1368150ab0249124606c36371a72be51db33372f4b403547de9ba",
+        "length_control_token_ids": [
+          40,
+          4021,
+          2528,
+          8976,
+          35139,
+          635,
+          524,
+          599
+        ],
+        "length_control_token_ids_sha256": "e86e01e61315008783cc217a5bb83a1b3aced0daaecbc920b8d3b45ab4b205d8",
+        "length_control_tokens_non_special": true,
+        "matched_mask_and_positions_exact": true,
+        "matched_prompt_length": 55,
+        "parent_token_count": 93,
+        "soft_prompt_sha256": "fc3e003d6359ddc4c68c052026330110b6f436c18c42d86aec4f31e8a74ed0ab",
+        "workspace_source_sha256": "c815a58ab0760532d377448f6784d12650b2e395cc9581b977e67463e9bfe8a1"
+      }
+    },
+    {
+      "arms": [
+        {
+          "arm": "L_ID",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 50,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "8a1ba6dd21dafd0922c46baf00c013a73a144d7fa904c437f3b11bac280456e7",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 51,
+              "cached_logits_sha256": "6b1e9f98720be59cae46b885b69fe0e2ad8d4d198aa1d6fdef31bab57a58dfbe",
+              "full_logits_sha256": "248c60f6f8197c39fba3982896b665a8882bb69b3bd9f532c55c97a6b1395d18",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.014472014270722866,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0dff5abdc80d72cb4acb00c2e5e0279c4f201a47a9fcffff4d990877776b8e3d",
+                    "shape": [
+                      1,
+                      51
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 50
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 52,
+              "cached_logits_sha256": "c36ae05adadef05164a6b9c5aeb7b83527fbe342156082be8dc7112657339840",
+              "full_logits_sha256": "b707b101e5638ef9315fd2bfaa8013f996384415063840cf1e1f1bf2489c55a4",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.125,
+              "normalized_rms": 0.010589496232569218,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "3ee365c1745118c3ef14787ebc037f59f3c137f4571842d4d4f5de50ab320211",
+                    "shape": [
+                      1,
+                      52
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 51
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 53,
+              "cached_logits_sha256": "84c109e39e85fcd82a9fa5b2fcc217dc93ec0c022d7ce3902d4525d94b30cdec",
+              "full_logits_sha256": "ff22cfe0c139d57f9d2395e4fce3f9a5fdb9e4fc3807a4026abf5e46fc617452",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.017576400190591812,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "e4bc56cb1b7640ed7fd36580f6e2a0280797353900db536b887c2a0815986162",
+                    "shape": [
+                      1,
+                      53
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "dcbe298920b50037fcfb8dda1e57ad49eeeedd8e0ddafc2deed4902c1bc11d3a",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      52
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 52
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "dcbe298920b50037fcfb8dda1e57ad49eeeedd8e0ddafc2deed4902c1bc11d3a",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      52
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 54,
+              "cached_logits_sha256": "1b8b638ee9384cd6ca2e97fcef5fea904430579381f8ac9738feacf427fdac84",
+              "full_logits_sha256": "6d2d7925f1146723849812f93068c287a66501dca2fad0e77d2f2e9d49877642",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.203125,
+              "normalized_rms": 0.01597832329571247,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "57556f824cd168f387c784f9c0051c4b6e9fa4ba60a290b567955309ca07d2a8",
+                    "shape": [
+                      1,
+                      54
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "563e0ed5fdceb76bf32c350148f6ba0d166833b9cb2f5c5a1d465db005476b84",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      53
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 53
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "563e0ed5fdceb76bf32c350148f6ba0d166833b9cb2f5c5a1d465db005476b84",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      53
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "L_E",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 50,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "8a1ba6dd21dafd0922c46baf00c013a73a144d7fa904c437f3b11bac280456e7",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 51,
+              "cached_logits_sha256": "6b1e9f98720be59cae46b885b69fe0e2ad8d4d198aa1d6fdef31bab57a58dfbe",
+              "full_logits_sha256": "248c60f6f8197c39fba3982896b665a8882bb69b3bd9f532c55c97a6b1395d18",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.014472014270722866,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0dff5abdc80d72cb4acb00c2e5e0279c4f201a47a9fcffff4d990877776b8e3d",
+                    "shape": [
+                      1,
+                      51
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 50
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 52,
+              "cached_logits_sha256": "c36ae05adadef05164a6b9c5aeb7b83527fbe342156082be8dc7112657339840",
+              "full_logits_sha256": "b707b101e5638ef9315fd2bfaa8013f996384415063840cf1e1f1bf2489c55a4",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.125,
+              "normalized_rms": 0.010589496232569218,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "3ee365c1745118c3ef14787ebc037f59f3c137f4571842d4d4f5de50ab320211",
+                    "shape": [
+                      1,
+                      52
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 51
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 53,
+              "cached_logits_sha256": "84c109e39e85fcd82a9fa5b2fcc217dc93ec0c022d7ce3902d4525d94b30cdec",
+              "full_logits_sha256": "ff22cfe0c139d57f9d2395e4fce3f9a5fdb9e4fc3807a4026abf5e46fc617452",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.017576400190591812,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "e4bc56cb1b7640ed7fd36580f6e2a0280797353900db536b887c2a0815986162",
+                    "shape": [
+                      1,
+                      53
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "dcbe298920b50037fcfb8dda1e57ad49eeeedd8e0ddafc2deed4902c1bc11d3a",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      52
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 52
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "dcbe298920b50037fcfb8dda1e57ad49eeeedd8e0ddafc2deed4902c1bc11d3a",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      52
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 54,
+              "cached_logits_sha256": "1b8b638ee9384cd6ca2e97fcef5fea904430579381f8ac9738feacf427fdac84",
+              "full_logits_sha256": "6d2d7925f1146723849812f93068c287a66501dca2fad0e77d2f2e9d49877642",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.203125,
+              "normalized_rms": 0.01597832329571247,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "57556f824cd168f387c784f9c0051c4b6e9fa4ba60a290b567955309ca07d2a8",
+                    "shape": [
+                      1,
+                      54
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "563e0ed5fdceb76bf32c350148f6ba0d166833b9cb2f5c5a1d465db005476b84",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      53
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 53
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "563e0ed5fdceb76bf32c350148f6ba0d166833b9cb2f5c5a1d465db005476b84",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      53
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "S",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 50,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "712155f0aa4b7bd08fa7c9a93b5560b9d928ce76890d29c7d4d39689da3672cd",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 51,
+              "cached_logits_sha256": "9ff8bc2e424900281e099d0ec2a14e10e86d7f71b1f441e7d82041c86c9763b8",
+              "full_logits_sha256": "46855dbe5240f9ae71c39cd74ea6dfcf8bd4b89661f8785469a0faf4d1260560",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.01426982507109642,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0dff5abdc80d72cb4acb00c2e5e0279c4f201a47a9fcffff4d990877776b8e3d",
+                    "shape": [
+                      1,
+                      51
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 50
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 52,
+              "cached_logits_sha256": "d866ee780e6725f92f0f3572b032e9ceb2aff55b1a5ced3fd4aea59097888a65",
+              "full_logits_sha256": "3c33c231bf1254c9edf9d6d4dd802d555ff3b853a18af03fe991fe23d2e1fca3",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.016189752146601677,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "3ee365c1745118c3ef14787ebc037f59f3c137f4571842d4d4f5de50ab320211",
+                    "shape": [
+                      1,
+                      52
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 51
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 53,
+              "cached_logits_sha256": "a85cdb1bf42d748d38076a955dfb32d42025942cc78bb8962b5992ee5d563535",
+              "full_logits_sha256": "2d16636d6dc6b2259cdf511492c6310d4e1540374affa6594c2e2e5e22a1b655",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.21875,
+              "normalized_rms": 0.017865752801299095,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "e4bc56cb1b7640ed7fd36580f6e2a0280797353900db536b887c2a0815986162",
+                    "shape": [
+                      1,
+                      53
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "dcbe298920b50037fcfb8dda1e57ad49eeeedd8e0ddafc2deed4902c1bc11d3a",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      52
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 52
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "dcbe298920b50037fcfb8dda1e57ad49eeeedd8e0ddafc2deed4902c1bc11d3a",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      52
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 54,
+              "cached_logits_sha256": "da24318808e2b7df76ed873ca295a45433d7753fd5e57e7cc17afaeecd9aa093",
+              "full_logits_sha256": "858ee33dddb8dfcb2ec67954e537363ee2255ff0c57ec0ecf9b0bca15a037a32",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.016636744141578674,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "57556f824cd168f387c784f9c0051c4b6e9fa4ba60a290b567955309ca07d2a8",
+                    "shape": [
+                      1,
+                      54
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "563e0ed5fdceb76bf32c350148f6ba0d166833b9cb2f5c5a1d465db005476b84",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      53
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 53
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "563e0ed5fdceb76bf32c350148f6ba0d166833b9cb2f5c5a1d465db005476b84",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      53
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        }
+      ],
+      "criterion_result": {
+        "absolute_max_ok": true,
+        "discrete_interface_exact": true,
+        "discrete_mean_nrms": 0.014654058497399092,
+        "finite": true,
+        "greedy_equal_all": true,
+        "mean_excess_allowance": 0.003663514624349773,
+        "mean_relative_ok": true,
+        "qualifies": false,
+        "soft_mean_nrms": 0.016240518540143967,
+        "soft_minus_discrete_nrms_by_step": [
+          -0.00020218919962644577,
+          0.005600255914032459,
+          0.000289352610707283,
+          0.0006584208458662033
+        ],
+        "step_relative_ok": false
+      },
+      "example_id": "a0-mechanism-0002",
+      "fixture": {
+        "child_input_ids_sha256": "90d02b0b0067e4d30df17285469657f179d5001090833b98d6faf3d1632f94f8",
+        "child_token_count": 42,
+        "continuation_input_ids_sha256": "726453758d1f0abf9317cae503eb31e5b949b58083b89984eb312ba66c42bed1",
+        "continuation_token_ids": [
+          49265,
+          48338,
+          3438,
+          321
+        ],
+        "injection_index": 35,
+        "length_control_input_ids_sha256": "80bc574a75f4886ae6605423efbe79c0edb5389536610c2b95d7d34127c84cf7",
+        "length_control_token_ids": [
+          40,
+          4021,
+          2528,
+          8976,
+          35139,
+          635,
+          524,
+          599
+        ],
+        "length_control_token_ids_sha256": "e86e01e61315008783cc217a5bb83a1b3aced0daaecbc920b8d3b45ab4b205d8",
+        "length_control_tokens_non_special": true,
+        "matched_mask_and_positions_exact": true,
+        "matched_prompt_length": 50,
+        "parent_token_count": 84,
+        "soft_prompt_sha256": "0669cd7749c0dc66bcf11623d010e8bc224f65b32cecf79f8e955106d95ae23a",
+        "workspace_source_sha256": "3eaa0cab8f70892d864d2d4910ef2fe4e86591b032e8e8b25dd336faafa4ee24"
+      }
+    },
+    {
+      "arms": [
+        {
+          "arm": "L_ID",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 43,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "52458ae288286b05a3167161e89376316ad28a6b6de4bfa4377adc82f2f254a0",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 44,
+              "cached_logits_sha256": "e754e044bdd3798aca6a37e0b07d96d3c47a435a9d120d1e71eca368f6501390",
+              "full_logits_sha256": "de1664401c489a26bf4c08ac1fecafdf993a2799b1f30b0f7be8137ac3fad3d7",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.016334565356373787,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "9ac71e69251988f34c08cc3b0ee4cf3fca431504e7ec465c94958b1714ad38e7",
+                    "shape": [
+                      1,
+                      44
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "8bf3cd6bb2af61dde37441d65f1b1f6b1d2f20e07b243fbb80a19d6bef508abb",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      43
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 43
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "8bf3cd6bb2af61dde37441d65f1b1f6b1d2f20e07b243fbb80a19d6bef508abb",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      43
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 45,
+              "cached_logits_sha256": "513e75b72b79740fc3d5abfbc143186e4b9512c64cb41c24e47c27832f88bb76",
+              "full_logits_sha256": "802c1d41ae5bb2f53053b041587c732081c1793c5a533b36567667d2b81fbf96",
+              "greedy_equal": false,
+              "maximum_absolute_logit_difference": 0.25,
+              "normalized_rms": 0.018072040751576424,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "630f872b9a874f586dde48292bed417c41400bae158b24e96b0f28c17a856322",
+                    "shape": [
+                      1,
+                      45
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c5b2e76e0be88460999f2083c6197da41daa3732375dabd7f0237c8eec0e395a",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      44
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 44
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c5b2e76e0be88460999f2083c6197da41daa3732375dabd7f0237c8eec0e395a",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      44
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 46,
+              "cached_logits_sha256": "3c939c8dfbe93a1d7db448b12af804a45300f8b710955041085ed6824f1e940e",
+              "full_logits_sha256": "b7a01e1fb1e5046fd402647232f9c7da804ef217ffc52dced748fbd27796d3fa",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.21875,
+              "normalized_rms": 0.018179811537265778,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "9b7019f0cd245ed1b97eb3ab975b86e929429611ac34f216a08968498c1d0c77",
+                    "shape": [
+                      1,
+                      46
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "72976ee8f1497b6bcf1c12b3fdaf0cdc41ceab14646fe0fb49f37895b5889895",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      45
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 45
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "72976ee8f1497b6bcf1c12b3fdaf0cdc41ceab14646fe0fb49f37895b5889895",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      45
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 47,
+              "cached_logits_sha256": "49782beda214d4e2570f75b60eb454f24da7cdd7822c595bbe79e08661f4ac1f",
+              "full_logits_sha256": "d9d8016b693128138861ee6cd085964ec81c1044644c98ee178438403c600f75",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1953125,
+              "normalized_rms": 0.01612311787903309,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "05ae128279f3bef8113ee7caaf61b1dd61e40b45dba519abaf1adb8c4bfe4053",
+                    "shape": [
+                      1,
+                      47
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "6e3989bfdab9675089a296f8b974431cbf419dc763f2e14620cd2b8b03b7d741",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      46
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 46
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "6e3989bfdab9675089a296f8b974431cbf419dc763f2e14620cd2b8b03b7d741",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      46
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "L_E",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 43,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "52458ae288286b05a3167161e89376316ad28a6b6de4bfa4377adc82f2f254a0",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 44,
+              "cached_logits_sha256": "e754e044bdd3798aca6a37e0b07d96d3c47a435a9d120d1e71eca368f6501390",
+              "full_logits_sha256": "de1664401c489a26bf4c08ac1fecafdf993a2799b1f30b0f7be8137ac3fad3d7",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.016334565356373787,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "9ac71e69251988f34c08cc3b0ee4cf3fca431504e7ec465c94958b1714ad38e7",
+                    "shape": [
+                      1,
+                      44
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "8bf3cd6bb2af61dde37441d65f1b1f6b1d2f20e07b243fbb80a19d6bef508abb",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      43
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 43
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "8bf3cd6bb2af61dde37441d65f1b1f6b1d2f20e07b243fbb80a19d6bef508abb",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      43
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 45,
+              "cached_logits_sha256": "513e75b72b79740fc3d5abfbc143186e4b9512c64cb41c24e47c27832f88bb76",
+              "full_logits_sha256": "802c1d41ae5bb2f53053b041587c732081c1793c5a533b36567667d2b81fbf96",
+              "greedy_equal": false,
+              "maximum_absolute_logit_difference": 0.25,
+              "normalized_rms": 0.018072040751576424,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "630f872b9a874f586dde48292bed417c41400bae158b24e96b0f28c17a856322",
+                    "shape": [
+                      1,
+                      45
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c5b2e76e0be88460999f2083c6197da41daa3732375dabd7f0237c8eec0e395a",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      44
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 44
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c5b2e76e0be88460999f2083c6197da41daa3732375dabd7f0237c8eec0e395a",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      44
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 46,
+              "cached_logits_sha256": "3c939c8dfbe93a1d7db448b12af804a45300f8b710955041085ed6824f1e940e",
+              "full_logits_sha256": "b7a01e1fb1e5046fd402647232f9c7da804ef217ffc52dced748fbd27796d3fa",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.21875,
+              "normalized_rms": 0.018179811537265778,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "9b7019f0cd245ed1b97eb3ab975b86e929429611ac34f216a08968498c1d0c77",
+                    "shape": [
+                      1,
+                      46
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "72976ee8f1497b6bcf1c12b3fdaf0cdc41ceab14646fe0fb49f37895b5889895",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      45
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 45
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "72976ee8f1497b6bcf1c12b3fdaf0cdc41ceab14646fe0fb49f37895b5889895",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      45
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 47,
+              "cached_logits_sha256": "49782beda214d4e2570f75b60eb454f24da7cdd7822c595bbe79e08661f4ac1f",
+              "full_logits_sha256": "d9d8016b693128138861ee6cd085964ec81c1044644c98ee178438403c600f75",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1953125,
+              "normalized_rms": 0.01612311787903309,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "05ae128279f3bef8113ee7caaf61b1dd61e40b45dba519abaf1adb8c4bfe4053",
+                    "shape": [
+                      1,
+                      47
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "6e3989bfdab9675089a296f8b974431cbf419dc763f2e14620cd2b8b03b7d741",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      46
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 46
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "6e3989bfdab9675089a296f8b974431cbf419dc763f2e14620cd2b8b03b7d741",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      46
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "S",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 43,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "9fb8b174a18ffe763015bf9ce18d8b9e443aab497c5a597a3e6a223e8da42dc2",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 44,
+              "cached_logits_sha256": "87b466044fc58092fc4ee51d4794b91fd7b996c97cce2a2f0b736b7128f8b843",
+              "full_logits_sha256": "00d978109b560c085961f7171a7a9f82b4eeb871c59f677fcce8cdb969921b38",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.014311958104372025,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "9ac71e69251988f34c08cc3b0ee4cf3fca431504e7ec465c94958b1714ad38e7",
+                    "shape": [
+                      1,
+                      44
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "8bf3cd6bb2af61dde37441d65f1b1f6b1d2f20e07b243fbb80a19d6bef508abb",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      43
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 43
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "8bf3cd6bb2af61dde37441d65f1b1f6b1d2f20e07b243fbb80a19d6bef508abb",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      43
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 45,
+              "cached_logits_sha256": "c405e9cec65327461e7d898a2474aa4e66d333a6ab8e896f88d45cc783642020",
+              "full_logits_sha256": "1dd0a8921c42358103530d4536d17b6f67315d3da7be307bc2b92cb8d34bbdda",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.017536215484142303,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "630f872b9a874f586dde48292bed417c41400bae158b24e96b0f28c17a856322",
+                    "shape": [
+                      1,
+                      45
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c5b2e76e0be88460999f2083c6197da41daa3732375dabd7f0237c8eec0e395a",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      44
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 44
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "c5b2e76e0be88460999f2083c6197da41daa3732375dabd7f0237c8eec0e395a",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      44
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 46,
+              "cached_logits_sha256": "d53f9109112556858566b25a779f519a4ff87be8d1f9d29f8f70b86c90ea4670",
+              "full_logits_sha256": "346db3326b11d0708c7c1d3d883dddf19e7eae3382b189eafb0d550f9078dfd4",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.25,
+              "normalized_rms": 0.01772606372833252,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "9b7019f0cd245ed1b97eb3ab975b86e929429611ac34f216a08968498c1d0c77",
+                    "shape": [
+                      1,
+                      46
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "72976ee8f1497b6bcf1c12b3fdaf0cdc41ceab14646fe0fb49f37895b5889895",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      45
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 45
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "72976ee8f1497b6bcf1c12b3fdaf0cdc41ceab14646fe0fb49f37895b5889895",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      45
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 47,
+              "cached_logits_sha256": "c3c4413481782605e6a21f2a753476a7dac8ac927fde21b0fa49b06204195ebd",
+              "full_logits_sha256": "de0185f49926503ada6c372f4650ba151ff607c8e2407d5bbd28e2222ea524a1",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.22265625,
+              "normalized_rms": 0.017170516774058342,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "05ae128279f3bef8113ee7caaf61b1dd61e40b45dba519abaf1adb8c4bfe4053",
+                    "shape": [
+                      1,
+                      47
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "6e3989bfdab9675089a296f8b974431cbf419dc763f2e14620cd2b8b03b7d741",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      46
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 46
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "6e3989bfdab9675089a296f8b974431cbf419dc763f2e14620cd2b8b03b7d741",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      46
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        }
+      ],
+      "criterion_result": {
+        "absolute_max_ok": true,
+        "discrete_interface_exact": true,
+        "discrete_mean_nrms": 0.01717738388106227,
+        "finite": true,
+        "greedy_equal_all": false,
+        "mean_excess_allowance": 0.004294345970265567,
+        "mean_relative_ok": true,
+        "qualifies": false,
+        "soft_mean_nrms": 0.016686188522726297,
+        "soft_minus_discrete_nrms_by_step": [
+          -0.0020226072520017624,
+          -0.0005358252674341202,
+          -0.00045374780893325806,
+          0.0010473988950252533
+        ],
+        "step_relative_ok": true
+      },
+      "example_id": "a0-mechanism-0003",
+      "fixture": {
+        "child_input_ids_sha256": "40dc6f16c1568f36cda81e7f9c7ee77987e79a5e2652e7c5432dbc482c5b7688",
+        "child_token_count": 35,
+        "continuation_input_ids_sha256": "726453758d1f0abf9317cae503eb31e5b949b58083b89984eb312ba66c42bed1",
+        "continuation_token_ids": [
+          49265,
+          48338,
+          3438,
+          321
+        ],
+        "injection_index": 28,
+        "length_control_input_ids_sha256": "9a8ba0094475d102b013004d773809104c68194e2c16afc5dbca29f74f818eda",
+        "length_control_token_ids": [
+          40,
+          4021,
+          2528,
+          8976,
+          35139,
+          635,
+          524,
+          599
+        ],
+        "length_control_token_ids_sha256": "e86e01e61315008783cc217a5bb83a1b3aced0daaecbc920b8d3b45ab4b205d8",
+        "length_control_tokens_non_special": true,
+        "matched_mask_and_positions_exact": true,
+        "matched_prompt_length": 43,
+        "parent_token_count": 77,
+        "soft_prompt_sha256": "28066a25619385a19ac84d320e91d3589242e49592d7ffa2323d4ba45af3d725",
+        "workspace_source_sha256": "2c53018265d27fc7e87b379d99a90d11023c03d25b75d99ff813e66f05194e32"
+      }
+    },
+    {
+      "arms": [
+        {
+          "arm": "L_ID",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 48,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "86176ea656f96e0a10a65b8e982a1fcb6bdd55c2bae34513132d8e122a97c535",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 49,
+              "cached_logits_sha256": "e9b5ea36d9d5de3180e0254b6774d9d2026af158e235f2b7c58e962ee4f70959",
+              "full_logits_sha256": "898690787de3d8dbbbb1fa086e921f81cc82162d408f399d08a7b4128f96a2ab",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.017343085259199142,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "16fca3379d768e1254ffc14c5841f886c3049540f999e0cbd1251967688baf88",
+                    "shape": [
+                      1,
+                      49
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "4779cee98e83f1a1592de4f293107545fabab96772e43de89f3437b35f08938f",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      48
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 48
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "4779cee98e83f1a1592de4f293107545fabab96772e43de89f3437b35f08938f",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 50,
+              "cached_logits_sha256": "088869290507d7fdaf626d8a8043acf9c7f589f6b3c2b3e4b41cb931218bf697",
+              "full_logits_sha256": "65ae0d0f8d6aa036fefe22c4377d8b025c230f00d5c06f409c5b26c47f68b3bc",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.014207614585757256,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f33daf5fc5cddc53a4edc108cc7617823eba7f63958f7e79379335d6a0f6eae7",
+                    "shape": [
+                      1,
+                      50
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "703d37e650ac5852ff1027382d58776810b88d1db959d667efa0df97ae156c6b",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      49
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 49
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "703d37e650ac5852ff1027382d58776810b88d1db959d667efa0df97ae156c6b",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 51,
+              "cached_logits_sha256": "64b226aeb16228a6256abd8f978ff6444c843a6330fe681f4419091fa1975f57",
+              "full_logits_sha256": "92c24047e8dbcd10bda988564d60591a771cebe3e70a36e0c002fc625575e6b3",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.140625,
+              "normalized_rms": 0.012751713395118713,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0dff5abdc80d72cb4acb00c2e5e0279c4f201a47a9fcffff4d990877776b8e3d",
+                    "shape": [
+                      1,
+                      51
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 50
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 52,
+              "cached_logits_sha256": "796572ed8491ac98608fb635eef389e5f530bc46d6560d41df10c654ac91fa28",
+              "full_logits_sha256": "16f95496222e915e1baf21c6754797d7e3b49861042c596a9524a7233b13b4bd",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.014889650978147984,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "3ee365c1745118c3ef14787ebc037f59f3c137f4571842d4d4f5de50ab320211",
+                    "shape": [
+                      1,
+                      52
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 51
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "L_E",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 48,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "86176ea656f96e0a10a65b8e982a1fcb6bdd55c2bae34513132d8e122a97c535",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 49,
+              "cached_logits_sha256": "e9b5ea36d9d5de3180e0254b6774d9d2026af158e235f2b7c58e962ee4f70959",
+              "full_logits_sha256": "898690787de3d8dbbbb1fa086e921f81cc82162d408f399d08a7b4128f96a2ab",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.017343085259199142,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "16fca3379d768e1254ffc14c5841f886c3049540f999e0cbd1251967688baf88",
+                    "shape": [
+                      1,
+                      49
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "4779cee98e83f1a1592de4f293107545fabab96772e43de89f3437b35f08938f",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      48
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 48
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "4779cee98e83f1a1592de4f293107545fabab96772e43de89f3437b35f08938f",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 50,
+              "cached_logits_sha256": "088869290507d7fdaf626d8a8043acf9c7f589f6b3c2b3e4b41cb931218bf697",
+              "full_logits_sha256": "65ae0d0f8d6aa036fefe22c4377d8b025c230f00d5c06f409c5b26c47f68b3bc",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.15625,
+              "normalized_rms": 0.014207614585757256,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f33daf5fc5cddc53a4edc108cc7617823eba7f63958f7e79379335d6a0f6eae7",
+                    "shape": [
+                      1,
+                      50
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "703d37e650ac5852ff1027382d58776810b88d1db959d667efa0df97ae156c6b",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      49
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 49
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "703d37e650ac5852ff1027382d58776810b88d1db959d667efa0df97ae156c6b",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 51,
+              "cached_logits_sha256": "64b226aeb16228a6256abd8f978ff6444c843a6330fe681f4419091fa1975f57",
+              "full_logits_sha256": "92c24047e8dbcd10bda988564d60591a771cebe3e70a36e0c002fc625575e6b3",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.140625,
+              "normalized_rms": 0.012751713395118713,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0dff5abdc80d72cb4acb00c2e5e0279c4f201a47a9fcffff4d990877776b8e3d",
+                    "shape": [
+                      1,
+                      51
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 50
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 52,
+              "cached_logits_sha256": "796572ed8491ac98608fb635eef389e5f530bc46d6560d41df10c654ac91fa28",
+              "full_logits_sha256": "16f95496222e915e1baf21c6754797d7e3b49861042c596a9524a7233b13b4bd",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.014889650978147984,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "3ee365c1745118c3ef14787ebc037f59f3c137f4571842d4d4f5de50ab320211",
+                    "shape": [
+                      1,
+                      52
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 51
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        },
+        {
+          "arm": "S",
+          "fresh_cache": true,
+          "initial_cache_sequence_length": 48,
+          "initial_logits_finite": true,
+          "position_branch": "explicit_next_position",
+          "prefill_cache_type": "DynamicCache",
+          "prefill_last_logits_sha256": "fa7efc9e7831668133658c8171acb56fb388a551a6aa3197cab87f9489df8b75",
+          "rope_state": {
+            "after_prefill": {
+              "state": "none"
+            },
+            "before_prefill": {
+              "state": "none"
+            }
+          },
+          "steps": [
+            {
+              "cache_sequence_length": 49,
+              "cached_logits_sha256": "cb7558085ae8088125654822db014e914064f79dc9cac883e7a5a73ee518b2c0",
+              "full_logits_sha256": "55bbb9fa81b2fcc09e434173d9072d67624ed616ba8057fe82be02a04a60638b",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.21875,
+              "normalized_rms": 0.017470207065343857,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "16fca3379d768e1254ffc14c5841f886c3049540f999e0cbd1251967688baf88",
+                    "shape": [
+                      1,
+                      49
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "4779cee98e83f1a1592de4f293107545fabab96772e43de89f3437b35f08938f",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      48
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f93ae1aa57e99dcc921563b15458ab02921e2eae899510f6e1b9331a3610f100",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49265
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 48
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "4779cee98e83f1a1592de4f293107545fabab96772e43de89f3437b35f08938f",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 1
+            },
+            {
+              "cache_sequence_length": 50,
+              "cached_logits_sha256": "670ee636481bdc05effc2c7b3afa75c130ed4b3d5ff0a3e238512292df3b27f1",
+              "full_logits_sha256": "c8b0fae8a7043330f8a2ba040cbef8eed605c7edc6eac0a2d79244c131c43dc3",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.140625,
+              "normalized_rms": 0.01476896833628416,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "f33daf5fc5cddc53a4edc108cc7617823eba7f63958f7e79379335d6a0f6eae7",
+                    "shape": [
+                      1,
+                      50
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "703d37e650ac5852ff1027382d58776810b88d1db959d667efa0df97ae156c6b",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      49
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "17d93d73cf8eddf868db6eedd146b58334dc79e6995ca897906cd54fb55427a4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      48338
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 49
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "703d37e650ac5852ff1027382d58776810b88d1db959d667efa0df97ae156c6b",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      49
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 2
+            },
+            {
+              "cache_sequence_length": 51,
+              "cached_logits_sha256": "b7ab7840ca63e6435d6207c3310a7f22d654697cda2dc6fe2e84cec0ca7909d2",
+              "full_logits_sha256": "9d57df3873102288b502b300f9ab7b28f09641da1332d21b6490a15a81ab6404",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.1875,
+              "normalized_rms": 0.014874022454023361,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0dff5abdc80d72cb4acb00c2e5e0279c4f201a47a9fcffff4d990877776b8e3d",
+                    "shape": [
+                      1,
+                      51
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "347699c06e553019ab8e84b0971d8481f6dbb180a2ed009dd6552f7fd53bcfa3",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      3438
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 50
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "0cbbab9d99fb661a1686f17ccaaf8a9d069aa8cb755925045a1d049c060b9e67",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      50
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 3
+            },
+            {
+              "cache_sequence_length": 52,
+              "cached_logits_sha256": "3c60025b69ee26dddfd5104266850c6ad7e25fede189aebdcd8d1a02af5bac6d",
+              "full_logits_sha256": "e5b9da653a08b699fd17932dcab5e3bc3e46e31d921d5b7e50e6b2663422c3ba",
+              "greedy_equal": true,
+              "maximum_absolute_logit_difference": 0.125,
+              "normalized_rms": 0.010682258754968643,
+              "prepared": {
+                "keys": [
+                  "attention_mask",
+                  "cache_position",
+                  "image_grid_thw",
+                  "input_ids",
+                  "past_key_values",
+                  "pixel_values",
+                  "pixel_values_videos",
+                  "position_ids",
+                  "use_cache",
+                  "video_grid_thw"
+                ],
+                "values": {
+                  "attention_mask": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "3ee365c1745118c3ef14787ebc037f59f3c137f4571842d4d4f5de50ab320211",
+                    "shape": [
+                      1,
+                      52
+                    ]
+                  },
+                  "cache_position": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "image_grid_thw": null,
+                  "input_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "480f75f6afcb3b47b06b3e665d94ccdae7016b0c458bc2fbc46c4bacb213b58e",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      321
+                    ]
+                  },
+                  "past_key_values": {
+                    "kind": "DynamicCache",
+                    "sequence_length": 51
+                  },
+                  "pixel_values": null,
+                  "pixel_values_videos": null,
+                  "position_ids": {
+                    "dtype": "torch.int64",
+                    "kind": "tensor",
+                    "sha256": "48001b2f2c5137abda63e9487ddf147cc471eff55eb6fef2e0bb9247bc2553c4",
+                    "shape": [
+                      1,
+                      1
+                    ],
+                    "values": [
+                      51
+                    ]
+                  },
+                  "use_cache": true,
+                  "video_grid_thw": null
+                }
+              },
+              "rope_state": {
+                "after_decode": {
+                  "state": "none"
+                },
+                "after_prepare": {
+                  "state": "none"
+                },
+                "before_prepare": {
+                  "state": "none"
+                }
+              },
+              "step": 4
+            }
+          ]
+        }
+      ],
+      "criterion_result": {
+        "absolute_max_ok": true,
+        "discrete_interface_exact": true,
+        "discrete_mean_nrms": 0.014798016054555774,
+        "finite": true,
+        "greedy_equal_all": true,
+        "mean_excess_allowance": 0.0036995040136389434,
+        "mean_relative_ok": true,
+        "qualifies": true,
+        "soft_mean_nrms": 0.014448864152655005,
+        "soft_minus_discrete_nrms_by_step": [
+          0.00012712180614471436,
+          0.0005613537505269051,
+          0.002122309058904648,
+          -0.00420739222317934
+        ],
+        "step_relative_ok": true
+      },
+      "example_id": "a0-mechanism-0004",
+      "fixture": {
+        "child_input_ids_sha256": "6f89c1fa012508218a5e8f72305fdf2aaff3f55ae03d5dadbb3f8c0d6c6b86fb",
+        "child_token_count": 40,
+        "continuation_input_ids_sha256": "726453758d1f0abf9317cae503eb31e5b949b58083b89984eb312ba66c42bed1",
+        "continuation_token_ids": [
+          49265,
+          48338,
+          3438,
+          321
+        ],
+        "injection_index": 33,
+        "length_control_input_ids_sha256": "bd767a6be7183cf6ec0780baf88e0bc1653d067314c4703e8e7f833aa8607096",
+        "length_control_token_ids": [
+          40,
+          4021,
+          2528,
+          8976,
+          35139,
+          635,
+          524,
+          599
+        ],
+        "length_control_token_ids_sha256": "e86e01e61315008783cc217a5bb83a1b3aced0daaecbc920b8d3b45ab4b205d8",
+        "length_control_tokens_non_special": true,
+        "matched_mask_and_positions_exact": true,
+        "matched_prompt_length": 48,
+        "parent_token_count": 74,
+        "soft_prompt_sha256": "cc26be39618e0f20fd3f43038b2814ea46b140392bddcf2894df75a8331d4714",
+        "workspace_source_sha256": "2b48925ec99608262b9b99b6b3b38571d54e29cf409dd477418d0d1b601f4e22"
+      }
+    }
+  ],
+  "protected_hashes_after": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "protected_hashes_before": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "receipt_sha256": "10b5008dcc8ba45f8375590d850fd4306e1d591d6e4e6da7b1df3c7a98deae23",
+  "resources": {
+    "peak_cuda_memory_bytes": 4544125952,
+    "wall_seconds": 29.528863111976534
+  },
+  "schema_version": "prime-rl/latent-a0-cache-calibration-receipt/v1",
+  "status": "relative_cache_rejected",
+  "transformers_runtime_sources": {
+    "transformers.cache_utils": {
+      "path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+      "sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+    },
+    "transformers.generation.utils": {
+      "path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/generation/utils.py",
+      "sha256": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c"
+    },
+    "transformers.models.qwen3_5.modeling_qwen3_5": {
+      "path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/models/qwen3_5/modeling_qwen3_5.py",
+      "sha256": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "versions": {
+    "python": "3.12.14",
+    "torch_distribution": "2.11.0+cu128",
+    "torch_runtime": "2.11.0+cu128",
+    "transformers": "5.6.2"
+  }
+}

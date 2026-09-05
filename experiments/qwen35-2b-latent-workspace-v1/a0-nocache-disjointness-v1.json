@@ -1,0 +1,30 @@
+{
+  "schema_version": "prime-rl/latent-a0-nocache-disjointness/v1",
+  "prior_bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+  "fresh_bank_sha256": "b77df46145d67e9147f42b9dd1e403a6253955e2a67bab3c95490357fe255ea3",
+  "content_hash_rule": "canonical JSON SHA-256 of {parent_messages,child_messages}, sorted keys, compact separators, ensure_ascii=true",
+  "prior_campaign_union": {
+    "A0": {"plan": "a0-mechanism-plan-v1.json", "plan_file_sha256": "105490570f48144f677662758927b08e930ae317140ee51cec2db678d5316c5a", "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1", "probe_ids": ["a0-mechanism-0001", "a0-mechanism-0002", "a0-mechanism-0003", "a0-mechanism-0004"]},
+    "A0R": {"plan": "a0r-mechanism-plan-v1.json", "plan_file_sha256": "965df64a2a98b13238d4366294de60ecf6368f7d009e15cfec0210863f7a36fa", "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1", "probe_ids": ["a0-mechanism-0001", "a0-mechanism-0002", "a0-mechanism-0003", "a0-mechanism-0004"]},
+    "A0C": {"plan": "a0c-carrier-plan-v1.json", "plan_file_sha256": "efb948c90d402aef82d58a42b4f5e74d63891a97f380ff6b758526414e89b4d5", "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1", "probe_ids": ["a0-mechanism-0001", "a0-mechanism-0002", "a0-mechanism-0003", "a0-mechanism-0004"]},
+    "A0D": {"plan": "a0d-cache-diagnostic-plan-v1.json", "plan_file_sha256": "f415990d7dbf0df98fa0835020b5e4e5a0147742e9d4d340503f36c5e17a41a4", "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1", "probe_ids": ["a0-mechanism-0001"]},
+    "A0DR": {"plan": "a0dr-cache-diagnostic-plan-v1.json", "plan_file_sha256": "c897c1f6136b2aa62a4d7c816984539bae6cdec83266e2de90ea15720e5129e2", "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1", "probe_ids": ["a0-mechanism-0001"]},
+    "A0DR2": {"plan": "a0dr2-cache-diagnostic-plan-v1.json", "plan_file_sha256": "22b6a441b5a6b4a62d2f2a9c30f5544c1c97d15b9e30c90b2f44ca11d59695f0", "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1", "probe_ids": ["a0-mechanism-0001"]},
+    "A0_CACHE_CALIBRATION": {"plan": "a0-cache-calibration-plan-v1.json", "plan_file_sha256": "c8bcd393a3d436a70d76deee12a3257a2731940c24a7b1826fac3ae46cd7221c", "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1", "probe_ids": ["a0-mechanism-0001", "a0-mechanism-0002", "a0-mechanism-0003", "a0-mechanism-0004"]}
+  },
+  "prior_union_collapses_to_exact_probe_ids": ["a0-mechanism-0001", "a0-mechanism-0002", "a0-mechanism-0003", "a0-mechanism-0004"],
+  "prior_content_sha256": {
+    "a0-mechanism-0001": "f535c8132693fa0f618b42dedbdbd3b7d9fbf209ed36584cd75bf595da6bdc43",
+    "a0-mechanism-0002": "4f7903c437ec7f6266d943d4fd48c678a838862791e9ba03167655fab1ec8540",
+    "a0-mechanism-0003": "968bf14c73c748bb14770ddaa2cb5dc427be13ce9c20f712b8ceeed1f2da439a",
+    "a0-mechanism-0004": "14faf9009de391e4cf5efda950234eb37da55277a16e84446d254fc2139c89f8"
+  },
+  "fresh_content_sha256": {
+    "a0-nocache-0001": "bbb890fb921c02831fc0da332e945ef65fd316de62bafad4fd6e20545ff754dd",
+    "a0-nocache-0002": "7b93b54b768c86c4c73a97ac4ba56a7406d05cd589f559482b786ce5ca2f7b85",
+    "a0-nocache-0003": "ea7c92f3ae63b435c0239d5f3b0d23a4128490451ea6741654a729f41881a49b",
+    "a0-nocache-0004": "424bd8ebac5ed8906f9f353b6a40d6b4a5ad80e1c9960a6ca621ae19752e6d1b"
+  },
+  "runtime_rule": "all full rendered parent and child token-tensor hashes must be unique across prior and fresh banks",
+  "content_hash_sets_disjoint": true
+}

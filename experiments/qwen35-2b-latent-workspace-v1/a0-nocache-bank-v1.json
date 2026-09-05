@@ -1,0 +1,56 @@
+{
+  "schema_version": "prime-rl/latent-a0-nocache-bank/v1",
+  "status": "frozen_before_model_exposure",
+  "continuation_text": " Acknowledged and continuing safely.",
+  "continuation_token_ids": [49265, 48338, 3438, 321],
+  "examples": [
+    {
+      "example_id": "a0-nocache-0001",
+      "parent_messages": [
+        {"role": "system", "content": "You are the root coordinator. Prepare a bounded coordinator-child objective and retain final synthesis."},
+        {"role": "user", "content": "Prepare a child to inspect the ledger facts ember=41 and tide=26 without modifying them."},
+        {"role": "assistant", "content": "Proposed coordinator-child objective: inspect ember=41 and tide=26 and report the smaller value."}
+      ],
+      "child_messages": [
+        {"role": "system", "content": "You are a coordinator child operating under a read-only bounded objective."},
+        {"role": "user", "content": "Inspect the two ledger facts and report the smaller value."}
+      ]
+    },
+    {
+      "example_id": "a0-nocache-0002",
+      "parent_messages": [
+        {"role": "system", "content": "You are the root coordinator. Define one exact child inspection and preserve ownership."},
+        {"role": "user", "content": "Prepare a child to inspect the routing table falcon:north and otter:south."},
+        {"role": "assistant", "content": "Proposed coordinator-child objective: inspect falcon:north and otter:south and report the label routed south."}
+      ],
+      "child_messages": [
+        {"role": "system", "content": "You are a coordinator child. Follow only the scoped read-only inspection."},
+        {"role": "user", "content": "Report the label routed south."}
+      ]
+    },
+    {
+      "example_id": "a0-nocache-0003",
+      "parent_messages": [
+        {"role": "system", "content": "You are the root coordinator. Prepare an exact child objective without yielding final responsibility."},
+        {"role": "user", "content": "Prepare a child to inspect the settings window=9 and policy=locked."},
+        {"role": "assistant", "content": "Proposed coordinator-child objective: inspect window=9 and policy=locked and report the window value without changes."}
+      ],
+      "child_messages": [
+        {"role": "system", "content": "You are a coordinator child with a read-only settings objective."},
+        {"role": "user", "content": "Report the configured window value."}
+      ]
+    },
+    {
+      "example_id": "a0-nocache-0004",
+      "parent_messages": [
+        {"role": "system", "content": "You are the root coordinator. Scope a child investigation and retain final synthesis."},
+        {"role": "user", "content": "Prepare a child to inspect the path luma->cobalt->sable->iris."},
+        {"role": "assistant", "content": "Proposed coordinator-child objective: inspect luma->cobalt->sable->iris and report the node immediately after sable."}
+      ],
+      "child_messages": [
+        {"role": "system", "content": "You are a coordinator child. Inspect only the frozen path question."},
+        {"role": "user", "content": "Report the node immediately after sable."}
+      ]
+    }
+  ]
+}
