@@ -1,0 +1,436 @@
+{
+  "a0nc_success_evidence": {
+    "bank_sha256": "b77df46145d67e9147f42b9dd1e403a6253955e2a67bab3c95490357fe255ea3",
+    "checkpoint_created": false,
+    "claim": "no_cache_full_recompute_diagnostic_valid_for_B",
+    "complete_distinct_probes": 4,
+    "execution_commit": "a150e2cee216c04fe4d600c039edf472d91fdc35",
+    "mechanism_code_commit": "8d18937bdf4dedc92d4d9abf88070784a2a4a5c0",
+    "model_update_attempted": false,
+    "optimizer_created": false,
+    "plan_sha256": "6f50fc1c83cafac99f89212aa4b8349984caed4e4b389fff284edc1922e860fd",
+    "prior_cache_rejection": {
+      "complete_distinct_probes": 4,
+      "execution_commit": "2b7d3c8b26c6813da4fb7e534c0061b3814769ec",
+      "launch_log_sha256": "c3b3d2ff004e46543bcc9435256c39b00f3e8d957c273dfac819150e76cb949d",
+      "plan_sha256": "eeda1c571359b29882f16acbd50f573ecd3fa71238882f9f95bb99040e8e7578",
+      "qualifying_probes": 2,
+      "receipt_file_sha256": "707d507bd24f64ea7b4d872268d5335520bd7f1e7771f380b37fa1fb5be97ab1",
+      "receipt_internal_sha256": "10b5008dcc8ba45f8375590d850fd4306e1d591d6e4e6da7b1df3c7a98deae23",
+      "snapshot_manifest_sha256": "b1bc015a9711015592d89edfdaefe1343da69e78ac09584131a7c24d49102cc9",
+      "status": "relative_cache_rejected"
+    },
+    "protected_hashes_after": {
+      "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "protected_hashes_before": {
+      "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "receipt_file_sha256": "4a713486110d8c17c1fb6e03ffddb87ffc514ecd840ddc4c3f5998021b36f4f2",
+    "receipt_internal_sha256": "20186c98f3d2f9a56ec9db9b02be5dc1302aa12ca2049076d402a98c88a7c2ba",
+    "status": "nocache_receiver_mechanism_validated"
+  },
+  "asset_sha256": {
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-plan-v1.json": "c8bcd393a3d436a70d76deee12a3257a2731940c24a7b1826fac3ae46cd7221c",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-rejected-manifest.sha256": "b1bc015a9711015592d89edfdaefe1343da69e78ac09584131a7c24d49102cc9",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-rejected-receipt.json": "707d507bd24f64ea7b4d872268d5335520bd7f1e7771f380b37fa1fb5be97ab1",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-rejected-run.log": "c3b3d2ff004e46543bcc9435256c39b00f3e8d957c273dfac819150e76cb949d",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-bank-v1.json": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-plan-v1.json": "105490570f48144f677662758927b08e930ae317140ee51cec2db678d5316c5a",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-nocache-bank-v1.json": "b77df46145d67e9147f42b9dd1e403a6253955e2a67bab3c95490357fe255ea3",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-nocache-disjointness-v1.json": "88c730b9688abcbc7a2df4792706df2cb86962e5f1be8fd04ac75f6f5766644f",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-nocache-plan-v1.json": "c42bcd2be57b116c3ed81cf95cf30cd8b0b565464b8cfab9b876ca545ef47dde",
+    "experiments/qwen35-2b-latent-workspace-v1/a0c-carrier-plan-v1.json": "efb948c90d402aef82d58a42b4f5e74d63891a97f380ff6b758526414e89b4d5",
+    "experiments/qwen35-2b-latent-workspace-v1/a0d-cache-diagnostic-plan-v1.json": "f415990d7dbf0df98fa0835020b5e4e5a0147742e9d4d340503f36c5e17a41a4",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr-cache-diagnostic-plan-v1.json": "c897c1f6136b2aa62a4d7c816984539bae6cdec83266e2de90ea15720e5129e2",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-cache-diagnostic-plan-v1.json": "22b6a441b5a6b4a62d2f2a9c30f5544c1c97d15b9e30c90b2f44ca11d59695f0",
+    "experiments/qwen35-2b-latent-workspace-v1/a0nc-success-receipt.json": "4a713486110d8c17c1fb6e03ffddb87ffc514ecd840ddc4c3f5998021b36f4f2",
+    "experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-plan-v1.json": "965df64a2a98b13238d4366294de60ecf6368f7d009e15cfec0210863f7a36fa",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-disjointness-v1.json": "44c78fb0680d837a284c0d63b6154b51ea1b76ea4f3a0cf0dac7de56c96974e2",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json": "204e6605fca20f94b23468fbd9f56b86ca16e8296191dd09b877a021c9ab2381",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-schedule-v1.json": "13aef778baf93f1ac55270c0f2d9a8c60d78d4fbb0b20c436393c7b318a6e92a",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json": "cea92c57536ec7a93e68c64c4a01669e11dab1dc483a86c711c97c1181bb08d8",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json": "8e87309df0c37cce7bbd0bb98a3daed098f0b354f0c00ae15c27024047539c5e",
+    "scripts/latent/run_a0_nocache_receiver_v1.py": "de1a1997660e7ebcf3fc12faf84754ed7a6b007171f19c1ae8218da0e3b811cc",
+    "scripts/latent/run_a0_nocache_receiver_v1.sh": "934bbc7bd132a6a907b580c5aa3b2da51487714d24f07977252c7f582ba70767",
+    "scripts/latent/run_a1_nc0_nomination_v1.py": "99900e0bd366d96ce55ebc3825b39f2957d9d8d2a8dd7706cd663b803767e595",
+    "scripts/latent/run_a1_nc0_nomination_v1.sh": "c21208ec76c904ce0a3fa90af2649ac5abdab30a44c916025064279dfcfc6723",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/a0c.py": "7e191ba210df5790176014707a8da5939bd7884d38ff4c1f9c791f89c55d1bf4",
+    "src/prime_rl/latent/a0cal.py": "873ab738a1384f63aaf5cbc0c877f2d9a60ed96d9c9fc4ddb23d38c4a25fa269",
+    "src/prime_rl/latent/a0d.py": "307c617b5f46a61472d7a042fe705bbf228974bb45ea495c9c90a21273a16ebc",
+    "src/prime_rl/latent/a0dr.py": "c765e7c3fe5618b3577f202d3f2525f55b8fb2b61ff20d5255063db63bd69c00",
+    "src/prime_rl/latent/a0dr2.py": "40a628aff96527d01d964c865b5a26b2d9cb58e3da0c4660c0162504022df42a",
+    "src/prime_rl/latent/a0nc.py": "41c69fe874bc214b9cd4cb3bba377bbe8bdad9f039d16cb60bd089b28e413404",
+    "src/prime_rl/latent/a0r.py": "128f98b20f3872c0057ea08a87047b51a2f6642b4867b1f25a5fb54ea86e37cd",
+    "src/prime_rl/latent/a1nc0.py": "228ebdb163032c7abf5a6571934b018c11e7ba915897b4cf85e326b5383da83c",
+    "src/prime_rl/latent/bridge.py": "ee0be34513201c615036dccdcd18c2c4eff68bcd706a7f507255dd097f0960d4",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81",
+    "src/prime_rl/latent/transfer_bank.py": "29c420b1f3d90c42c3a992f04f782b3bfad17a81ee0f2ec697bd65c1c9319c78",
+    "tests/unit/latent/test_a1nc0.py": "8afbb0ae8b579c36e45eec2b98eecdbae744ea3fbb4dd06484d85ae1c664c3d3"
+  },
+  "bank_disjointness": {
+    "all_pairwise_intersections_zero": true,
+    "axes": [
+      "evidence_ids",
+      "query_ids",
+      "structured_evidence_sha256",
+      "parent_evidence_text",
+      "child_query_text",
+      "opaque_identifiers"
+    ],
+    "file_sha256": "44c78fb0680d837a284c0d63b6154b51ea1b76ea4f3a0cf0dac7de56c96974e2",
+    "report_sha256": "fc121902c22bbf6065b14ba010502b27a103550e0d252b0ff7540a3f1b4ca164"
+  },
+  "bridge": {
+    "attention_heads": 8,
+    "candidate_tensor_dtype": "torch.float32",
+    "candidate_tensor_names": [
+      "decoder.projection.bias",
+      "decoder.projection.weight",
+      "decoder.receiver_gate",
+      "decoder.workspace_norm.bias",
+      "decoder.workspace_norm.weight",
+      "encoder.learned_queries",
+      "encoder.output_norm.bias",
+      "encoder.output_norm.weight",
+      "encoder.resampler.in_proj_bias",
+      "encoder.resampler.in_proj_weight",
+      "encoder.resampler.out_proj.bias",
+      "encoder.resampler.out_proj.weight",
+      "encoder.source_norm.bias",
+      "encoder.source_norm.weight",
+      "encoder.source_projection.bias",
+      "encoder.source_projection.weight"
+    ],
+    "candidate_tensor_shapes": {
+      "decoder.projection.bias": [
+        2048
+      ],
+      "decoder.projection.weight": [
+        2048,
+        256
+      ],
+      "decoder.receiver_gate": [],
+      "decoder.workspace_norm.bias": [
+        256
+      ],
+      "decoder.workspace_norm.weight": [
+        256
+      ],
+      "encoder.learned_queries": [
+        8,
+        256
+      ],
+      "encoder.output_norm.bias": [
+        256
+      ],
+      "encoder.output_norm.weight": [
+        256
+      ],
+      "encoder.resampler.in_proj_bias": [
+        768
+      ],
+      "encoder.resampler.in_proj_weight": [
+        768,
+        256
+      ],
+      "encoder.resampler.out_proj.bias": [
+        256
+      ],
+      "encoder.resampler.out_proj.weight": [
+        256,
+        256
+      ],
+      "encoder.source_norm.bias": [
+        2048
+      ],
+      "encoder.source_norm.weight": [
+        2048
+      ],
+      "encoder.source_projection.bias": [
+        256
+      ],
+      "encoder.source_projection.weight": [
+        256,
+        2048
+      ]
+    },
+    "initial_receiver_gate": 0.001,
+    "receiver_gate_application": "inside_WorkspaceDecoder_then_compose_gate_exactly_1.0",
+    "receiver_width": 2048,
+    "schema_version": "prime-rl/workspace-bridge/v1",
+    "slots": 8,
+    "source_width": 2048,
+    "trainable_parameter_count": 1321217,
+    "workspace_width": 256
+  },
+  "cache_guard_contract": {
+    "closure_check_count": "memory_index_of_cache_guard_audit_complete_plus_2",
+    "negative_control": "DynamicCache allocation must raise",
+    "recursive_class_closure": [
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "fla.models.utils.Cache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
+        "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
+      },
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "fla.models.utils.FLACache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
+        "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
+      },
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "fla.models.utils.LegacyFLACache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
+        "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
+      },
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "transformers.cache_utils.Cache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+        "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+      },
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "transformers.cache_utils.DynamicCache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+        "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+      },
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "transformers.cache_utils.EncoderDecoderCache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+        "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+      },
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "transformers.cache_utils.QuantizedCache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+        "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+      },
+      {
+        "distribution": "transformers==5.6.2",
+        "fqcn": "transformers.cache_utils.StaticCache",
+        "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+        "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+      }
+    ],
+    "restore_in_finally": true
+  },
+  "evaluation": {
+    "after_first_eos": "append_eos_for_remaining_fixed_steps",
+    "arms": [
+      "M0",
+      "MOTH",
+      "MSELF",
+      "MCUR",
+      "ZERO",
+      "NOISE"
+    ],
+    "canonical_captures_and_bridges_per_split": 16,
+    "capture_layer": -1,
+    "capture_tokens": 128,
+    "decode_mode": "greedy_full_prefix_recompute_use_cache_false",
+    "decode_steps": 12,
+    "feature_input_tokens": 256,
+    "forced_steps_after_first_terminal": true,
+    "gold_nll_under_actual_rollout_prefix": true,
+    "mcur_mself_cuda_event_relative_difference_maximum": 0.1,
+    "mself_primary_compute_match": "equal_operation",
+    "no_cache": true,
+    "paired_nll_win_epsilon": 1e-06,
+    "parent_answer_visibility": false,
+    "parent_query_visibility": false,
+    "query_witness_captures_and_bridges_per_split": 144,
+    "receiver_forwards_per_split": 3456,
+    "receiver_width": 2048,
+    "terminal_marker_token_ids": [
+      248046,
+      198
+    ],
+    "tokenizer_eos_and_pad_token_id": 248046,
+    "total_e33_forwards_through_validation": 4526,
+    "total_e33_forwards_with_held_out": 8142,
+    "validation_before_held_out": true,
+    "workspace_reused_bitwise_across_three_queries": true,
+    "workspace_slots": 8,
+    "workspace_width": 256
+  },
+  "execution_authorization": "root_and_evaluator_review_required",
+  "failure_classification": {
+    "held_out_nomination_gate_met": "a1_nc0_nominated",
+    "held_out_nomination_gate_not_met": "valid_not_nominated",
+    "infrastructure_or_provenance_failure": "infrastructure_invalid",
+    "mechanism_or_contract_failure": "mechanism_rejected",
+    "run_id_reusable": false,
+    "validation_gate_not_met": "valid_not_nominated_validation"
+  },
+  "interpretation_boundary": "nomination-only no-cache bridge learnability; A0R and relative-cache calibration remain rejected; A1 admission, live typed-harness delivery, A2, model promotion, and any A+B claim remain blocked",
+  "mechanism_code_commit": "eca69f59769b0715eb65229e03d04802389f7072",
+  "nomination_gate": {
+    "complete_tasks": 48,
+    "m0_to_mcur_recoveries_minimum": 9,
+    "m0_to_mcur_recovery_families_minimum": 3,
+    "m0_to_mcur_regressions_maximum": 2,
+    "mcur_exact_minimum": 16,
+    "mcur_exact_per_family_minimum": 2,
+    "mcur_minus_moth_exact_net_minimum": 7,
+    "mcur_minus_moth_mean_answer_token_nll_minimum": 0.02,
+    "mcur_minus_mself_exact_net_minimum": 4,
+    "mcur_minus_mself_mean_answer_token_nll_minimum": 0.01,
+    "mcur_minus_noise_exact_net_minimum": 6,
+    "mcur_minus_noise_mean_answer_token_nll_minimum": 0.02,
+    "mcur_minus_zero_exact_net_minimum": 6,
+    "mcur_minus_zero_mean_answer_token_nll_minimum": 0.02,
+    "mcur_vs_moth_exact_losses_maximum": 3,
+    "mcur_vs_moth_exact_wins_minimum": 10,
+    "mcur_vs_moth_paired_nll_wins_minimum": 30,
+    "mcur_vs_moth_win_families_minimum": 3,
+    "mcur_vs_mself_exact_losses_maximum": 3,
+    "mcur_vs_mself_exact_wins_minimum": 7,
+    "mcur_vs_mself_paired_nll_wins_minimum": 27,
+    "moth_recovery_fraction_of_mcur_maximum": 0.25,
+    "noise_recovery_fraction_of_mcur_maximum": 0.25
+  },
+  "plan_sha256": "1dfcd9295d9e6dd08c404c81dd2072c21c82bb2a12fbdebd5ac3cf3e2622b756",
+  "protected_checkpoints": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "remote_paths": {
+    "coordinator_e33": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "worker_h176": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8"
+  },
+  "resource_bounds": {
+    "allocator_cap_gib": 40,
+    "audit_seconds": 240,
+    "compute_seconds": 28260,
+    "failure_audit_seconds": 180,
+    "gpu_model": "NVIDIA RTX A6000",
+    "gpus_used": 1,
+    "maximum_candidate_bytes": 8388608,
+    "maximum_failure_bytes": 16777216,
+    "maximum_output_directory_bytes": 1073741824,
+    "maximum_receipt_bytes": 536870912,
+    "minimum_free_disk_gib": 60,
+    "minimum_gpu_memory_gib": 47,
+    "minimum_host_ram_gib": 64,
+    "network": false,
+    "outer_wall_seconds": 28800,
+    "output_root": "/home/ubuntu/rlm/outputs/latent-a1-nc0-nomination-v1",
+    "terminal_seconds": 60
+  },
+  "runtime": {
+    "attention_implementation": "eager",
+    "checkpoint_metadata_sha256": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "hidden_size": 2048,
+    "local_files_only": true,
+    "model_class": "Qwen3_5ForConditionalGeneration",
+    "python": "3.12.14",
+    "tokenizer_eos_token_id": 248046,
+    "tokenizer_pad_token_id": 248046,
+    "torch_distribution": "2.11.0+cu128",
+    "torch_runtime": "2.11.0+cu128",
+    "transformers": "5.6.2",
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.loss.loss_utils": "3df3438f0cb80cb7b903d6d06f522839756f4ca9301a02d793748ae099c27d9f",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    },
+    "vocab_size": 248320
+  },
+  "schema_version": "prime-rl/latent-a1-nc0-plan/v1",
+  "seeds": {
+    "arm_order": 310138650,
+    "bridge_init": 3772224393,
+    "noise": 2671655313
+  },
+  "split_information_bank": {
+    "held_out": {
+      "examples_per_family": 4,
+      "file_sha256": "204e6605fca20f94b23468fbd9f56b86ca16e8296191dd09b877a021c9ab2381",
+      "manifest_sha256": "2201b93fe3e250d6816a09a86a69c72e6e0757d5eb06d5e5d457d2a6a56b2b7d",
+      "queries": 48,
+      "records": 16,
+      "seed": 27267994
+    },
+    "train": {
+      "examples_per_family": 16,
+      "file_sha256": "cea92c57536ec7a93e68c64c4a01669e11dab1dc483a86c711c97c1181bb08d8",
+      "manifest_sha256": "5819ed6acba9524eeb8f9b537ee71c9b73e4babc13d3689fafb7ce3ef825c5ac",
+      "queries": 192,
+      "records": 64,
+      "seed": 771168341
+    },
+    "validation": {
+      "examples_per_family": 4,
+      "file_sha256": "8e87309df0c37cce7bbd0bb98a3daed098f0b354f0c00ae15c27024047539c5e",
+      "manifest_sha256": "587a4de77e9607217055b70f3640cbc219a10d515f7936e9ee357c694d13b36e",
+      "queries": 48,
+      "records": 16,
+      "seed": 213801847
+    }
+  },
+  "status": "preregistered",
+  "training": {
+    "betas": [
+      0.9,
+      0.95
+    ],
+    "bridge_recomputed_per_query_exposure": true,
+    "causal_alignment": "leading_minus100_then_contiguous_answer_tokens",
+    "checkpoint_selection": false,
+    "early_stopping": false,
+    "epochs": 4,
+    "epsilon": 1e-08,
+    "gradient_clip_norm": 1.0,
+    "initialization_seed_calls": [
+      "torch.manual_seed",
+      "torch.cuda.manual_seed_all"
+    ],
+    "learning_rate": 0.0001,
+    "objective": "MCUR answer-token cross_entropy",
+    "optimizer": "AdamW",
+    "optimizer_destroyed_before_evaluation": true,
+    "optimizer_state_persisted": false,
+    "pretraining_repeat_distinct_probes": 4,
+    "pretraining_repeat_e33_forwards": 78,
+    "pretraining_repeat_optimizer_step": false,
+    "queries_per_update": 12,
+    "suffix_logits_to_keep": "answer_token_count_plus_one",
+    "teacher_input_terminal_ids_excluded": true,
+    "total_query_exposures": 768,
+    "total_updates": 64,
+    "train_parent_feature_cache": "detached_immutable_host_ram",
+    "train_parent_feature_captures": 64,
+    "trainable_scope": "workspace_bridge_and_receiver_gate_only",
+    "updates_per_epoch": 16,
+    "weight_decay": 0.0
+  },
+  "validation_gate": {
+    "complete_tasks": 48,
+    "m0_to_mcur_recoveries_minimum": 6,
+    "m0_to_mcur_recovery_families_minimum": 2,
+    "m0_to_mcur_regressions_maximum": 3,
+    "mcur_exact_minimum": 12,
+    "mcur_minus_moth_exact_net_minimum": 4,
+    "mcur_minus_moth_mean_answer_token_nll_minimum": 0.02,
+    "mcur_vs_moth_paired_nll_wins_minimum": 30
+  }
+}
