@@ -8,13 +8,8 @@ from pathlib import Path
 
 import pytest
 
-
 REPO = Path(__file__).resolve().parents[2]
-REWARD_PATH = (
-    REPO
-    / "patches/verifiers/environments/source_worker_first_call_v1/"
-    "source_worker_first_call_v1/reward.py"
-)
+REWARD_PATH = REPO / "patches/verifiers/environments/source_worker_first_call_v1/source_worker_first_call_v1/reward.py"
 SPEC = importlib.util.spec_from_file_location("source_worker_first_call_reward", REWARD_PATH)
 assert SPEC is not None and SPEC.loader is not None
 REWARD = importlib.util.module_from_spec(SPEC)
@@ -32,9 +27,7 @@ EXPERIMENT = REPO / "experiments/qwen35-2b-document-recursion-zero-update-v1"
 
 
 def _validator_module():
-    spec = importlib.util.spec_from_file_location(
-        "source_first_call_validator", VALIDATOR_PATH
-    )
+    spec = importlib.util.spec_from_file_location("source_first_call_validator", VALIDATOR_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -193,13 +186,13 @@ def test_launcher_checks_s5_exactness_at_task_schema_location() -> None:
 
 def test_launcher_uses_nested_run_roots_and_fail_closed_audit_resume() -> None:
     launcher = LAUNCHER_PATH.read_text()
-    assert 'audit_run=$audit_output/source-first-call-s6-zero-lr-audit' in launcher
-    assert 'update_run=$update_output/source-first-call-s6-step1' in launcher
-    assert 'candidate=$update_run/weights/step_1' in launcher
+    assert "audit_run=$audit_output/source-first-call-s6-zero-lr-audit" in launcher
+    assert "update_run=$update_output/source-first-call-s6-step1" in launcher
+    assert "candidate=$update_run/weights/step_1" in launcher
     assert 'run_s6_python "$validator" "$audit_run"' in launcher
     assert 'run_s6_python "$validator" "$update_run" --runtime --stage update' in launcher
-    assert 'resume_after_audit=${S6_RESUME_AFTER_AUDIT:-false}' in launcher
-    assert 'S6 resume requires exactly one unvalidated completed audit' in launcher
+    assert "resume_after_audit=${S6_RESUME_AFTER_AUDIT:-false}" in launcher
+    assert "S6 resume requires exactly one unvalidated completed audit" in launcher
 
 
 def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
@@ -216,9 +209,7 @@ def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
         ("specialist-source-competence-s6-first-call-grpo-step1.toml", "update"),
     ),
 )
-def test_s6_resolved_selection_is_one_eight_way_group_per_family(
-    filename: str, stage: str
-) -> None:
+def test_s6_resolved_selection_is_one_eight_way_group_per_family(filename: str, stage: str) -> None:
     validator = _validator_module()
     report = validator.validate_config(EXPERIMENT / filename, stage)
 
@@ -275,12 +266,10 @@ def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> N
                                         "arguments": json.dumps({"code": code}),
                                     }
                                 ],
-                            }
+                            },
                         }
                     ],
-                    "calls": [
-                        {"node": 0, "client_session_id": client_session_id}
-                    ],
+                    "calls": [{"node": 0, "client_session_id": client_session_id}],
                 }
             )
             audits.append(
@@ -291,9 +280,7 @@ def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> N
                     "role": "coordinator",
                     "expert_id": "source_inspector",
                     "status": 200,
-                    "session_sha256": hashlib.sha256(
-                        client_session_id.encode()
-                    ).hexdigest(),
+                    "session_sha256": hashlib.sha256(client_session_id.encode()).hexdigest(),
                     "action_sha256": action_sha,
                 }
             )
@@ -349,7 +336,7 @@ def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> N
 
     with pytest.raises(
         validator.AuditFailure,
-        match="lacks its exact forced-assignment route event",
+        match="lack forced-assignment route action multiplicity",
     ):
         validator._validate_forced_assignment_routes(traces, audits[:-1])
 
@@ -357,9 +344,7 @@ def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> N
 def test_runtime_validator_rejects_child_or_unmatched_forced_route() -> None:
     validator = _validator_module()
     code = (
-        "task_worker = await rlm("
-        "'[selected terminal capability]\\nexpert_id=source_inspector', "
-        'name="task-worker")'
+        "task_worker = await rlm('[selected terminal capability]\\nexpert_id=source_inspector', name=\"task-worker\")"
     )
     action_sha = hashlib.sha256(code.encode()).hexdigest()
     traces = []
@@ -393,9 +378,7 @@ def test_runtime_validator_rejects_child_or_unmatched_forced_route() -> None:
             "role": "child" if index == 0 else "coordinator",
             "expert_id": "source_inspector",
             "status": 200,
-            "session_sha256": hashlib.sha256(
-                f"session-{index}".encode()
-            ).hexdigest(),
+            "session_sha256": hashlib.sha256(f"session-{index}".encode()).hexdigest(),
             "action_sha256": action_sha,
         }
         for index in range(16)

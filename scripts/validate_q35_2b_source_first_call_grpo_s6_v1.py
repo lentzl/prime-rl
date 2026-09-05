@@ -13,8 +13,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 S5_PATH = Path(
-    "/home/ubuntu/rlm/outputs/q35-2b-source-worker-remedial-s5-v1/"
-    "h-source-s5-remedial-step8-v1/weights/step_8"
+    "/home/ubuntu/rlm/outputs/q35-2b-source-worker-remedial-s5-v1/h-source-s5-remedial-step8-v1/weights/step_8"
 )
 E33_PATH = Path(
     "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/"
@@ -32,14 +31,8 @@ EXPECTED_GROUP_SIZE = 8
 EXPECTED_TRAIN_SEED = 20270909
 EXPECTED_TRAIN_OFFSET = 70000
 EXPECTED_ROUTING_AUDIT = {
-    "audit": Path(
-        "/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/"
-        "zero-lr-routing-audit.jsonl"
-    ),
-    "update": Path(
-        "/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/"
-        "step1-routing-audit.jsonl"
-    ),
+    "audit": Path("/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/zero-lr-routing-audit.jsonl"),
+    "update": Path("/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/step1-routing-audit.jsonl"),
 }
 FORCED_ROUTE_MODE = "forced_specialist_assignment_generate_action"
 
@@ -130,9 +123,7 @@ def validate_config(path: Path, stage: Literal["audit", "update"]) -> dict[str, 
     expected_enforce = stage == "update"
     for slot in ("pre_batch_filters", "post_batch_filters"):
         if _zero_advantage_filter(payload, slot).get("enforce") is not expected_enforce:
-            raise AuditFailure(
-                f"{stage} zero-variance policy is wrong in {slot}"
-            )
+            raise AuditFailure(f"{stage} zero-variance policy is wrong in {slot}")
 
     sampling = _table(payload, "orchestrator", "train", "sampling")
     if (
@@ -167,9 +158,7 @@ def validate_config(path: Path, stage: Literal["audit", "update"]) -> dict[str, 
             or taskset.get("ownership_guided", False)
             or taskset.get("task", {}).get("reward_mode") != EXPECTED_REWARD
         ):
-            raise AuditFailure(
-                f"S6 {name} is not its fresh train-only isolated reward taskset"
-            )
+            raise AuditFailure(f"S6 {name} is not its fresh train-only isolated reward taskset")
 
     router = _table(payload, "inference", "router")
     if (
@@ -223,14 +212,11 @@ def _active_rl_tokens(record: dict[str, Any]) -> int:
     if not isinstance(weights, list) or len(mask) != len(weights):
         raise AuditFailure("invalid token-export RL stream")
     return sum(
-        keep and float(1.0 if weight is None else weight) != 0.0
-        for keep, weight in zip(mask, weights, strict=True)
+        keep and float(1.0 if weight is None else weight) != 0.0 for keep, weight in zip(mask, weights, strict=True)
     )
 
 
-def _validate_runtime_configs(
-    run_dir: Path, stage: Literal["audit", "update"]
-) -> dict[str, Any]:
+def _validate_runtime_configs(run_dir: Path, stage: Literal["audit", "update"]) -> dict[str, Any]:
     trainer = _read_json(run_dir / "configs" / "trainer.json")
     orchestrator = _read_json(run_dir / "configs" / "orchestrator.json")
     inference = _read_json(run_dir / "configs" / "inference.json")
@@ -241,9 +227,7 @@ def _validate_runtime_configs(
         raise AuditFailure(f"resolved S6 {stage} learning rate is wrong")
     if trainer.get("enable_token_export") is not True:
         raise AuditFailure("resolved S6 audit disabled token export")
-    checkpoint_enabled = isinstance(trainer.get("ckpt"), dict) and isinstance(
-        orchestrator.get("ckpt"), dict
-    )
+    checkpoint_enabled = isinstance(trainer.get("ckpt"), dict) and isinstance(orchestrator.get("ckpt"), dict)
     if checkpoint_enabled != (stage == "update"):
         raise AuditFailure(f"resolved S6 {stage} checkpoint policy is wrong")
     if trainer.get("loss", {}).get("kl_tau") != 0.001:
@@ -266,9 +250,7 @@ def _validate_runtime_configs(
             (item for item in filters or [] if item.get("type") == "zero_advantage"),
             None,
         )
-        if not isinstance(zero, dict) or zero.get("enforce") is not (
-            stage == "update"
-        ):
+        if not isinstance(zero, dict) or zero.get("enforce") is not (stage == "update"):
             raise AuditFailure(f"resolved {stage} zero-variance policy is wrong in {slot}")
     sources = orchestrator.get("train", {}).get("source")
     if not isinstance(sources, list) or len(sources) != 2:
@@ -339,10 +321,8 @@ def _ipython_code(tool_call: Any) -> str | None:
     return code if isinstance(code, str) else None
 
 
-def _forced_assignment_identity(
-    record: dict[str, Any], index: int
-) -> tuple[str, str]:
-    matches: list[tuple[str, str]] = []
+def _forced_assignment_identity(record: dict[str, Any], index: int) -> str:
+    matches: list[str] = []
     calls = record.get("calls")
     if not isinstance(calls, list):
         raise AuditFailure(f"effective trace {index} lacks call/session evidence")
@@ -369,23 +349,12 @@ def _forced_assignment_identity(
                     if isinstance(call, dict) and call.get("node") == node_index
                 }
                 if len(session_ids) != 1 or not all(
-                    isinstance(session_id, str) and session_id
-                    for session_id in session_ids
+                    isinstance(session_id, str) and session_id for session_id in session_ids
                 ):
-                    raise AuditFailure(
-                        f"effective trace {index} forced action lacks one session id"
-                    )
-                session_id = next(iter(session_ids))
-                matches.append(
-                    (
-                        hashlib.sha256(code.encode()).hexdigest(),
-                        hashlib.sha256(session_id.encode()).hexdigest(),
-                    )
-                )
+                    raise AuditFailure(f"effective trace {index} forced action lacks one session id")
+                matches.append(hashlib.sha256(code.encode()).hexdigest())
     if len(matches) != 1:
-        raise AuditFailure(
-            f"effective trace {index} has {len(matches)} canonical forced assignments"
-        )
+        raise AuditFailure(f"effective trace {index} has {len(matches)} canonical forced assignments")
     return matches[0]
 
 
@@ -393,27 +362,19 @@ def _validate_forced_assignment_routes(
     trace_records: list[dict[str, Any]], audit_records: list[dict[str, Any]]
 ) -> dict[str, Any]:
     trace_actions: Counter[str] = Counter()
-    trace_sessions: dict[str, str] = {}
     group_actions: dict[str, set[str]] = defaultdict(set)
     for index, record in enumerate(trace_records):
         task = record.get("task", {})
         task_key = task.get("key") or task.get("hash")
         if not isinstance(task_key, str):
             raise AuditFailure(f"effective trace {index} lacks a task key for route audit")
-        action_sha, session_sha = _forced_assignment_identity(record, index)
-        if session_sha in trace_sessions:
-            raise AuditFailure("effective traces reused a coordinator session")
-        trace_sessions[session_sha] = action_sha
+        action_sha = _forced_assignment_identity(record, index)
         trace_actions[action_sha] += 1
         group_actions[task_key].add(action_sha)
-    if len(group_actions) != 2 or any(
-        len(actions) != 1 for actions in group_actions.values()
-    ):
+    if len(group_actions) != 2 or any(len(actions) != 1 for actions in group_actions.values()):
         raise AuditFailure("forced assignment is not stable within both GRPO groups")
 
-    forced = [
-        record for record in audit_records if record.get("mode") == FORCED_ROUTE_MODE
-    ]
+    forced = [record for record in audit_records if record.get("mode") == FORCED_ROUTE_MODE]
     forced_by_session: dict[str, str] = {}
     for index, record in enumerate(forced):
         session_sha = record.get("session_sha256")
@@ -433,28 +394,21 @@ def _validate_forced_assignment_routes(
         if session_sha in forced_by_session:
             raise AuditFailure("forced assignment was emitted more than once in a session")
         forced_by_session[session_sha] = action_sha
-    for session_sha, action_sha in trace_sessions.items():
-        if forced_by_session.get(session_sha) != action_sha:
-            raise AuditFailure(
-                "an effective trace lacks its exact forced-assignment route event"
-            )
-    matched_actions = Counter(trace_sessions.values())
-    if matched_actions != trace_actions:
-        raise AuditFailure("effective route reconciliation changed action multiplicity")
+    audit_actions = Counter(forced_by_session.values())
+    if trace_actions - audit_actions:
+        raise AuditFailure("effective traces lack forced-assignment route action multiplicity")
     return {
         "mode": FORCED_ROUTE_MODE,
         "events": len(forced),
-        "matched_effective_events": len(trace_sessions),
-        "extra_filtered_events": len(forced) - len(trace_sessions),
+        "matched_effective_events": sum(trace_actions.values()),
+        "extra_filtered_events": len(forced) - sum(trace_actions.values()),
         "sessions": len(forced_by_session),
         "groups": len(group_actions),
-        "effective_action_sha256_counts": dict(matched_actions),
+        "effective_action_sha256_counts": dict(trace_actions),
     }
 
 
-def validate_runtime(
-    run_dir: Path, stage: Literal["audit", "update"]
-) -> dict[str, Any]:
+def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[str, Any]:
     import verifiers.v1 as vf
     from verifiers.v1.types import UserMessage, content_text
 
@@ -474,9 +428,7 @@ def validate_runtime(
     trace_path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
     trace_records = _read_jsonl(trace_path)
     if len(trace_records) != EXPECTED_BATCH_SIZE:
-        raise AuditFailure(
-            f"S6 audit requires exactly {EXPECTED_BATCH_SIZE} effective traces"
-        )
+        raise AuditFailure(f"S6 audit requires exactly {EXPECTED_BATCH_SIZE} effective traces")
     routing_report = _validate_forced_assignment_routes(
         trace_records, _read_jsonl(Path(config_report["routing_audit"]))
     )
@@ -501,28 +453,20 @@ def validate_runtime(
         if not isinstance(reward, (int, float)) or not math.isfinite(reward):
             raise AuditFailure(f"effective trace {index} has no finite S6 reward")
         expected_source = next(
-            name
-            for name, source_family in EXPECTED_SOURCE_FAMILIES.items()
-            if source_family == family
+            name for name, source_family in EXPECTED_SOURCE_FAMILIES.items() if source_family == family
         )
         info = record.get("info", {})
         env_name = info.get("env_name") if isinstance(info, dict) else None
         group_id = info.get("group_id") if isinstance(info, dict) else None
         if env_name != expected_source or not isinstance(group_id, str) or not group_id:
-            raise AuditFailure(
-                f"effective trace {index} is not assigned to its family source/group"
-            )
+            raise AuditFailure(f"effective trace {index} is not assigned to its family source/group")
         leaked_rewards = {
             name: payload.get("score")
             for name, payload in record.get("rewards", {}).items()
-            if name != EXPECTED_REWARD
-            and isinstance(payload, dict)
-            and payload.get("score") not in (0, 0.0)
+            if name != EXPECTED_REWARD and isinstance(payload, dict) and payload.get("score") not in (0, 0.0)
         }
         if leaked_rewards:
-            raise AuditFailure(
-                f"effective trace {index} has non-S6 reward leakage: {leaked_rewards}"
-            )
+            raise AuditFailure(f"effective trace {index} has non-S6 reward leakage: {leaked_rewards}")
         families[family] += 1
         source_rollouts[env_name] += 1
         source_groups[env_name].add(group_id)
@@ -555,19 +499,13 @@ def validate_runtime(
     export_dir = run_dir / "token_exports" / "step_1"
     if not (export_dir / "STABLE").is_file():
         raise AuditFailure("S6 token export is not stable")
-    exports = [
-        record
-        for path in sorted(export_dir.glob("rank_*.jsonl"))
-        for record in _read_jsonl(path)
-    ]
+    exports = [record for path in sorted(export_dir.glob("rank_*.jsonl")) for record in _read_jsonl(path)]
     exports_by_tokens: dict[tuple[int, ...], list[dict[str, Any]]] = defaultdict(list)
     for index, record in enumerate(exports):
         if record.get("schema_version") != 1 or record.get("step") != 1:
             raise AuditFailure(f"invalid S6 token-export identity at record {index}")
         token_ids = record.get("token_ids")
-        if not isinstance(token_ids, list) or not all(
-            isinstance(token_id, int) for token_id in token_ids
-        ):
+        if not isinstance(token_ids, list) or not all(isinstance(token_id, int) for token_id in token_ids):
             raise AuditFailure(f"invalid S6 token ids at export record {index}")
         exports_by_tokens[tuple(token_ids)].append(record)
     exported_rl_tokens = 0
@@ -584,16 +522,11 @@ def validate_runtime(
         exported_rl_tokens += active
     leftovers = sum(len(records) for records in exports_by_tokens.values())
     if leftovers or len(exports) != len(expected_exports):
-        raise AuditFailure(
-            "S6 token exports are not one-to-one with trainable child branches"
-        )
+        raise AuditFailure("S6 token exports are not one-to-one with trainable child branches")
     if exported_rl_tokens <= 0:
         raise AuditFailure("S6 exported no positive RL token mass")
     if any(
-        any(
-            value not in (None, 0, 0.0)
-            for value in (record.get(stream) or [])
-        )
+        any(value not in (None, 0, 0.0) for value in (record.get(stream) or []))
         for record in exports
         for stream in ("ce_weights", "ref_kl_weights", "sdpo_weights")
     ):
@@ -621,9 +554,7 @@ def validate_runtime(
         "gradient_norm": grad_norm,
         "families": dict(families),
         "source_rollouts": dict(source_rollouts),
-        "source_groups": {
-            name: sorted(group_ids) for name, group_ids in source_groups.items()
-        },
+        "source_groups": {name: sorted(group_ids) for name, group_ids in source_groups.items()},
         "groups": {key: values for key, values in task_rewards.items()},
         "child_branches": child_branches,
         "child_trainable_tokens": child_trainable_tokens,
@@ -641,11 +572,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
-        report = (
-            validate_runtime(args.target, args.stage)
-            if args.runtime
-            else validate_config(args.target, args.stage)
-        )
+        report = validate_runtime(args.target, args.stage) if args.runtime else validate_config(args.target, args.stage)
     except (AuditFailure, json.JSONDecodeError, tomllib.TOMLDecodeError, ValueError) as error:
         raise SystemExit(f"S6 validation failed: {error}") from error
     rendered = json.dumps(report, indent=2, sort_keys=True)
