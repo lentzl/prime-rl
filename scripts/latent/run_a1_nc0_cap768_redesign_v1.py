@@ -495,7 +495,7 @@ def _case(model, tokenizer, record, query, selection, case, operations, ledger, 
         "operation_timings": timings,
         "released": True,
     }
-    del exact, id1, e1, e2, id0, outputs, captures, proj1, proj0, tensors
+    del exact, id1, e1, e2, id0, outputs, captures, proj1, proj0, tensors, id1_last_hidden, id0_last_hidden
     gc.collect()
     torch.cuda.empty_cache()
     ledger.checkpoint(f"post_CAP768R_P{case['probe_index']:02d}_{modality}_RELEASE")

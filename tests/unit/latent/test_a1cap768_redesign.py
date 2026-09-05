@@ -158,3 +158,12 @@ def test_launcher_freezes_namespace_resources_and_no_update_boundary():
     assert "timeout --signal=TERM --kill-after=60s 3600s" in source
     assert "--owner-approved" in source
     assert "--execution-commit" in source
+
+
+def test_case_release_drops_all_tensor_views_before_memory_checkpoint():
+    source = Path("scripts/latent/run_a1_nc0_cap768_redesign_v1.py").read_text()
+    release = source.index("torch.cuda.empty_cache()")
+    checkpoint = source.index('ledger.checkpoint(f"post_CAP768R_', release)
+    assert "id1_last_hidden" in source[source.rfind("del ", 0, release) : release]
+    assert "id0_last_hidden" in source[source.rfind("del ", 0, release) : release]
+    assert release < checkpoint
