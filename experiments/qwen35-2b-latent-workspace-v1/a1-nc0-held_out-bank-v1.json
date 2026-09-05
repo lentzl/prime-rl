@@ -1,0 +1,476 @@
+{
+  "bank": {
+    "records": [
+      {
+        "evidence_id": "held_out-keyed_numeric-8d9879077bcf1bba",
+        "family": "keyed_numeric",
+        "parent_evidence": "Ledger entries, one per row:\nKRYAXO => 39\nK326Z1 => 14\nK5LIGF => 69\nKD6T2N => 75\nKNCDEV => 13\nKZY2MW => 88\nKOEZJ8 => 31\nK06C4O => 40",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "54",
+            "child_query": "Return the sum of ledger keys K06C4O and K326Z1.",
+            "query_id": "held_out-keyed_numeric-8d9879077bcf1bba-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "55",
+            "child_query": "Return the absolute difference between K326Z1 and K5LIGF.",
+            "query_id": "held_out-keyed_numeric-8d9879077bcf1bba-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "7",
+            "child_query": "Return (K06C4O + K5LIGF) modulo 17.",
+            "query_id": "held_out-keyed_numeric-8d9879077bcf1bba-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "d1a5a71d27ca1c9d2809b32095ac04f878011d267cd2c0b1dd54ade88b1b8cac"
+      },
+      {
+        "evidence_id": "held_out-keyed_numeric-22f1eb9007f6e623",
+        "family": "keyed_numeric",
+        "parent_evidence": "Ledger entries, one per row:\nKMAJ87 => 68\nKQI34K => 56\nK0BX5W => 24\nKLMUDP => 61\nK8DCC8 => 61\nKEQFI2 => 61\nKSJYON => 35\nKOZGR5 => 33",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "129",
+            "child_query": "Return the sum of ledger keys KMAJ87 and KLMUDP.",
+            "query_id": "held_out-keyed_numeric-22f1eb9007f6e623-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "5",
+            "child_query": "Return the absolute difference between KLMUDP and KQI34K.",
+            "query_id": "held_out-keyed_numeric-22f1eb9007f6e623-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "5",
+            "child_query": "Return (KMAJ87 + KQI34K) modulo 17.",
+            "query_id": "held_out-keyed_numeric-22f1eb9007f6e623-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "b89301d3b6396f065730eab8756fa283d314d75921525645ac28c021072fa6a7"
+      },
+      {
+        "evidence_id": "held_out-keyed_numeric-ef1287baf1b04740",
+        "family": "keyed_numeric",
+        "parent_evidence": "Ledger entries, one per row:\nK518A1 => 20\nKF12OS => 29\nKOXVM4 => 24\nK0KHWU => 46\nKD99CY => 44\nKL1WL8 => 51\nKAZ8CP => 24\nK8Z7X8 => 34",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "78",
+            "child_query": "Return the sum of ledger keys K8Z7X8 and KD99CY.",
+            "query_id": "held_out-keyed_numeric-ef1287baf1b04740-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "2",
+            "child_query": "Return the absolute difference between KD99CY and K0KHWU.",
+            "query_id": "held_out-keyed_numeric-ef1287baf1b04740-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "12",
+            "child_query": "Return (K8Z7X8 + K0KHWU) modulo 17.",
+            "query_id": "held_out-keyed_numeric-ef1287baf1b04740-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "fdc9a72b72968ed838744404a9c362430bfbe9c36cf521e3dd223757dcf5090e"
+      },
+      {
+        "evidence_id": "held_out-keyed_numeric-6f6ce8f5646a4e77",
+        "family": "keyed_numeric",
+        "parent_evidence": "Ledger entries, one per row:\nKMIKDO => 29\nKKBXOK => 76\nKEC3G0 => 71\nK2TJ9Y => 51\nKXUTQI => 30\nK12JQT => 54\nK763VA => 19\nKI9XMO => 36",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "84",
+            "child_query": "Return the sum of ledger keys K12JQT and KXUTQI.",
+            "query_id": "held_out-keyed_numeric-6f6ce8f5646a4e77-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "21",
+            "child_query": "Return the absolute difference between KXUTQI and K2TJ9Y.",
+            "query_id": "held_out-keyed_numeric-6f6ce8f5646a4e77-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "3",
+            "child_query": "Return (K12JQT + K2TJ9Y) modulo 17.",
+            "query_id": "held_out-keyed_numeric-6f6ce8f5646a4e77-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "22c1df134888382ae83f44e122acd3ecbce09a1c955be5ca2d48b7466ea9a01d"
+      },
+      {
+        "evidence_id": "held_out-relational_join-7faa2e5a16bbe26f",
+        "family": "relational_join",
+        "parent_evidence": "Membership edges:\nELZP98 -> group GU25NY\nE63E89 -> group GSGGEI\nE05ZNW -> group GU25NY\nE5BB3J -> group GGQPY4\nE8C2JZ -> group GGQPY4\nEVLQUA -> group GSGGEI\nEOKISR -> group GGQPY4\nGroup codes:\nGU25NY -> code CHF87Z\nGSGGEI -> code C75RQS\nGGQPY4 -> code CI1MB7\nGS5ZDZ -> code CCKDKA",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "CI1MB7",
+            "child_query": "Follow both relations for EOKISR; return its code.",
+            "query_id": "held_out-relational_join-7faa2e5a16bbe26f-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "C75RQS",
+            "child_query": "Follow both relations for E63E89; return its code.",
+            "query_id": "held_out-relational_join-7faa2e5a16bbe26f-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "CHF87Z",
+            "child_query": "Follow both relations for E05ZNW; return its code.",
+            "query_id": "held_out-relational_join-7faa2e5a16bbe26f-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "4ff5bea4f1cbef8ce97b4ebe70de6c2b611e24391a7a432bdac47d30cd51d7f6"
+      },
+      {
+        "evidence_id": "held_out-relational_join-7a28c351ea41bb4f",
+        "family": "relational_join",
+        "parent_evidence": "Membership edges:\nE5FRN4 -> group GUU1LZ\nEZXS1M -> group GYH2A5\nENE6GO -> group GNQJ1O\nEUX65L -> group GGIRWU\nE0MMSI -> group GUU1LZ\nEATXB5 -> group GNQJ1O\nEQGJ9F -> group GYH2A5\nGroup codes:\nGGIRWU -> code C73SKA\nGYH2A5 -> code C1T9PP\nGUU1LZ -> code CI3P8L\nGNQJ1O -> code C2AMUA",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "CI3P8L",
+            "child_query": "Follow both relations for E5FRN4; return its code.",
+            "query_id": "held_out-relational_join-7a28c351ea41bb4f-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "C1T9PP",
+            "child_query": "Follow both relations for EZXS1M; return its code.",
+            "query_id": "held_out-relational_join-7a28c351ea41bb4f-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "C1T9PP",
+            "child_query": "Follow both relations for EQGJ9F; return its code.",
+            "query_id": "held_out-relational_join-7a28c351ea41bb4f-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "7919015248d0f829be77f7595700485397d92cae81412ff23548fa053bdd5899"
+      },
+      {
+        "evidence_id": "held_out-relational_join-6eb95927d53c6560",
+        "family": "relational_join",
+        "parent_evidence": "Membership edges:\nE5U3XS -> group GDRG42\nE2KTS5 -> group GHS4DF\nEUCSYR -> group GHS4DF\nE9CLNI -> group GR8AEK\nE4DM40 -> group G3I5PM\nE9HCMC -> group GDRG42\nEYPSVF -> group GDRG42\nGroup codes:\nGHS4DF -> code CDOTL8\nGDRG42 -> code CETLD3\nGR8AEK -> code CQPLUZ\nG3I5PM -> code CEHS57",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "CETLD3",
+            "child_query": "Follow both relations for EYPSVF; return its code.",
+            "query_id": "held_out-relational_join-6eb95927d53c6560-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "CDOTL8",
+            "child_query": "Follow both relations for EUCSYR; return its code.",
+            "query_id": "held_out-relational_join-6eb95927d53c6560-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "CEHS57",
+            "child_query": "Follow both relations for E4DM40; return its code.",
+            "query_id": "held_out-relational_join-6eb95927d53c6560-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "5f26f94e804b005b3e9340c885ec992c466b7af8bde7e1344196ee589bce0b33"
+      },
+      {
+        "evidence_id": "held_out-relational_join-07824780bca7aa24",
+        "family": "relational_join",
+        "parent_evidence": "Membership edges:\nEM140U -> group GM4OU1\nEY96N7 -> group GAT8NQ\nECWODI -> group GAT8NQ\nE0YXJV -> group G8T6VV\nE6U39W -> group GFYS1W\nE7Y3BG -> group GFYS1W\nEXR3OS -> group G8T6VV\nGroup codes:\nGM4OU1 -> code C0B8DN\nGAT8NQ -> code C635WX\nGFYS1W -> code COG2ZB\nG8T6VV -> code CSU00M",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "CSU00M",
+            "child_query": "Follow both relations for E0YXJV; return its code.",
+            "query_id": "held_out-relational_join-07824780bca7aa24-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "COG2ZB",
+            "child_query": "Follow both relations for E6U39W; return its code.",
+            "query_id": "held_out-relational_join-07824780bca7aa24-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "CSU00M",
+            "child_query": "Follow both relations for EXR3OS; return its code.",
+            "query_id": "held_out-relational_join-07824780bca7aa24-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "f5993565f1e71f079c37f8a95b7ebdfb2411ddaff2c9afcfcf1f35e20c7e06af"
+      },
+      {
+        "evidence_id": "held_out-config_structure-83cb7399b2941a7e",
+        "family": "config_structure",
+        "parent_evidence": "Configuration snapshot:\n<S2N4LU> P67JHA=VCHLW1 | PEQEHC=VOF1IA | PB5NP1=V5O0BK\n<S082DS> P5LOEW=VCTF96 | PERHU3=V5SX0B | P6U5CP=VQXHIJ\n<SQYMZO> PKXSEE=VI1F9V | PM19TX=VIRBGF | PDNQL7=VC42L3\n<S7YEJX> P1POY5=VBVH2W | PX9578=VDQTGA | P0L1HX=V2KKBX",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "VBVH2W",
+            "child_query": "Look up property P1POY5 inside component S7YEJX; return its stored value.",
+            "query_id": "held_out-config_structure-83cb7399b2941a7e-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "VOF1IA",
+            "child_query": "Look up property PEQEHC inside component S2N4LU; return its stored value.",
+            "query_id": "held_out-config_structure-83cb7399b2941a7e-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "V2KKBX",
+            "child_query": "Look up property P0L1HX inside component S7YEJX; return its stored value.",
+            "query_id": "held_out-config_structure-83cb7399b2941a7e-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "a565e924550967dc114f47f74c2bafdac6ee98a9c9f81e268de096a893e2e01e"
+      },
+      {
+        "evidence_id": "held_out-config_structure-0eff75b67d7aff19",
+        "family": "config_structure",
+        "parent_evidence": "Configuration snapshot:\n<SNZYUK> PG2FHB=VP54KS | P5PM5L=VY0F43 | PH45K5=VMFSQ3\n<S3UX32> PPU2B6=VNDGJN | PD4E51=VUSSUP | P6POOP=VW11XT\n<S76CYJ> PUOJWQ=VBUI7T | P2ROTV=V25S3M | P57ONL=V2S0BG\n<S34HX7> PYS3G6=VH3W5W | P1GH70=VXMNTA | PB314K=V2G9Y9",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "V2S0BG",
+            "child_query": "Look up property P57ONL inside component S76CYJ; return its stored value.",
+            "query_id": "held_out-config_structure-0eff75b67d7aff19-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "VP54KS",
+            "child_query": "Look up property PG2FHB inside component SNZYUK; return its stored value.",
+            "query_id": "held_out-config_structure-0eff75b67d7aff19-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "VW11XT",
+            "child_query": "Look up property P6POOP inside component S3UX32; return its stored value.",
+            "query_id": "held_out-config_structure-0eff75b67d7aff19-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "c2cc39d462c9b1848fc26786e2b3d1b7ca50b366448684379562159b1e42562a"
+      },
+      {
+        "evidence_id": "held_out-config_structure-2a13fe953740c84a",
+        "family": "config_structure",
+        "parent_evidence": "Configuration snapshot:\n<SER7VM> PM82C2=VH8YWV | PH4CS3=VLQHPB | PDV9D6=VMTKOW\n<S4JU44> PI4YS9=VRYX4F | P0UUJC=V3Y1LZ | PXVSAL=VTJ07L\n<SALAP7> PPM0JA=V7P2ZZ | PNTKNM=V7HZGF | PSPR2E=V4RTE2\n<SYXM3X> PYCCU0=VBXM9A | PF8I7Y=V6MW82 | PXIZUI=V2FART",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "VLQHPB",
+            "child_query": "Look up property PH4CS3 inside component SER7VM; return its stored value.",
+            "query_id": "held_out-config_structure-2a13fe953740c84a-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "V7HZGF",
+            "child_query": "Look up property PNTKNM inside component SALAP7; return its stored value.",
+            "query_id": "held_out-config_structure-2a13fe953740c84a-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "VTJ07L",
+            "child_query": "Look up property PXVSAL inside component S4JU44; return its stored value.",
+            "query_id": "held_out-config_structure-2a13fe953740c84a-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "e29f19717127dc3cb728146c1ae17ee322d1aacfe7a420b19ecffbea6409208a"
+      },
+      {
+        "evidence_id": "held_out-config_structure-92edc7342716a68e",
+        "family": "config_structure",
+        "parent_evidence": "Configuration snapshot:\n<S8MBIM> P4XH5W=VKP73D | PZGL9S=V8V7XI | PL4GXW=VDBMG9\n<SUTKVQ> PH7J42=VJTUFI | P04R5U=VMR6AX | PT66AS=VZHFMY\n<SB9S56> PLNI95=VEJV7A | PTONJ1=VJH8JE | PPRBZ8=VHD23L\n<S048G8> PZD1UZ=VF0Z33 | P0ZFLS=VDFL5T | PP1OS6=VWR5LW",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "VZHFMY",
+            "child_query": "Look up property PT66AS inside component SUTKVQ; return its stored value.",
+            "query_id": "held_out-config_structure-92edc7342716a68e-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "VEJV7A",
+            "child_query": "Look up property PLNI95 inside component SB9S56; return its stored value.",
+            "query_id": "held_out-config_structure-92edc7342716a68e-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "VF0Z33",
+            "child_query": "Look up property PZD1UZ inside component S048G8; return its stored value.",
+            "query_id": "held_out-config_structure-92edc7342716a68e-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "dc516d8b4be7e2e1b9edf40334510a89cfab5e4dd05724cbc091c23ce92e3b25"
+      },
+      {
+        "evidence_id": "held_out-ownership_graph-ecc8e325b6eb7d23",
+        "family": "ownership_graph",
+        "parent_evidence": "Custody graph:\nasset(AS2WC7) -> custodian(OO837O)\nasset(AGP4V8) -> custodian(OP0QC4)\nasset(AN442S) -> custodian(OADAB7)\nasset(A784GU) -> custodian(OP0QC4)\nasset(AUITS8) -> custodian(OPXQHU)\nasset(A5XVRK) -> custodian(OO837O)\nasset(AAKQTM) -> custodian(OO837O)\ncustodian(OO837O) -> zone(Z4C9CV)\ncustodian(OPXQHU) -> zone(ZNMTR7)\ncustodian(OADAB7) -> zone(Z9FGY6)\ncustodian(OP0QC4) -> zone(Z9KH78)",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "Z9KH78",
+            "child_query": "Traverse the custody graph from A784GU; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-ecc8e325b6eb7d23-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "ZNMTR7",
+            "child_query": "Traverse the custody graph from AUITS8; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-ecc8e325b6eb7d23-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "Z9FGY6",
+            "child_query": "Traverse the custody graph from AN442S; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-ecc8e325b6eb7d23-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "db70ce313e005c85e07d026fc8aad4d28450b0b78aeb8a58cbc9972075f7f585"
+      },
+      {
+        "evidence_id": "held_out-ownership_graph-49bd63f3f5c80cfd",
+        "family": "ownership_graph",
+        "parent_evidence": "Custody graph:\nasset(ALL5WI) -> custodian(OCHOVX)\nasset(AEHI14) -> custodian(OOQYQ9)\nasset(A4PTOS) -> custodian(OCHOVX)\nasset(AW25NE) -> custodian(OOQYQ9)\nasset(A8ENH8) -> custodian(OCHOVX)\nasset(AC9BZO) -> custodian(OOQYQ9)\nasset(AQ2PLM) -> custodian(OOQYQ9)\ncustodian(OHQCTE) -> zone(Z2D44Y)\ncustodian(OCHOVX) -> zone(Z99NR9)\ncustodian(OILID2) -> zone(ZWE3Q4)\ncustodian(OOQYQ9) -> zone(Z5RGKX)",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "Z5RGKX",
+            "child_query": "Traverse the custody graph from AC9BZO; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-49bd63f3f5c80cfd-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "Z99NR9",
+            "child_query": "Traverse the custody graph from A4PTOS; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-49bd63f3f5c80cfd-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "Z5RGKX",
+            "child_query": "Traverse the custody graph from AW25NE; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-49bd63f3f5c80cfd-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "d9213b7843c32d733f8b6ccc6db171f74fa675802553b6d24d4aba948c1073c2"
+      },
+      {
+        "evidence_id": "held_out-ownership_graph-a907adec537002ec",
+        "family": "ownership_graph",
+        "parent_evidence": "Custody graph:\nasset(A3PRVK) -> custodian(OGV2EC)\nasset(A8N2H7) -> custodian(ON2AF3)\nasset(ALUBHU) -> custodian(OGV2EC)\nasset(AYCVYS) -> custodian(OGV2EC)\nasset(AOJDGP) -> custodian(OGV2EC)\nasset(AG8HV0) -> custodian(ON2AF3)\nasset(A4X26Y) -> custodian(OX0YT5)\ncustodian(ON2AF3) -> zone(ZAMDYW)\ncustodian(OGV2EC) -> zone(ZQTNXE)\ncustodian(OX0YT5) -> zone(Z5SFCJ)\ncustodian(OBG4AE) -> zone(ZW2BM2)",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "ZAMDYW",
+            "child_query": "Traverse the custody graph from A8N2H7; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-a907adec537002ec-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "ZAMDYW",
+            "child_query": "Traverse the custody graph from AG8HV0; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-a907adec537002ec-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "ZQTNXE",
+            "child_query": "Traverse the custody graph from A3PRVK; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-a907adec537002ec-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "00283f5abc3c797f963ad7bbecb6c7cb33a7e4ba675870cafa28bf3514e725c0"
+      },
+      {
+        "evidence_id": "held_out-ownership_graph-f16965ad30b93530",
+        "family": "ownership_graph",
+        "parent_evidence": "Custody graph:\nasset(AMUBCN) -> custodian(OCG7MB)\nasset(ALN1E7) -> custodian(O4ZZUC)\nasset(A7TONJ) -> custodian(OBM3YY)\nasset(AX1TUV) -> custodian(OCG7MB)\nasset(ACN46B) -> custodian(OCG7MB)\nasset(AASTE8) -> custodian(OCG7MB)\nasset(A4HGWD) -> custodian(O8KE3G)\ncustodian(O8KE3G) -> zone(ZWF4RM)\ncustodian(OBM3YY) -> zone(Z276HF)\ncustodian(OCG7MB) -> zone(ZKJ2U0)\ncustodian(O4ZZUC) -> zone(Z82LLM)",
+        "parent_template_id": "parent_held_out_v1",
+        "queries": [
+          {
+            "answer": "ZKJ2U0",
+            "child_query": "Traverse the custody graph from AMUBCN; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-f16965ad30b93530-q0",
+            "template_id": "query_held_out_a"
+          },
+          {
+            "answer": "ZKJ2U0",
+            "child_query": "Traverse the custody graph from AASTE8; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-f16965ad30b93530-q1",
+            "template_id": "query_held_out_b"
+          },
+          {
+            "answer": "ZKJ2U0",
+            "child_query": "Traverse the custody graph from ACN46B; return the terminal zone.",
+            "query_id": "held_out-ownership_graph-f16965ad30b93530-q2",
+            "template_id": "query_held_out_c"
+          }
+        ],
+        "split": "held_out",
+        "structured_evidence_sha256": "b3b2c4e84d2b64424620ec2efd5d7564c0e5122384eb6255843f607b24a4caf3"
+      }
+    ],
+    "schema_version": "prime-rl/split-information-bank/v1",
+    "seed": 27267994,
+    "split": "held_out"
+  },
+  "manifest_sha256": "2201b93fe3e250d6816a09a86a69c72e6e0757d5eb06d5e5d457d2a6a56b2b7d",
+  "moth_donors": {
+    "held_out-config_structure-0eff75b67d7aff19": "held_out-config_structure-2a13fe953740c84a",
+    "held_out-config_structure-2a13fe953740c84a": "held_out-config_structure-0eff75b67d7aff19",
+    "held_out-config_structure-83cb7399b2941a7e": "held_out-config_structure-92edc7342716a68e",
+    "held_out-config_structure-92edc7342716a68e": "held_out-config_structure-83cb7399b2941a7e",
+    "held_out-keyed_numeric-22f1eb9007f6e623": "held_out-keyed_numeric-6f6ce8f5646a4e77",
+    "held_out-keyed_numeric-6f6ce8f5646a4e77": "held_out-keyed_numeric-22f1eb9007f6e623",
+    "held_out-keyed_numeric-8d9879077bcf1bba": "held_out-keyed_numeric-ef1287baf1b04740",
+    "held_out-keyed_numeric-ef1287baf1b04740": "held_out-keyed_numeric-8d9879077bcf1bba",
+    "held_out-ownership_graph-49bd63f3f5c80cfd": "held_out-ownership_graph-a907adec537002ec",
+    "held_out-ownership_graph-a907adec537002ec": "held_out-ownership_graph-49bd63f3f5c80cfd",
+    "held_out-ownership_graph-ecc8e325b6eb7d23": "held_out-ownership_graph-f16965ad30b93530",
+    "held_out-ownership_graph-f16965ad30b93530": "held_out-ownership_graph-ecc8e325b6eb7d23",
+    "held_out-relational_join-07824780bca7aa24": "held_out-relational_join-6eb95927d53c6560",
+    "held_out-relational_join-6eb95927d53c6560": "held_out-relational_join-07824780bca7aa24",
+    "held_out-relational_join-7a28c351ea41bb4f": "held_out-relational_join-7faa2e5a16bbe26f",
+    "held_out-relational_join-7faa2e5a16bbe26f": "held_out-relational_join-7a28c351ea41bb4f"
+  }
+}

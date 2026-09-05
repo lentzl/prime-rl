@@ -1,0 +1,476 @@
+{
+  "bank": {
+    "records": [
+      {
+        "evidence_id": "validation-keyed_numeric-dd9c317f567f9d8e",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nK7A92Q: 50\nKPRPSR: 83\nKX6L0B: 85\nK0ZAJB: 23\nKF67I0: 80\nKWGAFO: 87\nKZVGIU: 39",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "122",
+            "child_query": "What is KZVGIU plus KPRPSR? Return only the number.",
+            "query_id": "validation-keyed_numeric-dd9c317f567f9d8e-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "60",
+            "child_query": "What is the nonnegative difference of KPRPSR and K0ZAJB?",
+            "query_id": "validation-keyed_numeric-dd9c317f567f9d8e-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "11",
+            "child_query": "Add KZVGIU to K0ZAJB and reduce modulo 17.",
+            "query_id": "validation-keyed_numeric-dd9c317f567f9d8e-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "ffbe438d2ffb2cd8a44ee4f30df004d7f560f5ee4ae8b8cf36384a8dd7762b28"
+      },
+      {
+        "evidence_id": "validation-keyed_numeric-49e9a34c247ce612",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKQVI1J: 48\nKXAXS2: 80\nK3LZJ9: 67\nKD2X3Q: 21\nK3TGHZ: 49\nKLUG3C: 57\nKFAWZX: 42",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "115",
+            "child_query": "What is KQVI1J plus K3LZJ9? Return only the number.",
+            "query_id": "validation-keyed_numeric-49e9a34c247ce612-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "13",
+            "child_query": "What is the nonnegative difference of K3LZJ9 and KXAXS2?",
+            "query_id": "validation-keyed_numeric-49e9a34c247ce612-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "9",
+            "child_query": "Add KQVI1J to KXAXS2 and reduce modulo 17.",
+            "query_id": "validation-keyed_numeric-49e9a34c247ce612-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "1fceffd098fc1e56ce0b9946b173c25ee5af841f690b73c67a0ec36d12bb69d2"
+      },
+      {
+        "evidence_id": "validation-keyed_numeric-2b5111373accc7f9",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKIZPI2: 77\nKURY6H: 71\nKYMYER: 25\nKX173Q: 83\nKDI5P2: 88\nKJLFOW: 13\nKMHLZB: 19",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "96",
+            "child_query": "What is KIZPI2 plus KMHLZB? Return only the number.",
+            "query_id": "validation-keyed_numeric-2b5111373accc7f9-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "6",
+            "child_query": "What is the nonnegative difference of KMHLZB and KJLFOW?",
+            "query_id": "validation-keyed_numeric-2b5111373accc7f9-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "5",
+            "child_query": "Add KIZPI2 to KJLFOW and reduce modulo 17.",
+            "query_id": "validation-keyed_numeric-2b5111373accc7f9-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "60d212ef03be47aeecd452420040f11a658add5eb1e7dc9ca691bdb22bf535ff"
+      },
+      {
+        "evidence_id": "validation-keyed_numeric-dd0e848e3e2542d1",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKSRIKH: 68\nK4ICI3: 72\nK9JDNF: 15\nKTB6BC: 17\nKAEU55: 41\nKKU1E4: 23\nKRE0JG: 87",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "56",
+            "child_query": "What is K9JDNF plus KAEU55? Return only the number.",
+            "query_id": "validation-keyed_numeric-dd0e848e3e2542d1-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "24",
+            "child_query": "What is the nonnegative difference of KAEU55 and KTB6BC?",
+            "query_id": "validation-keyed_numeric-dd0e848e3e2542d1-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "15",
+            "child_query": "Add K9JDNF to KTB6BC and reduce modulo 17.",
+            "query_id": "validation-keyed_numeric-dd0e848e3e2542d1-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "7c5734f607b69af88be0cb204b8eb674706a599132403aa44fcdf921b194c914"
+      },
+      {
+        "evidence_id": "validation-relational_join-51d963ec0e5be8fc",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEFUT4U belongs to GT6NKQ\nE08DCR belongs to GT6NKQ\nE9WEMI belongs to GUB9MN\nE8TULH belongs to GSQV26\nEHCAZB belongs to G2B0I6\nEDVB9K belongs to GT6NKQ\nE7Y13L belongs to G2B0I6\nUnit lookup:\nGT6NKQ has code C2AETP\nGUB9MN has code CP9MGE\nGSQV26 has code CIWIKQ\nG2B0I6 has code CQJ3KY",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "C2AETP",
+            "child_query": "Which code is reached from entity EDVB9K? Return only the code.",
+            "query_id": "validation-relational_join-51d963ec0e5be8fc-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "CIWIKQ",
+            "child_query": "Which code is reached from entity E8TULH? Return only the code.",
+            "query_id": "validation-relational_join-51d963ec0e5be8fc-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "CP9MGE",
+            "child_query": "Which code is reached from entity E9WEMI? Return only the code.",
+            "query_id": "validation-relational_join-51d963ec0e5be8fc-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "afc4c5973587d71dcfc8103824f4955b3e94ad969fbfcb9b280ee8d4b948a0b9"
+      },
+      {
+        "evidence_id": "validation-relational_join-f7a7ad2db5d8971b",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nE33HTS belongs to GHYOLU\nE9BKZQ belongs to G4OI5D\nEUCZF6 belongs to G873SM\nEHUX66 belongs to G873SM\nEXCZMH belongs to GN7DBF\nEFDU24 belongs to G873SM\nE0WDAL belongs to GN7DBF\nUnit lookup:\nGN7DBF has code CJVIMK\nG873SM has code CAS5P6\nGHYOLU has code C5UK4V\nG4OI5D has code C1ZM0E",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "CAS5P6",
+            "child_query": "Which code is reached from entity EFDU24? Return only the code.",
+            "query_id": "validation-relational_join-f7a7ad2db5d8971b-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "CJVIMK",
+            "child_query": "Which code is reached from entity EXCZMH? Return only the code.",
+            "query_id": "validation-relational_join-f7a7ad2db5d8971b-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "C1ZM0E",
+            "child_query": "Which code is reached from entity E9BKZQ? Return only the code.",
+            "query_id": "validation-relational_join-f7a7ad2db5d8971b-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "fa2a006033a1be9dabd624d885ddd28a85440f2b0312526bf0e471ff1b99d26d"
+      },
+      {
+        "evidence_id": "validation-relational_join-ad37f1e84cd60cac",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nE1S4Y1 belongs to G3N4IG\nE6ZR2B belongs to GDJC9F\nE6BGY2 belongs to GVFYWX\nE6ZRBN belongs to GDJC9F\nE8OR7C belongs to GVFYWX\nE5S3U8 belongs to GDJC9F\nENE0CO belongs to GVFYWX\nUnit lookup:\nG3N4IG has code CO28I6\nGVFYWX has code CHLUG3\nGHBNR6 has code CS1PMZ\nGDJC9F has code CM9EJF",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "CM9EJF",
+            "child_query": "Which code is reached from entity E6ZR2B? Return only the code.",
+            "query_id": "validation-relational_join-ad37f1e84cd60cac-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "CM9EJF",
+            "child_query": "Which code is reached from entity E5S3U8? Return only the code.",
+            "query_id": "validation-relational_join-ad37f1e84cd60cac-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "CM9EJF",
+            "child_query": "Which code is reached from entity E6ZRBN? Return only the code.",
+            "query_id": "validation-relational_join-ad37f1e84cd60cac-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "fe6e4fa0ca407658c13176cdfbb4fe8f2b5276a3323f0ba662f914a7edb0f085"
+      },
+      {
+        "evidence_id": "validation-relational_join-c33cf36d8f5928ad",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nETR9XE belongs to GVVSX4\nE0Q91T belongs to GZKWWC\nEERRZS belongs to G1GQDG\nE43DL7 belongs to G1GQDG\nEJGH61 belongs to GVVSX4\nEB8MAK belongs to GYN9NG\nEB4G49 belongs to GYN9NG\nUnit lookup:\nGZKWWC has code C3YNR0\nGYN9NG has code CMT8KD\nGVVSX4 has code COIUE0\nG1GQDG has code C0DDK7",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "C0DDK7",
+            "child_query": "Which code is reached from entity E43DL7? Return only the code.",
+            "query_id": "validation-relational_join-c33cf36d8f5928ad-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "CMT8KD",
+            "child_query": "Which code is reached from entity EB8MAK? Return only the code.",
+            "query_id": "validation-relational_join-c33cf36d8f5928ad-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "COIUE0",
+            "child_query": "Which code is reached from entity ETR9XE? Return only the code.",
+            "query_id": "validation-relational_join-c33cf36d8f5928ad-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "adfc7445ec60a7ce2ae65f2cee2c4ede4ead908b2588b9ee187855036b809a56"
+      },
+      {
+        "evidence_id": "validation-config_structure-4b7ca6b686cf7f5e",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[S26HTU]\nP6N3QY=V1T6HT\nPTEDXD=V98BJ0\nPLAYMR=VVRSNL\n[SY0D2G]\nP34FW6=V2VXPQ\nP5DHLX=VJ8IWF\nPGUP0Y=VX11Q9\n[SB3208]\nPBGVI5=V9S59I\nPT9DP3=VZXMIZ\nPNZDCL=V14KYF\n[S5DBLB]\nPAZ8US=VPHKWN\nP70EVD=VSREDW\nP5JFM7=V5RD1B",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "VSREDW",
+            "child_query": "Return only the value of S5DBLB.P70EVD.",
+            "query_id": "validation-config_structure-4b7ca6b686cf7f5e-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "V5RD1B",
+            "child_query": "Return only the value of S5DBLB.P5JFM7.",
+            "query_id": "validation-config_structure-4b7ca6b686cf7f5e-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "VVRSNL",
+            "child_query": "Return only the value of S26HTU.PLAYMR.",
+            "query_id": "validation-config_structure-4b7ca6b686cf7f5e-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "55fe3b5516ba8d7494c711a125f856e3119d58496f06637c00abb64366e6f7ec"
+      },
+      {
+        "evidence_id": "validation-config_structure-84a8d8c878b520bd",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[S7QYZ8]\nPK0R8A=V4ZRB2\nPIV3WN=VWI6OA\nPBM0WX=VDH1TL\n[SCAJZ1]\nPC9PKC=VBBUMD\nPSBL77=VNYU0M\nP2YXLI=VAWQQK\n[SQYKJA]\nPKW1ZS=V0PAVV\nP06NBV=VEHB5N\nP63CGK=V5MVPW\n[S1CV6M]\nPE9ALV=VE0JYX\nPKEV54=V5NIJL\nPJ7FXQ=VJYALD",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "V5NIJL",
+            "child_query": "Return only the value of S1CV6M.PKEV54.",
+            "query_id": "validation-config_structure-84a8d8c878b520bd-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "VDH1TL",
+            "child_query": "Return only the value of S7QYZ8.PBM0WX.",
+            "query_id": "validation-config_structure-84a8d8c878b520bd-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "V4ZRB2",
+            "child_query": "Return only the value of S7QYZ8.PK0R8A.",
+            "query_id": "validation-config_structure-84a8d8c878b520bd-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "f7a91cf0f14fea2522817a57b4ac2b396231538b85a000829017a92ce3329a3b"
+      },
+      {
+        "evidence_id": "validation-config_structure-8e6aeaf97325252f",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SZXIYL]\nPA66SQ=VOP7EQ\nP9KLSD=VC0JBF\nPVB0TK=VPMNX5\n[S1WK4S]\nPU5HOP=VZ9B4N\nPST1PS=VLCL5X\nPU8WQD=V7BKI7\n[S814YM]\nPMGA2W=V1RPY6\nPC2T44=V55YZL\nPM0UKJ=VEOLOY\n[SS2W1X]\nPW31YG=VHB7HB\nP3HIQL=VUEWEB\nPAJTE4=VANHEM",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "VOP7EQ",
+            "child_query": "Return only the value of SZXIYL.PA66SQ.",
+            "query_id": "validation-config_structure-8e6aeaf97325252f-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "VLCL5X",
+            "child_query": "Return only the value of S1WK4S.PST1PS.",
+            "query_id": "validation-config_structure-8e6aeaf97325252f-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "VEOLOY",
+            "child_query": "Return only the value of S814YM.PM0UKJ.",
+            "query_id": "validation-config_structure-8e6aeaf97325252f-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "6b9943d9582455817496a1c574647de16b44cf508dc7f052d1694371281f4da1"
+      },
+      {
+        "evidence_id": "validation-config_structure-584a5c0861a1e989",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SFM4ER]\nPA26MM=VIOXHU\nPDTI28=VUBOY7\nPBSXZ1=V9PU1C\n[SM093J]\nPJ85DT=VNMVEA\nPBZB9S=VWFED0\nPGLQUT=V6IOBK\n[SQ9Q5V]\nPRVGIC=VD0AVH\nP29335=VXSW7D\nPEG9XI=VXHL0F\n[SX57T9]\nPAT42V=VW27LR\nP0WAY3=VU1PI9\nPUX49H=VA77ZG",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "VW27LR",
+            "child_query": "Return only the value of SX57T9.PAT42V.",
+            "query_id": "validation-config_structure-584a5c0861a1e989-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "VNMVEA",
+            "child_query": "Return only the value of SM093J.PJ85DT.",
+            "query_id": "validation-config_structure-584a5c0861a1e989-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "VXHL0F",
+            "child_query": "Return only the value of SQ9Q5V.PEG9XI.",
+            "query_id": "validation-config_structure-584a5c0861a1e989-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "766337ff77b08e802bc3813f32a4881a56baa95b11156c78fd82276c764a7f17"
+      },
+      {
+        "evidence_id": "validation-ownership_graph-02056be5c95b05f9",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAOZQHV owned by OEF7K2\nA82XH9 owned by OSMMPV\nA6NV03 owned by OAWG8Z\nA5HX6Z owned by OEF7K2\nASRUJ7 owned by OEF7K2\nA00JOI owned by OT5YWR\nAX0SM6 owned by OAWG8Z\nOwner zones:\nOSMMPV located in ZCRB1X\nOT5YWR located in Z5QRXF\nOEF7K2 located in ZMNZCW\nOAWG8Z located in Z8JQBP",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "Z5QRXF",
+            "child_query": "Which zone ultimately owns asset A00JOI? Return only the zone.",
+            "query_id": "validation-ownership_graph-02056be5c95b05f9-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "ZMNZCW",
+            "child_query": "Which zone ultimately owns asset A5HX6Z? Return only the zone.",
+            "query_id": "validation-ownership_graph-02056be5c95b05f9-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "ZCRB1X",
+            "child_query": "Which zone ultimately owns asset A82XH9? Return only the zone.",
+            "query_id": "validation-ownership_graph-02056be5c95b05f9-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "577ecee3f6e74df9381f4f20e2f753e0302aa27304e5c38770564de54a5af66f"
+      },
+      {
+        "evidence_id": "validation-ownership_graph-70e1ba70f92963ef",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nA8HUKK owned by O261UR\nAU79R9 owned by OQ285Z\nAAPXWM owned by O261UR\nA3G1IZ owned by O261UR\nAJGRZ2 owned by O3EG13\nACC93H owned by O3EG13\nAFST6B owned by OZ3HPE\nOwner zones:\nOZ3HPE located in ZLCXE7\nOQ285Z located in ZTP1MA\nO3EG13 located in ZBHGEL\nO261UR located in ZSLMKT",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "ZLCXE7",
+            "child_query": "Which zone ultimately owns asset AFST6B? Return only the zone.",
+            "query_id": "validation-ownership_graph-70e1ba70f92963ef-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "ZBHGEL",
+            "child_query": "Which zone ultimately owns asset ACC93H? Return only the zone.",
+            "query_id": "validation-ownership_graph-70e1ba70f92963ef-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "ZSLMKT",
+            "child_query": "Which zone ultimately owns asset A8HUKK? Return only the zone.",
+            "query_id": "validation-ownership_graph-70e1ba70f92963ef-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "da4c7e8331f9a798173bc3cdaa098f588373f088f10a74ecdfbb7bff622d0e74"
+      },
+      {
+        "evidence_id": "validation-ownership_graph-44e5037dfd534ae7",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAO3Y3Y owned by OAZION\nA5T9BI owned by OU8FSZ\nA2YLJD owned by OAZION\nA6TE0L owned by O86FDE\nATHBYI owned by OAZION\nAXYOB0 owned by OU8FSZ\nASM2K6 owned by OAZION\nOwner zones:\nO2LL1R located in ZELJQW\nOU8FSZ located in ZYRZ43\nO86FDE located in Z97E8S\nOAZION located in ZPCC2G",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "ZYRZ43",
+            "child_query": "Which zone ultimately owns asset AXYOB0? Return only the zone.",
+            "query_id": "validation-ownership_graph-44e5037dfd534ae7-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "ZPCC2G",
+            "child_query": "Which zone ultimately owns asset AO3Y3Y? Return only the zone.",
+            "query_id": "validation-ownership_graph-44e5037dfd534ae7-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "ZYRZ43",
+            "child_query": "Which zone ultimately owns asset A5T9BI? Return only the zone.",
+            "query_id": "validation-ownership_graph-44e5037dfd534ae7-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "e67f630aef7bdf703e99b16ab08fed03575aec1274e1faaf71c9ebab9a13086d"
+      },
+      {
+        "evidence_id": "validation-ownership_graph-d39dc9a9929cebdf",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nA1GO5P owned by O81RO7\nA48IA1 owned by OTL2G4\nAZY2D3 owned by O81RO7\nANZCT7 owned by O2Y3PB\nA4VAI5 owned by OXNDH8\nAYV4S5 owned by OTL2G4\nAXGW6S owned by OXNDH8\nOwner zones:\nO2Y3PB located in ZYEOKO\nOXNDH8 located in ZE5JER\nOTL2G4 located in ZU2LMA\nO81RO7 located in ZJ5LFE",
+        "parent_template_id": "parent_validation_v1",
+        "queries": [
+          {
+            "answer": "ZE5JER",
+            "child_query": "Which zone ultimately owns asset A4VAI5? Return only the zone.",
+            "query_id": "validation-ownership_graph-d39dc9a9929cebdf-q0",
+            "template_id": "query_validation_a"
+          },
+          {
+            "answer": "ZJ5LFE",
+            "child_query": "Which zone ultimately owns asset A1GO5P? Return only the zone.",
+            "query_id": "validation-ownership_graph-d39dc9a9929cebdf-q1",
+            "template_id": "query_validation_b"
+          },
+          {
+            "answer": "ZU2LMA",
+            "child_query": "Which zone ultimately owns asset AYV4S5? Return only the zone.",
+            "query_id": "validation-ownership_graph-d39dc9a9929cebdf-q2",
+            "template_id": "query_validation_c"
+          }
+        ],
+        "split": "validation",
+        "structured_evidence_sha256": "78c06c9a123ae32ed3a2f3732e5ebe1b10408ccd2f140c05ab78fa96834da448"
+      }
+    ],
+    "schema_version": "prime-rl/split-information-bank/v1",
+    "seed": 213801847,
+    "split": "validation"
+  },
+  "manifest_sha256": "587a4de77e9607217055b70f3640cbc219a10d515f7936e9ee357c694d13b36e",
+  "moth_donors": {
+    "validation-config_structure-4b7ca6b686cf7f5e": "validation-config_structure-584a5c0861a1e989",
+    "validation-config_structure-584a5c0861a1e989": "validation-config_structure-4b7ca6b686cf7f5e",
+    "validation-config_structure-84a8d8c878b520bd": "validation-config_structure-8e6aeaf97325252f",
+    "validation-config_structure-8e6aeaf97325252f": "validation-config_structure-84a8d8c878b520bd",
+    "validation-keyed_numeric-2b5111373accc7f9": "validation-keyed_numeric-49e9a34c247ce612",
+    "validation-keyed_numeric-49e9a34c247ce612": "validation-keyed_numeric-2b5111373accc7f9",
+    "validation-keyed_numeric-dd0e848e3e2542d1": "validation-keyed_numeric-dd9c317f567f9d8e",
+    "validation-keyed_numeric-dd9c317f567f9d8e": "validation-keyed_numeric-dd0e848e3e2542d1",
+    "validation-ownership_graph-02056be5c95b05f9": "validation-ownership_graph-44e5037dfd534ae7",
+    "validation-ownership_graph-44e5037dfd534ae7": "validation-ownership_graph-02056be5c95b05f9",
+    "validation-ownership_graph-70e1ba70f92963ef": "validation-ownership_graph-d39dc9a9929cebdf",
+    "validation-ownership_graph-d39dc9a9929cebdf": "validation-ownership_graph-70e1ba70f92963ef",
+    "validation-relational_join-51d963ec0e5be8fc": "validation-relational_join-ad37f1e84cd60cac",
+    "validation-relational_join-ad37f1e84cd60cac": "validation-relational_join-51d963ec0e5be8fc",
+    "validation-relational_join-c33cf36d8f5928ad": "validation-relational_join-f7a7ad2db5d8971b",
+    "validation-relational_join-f7a7ad2db5d8971b": "validation-relational_join-c33cf36d8f5928ad"
+  }
+}

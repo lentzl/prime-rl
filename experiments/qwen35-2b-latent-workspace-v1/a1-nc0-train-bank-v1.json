@@ -1,0 +1,1868 @@
+{
+  "bank": {
+    "records": [
+      {
+        "evidence_id": "train-keyed_numeric-7b852e1763dcb590",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKPH4N6: 80\nK3R475: 42\nKOEPUD: 18\nKB3GPK: 18\nKIOIO1: 20\nKJ8X4K: 67",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "100",
+            "child_query": "What is KPH4N6 plus KIOIO1? Return only the number.",
+            "query_id": "train-keyed_numeric-7b852e1763dcb590-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "2",
+            "child_query": "What is the nonnegative difference of KIOIO1 and KB3GPK?",
+            "query_id": "train-keyed_numeric-7b852e1763dcb590-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "13",
+            "child_query": "Add KPH4N6 to KB3GPK and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-7b852e1763dcb590-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "2ad611ac1d734c6b720ff772772d1e6f39385b8f989720000becdea673cb1650"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-685221bdf4d3058c",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKRVP0J: 81\nKAM9ZQ: 78\nK7K0D9: 37\nK8ZKLW: 40\nK71Z2D: 37\nKDPZFA: 13",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "118",
+            "child_query": "What is KRVP0J plus K71Z2D? Return only the number.",
+            "query_id": "train-keyed_numeric-685221bdf4d3058c-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "0",
+            "child_query": "What is the nonnegative difference of K71Z2D and K7K0D9?",
+            "query_id": "train-keyed_numeric-685221bdf4d3058c-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "16",
+            "child_query": "Add KRVP0J to K7K0D9 and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-685221bdf4d3058c-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "e927d41f1b70f7e51c4fb933cb9ac852b33a31eb500d64a276125497bc1af055"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-5bbf43e3efcc0ec3",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKA7SCL: 23\nKOV5HK: 14\nKPZ8Y0: 73\nKBFFOM: 75\nKCLWIR: 85\nKI1Z0R: 40",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "96",
+            "child_query": "What is KA7SCL plus KPZ8Y0? Return only the number.",
+            "query_id": "train-keyed_numeric-5bbf43e3efcc0ec3-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "12",
+            "child_query": "What is the nonnegative difference of KPZ8Y0 and KCLWIR?",
+            "query_id": "train-keyed_numeric-5bbf43e3efcc0ec3-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "6",
+            "child_query": "Add KA7SCL to KCLWIR and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-5bbf43e3efcc0ec3-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "fc51857e000201b04142851db0426e2fb98d5420258a36aab28457aa599b0e1e"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-ad10ba72ce48b16b",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKYYMKB: 61\nKIT82T: 57\nK37DTY: 62\nKVO4CP: 87\nKDE1IX: 68\nK3CX8H: 64",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "155",
+            "child_query": "What is KVO4CP plus KDE1IX? Return only the number.",
+            "query_id": "train-keyed_numeric-ad10ba72ce48b16b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "6",
+            "child_query": "What is the nonnegative difference of KDE1IX and K37DTY?",
+            "query_id": "train-keyed_numeric-ad10ba72ce48b16b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "13",
+            "child_query": "Add KVO4CP to K37DTY and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-ad10ba72ce48b16b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "dbb742f7a8e872379fd265b5f6667a0c325954407645bb4dbc1977d27d279691"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-22b08fc15858975c",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nK9AVJM: 47\nKMSNXJ: 74\nKVALZX: 41\nK1NR7T: 16\nKPBJ9Y: 22\nKWMD4E: 46",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "57",
+            "child_query": "What is K1NR7T plus KVALZX? Return only the number.",
+            "query_id": "train-keyed_numeric-22b08fc15858975c-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "19",
+            "child_query": "What is the nonnegative difference of KVALZX and KPBJ9Y?",
+            "query_id": "train-keyed_numeric-22b08fc15858975c-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "4",
+            "child_query": "Add K1NR7T to KPBJ9Y and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-22b08fc15858975c-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "a7365f38d11a3cd5b514e461f93606715eeb09a77aad059a80d3b5171d372052"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-b9c4fbeb233b067b",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKLFX9M: 87\nK3MYOM: 56\nKA8O8Y: 21\nK30SDX: 37\nK909GB: 40\nKE8CL6: 20",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "96",
+            "child_query": "What is K909GB plus K3MYOM? Return only the number.",
+            "query_id": "train-keyed_numeric-b9c4fbeb233b067b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "35",
+            "child_query": "What is the nonnegative difference of K3MYOM and KA8O8Y?",
+            "query_id": "train-keyed_numeric-b9c4fbeb233b067b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "10",
+            "child_query": "Add K909GB to KA8O8Y and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-b9c4fbeb233b067b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "1c7e345caa489a67592bc52e320b8a208c8b32f42ad03972d67f4c9886efbbf4"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-c401f3dbc0853624",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nK7A4J5: 29\nKSOOEI: 38\nKEH69R: 11\nK9RF5Q: 83\nKDSGXI: 49\nK3NDRD: 26",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "49",
+            "child_query": "What is KSOOEI plus KEH69R? Return only the number.",
+            "query_id": "train-keyed_numeric-c401f3dbc0853624-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "72",
+            "child_query": "What is the nonnegative difference of KEH69R and K9RF5Q?",
+            "query_id": "train-keyed_numeric-c401f3dbc0853624-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "2",
+            "child_query": "Add KSOOEI to K9RF5Q and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-c401f3dbc0853624-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "eda933fdf1d947ee5d1c02045124aa8b52c1ac68e18aa5faf4a3da1257998f05"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-e6a544ff2d22ea70",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKC6B4R: 35\nKFYNJB: 43\nK6X4J6: 13\nK34BC2: 76\nK3MEIK: 51\nKAJDRG: 38",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "94",
+            "child_query": "What is K3MEIK plus KFYNJB? Return only the number.",
+            "query_id": "train-keyed_numeric-e6a544ff2d22ea70-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "5",
+            "child_query": "What is the nonnegative difference of KFYNJB and KAJDRG?",
+            "query_id": "train-keyed_numeric-e6a544ff2d22ea70-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "4",
+            "child_query": "Add K3MEIK to KAJDRG and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-e6a544ff2d22ea70-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "1a8022fc9c6f95a88496d09817a811c298f3a3a64b6de63e66b6664e04e18b66"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-b327b2b15a701267",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nK2PJZN: 31\nKIEQLO: 83\nK9SL3R: 40\nKPNX2P: 82\nK3DUN8: 32\nKOVJ2Q: 22",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "71",
+            "child_query": "What is K9SL3R plus K2PJZN? Return only the number.",
+            "query_id": "train-keyed_numeric-b327b2b15a701267-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "9",
+            "child_query": "What is the nonnegative difference of K2PJZN and KOVJ2Q?",
+            "query_id": "train-keyed_numeric-b327b2b15a701267-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "11",
+            "child_query": "Add K9SL3R to KOVJ2Q and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-b327b2b15a701267-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "ea6a6f98e38c9113b5386b2e8219dbc15571357700bd8d4915b91702bc20d95b"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-faa36685734d3009",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKM2IKX: 42\nKHJ2Q0: 39\nKBCKFE: 40\nK03RGQ: 46\nK9OT7P: 74\nK2KWF9: 35",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "85",
+            "child_query": "What is KHJ2Q0 plus K03RGQ? Return only the number.",
+            "query_id": "train-keyed_numeric-faa36685734d3009-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "6",
+            "child_query": "What is the nonnegative difference of K03RGQ and KBCKFE?",
+            "query_id": "train-keyed_numeric-faa36685734d3009-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "11",
+            "child_query": "Add KHJ2Q0 to KBCKFE and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-faa36685734d3009-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "f5b84872c8111de358efb513d07f1a1fdbbc90be7b41e55b5991e7ed7eaf3a68"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-d22d77b671b6eed6",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKX0S4S: 18\nKVF2LQ: 75\nKIFONL: 66\nKCWGXK: 54\nKLWHUK: 33\nKCD98H: 25",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "100",
+            "child_query": "What is KVF2LQ plus KCD98H? Return only the number.",
+            "query_id": "train-keyed_numeric-d22d77b671b6eed6-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "29",
+            "child_query": "What is the nonnegative difference of KCD98H and KCWGXK?",
+            "query_id": "train-keyed_numeric-d22d77b671b6eed6-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "10",
+            "child_query": "Add KVF2LQ to KCWGXK and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-d22d77b671b6eed6-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "ae8223c90176a7eee060dbd059dd71998a7f7f1c84fb1a215ac7f6d635cc2567"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-ec3b2c56c242ee3d",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKL5P66: 32\nKPGUV0: 16\nKM802V: 64\nK6RSFD: 48\nKNSFIV: 81\nK5CQUQ: 32",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "80",
+            "child_query": "What is K6RSFD plus K5CQUQ? Return only the number.",
+            "query_id": "train-keyed_numeric-ec3b2c56c242ee3d-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "49",
+            "child_query": "What is the nonnegative difference of K5CQUQ and KNSFIV?",
+            "query_id": "train-keyed_numeric-ec3b2c56c242ee3d-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "10",
+            "child_query": "Add K6RSFD to KNSFIV and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-ec3b2c56c242ee3d-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "0ae9c448011a21e027a74baac28283b0f7b330f9bdbd2b2bd5b3c5c8b4b08a90"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-8421d8ae5b66cb94",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nK9MFMS: 59\nKYKRW6: 85\nK211HE: 36\nKDL1L0: 32\nKS5BHS: 38\nKUADDC: 40",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "72",
+            "child_query": "What is KUADDC plus KDL1L0? Return only the number.",
+            "query_id": "train-keyed_numeric-8421d8ae5b66cb94-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "6",
+            "child_query": "What is the nonnegative difference of KDL1L0 and KS5BHS?",
+            "query_id": "train-keyed_numeric-8421d8ae5b66cb94-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "10",
+            "child_query": "Add KUADDC to KS5BHS and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-8421d8ae5b66cb94-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "50fd4de76b7f47c6627cd7a0889885fe1f46b116df18b537bffed0c447a3b10a"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-2d6f1e39b96060f0",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKJOZMZ: 34\nK11HQI: 48\nK1CNQS: 73\nKEV62T: 37\nKODJIN: 79\nKG7H4F: 54",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "102",
+            "child_query": "What is K11HQI plus KG7H4F? Return only the number.",
+            "query_id": "train-keyed_numeric-2d6f1e39b96060f0-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "17",
+            "child_query": "What is the nonnegative difference of KG7H4F and KEV62T?",
+            "query_id": "train-keyed_numeric-2d6f1e39b96060f0-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "0",
+            "child_query": "Add K11HQI to KEV62T and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-2d6f1e39b96060f0-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "44f358ccf4e9778f847dbec9d69c65e24dcfd48d2275c7e847d7d75f92bf59f9"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-732c17092ef807f1",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nK68U6W: 88\nKMNXZ1: 41\nKW4O43: 62\nKW57DN: 28\nKU4HSJ: 27\nKT36CL: 29",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "115",
+            "child_query": "What is KU4HSJ plus K68U6W? Return only the number.",
+            "query_id": "train-keyed_numeric-732c17092ef807f1-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "47",
+            "child_query": "What is the nonnegative difference of K68U6W and KMNXZ1?",
+            "query_id": "train-keyed_numeric-732c17092ef807f1-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "0",
+            "child_query": "Add KU4HSJ to KMNXZ1 and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-732c17092ef807f1-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "b8bd7846e6b2806b673caf23504ffe33426468c872bb9777a06142894c3b4a87"
+      },
+      {
+        "evidence_id": "train-keyed_numeric-3d61d3a084cb96c8",
+        "family": "keyed_numeric",
+        "parent_evidence": "Numeric records:\nKL7S4K: 21\nK3OUKZ: 86\nKHHY5N: 40\nKDHOZF: 16\nKM4NP5: 81\nK8ZD9R: 69",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "102",
+            "child_query": "What is KL7S4K plus KM4NP5? Return only the number.",
+            "query_id": "train-keyed_numeric-3d61d3a084cb96c8-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "65",
+            "child_query": "What is the nonnegative difference of KM4NP5 and KDHOZF?",
+            "query_id": "train-keyed_numeric-3d61d3a084cb96c8-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "3",
+            "child_query": "Add KL7S4K to KDHOZF and reduce modulo 17.",
+            "query_id": "train-keyed_numeric-3d61d3a084cb96c8-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "f0c6d9823de28fa524cf06cd2808d62bb8016b998421cb838efb0fc26e0dab4e"
+      },
+      {
+        "evidence_id": "train-relational_join-b555e514ce686052",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEWY10K belongs to GG4LOP\nEHF5HO belongs to GDM2E2\nERMCYE belongs to GDM2E2\nELSO8H belongs to GOHKQA\nEQ5NFN belongs to GG4LOP\nESZL6U belongs to GG4LOP\nEQUHCQ belongs to GOHKQA\nUnit lookup:\nGG4LOP has code CJ63L3\nG2PHMF has code CCQNCA\nGOHKQA has code CUGUWW\nGDM2E2 has code CK58KP",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CK58KP",
+            "child_query": "Which code is reached from entity ERMCYE? Return only the code.",
+            "query_id": "train-relational_join-b555e514ce686052-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CJ63L3",
+            "child_query": "Which code is reached from entity EWY10K? Return only the code.",
+            "query_id": "train-relational_join-b555e514ce686052-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CJ63L3",
+            "child_query": "Which code is reached from entity ESZL6U? Return only the code.",
+            "query_id": "train-relational_join-b555e514ce686052-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "7e0b125ab472102c0f9f75259423d9bae12176ee6fe00540ac38a2260dc306bb"
+      },
+      {
+        "evidence_id": "train-relational_join-a906d940871631c4",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEA69S5 belongs to GDGGR1\nEPTC8Y belongs to GCMSAW\nERMUVI belongs to GCMSAW\nESX37J belongs to GCMSAW\nEWSKQM belongs to GYR4HK\nENY3JT belongs to GYR4HK\nEU3TIC belongs to GCMSAW\nUnit lookup:\nGDBAH1 has code C2NWG0\nGCMSAW has code CRRGBT\nGYR4HK has code CX6778\nGDGGR1 has code C50RT6",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CRRGBT",
+            "child_query": "Which code is reached from entity EPTC8Y? Return only the code.",
+            "query_id": "train-relational_join-a906d940871631c4-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "C50RT6",
+            "child_query": "Which code is reached from entity EA69S5? Return only the code.",
+            "query_id": "train-relational_join-a906d940871631c4-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CRRGBT",
+            "child_query": "Which code is reached from entity ESX37J? Return only the code.",
+            "query_id": "train-relational_join-a906d940871631c4-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "c7a8c7f58f6c1d683da5b1fe1a92b7625a0519fa698433bff0ff5bb27a674d09"
+      },
+      {
+        "evidence_id": "train-relational_join-c1b5a38db338f266",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nE79LO2 belongs to GM98YX\nE8FNEJ belongs to GM98YX\nEP99ZN belongs to GM98YX\nEKJABU belongs to G1VRGF\nE70PQ0 belongs to G1VRGF\nE2UV7Q belongs to G1VRGF\nEBO42Z belongs to GM98YX\nUnit lookup:\nG1VRGF has code CCZQCC\nG4WW9W has code CNZYHD\nGM98YX has code CM5E0S\nG73KG5 has code CL0DSU",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CCZQCC",
+            "child_query": "Which code is reached from entity E2UV7Q? Return only the code.",
+            "query_id": "train-relational_join-c1b5a38db338f266-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CCZQCC",
+            "child_query": "Which code is reached from entity E70PQ0? Return only the code.",
+            "query_id": "train-relational_join-c1b5a38db338f266-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CM5E0S",
+            "child_query": "Which code is reached from entity E79LO2? Return only the code.",
+            "query_id": "train-relational_join-c1b5a38db338f266-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "4edca498983ef14e81e849a1228f3007fd3713672f19b8932128d2ad80435c73"
+      },
+      {
+        "evidence_id": "train-relational_join-2060fb4da095535a",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEMEE04 belongs to GJ4BSF\nEIM32F belongs to G9BV1H\nEF4XA6 belongs to GJ4BSF\nE5AC5N belongs to G9BV1H\nEFNS1U belongs to GJ4BSF\nEO0OPU belongs to G8TNGK\nEYLT85 belongs to G8TNGK\nUnit lookup:\nG9BV1H has code CH1LX5\nGJ4BSF has code CNP6WP\nGBVVYI has code CLD71A\nG8TNGK has code CCKZ33",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CH1LX5",
+            "child_query": "Which code is reached from entity EIM32F? Return only the code.",
+            "query_id": "train-relational_join-2060fb4da095535a-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CCKZ33",
+            "child_query": "Which code is reached from entity EO0OPU? Return only the code.",
+            "query_id": "train-relational_join-2060fb4da095535a-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CH1LX5",
+            "child_query": "Which code is reached from entity E5AC5N? Return only the code.",
+            "query_id": "train-relational_join-2060fb4da095535a-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "1bfad8c7a8e5002817a7467cd17b90403a36073391bdea768a6f486725662dce"
+      },
+      {
+        "evidence_id": "train-relational_join-19764497ca044c2c",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEOD9DA belongs to GYP1R1\nEUAEA9 belongs to G6BU07\nELY5WC belongs to G6BU07\nE8Y6PN belongs to GCTND9\nE643IO belongs to GCTND9\nEGSOZM belongs to G6BU07\nEKCXGH belongs to G0WAMC\nUnit lookup:\nGCTND9 has code C04P7H\nGYP1R1 has code CUM5V6\nG0WAMC has code CCC16X\nG6BU07 has code COJWQD",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "COJWQD",
+            "child_query": "Which code is reached from entity ELY5WC? Return only the code.",
+            "query_id": "train-relational_join-19764497ca044c2c-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "COJWQD",
+            "child_query": "Which code is reached from entity EUAEA9? Return only the code.",
+            "query_id": "train-relational_join-19764497ca044c2c-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "COJWQD",
+            "child_query": "Which code is reached from entity EGSOZM? Return only the code.",
+            "query_id": "train-relational_join-19764497ca044c2c-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "c8efc82f617789fdd7c2f57c7798c1c46d9b24239b1c12735e3973e832dc9906"
+      },
+      {
+        "evidence_id": "train-relational_join-0262f8b0ce38e6c6",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEEZ479 belongs to GJPG74\nE1ILLM belongs to GJPG74\nEI4CBG belongs to GL9RHA\nEG6Y2N belongs to GI6NUX\nEYM2IX belongs to GW2FSZ\nEXOFER belongs to GJPG74\nEXG7EG belongs to GW2FSZ\nUnit lookup:\nGJPG74 has code CQA8W8\nGW2FSZ has code C75EHM\nGL9RHA has code CLHLNL\nGI6NUX has code CVQSXO",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "C75EHM",
+            "child_query": "Which code is reached from entity EXG7EG? Return only the code.",
+            "query_id": "train-relational_join-0262f8b0ce38e6c6-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CVQSXO",
+            "child_query": "Which code is reached from entity EG6Y2N? Return only the code.",
+            "query_id": "train-relational_join-0262f8b0ce38e6c6-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CLHLNL",
+            "child_query": "Which code is reached from entity EI4CBG? Return only the code.",
+            "query_id": "train-relational_join-0262f8b0ce38e6c6-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "28d337397863689ebf3f884a4e6d49625a3b9864cc8104fb30472951bf84193a"
+      },
+      {
+        "evidence_id": "train-relational_join-da1695d412b6b89b",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nE3OA4W belongs to G9URRU\nEP4ZH7 belongs to G865HS\nE4PT17 belongs to GIZ62P\nEL1EW6 belongs to G865HS\nECUPBK belongs to G9URRU\nEAYVAX belongs to GEU8VQ\nEL521D belongs to G865HS\nUnit lookup:\nG865HS has code C38175\nGIZ62P has code CIZX05\nGEU8VQ has code CEQO6F\nG9URRU has code C6IMOO",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "C38175",
+            "child_query": "Which code is reached from entity EP4ZH7? Return only the code.",
+            "query_id": "train-relational_join-da1695d412b6b89b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "C38175",
+            "child_query": "Which code is reached from entity EL1EW6? Return only the code.",
+            "query_id": "train-relational_join-da1695d412b6b89b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CIZX05",
+            "child_query": "Which code is reached from entity E4PT17? Return only the code.",
+            "query_id": "train-relational_join-da1695d412b6b89b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "63fa7d7669bab527ce9b54de90ec980ce3b1518bfccc385d369c1c53238a32c2"
+      },
+      {
+        "evidence_id": "train-relational_join-5294c8accc27fa28",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEXEJYE belongs to GV7JHV\nE9VI7V belongs to GV7JHV\nE7RFFB belongs to GFDMGJ\nEQTC5P belongs to GFDMGJ\nEA4B90 belongs to GPY1QX\nEMHC8S belongs to GPY1QX\nEHCUPQ belongs to GFDMGJ\nUnit lookup:\nGFDMGJ has code C6I9XK\nGPY1QX has code CLKSJY\nGSMZW3 has code CJJ9FF\nGV7JHV has code CSTTEX",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CLKSJY",
+            "child_query": "Which code is reached from entity EMHC8S? Return only the code.",
+            "query_id": "train-relational_join-5294c8accc27fa28-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "C6I9XK",
+            "child_query": "Which code is reached from entity E7RFFB? Return only the code.",
+            "query_id": "train-relational_join-5294c8accc27fa28-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "C6I9XK",
+            "child_query": "Which code is reached from entity EQTC5P? Return only the code.",
+            "query_id": "train-relational_join-5294c8accc27fa28-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "604f893c6809be03a95476e5f62459ab16e764e8515ca5bdfd0d35c8ed4fab2f"
+      },
+      {
+        "evidence_id": "train-relational_join-5ce8e7bdf93ee63d",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEOEA5Y belongs to GFDUU3\nEEQH8R belongs to G83VLQ\nEJA7J7 belongs to GMOMUE\nEKSEI3 belongs to G83VLQ\nEHSCA3 belongs to GLX2YH\nE7KAVK belongs to GFDUU3\nEUQFG3 belongs to GFDUU3\nUnit lookup:\nGFDUU3 has code CWXLGY\nGMOMUE has code CLT7S4\nGLX2YH has code CEUWWD\nG83VLQ has code C7OHIB",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CWXLGY",
+            "child_query": "Which code is reached from entity E7KAVK? Return only the code.",
+            "query_id": "train-relational_join-5ce8e7bdf93ee63d-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CWXLGY",
+            "child_query": "Which code is reached from entity EUQFG3? Return only the code.",
+            "query_id": "train-relational_join-5ce8e7bdf93ee63d-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CEUWWD",
+            "child_query": "Which code is reached from entity EHSCA3? Return only the code.",
+            "query_id": "train-relational_join-5ce8e7bdf93ee63d-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "4704e5682874c0c261023d63efdabc36e09b789da6359f05d368a6a5edc5c66c"
+      },
+      {
+        "evidence_id": "train-relational_join-d9d00abc66937b17",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nET3WPJ belongs to G6UHVT\nEUMNGH belongs to GPK2RJ\nEGJI16 belongs to G8S0R0\nE9OAPY belongs to G6UHVT\nEMT3JG belongs to GG2BH6\nE4L9Y0 belongs to G8S0R0\nESZTBO belongs to GG2BH6\nUnit lookup:\nGPK2RJ has code CU2HEO\nG6UHVT has code CVKL56\nGG2BH6 has code CFMT7Q\nG8S0R0 has code C8EJZB",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CVKL56",
+            "child_query": "Which code is reached from entity ET3WPJ? Return only the code.",
+            "query_id": "train-relational_join-d9d00abc66937b17-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CFMT7Q",
+            "child_query": "Which code is reached from entity EMT3JG? Return only the code.",
+            "query_id": "train-relational_join-d9d00abc66937b17-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CU2HEO",
+            "child_query": "Which code is reached from entity EUMNGH? Return only the code.",
+            "query_id": "train-relational_join-d9d00abc66937b17-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "cbffe671ea6f2dd61e35af78006f09af045d7e5f5523954d224307a4807ef239"
+      },
+      {
+        "evidence_id": "train-relational_join-e4d234c54b74c812",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEH4N7X belongs to GQ535W\nE38DDC belongs to GZFTES\nELKQ0X belongs to GDFYMB\nESRIMC belongs to GZFTES\nEPU6AM belongs to GQ535W\nE9ZKY8 belongs to GQ535W\nEEU9OC belongs to GZFTES\nUnit lookup:\nGDFYMB has code CI42VK\nGQ535W has code CX45AK\nGXJRYO has code C54U32\nGZFTES has code CUBJ4P",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CUBJ4P",
+            "child_query": "Which code is reached from entity ESRIMC? Return only the code.",
+            "query_id": "train-relational_join-e4d234c54b74c812-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CX45AK",
+            "child_query": "Which code is reached from entity EPU6AM? Return only the code.",
+            "query_id": "train-relational_join-e4d234c54b74c812-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CX45AK",
+            "child_query": "Which code is reached from entity EH4N7X? Return only the code.",
+            "query_id": "train-relational_join-e4d234c54b74c812-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "98f306469f2f40fd2c768f4f89686e799a00a162a67cd1fe08720186fb02c1e6"
+      },
+      {
+        "evidence_id": "train-relational_join-6f4d8225bd992e02",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEELCJS belongs to GVHLIY\nE91N4X belongs to GVHLIY\nEIHXAL belongs to G55X60\nEGOEJ5 belongs to G55X60\nEKY5I7 belongs to GVHLIY\nEY6TWT belongs to GVHLIY\nEMZRI1 belongs to GA3BBN\nUnit lookup:\nG55X60 has code C6IHNG\nGVHLIY has code CVVSJS\nG01UL6 has code CBVL00\nGA3BBN has code C1XO7W",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "C6IHNG",
+            "child_query": "Which code is reached from entity EGOEJ5? Return only the code.",
+            "query_id": "train-relational_join-6f4d8225bd992e02-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CVVSJS",
+            "child_query": "Which code is reached from entity EY6TWT? Return only the code.",
+            "query_id": "train-relational_join-6f4d8225bd992e02-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CVVSJS",
+            "child_query": "Which code is reached from entity EELCJS? Return only the code.",
+            "query_id": "train-relational_join-6f4d8225bd992e02-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "e7588f37362b9d31a8f71ee2cfad38e0c453b8e6c35afd8b1115869b5f421964"
+      },
+      {
+        "evidence_id": "train-relational_join-9852c586daf3f5bb",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEIBKTV belongs to GJMIZ9\nE7H5GF belongs to GCVW27\nEWMFAA belongs to GJMIZ9\nEUY2SD belongs to GCVW27\nEKQJ27 belongs to GD5ASY\nEM59TR belongs to G0F417\nETFRLF belongs to GD5ASY\nUnit lookup:\nGJMIZ9 has code C3WFPX\nGCVW27 has code C2HEKC\nG0F417 has code CTBX7G\nGD5ASY has code C0PRBH",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "C2HEKC",
+            "child_query": "Which code is reached from entity EUY2SD? Return only the code.",
+            "query_id": "train-relational_join-9852c586daf3f5bb-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "C3WFPX",
+            "child_query": "Which code is reached from entity EWMFAA? Return only the code.",
+            "query_id": "train-relational_join-9852c586daf3f5bb-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "C0PRBH",
+            "child_query": "Which code is reached from entity ETFRLF? Return only the code.",
+            "query_id": "train-relational_join-9852c586daf3f5bb-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "af1738a8c7ace58e2c33ad8e2e37c3bd5980dc7ce8035a45c4be3868a53b2cca"
+      },
+      {
+        "evidence_id": "train-relational_join-942577853459feb2",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEOZD4Y belongs to G7YRQJ\nERIR3N belongs to G7BWFF\nE4K6AI belongs to G7YRQJ\nEZZU8S belongs to G7YRQJ\nE9YJQO belongs to G7AF0M\nEFFWAN belongs to G7BWFF\nEQIP9M belongs to G7AF0M\nUnit lookup:\nG5HW7Z has code CEP5VV\nG7YRQJ has code CAOLDD\nG7BWFF has code CCQEFP\nG7AF0M has code CMJHLK",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CCQEFP",
+            "child_query": "Which code is reached from entity ERIR3N? Return only the code.",
+            "query_id": "train-relational_join-942577853459feb2-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CCQEFP",
+            "child_query": "Which code is reached from entity EFFWAN? Return only the code.",
+            "query_id": "train-relational_join-942577853459feb2-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CAOLDD",
+            "child_query": "Which code is reached from entity EZZU8S? Return only the code.",
+            "query_id": "train-relational_join-942577853459feb2-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "573ef06f77dd7bb66b7cfc9cb67dbc63de4ea004017d780cc272d1ba27e04d1e"
+      },
+      {
+        "evidence_id": "train-relational_join-c89d855acf029f16",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nEB64HZ belongs to G6X1LX\nEG0ENI belongs to GDERZ4\nEA2OBL belongs to GD44GG\nE56WMX belongs to GVSSDB\nELUN2V belongs to GVSSDB\nE8JD1P belongs to G6X1LX\nEQNFQW belongs to GVSSDB\nUnit lookup:\nGDERZ4 has code CKG18G\nGVSSDB has code CMXRA9\nG6X1LX has code CSNMLB\nGD44GG has code CZTRGY",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "CZTRGY",
+            "child_query": "Which code is reached from entity EA2OBL? Return only the code.",
+            "query_id": "train-relational_join-c89d855acf029f16-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CMXRA9",
+            "child_query": "Which code is reached from entity ELUN2V? Return only the code.",
+            "query_id": "train-relational_join-c89d855acf029f16-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CSNMLB",
+            "child_query": "Which code is reached from entity EB64HZ? Return only the code.",
+            "query_id": "train-relational_join-c89d855acf029f16-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "c090b1996dc78b684e7a49179b49e7b649b66712c3da32ab59e8961fc2f3dcf5"
+      },
+      {
+        "evidence_id": "train-relational_join-ce4ac3a9380103f3",
+        "family": "relational_join",
+        "parent_evidence": "Entities by unit:\nENBKG1 belongs to GSCFMO\nE1A7F6 belongs to GBZL9K\nE3GT3R belongs to GZ3PH9\nEAA3Y9 belongs to GBZL9K\nELQKT9 belongs to GFGW9R\nEU05ML belongs to GFGW9R\nEGPN8S belongs to GSCFMO\nUnit lookup:\nGFGW9R has code C8U1F2\nGSCFMO has code CJ9DA0\nGBZL9K has code CWCFKQ\nGZ3PH9 has code CUGFHU",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "C8U1F2",
+            "child_query": "Which code is reached from entity EU05ML? Return only the code.",
+            "query_id": "train-relational_join-ce4ac3a9380103f3-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "CJ9DA0",
+            "child_query": "Which code is reached from entity ENBKG1? Return only the code.",
+            "query_id": "train-relational_join-ce4ac3a9380103f3-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "CUGFHU",
+            "child_query": "Which code is reached from entity E3GT3R? Return only the code.",
+            "query_id": "train-relational_join-ce4ac3a9380103f3-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "fe71bab3e7c2bef7ed24562f2d10c5eec5bb51bbf553734e8dcb183165b710b3"
+      },
+      {
+        "evidence_id": "train-config_structure-87f3a2c174d52881",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SL7ESD]\nP2VH7M=VY2ZXV\nP2D1V6=VQFP99\nPPZDMG=VQ2KGY\n[SQJRH3]\nPYT4IO=V6L01W\nP9HJBF=V40CTT\nP7C2N4=V4V8MH\n[S9VHN9]\nP8RHNW=VQUMNM\nP3UT4A=V13WYS\nPFZZCX=VWRC63\n[SHLSWQ]\nPZ7KA2=VZ1F8L\nPUMX8D=VXV1HR\nPTMGRG=VC97QZ",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "V40CTT",
+            "child_query": "Return only the value of SQJRH3.P9HJBF.",
+            "query_id": "train-config_structure-87f3a2c174d52881-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VC97QZ",
+            "child_query": "Return only the value of SHLSWQ.PTMGRG.",
+            "query_id": "train-config_structure-87f3a2c174d52881-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VY2ZXV",
+            "child_query": "Return only the value of SL7ESD.P2VH7M.",
+            "query_id": "train-config_structure-87f3a2c174d52881-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "c2d364dbbd5f79b4709e93d15f55bebd38d1ece01804654c568c72b790278211"
+      },
+      {
+        "evidence_id": "train-config_structure-7b8d34d546bcd604",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SUCK7I]\nPRGNVV=VYZ5RY\nPDOEFG=VIHS91\nPCDODA=V50380\n[SEQJVY]\nPYIDDW=VVH69E\nP9LB0B=V9QORN\nPDZ38I=VCOY11\n[S22OXC]\nPBMYRG=V5F954\nPH6YVR=VVM0MO\nPVXEJR=VCQFXC\n[S8UEZ6]\nP1KBTC=VOJPYG\nPLQIC8=VAG6AL\nPEZPQT=VLSMIX",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "V9QORN",
+            "child_query": "Return only the value of SEQJVY.P9LB0B.",
+            "query_id": "train-config_structure-7b8d34d546bcd604-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VCOY11",
+            "child_query": "Return only the value of SEQJVY.PDZ38I.",
+            "query_id": "train-config_structure-7b8d34d546bcd604-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VOJPYG",
+            "child_query": "Return only the value of S8UEZ6.P1KBTC.",
+            "query_id": "train-config_structure-7b8d34d546bcd604-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "45de523b3c4a7aea6e1662e6474e02dd1442976663fa278c19528656dd53ab77"
+      },
+      {
+        "evidence_id": "train-config_structure-2802b797064b63ff",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SPU6WD]\nPE2Q37=VW4LJK\nPE2RXV=V0ZK9U\nPYVESU=V0ZFVM\n[SEULE4]\nPXZII3=VJEELC\nPWLYXE=VCPEFQ\nP4N54Y=VUCE1V\n[SS7BRM]\nPLAY5G=VQ52O3\nPMFSH4=V22KWM\nPRTSVQ=VCD4KA\n[S3JKNJ]\nPLVGSW=V7M3LV\nPCGD7Z=VSIS5K\nPNVYAM=VADW7F",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VW4LJK",
+            "child_query": "Return only the value of SPU6WD.PE2Q37.",
+            "query_id": "train-config_structure-2802b797064b63ff-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "V0ZK9U",
+            "child_query": "Return only the value of SPU6WD.PE2RXV.",
+            "query_id": "train-config_structure-2802b797064b63ff-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VCD4KA",
+            "child_query": "Return only the value of SS7BRM.PRTSVQ.",
+            "query_id": "train-config_structure-2802b797064b63ff-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "52b6da842d1cd6001562f559445def1481d6f83ea05ef192759df99340cbf6ac"
+      },
+      {
+        "evidence_id": "train-config_structure-22250183f54b49d5",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SM0C1Y]\nP7YH1R=VQS8V4\nPC7NPP=VQW49G\nPOW7FL=VGXE76\n[S7O9OR]\nPXY92S=VDOREC\nPCZZBN=VHU0CO\nPZV9YF=VBW19C\n[SSLYU6]\nPXC8FH=V1IAHF\nPDS4DN=VB6AX3\nPQG39C=VKFM2Q\n[SA6S2E]\nP7LV9H=VGFZ83\nPJCPID=VI07TE\nPF2FHT=VWRU7D",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VI07TE",
+            "child_query": "Return only the value of SA6S2E.PJCPID.",
+            "query_id": "train-config_structure-22250183f54b49d5-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VGFZ83",
+            "child_query": "Return only the value of SA6S2E.P7LV9H.",
+            "query_id": "train-config_structure-22250183f54b49d5-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VQS8V4",
+            "child_query": "Return only the value of SM0C1Y.P7YH1R.",
+            "query_id": "train-config_structure-22250183f54b49d5-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "a845c068ba0f3bfd18edf0d46d7b20cb14a5f08081680190ca9b2379743c67ce"
+      },
+      {
+        "evidence_id": "train-config_structure-effdc3c03efbafa3",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SUXC8Q]\nPNP2L3=VMIXJV\nP1KW2G=V6W31S\nPPHR0T=VEVCWU\n[SZYJUR]\nPZ8N6V=V1SOP3\nPMXT68=VC73PI\nPA7AUR=VVAXPO\n[SOK816]\nPYQI8T=VP8OMU\nPPKTPJ=V1HOTE\nPJ3KU6=V4MV47\n[SE7OJK]\nPECJH8=VVE4BJ\nP9FN9J=VB5M3W\nP78SY8=V8PV9T",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VB5M3W",
+            "child_query": "Return only the value of SE7OJK.P9FN9J.",
+            "query_id": "train-config_structure-effdc3c03efbafa3-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VVAXPO",
+            "child_query": "Return only the value of SZYJUR.PA7AUR.",
+            "query_id": "train-config_structure-effdc3c03efbafa3-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "V4MV47",
+            "child_query": "Return only the value of SOK816.PJ3KU6.",
+            "query_id": "train-config_structure-effdc3c03efbafa3-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "71b7742f427ddeb934bc62fba5a91f38d35f649b2647eacbf7dd56407c052d6d"
+      },
+      {
+        "evidence_id": "train-config_structure-dc31a7c7aad018ff",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[S0YZOL]\nPM0711=VE5WK0\nPUQTS0=VPCLWM\nPC5MU9=VP97AB\n[STYQUK]\nPNJ29Q=VKO7MR\nPUDQRS=V6U8Z1\nP42HKB=VIXPXL\n[SH1WQZ]\nPMRZA9=V0KUIN\nPDV6IV=VHB3ME\nPVTXNN=VKBIC9\n[SVE7GG]\nP7OFG5=VVJ7U5\nPUPG0S=VY8LA8\nPOLMSN=V9CUQE",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "V9CUQE",
+            "child_query": "Return only the value of SVE7GG.POLMSN.",
+            "query_id": "train-config_structure-dc31a7c7aad018ff-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VY8LA8",
+            "child_query": "Return only the value of SVE7GG.PUPG0S.",
+            "query_id": "train-config_structure-dc31a7c7aad018ff-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VVJ7U5",
+            "child_query": "Return only the value of SVE7GG.P7OFG5.",
+            "query_id": "train-config_structure-dc31a7c7aad018ff-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "0b0f3212a1bf17b810e06736f4e34005d799f80e324ddc4cfa00e366aa42a2d3"
+      },
+      {
+        "evidence_id": "train-config_structure-154d85aa41ab85db",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SGRZIG]\nPR4F01=VNCX9S\nPTNSST=VS83J0\nPBFU0Y=V69D58\n[SLJWQP]\nPEUREQ=VEY047\nPZGSYS=VW8TZT\nPTIENH=VFAW0V\n[S2P2UK]\nPMOH6L=VT9AK7\nP2ESUG=VKFHS8\nPEWHD9=VK6404\n[SBXHRT]\nPNTUOG=VZKJAN\nPBP6D8=VUE49S\nPV0OOB=VKY446",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VZKJAN",
+            "child_query": "Return only the value of SBXHRT.PNTUOG.",
+            "query_id": "train-config_structure-154d85aa41ab85db-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VFAW0V",
+            "child_query": "Return only the value of SLJWQP.PTIENH.",
+            "query_id": "train-config_structure-154d85aa41ab85db-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VNCX9S",
+            "child_query": "Return only the value of SGRZIG.PR4F01.",
+            "query_id": "train-config_structure-154d85aa41ab85db-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "d01e1ec8fdebb092d4d7781185feab5f9e90c3c4fce3a6529e46a37796c0411a"
+      },
+      {
+        "evidence_id": "train-config_structure-437a6337d5a5e545",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SUUVKY]\nPPJHOA=VJEMND\nPNSEXB=VUOM60\nPLQXNJ=VIEQGB\n[S0HSH5]\nPPJUZN=V05YHT\nPVZYZC=VWKYWF\nPJLO05=VEBWJD\n[S78EQ3]\nPANNPV=VZRBJF\nPIZ8P7=V87JDN\nP0EMZ3=VU2XXL\n[SMXJ3I]\nP4HFRN=VYH8TG\nP4UWWX=VGUXQ8\nPKD5JT=VZSG2Q",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VEBWJD",
+            "child_query": "Return only the value of S0HSH5.PJLO05.",
+            "query_id": "train-config_structure-437a6337d5a5e545-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VWKYWF",
+            "child_query": "Return only the value of S0HSH5.PVZYZC.",
+            "query_id": "train-config_structure-437a6337d5a5e545-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VU2XXL",
+            "child_query": "Return only the value of S78EQ3.P0EMZ3.",
+            "query_id": "train-config_structure-437a6337d5a5e545-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "b018877416aea76515371837f4c120aa111d55b7e6d273319a04969229dfa61a"
+      },
+      {
+        "evidence_id": "train-config_structure-eecda7175ffe8b0b",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[S7DOTY]\nPQ9AQ6=VG1JMB\nPAJ3DB=VDX5T8\nPJU8RM=VAH96J\n[SDCZSK]\nP6P3M7=VB4O3C\nP70SAK=VVZ40A\nPFZOGG=V53Y0G\n[SF5KJ3]\nPDYZWY=VEP94N\nPI6DYX=VMQOM9\nP8LGN3=VXMZ6H\n[SJYP78]\nPGIJ9V=V5NJQ1\nPMKIR7=VA0I80\nPL29Z5=V4X4WK",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VDX5T8",
+            "child_query": "Return only the value of S7DOTY.PAJ3DB.",
+            "query_id": "train-config_structure-eecda7175ffe8b0b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VA0I80",
+            "child_query": "Return only the value of SJYP78.PMKIR7.",
+            "query_id": "train-config_structure-eecda7175ffe8b0b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VMQOM9",
+            "child_query": "Return only the value of SF5KJ3.PI6DYX.",
+            "query_id": "train-config_structure-eecda7175ffe8b0b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "ce3c902db4e58c7fc5ff2cb7ad855ac4dfe7c46be7a952021e07580ba53dc9c3"
+      },
+      {
+        "evidence_id": "train-config_structure-b12613dbd9e9042b",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SH63WV]\nPOTTGV=VXW2KM\nPNUJ2O=V9TW2Y\nP2YGLW=VJOEMR\n[SEP634]\nPZE9C5=VF6QHJ\nPF8FRN=VN5399\nPTY21Z=VFSG1H\n[SDBILP]\nPQO1TA=VH1MZI\nPLS42T=VSLMVT\nPMWJH3=V7NCM8\n[SD47S2]\nPZ389E=VVEPW1\nPKMCLG=V6DWM1\nP3Y66E=VT8CA2",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VN5399",
+            "child_query": "Return only the value of SEP634.PF8FRN.",
+            "query_id": "train-config_structure-b12613dbd9e9042b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VFSG1H",
+            "child_query": "Return only the value of SEP634.PTY21Z.",
+            "query_id": "train-config_structure-b12613dbd9e9042b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "V7NCM8",
+            "child_query": "Return only the value of SDBILP.PMWJH3.",
+            "query_id": "train-config_structure-b12613dbd9e9042b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "aa4ab7fd18eb8945d4b7069709e093444538ab2b34f0598cad9f899d11617180"
+      },
+      {
+        "evidence_id": "train-config_structure-c2c96aac1fdc9871",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[S39UDT]\nPY8H8Y=V4MXVI\nP0C2QA=VANLBB\nPY9JK3=V7T79Y\n[SK0BT4]\nPHJWF1=VVU0PN\nP3FOLU=VSUHM6\nPH1WOR=VZ31F4\n[SA2EZQ]\nPIZGQ1=VAAK1E\nPATCPK=VCDU1R\nPRINCQ=VXXLMC\n[S51HUE]\nPG3M4O=VZ1TLR\nPEAK4X=VDKUTB\nP557Y5=VJH7WS",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VCDU1R",
+            "child_query": "Return only the value of SA2EZQ.PATCPK.",
+            "query_id": "train-config_structure-c2c96aac1fdc9871-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "V7T79Y",
+            "child_query": "Return only the value of S39UDT.PY9JK3.",
+            "query_id": "train-config_structure-c2c96aac1fdc9871-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VZ1TLR",
+            "child_query": "Return only the value of S51HUE.PG3M4O.",
+            "query_id": "train-config_structure-c2c96aac1fdc9871-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "88d5194ef89e78bf47d9143909b30d2acbcae8129f6dbf2e04e3dba9e944b518"
+      },
+      {
+        "evidence_id": "train-config_structure-b75d446354fb70fa",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[S0BFB4]\nPSHV0Y=VPNVS2\nPGDL15=VZQTA0\nPCZDKK=V26717\n[SE25C0]\nPORL9T=VWL1ET\nP39AZ5=VUADSQ\nPT3TJY=V1W3N0\n[SM0YK9]\nPKP93X=VOHKHK\nP747CN=VJXPFF\nP6XBMT=VXJSZS\n[SU6E6C]\nPQBAQ6=VA3SCT\nPCJ89P=VOKOP9\nPZDGUJ=V4SNM3",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VOHKHK",
+            "child_query": "Return only the value of SM0YK9.PKP93X.",
+            "query_id": "train-config_structure-b75d446354fb70fa-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "V26717",
+            "child_query": "Return only the value of S0BFB4.PCZDKK.",
+            "query_id": "train-config_structure-b75d446354fb70fa-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VOKOP9",
+            "child_query": "Return only the value of SU6E6C.PCJ89P.",
+            "query_id": "train-config_structure-b75d446354fb70fa-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "f7ce45d5fdcbffdabf86525e6d1702562ab3e33158b36cda5b5ab8b39439665c"
+      },
+      {
+        "evidence_id": "train-config_structure-cfe0c20a9bd7a54b",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SKQUXM]\nPI9QXY=VBCILT\nPMQICM=VYFOJG\nPLK0TW=VN10LQ\n[SAFKYF]\nP879CL=VA6838\nPBGPLT=VYMAHI\nPSBCZJ=VFAKJE\n[S8IZ6V]\nP6F8Q6=V6HPDZ\nPFBCEE=VLXTYQ\nPHQNPN=V0CYG0\n[S7P17P]\nPSYIBS=VHOCAA\nPB68WW=VLTZCZ\nPHVTL5=VSTXMU",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VA6838",
+            "child_query": "Return only the value of SAFKYF.P879CL.",
+            "query_id": "train-config_structure-cfe0c20a9bd7a54b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VYMAHI",
+            "child_query": "Return only the value of SAFKYF.PBGPLT.",
+            "query_id": "train-config_structure-cfe0c20a9bd7a54b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VN10LQ",
+            "child_query": "Return only the value of SKQUXM.PLK0TW.",
+            "query_id": "train-config_structure-cfe0c20a9bd7a54b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "a433d94eb48c52a1392294f96b1dd23c3ef8efcb1db487da473056867bf7a7b0"
+      },
+      {
+        "evidence_id": "train-config_structure-45daa9720e992108",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SKDPG7]\nPJJPFB=V6I2QC\nPSHASA=VZLBUS\nPL8BMM=V63QEE\n[SSHVGL]\nPV5JH4=VKIERC\nPMYBQO=VNPKQB\nPD06PH=VN8IFR\n[SZ87W2]\nPPGHOI=V1N771\nP1V0V5=V1HAMR\nPH54NE=V05EUQ\n[SPH9UX]\nP4YD5I=VYMB6H\nP32GKM=VFH4TZ\nP5IS5E=VNCSJ6",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VKIERC",
+            "child_query": "Return only the value of SSHVGL.PV5JH4.",
+            "query_id": "train-config_structure-45daa9720e992108-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "V6I2QC",
+            "child_query": "Return only the value of SKDPG7.PJJPFB.",
+            "query_id": "train-config_structure-45daa9720e992108-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "V1N771",
+            "child_query": "Return only the value of SZ87W2.PPGHOI.",
+            "query_id": "train-config_structure-45daa9720e992108-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "8087bcdfc62d9150a2f6585282459cdffbe9d790bcf6e6e51d6abaa4105def2d"
+      },
+      {
+        "evidence_id": "train-config_structure-c8a1f016c6f3d81b",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SXVNFO]\nPYXNPP=VCJ7VB\nPMHG4Z=VADS9F\nPF1T40=VWTSMY\n[SM35OW]\nPLHWX0=VJSOXV\nPRPQDM=VKH4XM\nP50VC1=VIRL97\n[SI0Z4K]\nPDWEB9=VLONGY\nPIPNZH=VRHLZP\nP0P24E=VDPQK6\n[SFDVWX]\nPMXU97=VLNJAF\nP3PHHL=VLDIZD\nP20TTV=VEQNXZ",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VLONGY",
+            "child_query": "Return only the value of SI0Z4K.PDWEB9.",
+            "query_id": "train-config_structure-c8a1f016c6f3d81b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VCJ7VB",
+            "child_query": "Return only the value of SXVNFO.PYXNPP.",
+            "query_id": "train-config_structure-c8a1f016c6f3d81b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VDPQK6",
+            "child_query": "Return only the value of SI0Z4K.P0P24E.",
+            "query_id": "train-config_structure-c8a1f016c6f3d81b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "484f8935930427a03f30be559b86aefffa57b3ac96fb21ad5c99dc1ea0189c16"
+      },
+      {
+        "evidence_id": "train-config_structure-8db05279eef1e88f",
+        "family": "config_structure",
+        "parent_evidence": "Configuration:\n[SE9I6G]\nPK781G=VNGRRT\nPPGCBH=VC227M\nPXRSLF=V8IM64\n[SSDM9C]\nPR22XH=V6U00N\nPS8L1N=VLKJKG\nPCMW5N=VRYG1J\n[SH7LRT]\nPLCSFA=V1DIDT\nP8SKIN=VTVXNV\nP3P7WG=VG1J9T\n[SVBI0R]\nPFWI0Z=VGYI1B\nP1HEQ9=VQFHZ1\nPX5819=VINABS",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "VNGRRT",
+            "child_query": "Return only the value of SE9I6G.PK781G.",
+            "query_id": "train-config_structure-8db05279eef1e88f-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "VGYI1B",
+            "child_query": "Return only the value of SVBI0R.PFWI0Z.",
+            "query_id": "train-config_structure-8db05279eef1e88f-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "VRYG1J",
+            "child_query": "Return only the value of SSDM9C.PCMW5N.",
+            "query_id": "train-config_structure-8db05279eef1e88f-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "02dcfe3d6b9d6eb212cbe9a98835c21b3c18d64354c622a49f1c31ac9f05d699"
+      },
+      {
+        "evidence_id": "train-ownership_graph-941cbc927f66476b",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nA7SRLK owned by O1ZNSB\nACSOH6 owned by ODFLXX\nABVAO4 owned by ONKP0H\nAEQPBG owned by O1ZNSB\nA0F56X owned by OTJ7CN\nATS8FW owned by OTJ7CN\nAY0VAJ owned by O1ZNSB\nOwner zones:\nONKP0H located in ZGCO3J\nOTJ7CN located in Z61JS7\nO1ZNSB located in ZJVXQV\nODFLXX located in ZPZC68",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZJVXQV",
+            "child_query": "Which zone ultimately owns asset AY0VAJ? Return only the zone.",
+            "query_id": "train-ownership_graph-941cbc927f66476b-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "Z61JS7",
+            "child_query": "Which zone ultimately owns asset A0F56X? Return only the zone.",
+            "query_id": "train-ownership_graph-941cbc927f66476b-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZJVXQV",
+            "child_query": "Which zone ultimately owns asset A7SRLK? Return only the zone.",
+            "query_id": "train-ownership_graph-941cbc927f66476b-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "a5fecadf1366439b6d368e1fd3599a46aa787b540a3538de1732955e4240c5ea"
+      },
+      {
+        "evidence_id": "train-ownership_graph-01ec03cc89fc17b7",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nATD2TM owned by OW4KW5\nACOSUX owned by OW4KW5\nA7TTWK owned by OW4KW5\nASPB5U owned by OOVTJK\nA6HY7Z owned by OOVTJK\nA1950H owned by OOVTJK\nADPI62 owned by OW4KW5\nOwner zones:\nOOVTJK located in Z0YJ5O\nODPZCT located in Z8IJ1M\nOW4KW5 located in ZVKEUP\nOHSPU5 located in ZLW475",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZVKEUP",
+            "child_query": "Which zone ultimately owns asset A7TTWK? Return only the zone.",
+            "query_id": "train-ownership_graph-01ec03cc89fc17b7-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "Z0YJ5O",
+            "child_query": "Which zone ultimately owns asset A6HY7Z? Return only the zone.",
+            "query_id": "train-ownership_graph-01ec03cc89fc17b7-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZVKEUP",
+            "child_query": "Which zone ultimately owns asset ADPI62? Return only the zone.",
+            "query_id": "train-ownership_graph-01ec03cc89fc17b7-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "1fe2e5fa0fa3ba5f55cbfc600cd4c28e02f5625ab2f269c592c31dd2d890de34"
+      },
+      {
+        "evidence_id": "train-ownership_graph-d69d4a0aece552cd",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAB41PJ owned by O3VS9X\nATB6WY owned by O3QUR4\nAIOWF5 owned by O3QUR4\nAJI5RM owned by O9SLTC\nA0TO51 owned by OO93IC\nAMSPOY owned by O9SLTC\nAN4KVY owned by O3QUR4\nOwner zones:\nO3VS9X located in ZA7KXF\nOO93IC located in Z4HOD2\nO3QUR4 located in ZJDEOM\nO9SLTC located in ZSB0FN",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZJDEOM",
+            "child_query": "Which zone ultimately owns asset AIOWF5? Return only the zone.",
+            "query_id": "train-ownership_graph-d69d4a0aece552cd-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZJDEOM",
+            "child_query": "Which zone ultimately owns asset AN4KVY? Return only the zone.",
+            "query_id": "train-ownership_graph-d69d4a0aece552cd-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZSB0FN",
+            "child_query": "Which zone ultimately owns asset AMSPOY? Return only the zone.",
+            "query_id": "train-ownership_graph-d69d4a0aece552cd-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "c711b635b956e75788aa0a62c6abffd6a177e878afb154988b2baa3758dda75f"
+      },
+      {
+        "evidence_id": "train-ownership_graph-92e24223471f92f0",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nABQ0OW owned by O82SGM\nALHSIS owned by OIUO23\nALSDTN owned by OIUO23\nAVK5PH owned by O9A3PL\nA7LQD3 owned by O814FI\nA4WNWF owned by O82SGM\nA6VJG5 owned by O82SGM\nOwner zones:\nO82SGM located in Z2QFF2\nOIUO23 located in ZZSCED\nO9A3PL located in ZOCDEK\nO814FI located in ZY5NNM",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZOCDEK",
+            "child_query": "Which zone ultimately owns asset AVK5PH? Return only the zone.",
+            "query_id": "train-ownership_graph-92e24223471f92f0-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZZSCED",
+            "child_query": "Which zone ultimately owns asset ALHSIS? Return only the zone.",
+            "query_id": "train-ownership_graph-92e24223471f92f0-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "Z2QFF2",
+            "child_query": "Which zone ultimately owns asset ABQ0OW? Return only the zone.",
+            "query_id": "train-ownership_graph-92e24223471f92f0-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "6a61c8ea45cfe5de77cc802e4ac5c6225c85527922f939d741f0f5f3dc5318db"
+      },
+      {
+        "evidence_id": "train-ownership_graph-ec75277e57eda6a1",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nA6TK7K owned by OYV5CK\nA1HWD9 owned by OE2DUF\nA4TNG6 owned by OE2DUF\nACBWGU owned by OYV5CK\nAMPN6Q owned by OUEI77\nAC7RL6 owned by OUEI77\nAOACU1 owned by OE2DUF\nOwner zones:\nOUEI77 located in ZEHC5I\nO36PGU located in Z9J21A\nOYV5CK located in Z9TZP3\nOE2DUF located in ZDV9WO",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "Z9TZP3",
+            "child_query": "Which zone ultimately owns asset A6TK7K? Return only the zone.",
+            "query_id": "train-ownership_graph-ec75277e57eda6a1-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZDV9WO",
+            "child_query": "Which zone ultimately owns asset AOACU1? Return only the zone.",
+            "query_id": "train-ownership_graph-ec75277e57eda6a1-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZEHC5I",
+            "child_query": "Which zone ultimately owns asset AMPN6Q? Return only the zone.",
+            "query_id": "train-ownership_graph-ec75277e57eda6a1-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "b5ef99fb6de16efd8c5888720cbb7d6a75af5e5512792e2dba2c957c847efa90"
+      },
+      {
+        "evidence_id": "train-ownership_graph-a996bd6dec5b3fd0",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nALJUZ0 owned by OMRSBG\nAA7ODO owned by OMRSBG\nAJTD25 owned by OMRSBG\nAG54WW owned by OMRSBG\nA4ME2T owned by OT6DKE\nA6ZCLI owned by OFRN4T\nAWOHXK owned by OFRN4T\nOwner zones:\nOMRSBG located in ZOZLK6\nO7P8T2 located in Z9GH3Q\nOT6DKE located in ZI539C\nOFRN4T located in ZIRLL3",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZOZLK6",
+            "child_query": "Which zone ultimately owns asset AA7ODO? Return only the zone.",
+            "query_id": "train-ownership_graph-a996bd6dec5b3fd0-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZIRLL3",
+            "child_query": "Which zone ultimately owns asset AWOHXK? Return only the zone.",
+            "query_id": "train-ownership_graph-a996bd6dec5b3fd0-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZOZLK6",
+            "child_query": "Which zone ultimately owns asset AJTD25? Return only the zone.",
+            "query_id": "train-ownership_graph-a996bd6dec5b3fd0-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "89713bf35995a8e5e457200cdd168a4b627f32dbdb54f7f730ccaf48767d535f"
+      },
+      {
+        "evidence_id": "train-ownership_graph-679f1ada2c6dd053",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAIFLRD owned by O0T8XI\nAJY82C owned by OYZ0SA\nAVG7CW owned by OYSRBU\nAWH0BI owned by OYZ0SA\nARLM94 owned by O0T8XI\nAYIEZ6 owned by O0T8XI\nAHPMD5 owned by OYZ0SA\nOwner zones:\nOSXNLS located in ZWFHDK\nOYZ0SA located in ZQD1QR\nOYSRBU located in Z6L8Q0\nO0T8XI located in ZDONMB",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZDONMB",
+            "child_query": "Which zone ultimately owns asset ARLM94? Return only the zone.",
+            "query_id": "train-ownership_graph-679f1ada2c6dd053-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZQD1QR",
+            "child_query": "Which zone ultimately owns asset AWH0BI? Return only the zone.",
+            "query_id": "train-ownership_graph-679f1ada2c6dd053-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZDONMB",
+            "child_query": "Which zone ultimately owns asset AIFLRD? Return only the zone.",
+            "query_id": "train-ownership_graph-679f1ada2c6dd053-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "04a85c89692a97133a7eb384c8a4755f9000c9bfbec73238397025b6ab2dc6ef"
+      },
+      {
+        "evidence_id": "train-ownership_graph-8e923ad5950b1f30",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAQFZW4 owned by OX0UP9\nAS6RT7 owned by OYZA1L\nAE5WCZ owned by OI7DIO\nAW1P7U owned by OYZA1L\nAIKVUZ owned by OYZA1L\nAC07II owned by OI7DIO\nA0BI9V owned by OX0UP9\nOwner zones:\nOX0UP9 located in Z6G2WX\nO9XCG3 located in ZM0SUK\nOYZA1L located in ZLX8BA\nOI7DIO located in Z6LVK6",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "Z6LVK6",
+            "child_query": "Which zone ultimately owns asset AE5WCZ? Return only the zone.",
+            "query_id": "train-ownership_graph-8e923ad5950b1f30-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "Z6G2WX",
+            "child_query": "Which zone ultimately owns asset AQFZW4? Return only the zone.",
+            "query_id": "train-ownership_graph-8e923ad5950b1f30-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZLX8BA",
+            "child_query": "Which zone ultimately owns asset AIKVUZ? Return only the zone.",
+            "query_id": "train-ownership_graph-8e923ad5950b1f30-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "d816a9440a202e7cca8176b3dfc170e6911e78ad7191b7f67007a146e3d01a93"
+      },
+      {
+        "evidence_id": "train-ownership_graph-fc02b7e8e7ba5f98",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nA7I36B owned by OWZWCE\nAQERPY owned by OE9QM8\nAULQTO owned by OGM9BH\nA0DYGF owned by OWZWCE\nA48M85 owned by OGM9BH\nAOB4XW owned by OPX5B8\nAD0JIH owned by OPX5B8\nOwner zones:\nOWZWCE located in ZA9RYD\nOE9QM8 located in ZDJSO7\nOPX5B8 located in ZK992R\nOGM9BH located in ZJ2U8U",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZA9RYD",
+            "child_query": "Which zone ultimately owns asset A0DYGF? Return only the zone.",
+            "query_id": "train-ownership_graph-fc02b7e8e7ba5f98-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZK992R",
+            "child_query": "Which zone ultimately owns asset AOB4XW? Return only the zone.",
+            "query_id": "train-ownership_graph-fc02b7e8e7ba5f98-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZDJSO7",
+            "child_query": "Which zone ultimately owns asset AQERPY? Return only the zone.",
+            "query_id": "train-ownership_graph-fc02b7e8e7ba5f98-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "324f0cb526d5fcc6c968746ec9a6caca1eef00da10274d2488971d5410a4a6c8"
+      },
+      {
+        "evidence_id": "train-ownership_graph-605b4040158c185c",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nABCSBJ owned by OCOAGU\nA004RT owned by OCOAGU\nA8SJ9X owned by OBECVP\nAYVB6K owned by OG0P0O\nAAID62 owned by OBECVP\nAXX729 owned by O41S62\nAI8EBS owned by OCOAGU\nOwner zones:\nOCOAGU located in ZQQAO4\nOBECVP located in Z6H22C\nO41S62 located in ZY93GF\nOG0P0O located in ZOXBWX",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZQQAO4",
+            "child_query": "Which zone ultimately owns asset ABCSBJ? Return only the zone.",
+            "query_id": "train-ownership_graph-605b4040158c185c-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZY93GF",
+            "child_query": "Which zone ultimately owns asset AXX729? Return only the zone.",
+            "query_id": "train-ownership_graph-605b4040158c185c-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZOXBWX",
+            "child_query": "Which zone ultimately owns asset AYVB6K? Return only the zone.",
+            "query_id": "train-ownership_graph-605b4040158c185c-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "59f1b2ac16cb1affc2c74856daa528233d56d12ef51be13a700bfdae2d90d689"
+      },
+      {
+        "evidence_id": "train-ownership_graph-b8ccf39ec4e7476f",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nA2Q1OE owned by ODZTLG\nAWXLM4 owned by OMKHFR\nA1ECUM owned by ODZTLG\nAIF6GJ owned by OJJ2DK\nAHTMF2 owned by OJJ2DK\nA4FC5P owned by ODZTLG\nAT9U05 owned by OJJ2DK\nOwner zones:\nOVMCKO located in ZQZDX0\nODZTLG located in Z0FWSH\nOJJ2DK located in ZHT2WQ\nOMKHFR located in Z532PV",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "Z0FWSH",
+            "child_query": "Which zone ultimately owns asset A1ECUM? Return only the zone.",
+            "query_id": "train-ownership_graph-b8ccf39ec4e7476f-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "Z0FWSH",
+            "child_query": "Which zone ultimately owns asset A4FC5P? Return only the zone.",
+            "query_id": "train-ownership_graph-b8ccf39ec4e7476f-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZHT2WQ",
+            "child_query": "Which zone ultimately owns asset AHTMF2? Return only the zone.",
+            "query_id": "train-ownership_graph-b8ccf39ec4e7476f-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "6c455a416f71a8db3d4602be66e4f3911f76beb8dda19d085adc1e08c047d9c4"
+      },
+      {
+        "evidence_id": "train-ownership_graph-2eaf72b9599d3fdc",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAWA544 owned by O6KV8A\nABYKSU owned by O6KV8A\nA6PN62 owned by O2F638\nAMFI6D owned by O2F638\nAJA81B owned by O6KV8A\nA4VW9C owned by O2F638\nAMQ5MV owned by O4L8O4\nOwner zones:\nO6KV8A located in ZHQKIE\nO2F638 located in Z2I6SX\nO2DAR2 located in ZNCYBT\nO4L8O4 located in ZNSGJZ",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "Z2I6SX",
+            "child_query": "Which zone ultimately owns asset A4VW9C? Return only the zone.",
+            "query_id": "train-ownership_graph-2eaf72b9599d3fdc-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZNSGJZ",
+            "child_query": "Which zone ultimately owns asset AMQ5MV? Return only the zone.",
+            "query_id": "train-ownership_graph-2eaf72b9599d3fdc-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZHQKIE",
+            "child_query": "Which zone ultimately owns asset AJA81B? Return only the zone.",
+            "query_id": "train-ownership_graph-2eaf72b9599d3fdc-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "d94c94888673f83b8cccd7e601cad80c7cc6b981f9044a5dee185969511a0728"
+      },
+      {
+        "evidence_id": "train-ownership_graph-92baf7e0efb33da5",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nABMN98 owned by O8PZY2\nA0S9HO owned by O0E3QO\nA9U0G6 owned by O2ZMR3\nAN7IR5 owned by O0E3QO\nAYUPJD owned by O506U4\nAQWP6N owned by O2ZMR3\nA3GMRT owned by O0E3QO\nOwner zones:\nO0E3QO located in ZJY5R9\nO8PZY2 located in ZJJHL1\nO506U4 located in ZGMBKD\nO2ZMR3 located in ZJN8V9",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZJN8V9",
+            "child_query": "Which zone ultimately owns asset A9U0G6? Return only the zone.",
+            "query_id": "train-ownership_graph-92baf7e0efb33da5-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZJJHL1",
+            "child_query": "Which zone ultimately owns asset ABMN98? Return only the zone.",
+            "query_id": "train-ownership_graph-92baf7e0efb33da5-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZJN8V9",
+            "child_query": "Which zone ultimately owns asset AQWP6N? Return only the zone.",
+            "query_id": "train-ownership_graph-92baf7e0efb33da5-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "e4ffad53bc4763a899b0de2141a8c476b8c22700934e0fac15de220907424c34"
+      },
+      {
+        "evidence_id": "train-ownership_graph-2d71b6baeeb9c96f",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAF6NOU owned by OILMEE\nAGEKPA owned by OB3QU3\nAYPS5L owned by OILMEE\nACD2TA owned by OL7IMC\nAN98E3 owned by OL7IMC\nAJM1XS owned by OSABK8\nA7YO58 owned by OILMEE\nOwner zones:\nOL7IMC located in ZPVN1E\nOB3QU3 located in ZMEYPG\nOILMEE located in ZI28XG\nOSABK8 located in ZW2H6E",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZPVN1E",
+            "child_query": "Which zone ultimately owns asset ACD2TA? Return only the zone.",
+            "query_id": "train-ownership_graph-2d71b6baeeb9c96f-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZI28XG",
+            "child_query": "Which zone ultimately owns asset A7YO58? Return only the zone.",
+            "query_id": "train-ownership_graph-2d71b6baeeb9c96f-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZMEYPG",
+            "child_query": "Which zone ultimately owns asset AGEKPA? Return only the zone.",
+            "query_id": "train-ownership_graph-2d71b6baeeb9c96f-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "eb066d346a3bdd589f40afefd3b23d5a74c256b104a2ebc771d847ad1b5f7ede"
+      },
+      {
+        "evidence_id": "train-ownership_graph-c048611591e1232f",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nA3JQ0Y owned by OOF9NO\nAXELS3 owned by OF68M1\nALUCRW owned by OOUT6N\nARGJQT owned by OZVOAC\nAJ26CP owned by OOUT6N\nABB7XV owned by OOF9NO\nAU8XMN owned by OOUT6N\nOwner zones:\nOZVOAC located in ZV7MW5\nOOF9NO located in ZOVWB9\nOF68M1 located in ZQUGD8\nOOUT6N located in Z7GGDD",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZOVWB9",
+            "child_query": "Which zone ultimately owns asset A3JQ0Y? Return only the zone.",
+            "query_id": "train-ownership_graph-c048611591e1232f-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "ZV7MW5",
+            "child_query": "Which zone ultimately owns asset ARGJQT? Return only the zone.",
+            "query_id": "train-ownership_graph-c048611591e1232f-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "Z7GGDD",
+            "child_query": "Which zone ultimately owns asset AJ26CP? Return only the zone.",
+            "query_id": "train-ownership_graph-c048611591e1232f-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "0c620b0c7e89c6c6e87f066943fffd6c19c120c3309a23d7b65235f7004a5072"
+      },
+      {
+        "evidence_id": "train-ownership_graph-c8d69b22122ccb4a",
+        "family": "ownership_graph",
+        "parent_evidence": "Asset owners:\nAU2PAS owned by ON0SBD\nAF6VQH owned by OCR8LL\nADLD9V owned by O1G3ZW\nAZQ3EM owned by O1G3ZW\nAG3LOM owned by O1G3ZW\nA73B3D owned by O4S3RJ\nA2NGNQ owned by ON0SBD\nOwner zones:\nO4S3RJ located in Z0GCJ2\nON0SBD located in ZZ7GKR\nOCR8LL located in ZL3L4L\nO1G3ZW located in Z3LEDS",
+        "parent_template_id": "parent_train_v1",
+        "queries": [
+          {
+            "answer": "ZZ7GKR",
+            "child_query": "Which zone ultimately owns asset A2NGNQ? Return only the zone.",
+            "query_id": "train-ownership_graph-c8d69b22122ccb4a-q0",
+            "template_id": "query_train_a"
+          },
+          {
+            "answer": "Z3LEDS",
+            "child_query": "Which zone ultimately owns asset AG3LOM? Return only the zone.",
+            "query_id": "train-ownership_graph-c8d69b22122ccb4a-q1",
+            "template_id": "query_train_b"
+          },
+          {
+            "answer": "ZZ7GKR",
+            "child_query": "Which zone ultimately owns asset AU2PAS? Return only the zone.",
+            "query_id": "train-ownership_graph-c8d69b22122ccb4a-q2",
+            "template_id": "query_train_c"
+          }
+        ],
+        "split": "train",
+        "structured_evidence_sha256": "78dc53c3550d7b6fba718bec10a76a167c7b413f86a4bf187091f9194da13a41"
+      }
+    ],
+    "schema_version": "prime-rl/split-information-bank/v1",
+    "seed": 771168341,
+    "split": "train"
+  },
+  "manifest_sha256": "5819ed6acba9524eeb8f9b537ee71c9b73e4babc13d3689fafb7ce3ef825c5ac",
+  "moth_donors": {
+    "train-config_structure-154d85aa41ab85db": "train-config_structure-22250183f54b49d5",
+    "train-config_structure-22250183f54b49d5": "train-config_structure-154d85aa41ab85db",
+    "train-config_structure-2802b797064b63ff": "train-config_structure-437a6337d5a5e545",
+    "train-config_structure-437a6337d5a5e545": "train-config_structure-2802b797064b63ff",
+    "train-config_structure-45daa9720e992108": "train-config_structure-7b8d34d546bcd604",
+    "train-config_structure-7b8d34d546bcd604": "train-config_structure-45daa9720e992108",
+    "train-config_structure-87f3a2c174d52881": "train-config_structure-8db05279eef1e88f",
+    "train-config_structure-8db05279eef1e88f": "train-config_structure-87f3a2c174d52881",
+    "train-config_structure-b12613dbd9e9042b": "train-config_structure-b75d446354fb70fa",
+    "train-config_structure-b75d446354fb70fa": "train-config_structure-b12613dbd9e9042b",
+    "train-config_structure-c2c96aac1fdc9871": "train-config_structure-c8a1f016c6f3d81b",
+    "train-config_structure-c8a1f016c6f3d81b": "train-config_structure-c2c96aac1fdc9871",
+    "train-config_structure-cfe0c20a9bd7a54b": "train-config_structure-dc31a7c7aad018ff",
+    "train-config_structure-dc31a7c7aad018ff": "train-config_structure-cfe0c20a9bd7a54b",
+    "train-config_structure-eecda7175ffe8b0b": "train-config_structure-effdc3c03efbafa3",
+    "train-config_structure-effdc3c03efbafa3": "train-config_structure-eecda7175ffe8b0b",
+    "train-keyed_numeric-22b08fc15858975c": "train-keyed_numeric-2d6f1e39b96060f0",
+    "train-keyed_numeric-2d6f1e39b96060f0": "train-keyed_numeric-22b08fc15858975c",
+    "train-keyed_numeric-3d61d3a084cb96c8": "train-keyed_numeric-5bbf43e3efcc0ec3",
+    "train-keyed_numeric-5bbf43e3efcc0ec3": "train-keyed_numeric-3d61d3a084cb96c8",
+    "train-keyed_numeric-685221bdf4d3058c": "train-keyed_numeric-732c17092ef807f1",
+    "train-keyed_numeric-732c17092ef807f1": "train-keyed_numeric-685221bdf4d3058c",
+    "train-keyed_numeric-7b852e1763dcb590": "train-keyed_numeric-8421d8ae5b66cb94",
+    "train-keyed_numeric-8421d8ae5b66cb94": "train-keyed_numeric-7b852e1763dcb590",
+    "train-keyed_numeric-ad10ba72ce48b16b": "train-keyed_numeric-b327b2b15a701267",
+    "train-keyed_numeric-b327b2b15a701267": "train-keyed_numeric-ad10ba72ce48b16b",
+    "train-keyed_numeric-b9c4fbeb233b067b": "train-keyed_numeric-c401f3dbc0853624",
+    "train-keyed_numeric-c401f3dbc0853624": "train-keyed_numeric-b9c4fbeb233b067b",
+    "train-keyed_numeric-d22d77b671b6eed6": "train-keyed_numeric-e6a544ff2d22ea70",
+    "train-keyed_numeric-e6a544ff2d22ea70": "train-keyed_numeric-d22d77b671b6eed6",
+    "train-keyed_numeric-ec3b2c56c242ee3d": "train-keyed_numeric-faa36685734d3009",
+    "train-keyed_numeric-faa36685734d3009": "train-keyed_numeric-ec3b2c56c242ee3d",
+    "train-ownership_graph-01ec03cc89fc17b7": "train-ownership_graph-2d71b6baeeb9c96f",
+    "train-ownership_graph-2d71b6baeeb9c96f": "train-ownership_graph-01ec03cc89fc17b7",
+    "train-ownership_graph-2eaf72b9599d3fdc": "train-ownership_graph-605b4040158c185c",
+    "train-ownership_graph-605b4040158c185c": "train-ownership_graph-2eaf72b9599d3fdc",
+    "train-ownership_graph-679f1ada2c6dd053": "train-ownership_graph-8e923ad5950b1f30",
+    "train-ownership_graph-8e923ad5950b1f30": "train-ownership_graph-679f1ada2c6dd053",
+    "train-ownership_graph-92baf7e0efb33da5": "train-ownership_graph-92e24223471f92f0",
+    "train-ownership_graph-92e24223471f92f0": "train-ownership_graph-92baf7e0efb33da5",
+    "train-ownership_graph-941cbc927f66476b": "train-ownership_graph-a996bd6dec5b3fd0",
+    "train-ownership_graph-a996bd6dec5b3fd0": "train-ownership_graph-941cbc927f66476b",
+    "train-ownership_graph-b8ccf39ec4e7476f": "train-ownership_graph-c048611591e1232f",
+    "train-ownership_graph-c048611591e1232f": "train-ownership_graph-b8ccf39ec4e7476f",
+    "train-ownership_graph-c8d69b22122ccb4a": "train-ownership_graph-d69d4a0aece552cd",
+    "train-ownership_graph-d69d4a0aece552cd": "train-ownership_graph-c8d69b22122ccb4a",
+    "train-ownership_graph-ec75277e57eda6a1": "train-ownership_graph-fc02b7e8e7ba5f98",
+    "train-ownership_graph-fc02b7e8e7ba5f98": "train-ownership_graph-ec75277e57eda6a1",
+    "train-relational_join-0262f8b0ce38e6c6": "train-relational_join-19764497ca044c2c",
+    "train-relational_join-19764497ca044c2c": "train-relational_join-0262f8b0ce38e6c6",
+    "train-relational_join-2060fb4da095535a": "train-relational_join-5294c8accc27fa28",
+    "train-relational_join-5294c8accc27fa28": "train-relational_join-2060fb4da095535a",
+    "train-relational_join-5ce8e7bdf93ee63d": "train-relational_join-6f4d8225bd992e02",
+    "train-relational_join-6f4d8225bd992e02": "train-relational_join-5ce8e7bdf93ee63d",
+    "train-relational_join-942577853459feb2": "train-relational_join-9852c586daf3f5bb",
+    "train-relational_join-9852c586daf3f5bb": "train-relational_join-942577853459feb2",
+    "train-relational_join-a906d940871631c4": "train-relational_join-b555e514ce686052",
+    "train-relational_join-b555e514ce686052": "train-relational_join-a906d940871631c4",
+    "train-relational_join-c1b5a38db338f266": "train-relational_join-c89d855acf029f16",
+    "train-relational_join-c89d855acf029f16": "train-relational_join-c1b5a38db338f266",
+    "train-relational_join-ce4ac3a9380103f3": "train-relational_join-d9d00abc66937b17",
+    "train-relational_join-d9d00abc66937b17": "train-relational_join-ce4ac3a9380103f3",
+    "train-relational_join-da1695d412b6b89b": "train-relational_join-e4d234c54b74c812",
+    "train-relational_join-e4d234c54b74c812": "train-relational_join-da1695d412b6b89b"
+  }
+}
