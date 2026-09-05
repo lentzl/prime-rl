@@ -1014,7 +1014,10 @@ def _post_failure_hash_audit(
     }
     torch_module = audit_context.get("torch")
     if torch_module is not None and torch_module.cuda.is_initialized():
-        evidence["cuda_memory"] = _cuda_memory_values(torch_module)
+        try:
+            evidence["cuda_memory"] = _cuda_memory_values(torch_module)
+        except BaseException as error:
+            errors.append(f"cuda_memory: {type(error).__name__}: {error}")
     evidence["cuda_memory_contract"] = deepcopy(audit_context.get("cuda_memory_contract"))
     return {"audit_complete": not errors, "hash_probe_error": "; ".join(errors) or None, **evidence}
 
@@ -1458,6 +1461,9 @@ def main() -> int:
                     if isinstance(error, ResourceContractExceeded)
                     else "cuda_allocator_oom"
                     if type(error).__name__ in {"OutOfMemoryError", "CUDAOutOfMemoryError"}
+                    or "out of memory" in str(error).lower()
+                    else "allocator_contract_initialization_failed"
+                    if audit_context.get("stage") == "allocator_contract_initialization"
                     else None
                 ),
                 "wall_clock_contract": {
