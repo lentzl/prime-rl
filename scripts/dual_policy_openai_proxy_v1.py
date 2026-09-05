@@ -4111,6 +4111,12 @@ class DualPolicyProxy:
         response_sha256: str | None = None,
         latency_ms: float | None = None,
     ) -> None:
+        request_end_unix_s = time.time()
+        request_start_unix_s = (
+            request_end_unix_s - latency_ms / 1000.0
+            if latency_ms is not None
+            else request_end_unix_s
+        )
         event = {
             "schema_version": "qwen35-2b-dual-policy-route/v1",
             "sequence": self.sequence,
@@ -4120,6 +4126,8 @@ class DualPolicyProxy:
             "upstream_model": upstream_model or self.models[role],
             "status": status,
             "mode": mode,
+            "request_start_unix_s": request_start_unix_s,
+            "request_end_unix_s": request_end_unix_s,
         }
         if action_sha256 is not None:
             event["action_sha256"] = action_sha256

@@ -1,0 +1,12 @@
+{
+  "schema_version": "q35-2b-source-route-parity-p1-sampling/v1",
+  "temperature": 1.0,
+  "reasoning_effort": "high",
+  "max_completion_tokens": 2048,
+  "top_k": -1,
+  "min_p": 0.0,
+  "return_token_ids": true,
+  "group_size": 8,
+  "groups": 2,
+  "sampled_session_scope": "non_root"
+}

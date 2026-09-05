@@ -30,6 +30,10 @@ P0_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p0_v1.py
 P0_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p0_v1.sh"
 EXPERIMENT = REPO / "experiments/qwen35-2b-document-recursion-zero-update-v1"
 P0_CONFIG_PATH = EXPERIMENT / "specialist-source-route-parity-p0-lr0.toml"
+P1_CONFIG_PATH = EXPERIMENT / "specialist-source-route-parity-p1-lr0.toml"
+P1_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p1_v1.py"
+P1_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p1_v1.sh"
+P1_HASHER_PATH = REPO / "scripts/hash_q35_2b_source_route_parity_p1_tasks_v1.py"
 
 
 def _validator_module():
@@ -54,6 +58,15 @@ def _p0_validator_module():
     spec = importlib.util.spec_from_file_location(
         "source_route_parity_p0_validator", P0_VALIDATOR_PATH
     )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _p1_hasher_module():
+    spec = importlib.util.spec_from_file_location("p1_task_hasher_test", P1_HASHER_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -1151,3 +1164,111 @@ def test_p0_recovery_receipt_uses_distinct_audit_revision_and_forensic_runtime(
     assert report["interpretation"]["launcher_postflight_passed"] is False
     assert report["interpretation"]["p0_mechanism_admitted"] is False
     assert report["interpretation"]["calibration_measurements_recovered"] is True
+
+
+def test_p1_config_launcher_and_task_bank_are_fresh_and_nonupdating() -> None:
+    config = P1_CONFIG_PATH.read_text()
+    launcher = P1_LAUNCHER_PATH.read_text()
+    hasher = P1_HASHER_PATH.read_text()
+
+    assert config.count("seed = 20270917") == 2
+    assert config.count("instance_offset = 71000") == 2
+    assert "q35-2b-source-route-parity-p1-v1" in config
+    assert "[trainer.ckpt]" not in config and "[orchestrator.ckpt]" not in config
+    assert "run_q35_2b_specialist_competence_eval" not in launcher
+    assert 'test "$(sha256sum "$sampling_contract"' in launcher
+    assert "rehash_protected_models" in launcher
+    assert "--write-preflight-model-hashes" in launcher
+    assert "--preflight-model-hashes" in launcher
+    assert launcher.index('if [[ "$dry_run" == true ]]') < launcher.index(
+        "--write-preflight-model-hashes"
+    )
+    assert "postflight_recomputed" in P1_VALIDATOR_PATH.read_text()
+    assert "export_derived_family_likelihood" in P1_VALIDATOR_PATH.read_text()
+    assert "abs(family_mismatch_mean) / family_entropy_mean > 0.01" in P1_VALIDATOR_PATH.read_text()
+    assert "max(all_active_abs_mismatch) > 0.35" in P1_VALIDATOR_PATH.read_text()
+    assert "preflight_model_hashes != MODEL_PREFLIGHT" in P1_VALIDATOR_PATH.read_text()
+    assert "len(source_tasks) != 32" in hasher
+    assert "len(rows) != 64" in hasher
+    assert "set(p1_keys) & set(p0_keys)" in hasher
+
+
+def test_p1_task_hasher_requires_32_unique_tasks_per_source(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hasher = _p1_hasher_module()
+
+    class Data:
+        def __init__(self, key: str):
+            self.key = key
+
+        def model_dump(self, **kwargs):
+            return {"key": self.key}
+
+    class Task:
+        def __init__(self, key: str):
+            self.key = key
+            self.data = Data(key)
+
+    class Config:
+        def __init__(self, **values):
+            self.values = values
+
+    class Taskset:
+        def __init__(self, config):
+            self.config = config
+
+        def load(self):
+            count = self.config.values["count"]
+            prefix = self.config.values["prefix"]
+            return [Task(f"{prefix}-{index}") for index in range(count)]
+
+    monkeypatch.setattr(hasher, "_taskset_types", lambda: (Config, Taskset))
+    with pytest.raises(ValueError, match="32 unique tasks"):
+        hasher._bank([{"prefix": "ast", "count": 31}, {"prefix": "config", "count": 32}])
+    keys, _, _ = hasher._bank(
+        [{"prefix": "ast", "count": 32}, {"prefix": "config", "count": 32}]
+    )
+    assert len(keys) == 64
+
+
+def test_p1_timed_route_join_is_bijective_and_rejects_audit_surplus() -> None:
+    validator = _validator_module()
+    traces, audits = _effective_route_fixture(validator)
+    sequence = 0
+    for trace_index, trace in enumerate(traces):
+        session = audits[trace_index * 2]["session_sha256"]
+        trace["id"] = f"p1-{trace_index}"
+        trace["nodes"][0]["message"]["content"] = (
+            f"/tmp/vf-prime-agent-runs/{session[:16]}/conversation.json"
+        )
+        trace["calls"][0].update({"time": {"start": 10.0, "end": 11.0}, "error": None})
+        trace["calls"][1].update({"time": {"start": 12.0, "end": 13.0}, "error": None})
+        trace["stop_condition"] = "agent_completed"
+        for event_index, event in enumerate(audits[trace_index * 2 : trace_index * 2 + 2]):
+            start = 10.2 if event_index == 0 else 12.2
+            event.update(
+                {
+                    "sequence": sequence,
+                    "request_sha256": hashlib.sha256(f"p1-{sequence}".encode()).hexdigest(),
+                    "request_start_unix_s": start,
+                    "request_end_unix_s": start + 0.5,
+                }
+            )
+            sequence += 1
+
+    report = validator._validate_p1_timed_call_routes(traces, audits)
+    assert report["timing_session_bijection"] is True
+    assert report["audit_only_events"] == 0
+    assert report["terminal_residues"] == []
+
+    surplus = {**audits[-1], "sequence": sequence, "request_sha256": "f" * 64}
+    with pytest.raises(validator.AuditFailure, match="timed route join|audit-only"):
+        validator._validate_p1_timed_call_routes(traces, [*audits, surplus])
+
+
+def test_proxy_audit_records_joinable_wall_clock_interval() -> None:
+    source = PROXY_PATH.read_text()
+    assert '"request_start_unix_s": request_start_unix_s' in source
+    assert '"request_end_unix_s": request_end_unix_s' in source
+    assert "request_end_unix_s - latency_ms / 1000.0" in source

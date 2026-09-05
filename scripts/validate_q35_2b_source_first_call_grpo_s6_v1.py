@@ -355,6 +355,8 @@ def _validate_runtime_configs(
     stage: Literal["audit", "update"],
     *,
     routing_audit_path: Path | None = None,
+    expected_train_seed: int = EXPECTED_TRAIN_SEED,
+    expected_train_offset: int = EXPECTED_TRAIN_OFFSET,
 ) -> dict[str, Any]:
     trainer = _read_json(run_dir / "configs" / "trainer.json")
     orchestrator = _read_json(run_dir / "configs" / "orchestrator.json")
@@ -406,8 +408,8 @@ def _validate_runtime_configs(
             or taskset.get("id") != "source-worker-first-call-v1"
             or taskset.get("split") != "train"
             or taskset.get("families") != [family]
-            or taskset.get("instance_offset") != EXPECTED_TRAIN_OFFSET
-            or taskset.get("seed") != EXPECTED_TRAIN_SEED
+            or taskset.get("instance_offset") != expected_train_offset
+            or taskset.get("seed") != expected_train_seed
             or taskset.get("task", {}).get("reward_mode") != EXPECTED_REWARD
         ):
             raise AuditFailure(f"resolved S6 {name} taskset or scope changed")
@@ -983,6 +985,161 @@ def _validate_p0_terminal_route_artifacts(
     }
 
 
+def _validate_p1_timed_call_routes(
+    trace_records: list[dict[str, Any]], audit_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Prospectively join every P1 call to one route by session, role, and time."""
+
+    audits_by_session: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
+    sequences: set[int] = set()
+    request_hashes: set[str] = set()
+    for index, event in enumerate(audit_records):
+        _validated_route_event_role(event, index)
+        sequence = event.get("sequence")
+        request_sha = event.get("request_sha256")
+        start = event.get("request_start_unix_s")
+        end = event.get("request_end_unix_s")
+        if (
+            not isinstance(sequence, int)
+            or sequence in sequences
+            or not isinstance(request_sha, str)
+            or len(request_sha) != 64
+            or request_sha in request_hashes
+            or not isinstance(start, (int, float))
+            or not isinstance(end, (int, float))
+            or end < start
+        ):
+            raise AuditFailure("P1 route event lacks unique sequence/request/timing evidence")
+        sequences.add(sequence)
+        request_hashes.add(request_sha)
+        audits_by_session[event["session_sha256"]].append((index, event))
+    if sequences != set(range(len(audit_records))):
+        raise AuditFailure("P1 route sequences are not contiguous from zero")
+
+    attached: Counter[str] = Counter()
+    terminal_residues: list[dict[str, Any]] = []
+    used_audits: set[int] = set()
+    matched_sessions: set[str] = set()
+    total_calls = 0
+    for trace_index, trace in enumerate(trace_records):
+        nodes = trace.get("nodes")
+        calls = trace.get("calls")
+        if not isinstance(nodes, list) or not isinstance(calls, list):
+            raise AuditFailure(f"P1 trace {trace_index} lacks call ancestry")
+        wire_text = "\n".join(
+            _wire_content_text(node.get("message", {}).get("content"))
+            for node in nodes
+            if isinstance(node, dict) and isinstance(node.get("message"), dict)
+        )
+        prefixes = set(re.findall(r"/vf-prime-agent-runs/([0-9a-f]{16})/", wire_text))
+        sessions = [session for session in audits_by_session if session[:16] in prefixes]
+        if len(prefixes) != 1 or len(sessions) != 1 or sessions[0] in matched_sessions:
+            raise AuditFailure("P1 trace lacks an exact unique rollout/audit session")
+        session = sessions[0]
+        matched_sessions.add(session)
+        events = audits_by_session[session]
+        if sum(event.get("mode") == FORCED_ROUTE_MODE for _, event in events) != 1:
+            raise AuditFailure("P1 rollout lacks exactly one forced coordinator route")
+        attached_ends = [
+            call.get("time", {}).get("end")
+            for call in calls
+            if isinstance(call, dict) and call.get("node") is not None
+        ]
+        if not attached_ends or not all(isinstance(value, (int, float)) for value in attached_ends):
+            raise AuditFailure("P1 trace lacks attached-call terminal timing")
+        max_attached_end = max(attached_ends)
+        for call_index, call in enumerate(calls):
+            total_calls += 1
+            if not isinstance(call, dict) or not isinstance(call.get("time"), dict):
+                raise AuditFailure("P1 call lacks wall-clock timing")
+            call_start = call["time"].get("start")
+            call_end = call["time"].get("end")
+            if (
+                not isinstance(call_start, (int, float))
+                or not isinstance(call_end, (int, float))
+                or call_end < call_start
+            ):
+                raise AuditFailure("P1 call has invalid wall-clock timing")
+            role = (
+                _attached_call_role(
+                    nodes, call, trace_index=trace_index, call_index=call_index
+                )
+                if call.get("node") is not None
+                else None
+            )
+            candidates = [
+                (audit_index, event)
+                for audit_index, event in events
+                if audit_index not in used_audits
+                and (role is None or event["role"] == role)
+                and event["request_start_unix_s"] <= call_end
+                and event["request_end_unix_s"] >= call_start
+            ]
+            if len(candidates) != 1:
+                raise AuditFailure(
+                    f"P1 trace {trace_index} call {call_index} lacks one timed route join"
+                )
+            audit_index, event = candidates[0]
+            used_audits.add(audit_index)
+            if role is not None:
+                if call.get("error") is not None:
+                    raise AuditFailure("P1 attached call contains an inference error")
+                attached[role] += 1
+                continue
+            error = call.get("error")
+            stop = trace.get("stop_condition")
+            if (
+                call_index != len(calls) - 1
+                or call_end < max_attached_end
+                or stop not in {"max_turns", "agent_completed"}
+                or (
+                error is not None
+                and (
+                    not isinstance(error, dict)
+                    or error.get("type") != "ClientConnectionResetError"
+                )
+                )
+            ):
+                raise AuditFailure("P1 node=null call is not a terminal cancelled residue")
+            usage = call.get("usage") if isinstance(call.get("usage"), dict) else {}
+            completion_tokens = usage.get("completion_tokens")
+            if (
+                not isinstance(completion_tokens, int)
+                or completion_tokens < 0
+                or event["request_end_unix_s"] < max_attached_end
+            ):
+                raise AuditFailure("P1 residue lacks terminal wasted-token evidence")
+            terminal_residues.append(
+                {
+                    "trace_index": trace_index,
+                    "call_index": call_index,
+                    "role": event["role"],
+                    "audit_sequence": event["sequence"],
+                    "request_sha256": event["request_sha256"],
+                    "training_effect_evidence": "node=null excludes the call from every trainable branch/export linkage",
+                    "wasted_completion_tokens": completion_tokens,
+                }
+            )
+
+    if matched_sessions != set(audits_by_session) or len(used_audits) != len(audit_records):
+        raise AuditFailure("P1 has an audit-only event, missing trace, or missing join")
+    if len(terminal_residues) > 1 or (
+        terminal_residues and (len(terminal_residues) / total_calls) > 0.01
+    ):
+        raise AuditFailure("P1 terminal residue exceeds one call or one percent")
+    if len({item["trace_index"] for item in terminal_residues}) > 1:
+        raise AuditFailure("P1 terminal residue spans more than one rollout")
+    return {
+        "attached_successful_calls": dict(attached),
+        "total_trace_calls": total_calls,
+        "route_events": len(audit_records),
+        "terminal_residues": terminal_residues,
+        "audit_only_events": 0,
+        "timing_session_bijection": True,
+        "rollout_sessions": len(audits_by_session),
+    }
+
+
 def _validate_raw_equals_effective(
     raw_records: list[dict[str, Any]], effective_records: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -1011,6 +1168,9 @@ def validate_runtime(
     routing_audit_path: Path | None = None,
     routing_audit_read_path: Path | None = None,
     p0_terminal_artifact_recovery: bool = False,
+    p1_timed_route_admission: bool = False,
+    expected_train_seed: int = EXPECTED_TRAIN_SEED,
+    expected_train_offset: int = EXPECTED_TRAIN_OFFSET,
 ) -> dict[str, Any]:
     import verifiers.v1 as vf
     from verifiers.v1.types import UserMessage, content_text
@@ -1021,8 +1181,14 @@ def validate_runtime(
         raise AuditFailure("calibration-only validation requires LR=0 audit stage")
     if p0_terminal_artifact_recovery and not calibration_only:
         raise AuditFailure("P0 terminal-artifact recovery is calibration-only")
+    if p0_terminal_artifact_recovery and p1_timed_route_admission:
+        raise AuditFailure("P0 recovery and P1 admission routes are mutually exclusive")
     config_report = _validate_runtime_configs(
-        run_dir, stage, routing_audit_path=routing_audit_path
+        run_dir,
+        stage,
+        routing_audit_path=routing_audit_path,
+        expected_train_seed=expected_train_seed,
+        expected_train_offset=expected_train_offset,
     )
     records = _read_jsonl(run_dir / "metrics.jsonl")
     expected_lr = 0.0 if stage == "audit" else 1e-6
@@ -1058,7 +1224,11 @@ def validate_runtime(
     effective_call_routes = (
         _validate_p0_terminal_route_artifacts(trace_records, audit_records)
         if p0_terminal_artifact_recovery
-        else _validate_effective_call_routes(trace_records, audit_records)
+        else (
+            _validate_p1_timed_call_routes(trace_records, audit_records)
+            if p1_timed_route_admission
+            else _validate_effective_call_routes(trace_records, audit_records)
+        )
     )
     task_rewards: dict[str, list[float]] = defaultdict(list)
     families: Counter[str] = Counter()
@@ -1198,6 +1368,7 @@ def validate_runtime(
         "checkpoint_written": stage == "update",
         "calibration_only": calibration_only,
         "p0_terminal_artifact_recovery": p0_terminal_artifact_recovery,
+        "p1_timed_route_admission": p1_timed_route_admission,
         "optimizer_update_authorized": False if calibration_only else None,
     }
 
