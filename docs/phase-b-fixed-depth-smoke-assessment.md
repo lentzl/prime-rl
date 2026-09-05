@@ -69,11 +69,16 @@ hash.
 
 ## Runner readiness boundary
 
-`scripts/latent/run_phase_b_fixed_depth_smoke_v1.py` contains the host execution path, but the checked-in
-state cannot launch it. The current plan retains the status
-`frozen_pending_a0_receipt_binding_not_authorized`, and the checked-in A0C binding is an explicitly
-unresolved placeholder. Both checks execute before Torch or Transformers is imported and before an
-output directory is created. After A0C succeeds, root must prospectively freeze a replacement plan and
-binding containing the exact A0C receipt schema, receipt file and canonical hashes, A0C plan hash,
-execution commit, e33 identity, and required predicate paths. The runner and its exact plan hash then
-need a new implementation freeze; no existing hash may be edited in place.
+`scripts/latent/run_phase_b_fixed_depth_smoke_v1.py` contains the host execution path. The historical
+`phase-b-fixed-depth-smoke-v1-plan.json` remains permanently non-launchable. After A0C completed all
+four probes, `phase-b-fixed-depth-smoke-a0c-v1-plan.json` was prospectively frozen as a separate plan
+bound to the exact committed receipt and binding. The receipt's file SHA-256 and its internal canonical
+SHA-256 (computed while omitting only `receipt_sha256`) are checked independently. Binding files live in
+the deployed worktree, outside the fresh terminal output directory.
+
+The new freeze still does not schedule itself: independent gatekeeper review and an explicit root
+schedule are required. A run stops compute at 114 minutes, reserves five minutes to rehash e33 weights
+and metadata, revalidate the A0C binding and receipt, and rehash the plan and selection, then retains one
+minute for atomic terminal-receipt publication inside an independent 120-minute `timeout` wrapper.
+Scientific connectivity failures are recorded as `mechanism_rejected`; provenance, timeout, OOM, and
+resource failures are `infrastructure_invalid`.

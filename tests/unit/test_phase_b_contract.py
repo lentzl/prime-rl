@@ -5,6 +5,7 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -203,6 +204,34 @@ def test_checked_in_binding_maps_and_validates_exact_a0c_carrier_receipt(tmp_pat
     assert validated.receipt_canonical_sha256 == "40dde68d34deb592f864739b48da8c22faafe470f2f0bc6708bce608ae482de7"
 
 
+def test_new_plan_is_a0c_bound_while_old_plan_remains_non_launchable() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
+    old_plan = json.loads((experiment / "phase-b-fixed-depth-smoke-v1-plan.json").read_text(encoding="utf-8"))
+    plan_path = experiment / "phase-b-fixed-depth-smoke-a0c-v1-plan.json"
+    plan = json.loads(plan_path.read_text(encoding="utf-8"))
+    selection_path = experiment / "phase-b-fixed-depth-smoke-v1-selection.json"
+
+    with pytest.raises(PhaseBContractError):
+        validate_plan_authorization(old_plan)
+    validate_plan_authorization(plan)
+    assert plan["implementation_commit"] == "476171123f642f8c7857606bd97d32ad93721eaa"
+    assert set(plan["arms"]) == {"BASE", "STATIC", "FFN", "RECURRENT"}
+    assert plan["arms"]["RECURRENT"]["local_depth"] == 4
+    assert plan["matched_conditions"]["optimizer_updates"] == 0
+    assert plan["matched_conditions"]["model_generation"] is False
+    assert plan["failure_classification"]["compute_limit_seconds"] == 6840
+    assert plan["failure_classification"]["failure_audit_headroom_seconds"] == 300
+    assert plan["failure_classification"]["terminal_publication_headroom_seconds"] == 60
+    assert plan["failure_classification"]["outer_wall_clock_seconds"] == 7200
+    assert plan["a0c_dependency"]["a0r_rejection_preserved"]["status"] == "mechanism_rejected"
+    assert Path(plan["a0c_dependency"]["binding_path"]).parent != Path(plan["outputs"]["directory"])
+    assert hashlib.sha256(selection_path.read_bytes()).hexdigest() == plan["data"]["selection_sha256"]
+
+    runner = _load_runner()
+    assert hashlib.sha256(plan_path.read_bytes()).hexdigest() == runner.PLAN_SHA256
+
+
 def test_failure_audit_rehashes_e33_binding_receipt_and_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     runner = _load_runner()
     receipt = {
@@ -272,8 +301,38 @@ def test_failure_classification_and_cleanup_headroom_are_explicit() -> None:
     assert runner._classify_failure(runner.PhaseBMechanismRejected("predicate")) == "mechanism_rejected"
     assert runner._classify_failure(runner.PhaseBWallClockExceeded("timeout")) == "infrastructure_invalid"
     assert runner._classify_failure(MemoryError("oom")) == "infrastructure_invalid"
-    assert runner.COMPUTE_LIMIT_SECONDS + runner.FAILURE_AUDIT_HEADROOM_SECONDS == runner.WALL_CLOCK_LIMIT_SECONDS
+    assert (
+        runner.COMPUTE_LIMIT_SECONDS
+        + runner.FAILURE_AUDIT_HEADROOM_SECONDS
+        + runner.TERMINAL_PUBLICATION_HEADROOM_SECONDS
+        == runner.WALL_CLOCK_LIMIT_SECONDS
+    )
     assert runner.FAILURE_AUDIT_HEADROOM_SECONDS == 300
+    assert runner.TERMINAL_PUBLICATION_HEADROOM_SECONDS == 60
+
+
+def test_preflight_only_returns_without_heavy_import_or_output(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    runner = _load_runner()
+    output = (tmp_path / "never-created").resolve()
+    args = runner.argparse.Namespace(preflight_only=True, execution_commit="a" * 40, output_dir=output)
+    binding = SimpleNamespace(
+        binding_file_sha256="b" * 64,
+        receipt_file_sha256="c" * 64,
+        receipt_canonical_sha256="d" * 64,
+    )
+    monkeypatch.setattr(runner, "parse_args", lambda: args)
+    monkeypatch.setattr(runner, "preflight_before_heavy_imports", lambda _args: ({}, {}, binding))
+
+    assert runner.main() == 0
+    report = json.loads(capsys.readouterr().out)
+    assert report["status"] == "preflight_only_passed"
+    assert report["heavy_imports"] is False
+    assert report["output_created"] is False
+    assert "torch" not in sys.modules
+    assert "transformers" not in sys.modules
+    assert not output.exists()
 
 
 def test_launcher_supplies_independent_outer_timeout_and_exact_environment() -> None:
@@ -281,10 +340,14 @@ def test_launcher_supplies_independent_outer_timeout_and_exact_environment() -> 
     launcher = (repository / "scripts/latent/run_phase_b_fixed_depth_smoke_a0c_v1.sh").read_text(encoding="utf-8")
 
     assert "timeout --signal=TERM --kill-after=30s 120m" in launcher
-    assert "UV_PROJECT_ENVIRONMENT=\"$SHARED_ENV\"" in launcher
+    assert 'UV_PROJECT_ENVIRONMENT="$SHARED_ENV"' in launcher
     assert "CUDA_VISIBLE_DEVICES=0,1" in launcher
+    assert "HF_HUB_OFFLINE=1" in launcher
+    assert "ROOT_AUTHORIZED_PLAN_SHA256=$2" in launcher
+    assert "sha256sum --check phase-b-fixed-depth-smoke-a0c-v1.sha256" in launcher
+    assert "[--preflight-only]" in launcher
     assert "--no-sync python" in launcher
-    assert "--execution-commit \"$EXECUTION_COMMIT\"" in launcher
+    assert '--execution-commit "$EXECUTION_COMMIT"' in launcher
 
 
 def _load_runner():
