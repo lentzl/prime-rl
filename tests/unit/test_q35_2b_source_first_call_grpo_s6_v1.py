@@ -28,6 +28,7 @@ AST_PATHS = ("/workspace/sample/alpha.py", "/workspace/sample/beta.py")
 CONFIG_PATHS = ("/workspace/sample/service.toml", "/workspace/sample/features.env")
 LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_first_call_grpo_s6_v1.sh"
 VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_first_call_grpo_s6_v1.py"
+EXPERIMENT = REPO / "experiments/qwen35-2b-document-recursion-zero-update-v1"
 
 
 def _validator_module():
@@ -195,6 +196,45 @@ def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
     assert "if name != EXPECTED_REWARD" in validator
     assert 'payload.get("score") not in (0, 0.0)' in validator
     assert "has non-S6 reward leakage" in validator
+
+
+@pytest.mark.parametrize(
+    ("filename", "stage"),
+    (
+        ("specialist-source-competence-s6-first-call-grpo-zero-lr.toml", "audit"),
+        ("specialist-source-competence-s6-first-call-grpo-step1.toml", "update"),
+    ),
+)
+def test_s6_resolved_selection_is_one_eight_way_group_per_family(
+    filename: str, stage: str
+) -> None:
+    validator = _validator_module()
+    report = validator.validate_config(EXPERIMENT / filename, stage)
+
+    assert report["family_sources"] == {
+        "source-worker-ast-s6": "specialist_source_ast",
+        "source-worker-config-s6": "specialist_source_config",
+    }
+    assert report["batch_source_minimums"] == {
+        "source-worker-ast-s6": 8,
+        "source-worker-config-s6": 8,
+    }
+    assert report["batch_size"] == 16
+    assert report["group_size"] == 8
+
+
+def test_s6_rejects_duplicate_family_sources_before_launch(tmp_path: Path) -> None:
+    validator = _validator_module()
+    source = EXPERIMENT / "specialist-source-competence-s6-first-call-grpo-zero-lr.toml"
+    broken = source.read_text().replace(
+        'families = ["specialist_source_config"]',
+        'families = ["specialist_source_ast"]',
+    )
+    path = tmp_path / "duplicate-family.toml"
+    path.write_text(broken)
+
+    with pytest.raises(validator.AuditFailure, match="isolated reward taskset"):
+        validator.validate_config(path, "audit")
 
 
 def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> None:

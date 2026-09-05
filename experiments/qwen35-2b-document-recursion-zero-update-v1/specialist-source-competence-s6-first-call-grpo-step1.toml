@@ -68,6 +68,11 @@ group_size = 8
 max_inflight_episodes = 16
 oversampling_factor = 1.0
 max_off_policy_steps = 0
+max_train_batch_lead = 0
+
+[orchestrator.batch_source_minimums]
+source-worker-ast-s6 = 8
+source-worker-config-s6 = 8
 
 [orchestrator.algo]
 type = "grpo"
@@ -117,7 +122,7 @@ min_p = 0.0
 return_token_ids = true
 
 [[orchestrator.train.source]]
-name = "source-worker-first-call-s6"
+name = "source-worker-ast-s6"
 ratio = 1.0
 group_size = 8
 
@@ -131,7 +136,72 @@ max_concurrent_agents = 2
 [orchestrator.train.source.env.taskset]
 id = "source-worker-first-call-v1"
 split = "train"
-families = ["specialist_source_ast", "specialist_source_config"]
+families = ["specialist_source_ast"]
+instruction_level = "standard"
+instances_per_template = 8
+instance_offset = 70000
+seed = 20270909
+available_experts = ["generic_worker", "table_analyst", "source_inspector"]
+specialist_relative_costs = { generic_worker = 0.5, table_analyst = 1.0, source_inspector = 1.0 }
+
+[orchestrator.train.source.env.taskset.task]
+reward_mode = "source_worker_first_call"
+
+[orchestrator.train.source.env.agent]
+max_turns = 8
+max_output_tokens = 12288
+max_total_tokens = 49152
+
+[orchestrator.train.source.env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+autonomous = true
+gates = ["python /workspace/.subagent-communication/completion_gate.py"]
+autonomous_max_continuations = 2
+autonomous_max_turns = 8
+autonomous_max_tokens = 49152
+autonomous_timeout_ms = 900000
+process_timeout_ms = 840000
+
+[orchestrator.train.source.env.agent.harness.env]
+RLM_MAX_DEPTH = "2"
+
+[orchestrator.train.source.env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-default-parent-v1"
+
+[orchestrator.train.source.env.agent.timeout]
+setup = 300.0
+rollout = 900.0
+finalize = 60.0
+scoring = 60.0
+
+[orchestrator.train.source.env.agent.retries]
+max_retries = 0
+
+[orchestrator.train.source.serve]
+max_concurrent = 2
+
+[orchestrator.train.source.serve.pool]
+type = "static"
+num_workers = 1
+
+[[orchestrator.train.source]]
+name = "source-worker-config-s6"
+ratio = 1.0
+group_size = 8
+
+[orchestrator.train.source.algo]
+type = "grpo"
+sampled_session_scope = "non_root"
+
+[orchestrator.train.source.env]
+max_concurrent_agents = 2
+
+[orchestrator.train.source.env.taskset]
+id = "source-worker-first-call-v1"
+split = "train"
+families = ["specialist_source_config"]
 instruction_level = "standard"
 instances_per_template = 8
 instance_offset = 70000

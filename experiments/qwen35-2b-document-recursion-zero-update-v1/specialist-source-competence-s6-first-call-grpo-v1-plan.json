@@ -2,7 +2,7 @@
   "schema_version": "q35-2b-specialist-competence-plan/v1",
   "experiment_id": "specialist-source-competence-s6-first-call-grpo-v1",
   "recorded_at": "2026-09-05",
-  "status": "prospective_frozen_and_authorized",
+  "status": "prospective_balance_repair_requires_root_refreeze",
   "objective": "Test whether execution-grounded group-relative policy learning can bind file parsing, exact arithmetic, compact JSON serialization, and exactly-once same-call parent delivery after positive-only SFT failed.",
   "trigger": {
     "required": [
@@ -37,7 +37,7 @@
     "live_detached_revision_observed": "53bafcaca612",
     "staged_payload": "patches/verifiers/environments/source_worker_first_call_v1",
     "target_directory": "environments/source_worker_first_call_v1",
-    "required_durable_commit": "6f952419af98576ae9dcb17a466611bfaa4a9189",
+    "required_durable_commit": null,
     "required_parent_action": "Commit the staged environment on a durable Verifiers branch, update the parent submodule pointer, and freeze the exact new revision before any model call."
   },
   "training_partition": {
@@ -79,12 +79,20 @@
   },
   "mechanism_audit": {
     "config": "specialist-source-competence-s6-first-call-grpo-zero-lr.toml",
-    "config_sha256": "99e83485bd7831b1246f06e67c41156546dfe6cad6b4be7001ebb73b22df42a1",
+    "config_sha256": null,
     "learning_rate": 0.0,
     "checkpoint": false,
     "groups": 2,
     "group_size": 8,
     "batch_size": 16,
+    "family_sources": {
+      "source-worker-ast-s6": "specialist_source_ast",
+      "source-worker-config-s6": "specialist_source_config"
+    },
+    "batch_source_minimums": {
+      "source-worker-ast-s6": 8,
+      "source-worker-config-s6": 8
+    },
     "sampling_temperature": 1.0,
     "required_pass_evidence": [
       "eight AST and eight config effective traces",
@@ -101,7 +109,7 @@
   },
   "conditional_update": {
     "config": "specialist-source-competence-s6-first-call-grpo-step1.toml",
-    "config_sha256": "fbf8f70c22d23518468db1488aae2552572fd97008854c67703199a042abe3e6",
+    "config_sha256": null,
     "initialization": "frozen rejected S5",
     "role": "non-root source_inspector task worker only",
     "update_type": "full_dense",
@@ -170,7 +178,8 @@
   "framework_limitations": [
     "The two-GPU topology cannot host an additional independent frozen-S5 reference engine while also serving trainable S5 and frozen e33. The one-step rollout-logprob KL is the supported control.",
     "The executable taskset must land in a separately durable Verifiers commit; the parent staging payload is not itself importable through the current empty local gitlink.",
-    "Group composition relies on the taskset's deterministic AST-then-config ordering and is independently verified from effective trace task keys before update authorization."
+    "Group composition uses two family-isolated taskset sources plus synchronous batch_source_minimums of eight rollouts each; effective trace identities are independently verified before update authorization.",
+    "The balance repair invalidates the earlier config and Verifiers hashes; root must commit the revised staged taskset and independently re-freeze both config hashes before relaunch."
   ],
   "publication": "No Hugging Face publication or canonical checkpoint replacement without admission and owner approval."
 }

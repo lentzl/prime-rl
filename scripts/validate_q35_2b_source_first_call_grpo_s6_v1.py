@@ -21,6 +21,11 @@ E33_PATH = Path(
     "c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2"
 )
 EXPECTED_FAMILIES = {"specialist_source_ast", "specialist_source_config"}
+EXPECTED_SOURCE_FAMILIES = {
+    "source-worker-ast-s6": "specialist_source_ast",
+    "source-worker-config-s6": "specialist_source_config",
+}
+EXPECTED_SOURCE_MINIMUMS = {name: 8 for name in EXPECTED_SOURCE_FAMILIES}
 EXPECTED_REWARD = "source_worker_first_call"
 EXPECTED_BATCH_SIZE = 16
 EXPECTED_GROUP_SIZE = 8
@@ -112,8 +117,11 @@ def validate_config(path: Path, stage: Literal["audit", "update"]) -> dict[str, 
         or orchestrator.get("group_size") != EXPECTED_GROUP_SIZE
         or orchestrator.get("max_inflight_episodes") != EXPECTED_BATCH_SIZE
         or orchestrator.get("max_off_policy_steps") != 0
+        or orchestrator.get("max_train_batch_lead") != 0
     ):
         raise AuditFailure("S6 requires two complete on-policy groups")
+    if orchestrator.get("batch_source_minimums") != EXPECTED_SOURCE_MINIMUMS:
+        raise AuditFailure("S6 requires one complete group from each family source")
     if _table(payload, "orchestrator", "algo") != {
         "type": "grpo",
         "sampled_session_scope": "non_root",
@@ -135,27 +143,33 @@ def validate_config(path: Path, stage: Literal["audit", "update"]) -> dict[str, 
     ):
         raise AuditFailure("S6 sampling is not the exploratory token-visible contract")
     sources = _table(payload, "orchestrator", "train").get("source")
-    if not isinstance(sources, list) or len(sources) != 1:
-        raise AuditFailure("S6 requires exactly one learning source")
-    source = sources[0]
-    if source.get("group_size") != EXPECTED_GROUP_SIZE or source.get("algo") != {
-        "type": "grpo",
-        "sampled_session_scope": "non_root",
-    }:
-        raise AuditFailure("S6 source must preserve eight-way non-root GRPO groups")
-    taskset = source.get("env", {}).get("taskset", {})
-    if (
-        taskset.get("id") != "source-worker-first-call-v1"
-        or taskset.get("split") != "train"
-        or set(taskset.get("families", [])) != EXPECTED_FAMILIES
-        or taskset.get("instances_per_template") != 8
-        or taskset.get("instance_offset") != EXPECTED_TRAIN_OFFSET
-        or taskset.get("seed") != EXPECTED_TRAIN_SEED
-        or taskset.get("teacher_conditioned", False)
-        or taskset.get("ownership_guided", False)
-        or taskset.get("task", {}).get("reward_mode") != EXPECTED_REWARD
-    ):
-        raise AuditFailure("S6 taskset is not the fresh train-only balanced reward taskset")
+    if not isinstance(sources, list) or len(sources) != 2:
+        raise AuditFailure("S6 requires exactly two family-isolated learning sources")
+    sources_by_name = {source.get("name"): source for source in sources}
+    if set(sources_by_name) != set(EXPECTED_SOURCE_FAMILIES):
+        raise AuditFailure("S6 family source identities changed")
+    for name, family in EXPECTED_SOURCE_FAMILIES.items():
+        source = sources_by_name[name]
+        if source.get("group_size") != EXPECTED_GROUP_SIZE or source.get("algo") != {
+            "type": "grpo",
+            "sampled_session_scope": "non_root",
+        }:
+            raise AuditFailure("S6 source must preserve eight-way non-root GRPO groups")
+        taskset = source.get("env", {}).get("taskset", {})
+        if (
+            taskset.get("id") != "source-worker-first-call-v1"
+            or taskset.get("split") != "train"
+            or taskset.get("families") != [family]
+            or taskset.get("instances_per_template") != 8
+            or taskset.get("instance_offset") != EXPECTED_TRAIN_OFFSET
+            or taskset.get("seed") != EXPECTED_TRAIN_SEED
+            or taskset.get("teacher_conditioned", False)
+            or taskset.get("ownership_guided", False)
+            or taskset.get("task", {}).get("reward_mode") != EXPECTED_REWARD
+        ):
+            raise AuditFailure(
+                f"S6 {name} is not its fresh train-only isolated reward taskset"
+            )
 
     router = _table(payload, "inference", "router")
     if (
@@ -176,6 +190,8 @@ def validate_config(path: Path, stage: Literal["audit", "update"]) -> dict[str, 
         "group_size": EXPECTED_GROUP_SIZE,
         "policy_scope": "non_root",
         "checkpoint_enabled": stage == "update",
+        "family_sources": EXPECTED_SOURCE_FAMILIES,
+        "batch_source_minimums": EXPECTED_SOURCE_MINIMUMS,
     }
 
 
@@ -237,10 +253,13 @@ def _validate_runtime_configs(
         or orchestrator.get("group_size") != EXPECTED_GROUP_SIZE
         or orchestrator.get("max_inflight_episodes") != EXPECTED_BATCH_SIZE
         or orchestrator.get("max_off_policy_steps") != 0
+        or orchestrator.get("max_train_batch_lead") != 0
         or orchestrator.get("algo", {}).get("type") != "grpo"
         or orchestrator.get("algo", {}).get("sampled_session_scope") != "non_root"
     ):
         raise AuditFailure("resolved S6 audit changed its GRPO batch or role scope")
+    if orchestrator.get("batch_source_minimums") != EXPECTED_SOURCE_MINIMUMS:
+        raise AuditFailure("resolved S6 audit lost deterministic family balance")
     for slot in ("pre_batch_filters", "post_batch_filters"):
         filters = orchestrator.get(slot)
         zero = next(
@@ -252,21 +271,25 @@ def _validate_runtime_configs(
         ):
             raise AuditFailure(f"resolved {stage} zero-variance policy is wrong in {slot}")
     sources = orchestrator.get("train", {}).get("source")
-    if not isinstance(sources, list) or len(sources) != 1:
-        raise AuditFailure("resolved S6 audit does not have exactly one source")
-    source = sources[0]
-    taskset = source.get("env", {}).get("taskset", {})
-    if (
-        source.get("group_size") != EXPECTED_GROUP_SIZE
-        or source.get("algo", {}).get("sampled_session_scope") != "non_root"
-        or taskset.get("id") != "source-worker-first-call-v1"
-        or taskset.get("split") != "train"
-        or set(taskset.get("families", [])) != EXPECTED_FAMILIES
-        or taskset.get("instance_offset") != EXPECTED_TRAIN_OFFSET
-        or taskset.get("seed") != EXPECTED_TRAIN_SEED
-        or taskset.get("task", {}).get("reward_mode") != EXPECTED_REWARD
-    ):
-        raise AuditFailure("resolved S6 taskset or source scope changed")
+    if not isinstance(sources, list) or len(sources) != 2:
+        raise AuditFailure("resolved S6 audit does not have two isolated sources")
+    sources_by_name = {source.get("name"): source for source in sources}
+    if set(sources_by_name) != set(EXPECTED_SOURCE_FAMILIES):
+        raise AuditFailure("resolved S6 family source identities changed")
+    for name, family in EXPECTED_SOURCE_FAMILIES.items():
+        source = sources_by_name[name]
+        taskset = source.get("env", {}).get("taskset", {})
+        if (
+            source.get("group_size") != EXPECTED_GROUP_SIZE
+            or source.get("algo", {}).get("sampled_session_scope") != "non_root"
+            or taskset.get("id") != "source-worker-first-call-v1"
+            or taskset.get("split") != "train"
+            or taskset.get("families") != [family]
+            or taskset.get("instance_offset") != EXPECTED_TRAIN_OFFSET
+            or taskset.get("seed") != EXPECTED_TRAIN_SEED
+            or taskset.get("task", {}).get("reward_mode") != EXPECTED_REWARD
+        ):
+            raise AuditFailure(f"resolved S6 {name} taskset or scope changed")
     router = inference.get("router")
     model_paths = {
         "trainer": trainer.get("model", {}).get("name"),
@@ -454,6 +477,8 @@ def validate_runtime(
     )
     task_rewards: dict[str, list[float]] = defaultdict(list)
     families: Counter[str] = Counter()
+    source_rollouts: Counter[str] = Counter()
+    source_groups: dict[str, set[str]] = defaultdict(set)
     typed: list[vf.WireTrace] = []
     child_branches = 0
     child_trainable_tokens = 0
@@ -470,6 +495,18 @@ def validate_runtime(
             raise AuditFailure(f"effective trace {index} has invalid source task identity")
         if not isinstance(reward, (int, float)) or not math.isfinite(reward):
             raise AuditFailure(f"effective trace {index} has no finite S6 reward")
+        expected_source = next(
+            name
+            for name, source_family in EXPECTED_SOURCE_FAMILIES.items()
+            if source_family == family
+        )
+        info = record.get("info", {})
+        env_name = info.get("env_name") if isinstance(info, dict) else None
+        group_id = info.get("group_id") if isinstance(info, dict) else None
+        if env_name != expected_source or not isinstance(group_id, str) or not group_id:
+            raise AuditFailure(
+                f"effective trace {index} is not assigned to its family source/group"
+            )
         leaked_rewards = {
             name: payload.get("score")
             for name, payload in record.get("rewards", {}).items()
@@ -482,6 +519,8 @@ def validate_runtime(
                 f"effective trace {index} has non-S6 reward leakage: {leaked_rewards}"
             )
         families[family] += 1
+        source_rollouts[env_name] += 1
+        source_groups[env_name].add(group_id)
         task_rewards[task_key].append(float(reward))
         trace = vf.WireTrace.model_validate(record)
         for branch, mask in iter_trainable_branches(trace):
@@ -495,6 +534,10 @@ def validate_runtime(
         typed.append(trace)
     if families != Counter({family: 8 for family in EXPECTED_FAMILIES}):
         raise AuditFailure(f"S6 effective batch is not balanced: {dict(families)}")
+    if source_rollouts != Counter(EXPECTED_SOURCE_MINIMUMS) or any(
+        len(source_groups[name]) != 1 for name in EXPECTED_SOURCE_FAMILIES
+    ):
+        raise AuditFailure("S6 effective batch is not exactly one group per family source")
     if len(task_rewards) != 2 or any(len(values) != 8 for values in task_rewards.values()):
         raise AuditFailure("S6 audit did not contain two complete eight-way groups")
     if any(len(set(values)) < 2 for values in task_rewards.values()):
@@ -572,6 +615,10 @@ def validate_runtime(
         "routing": routing_report,
         "gradient_norm": grad_norm,
         "families": dict(families),
+        "source_rollouts": dict(source_rollouts),
+        "source_groups": {
+            name: sorted(group_ids) for name, group_ids in source_groups.items()
+        },
         "groups": {key: values for key, values in task_rewards.items()},
         "child_branches": child_branches,
         "child_trainable_tokens": child_trainable_tokens,
