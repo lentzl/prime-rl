@@ -100,3 +100,18 @@ atomic OOM failure with exact post-failure e33 and no-update evidence. B-R4 runs
 diagnostic to detached Python values, and releases each model output before the next arm. The canonical
 and hypothetical-open-gate backward probes remain separate, gradient-enabled, and numerically
 unchanged. B-R4 does not use checkpointing, offload, fewer rows, shorter sequences, or altered arms.
+
+B-R4 removed the prior graph-retention warning but still OOMed after model load. The pinned Qwen3.5
+wrapper projected all 4.9k–5.8k hidden positions because `logits_to_keep=0`; its causal loss then
+upcast those logits to float32. On the longest row, that projection alone is about 5.37 GiB, matching
+the failed 5 GiB allocation. B-R4 did not record a row/arm breadcrumb, so its exact failure is not
+assigned a stage post hoc.
+
+B-R5 preserves the full hidden-sequence computation while projecting only logits needed by the
+contiguous supervised suffix. If the first supervised label is `T`, it uses logit start `T-1`, keeps
+`K=L-(T-1)` logits, and passes the aligned label slice `labels[:, T-1:]`; this preserves every shifted
+active logit/target pair. Hidden-only feature capture requests one unused final logit. Before the long
+rows, a fixed 128-token real-e33 control must show bitwise equality between suffix logits and the same
+slice of full logits, plus bitwise loss equality. The runner also releases allocator cache after each
+completed forward and records prospective phase/row/arm and CUDA-memory breadcrumbs in any terminal
+receipt. Backward probes, rows, arms, and sidecar arithmetic remain unchanged.

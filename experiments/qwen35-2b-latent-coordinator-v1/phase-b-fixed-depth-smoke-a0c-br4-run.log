@@ -1,0 +1,41 @@
+phase-b-fixed-depth-smoke-a0c-br4-plan.json: OK
+phase-b-fixed-depth-smoke-v1-selection.json: OK
+phase-b-a0c-binding-v1.json: OK
+phase-b-a0c-binding-v1.sha256: OK
+a0c-carrier-success-receipt-v1.json: OK
+a0c-carrier-success-receipt-v1.sha256: OK
+phase-b-a0c-v1-failed-start-binding.json: OK
+phase-b-a0c-v1-failed-start-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-v1-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-v1-run.log: OK
+phase-b-a0c-br1-preflight-rejection-binding.json: OK
+phase-b-a0c-br1-preflight-rejection-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br1-preflight-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br1-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br1-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br1.sha256: OK
+phase-b-a0c-br2-scalar-hash-failure-binding.json: OK
+phase-b-a0c-br2-scalar-hash-failure-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br2-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-br2-failure-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br2-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br2-run.log: OK
+phase-b-fixed-depth-smoke-a0c-br2-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br2.sha256: OK
+phase-b-a0c-br3-oom-failure-binding.json: OK
+phase-b-a0c-br3-oom-failure-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br3-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-br3-failure-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br3-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br3-run.log: OK
+phase-b-fixed-depth-smoke-a0c-br3-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br3.sha256: OK
+../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK
+../../scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br4.sh: OK
+../../src/prime_rl/phase_b_contract.py: OK
+../../src/prime_rl/latent/local_depth.py: OK
+../../src/prime_rl/latent/recurrent.py: OK
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  85%|████████▍ | 524/617 [00:00<00:00, 5191.80it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 5143.81it/s]
+Phase B failed: OutOfMemoryError: CUDA out of memory. Tried to allocate 5.00 GiB. GPU 0 has a total capacity of 47.40 GiB of which 1.58 GiB is free. Including non-PyTorch memory, this process has 45.81 GiB memory in use. Of the allocated memory 36.22 GiB is allocated by PyTorch, and 9.27 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

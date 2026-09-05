@@ -53,6 +53,21 @@ class PhaseBContractError(RuntimeError):
     """The prospective Phase B execution contract is not satisfied."""
 
 
+def supervised_suffix_span(labels: list[int]) -> tuple[int, int]:
+    """Return the exact causal-logit suffix covering a supervised label suffix."""
+
+    if len(labels) < 2 or any(type(label) is not int for label in labels):
+        raise PhaseBContractError("causal labels must be a nontrivial integer sequence")
+    supervised = [index for index, label in enumerate(labels) if label != -100]
+    if not supervised or supervised[0] == 0:
+        raise PhaseBContractError("causal labels require a masked prefix before supervision")
+    first = supervised[0]
+    if any(label != -100 for label in labels[:first]) or any(label < 0 for label in labels[first:]):
+        raise PhaseBContractError("supervised causal labels must form one contiguous valid suffix")
+    start = first - 1
+    return start, len(labels) - start
+
+
 def normalize_assistant_tool_call_arguments(
     messages: list[dict[str, Any]],
     *,
@@ -181,6 +196,24 @@ class ValidatedBR3OOMFailureEvidence:
     run_log_file_sha256: str
     failure: dict[str, Any]
     manifest: dict[str, Any]
+    preflight_report: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class ValidatedBR4OOMFailureEvidence:
+    binding: dict[str, Any]
+    binding_path: Path
+    binding_hash_path: Path
+    failure_path: Path
+    manifest_path: Path
+    preflight_log_path: Path
+    run_log_path: Path
+    binding_file_sha256: str
+    failure_file_sha256: str
+    manifest_file_sha256: str
+    preflight_log_file_sha256: str
+    run_log_file_sha256: str
+    failure: dict[str, Any]
     preflight_report: dict[str, Any]
 
 
@@ -698,6 +731,136 @@ def validate_br3_oom_failure_evidence(binding_path: Path, hash_path: Path) -> Va
         run_log_file_sha256=hashes["run_log"],
         failure=failure,
         manifest=manifest,
+        preflight_report=preflight_report,
+    )
+
+
+def validate_br4_oom_failure_evidence(binding_path: Path, hash_path: Path) -> ValidatedBR4OOMFailureEvidence:
+    """Bind B-R4's passing preflight and post-load allocator OOM."""
+
+    binding_file_hash = validate_hash_sidecar(binding_path, hash_path)
+    binding = load_json_file(binding_path)
+    if binding.get("schema_version") != "q35-2b-phase-b-br4-oom-failure-binding/v1":
+        raise PhaseBContractError("unsupported Phase B-R4 OOM failure binding schema")
+    if binding.get("status") != "bound_allocator_pressure_oom_stage_unknown":
+        raise PhaseBContractError("Phase B-R4 OOM failure evidence is not bound")
+
+    paths: dict[str, Path] = {}
+    hashes: dict[str, str] = {}
+    for name in ("failure", "manifest", "preflight_log", "run_log"):
+        path = Path(binding.get(f"{name}_absolute_path", ""))
+        actual_hash = file_sha256(path)
+        if actual_hash != binding.get(f"{name}_file_sha256"):
+            raise PhaseBContractError(f"Phase B-R4 {name} hash differs from its binding")
+        paths[name] = path
+        hashes[name] = actual_hash
+    failure = load_json_file(paths["failure"])
+
+    predicates = binding.get("failure_predicates")
+    if not isinstance(predicates, dict) or not predicates:
+        raise PhaseBContractError("Phase B-R4 binding lacks failure predicates")
+    for semantic_name, predicate in predicates.items():
+        if not isinstance(predicate, dict) or set(predicate) != {"path", "expected"}:
+            raise PhaseBContractError(f"B-R4 failure predicate {semantic_name!r} is malformed")
+        actual = _resolve_dotted_path(failure, predicate["path"])
+        expected = predicate["expected"]
+        if type(actual) is not type(expected) or actual != expected:
+            raise PhaseBContractError(
+                f"B-R4 failure predicate {semantic_name!r} at {predicate['path']!r} was "
+                f"{actual!r}, expected {expected!r}"
+            )
+
+    try:
+        manifest_lines = paths["manifest"].read_text(encoding="ascii").splitlines()
+        preflight_lines = paths["preflight_log"].read_text(encoding="utf-8").splitlines()
+        run_text = paths["run_log"].read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise PhaseBContractError(f"Phase B-R4 evidence text is invalid: {error}") from error
+    expected_manifest = {
+        "FAILURE.json": hashes["failure"],
+        "run.log": hashes["run_log"],
+        "preflight.log": hashes["preflight_log"],
+    }
+    parsed_manifest: dict[str, str] = {}
+    for line in manifest_lines:
+        fields = line.split(maxsplit=1)
+        if len(fields) != 2 or fields[1] in parsed_manifest:
+            raise PhaseBContractError("Phase B-R4 failure manifest is malformed")
+        parsed_manifest[fields[1]] = fields[0]
+    if parsed_manifest != expected_manifest:
+        raise PhaseBContractError("Phase B-R4 failure manifest differs from bound artifacts")
+
+    if not preflight_lines:
+        raise PhaseBContractError("Phase B-R4 preflight log is empty")
+    try:
+        preflight_report = json.loads(preflight_lines[-1])
+    except json.JSONDecodeError as error:
+        raise PhaseBContractError("Phase B-R4 preflight log lacks its terminal JSON report") from error
+    if (
+        not isinstance(preflight_report, dict)
+        or preflight_report.get("status") != "tokenizer_preflight_only_passed"
+        or preflight_report.get("plan_sha256") != failure.get("plan_sha256")
+        or preflight_report.get("selection_sha256") != failure.get("selection_sha256")
+        or preflight_report.get("execution_commit") != "190afa6f97aeef46e33a1148082ee9372a5d8c12"
+        or preflight_report.get("model_loaded") is not False
+        or preflight_report.get("cuda_initialized_during_preflight") is not False
+        or preflight_report.get("output_created") is not False
+    ):
+        raise PhaseBContractError("Phase B-R4 preflight identity or no-model boundary is invalid")
+    proofs = preflight_report.get("normalization_and_render_proofs")
+    if not isinstance(proofs, list) or len(proofs) != 12:
+        raise PhaseBContractError("Phase B-R4 preflight report is not an exact 12-row pass")
+    actions = [proof.get("action") for proof in proofs if isinstance(proof, dict)]
+    if {action: actions.count(action) for action in set(actions)} != {
+        "solve_owned": 4,
+        "delegate_terminal": 4,
+        "delegate_coordinator": 4,
+    }:
+        raise PhaseBContractError("Phase B-R4 preflight report is not action-balanced 4/4/4")
+
+    markers = binding.get("required_run_log_markers")
+    if not isinstance(markers, list) or not markers or any(not isinstance(marker, str) for marker in markers):
+        raise PhaseBContractError("Phase B-R4 run-log markers are malformed")
+    if any(marker not in run_text for marker in markers):
+        raise PhaseBContractError("Phase B-R4 run log lacks a bound marker")
+    if "requires_grad=True" in run_text:
+        raise PhaseBContractError("Phase B-R4 unexpectedly repeated the prior metric graph warning")
+
+    control_flow = binding.get("control_flow_proof")
+    if not isinstance(control_flow, dict):
+        raise PhaseBContractError("Phase B-R4 binding lacks its control-flow proof")
+    if (
+        control_flow.get("metric_no_grad_scope_present") is not True
+        or control_flow.get("metric_outputs_explicitly_deleted") is not True
+        or control_flow.get("allocator_cache_release_present") is not False
+        or control_flow.get("durable_phase_row_arm_breadcrumbs_present") is not False
+        or any(
+            control_flow.get(field) is not False
+            for field in (
+                "optimizer_construction_present",
+                "optimizer_step_present",
+                "checkpoint_write_present",
+                "generation_present",
+                "cache_present",
+            )
+        )
+    ):
+        raise PhaseBContractError("Phase B-R4 control-flow proof differs from the bound OOM diagnosis")
+
+    return ValidatedBR4OOMFailureEvidence(
+        binding=binding,
+        binding_path=binding_path,
+        binding_hash_path=hash_path,
+        failure_path=paths["failure"],
+        manifest_path=paths["manifest"],
+        preflight_log_path=paths["preflight_log"],
+        run_log_path=paths["run_log"],
+        binding_file_sha256=binding_file_hash,
+        failure_file_sha256=hashes["failure"],
+        manifest_file_sha256=hashes["manifest"],
+        preflight_log_file_sha256=hashes["preflight_log"],
+        run_log_file_sha256=hashes["run_log"],
+        failure=failure,
         preflight_report=preflight_report,
     )
 

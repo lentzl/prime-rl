@@ -20,6 +20,7 @@ import signal
 import subprocess
 import sys
 import time
+from copy import deepcopy
 from pathlib import Path
 from typing import Any
 
@@ -30,9 +31,11 @@ from prime_rl.phase_b_contract import (
     file_sha256,
     load_json_file,
     normalize_assistant_tool_call_arguments,
+    supervised_suffix_span,
     validate_a0c_binding,
     validate_br2_failure_evidence,
     validate_br3_oom_failure_evidence,
+    validate_br4_oom_failure_evidence,
     validate_failed_start_evidence,
     validate_plan_authorization,
     validate_preflight_rejection_evidence,
@@ -71,6 +74,44 @@ def _wall_clock_timeout(_signal_number: int, _frame: Any) -> None:
     raise PhaseBWallClockExceeded("Phase B crossed its 114-minute compute limit")
 
 
+def _cuda_memory_snapshot(torch: Any) -> dict[str, int]:
+    free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+    return {
+        "allocated_bytes": int(torch.cuda.memory_allocated(0)),
+        "reserved_bytes": int(torch.cuda.memory_reserved(0)),
+        "maximum_allocated_bytes": int(torch.cuda.max_memory_allocated(0)),
+        "maximum_reserved_bytes": int(torch.cuda.max_memory_reserved(0)),
+        "free_bytes": int(free_bytes),
+        "total_bytes": int(total_bytes),
+    }
+
+
+def _safe_cuda_memory_snapshot(torch: Any | None) -> tuple[dict[str, int] | None, str | None]:
+    if torch is None:
+        return None, None
+    try:
+        if not torch.cuda.is_initialized():
+            return None, None
+        return _cuda_memory_snapshot(torch), None
+    except BaseException as error:
+        return None, f"{type(error).__name__}: {error}"
+
+
+def _mark_execution_stage(
+    breadcrumbs: dict[str, Any],
+    *,
+    stage: str,
+    task_key: str | None,
+    arm: str | None,
+    probe: str | None,
+    torch: Any | None,
+) -> None:
+    breadcrumbs.update({"stage": stage, "task_key": task_key, "arm": arm, "probe": probe})
+    memory, error = _safe_cuda_memory_snapshot(torch)
+    breadcrumbs["cuda_memory"] = memory
+    breadcrumbs["cuda_memory_error"] = error
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan", type=Path, default=PLAN)
@@ -90,7 +131,7 @@ def exact_git_commit(worktree: Path) -> str:
 
 def preflight_before_heavy_imports(
     args: argparse.Namespace,
-) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any, Any, Any]:
+) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any, Any, Any, Any]:
     if args.plan != PLAN or args.selection != SELECTION:
         raise PhaseBContractError("plan and selection paths differ from the deployed worktree")
     if file_sha256(args.plan) != PLAN_SHA256:
@@ -240,6 +281,36 @@ def preflight_before_heavy_imports(
     if hashlib.sha256(br3_source).hexdigest() != br3_control_flow.get("prior_runner_sha256"):
         raise PhaseBContractError("prior Phase B-R3 runner source differs from the OOM dependency")
 
+    br4_dependency = plan.get("br4_oom_dependency")
+    if not isinstance(br4_dependency, dict):
+        raise PhaseBContractError("Phase B-R5 plan lacks the exact B-R4 OOM failure")
+    br4_failure = validate_br4_oom_failure_evidence(
+        Path(br4_dependency.get("binding_path", "")),
+        Path(br4_dependency.get("binding_hash_path", "")),
+    )
+    if br4_failure.binding_file_sha256 != br4_dependency.get("binding_sha256"):
+        raise PhaseBContractError("Phase B-R5 plan does not bind the exact B-R4 OOM failure")
+    if (
+        br4_failure.failure_file_sha256 != br4_dependency.get("failure_file_sha256")
+        or br4_failure.manifest_file_sha256 != br4_dependency.get("manifest_file_sha256")
+        or br4_failure.preflight_log_file_sha256 != br4_dependency.get("preflight_log_file_sha256")
+        or br4_failure.run_log_file_sha256 != br4_dependency.get("run_log_file_sha256")
+    ):
+        raise PhaseBContractError("Phase B-R4 OOM artifacts differ from the B-R5 plan")
+    br4_control_flow = br4_failure.binding["control_flow_proof"]
+    br4_source = subprocess.run(
+        [
+            "git",
+            "show",
+            f"{br4_control_flow.get('prior_execution_commit')}:{br4_control_flow.get('prior_runner_path')}",
+        ],
+        cwd=WORKTREE,
+        capture_output=True,
+        check=True,
+    ).stdout
+    if hashlib.sha256(br4_source).hexdigest() != br4_control_flow.get("prior_runner_sha256"):
+        raise PhaseBContractError("prior Phase B-R4 runner source differs from the OOM dependency")
+
     if len(args.execution_commit) != 40 or any(
         character not in "0123456789abcdef" for character in args.execution_commit
     ):
@@ -276,15 +347,32 @@ def preflight_before_heavy_imports(
         raise PhaseBContractError("host has less than the frozen 60 GiB free-disk floor")
     if args.output_dir.exists() or args.output_dir.is_symlink():
         raise PhaseBContractError("Phase B output namespace already exists")
-    return plan, selection, binding, failed_start, preflight_rejection, br2_failure, br3_failure
+    return plan, selection, binding, failed_start, preflight_rejection, br2_failure, br3_failure, br4_failure
 
 
 def main() -> int:
     args = parse_args()
+    breadcrumbs: dict[str, Any] = {
+        "stage": "preflight_before_heavy_imports",
+        "task_key": None,
+        "arm": None,
+        "probe": None,
+        "completed_feature_captures": 0,
+        "completed_metric_forwards": 0,
+        "completed_backward_arms": 0,
+    }
+    torch = None
     try:
-        plan, selection, binding, failed_start, preflight_rejection, br2_failure, br3_failure = (
-            preflight_before_heavy_imports(args)
-        )
+        (
+            plan,
+            selection,
+            binding,
+            failed_start,
+            preflight_rejection,
+            br2_failure,
+            br3_failure,
+            br4_failure,
+        ) = preflight_before_heavy_imports(args)
     except BaseException as error:
         print(f"Phase B preflight refusal: {type(error).__name__}: {error}", file=sys.stderr)
         return 2
@@ -321,6 +409,7 @@ def main() -> int:
                     "br1_preflight_binding_sha256": preflight_rejection.binding_file_sha256,
                     "br2_failure_binding_sha256": br2_failure.binding_file_sha256,
                     "br3_oom_binding_sha256": br3_failure.binding_file_sha256,
+                    "br4_oom_binding_sha256": br4_failure.binding_file_sha256,
                     "normalization_and_render_proofs": tokenizer_context["proofs"],
                     "model_loaded": False,
                     "cuda_initialized_during_preflight": tokenizer_context["cuda_initialized"],
@@ -338,6 +427,7 @@ def main() -> int:
     try:
         args.output_dir.mkdir(mode=0o700, parents=False, exist_ok=False)
         output_created = True
+        breadcrumbs["stage"] = "tokenizer_preflight"
         tokenizer_context = _tokenizer_only_preflight(
             plan=plan,
             selection=selection,
@@ -365,6 +455,8 @@ def main() -> int:
             preflight_rejection=preflight_rejection,
             br2_failure=br2_failure,
             br3_failure=br3_failure,
+            br4_failure=br4_failure,
+            breadcrumbs=breadcrumbs,
             tokenizer_context=tokenizer_context,
             torch=torch,
             transformers=transformers,
@@ -385,10 +477,17 @@ def main() -> int:
     except BaseException as error:
         signal.alarm(0)
         if output_created:
+            failure_cuda_memory, failure_cuda_memory_error = _safe_cuda_memory_snapshot(torch)
             try:
                 signal.alarm(FAILURE_AUDIT_HEADROOM_SECONDS)
                 post_failure_audit = _post_failure_hash_audit(
-                    plan, binding, failed_start, preflight_rejection, br2_failure, br3_failure
+                    plan,
+                    binding,
+                    failed_start,
+                    preflight_rejection,
+                    br2_failure,
+                    br3_failure,
+                    br4_failure,
                 )
             except BaseException as audit_error:
                 post_failure_audit = {
@@ -432,6 +531,16 @@ def main() -> int:
                     "preflight_log_file_sha256": br3_failure.preflight_log_file_sha256,
                     "run_log_file_sha256": br3_failure.run_log_file_sha256,
                 },
+                "br4_oom_failure": {
+                    "binding_file_sha256": br4_failure.binding_file_sha256,
+                    "failure_file_sha256": br4_failure.failure_file_sha256,
+                    "manifest_file_sha256": br4_failure.manifest_file_sha256,
+                    "preflight_log_file_sha256": br4_failure.preflight_log_file_sha256,
+                    "run_log_file_sha256": br4_failure.run_log_file_sha256,
+                },
+                "execution_breadcrumbs": deepcopy(breadcrumbs),
+                "failure_cuda_memory": failure_cuda_memory,
+                "failure_cuda_memory_error": failure_cuda_memory_error,
                 "post_failure_hash_audit": post_failure_audit,
             }
             try:
@@ -449,6 +558,7 @@ def _post_failure_hash_audit(
     preflight_rejection: Any = None,
     br2_failure: Any = None,
     br3_failure: Any = None,
+    br4_failure: Any = None,
 ) -> dict[str, Any]:
     """Best-effort durable preservation evidence after any started run fails."""
 
@@ -559,6 +669,28 @@ def _post_failure_hash_audit(
                 errors.append("br3_oom_failure:validated evidence object changed during run")
         except BaseException as error:
             errors.append(f"br3_oom_failure:{type(error).__name__}:{error}")
+    if br4_failure is not None:
+        try:
+            rebound_br4 = validate_br4_oom_failure_evidence(
+                br4_failure.binding_path, br4_failure.binding_hash_path
+            )
+            audit["br4_oom_failure"] = {
+                "binding_file_sha256": rebound_br4.binding_file_sha256,
+                "binding_matches": rebound_br4.binding_file_sha256 == br4_failure.binding_file_sha256,
+                "failure_file_sha256": rebound_br4.failure_file_sha256,
+                "failure_matches": rebound_br4.failure_file_sha256 == br4_failure.failure_file_sha256,
+                "manifest_file_sha256": rebound_br4.manifest_file_sha256,
+                "manifest_matches": rebound_br4.manifest_file_sha256 == br4_failure.manifest_file_sha256,
+                "preflight_log_file_sha256": rebound_br4.preflight_log_file_sha256,
+                "preflight_log_matches": rebound_br4.preflight_log_file_sha256
+                == br4_failure.preflight_log_file_sha256,
+                "run_log_file_sha256": rebound_br4.run_log_file_sha256,
+                "run_log_matches": rebound_br4.run_log_file_sha256 == br4_failure.run_log_file_sha256,
+            }
+            if rebound_br4 != br4_failure:
+                errors.append("br4_oom_failure:validated evidence object changed during run")
+        except BaseException as error:
+            errors.append(f"br4_oom_failure:{type(error).__name__}:{error}")
     try:
         audit["plan_selection"] = {
             "plan_sha256": file_sha256(PLAN),
@@ -735,6 +867,8 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     preflight_rejection: Any,
     br2_failure: Any,
     br3_failure: Any,
+    br4_failure: Any,
+    breadcrumbs: dict[str, Any],
     tokenizer_context: dict[str, Any],
     torch: Any,
     transformers: Any,
@@ -759,6 +893,14 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     manifest_path = Path(data_plan["host_manifest_path"])
     selected_rows = tokenizer_context["rows"]
 
+    _mark_execution_stage(
+        breadcrumbs,
+        stage="model_load",
+        task_key=None,
+        arm=None,
+        probe=None,
+        torch=torch,
+    )
     _require_gpu0_idle()
     if not torch.cuda.is_available() or torch.cuda.device_count() < 2:
         raise PhaseBContractError("frozen host topology requires two visible CUDA GPUs")
@@ -786,7 +928,30 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
 
     model_tensor_before = _module_tensor_sha256(model, torch)
     embedding_shell_norm = _mean_embedding_norm(model.get_input_embeddings().weight, torch)
-    examples = [_prepare_example(row, model=model, torch=torch) for row in selected_rows]
+    suffix_equivalence_control = _bounded_suffix_equivalence_control(
+        selected_rows[0], model=model, torch=torch, breadcrumbs=breadcrumbs
+    )
+    examples: list[dict[str, Any]] = []
+    for row in selected_rows:
+        _mark_execution_stage(
+            breadcrumbs,
+            stage="feature_capture",
+            task_key=row["task_key"],
+            arm="CAPTURE",
+            probe=None,
+            torch=torch,
+        )
+        examples.append(_prepare_example(row, model=model, torch=torch))
+        breadcrumbs["completed_feature_captures"] += 1
+        torch.cuda.empty_cache()
+        _mark_execution_stage(
+            breadcrumbs,
+            stage="feature_capture_complete",
+            task_key=row["task_key"],
+            arm="CAPTURE",
+            probe=None,
+            torch=torch,
+        )
 
     codec_template = LocalDepthCodec().to(device="cuda:0", dtype=torch.bfloat16).eval()
     codec_state = {name: value.detach().clone() for name, value in codec_template.state_dict().items()}
@@ -823,11 +988,23 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     recurrent_every_step_changed: list[bool] = []
     with torch.no_grad():
         for example in examples:
+            _mark_execution_stage(
+                breadcrumbs,
+                stage="forward_metrics",
+                task_key=example["task_key"],
+                arm="BASE",
+                probe=None,
+                torch=torch,
+            )
+            base_labels, base_logits_to_keep, base_loss_span = _suffix_loss_arguments(example["labels"])
+            if base_loss_span != example["loss_span"]:
+                raise PhaseBContractError("BASE suffix-loss span changed after feature preparation")
             base = model(
                 input_ids=example["full_ids"],
                 attention_mask=example["full_mask"],
                 position_ids=example["full_positions"],
-                labels=example["labels"],
+                labels=base_labels,
+                logits_to_keep=base_logits_to_keep,
                 use_cache=False,
                 return_dict=True,
             )
@@ -837,6 +1014,9 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             base_loss = float(base.loss)
             del base
             metrics["BASE"].append({"task_key": example["task_key"], "loss": base_loss})
+            breadcrumbs["completed_metric_forwards"] += 1
+            torch.cuda.empty_cache()
+            del base_labels
 
             anchors: dict[str, Any] = {}
             hidden = example["captured_hidden"].to("cuda:0")
@@ -860,6 +1040,14 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
                 raise PhaseBMechanismRejected("zero-scale sidecars changed the STATIC visible workspace")
 
             for arm in ("STATIC", "FFN", "RECURRENT"):
+                _mark_execution_stage(
+                    breadcrumbs,
+                    stage="forward_metrics",
+                    task_key=example["task_key"],
+                    arm=arm,
+                    probe=None,
+                    torch=torch,
+                )
                 result = _latent_forward(
                     example,
                     visible[arm],
@@ -890,12 +1078,15 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
                     row_metric["private_memory_changed_at_every_step"] = every_step_changed
                     del diagnostic, memory_changes
                 metrics[arm].append(row_metric)
+                breadcrumbs["completed_metric_forwards"] += 1
+                torch.cuda.empty_cache()
             del anchors, visible, trajectory
     if not any(recurrent_every_step_changed):
         raise PhaseBMechanismRejected("no RECURRENT row changed private memory at every one of four steps")
 
     backward_key = tokenizer_context["backward_probe_task_key"]
     backward_example = next(example for example in examples if example["task_key"] == backward_key)
+    torch.cuda.empty_cache()
     gradients = {
         "canonical": _backward_probes(
             backward_example,
@@ -907,6 +1098,8 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             compose_local_depth_inputs=compose_local_depth_inputs,
             torch=torch,
             residual_scale_override=None,
+            probe_name="canonical",
+            breadcrumbs=breadcrumbs,
         ),
         "hypothetical_open_gate": _backward_probes(
             backward_example,
@@ -919,10 +1112,20 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             torch=torch,
             residual_scale_override=0.001,
             include_static=False,
+            probe_name="hypothetical_open_gate",
+            breadcrumbs=breadcrumbs,
         ),
     }
     _validate_gradients(gradients)
 
+    _mark_execution_stage(
+        breadcrumbs,
+        stage="postflight_hash_audit",
+        task_key=None,
+        arm=None,
+        probe=None,
+        torch=torch,
+    )
     module_tensor_after = {name: _module_tensor_sha256(module, torch) for name, module in modules.items()}
     model_tensor_after = _module_tensor_sha256(model, torch)
     model_file_after = file_sha256(model_file)
@@ -956,8 +1159,19 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     rebound_br3 = validate_br3_oom_failure_evidence(br3_failure.binding_path, br3_failure.binding_hash_path)
     if rebound_br3 != br3_failure:
         raise PhaseBContractError("B-R3 OOM failure evidence changed during the smoke")
+    rebound_br4 = validate_br4_oom_failure_evidence(br4_failure.binding_path, br4_failure.binding_hash_path)
+    if rebound_br4 != br4_failure:
+        raise PhaseBContractError("B-R4 OOM failure evidence changed during the smoke")
     if any(parameter.grad is not None for parameter in model.parameters()):
         raise PhaseBContractError("protected e33 accumulated gradients")
+    _mark_execution_stage(
+        breadcrumbs,
+        stage="success_ready",
+        task_key=None,
+        arm=None,
+        probe=None,
+        torch=torch,
+    )
 
     return {
         "schema_version": "q35-2b-phase-b-fixed-depth-smoke-success/v1",
@@ -1011,6 +1225,15 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             "partial_forward_execution_reached": br3_failure.manifest["partial_forward_execution_reached"],
             "no_update_attempt": not br3_failure.manifest["model_update_attempted"],
         },
+        "br4_oom_failure": {
+            "binding_file_sha256": br4_failure.binding_file_sha256,
+            "failure_file_sha256": br4_failure.failure_file_sha256,
+            "manifest_file_sha256": br4_failure.manifest_file_sha256,
+            "preflight_log_file_sha256": br4_failure.preflight_log_file_sha256,
+            "run_log_file_sha256": br4_failure.run_log_file_sha256,
+            "preflight_rows": len(br4_failure.preflight_report["normalization_and_render_proofs"]),
+            "stage_unknown": True,
+        },
         "optimizer": None,
         "optimizer_updates": 0,
         "generation": False,
@@ -1023,6 +1246,8 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             "proofs": tokenizer_context["proofs"],
         },
         "parameter_counts": counts,
+        "bounded_suffix_equivalence_control": suffix_equivalence_control,
+        "execution_breadcrumbs": deepcopy(breadcrumbs),
         "metrics": metrics,
         "gradients": gradients,
         "hashes": {
@@ -1149,6 +1374,106 @@ def _token_ids_list(tokenizer: Any, rendered: str) -> list[int]:
     return values
 
 
+def _suffix_loss_arguments(labels: Any) -> tuple[Any, int, dict[str, int]]:
+    if labels.ndim != 2 or labels.shape[0] != 1:
+        raise PhaseBContractError("Phase B suffix loss requires one two-dimensional label row")
+    start, logits_to_keep = supervised_suffix_span(labels[0].detach().cpu().tolist())
+    sliced_labels = labels[:, start:]
+    if sliced_labels.shape[1] != logits_to_keep:
+        raise PhaseBContractError("Phase B suffix labels and logits have different lengths")
+    return sliced_labels, logits_to_keep, {
+        "first_supervised_label_index": start + 1,
+        "logit_suffix_start": start,
+        "logits_to_keep": logits_to_keep,
+    }
+
+
+def _shifted_active_pairs(labels: list[int]) -> list[tuple[int, int]]:
+    return [(index - 1, label) for index, label in enumerate(labels) if label != -100]
+
+
+def _bounded_suffix_equivalence_control(
+    row: dict[str, Any], *, model: Any, torch: Any, breadcrumbs: dict[str, Any]
+) -> dict[str, Any]:
+    control_tokens = 128
+    full_values = row["full_ids"][-control_tokens:]
+    full_start = len(row["full_ids"]) - control_tokens
+    first_supervised = len(row["open_ids"])
+    if full_start >= first_supervised:
+        raise PhaseBContractError("bounded suffix control does not retain a masked label prefix")
+    label_values = [
+        -100 if global_index < first_supervised else token
+        for global_index, token in enumerate(full_values, start=full_start)
+    ]
+    ids = torch.tensor([full_values], dtype=torch.long, device="cuda:0")
+    labels = torch.tensor([label_values], dtype=torch.long, device="cuda:0")
+    suffix_labels, logits_to_keep, span = _suffix_loss_arguments(labels)
+    full_pairs = _shifted_active_pairs(label_values)
+    suffix_pairs = [
+        (span["logit_suffix_start"] + index, target)
+        for index, target in _shifted_active_pairs(suffix_labels[0].detach().cpu().tolist())
+    ]
+    if full_pairs != suffix_pairs:
+        raise PhaseBContractError("bounded suffix control changed shifted active logit/target pairs")
+
+    _mark_execution_stage(
+        breadcrumbs,
+        stage="bounded_suffix_equivalence",
+        task_key=row["task_key"],
+        arm="FULL",
+        probe="full_logits",
+        torch=torch,
+    )
+    with torch.no_grad():
+        full = model(
+            input_ids=ids,
+            attention_mask=torch.ones_like(ids),
+            position_ids=torch.arange(control_tokens, device="cuda:0")[None],
+            labels=labels,
+            logits_to_keep=0,
+            use_cache=False,
+            return_dict=True,
+        )
+        _mark_execution_stage(
+            breadcrumbs,
+            stage="bounded_suffix_equivalence",
+            task_key=row["task_key"],
+            arm="SUFFIX",
+            probe="aligned_suffix_logits",
+            torch=torch,
+        )
+        suffix = model(
+            input_ids=ids,
+            attention_mask=torch.ones_like(ids),
+            position_ids=torch.arange(control_tokens, device="cuda:0")[None],
+            labels=suffix_labels,
+            logits_to_keep=logits_to_keep,
+            use_cache=False,
+            return_dict=True,
+        )
+        _require_finite(full.loss, "bounded full-logit loss", torch)
+        _require_finite(suffix.loss, "bounded suffix-logit loss", torch)
+        if not torch.equal(full.logits[:, -logits_to_keep:, :], suffix.logits):
+            raise PhaseBMechanismRejected("bounded real-e33 suffix logits differ from the full-logit slice")
+        if not torch.equal(full.loss, suffix.loss):
+            raise PhaseBMechanismRejected("bounded real-e33 suffix loss differs from the full-logit loss")
+        loss = float(full.loss)
+        proof = {
+            "task_key": row["task_key"],
+            "control_tokens": control_tokens,
+            **span,
+            "shifted_active_pairs": len(full_pairs),
+            "shifted_active_pair_sha256": canonical_json_sha256(full_pairs),
+            "full_suffix_logits_bitwise_equal": True,
+            "loss_bitwise_equal": True,
+            "loss": loss,
+        }
+        del full, suffix
+    del ids, labels, suffix_labels
+    torch.cuda.empty_cache()
+    return proof
+
+
 def _prepare_example(row: dict[str, Any], *, model: Any, torch: Any) -> dict[str, Any]:
     plain_ids = torch.tensor([row["plain_ids"]], device="cuda:0", dtype=torch.long)
     open_ids = torch.tensor([row["open_ids"]], device="cuda:0", dtype=torch.long)
@@ -1161,6 +1486,7 @@ def _prepare_example(row: dict[str, Any], *, model: Any, torch: Any) -> dict[str
                 attention_mask=plain_mask,
                 position_ids=torch.arange(plain_ids.shape[1], device="cuda:0")[None],
                 output_hidden_states=True,
+                logits_to_keep=1,
                 use_cache=False,
                 return_dict=True,
             )
@@ -1172,6 +1498,7 @@ def _prepare_example(row: dict[str, Any], *, model: Any, torch: Any) -> dict[str
         raise PhaseBMechanismRejected(f"row {row['task_key']} produced an invalid detached local feature capture")
     labels = full_ids.clone()
     labels[:, : open_ids.shape[1]] = -100
+    _, _, loss_span = _suffix_loss_arguments(labels)
     full_mask = torch.ones_like(full_ids)
     return {
         "task_key": row["task_key"],
@@ -1181,6 +1508,7 @@ def _prepare_example(row: dict[str, Any], *, model: Any, torch: Any) -> dict[str
         "labels": labels,
         "injection_index": int(plain_ids.shape[1]),
         "captured_hidden": capture,
+        "loss_span": loss_span,
         "rendered_hashes": {
             **row["render_proof"],
             "plain_prefix_token_tensor_sha256": _tensor_bytes_sha256(plain_ids, torch),
@@ -1222,11 +1550,18 @@ def _latent_forward(
     expected_positions = torch.arange(start, stop, device="cuda:0")[None]
     if not torch.equal(composed.position_ids[:, start:stop], expected_positions):
         raise PhaseBMechanismRejected("latent positions are not sequential at the verified boundary")
+    loss_labels, logits_to_keep, loss_span = _suffix_loss_arguments(composed.labels)
+    if logits_to_keep != example["loss_span"]["logits_to_keep"]:
+        raise PhaseBContractError("latent insertion changed the supervised suffix length")
+    expected_start = example["loss_span"]["logit_suffix_start"] + (stop - start)
+    if loss_span["logit_suffix_start"] != expected_start:
+        raise PhaseBContractError("latent insertion changed the aligned causal loss boundary")
     return model(
         inputs_embeds=composed.inputs_embeds,
         attention_mask=composed.attention_mask,
         position_ids=composed.position_ids,
-        labels=composed.labels,
+        labels=loss_labels,
+        logits_to_keep=logits_to_keep,
         use_cache=False,
         return_dict=True,
     )
@@ -1243,11 +1578,21 @@ def _backward_probes(  # noqa: PLR0913
     compose_local_depth_inputs: Any,
     torch: Any,
     residual_scale_override: float | None,
+    probe_name: str,
+    breadcrumbs: dict[str, Any],
     include_static: bool = True,
 ) -> dict[str, Any]:
     result: dict[str, Any] = {}
     arms = ("STATIC", "FFN", "RECURRENT") if include_static else ("FFN", "RECURRENT")
     for arm in arms:
+        _mark_execution_stage(
+            breadcrumbs,
+            stage="backward_probe",
+            task_key=example["task_key"],
+            arm=arm,
+            probe=probe_name,
+            torch=torch,
+        )
         for module in (codecs[arm], ffn, recurrent):
             for parameter in module.parameters():
                 parameter.grad = None
@@ -1273,12 +1618,15 @@ def _backward_probes(  # noqa: PLR0913
             torch=torch,
         )
         output.loss.backward()
+        breadcrumbs["completed_backward_arms"] += 1
         named_parameters = {f"codec.{name}": value for name, value in codecs[arm].named_parameters()}
         if arm == "FFN":
             named_parameters.update({f"sidecar.{name}": value for name, value in ffn.named_parameters()})
         elif arm == "RECURRENT":
             named_parameters.update({f"sidecar.{name}": value for name, value in recurrent.named_parameters()})
         result[arm] = {name: _gradient_summary(parameter.grad, torch) for name, parameter in named_parameters.items()}
+        del output, hidden, anchor, visible, named_parameters
+        torch.cuda.empty_cache()
     return result
 
 

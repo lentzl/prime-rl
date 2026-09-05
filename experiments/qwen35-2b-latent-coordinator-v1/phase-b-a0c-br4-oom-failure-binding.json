@@ -1,0 +1,127 @@
+{
+  "schema_version": "q35-2b-phase-b-br4-oom-failure-binding/v1",
+  "status": "bound_allocator_pressure_oom_stage_unknown",
+  "failure_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br4-FAILURE.json",
+  "failure_file_sha256": "8eb85b98d554a51fb3f764c83309fc949d24802a6c4af17af73748fccb6b6d30",
+  "manifest_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br4-failure-MANIFEST.sha256",
+  "manifest_file_sha256": "32c13190c511481cc306d9dc6e693ca147de0b841a663397eccd8e3c7460947b",
+  "preflight_log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br4-preflight.log",
+  "preflight_log_file_sha256": "4bb386f507ae99e7260ef5037f1a5260bd7501c54f9dd9af71778d9de5ff98a4",
+  "run_log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br4-run.log",
+  "run_log_file_sha256": "f52dbb346b095b8475dc51c6dc84dbf84709ab760dc732e703292829df231af8",
+  "failure_predicates": {
+    "schema_exact": {
+      "path": "schema_version",
+      "expected": "q35-2b-phase-b-fixed-depth-smoke-failure/v1"
+    },
+    "status_infrastructure_invalid": {
+      "path": "status",
+      "expected": "infrastructure_invalid"
+    },
+    "category_infrastructure_invalid": {
+      "path": "failure_category",
+      "expected": "infrastructure_invalid"
+    },
+    "claim_no_update": {
+      "path": "claim_class",
+      "expected": "no_update_mechanism_connectivity_only"
+    },
+    "error_type_exact": {
+      "path": "error_type",
+      "expected": "OutOfMemoryError"
+    },
+    "plan_exact": {
+      "path": "plan_sha256",
+      "expected": "0cc8a47c1a26c0857e42ba53287f1d399e1b543d4601d0f60a26b29a5740bc70"
+    },
+    "selection_exact": {
+      "path": "selection_sha256",
+      "expected": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+    },
+    "audit_complete": {
+      "path": "post_failure_hash_audit.audit_complete",
+      "expected": true
+    },
+    "audit_no_error": {
+      "path": "post_failure_hash_audit.hash_probe_error",
+      "expected": null
+    },
+    "e33_weight_exact": {
+      "path": "post_failure_hash_audit.e33.weight_file_matches",
+      "expected": true
+    },
+    "e33_metadata_exact": {
+      "path": "post_failure_hash_audit.e33.metadata_matches",
+      "expected": true
+    },
+    "a0c_binding_exact": {
+      "path": "post_failure_hash_audit.a0c.binding_matches",
+      "expected": true
+    },
+    "a0c_receipt_exact": {
+      "path": "post_failure_hash_audit.a0c.receipt_file_matches",
+      "expected": true
+    },
+    "a0c_internal_exact": {
+      "path": "post_failure_hash_audit.a0c.receipt_internal_matches",
+      "expected": true
+    },
+    "initial_failure_exact": {
+      "path": "post_failure_hash_audit.repair_dependency.binding_matches",
+      "expected": true
+    },
+    "br1_preflight_exact": {
+      "path": "post_failure_hash_audit.br1_preflight_rejection.binding_matches",
+      "expected": true
+    },
+    "br2_failure_exact": {
+      "path": "post_failure_hash_audit.br2_failure.binding_matches",
+      "expected": true
+    },
+    "br3_failure_exact": {
+      "path": "post_failure_hash_audit.br3_oom_failure.binding_matches",
+      "expected": true
+    }
+  },
+  "required_run_log_markers": [
+    "phase-b-fixed-depth-smoke-a0c-br4-plan.json: OK",
+    "Loading weights: 100%",
+    "Phase B failed: OutOfMemoryError: CUDA out of memory. Tried to allocate 5.00 GiB.",
+    "36.22 GiB is allocated by PyTorch, and 9.27 GiB is reserved by PyTorch but unallocated"
+  ],
+  "control_flow_proof": {
+    "prior_execution_commit": "190afa6f97aeef46e33a1148082ee9372a5d8c12",
+    "prior_runner_path": "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py",
+    "prior_runner_sha256": "e20bfc86b77b3d52ec3ba64d271339649515d9b336b48fe5178e1f8b7fe4c6a3",
+    "metric_no_grad_scope_present": true,
+    "metric_outputs_explicitly_deleted": true,
+    "allocator_cache_release_present": false,
+    "durable_phase_row_arm_breadcrumbs_present": false,
+    "optimizer_construction_present": false,
+    "optimizer_step_present": false,
+    "checkpoint_write_present": false,
+    "generation_present": false,
+    "cache_present": false
+  },
+  "repair_scope": {
+    "suffix_loss": "for each BASE, latent-metric, and backward call, find the first supervised label T>0, require labels[:T] all -100 and labels[T:] a contiguous valid suffix, set start=T-1 and K=L-start, then pass logits_to_keep=K with labels[:, start:] so the shifted active logit/target pairs exactly match the full-logit loss",
+    "feature_capture": "retain the full hidden-sequence body computation but request only one unused final logit from the wrapper; the captured last-eight hidden states are upstream of this projection",
+    "bounded_equivalence": "before long-row metrics, compare full logits/loss against suffix logits/aligned labels on one prospectively fixed 128-token real-e33 control, requiring exact suffix-logit and shifted-active-pair identity plus exact finite loss equality",
+    "allocator": "after each completed feature capture and each deleted BASE/result output, and once before the separately unchanged backward phase, call torch.cuda.empty_cache without changing tensor values",
+    "breadcrumbs": "prospectively record current phase, task key, arm/probe, completed feature captures and metric forwards, and bounded CUDA allocated/reserved/free/peak values in terminal evidence",
+    "stage_claim": "the exact B-R4 artifact proves only post-load OOM; it does not identify which feature-capture or metric forward failed",
+    "pinned_loss_semantics": "Qwen slices hidden states before lm_head, then ForCausalLMLoss shifts the supplied labels one position; passing full labels with truncated logits is forbidden because flattened lengths differ",
+    "forbidden": [
+      "posthoc B-R4 row or arm assignment",
+      "checkpointing",
+      "offload",
+      "fewer rows",
+      "shorter sequences",
+      "different arms",
+      "different hidden-sequence body or sidecar arithmetic",
+      "full labels paired with suffix logits",
+      "optimizer or model update"
+    ]
+  },
+  "interpretation_boundary": "B-R4 passed its exact preflight and model load, removed the prior requires-grad warning, and then OOMed with 9.27 GiB reserved but unallocated. Its receipt and logs do not durably locate the failing row/arm, so no posthoc stage is claimed. The exact failure audit preserved e33 and all prior evidence with no optimizer, update, or checkpoint. This binding supports only prospective allocator cache release and diagnostic breadcrumbs, not a connectivity or capability claim."
+}

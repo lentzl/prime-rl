@@ -4,6 +4,7 @@ import ast
 import hashlib
 import importlib.util
 import json
+import math
 import posixpath
 import subprocess
 import sys
@@ -18,9 +19,11 @@ from prime_rl.phase_b_contract import (
     atomic_exclusive_json,
     canonical_json_sha256,
     normalize_assistant_tool_call_arguments,
+    supervised_suffix_span,
     validate_a0c_binding,
     validate_br2_failure_evidence,
     validate_br3_oom_failure_evidence,
+    validate_br4_oom_failure_evidence,
     validate_failed_start_evidence,
     validate_plan_authorization,
     validate_preflight_rejection_evidence,
@@ -40,6 +43,44 @@ EXACT_ACTIONS_BY_TASK_KEY = {
     "document_adaptive_d2-v3-i34100:manager": "delegate_terminal",
     "document_adaptive_d3-v1-i34101:top-manager": "delegate_coordinator",
 }
+
+
+def test_supervised_suffix_span_preserves_shifted_active_loss_pairs() -> None:
+    labels = [-100, -100, 2, 1]
+    logits = [
+        [0.1, 0.2, 0.3],
+        [0.8, -0.1, 0.4],
+        [-0.2, 0.7, 0.1],
+        [0.3, 0.0, -0.4],
+    ]
+
+    start, keep = supervised_suffix_span(labels)
+    suffix_labels = labels[start:]
+    suffix_logits = logits[-keep:]
+    full_pairs = [(logits[index - 1], label) for index, label in enumerate(labels) if label != -100]
+    suffix_pairs = [
+        (suffix_logits[index - 1], label) for index, label in enumerate(suffix_labels) if label != -100
+    ]
+
+    def mean_cross_entropy(pairs: list[tuple[list[float], int]]) -> float:
+        losses = []
+        for row, target in pairs:
+            denominator = sum(math.exp(value) for value in row)
+            losses.append(math.log(denominator) - row[target])
+        return sum(losses) / len(losses)
+
+    assert (start, keep) == (1, 3)
+    assert full_pairs == suffix_pairs
+    assert mean_cross_entropy(full_pairs) == mean_cross_entropy(suffix_pairs)
+
+
+@pytest.mark.parametrize(
+    "labels",
+    [[], [-100], [1, 2], [-100, -100], [-100, 1, -100], [-100, -2], [-100, True]],
+)
+def test_supervised_suffix_span_rejects_non_suffix_contracts(labels: list[int]) -> None:
+    with pytest.raises(PhaseBContractError):
+        supervised_suffix_span(labels)
 
 
 def _write_binding(tmp_path: Path, *, receipt: dict[str, object]) -> tuple[Path, Path]:
@@ -544,6 +585,42 @@ def test_checked_in_br3_oom_failure_binds_all_artifacts_and_graph_evidence(tmp_p
     assert validated.binding["control_flow_proof"]["metric_latent_forwards_grad_enabled"] is True
 
 
+def test_checked_in_br4_oom_failure_binds_all_artifacts_without_posthoc_stage(tmp_path: Path) -> None:
+    repository = Path(__file__).resolve().parents[2]
+    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
+    names = {
+        "failure": "phase-b-fixed-depth-smoke-a0c-br4-FAILURE.json",
+        "manifest": "phase-b-fixed-depth-smoke-a0c-br4-failure-MANIFEST.sha256",
+        "preflight_log": "phase-b-fixed-depth-smoke-a0c-br4-preflight.log",
+        "run_log": "phase-b-fixed-depth-smoke-a0c-br4-run.log",
+    }
+    expected_hashes = {
+        "failure": "8eb85b98d554a51fb3f764c83309fc949d24802a6c4af17af73748fccb6b6d30",
+        "manifest": "32c13190c511481cc306d9dc6e693ca147de0b841a663397eccd8e3c7460947b",
+        "preflight_log": "4bb386f507ae99e7260ef5037f1a5260bd7501c54f9dd9af71778d9de5ff98a4",
+        "run_log": "f52dbb346b095b8475dc51c6dc84dbf84709ab760dc732e703292829df231af8",
+    }
+    binding = json.loads((experiment / "phase-b-a0c-br4-oom-failure-binding.json").read_text(encoding="utf-8"))
+    for key, name in names.items():
+        source = experiment / name
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == expected_hashes[key]
+        binding[f"{key}_absolute_path"] = str(source.resolve())
+    binding_path = (tmp_path / "binding.json").resolve()
+    hash_path = (tmp_path / "binding.sha256").resolve()
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    binding_hash = hashlib.sha256(binding_path.read_bytes()).hexdigest()
+    hash_path.write_text(f"{binding_hash}  {binding_path.name}\n", encoding="ascii")
+
+    validated = validate_br4_oom_failure_evidence(binding_path, hash_path)
+
+    assert len(validated.preflight_report["normalization_and_render_proofs"]) == 12
+    assert validated.failure["post_failure_hash_audit"]["audit_complete"] is True
+    assert validated.binding["repair_scope"]["stage_claim"].endswith(
+        "does not identify which feature-capture or metric forward failed"
+    )
+    assert validated.binding["control_flow_proof"]["allocator_cache_release_present"] is False
+
+
 def test_forward_metrics_are_no_grad_and_released_before_backward_probes() -> None:
     repository = Path(__file__).resolve().parents[2]
     runner_path = repository / "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py"
@@ -584,6 +661,24 @@ def test_forward_metrics_are_no_grad_and_released_before_backward_probes() -> No
     ]
     assert len(backward_calls) == 2
     assert all(node.lineno > no_grad.end_lineno for node in backward_calls)
+
+    backward = next(
+        node for node in module.body if isinstance(node, ast.FunctionDef) and node.name == "_backward_probes"
+    )
+    backward_deleted = {
+        target.id
+        for node in ast.walk(backward)
+        if isinstance(node, ast.Delete)
+        for target in node.targets
+        if isinstance(target, ast.Name)
+    }
+    assert {"output", "hidden", "anchor", "visible", "named_parameters"} <= backward_deleted
+    assert any(
+        isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "empty_cache"
+        for node in ast.walk(backward)
+    )
 
 
 def test_atomic_terminal_receipt_is_exclusive(tmp_path: Path) -> None:
@@ -850,6 +945,7 @@ def test_preflight_only_returns_without_heavy_import_or_output(
     preflight_rejection = SimpleNamespace(binding_file_sha256="f" * 64)
     br2_failure = SimpleNamespace(binding_file_sha256="1" * 64)
     br3_failure = SimpleNamespace(binding_file_sha256="2" * 64)
+    br4_failure = SimpleNamespace(binding_file_sha256="3" * 64)
     fake_parquet = ModuleType("pyarrow.parquet")
     fake_pyarrow = ModuleType("pyarrow")
     fake_pyarrow.__path__ = []  # type: ignore[attr-defined]
@@ -863,7 +959,16 @@ def test_preflight_only_returns_without_heavy_import_or_output(
     monkeypatch.setattr(
         runner,
         "preflight_before_heavy_imports",
-        lambda _args: ({}, {}, binding, failed_start, preflight_rejection, br2_failure, br3_failure),
+        lambda _args: (
+            {},
+            {},
+            binding,
+            failed_start,
+            preflight_rejection,
+            br2_failure,
+            br3_failure,
+            br4_failure,
+        ),
     )
     monkeypatch.setattr(
         runner,
@@ -1078,22 +1183,24 @@ def test_br3_freeze_manifest_remains_valid_at_its_immutable_commit() -> None:
         assert hashlib.sha256(blob).hexdigest() == expected
 
 
-def test_br4_freeze_manifest_closes_oom_failure_and_prior_evidence() -> None:
+def test_br4_freeze_manifest_remains_valid_at_its_immutable_commit() -> None:
     repository = Path(__file__).resolve().parents[2]
-    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
-
-    result = subprocess.run(
-        ["sha256sum", "--check", "phase-b-fixed-depth-smoke-a0c-br4.sha256"],
-        cwd=experiment,
-        text=True,
-        capture_output=True,
-        check=True,
+    commit = "190afa6f97aeef46e33a1148082ee9372a5d8c12"
+    manifest_path = "experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br4.sha256"
+    manifest = subprocess.run(
+        ["git", "show", f"{commit}:{manifest_path}"], cwd=repository, capture_output=True, check=True
+    ).stdout.decode()
+    assert hashlib.sha256(manifest.encode()).hexdigest() == (
+        "24a8779df807cc0eea450f6fb3fb6bc9a137b01238b4dc5695f9c0084ab4d5f0"
     )
-
-    assert "phase-b-fixed-depth-smoke-a0c-br3-FAILURE.json: OK" in result.stdout
-    assert "phase-b-fixed-depth-smoke-a0c-br3-preflight.log: OK" in result.stdout
-    assert "phase-b-fixed-depth-smoke-a0c-br3-run.log: OK" in result.stdout
-    assert "../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK" in result.stdout
+    manifest_directory = posixpath.dirname(manifest_path)
+    for line in manifest.splitlines():
+        expected, relative_path = line.split(maxsplit=1)
+        blob_path = posixpath.normpath(posixpath.join(manifest_directory, relative_path))
+        blob = subprocess.run(
+            ["git", "show", f"{commit}:{blob_path}"], cwd=repository, capture_output=True, check=True
+        ).stdout
+        assert hashlib.sha256(blob).hexdigest() == expected
 
 
 def _load_runner():
