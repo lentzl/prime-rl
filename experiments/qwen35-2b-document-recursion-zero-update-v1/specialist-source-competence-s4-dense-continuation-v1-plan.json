@@ -110,7 +110,8 @@
     "heldout_instance_offset": "assigned_and_hashed_prospectively_by_strand_e_or_root",
     "freshness_requirements": [
       "zero task-key and task-name overlap with training, S1, S2, and S3",
-      "fresh instance roots and fresh file payloads",
+      "fresh instance roots and no trace replay",
+      "disclose the frozen AST generator's finite variant/parity payload support rather than claiming byte-novel AST files",
       "all three arms use byte-identical task contracts and sampling",
       "task bank, sampling contract, and unchanged admission threshold object are hashed before the H176 arm"
     ]

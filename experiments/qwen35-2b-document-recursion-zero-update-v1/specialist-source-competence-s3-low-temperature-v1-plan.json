@@ -8,7 +8,7 @@
     "required": "specialist-source-competence-s2-v1 completes validly and rejects under its prospectively frozen gate",
     "forbidden": [
       "restarting or extending S2",
-      "reusing an S1 or S2 task key, task name, instance path, or file payload",
+      "reusing an S1 or S2 task key, task name, instance path, or completed trace",
       "changing e33, H176, H_source_s2, the specialist action scaffold, or an admission threshold"
     ]
   },
@@ -77,11 +77,18 @@
       4,
       5
     ],
-    "heldout_seed": "assigned_and_hashed_prospectively_by_strand_e_or_root",
-    "heldout_instance_offset": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "heldout_seed": 20270907,
+    "heldout_instance_offset": 52000,
+    "heldout_config": "specialist-source-competence-s3-low-temperature-heldout-v1.toml",
+    "heldout_config_sha256": "fff439c348cb5f31946cc549d3ec7688e14c05b6e7cbc930cd0ba7432447a0e7",
+    "sampling_contract": "specialist-source-competence-s3-low-temperature-sampling-contract-v1.json",
+    "sampling_contract_sha256": "da08080c6d1accbbb4ee49c4f6ef891808bf9488942d5d7035faffe0b0c4df98",
+    "heldout_task_bank_sha256": "ROOT_FREEZE_REQUIRED_TASK_BANK_SHA256",
     "freshness_requirements": [
       "zero task-key and task-name overlap with training, S1, and S2",
-      "fresh instance roots and fresh file payloads",
+      "fresh instance roots and no trace replay",
+      "source-config values are rematerialized from the new seed and offset",
+      "AST structural payload novelty is not claimed: the frozen taskset's variants 4/5 depend on variant and instance parity, so S3 tests a new task identity and decoding condition over the same finite AST fixture support",
       "task bank and sampling contract hashed before either arm starts",
       "one rollout per task with shuffle disabled",
       "control and treatment task contracts byte-identical"
@@ -110,6 +117,7 @@
     "A treatment-only temperature change would confound policy and decoding, so both arms use temperature 0.0.",
     "S3 must not replay S2 tasks because those treatment outcomes were observed before this plan.",
     "Temperature 0.0 can expose a deterministic bad mode as well as a good mode; rejection is therefore diagnostic, not proof that the trained sequence is absent.",
+    "The frozen AST task generator has finite variant/parity support and can repeat file bytes across offsets; this is acceptable for a decoding-control screen with unchanged weights but forbids a broad generalization claim.",
     "The tight scaffold may only fix action and expert identity; it must not perform file parsing, arithmetic, message serialization, or parent send on the worker's behalf."
   ],
   "immutable_results": {
@@ -125,6 +133,15 @@
       "protected-model postflight hashes"
     ],
     "write_policy": "write once; no retrospective threshold, task-bank, sampling, or summary replacement"
+  },
+  "execution": {
+    "runner": "scripts/run_q35_2b_source_worker_competence_s3_low_temperature_v1.sh",
+    "required_arguments": [
+      "exact execution git revision",
+      "exact immutable rejected S2 paired-summary SHA-256"
+    ],
+    "duplicate_policy": "Refuse launch if the S3 result root already exists, including a partial prior attempt.",
+    "task_bank_freeze": "Root must replace the explicit task-bank SHA-256 placeholder in the plan and runner after independent materialization, then commit before any S3 model call."
   },
   "resource_request": {
     "authorization_required": true,
