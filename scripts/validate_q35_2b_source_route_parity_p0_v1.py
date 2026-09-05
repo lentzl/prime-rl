@@ -54,6 +54,20 @@ EXPECTED_MODEL_PATHS = {
     ),
     "S5": BASE.S5_PATH,
 }
+P0_EXECUTION_REVISION = "35f9cd4667132902a98ed41b494ca44253635022"
+P0_CONFIG_SHA256 = "5e21a0d1906e35353e05c0d40367d230614f920fa82cfd27e9b2ba60ad076390"
+P0_RETAINED_ARTIFACT_HASHES = {
+    "metrics.jsonl": "7cad60b489d72318cb443e181485bb96373df08c59a3d3b30d00fef9ecfaf14c",
+    "rollouts/step_1/train/all/traces.jsonl": "3caece22684808a7a7dcceeb93b7763fca2528df97a0707851e1ad33dd25a16b",
+    "rollouts/step_1/train/effective/traces.jsonl": "3f27fb44d03eb965d2242cff536c1927d669f4883e6bc18c5d9b9ad4ef80290b",
+    "token_exports/step_1/rank_0.jsonl": "e32ebc439dd08fafba88bfe936043170e291cf7bc2ecd8d490d24e60a43258f7",
+    "configs/orchestrator.json": "c3d8967ae047f1f53dcb258a95f193f0f88ecaf3294d0949b36833d122d33457",
+    "configs/inference.json": "a897cd621240183291dac4ce76360645d25129ddb1741ff713ed010971cd4a73",
+    "configs/trainer.json": "af66d4b322f88abb8d148e8ef59de042304a494854500e29fc2fa4b4bca8856d",
+}
+P0_RETAINED_ROUTING_AUDIT_SHA256 = (
+    "a1d5bb71177400262abd7324ad167c39856768499b6317009a4b1556097c29a6"
+)
 
 
 def _digest(path: Path) -> str:
@@ -255,6 +269,140 @@ def validate_runtime(
     }
 
 
+def recover_retained_runtime(
+    run_dir: Path,
+    routing_audit_read_path: Path,
+    *,
+    execution_revision: str,
+    audit_revision: str,
+    verifiers_revision: str,
+    config_sha256: str,
+) -> dict[str, Any]:
+    """Create a post-hoc forensic receipt for the immutable retained P0 run."""
+
+    if (
+        execution_revision != P0_EXECUTION_REVISION
+        or config_sha256 != P0_CONFIG_SHA256
+        or _digest(P0_CONFIG) != P0_CONFIG_SHA256
+    ):
+        raise BASE.AuditFailure("P0 recovery execution/config identity changed")
+    if (
+        len(audit_revision) != 40
+        or any(character not in "0123456789abcdef" for character in audit_revision)
+        or audit_revision == execution_revision
+    ):
+        raise BASE.AuditFailure(
+            "P0 recovery requires a distinct exact forensic-audit revision"
+        )
+    if len(verifiers_revision) != 40 or any(
+        character not in "0123456789abcdef" for character in verifiers_revision
+    ):
+        raise BASE.AuditFailure("P0 recovery requires the exact Verifiers revision")
+
+    retained_hashes = {
+        relative: _digest(run_dir / relative)
+        for relative in P0_RETAINED_ARTIFACT_HASHES
+    }
+    if retained_hashes != P0_RETAINED_ARTIFACT_HASHES:
+        raise BASE.AuditFailure("P0 retained run artifacts changed after execution")
+    route_hash = _digest(routing_audit_read_path)
+    if route_hash != P0_RETAINED_ROUTING_AUDIT_SHA256:
+        raise BASE.AuditFailure("P0 retained route audit changed after execution")
+
+    structural = BASE.validate_runtime(
+        run_dir,
+        "audit",
+        calibration_only=True,
+        routing_audit_path=P0_ROUTING_AUDIT,
+        routing_audit_read_path=routing_audit_read_path,
+        p0_terminal_artifact_recovery=True,
+    )
+    trace_records = BASE._read_jsonl(
+        run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
+    )
+    route_report = structural["effective_call_routes"]
+    if route_report.get("scope") != "retained_P0_postflight_only_not_prospective_admission":
+        raise BASE.AuditFailure("P0 recovery did not use the forensic-only route path")
+    return {
+        "schema_version": "q35-2b-source-route-parity-p0-forensic-recovery/v1",
+        "recorded_at_utc": datetime.now(timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z"),
+        "verdict": "posthoc_terminal_artifacts_reconciled",
+        "execution_revision": execution_revision,
+        "audit_revision": audit_revision,
+        "verifiers_revision": verifiers_revision,
+        "config": {
+            "path": str(P0_CONFIG),
+            "sha256": config_sha256,
+            "train_seed": BASE.EXPECTED_TRAIN_SEED,
+            "instance_offset": BASE.EXPECTED_TRAIN_OFFSET,
+        },
+        "models": {
+            label: {
+                "path": str(EXPECTED_MODEL_PATHS[label]),
+                "model_sha256": digest,
+                "protected_pre_and_post": True,
+            }
+            for label, digest in EXPECTED_MODEL_HASHES.items()
+        },
+        "immutable_inputs": {
+            "run_dir": str(run_dir),
+            "run_artifacts": {
+                relative: {
+                    "path": str(run_dir / relative),
+                    "sha256": digest,
+                }
+                for relative, digest in retained_hashes.items()
+            },
+            "routing_audit": {
+                "path": str(routing_audit_read_path),
+                "sha256": route_hash,
+            },
+        },
+        "reward": _reward_observations(trace_records),
+        "termination_and_censoring": structural["prospective_lr0_health"],
+        "trainer_inference": structural["prospective_lr0_health"]["metrics"],
+        "token_mass": {
+            "child_branches": structural["child_branches"],
+            "child_trainable_tokens": structural["child_trainable_tokens"],
+            "exported_rl_tokens": structural["exported_rl_tokens"],
+            "raw_coordinator_sampled_tokens": structural[
+                "raw_coordinator_sampled_tokens"
+            ],
+            "coordinator_exported_trainable_tokens": structural[
+                "coordinator_exported_trainable_tokens"
+            ],
+            "gradient_norm": structural["gradient_norm"],
+        },
+        "routing_forensics": {
+            "forced_assignments": structural["routing"],
+            "attached_and_terminal_inventory": route_report,
+            "trace_sets": structural["trace_sets"],
+            "prospective_exact_multiplicity_pass": False,
+            "prospective_failure": "four node=null calls and one successful audit-only route",
+        },
+        "interpretation": {
+            "posthoc_forensic_receipt_only": True,
+            "launcher_postflight_passed": False,
+            "p0_mechanism_admitted": False,
+            "calibration_measurements_recovered": True,
+            "numeric_thresholds_evaluated": False,
+            "numeric_thresholds_frozen": False,
+            "prospective_P1_route_proof_unchanged": True,
+            "checkpoint_written": False,
+            "optimizer_steps_executed": 1,
+            "learning_rate": 0.0,
+            "persisted_optimizer_state": False,
+            "model_weight_change_expected": False,
+            "model_weight_identity_verified_pre_and_post": True,
+            "optimizer_update_authorized": False,
+            "heldout_evaluation_run": False,
+            "next_step_authorized": False,
+        },
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("target", type=Path)
@@ -262,10 +410,47 @@ def main() -> None:
     parser.add_argument("--execution-revision")
     parser.add_argument("--verifiers-revision")
     parser.add_argument("--config-sha256")
+    parser.add_argument("--recover-terminal-artifacts", action="store_true")
+    parser.add_argument("--routing-audit-read-path", type=Path)
+    parser.add_argument("--audit-revision")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args()
     try:
-        if args.runtime:
+        if args.recover_terminal_artifacts:
+            if (
+                not args.runtime
+                or args.routing_audit_read_path is None
+                or args.audit_revision is None
+                or not all(
+                    isinstance(value, str) and value
+                    for value in (
+                        args.execution_revision,
+                        args.verifiers_revision,
+                        args.config_sha256,
+                    )
+                )
+                or args.output is None
+            ):
+                raise BASE.AuditFailure(
+                    "P0 recovery requires runtime, route path, revisions, config hash, and output"
+                )
+            if args.output.resolve().is_relative_to(
+                args.target.resolve()
+            ) or args.output.resolve().is_relative_to(
+                args.routing_audit_read_path.resolve().parent
+            ):
+                raise BASE.AuditFailure(
+                    "P0 forensic receipt must be outside the retained artifact tree"
+                )
+            report = recover_retained_runtime(
+                args.target,
+                args.routing_audit_read_path,
+                execution_revision=args.execution_revision,
+                audit_revision=args.audit_revision,
+                verifiers_revision=args.verifiers_revision,
+                config_sha256=args.config_sha256,
+            )
+        elif args.runtime:
             if not all(
                 isinstance(value, str) and value
                 for value in (

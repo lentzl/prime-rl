@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import math
+import re
 import tomllib
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -594,6 +595,64 @@ def _call_branch_texts(
     return texts
 
 
+def _attached_call_role(
+    nodes: list[Any], call: dict[str, Any], *, trace_index: int, call_index: int
+) -> str:
+    texts = _call_branch_texts(
+        nodes,
+        call.get("node"),
+        trace_index=trace_index,
+        call_index=call_index,
+    )
+    parent_tasks = [
+        text for text in texts if text.lstrip().startswith("[task from parent]")
+    ]
+    if parent_tasks:
+        if len(parent_tasks) != 1 or not parent_tasks[0].startswith(
+            SPECIALIST_CHILD_PREFIX
+        ):
+            raise AuditFailure(
+                f"effective trace {trace_index} call {call_index} is not the exact source_inspector child"
+            )
+        return "child"
+    if any("[specialist worker routing contract]" in text for text in texts):
+        return "coordinator"
+    raise AuditFailure(f"effective trace {trace_index} call {call_index} is unattached")
+
+
+def _validated_route_event_role(record: dict[str, Any], index: int) -> str:
+    role = record.get("role")
+    session_sha = record.get("session_sha256")
+    if (
+        record.get("schema_version") != ROUTE_SCHEMA
+        or record.get("endpoint") != "/inference/v1/generate"
+        or record.get("status") != 200
+        or role not in {"coordinator", "child"}
+        or not isinstance(session_sha, str)
+        or len(session_sha) != 64
+    ):
+        raise AuditFailure(f"invalid effective route audit event {index}")
+    if role == "child":
+        if (
+            record.get("upstream_model") != str(S5_PATH)
+            or record.get("expert_id") != "source_inspector"
+            or record.get("route_evidence") != "exact_specialist_child_prefix"
+            or not str(record.get("mode", "")).startswith("forwarded")
+        ):
+            raise AuditFailure(
+                f"effective child route {index} is not exact source_inspector/S5"
+            )
+    elif (
+        record.get("upstream_model") != str(E33_PATH)
+        or record.get("route_evidence")
+        != "coordinator_without_specialist_child_prefix"
+    ):
+        raise AuditFailure(f"effective coordinator route {index} is not frozen e33")
+    if record.get("mode") == FORCED_ROUTE_MODE and role != "coordinator":
+        raise AuditFailure("forced specialist assignment was not coordinator-owned")
+    return role
+
+
 def _validate_effective_call_routes(
     trace_records: list[dict[str, Any]], audit_records: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -699,6 +758,231 @@ def _validate_effective_call_routes(
     }
 
 
+def _validate_p0_terminal_route_artifacts(
+    trace_records: list[dict[str, Any]], audit_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Forensically reconcile P0's already-completed terminal call artifacts.
+
+    This is intentionally exact to the retained P0 evidence. It is not an
+    alternative admission rule: prospective audits continue to use
+    ``_validate_effective_call_routes`` and reject every unattached call.
+    """
+
+    if len(trace_records) != EXPECTED_BATCH_SIZE:
+        raise AuditFailure("P0 recovery requires the exact 16 retained traces")
+    audit_by_session: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
+    sequences: set[int] = set()
+    for index, record in enumerate(audit_records):
+        _validated_route_event_role(record, index)
+        session_sha = record["session_sha256"]
+        sequence = record.get("sequence")
+        if not isinstance(sequence, int) or sequence in sequences:
+            raise AuditFailure("P0 route audit lacks unique integer sequence evidence")
+        sequences.add(sequence)
+        audit_by_session[session_sha].append((index, record))
+    if len(audit_by_session) != EXPECTED_BATCH_SIZE:
+        raise AuditFailure("P0 recovery requires exactly 16 rollout audit sessions")
+
+    attached_counts: Counter[str] = Counter()
+    terminal_artifacts: list[dict[str, Any]] = []
+    audit_only_artifacts: list[dict[str, Any]] = []
+    session_inventory: list[dict[str, Any]] = []
+    matched_sessions: set[str] = set()
+    for trace_index, record in enumerate(trace_records):
+        trace_id = record.get("id")
+        nodes = record.get("nodes")
+        calls = record.get("calls")
+        if not isinstance(trace_id, str) or not isinstance(nodes, list) or not isinstance(calls, list):
+            raise AuditFailure(f"P0 retained trace {trace_index} is malformed")
+        text = "\n".join(
+            _wire_content_text(node.get("message", {}).get("content"))
+            for node in nodes
+            if isinstance(node, dict) and isinstance(node.get("message"), dict)
+        )
+        prefixes = set(
+            re.findall(r"/vf-prime-agent-runs/([0-9a-f]{16})/", text)
+        )
+        matching_sessions = [
+            session for session in audit_by_session if session[:16] in prefixes
+        ]
+        if len(prefixes) != 1 or len(matching_sessions) != 1:
+            raise AuditFailure(
+                f"P0 retained trace {trace_index} lacks one rollout/audit session bijection"
+            )
+        session_sha = matching_sessions[0]
+        if session_sha in matched_sessions:
+            raise AuditFailure("P0 rollout audit session matched more than one trace")
+        matched_sessions.add(session_sha)
+
+        per_attached: Counter[str] = Counter()
+        null_calls: list[tuple[int, dict[str, Any]]] = []
+        for call_index, call in enumerate(calls):
+            if not isinstance(call, dict):
+                raise AuditFailure(
+                    f"P0 retained trace {trace_index} call {call_index} is malformed"
+                )
+            if call.get("node") is None:
+                null_calls.append((call_index, call))
+                continue
+            if call.get("error") is not None:
+                raise AuditFailure("P0 attached call contains an inference error")
+            role = _attached_call_role(
+                nodes, call, trace_index=trace_index, call_index=call_index
+            )
+            per_attached[role] += 1
+            attached_counts[role] += 1
+
+        session_events = sorted(
+            audit_by_session[session_sha], key=lambda item: item[1]["sequence"]
+        )
+        audit_roles = Counter(record["role"] for _, record in session_events)
+        residual_roles = audit_roles - per_attached
+        if per_attached - audit_roles:
+            raise AuditFailure("P0 attached calls exceed audited routes in a session")
+        extra_audits = len(session_events) - len(calls)
+        if extra_audits < 0 or extra_audits > 1:
+            raise AuditFailure("P0 session has an unaccountable route/call cardinality")
+        if sum(residual_roles.values()) != len(null_calls) + extra_audits:
+            raise AuditFailure("P0 terminal route residual does not close exactly")
+        if residual_roles and len(residual_roles) != 1:
+            raise AuditFailure("P0 terminal artifact role is ambiguous")
+        if null_calls and extra_audits:
+            raise AuditFailure("P0 mixes null-call and audit-only residue in one session")
+
+        residual_role = next(iter(residual_roles), None)
+        residual_events = (
+            [
+                (index, event)
+                for index, event in session_events
+                if event["role"] == residual_role
+            ][-sum(residual_roles.values()) :]
+            if residual_role is not None
+            else []
+        )
+        if len(residual_events) != len(null_calls) + extra_audits:
+            raise AuditFailure("P0 cannot identify the terminal route event tail")
+
+        stop = record.get("stop_condition")
+        for (call_index, call), (audit_index, event) in zip(
+            null_calls, residual_events[: len(null_calls)], strict=True
+        ):
+            timing = call.get("time")
+            if (
+                not isinstance(timing, dict)
+                or not all(isinstance(timing.get(key), (int, float)) for key in ("start", "end"))
+                or timing["end"] < timing["start"]
+            ):
+                raise AuditFailure("P0 terminal trace-call artifact lacks valid timing")
+            error = call.get("error")
+            if error is None and stop == "max_turns":
+                category = "successful_call_unattached_at_max_turns"
+            elif (
+                isinstance(error, dict)
+                and error.get("type") == "ClientConnectionResetError"
+                and stop == "agent_completed"
+            ):
+                category = "delivery_reset_after_agent_completed"
+            else:
+                raise AuditFailure("P0 null-call artifact is not an exact terminal/cancelled case")
+            terminal_artifacts.append(
+                {
+                    "trace_index": trace_index,
+                    "trace_id": trace_id,
+                    "call_index": call_index,
+                    "session_sha256": session_sha,
+                    "inferred_role": residual_role,
+                    "category": category,
+                    "stop_condition": stop,
+                    "finish_reason": call.get("finish_reason"),
+                    "error_type": error.get("type") if isinstance(error, dict) else None,
+                    "start": float(timing["start"]),
+                    "end": float(timing["end"]),
+                    "matched_audit_sequence": event["sequence"],
+                    "matched_audit_request_sha256": event.get("request_sha256"),
+                    "matched_audit_index": audit_index,
+                }
+            )
+
+        if extra_audits:
+            audit_index, event = residual_events[-1]
+            if stop != "max_turns" or residual_role != "child":
+                raise AuditFailure("P0 audit-only route is not the exact terminal child case")
+            audit_only_artifacts.append(
+                {
+                    "trace_index": trace_index,
+                    "trace_id": trace_id,
+                    "session_sha256": session_sha,
+                    "inferred_role": residual_role,
+                    "category": "successful_child_route_after_trace_finalization",
+                    "stop_condition": stop,
+                    "audit_index": audit_index,
+                    "audit_sequence": event["sequence"],
+                    "request_sha256": event.get("request_sha256"),
+                    "latency_ms": event.get("latency_ms"),
+                }
+            )
+
+        forced = sum(
+            event.get("mode") == FORCED_ROUTE_MODE for _, event in session_events
+        )
+        if forced != 1:
+            raise AuditFailure("P0 session lacks exactly one forced coordinator assignment")
+        session_inventory.append(
+            {
+                "trace_index": trace_index,
+                "trace_id": trace_id,
+                "session_sha256": session_sha,
+                "attached_calls": dict(per_attached),
+                "null_calls": len(null_calls),
+                "audit_routes": dict(audit_roles),
+                "audit_only_routes": extra_audits,
+            }
+        )
+
+    if matched_sessions != set(audit_by_session):
+        raise AuditFailure("P0 route audit contains a session with no retained trace")
+    terminal_categories = Counter(item["category"] for item in terminal_artifacts)
+    audit_role_counts = Counter(record["role"] for record in audit_records)
+    forced_role_counts = Counter(
+        record["role"]
+        for record in audit_records
+        if record.get("mode") == FORCED_ROUTE_MODE
+    )
+    natural_role_counts = audit_role_counts - forced_role_counts
+    if (
+        attached_counts != Counter({"child": 73, "coordinator": 55})
+        or audit_role_counts != Counter({"child": 76, "coordinator": 57})
+        or forced_role_counts != Counter({"coordinator": 16})
+        or natural_role_counts != Counter({"child": 76, "coordinator": 41})
+        or terminal_categories
+        != Counter(
+            {
+                "successful_call_unattached_at_max_turns": 3,
+                "delivery_reset_after_agent_completed": 1,
+            }
+        )
+        or len(audit_only_artifacts) != 1
+        or len(audit_records) != 133
+    ):
+        raise AuditFailure("P0 terminal-artifact inventory differs from retained evidence")
+    return {
+        "scope": "retained_P0_postflight_only_not_prospective_admission",
+        "attached_successful_calls": dict(attached_counts),
+        "attached_successful_call_total": sum(attached_counts.values()),
+        "terminal_trace_call_artifacts": terminal_artifacts,
+        "terminal_trace_call_categories": dict(terminal_categories),
+        "audit_only_successful_events": audit_only_artifacts,
+        "route_events": len(audit_records),
+        "route_events_by_role": dict(audit_role_counts),
+        "forced_route_events_by_role": dict(forced_role_counts),
+        "natural_route_events_by_role": dict(natural_role_counts),
+        "rollout_sessions": len(audit_by_session),
+        "session_inventory": session_inventory,
+        "residual_matching_basis": "exact rollout-path/session-prefix bijection, role cardinality residual, and terminal sequence tail",
+        "future_proof_unchanged": "prospective audits reject every node=null call and any audit surplus",
+    }
+
+
 def _validate_raw_equals_effective(
     raw_records: list[dict[str, Any]], effective_records: list[dict[str, Any]]
 ) -> dict[str, Any]:
@@ -725,6 +1009,8 @@ def validate_runtime(
     *,
     calibration_only: bool = False,
     routing_audit_path: Path | None = None,
+    routing_audit_read_path: Path | None = None,
+    p0_terminal_artifact_recovery: bool = False,
 ) -> dict[str, Any]:
     import verifiers.v1 as vf
     from verifiers.v1.types import UserMessage, content_text
@@ -733,6 +1019,8 @@ def validate_runtime(
 
     if calibration_only and stage != "audit":
         raise AuditFailure("calibration-only validation requires LR=0 audit stage")
+    if p0_terminal_artifact_recovery and not calibration_only:
+        raise AuditFailure("P0 terminal-artifact recovery is calibration-only")
     config_report = _validate_runtime_configs(
         run_dir, stage, routing_audit_path=routing_audit_path
     )
@@ -763,10 +1051,14 @@ def validate_runtime(
     trace_set_report = _validate_raw_equals_effective(
         raw_trace_records, trace_records
     )
-    audit_records = _read_jsonl(Path(config_report["routing_audit"]))
+    audit_records = _read_jsonl(
+        routing_audit_read_path or Path(config_report["routing_audit"])
+    )
     routing_report = _validate_forced_assignment_routes(trace_records, audit_records)
-    effective_call_routes = _validate_effective_call_routes(
-        trace_records, audit_records
+    effective_call_routes = (
+        _validate_p0_terminal_route_artifacts(trace_records, audit_records)
+        if p0_terminal_artifact_recovery
+        else _validate_effective_call_routes(trace_records, audit_records)
     )
     task_rewards: dict[str, list[float]] = defaultdict(list)
     families: Counter[str] = Counter()
@@ -905,6 +1197,7 @@ def validate_runtime(
         "exported_rl_tokens": exported_rl_tokens,
         "checkpoint_written": stage == "update",
         "calibration_only": calibration_only,
+        "p0_terminal_artifact_recovery": p0_terminal_artifact_recovery,
         "optimizer_update_authorized": False if calibration_only else None,
     }
 

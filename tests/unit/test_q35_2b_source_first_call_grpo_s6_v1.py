@@ -875,6 +875,114 @@ def _effective_route_fixture(validator):
     return traces, audits
 
 
+def _p0_terminal_route_fixture(validator):
+    traces = []
+    audits = []
+    sequence = 0
+    for index in range(16):
+        session_sha = hashlib.sha256(f"p0-rollout-{index}".encode()).hexdigest()
+        nodes = [
+            {
+                "parent": None,
+                "message": {
+                    "role": "user",
+                    "content": (
+                        f"/tmp/vf-prime-agent-runs/{session_sha[:16]}/conversation.json\n"
+                        "[specialist worker routing contract]"
+                    ),
+                },
+            },
+            {
+                "parent": None,
+                "message": {"role": "user", "content": "child system"},
+            },
+            {
+                "parent": 1,
+                "message": {
+                    "role": "user",
+                    "content": validator.SPECIALIST_CHILD_PREFIX
+                    + "\nis_root=false\nassigned paths",
+                },
+            },
+        ]
+        coordinator_count = 3 + int(index < 7)
+        child_count = 4 + int(index < 9)
+        calls = [
+            {"node": 0, "error": None, "client_session_id": f"p0-{index}"}
+            for _ in range(coordinator_count)
+        ] + [
+            {"node": 2, "error": None, "client_session_id": f"p0-{index}"}
+            for _ in range(child_count)
+        ]
+        stop_condition = "max_turns"
+        residual_role = None
+        residual_error = None
+        if index == 0:
+            stop_condition = "agent_completed"
+            residual_role = "child"
+            residual_error = {
+                "type": "ClientConnectionResetError",
+                "message": "Cannot write to closing transport",
+            }
+        elif index in {1, 12}:
+            residual_role = "coordinator"
+        elif index == 15:
+            residual_role = "child"
+        if residual_role is not None:
+            calls.append(
+                {
+                    "node": None,
+                    "error": residual_error,
+                    "finish_reason": "stop" if index == 0 else "tool_calls",
+                    "time": {"start": float(index), "end": float(index + 1)},
+                }
+            )
+        traces.append(
+            {
+                "id": f"p0-trace-{index}",
+                "nodes": nodes,
+                "calls": calls,
+                "stop_condition": stop_condition,
+            }
+        )
+
+        roles = ["coordinator"] * coordinator_count + ["child"] * child_count
+        if residual_role is not None:
+            roles.append(residual_role)
+        if index == 8:
+            roles.append("child")
+        for role_index, role in enumerate(roles):
+            forced = role == "coordinator" and role_index == 0
+            audits.append(
+                {
+                    "schema_version": validator.ROUTE_SCHEMA,
+                    "endpoint": "/inference/v1/generate",
+                    "status": 200,
+                    "role": role,
+                    "mode": validator.FORCED_ROUTE_MODE
+                    if forced
+                    else "forwarded_without_tool_choice",
+                    "session_sha256": session_sha,
+                    "upstream_model": str(
+                        validator.E33_PATH if role == "coordinator" else validator.S5_PATH
+                    ),
+                    "expert_id": "source_inspector" if role == "child" or forced else None,
+                    "route_evidence": (
+                        "coordinator_without_specialist_child_prefix"
+                        if role == "coordinator"
+                        else "exact_specialist_child_prefix"
+                    ),
+                    "sequence": sequence,
+                    "request_sha256": hashlib.sha256(
+                        f"p0-request-{sequence}".encode()
+                    ).hexdigest(),
+                    "latency_ms": 36_410.419 if index == 8 and role_index == len(roles) - 1 else 1.0,
+                }
+            )
+            sequence += 1
+    return traces, audits
+
+
 def test_runtime_validator_reconciles_every_child_and_coordinator_route() -> None:
     validator = _validator_module()
     traces, audits = _effective_route_fixture(validator)
@@ -934,3 +1042,112 @@ def test_runtime_validator_rejects_non_disclosed_or_unattached_child_calls() -> 
     traces[0]["calls"][1]["node"] = None
     with pytest.raises(validator.AuditFailure, match="is unattached"):
         validator._validate_effective_call_routes(traces, audits)
+
+
+def test_p0_forensic_recovery_inventories_terminal_artifacts_without_weakening_strict() -> None:
+    validator = _validator_module()
+    traces, audits = _p0_terminal_route_fixture(validator)
+
+    report = validator._validate_p0_terminal_route_artifacts(traces, audits)
+
+    assert report["scope"] == "retained_P0_postflight_only_not_prospective_admission"
+    assert report["attached_successful_calls"] == {"coordinator": 55, "child": 73}
+    assert report["attached_successful_call_total"] == 128
+    assert report["terminal_trace_call_categories"] == {
+        "delivery_reset_after_agent_completed": 1,
+        "successful_call_unattached_at_max_turns": 3,
+    }
+    assert len(report["audit_only_successful_events"]) == 1
+    assert report["audit_only_successful_events"][0]["trace_index"] == 8
+    assert report["route_events"] == 133
+    assert report["route_events_by_role"] == {"coordinator": 57, "child": 76}
+    assert report["forced_route_events_by_role"] == {"coordinator": 16}
+    assert report["natural_route_events_by_role"] == {
+        "coordinator": 41,
+        "child": 76,
+    }
+    with pytest.raises(validator.AuditFailure, match="is unattached"):
+        validator._validate_effective_call_routes(traces, audits)
+
+
+def test_p0_forensic_recovery_rejects_nonterminal_null_call_or_route_mutation() -> None:
+    validator = _validator_module()
+    traces, audits = _p0_terminal_route_fixture(validator)
+    traces[1]["calls"][-1]["error"] = {"type": "UnexpectedFailure"}
+    with pytest.raises(validator.AuditFailure, match="exact terminal/cancelled"):
+        validator._validate_p0_terminal_route_artifacts(traces, audits)
+
+    traces, audits = _p0_terminal_route_fixture(validator)
+    audits[-1]["upstream_model"] = "/wrong/model"
+    with pytest.raises(validator.AuditFailure, match="exact source_inspector/S5"):
+        validator._validate_p0_terminal_route_artifacts(traces, audits)
+
+
+def test_p0_recovery_receipt_is_hash_locked_posthoc_and_nonadmitting() -> None:
+    source = P0_VALIDATOR_PATH.read_text()
+
+    assert "P0_EXECUTION_REVISION = \"35f9cd4667132902a98ed41b494ca44253635022\"" in source
+    assert "P0_RETAINED_ARTIFACT_HASHES" in source
+    assert "P0_RETAINED_ROUTING_AUDIT_SHA256" in source
+    assert '"verdict": "posthoc_terminal_artifacts_reconciled"' in source
+    assert '"launcher_postflight_passed": False' in source
+    assert '"p0_mechanism_admitted": False' in source
+    assert '"calibration_measurements_recovered": True' in source
+    assert '"prospective_exact_multiplicity_pass": False' in source
+    assert '"next_step_authorized": False' in source
+
+
+def test_p0_recovery_receipt_uses_distinct_audit_revision_and_forensic_runtime(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validator = _p0_validator_module()
+    run_dir = Path("/immutable/p0/run")
+    route_path = Path("/immutable/p0/routing-audit.jsonl")
+
+    def fake_digest(path: Path) -> str:
+        if path == validator.P0_CONFIG:
+            return validator.P0_CONFIG_SHA256
+        if path == route_path:
+            return validator.P0_RETAINED_ROUTING_AUDIT_SHA256
+        return validator.P0_RETAINED_ARTIFACT_HASHES[str(path.relative_to(run_dir))]
+
+    captured: dict[str, object] = {}
+
+    def fake_validate_runtime(*args, **kwargs):
+        captured.update(kwargs)
+        return {
+            "effective_call_routes": {
+                "scope": "retained_P0_postflight_only_not_prospective_admission"
+            },
+            "prospective_lr0_health": {"metrics": {}},
+            "child_branches": 1,
+            "child_trainable_tokens": 2,
+            "exported_rl_tokens": 2,
+            "raw_coordinator_sampled_tokens": 0,
+            "coordinator_exported_trainable_tokens": 0,
+            "gradient_norm": 1.0,
+            "routing": {},
+            "trace_sets": {"raw": 16, "effective": 16, "identical": True},
+        }
+
+    monkeypatch.setattr(validator, "_digest", fake_digest)
+    monkeypatch.setattr(validator.BASE, "validate_runtime", fake_validate_runtime)
+    monkeypatch.setattr(validator.BASE, "_read_jsonl", lambda path: [])
+    monkeypatch.setattr(validator, "_reward_observations", lambda records: {})
+    report = validator.recover_retained_runtime(
+        run_dir,
+        route_path,
+        execution_revision=validator.P0_EXECUTION_REVISION,
+        audit_revision="a" * 40,
+        verifiers_revision="b" * 40,
+        config_sha256=validator.P0_CONFIG_SHA256,
+    )
+
+    assert captured["calibration_only"] is True
+    assert captured["p0_terminal_artifact_recovery"] is True
+    assert captured["routing_audit_read_path"] == route_path
+    assert report["execution_revision"] == validator.P0_EXECUTION_REVISION
+    assert report["audit_revision"] == "a" * 40
+    assert report["interpretation"]["launcher_postflight_passed"] is False
+    assert report["interpretation"]["p0_mechanism_admitted"] is False
+    assert report["interpretation"]["calibration_measurements_recovered"] is True
