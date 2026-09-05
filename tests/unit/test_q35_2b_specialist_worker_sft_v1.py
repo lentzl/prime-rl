@@ -1,6 +1,7 @@
 import importlib.util
 import json
 import sys
+import tomllib
 from pathlib import Path
 
 from datasets import Dataset
@@ -305,3 +306,68 @@ def test_source_remedial_runner_freezes_curriculum_and_one_epoch(
         assert "invalid source-worker remedial dataset" in str(error)
     else:
         raise AssertionError("runner accepted heldout-contaminated remedial metadata")
+
+
+def test_source_remedial_s5_assets_freeze_three_arm_rung() -> None:
+    root = Path(__file__).parents[2]
+    experiment = root / "experiments/qwen35-2b-document-recursion-zero-update-v1"
+    config = tomllib.loads(
+        (experiment / "specialist-source-competence-s5-remedial-heldout-v1.toml").read_text()
+    )
+    sampling = json.loads(
+        (
+            experiment
+            / "specialist-source-competence-s5-remedial-sampling-contract-v1.json"
+        ).read_text()
+    )
+    plan = json.loads(
+        (
+            experiment
+            / "specialist-source-competence-s5-remedial-curriculum-v1-plan.json"
+        ).read_text()
+    )
+    materializer = (
+        root / "scripts/materialize_q35_2b_source_worker_remedial_s5_v1.sh"
+    ).read_text()
+    launcher = (
+        root / "scripts/run_q35_2b_source_worker_competence_s5_remedial_v1.sh"
+    ).read_text()
+
+    assert config["num_tasks"] == 16
+    assert config["num_rollouts"] == 1
+    assert config["shuffle"] is False
+    assert config["env"]["taskset"]["families"] == [
+        "specialist_source_ast",
+        "specialist_source_config",
+    ]
+    assert config["env"]["taskset"]["instances_per_template"] == 4
+    assert config["env"]["taskset"]["instance_offset"] == 61000
+    assert config["env"]["taskset"]["seed"] == 20270908
+    assert config["sampling"] == {
+        "seed": 20270908,
+        **sampling["environment_sampling"],
+    }
+    assert sampling["route_policy"]["worker_computation_scaffolded"] is False
+    assert sampling["route_policy"]["worker_parent_send_scaffolded"] is False
+    assert plan["admission"]["final_thresholds"] == {
+        "forced_worker_activations_each_arm": 16,
+        "minimum_treatment_hard_successes": 4,
+        "minimum_hard_successes_per_family": 2,
+        "minimum_paired_h176_fail_to_candidate_success_recoveries": 4,
+        "maximum_paired_regressions": 0,
+    }
+    assert plan["admission"]["acceptance_gates_relaxed"] is False
+    assert "ROOT_FREEZE_REQUIRED_REMEDIAL_MANIFEST_SHA256" in launcher
+    assert "ROOT_FREEZE_REQUIRED_REMEDIAL_PARQUET_SHA256" in launcher
+    assert "ROOT_FREEZE_REQUIRED_S5_TASK_BANK_SHA256" in launcher
+    assert 'treatment.get("hard_successes") != 0' in launcher
+    assert 'task.get("clean_protocol_aligned") == 1' in launcher
+    assert "--minimum-treatment-hard-successes 4" in launcher
+    assert "--minimum-hard-successes-per-family 2" in launcher
+    assert "--minimum-paired-recoveries 4" in launcher
+    assert "--maximum-paired-regressions 0" in launcher
+    assert launcher.index("$control_label") < launcher.index("$bridge_label")
+    assert launcher.index("$bridge_label") < launcher.index("scripts/run_q35_2b_source_worker_remedial_sft_v1.py")
+    assert launcher.index("scripts/run_q35_2b_source_worker_remedial_sft_v1.py") < launcher.index("$treatment_label")
+    assert "refusing duplicate or partial S5 result/output root" in launcher
+    assert "refusing to overwrite S5 remedial dataset" in materializer

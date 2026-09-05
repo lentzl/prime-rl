@@ -139,8 +139,13 @@
       4,
       5
     ],
-    "heldout_seed": "assigned_and_hashed_prospectively_by_strand_e_or_root",
-    "heldout_instance_offset": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "heldout_seed": 20270908,
+    "heldout_instance_offset": 61000,
+    "heldout_config": "specialist-source-competence-s5-remedial-heldout-v1.toml",
+    "heldout_config_sha256": "3fd8c3179e2e9a1eb907e3a8185c6ae6f8810071626532335e8ca9aa5cacdf18",
+    "sampling_contract": "specialist-source-competence-s5-remedial-sampling-contract-v1.json",
+    "sampling_contract_sha256": "032f9f218a49f3310bdfc41951d63bef9aee108837c0b71305200294d252c9bd",
+    "heldout_task_bank_sha256": "ROOT_FREEZE_REQUIRED_S5_TASK_BANK_SHA256",
     "freshness_requirements": [
       "zero task-key, task-name, and instance-root overlap with training, S1, S2, and S3",
       "no heldout trace replay",
@@ -191,6 +196,26 @@
       "protected-model preflight and postflight hashes"
     ],
     "write_policy": "write once; no retrospective threshold, corpus, task-bank, sampling, or summary replacement"
+  },
+  "execution": {
+    "dataset_materializer": "scripts/materialize_q35_2b_source_worker_remedial_s5_v1.sh",
+    "rung_runner": "scripts/run_q35_2b_source_worker_competence_s5_remedial_v1.sh",
+    "required_runner_arguments": [
+      "exact execution git revision",
+      "exact immutable rejected S3 paired-summary SHA-256"
+    ],
+    "sequence": [
+      "Root independently materializes and freezes the remedial manifest and parquet hashes.",
+      "Root independently materializes and freezes the heldout task-bank hash.",
+      "Fail-closed preflight validates the rejected zero-hard/zero-clean S3 branch, all hashes, and absent S5 output roots.",
+      "Run frozen H176 T=0 control on the fresh bank.",
+      "Run frozen H_source_s2 T=0 same-bank bridge.",
+      "Run the single eight-update S5 remedial full-dense curriculum from H_source_s2.",
+      "Run H_source_s5_remedial T=0 treatment on the identical bank.",
+      "Write H176-versus-S2 bridge, S2-versus-S5 incremental, and H176-versus-S5 primary summaries.",
+      "Rehash e33, H176, and H_source_s2."
+    ],
+    "duplicate_policy": "Refuse launch if either the S5 result root or S5 output root exists, including a partial prior attempt."
   },
   "resource_request": {
     "authorization_required": true,

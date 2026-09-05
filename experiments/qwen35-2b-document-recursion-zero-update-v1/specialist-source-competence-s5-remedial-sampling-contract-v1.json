@@ -1,0 +1,35 @@
+{
+  "schema_version": "q35-2b-specialist-competence-sampling-contract/v1",
+  "recorded_at": "2026-09-05",
+  "frozen_before_model_calls": true,
+  "environment_sampling": {
+    "temperature": 0.0,
+    "top_p": 0.95,
+    "top_k": 20,
+    "min_p": 0.0,
+    "reasoning_effort": "high",
+    "max_tokens": 4096
+  },
+  "coordinator_cognitive_action_override": {
+    "temperature": 0.4,
+    "top_p": 0.95,
+    "max_tokens": 256,
+    "fields_removed": [
+      "top_k",
+      "min_p",
+      "reasoning_effort"
+    ],
+    "implementation": "with_specialist_action_sampling_contract",
+    "causal_relevance": "none_after_forced_action_rewrite"
+  },
+  "route_policy": {
+    "mode": "forced_delegate_terminal_source_inspector_assignment",
+    "router_model_called": false,
+    "coordinator_model_called": true,
+    "coordinator_action_replaced": true,
+    "worker_computation_scaffolded": false,
+    "worker_parent_send_scaffolded": false
+  },
+  "rollouts_per_task": 1,
+  "control_bridge_and_treatment_must_share_task_and_sampling_seed": true
+}
