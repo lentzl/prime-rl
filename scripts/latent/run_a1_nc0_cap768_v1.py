@@ -252,7 +252,10 @@ def _capture(output, mask):
 
 def _case(model, tokenizer, messages, *, expected_unpadded: int, prefix: str, ledger, guard):
     tools = base.PARENT_TOOLS
-    ids = base.render_ids(tokenizer, messages, generation_prompt=False, tools=tools)
+    try:
+        ids = base.render_ids(tokenizer, messages, generation_prompt=False, tools=tools)
+    except base.ExperimentIncomplete as error:
+        raise DiagnosticIncomplete(f"CAP768 operational render failed: {error}") from error
     if ids.shape != (1, expected_unpadded):
         raise DiagnosticIncomplete("CAP768 selected transcript token length changed")
     pad = 768 - expected_unpadded

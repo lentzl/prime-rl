@@ -25,6 +25,10 @@ def test_selection_schedule_memory_and_prior_evidence_are_exact():
     assert cap._validate_launcher_rejection_evidence(cap.Path(".")) == cap.LAUNCHER_REJECTION_EVIDENCE
     assert cap._validate_import_rejection_evidence(cap.Path(".")) == cap.IMPORT_REJECTION_EVIDENCE
     assert cap._validate_import_proof_evidence(cap.Path(".")) == cap.IMPORT_PROOF_EVIDENCE
+    assert (
+        cap._validate_operational_render_rejection_evidence(cap.Path("."))
+        == cap.OPERATIONAL_RENDER_REJECTION_EVIDENCE
+    )
     assert cap.LAUNCHER_REJECTION_EVIDENCE["artifacts"] == []
     assert cap.LAUNCHER_REJECTION_EVIDENCE["shell_exit_nonzero"] is True
     assert "shell_exit_code" not in cap.LAUNCHER_REJECTION_EVIDENCE
@@ -47,6 +51,26 @@ def test_exact_host_import_proof_fails_closed_on_tamper(tmp_path):
         cap._validate_import_proof_evidence(tmp_path)
 
 
+def test_operational_render_rejection_fails_closed_on_tamper(tmp_path):
+    relative = Path("experiments/qwen35-2b-latent-workspace-v1")
+    target = tmp_path / relative
+    target.mkdir(parents=True)
+    names = (
+        "a1-nc0-cap768-r2-operational-render-rejection-failure.json",
+        "a1-nc0-cap768-r2-operational-render-rejection-run.log",
+    )
+    for name in names:
+        shutil.copy2(relative / name, target / name)
+    assert (
+        cap._validate_operational_render_rejection_evidence(tmp_path)
+        == cap.OPERATIONAL_RENDER_REJECTION_EVIDENCE
+    )
+    with (target / names[1]).open("ab") as handle:
+        handle.write(b"tamper")
+    with pytest.raises(ValueError, match="operational-render rejection artifact changed"):
+        cap._validate_operational_render_rejection_evidence(tmp_path)
+
+
 @pytest.mark.parametrize(
     ("error", "status"),
     [
@@ -62,7 +86,7 @@ def test_terminal_taxonomy(error, status):
 
 def test_cap_launcher_freezes_fresh_namespace_and_full_resource_bounds():
     shell = Path("scripts/latent/run_a1_nc0_cap768_v1.sh").read_text()
-    assert "$3 != a1-nc0-cap768-run3" in shell
+    assert "$3 != a1-nc0-cap768-run4" in shell
     assert "62914560" in shell and "67108864" in shell
     assert "CUDA_VISIBLE_DEVICES=0" in shell
     assert "3600s" in shell and "134217728" in shell
@@ -82,7 +106,7 @@ def test_launcher_declarations_execute_under_nounset_and_reject_reused_namespace
     assert valid.stdout == "/home/ubuntu/rlm/prime-rl/.venv\n"
     assert "unbound variable" not in valid.stderr
     reused = subprocess.run(
-        ["bash", "-c", declarations, "launcher", "a" * 40, "b" * 64, "a1-nc0-cap768-run2"],
+        ["bash", "-c", declarations, "launcher", "a" * 40, "b" * 64, "a1-nc0-cap768-run3"],
         check=False,
         capture_output=True,
         text=True,
@@ -100,6 +124,31 @@ def test_runner_imports_bank_validator_from_its_defining_module():
     assert "validate_bank_artifact" in imports["prime_rl.latent.a1nc0"]
     assert "validate_bank_artifact" not in imports["prime_rl.latent.a1cap768"]
     assert callable(a1nc0.validate_bank_artifact)
+
+
+def test_r3_operational_render_repair_and_proof_are_narrow_and_strict():
+    base = Path("scripts/latent/run_a1_nc0_nomination_v1.py").read_text()
+    cap_runner = Path("scripts/latent/run_a1_nc0_cap768_v1.py").read_text()
+    proof = Path("scripts/latent/prove_a1_nc0_cap768_r3_render_v1.py").read_text()
+    proof_shell = Path("scripts/latent/prove_a1_nc0_cap768_r3_render_v1.sh").read_text()
+    assert "def operational_template_input_ids(encoded: object) -> torch.Tensor:" in base
+    for predicate in (
+        "isinstance(encoded, BatchEncoding)",
+        "ids.ndim != 2",
+        "ids.shape[0] != 1",
+        "ids.shape[1] <= 0",
+        "ids.dtype != torch.long",
+        'ids.device.type != "cpu"',
+        "not ids.is_contiguous()",
+    ):
+        assert predicate in base
+    assert "except base.ExperimentIncomplete as error:" in cap_runner
+    assert 'raise DiagnosticIncomplete(f"CAP768 operational render failed: {error}")' in cap_runner
+    assert "expected_lengths = [517, 475, 599, 471, 616, 476, 644, 470]" in proof
+    assert 'os.environ.get("CUDA_VISIBLE_DEVICES") != ""' in proof
+    assert "tokenizer_load_calls != 1" in proof and "model_loader.call_count != 0" in proof
+    assert "a1-nc0-cap768-r3-render-proof-run1" in proof_shell
+    assert 'export CUDA_VISIBLE_DEVICES=""' in proof_shell
 
 
 def test_single_compute_alarm_covers_plan_through_probes():

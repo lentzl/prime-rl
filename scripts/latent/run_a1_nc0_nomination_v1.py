@@ -406,7 +406,7 @@ def no_cache_forward(model, call_log: list[dict[str, object]], *, arm: str, **kw
 
 
 def render_ids(tokenizer, messages: list[dict[str, object]], *, generation_prompt: bool, tools) -> torch.Tensor:
-    ids = tokenizer.apply_chat_template(
+    encoded = tokenizer.apply_chat_template(
         messages,
         tools=tools,
         tokenize=True,
@@ -414,9 +414,26 @@ def render_ids(tokenizer, messages: list[dict[str, object]], *, generation_promp
         enable_thinking=False,
         return_tensors="pt",
     )
-    if not isinstance(ids, torch.Tensor) or ids.ndim != 2 or ids.shape[0] != 1:
-        raise ExperimentIncomplete("chat template did not return one token sequence")
+    ids = operational_template_input_ids(encoded)
     return ids.to("cuda:0")
+
+
+def operational_template_input_ids(encoded: object) -> torch.Tensor:
+    """Extract the exact pinned operational rank-2 CPU token tensor."""
+    if not isinstance(encoded, BatchEncoding):
+        raise ExperimentIncomplete("operational chat template did not return BatchEncoding")
+    ids = encoded.input_ids
+    if (
+        not isinstance(ids, torch.Tensor)
+        or ids.ndim != 2
+        or ids.shape[0] != 1
+        or ids.shape[1] <= 0
+        or ids.dtype != torch.long
+        or ids.device.type != "cpu"
+        or not ids.is_contiguous()
+    ):
+        raise ExperimentIncomplete("operational BatchEncoding input_ids contract changed")
+    return ids
 
 
 def preflight_template_input_ids(

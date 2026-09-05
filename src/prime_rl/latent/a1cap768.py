@@ -8,7 +8,7 @@ from pathlib import Path
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
 from prime_rl.latent.a1nc0 import _CACHE_CLASS_CLOSURE, _E33, _H176, _RUNTIME
 
-PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-r3-plan/v1"
+PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-r4-plan/v1"
 RECEIPT_SCHEMA = "prime-rl/latent-a1-nc0-cap768-receipt/v1"
 FAILURE_SCHEMA = "prime-rl/latent-a1-nc0-cap768-failure/v1"
 _SHA = re.compile(r"^[0-9a-f]{64}$")
@@ -47,7 +47,7 @@ SELECTION = [
 SELECTION_SHA256 = "4696e1e8e075bc6a525054387c7d09ea3890c71915be70847c9352660d829020"
 SCHEDULE_SHA256 = "44a41c3f48b013366d318cdf520f1fc62ffa44b117edf966e3dbeb9888632216"
 REPAIR_COMMIT = "5c7da8ee788b80a144bd48a89ddb2d037c3766b4"
-AUTHORIZED_RUN_ID = "a1-nc0-cap768-run3"
+AUTHORIZED_RUN_ID = "a1-nc0-cap768-run4"
 RESOURCE_BOUNDS = {
     "gpus_used": 1,
     "gpu_model": "NVIDIA RTX A6000",
@@ -149,6 +149,33 @@ IMPORT_PROOF_EVIDENCE = {
     "scientific_exposure": False,
     "model_update_attempted": False,
 }
+OPERATIONAL_RENDER_REJECTION_EVIDENCE = {
+    "status": "infrastructure_invalid",
+    "failure_file_sha256": "496b6391dffaaec0d3dc70ca2156b639f403a07f630670b5a29137e88e402ac3",
+    "failure_internal_sha256": "0ec5a6b938260ca323e02c3993f425c4acce171124a0a993a597653282968b28",
+    "launch_log_sha256": "7d5fe6357f4e8d888f67749d28a775233c5d6316701a1869ee3aece101322642",
+    "failed_run_id": "a1-nc0-cap768-run3",
+    "failed_execution_commit": "64c4e55870b72d3bb6707c49b8ff4c267713b0b5",
+    "failed_mechanism_code_commit": "ce944ee3df1bc2e291e952e062dd0e372f92394a",
+    "failed_plan_file_sha256": "0130c2a3e36878749ea49db2e4b98d0701bb21e5d9b02408a0042b126391c99f",
+    "failed_plan_internal_sha256": "a172d10e50ecb9e2a115dc58ef5b3bab68a0091af344e6be5a6d80deb2649a33",
+    "error_type": "ExperimentIncomplete",
+    "exact_error": "chat template did not return one token sequence",
+    "model_loaded": True,
+    "memory_labels": ["model_loaded_frozen"],
+    "cache_closure_check_count": 2,
+    "cache_guard_restored": True,
+    "probe_forwards": 0,
+    "protected_disk_state_metadata_exact": True,
+    "e33_gradients_absent": True,
+    "worker_h176_loaded": False,
+    "model_update_attempted": False,
+    "bridge_created": False,
+    "optimizer_created": False,
+    "checkpoint_created": False,
+    "candidate_created": False,
+    "failure_audit_complete": True,
+}
 INTERPRETATION = (
     "capture geometry and resource fit only for a prospective A1 refreeze; no training authorization, bridge "
     "learning, nomination, semantic held-out output, A1 admission, or four-live-floor change"
@@ -165,10 +192,14 @@ ASSET_PATHS = {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof-receipt.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof.log",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof-exit-status.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-operational-render-rejection-failure.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-operational-render-rejection-run.log",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json",
     "scripts/latent/run_a1_nc0_nomination_v1.py",
+    "scripts/latent/prove_a1_nc0_cap768_r3_render_v1.py",
+    "scripts/latent/prove_a1_nc0_cap768_r3_render_v1.sh",
     "scripts/latent/run_a1_nc0_cap768_v1.py",
     "scripts/latent/run_a1_nc0_cap768_v1.sh",
     "src/prime_rl/latent/__init__.py",
@@ -352,6 +383,53 @@ def _validate_import_proof_evidence(repo: Path) -> dict[str, object]:
     ):
         raise ValueError("CAP768 import-proof receipt changed")
     return IMPORT_PROOF_EVIDENCE
+
+
+def _validate_operational_render_rejection_evidence(repo: Path) -> dict[str, object]:
+    experiment = repo / "experiments/qwen35-2b-latent-workspace-v1"
+    failure_path = experiment / "a1-nc0-cap768-r2-operational-render-rejection-failure.json"
+    log_path = experiment / "a1-nc0-cap768-r2-operational-render-rejection-run.log"
+    if any(path.is_symlink() or not path.is_file() for path in (failure_path, log_path)):
+        raise ValueError("CAP768 operational-render rejection evidence absent or symlinked")
+    if (
+        file_sha256(failure_path) != OPERATIONAL_RENDER_REJECTION_EVIDENCE["failure_file_sha256"]
+        or file_sha256(log_path) != OPERATIONAL_RENDER_REJECTION_EVIDENCE["launch_log_sha256"]
+    ):
+        raise ValueError("CAP768 operational-render rejection artifact changed")
+    failure = json.loads(failure_path.read_text())
+    memory = failure.get("memory_ledger_partial")
+    cache = failure.get("cache_guard_partial")
+    if (
+        failure.get("failure_sha256") != OPERATIONAL_RENDER_REJECTION_EVIDENCE["failure_internal_sha256"]
+        or failure.get("status") != OPERATIONAL_RENDER_REJECTION_EVIDENCE["status"]
+        or failure.get("run_id") != OPERATIONAL_RENDER_REJECTION_EVIDENCE["failed_run_id"]
+        or failure.get("execution_commit") != OPERATIONAL_RENDER_REJECTION_EVIDENCE["failed_execution_commit"]
+        or failure.get("mechanism_code_commit")
+        != OPERATIONAL_RENDER_REJECTION_EVIDENCE["failed_mechanism_code_commit"]
+        or failure.get("plan_sha256") != OPERATIONAL_RENDER_REJECTION_EVIDENCE["failed_plan_internal_sha256"]
+        or failure.get("error_type") != OPERATIONAL_RENDER_REJECTION_EVIDENCE["error_type"]
+        or failure.get("error") != OPERATIONAL_RENDER_REJECTION_EVIDENCE["exact_error"]
+        or failure.get("model_loaded") is not True
+        or failure.get("model_update_attempted") is not False
+        or failure.get("bridge_created") is not False
+        or failure.get("optimizer_created") is not False
+        or failure.get("checkpoint_created") is not False
+        or failure.get("candidate_created") is not False
+        or failure.get("worker_h176_loaded") is not False
+        or not isinstance(memory, list)
+        or [row.get("label") for row in memory] != ["model_loaded_frozen"]
+        or not isinstance(cache, dict)
+        or cache.get("closure_check_count") != 2
+        or cache.get("restored_in_finally") is not True
+        or failure.get("protected_hashes_before") != failure.get("protected_hash_probe_after_failure")
+        or failure.get("checkpoint_metadata_before") != failure.get("checkpoint_metadata_probe_after_failure")
+        or failure.get("e33_state_tree_before") != failure.get("e33_state_tree_failure_audit")
+        or failure.get("e33_gradients_absent_failure_audit") is not True
+        or failure.get("asset_hashes_match_plan") is not True
+        or failure.get("failure_audit_errors") != []
+    ):
+        raise ValueError("CAP768 operational-render rejection receipt changed")
+    return OPERATIONAL_RENDER_REJECTION_EVIDENCE
 
 
 def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:

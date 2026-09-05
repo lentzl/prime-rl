@@ -1,0 +1,18 @@
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  87%|████████▋ | 539/617 [00:00<00:00, 5387.91it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 5462.26it/s]
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 758, in <module>
+    main()
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 736, in main
+    receipt = run(args, plan, writer, stage)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 524, in run
+    evidence, case_calls = _case(
+                           ^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 255, in _case
+    ids = base.render_ids(tokenizer, messages, generation_prompt=False, tools=tools)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_nomination_v1.py", line 418, in render_ids
+    raise ExperimentIncomplete("chat template did not return one token sequence")
+prime_rl.latent.a1nc0.ExperimentIncomplete: chat template did not return one token sequence

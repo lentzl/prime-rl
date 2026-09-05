@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ || $3 != a1-nc0-cap768-run3 ]]; then
+if [[ $# -ne 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ || $3 != a1-nc0-cap768-run4 ]]; then
   echo "usage: $0 <exact-execution-commit> <authorized-plan-sha256> <fresh-run-id>" >&2
   exit 64
 fi
