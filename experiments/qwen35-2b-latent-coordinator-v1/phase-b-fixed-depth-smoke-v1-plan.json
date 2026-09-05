@@ -1,0 +1,216 @@
+{
+  "schema_version": "q35-2b-phase-b-fixed-depth-smoke-plan/v1",
+  "status": "frozen_pending_a0_receipt_binding_not_authorized",
+  "claim_class": "no_update_mechanism_connectivity_only",
+  "implementation_commit": "09d77daef2bb810c3c724559379caa280af463d2",
+  "implementation_parent": "63d2aa6472940a0e51a1679840af7a4487d684d3",
+  "protected_models": {
+    "coordinator": {
+      "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-coordinator",
+      "revision": "790a7ea3109c5445995d2ea5a31c01e9adee46bf",
+      "expected_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "host_path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+      "architecture": "Qwen3_5ForConditionalGeneration",
+      "text_hidden_size": 2048,
+      "trainable": false
+    },
+    "worker": {
+      "label": "H176",
+      "expected_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "load": false,
+      "trainable": false
+    }
+  },
+  "software": {
+    "model_backend": "upstream Transformers Qwen3_5ForConditionalGeneration; do not use the custom PrimeRL VLM wrapper for this smoke",
+    "transformers": "5.6.2",
+    "torch": "2.11",
+    "dependency_updates_allowed": false
+  },
+  "execution_environment": {
+    "uv": "/home/ubuntu/.local/bin/uv",
+    "uv_project": "/home/ubuntu/rlm/prime-rl",
+    "UV_PROJECT_ENVIRONMENT": "/home/ubuntu/rlm/prime-rl/.venv",
+    "deployed_worktree": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1",
+    "PYTHONPATH": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src:/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/packages/prime-rl-configs/src",
+    "uv_flags": [
+      "--project",
+      "/home/ubuntu/rlm/prime-rl",
+      "--no-sync"
+    ]
+  },
+  "model_metadata_sha256": {
+    "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+    "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f",
+    "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+    "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+    "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1"
+  },
+  "a0_dependency": {
+    "required_before_launch": true,
+    "binding_path": "/home/ubuntu/rlm/results/q35-2b-phase-b-fixed-depth-smoke-v1/A0_BINDING.json",
+    "binding_hash_path": "/home/ubuntu/rlm/results/q35-2b-phase-b-fixed-depth-smoke-v1/A0_BINDING.sha256",
+    "binding_creation": "After A0 finishes, root writes a new binding through a temporary file plus atomic rename and records its SHA-256. B refuses an absent, mutable, or mismatched binding.",
+    "required_bound_fields": [
+      "a0_success_receipt_absolute_path",
+      "a0_success_receipt_sha256",
+      "a0_plan_sha256",
+      "a0_implementation_commit",
+      "e33_sha256",
+      "config_sha256",
+      "tokenizer_sha256",
+      "tokenizer_config_sha256",
+      "chat_template_sha256",
+      "hard_bypass_bitwise_equal"
+    ],
+    "required_values": {
+      "e33_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "config_sha256": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "tokenizer_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config_sha256": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f",
+      "chat_template_sha256": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "hard_bypass_bitwise_equal": true
+    }
+  },
+  "data": {
+    "host_parquet_path": "/home/ubuntu/rlm/datasets/q35-2b-adaptive-cognition-sft-v1/adaptive-action48-nonroot-first-v3/train.parquet",
+    "host_manifest_path": "/home/ubuntu/rlm/datasets/q35-2b-adaptive-cognition-sft-v1/adaptive-action48-nonroot-first-v3/MANIFEST.json",
+    "source_parquet_sha256": "256328cbdb33dc8880370688e2c6f4256341f644757a9d9d033bb5febc74e12e",
+    "source_manifest_sha256": "52b50f8f57d2ad6cf084c13bfe429293b304824c76df2c979b6e7793d1344575",
+    "selection_file": "phase-b-fixed-depth-smoke-v1-selection.json",
+    "selection_sha256": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe",
+    "probe_rows": 12,
+    "backward_probe_rows": 1,
+    "split_semantics": "none",
+    "purpose": "Use already preserved coordinator-action examples only to test forward/backward connectivity; do not interpret this as training or held-out capability evidence."
+  },
+  "shared_input_path": {
+    "feature_source": "same coordinator prompt, never another node",
+    "capture": "last eight visible final text hidden states, detached",
+    "workspace_shape": [
+      8,
+      256
+    ],
+    "injection": "eight soft embeddings immediately before the verified assistant-generation opening",
+    "latent_labels": -100,
+    "embedding_shell": "mean L2 norm of frozen e33 input embeddings, computed once and recorded",
+    "inter_node_workspace": false,
+    "workspace_provenance_or_delivery": false
+  },
+  "arms": {
+    "BASE": {
+      "local_depth": 0,
+      "trainable_parameters": 0,
+      "optimizer_updates": 0,
+      "path": "ordinary frozen e33 teacher-forced evaluation; no latent positions"
+    },
+    "STATIC": {
+      "local_depth": 0,
+      "trainable_parameters": 1055489,
+      "optimizer_updates": 0,
+      "path": "LocalDepthCodec task anchor decoded directly; no sidecar"
+    },
+    "FFN": {
+      "local_depth": 1,
+      "trainable_parameters": 11617644,
+      "optimizer_updates": 0,
+      "path": "LocalDepthCodec plus one 10562155-parameter OneShotFeedForwardSidecar"
+    },
+    "RECURRENT": {
+      "local_depth": 4,
+      "trainable_parameters": 11617537,
+      "optimizer_updates": 0,
+      "path": "LocalDepthCodec plus one 10562048-parameter TimestepFreeRecurrentSidecar shared for exactly four steps",
+      "timestep_input": false,
+      "bptt": "one diagnostic backward pass through all four smoke steps; no optimizer step"
+    }
+  },
+  "matched_conditions": {
+    "seed": 20260905,
+    "forward_microbatch_rows": 1,
+    "backward_probe_task_key": "document_adaptive_d3-v0-i34100:top-manager",
+    "optimizer": null,
+    "optimizer_updates": 0,
+    "precision": "bfloat16 model/activations; float32 diagnostic gradient summaries",
+    "prompt_features": "cache in host RAM only and reuse bitwise across arms",
+    "arm_order": [
+      "BASE",
+      "STATIC",
+      "FFN",
+      "RECURRENT"
+    ],
+    "model_generation": false,
+    "loss": "teacher-forced next-token cross-entropy on accepted coordinator action targets only",
+    "parameter_mutation": false
+  },
+  "preflight_gates": [
+    "Refuse unless A0_BINDING.json and its hash bind one immutable A0 SUCCESS receipt whose recorded hard-bypass result is bitwise equal and whose model/tokenizer/template hashes exactly match this plan.",
+    "Refuse if the exact implementation commit, plan hash, selection hash, source dataset hashes, model path, model revision, model hash, metadata hashes, execution environment, model backend, Transformers version, or Torch version differs.",
+    "Refuse if host free disk is below 60 GiB or projected new artifacts exceed 512 MiB.",
+    "Refuse if H176 or any specialist checkpoint is loaded.",
+    "Refuse unless every e33 parameter has requires_grad=false and no optimizer is constructed.",
+    "Use the bound A0 bitwise hard-bypass receipt as the shared standard-path equivalence proof; do not replace it with a looser argmax or tolerance check.",
+    "Verify the assistant-opening injection index against the live tokenizer/template and record tokenizer, template, and rendered-prefix SHA-256 values before any backward probe.",
+    "Verify exactly eight inserted positions, attention-mask ones, sequential position IDs, and -100 labels.",
+    "Verify STATIC, FFN, and RECURRENT share bitwise-identical initial LocalDepthCodec weights.",
+    "Verify FFN and RECURRENT total trainable parameter counts differ by exactly 107 parameters.",
+    "Verify zero-initialized FFN and RECURRENT visible outputs equal the STATIC task anchor exactly.",
+    "Hash every parameter tensor for e33, LocalDepthCodec, FFN, and RECURRENT before the first forward and after the last backward; every pre/post hash must match."
+  ],
+  "connectivity_requirements": [
+    "All four arms produce finite teacher-forced loss on all 12 probe rows.",
+    "STATIC has finite nonzero diagnostic gradients in both codec projections on the frozen backward-probe row.",
+    "FFN and RECURRENT output-scale diagnostic gradients are finite and nonzero on the frozen backward-probe row.",
+    "At exact-zero sidecar output scale, FFN hidden/output and RECURRENT transition/memory/workspace diagnostic gradients are expected to be zero.",
+    "A second hypothetical open-gate diagnostic on the same row passes residual_scale_override=0.001 as a call argument without changing or persisting any parameter; it must produce finite nonzero gradients in FFN hidden/output and RECURRENT transition/memory/workspace projections.",
+    "The hypothetical open-gate diagnostic is reported separately and is never described as canonical-state behavior.",
+    "FFN and RECURRENT visible workspaces equal STATIC exactly on every probe row.",
+    "RECURRENT private memory changes at every one of the four steps on at least one row.",
+    "RECURRENT visible/private state diagnostics contain no non-finite values; change norms, contraction ratios, and direction cosines are recorded for every row.",
+    "No parameter changes in memory or on disk; e33 rehashes exactly after the smoke.",
+    "No arm is required to beat another in this connectivity smoke. Any capability or local-depth claim requires a later independently frozen evaluation."
+  ],
+  "outputs": {
+    "directory": "/home/ubuntu/rlm/results/q35-2b-phase-b-fixed-depth-smoke-v1",
+    "allowed": [
+      "frozen plan and selection copies",
+      "environment/tokenizer/template/hash manifest",
+      "per-arm forward losses and diagnostic gradient summaries",
+      "per-row recurrent diagnostics",
+      "timing, VRAM, and process logs",
+      "immutable pre/post parameter hashes",
+      "exactly one atomic SUCCESS.json or FAILURE.json receipt"
+    ],
+    "forbidden": [
+      "model checkpoint",
+      "optimizer checkpoint",
+      "feature cache on disk",
+      "H176 files",
+      "latent tensor persistence",
+      "Hugging Face publication"
+    ],
+    "new_artifact_hard_cap_bytes": 536870912
+  },
+  "host_schedule": {
+    "host": "ubuntu@216.81.200.39",
+    "expected_gpus": "2 x NVIDIA A6000 48GB",
+    "observed_free_disk_before_schedule": "88GB",
+    "gpu_0": "Run BASE, STATIC, FFN, and RECURRENT sequentially with one frozen e33 instance; retain e33 activations only for the active arm's soft-input loss backward.",
+    "gpu_1": "remain idle; a second model placement is unnecessary for this same-node no-update probe",
+    "wall_clock_reservation": "2 hours hard stop",
+    "network_after_staging": false
+  },
+  "stop_conditions": [
+    "any preflight gate fails",
+    "any e33 hash mismatch",
+    "any optimizer is constructed or any parameter value changes",
+    "any non-finite loss, state, parameter, or gradient",
+    "artifact footprint reaches 512 MiB",
+    "free disk falls below 60 GiB",
+    "unexpected process uses GPU 0",
+    "both SUCCESS.json and FAILURE.json exist or either receipt is overwritten/non-atomically published"
+  ],
+  "interpretation_boundary": "This zero-update fixed-depth smoke establishes only whether the self-local codec and bounded timestep-free recurrent path execute, preserve the standard no-op surface, evolve private memory, and expose the expected first-order gate gradients. It does not establish trainability behind the closed gate, test C2C/workspace handoff, specialist competence, end-to-end delegation, adaptive depth, halting, corruption curricula, or matched-parameter capability gain.",
+  "authorization": "Frozen plan only. Root must schedule the host; this document does not authorize SSH, GPU/model execution, optimizer updates, or publication."
+}

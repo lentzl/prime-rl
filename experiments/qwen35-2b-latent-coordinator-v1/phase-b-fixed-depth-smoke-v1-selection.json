@@ -1,0 +1,35 @@
+{
+  "schema_version": "q35-2b-phase-b-smoke-selection/v1",
+  "purpose": "no_update_mechanism_connectivity_only",
+  "source_dataset": {
+    "schema_version": "qwen35-2b-adaptive-cognition-sft/v3",
+    "sha256": "256328cbdb33dc8880370688e2c6f4256341f644757a9d9d033bb5febc74e12e",
+    "manifest_sha256": "52b50f8f57d2ad6cf084c13bfe429293b304824c76df2c979b6e7793d1344575"
+  },
+  "probe_task_keys": [
+    "document_adaptive_d0-v0-i34100:solve-anchor-1",
+    "document_adaptive_d2-v0-i34100:manager",
+    "document_adaptive_d3-v0-i34100:top-manager",
+    "document_adaptive_d0-v0-i34100:solve-anchor-2",
+    "document_adaptive_d2-v1-i34100:manager",
+    "document_adaptive_d3-v0-i34101:top-manager",
+    "document_adaptive_d0-v1-i34100:solve-anchor-1",
+    "document_adaptive_d2-v2-i34100:manager",
+    "document_adaptive_d3-v1-i34100:top-manager",
+    "document_adaptive_d0-v1-i34100:solve-anchor-2",
+    "document_adaptive_d2-v3-i34100:manager",
+    "document_adaptive_d3-v1-i34101:top-manager"
+  ],
+  "backward_probe_task_key": "document_adaptive_d3-v0-i34100:top-manager",
+  "balance": {
+    "rows": 12,
+    "rows_per_action": 4,
+    "actions": [
+      "solve_owned",
+      "delegate_terminal",
+      "delegate_coordinator"
+    ]
+  },
+  "split_semantics": "none; these preserved rows are a deterministic mechanism probe, not a training or held-out capability split",
+  "boundary": "Targets may name delegate_terminal, but this smoke never instantiates or evaluates a worker or specialist. H176 is not loaded."
+}
