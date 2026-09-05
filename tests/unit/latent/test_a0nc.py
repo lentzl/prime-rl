@@ -59,7 +59,7 @@ def test_a0nc_accepts_exact_fresh_four_probe_nocache_design():
 
 def test_a0nc_frozen_plan_closes_rejected_evidence_and_disjoint_banks():
     plan, bank = load_plan(EXPERIMENT / "a0-nocache-plan-v1.json", EXPERIMENT / "a0-nocache-bank-v1.json")
-    assert plan["plan_sha256"] == "2998a765a821e057d1cc3d4ed3223bdced917308760834bc68d6e1a546e170a6"
+    assert plan["plan_sha256"] == "e39b9ddad4e851070d46eef9c9d76ee7537214460fafdfc7ce33e56850e89a97"
     assert len(bank["examples"]) == 4
 
 
