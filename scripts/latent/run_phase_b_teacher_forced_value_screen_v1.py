@@ -49,7 +49,7 @@ from prime_rl.phase_b_value_screen import (
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-DRAFT_PLAN = EXPERIMENT / "phase-b-teacher-forced-value-screen-b1-draft-plan.json"
+DRAFT_PLAN = EXPERIMENT / "phase-b-teacher-forced-value-screen-b1-plan.json"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
     "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src:"

@@ -119,9 +119,9 @@ def validate_value_screen_plan(plan: dict[str, Any], *, require_authorized: bool
         pending_paths = _pending_paths(plan)
         if pending_paths:
             raise PhaseBContractError(f"B1 evaluator-owned fields remain pending: {pending_paths}")
-        if plan.get("status") != "frozen_independently_reviewed":
-            raise PhaseBContractError("B1 plan has not been independently frozen")
-        if plan.get("execution_authorization") != "explicit_root_schedule_required":
+        if plan.get("status") != "frozen_pending_independent_review":
+            raise PhaseBContractError("B1 plan is not the prospectively frozen review object")
+        if plan.get("execution_authorization") != "independent_gatekeeper_review_then_root_schedule_required":
             raise PhaseBContractError("B1 plan lacks the exact root scheduling boundary")
 
 

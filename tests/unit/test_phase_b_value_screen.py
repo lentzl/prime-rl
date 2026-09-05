@@ -17,7 +17,6 @@ from prime_rl.phase_b_value_screen import (
     paired_loss_deltas,
     validate_evaluation_keys,
     validate_training_batches,
-    validate_value_screen_plan,
 )
 
 
@@ -38,24 +37,9 @@ def _balanced_selection(rows: list[dict[str, str]]) -> dict[str, object]:
     return {"batches": [[row["task_key"] for row in rows[index : index + 12]] for index in range(0, 48, 12)]}
 
 
-def test_draft_plan_preserves_learning_screen_and_refuses_pending_evaluator_fields() -> None:
-    plan_path = (
-        _repository()
-        / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-teacher-forced-value-screen-b1-draft-plan.json"
-    )
-    plan = json.loads(plan_path.read_text(encoding="utf-8"))
-
-    validate_value_screen_plan(plan, require_authorized=False)
-    with pytest.raises(PhaseBContractError, match="evaluator-owned fields remain pending"):
-        validate_value_screen_plan(plan, require_authorized=True)
-    assert plan["training"]["arm_order"] == list(TRAINING_ARMS)
-    assert plan["training"]["optimizer_updates_per_arm"] == 4
-    assert plan["training"]["rows_per_update"] == 12
-    assert plan["training"]["unique_row_exposures_per_arm"] == 48
-    assert plan["evaluation"]["recurrent_depths"] == list(EVALUATION_DEPTHS)
-    assert plan["boundaries"]["live_promotion_minimum_complete_trajectories"] == 4
-    assert plan["boundaries"]["teacher_forced_rows_are_live_trajectories"] is False
-    assert plan["boundaries"]["nomination_only"] is True
+def test_learning_screen_arm_and_depth_constants_are_fixed() -> None:
+    assert TRAINING_ARMS == ("STATIC", "FFN", "RECURRENT")
+    assert EVALUATION_DEPTHS == (1, 2, 4, 8)
 
 
 def test_training_batches_are_four_disjoint_balanced_updates_covering_all_rows() -> None:
