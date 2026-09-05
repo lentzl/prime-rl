@@ -13,6 +13,7 @@ sampling_contract_sha=${8:?root-frozen sampling contract SHA-256 required}
 task_bank_sha=${9:?root-frozen heldout task-bank SHA-256 required}
 s5_summary_sha=${10:?exact rejected S5 primary-summary SHA-256 required}
 dry_run=${S6_DRY_RUN:-false}
+resume_after_audit=${S6_RESUME_AFTER_AUDIT:-false}
 
 audit_config=experiments/qwen35-2b-document-recursion-zero-update-v1/\
 specialist-source-competence-s6-first-call-grpo-zero-lr.toml
@@ -35,7 +36,9 @@ output_root=/home/ubuntu/rlm/outputs/q35-2b-source-first-call-s6-v1
 result_root=/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1
 audit_output=$output_root/zero-lr-audit
 update_output=$output_root/step1
-candidate=$update_output/weights/step_1
+audit_run=$audit_output/source-first-call-s6-zero-lr-audit
+update_run=$update_output/source-first-call-s6-step1
+candidate=$update_run/weights/step_1
 audit_result=$result_root/source-first-call-s6-zero-lr-audit.json
 update_result=$result_root/source-first-call-s6-step1-validation.json
 receipt=$result_root/source-first-call-s6-step1-receipt.json
@@ -175,7 +178,21 @@ if (
     raise SystemExit("S6 heldout or sampling contract is not prospectively frozen")
 PY
 
-if [[ -e "$output_root" || -e "$result_root" ]]; then
+if [[ "$resume_after_audit" == true ]]; then
+  if [[ "$dry_run" == true ]]; then
+    echo "S6 cannot dry-run while resuming a completed audit" >&2
+    exit 1
+  fi
+  if [[ ! -f "$audit_run/metrics.jsonl" \
+        || ! -f "$audit_run/rollouts/step_1/train/all/traces.jsonl" \
+        || ! -f "$result_root/zero-lr-routing-audit.jsonl" \
+        || -e "$audit_result" \
+        || -e "$update_output" \
+        || -e "$receipt" ]]; then
+    echo "S6 resume requires exactly one unvalidated completed audit and no update artifacts" >&2
+    exit 1
+  fi
+elif [[ -e "$output_root" || -e "$result_root" ]]; then
   echo "refusing duplicate or partial S6 output/result root" >&2
   exit 1
 fi
@@ -219,9 +236,11 @@ fi
 export NCCL_P2P_DISABLE=${NCCL_P2P_DISABLE:-1}
 export VLLM_USE_FLASHINFER_SAMPLER=${VLLM_USE_FLASHINFER_SAMPLER:-0}
 
-run_s6_rl "$audit_config"
+if [[ "$resume_after_audit" != true ]]; then
+  run_s6_rl "$audit_config"
+fi
 mkdir -p "$result_root"
-run_s6_python "$validator" "$audit_output" \
+run_s6_python "$validator" "$audit_run" \
   --runtime --output "$audit_result"
 for model_and_sha in \
   "$e33:$e33_sha" \
@@ -236,7 +255,7 @@ done
 run_s6_rl "$update_config"
 test -f "$candidate/STABLE"
 test -f "$candidate/model.safetensors"
-run_s6_python "$validator" "$update_output" --runtime --stage update \
+run_s6_python "$validator" "$update_run" --runtime --stage update \
   --output "$update_result"
 candidate_sha=$(sha256sum "$candidate/model.safetensors" | awk '{print $1}')
 if [[ "$candidate_sha" == "$s5_sha" ]]; then
@@ -244,7 +263,7 @@ if [[ "$candidate_sha" == "$s5_sha" ]]; then
   exit 1
 fi
 UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync python - \
-  "$update_output/metrics.jsonl" <<'PY'
+  "$update_run/metrics.jsonl" <<'PY'
 import json
 import math
 import sys

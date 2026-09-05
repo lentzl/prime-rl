@@ -191,6 +191,17 @@ def test_launcher_checks_s5_exactness_at_task_schema_location() -> None:
     assert 'get("exact_answers")' not in launcher
 
 
+def test_launcher_uses_nested_run_roots_and_fail_closed_audit_resume() -> None:
+    launcher = LAUNCHER_PATH.read_text()
+    assert 'audit_run=$audit_output/source-first-call-s6-zero-lr-audit' in launcher
+    assert 'update_run=$update_output/source-first-call-s6-step1' in launcher
+    assert 'candidate=$update_run/weights/step_1' in launcher
+    assert 'run_s6_python "$validator" "$audit_run"' in launcher
+    assert 'run_s6_python "$validator" "$update_run" --runtime --stage update' in launcher
+    assert 'resume_after_audit=${S6_RESUME_AFTER_AUDIT:-false}' in launcher
+    assert 'S6 resume requires exactly one unvalidated completed audit' in launcher
+
+
 def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
     validator = VALIDATOR_PATH.read_text()
     assert "if name != EXPECTED_REWARD" in validator
@@ -255,6 +266,7 @@ def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> N
                     "task": {"key": f"group-{group}"},
                     "nodes": [
                         {
+                            "sampled": True,
                             "message": {
                                 "role": "assistant",
                                 "tool_calls": [
@@ -285,6 +297,30 @@ def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> N
                     "action_sha256": action_sha,
                 }
             )
+
+    traces[0]["nodes"].append(
+        {
+            "sampled": False,
+            "message": {
+                "role": "assistant",
+                "tool_calls": [
+                    {
+                        "name": "ipython",
+                        "arguments": json.dumps(
+                            {
+                                "code": (
+                                    "task_worker = await rlm("
+                                    "'[selected terminal capability]\\n"
+                                    "expert_id=source_inspector\\ngroup=0', "
+                                    'name="task-worker")'
+                                )
+                            }
+                        ),
+                    }
+                ],
+            },
+        }
+    )
 
     report = validator._validate_forced_assignment_routes(traces, audits)
     assert report["events"] == 16

@@ -347,6 +347,11 @@ def _forced_assignment_identity(
     if not isinstance(calls, list):
         raise AuditFailure(f"effective trace {index} lacks call/session evidence")
     for node_index, node in enumerate(record.get("nodes", [])):
+        # The harness may retain a normalized, non-sampled copy of the accepted
+        # assignment later in the coordinator branch.  Only the sampled node
+        # corresponds to an inference call and therefore carries session evidence.
+        if isinstance(node, dict) and node.get("sampled") is False:
+            continue
         message = node.get("message") if isinstance(node, dict) else None
         if not isinstance(message, dict) or message.get("role") != "assistant":
             continue
