@@ -1,0 +1,15 @@
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  71%|███████   | 439/617 [00:00<00:00, 4375.11it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 4724.01it/s]
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 761, in <module>
+    main()
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 739, in main
+    receipt = run(args, plan, writer, stage)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 527, in run
+    evidence, case_calls = _case(
+                           ^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 326, in _case
+    raise CaptureMechanismRejected("CAP768 parity/repeat/capture predicate rejected")
+prime_rl.latent.a1cap768.CaptureMechanismRejected: CAP768 parity/repeat/capture predicate rejected
