@@ -439,7 +439,7 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
     typed: list[vf.WireTrace] = []
     child_branches = 0
     child_trainable_tokens = 0
-    coordinator_trainable_tokens = 0
+    raw_coordinator_sampled_tokens = 0
     expected_exports: list[tuple[tuple[int, ...], list[bool]]] = []
     for index, record in enumerate(trace_records):
         if record.get("ok") is not True or record.get("errors"):
@@ -479,7 +479,7 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
                 child_trainable_tokens += active
                 expected_exports.append((tuple(branch.token_ids), mask))
             else:
-                coordinator_trainable_tokens += active
+                raw_coordinator_sampled_tokens += active
         typed.append(trace)
     if families != Counter({family: 8 for family in EXPECTED_FAMILIES}):
         raise AuditFailure(f"S6 effective batch is not balanced: {dict(families)}")
@@ -493,9 +493,6 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         raise AuditFailure("S6 audit contains a zero-variance reward group")
     if child_trainable_tokens <= 0 or child_branches <= 0:
         raise AuditFailure("S6 has no positive trainable child token mass")
-    if coordinator_trainable_tokens != 0:
-        raise AuditFailure("S6 leaked trainable reward mass to the coordinator")
-
     export_dir = run_dir / "token_exports" / "step_1"
     if not (export_dir / "STABLE").is_file():
         raise AuditFailure("S6 token export is not stable")
@@ -525,6 +522,10 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         raise AuditFailure("S6 token exports are not one-to-one with trainable child branches")
     if exported_rl_tokens <= 0:
         raise AuditFailure("S6 exported no positive RL token mass")
+    if exported_rl_tokens != child_trainable_tokens:
+        raise AuditFailure("S6 child branch and exported RL token mass differ")
+    if _metric(records, "loss_tokens/rl") != exported_rl_tokens:
+        raise AuditFailure("S6 trainer consumed reward mass outside child exports")
     if any(
         any(value not in (None, 0, 0.0) for value in (record.get(stream) or []))
         for record in exports
@@ -558,7 +559,8 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         "groups": {key: values for key, values in task_rewards.items()},
         "child_branches": child_branches,
         "child_trainable_tokens": child_trainable_tokens,
-        "coordinator_trainable_tokens": coordinator_trainable_tokens,
+        "raw_coordinator_sampled_tokens": raw_coordinator_sampled_tokens,
+        "coordinator_exported_trainable_tokens": 0,
         "exported_rl_tokens": exported_rl_tokens,
         "checkpoint_written": stage == "update",
     }
