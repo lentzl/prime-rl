@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 2 || ! $1 =~ ^[0-9a-f]{40}$ || $2 != a1-nc0-cap768-r3-render-proof-run1 ]]; then
+if [[ $# -ne 2 || ! $1 =~ ^[0-9a-f]{40}$ || $2 != a1-nc0-cap768-r3-render-proof-run2 ]]; then
   echo "usage: $0 <exact-execution-commit> <exact-proof-run-id>" >&2
   exit 64
 fi

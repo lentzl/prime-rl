@@ -20,7 +20,9 @@ from prime_rl.latent.a1cap768 import SELECTION
 from prime_rl.latent.a1nc0 import tensor_bytes_sha256, validate_bank_artifact
 
 OUTPUT_ROOT = Path("/home/ubuntu/rlm/outputs/latent-a1-nc0-cap768-r3-render-proof-v1")
-RUN_ID = "a1-nc0-cap768-r3-render-proof-run1"
+RUN_ID = "a1-nc0-cap768-r3-render-proof-run2"
+EXPECTED_CAP_RUNNER_SHA = "5de4f57deb324451efd1e3c11576c046fc9bfd31b4f3a3218bd5a90c963bf061"
+EXPECTED_BASE_RUNNER_SHA = "3ad4949d70edc467e30eeb2b512292a09dfa5d66f411253bf31045d6047034d9"
 EXPECTED_RUNTIME = {
     "python": "3.12.14",
     "transformers": "5.6.2",
@@ -38,11 +40,13 @@ EXPECTED_METADATA = {
 }
 
 
-def _load_base(repo: Path):
-    path = repo / "scripts/latent/run_a1_nc0_nomination_v1.py"
-    spec = importlib.util.spec_from_file_location("a1_nc0_r3_render_proof_base", path)
+def _load_cap(repo: Path):
+    path = repo / "scripts/latent/run_a1_nc0_cap768_v1.py"
+    if file_sha256(path) != EXPECTED_CAP_RUNNER_SHA:
+        raise RuntimeError("R3 proof CAP runner identity changed")
+    spec = importlib.util.spec_from_file_location("a1_nc0_cap768_r3_render_proof", path)
     if spec is None or spec.loader is None:
-        raise RuntimeError("R3 operational render module unavailable")
+        raise RuntimeError("R3 CAP operational render module unavailable")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module, path
@@ -124,7 +128,18 @@ def main() -> None:
     }
     if runtime != EXPECTED_RUNTIME:
         raise RuntimeError("R3 proof runtime changed")
-    base, base_path = _load_base(args.repo)
+    cap, cap_path = _load_cap(args.repo)
+    base = cap.base
+    base_path = Path(base.__file__).resolve()
+    expected_base_path = (args.repo / "scripts/latent/run_a1_nc0_nomination_v1.py").resolve()
+    if (
+        base_path != expected_base_path
+        or file_sha256(base_path) != EXPECTED_BASE_RUNNER_SHA
+        or cap.validate_bank_artifact is not validate_bank_artifact
+        or validate_bank_artifact.__module__ != "prime_rl.latent.a1nc0"
+        or cap.base.operational_template_input_ids is not base.operational_template_input_ids
+    ):
+        raise RuntimeError("R3 CAP/base/validator import identity changed")
     if base.metadata_hashes(args.coordinator) != EXPECTED_METADATA:
         raise RuntimeError("R3 proof tokenizer identity changed")
     artifacts = {
@@ -201,6 +216,8 @@ def main() -> None:
         "schema_version": "prime-rl/latent-a1-nc0-cap768-r3-render-proof/v1",
         "status": "operational_render_mechanism_validated",
         "execution_commit": args.execution_commit,
+        "cap_runner_path": str(cap_path),
+        "cap_runner_sha256": file_sha256(cap_path),
         "runner_path": str(base_path),
         "runner_sha256": file_sha256(base_path),
         "proof_script_sha256": file_sha256(Path(__file__)),
@@ -212,6 +229,10 @@ def main() -> None:
         "offline": {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"},
         "tokenizer_load_calls": 1,
         "model_load_calls": 0,
+        "cap_runner_import_succeeded": True,
+        "cap_base_module_identity": True,
+        "validator_object_identity": True,
+        "validator_defining_module": "prime_rl.latent.a1nc0",
         "main_called": False,
         "cases": cases,
         "case_count": 8,

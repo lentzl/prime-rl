@@ -147,8 +147,12 @@ def test_r3_operational_render_repair_and_proof_are_narrow_and_strict():
     assert "expected_lengths = [517, 475, 599, 471, 616, 476, 644, 470]" in proof
     assert 'os.environ.get("CUDA_VISIBLE_DEVICES") != ""' in proof
     assert "tokenizer_load_calls != 1" in proof and "model_loader.call_count != 0" in proof
-    assert "a1-nc0-cap768-r3-render-proof-run1" in proof_shell
+    assert "a1-nc0-cap768-r3-render-proof-run2" in proof_shell
     assert 'export CUDA_VISIBLE_DEVICES=""' in proof_shell
+    assert "cap.validate_bank_artifact is not validate_bank_artifact" in proof
+    assert 'validate_bank_artifact.__module__ != "prime_rl.latent.a1nc0"' in proof
+    assert 'path = repo / "scripts/latent/run_a1_nc0_cap768_v1.py"' in proof
+    assert "cap.base.operational_template_input_ids" in proof
 
 
 def test_single_compute_alarm_covers_plan_through_probes():
