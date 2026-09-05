@@ -13,6 +13,7 @@ from prime_rl.phase_b_value_screen import (
     ACTIONS,
     EVALUATION_DEPTHS,
     TRAINING_ARMS,
+    TrainingBatch,
     action_margin_from_logits,
     build_action_trie,
     canonical_plan_sha256,
@@ -98,6 +99,29 @@ def test_b1r_cuda_memory_cap_checks_current_and_peak_allocated_and_reserved() ->
     with pytest.raises(runner.ResourceContractExceeded, match="maximum_reserved_bytes"):
         runner._enforce_cuda_memory_cap(torch, audit, "violation")
     assert audit["cuda_memory_contract"]["checkpoint_ledger"][-1]["checkpoint"] == "violation"
+
+
+def test_b1r_memory_ledger_has_exact_404_unique_ordered_checkpoints() -> None:
+    runner = _runner_module()
+    bank = _repository() / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1"
+    training = json.loads((bank / "training-selection.json").read_text())
+    heldout = json.loads((bank / "heldout-selection.json").read_text())
+    context = {
+        "training_rows": [{"task_key": key} for key in training["task_keys"]],
+        "heldout_rows": [{"task_key": key} for key in heldout["task_keys"]],
+        "batches": tuple(
+            TrainingBatch(update_index=index, task_keys=tuple(keys))
+            for index, keys in enumerate(training["batches"], start=1)
+        ),
+    }
+    labels = runner._expected_memory_checkpoint_labels(context)
+    assert len(labels) == len(set(labels)) == 404
+    assert labels[0] == "after_model_load"
+    assert labels[-1] == "before_success"
+    assert sum(label.startswith("capture:") for label in labels) == 60
+    assert sum(":post_backward" in label for label in labels) == 144
+    assert sum(":post_clip" in label for label in labels) == 12
+    assert sum(":post_step" in label for label in labels) == 12
 
 
 def test_training_batches_are_four_disjoint_balanced_updates_covering_all_rows() -> None:
