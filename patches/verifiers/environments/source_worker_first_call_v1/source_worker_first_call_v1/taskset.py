@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import Field, model_validator
-
 import verifiers.v1 as vf
+from pydantic import Field, model_validator
 from subagent_communication_v1.taskset import (
     SubagentCommunicationConfig,
     SubagentCommunicationTask,
@@ -17,7 +16,11 @@ from subagent_communication_v1.taskset import (
 )
 from verifiers.v1.types import UserMessage, content_text
 
-from source_worker_first_call_v1.reward import CellEvidence, score_first_call
+from source_worker_first_call_v1.reward import (
+    CellEvidence,
+    is_designated_source_inspector_task,
+    score_first_call,
+)
 
 SOURCE_FAMILIES = ("specialist_source_ast", "specialist_source_config")
 
@@ -26,15 +29,15 @@ class SourceWorkerFirstCallTaskConfig(SubagentCommunicationTaskConfig):
     reward_mode: Literal["source_worker_first_call"] = "source_worker_first_call"
 
 
-def _is_child_node(trace: vf.Trace, node_index: int) -> bool:
+def _is_source_inspector_node(trace: vf.Trace, node_index: int) -> bool:
     visited: set[int] = set()
     while node_index not in visited:
         visited.add(node_index)
         node = trace.nodes[node_index]
-        if isinstance(node.message, UserMessage) and content_text(
-            node.message.content
-        ).lstrip().startswith("[task from parent]"):
-            return True
+        if isinstance(node.message, UserMessage):
+            text = content_text(node.message.content)
+            if text.lstrip().startswith("[task from parent]"):
+                return is_designated_source_inspector_task(text)
         if node.parent is None:
             return False
         node_index = node.parent
@@ -49,7 +52,7 @@ class SourceWorkerFirstCallTask(SubagentCommunicationTask):
         events = tuple(
             CellEvidence(event.code, event.output)
             for event in _ipython_events(trace)
-            if _is_child_node(trace, event.node_index)
+            if _is_source_inspector_node(trace, event.node_index)
         )
         messages = tuple(
             message.body

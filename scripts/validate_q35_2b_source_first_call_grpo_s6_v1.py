@@ -35,6 +35,9 @@ EXPECTED_ROUTING_AUDIT = {
     "update": Path("/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/step1-routing-audit.jsonl"),
 }
 FORCED_ROUTE_MODE = "forced_specialist_assignment_generate_action"
+MAX_MISMATCH_TO_ENTROPY_RATIO = 0.25
+MAX_MISMATCH_OUTLIER_TO_ENTROPY_MAX = 100.0
+MAX_DPPO_MASKED_FRACTION = 0.05
 
 
 class AuditFailure(ValueError):
@@ -192,6 +195,69 @@ def _metric(records: list[dict[str, Any]], key: str) -> float:
     if not math.isfinite(value):
         raise AuditFailure(f"non-finite metric: {key}")
     return value
+
+
+def _validate_prospective_lr0_health(
+    records: list[dict[str, Any]], trace_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Reject censored or trainer/inference-misaligned LR=0 mechanisms.
+
+    These are update-authorization checks, not specialist admission gates.
+    They deliberately require at least one non-max-turn completion in each
+    family and near-on-policy token likelihoods before a gradient may be used.
+    """
+
+    stops: dict[str, Counter[str]] = {
+        family: Counter() for family in EXPECTED_FAMILIES
+    }
+    for index, record in enumerate(trace_records):
+        family = record.get("task", {}).get("data", {}).get("family")
+        stop = record.get("stop_condition")
+        if family not in stops or not isinstance(stop, str) or not stop:
+            raise AuditFailure(
+                f"effective trace {index} lacks prospective stop/family evidence"
+            )
+        stops[family][stop] += 1
+    for family, counts in stops.items():
+        if sum(counts.values()) <= 0 or counts["max_turns"] == sum(counts.values()):
+            raise AuditFailure(
+                f"prospective LR0 audit is 100% max-turn censored for {family}"
+            )
+
+    entropy_mean = _metric(records, "entropy/all/mean")
+    entropy_max = _metric(records, "entropy/all/max")
+    mismatch_mean = _metric(records, "unmasked_mismatch_kl/mean")
+    mismatch_max = _metric(records, "mismatch_kl/all/max")
+    masked_fraction = _metric(records, "is_masked/mean")
+    if entropy_mean <= 0 or entropy_max <= 0:
+        raise AuditFailure("prospective LR0 audit has no finite positive entropy")
+    mismatch_ratio = mismatch_mean / entropy_mean
+    mismatch_outlier_ratio = mismatch_max / entropy_max
+    if mismatch_ratio > MAX_MISMATCH_TO_ENTROPY_RATIO:
+        raise AuditFailure(
+            "prospective LR0 audit has pathological unmasked trainer/inference mismatch"
+        )
+    if mismatch_outlier_ratio > MAX_MISMATCH_OUTLIER_TO_ENTROPY_MAX:
+        raise AuditFailure(
+            "prospective LR0 audit has pathological mismatch-KL outliers"
+        )
+    if masked_fraction > MAX_DPPO_MASKED_FRACTION:
+        raise AuditFailure(
+            "prospective LR0 audit masks too much trainer/inference mismatch"
+        )
+    return {
+        "stop_conditions": {
+            family: dict(sorted(counts.items())) for family, counts in stops.items()
+        },
+        "unmasked_mismatch_to_entropy_ratio": mismatch_ratio,
+        "mismatch_outlier_to_entropy_max_ratio": mismatch_outlier_ratio,
+        "dppo_masked_fraction": masked_fraction,
+        "limits": {
+            "unmasked_mismatch_to_entropy_ratio": MAX_MISMATCH_TO_ENTROPY_RATIO,
+            "mismatch_outlier_to_entropy_max_ratio": MAX_MISMATCH_OUTLIER_TO_ENTROPY_MAX,
+            "dppo_masked_fraction": MAX_DPPO_MASKED_FRACTION,
+        },
+    }
 
 
 def _is_child_branch(branch: Any, user_message_type: type, content_text_fn: Any) -> bool:
@@ -429,6 +495,11 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
     trace_records = _read_jsonl(trace_path)
     if len(trace_records) != EXPECTED_BATCH_SIZE:
         raise AuditFailure(f"S6 audit requires exactly {EXPECTED_BATCH_SIZE} effective traces")
+    health_report = (
+        _validate_prospective_lr0_health(records, trace_records)
+        if stage == "audit"
+        else None
+    )
     routing_report = _validate_forced_assignment_routes(
         trace_records, _read_jsonl(Path(config_report["routing_audit"]))
     )
@@ -552,6 +623,7 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         "stage": stage,
         "config": config_report,
         "routing": routing_report,
+        "prospective_lr0_health": health_report,
         "gradient_norm": grad_norm,
         "families": dict(families),
         "source_rollouts": dict(source_rollouts),

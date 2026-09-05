@@ -17,6 +17,7 @@ sys.modules[SPEC.name] = REWARD
 SPEC.loader.exec_module(REWARD)
 CellEvidence = REWARD.CellEvidence
 score_first_call = REWARD.score_first_call
+is_designated_source_inspector_task = REWARD.is_designated_source_inspector_task
 
 
 AST_PATHS = ("/workspace/sample/alpha.py", "/workspace/sample/beta.py")
@@ -67,9 +68,9 @@ tree = ast.parse(Path('/workspace/sample/other.py').read_text())
         cells=(CellEvidence(code, "ok"),),
         delivered_bodies=(),
     )
-    assert result.exception_free_first_call == 1
+    assert result.exception_free_first_call == 0
     assert result.correct_file_api == 0
-    assert result.score == pytest.approx(0.1)
+    assert result.score == pytest.approx(0.0)
 
 
 def test_two_hop_loop_proves_each_path_is_read() -> None:
@@ -79,6 +80,7 @@ paths = ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')
 trees = []
 for path in paths:
     trees.append(ast.parse(Path(path).read_text()))
+value = sum(isinstance(node, ast.FunctionDef) for tree in trees for node in ast.walk(tree))
 """
     result = score_first_call(
         family="specialist_source_ast",
@@ -103,6 +105,7 @@ def test_config_accepts_text_and_binary_tomllib_reads(toml_expression: str) -> N
 from pathlib import Path
 config = {toml_expression}
 features = dict(line.split('=', 1) for line in Path('/workspace/sample/features.env').read_text().splitlines())
+value = config['runtime']['workers'] * config['runtime']['timeout_seconds'] + sum(value == 'true' for value in features.values())
 """
     result = score_first_call(
         family="specialist_source_config",
@@ -119,6 +122,7 @@ def test_later_exact_recovery_cannot_outrank_correct_first_call() -> None:
     correct_first_call = """import ast
 from pathlib import Path
 trees = [ast.parse(Path(path).read_text()) for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
+value = sum(isinstance(node, ast.FunctionDef) for tree in trees for node in ast.walk(tree))
 """
     baseline = score_first_call(
         family="specialist_source_ast",
@@ -143,7 +147,7 @@ trees = [ast.parse(Path(path).read_text()) for path in ('/workspace/sample/alpha
     assert baseline.score == pytest.approx(0.3)
     assert recovered.exact_oracle_value == 1
     assert recovered.atomic_compact_parent_send == 0
-    assert recovered.score == pytest.approx(0.09)
+    assert recovered.score == pytest.approx(-0.01)
     assert recovered.score < baseline.score
 
 
@@ -151,6 +155,7 @@ def test_extra_send_prevents_atomic_credit_and_is_penalized() -> None:
     first = """import ast
 from pathlib import Path
 trees = [ast.parse(Path(path).read_text()) for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
+value = sum(isinstance(node, ast.FunctionDef) for tree in trees for node in ast.walk(tree))
 await agent_message.send('{"value":30}', receiver_role='parent')
 """
     second = "await agent_message.send('{\"value\":30}', receiver_role='parent')"
@@ -168,6 +173,152 @@ await agent_message.send('{"value":30}', receiver_role='parent')
     assert result.extra_sends == 1
     assert result.retries == 1
     assert result.score == pytest.approx(0.26)
+
+
+@pytest.mark.parametrize(
+    "code",
+    (
+        "",
+        "rlm.list_subagents()",
+        "await agent_observe('child')",
+        "print('conversation log')",
+        "goal = 'inspect source eventually'",
+    ),
+)
+def test_silence_and_control_plane_inspection_earn_no_positive_credit(code: str) -> None:
+    cells = () if not code else (CellEvidence(code, "ok"),)
+    result = score_first_call(
+        family="specialist_source_ast",
+        required_paths=AST_PATHS,
+        expected_value=30,
+        cells=cells,
+        delivered_bodies=(),
+    )
+    assert result.exception_free_first_call == 0
+    assert result.correct_file_api == 0
+    assert result.score == pytest.approx(0.0)
+
+
+def test_reads_without_family_computation_earn_no_positive_credit() -> None:
+    code = """from pathlib import Path
+texts = [Path(path).read_text() for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
+"""
+    result = score_first_call(
+        family="specialist_source_ast",
+        required_paths=AST_PATHS,
+        expected_value=30,
+        cells=(CellEvidence(code, "ok"),),
+        delivered_bodies=(),
+    )
+    assert result.exception_free_first_call == 0
+    assert result.score == pytest.approx(0.0)
+
+
+def test_partial_correct_source_work_outranks_silence() -> None:
+    code = """import ast
+from pathlib import Path
+trees = [ast.parse(Path(path).read_text()) for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
+value = sum(isinstance(node, ast.FunctionDef) for tree in trees for node in ast.walk(tree))
+"""
+    partial = score_first_call(
+        family="specialist_source_ast",
+        required_paths=AST_PATHS,
+        expected_value=30,
+        cells=(CellEvidence(code, "ok"),),
+        delivered_bodies=(),
+    )
+    silence = score_first_call(
+        family="specialist_source_ast",
+        required_paths=AST_PATHS,
+        expected_value=30,
+        cells=(),
+        delivered_bodies=(),
+    )
+    assert partial.exception_free_first_call == 1
+    assert partial.correct_file_api == 1
+    assert partial.score == pytest.approx(0.3)
+    assert partial.score > silence.score
+
+
+def test_only_typed_source_inspector_assignment_is_designated() -> None:
+    typed = """[task from parent]
+[selected terminal capability]
+expert_id=source_inspector
+session_role=terminal_worker
+Read both files.
+"""
+    assert is_designated_source_inspector_task(typed)
+    assert not is_designated_source_inspector_task("[task from parent]\nInspect files")
+    assert not is_designated_source_inspector_task(
+        typed.replace("expert_id=source_inspector", "expert_id=table_analyst")
+    )
+
+
+def _healthy_lr0_metrics() -> list[dict[str, float]]:
+    return [
+        {
+            "entropy/all/mean": 1.0,
+            "entropy/all/max": 8.0,
+            "unmasked_mismatch_kl/mean": 0.1,
+            "mismatch_kl/all/max": 20.0,
+            "is_masked/mean": 0.01,
+        }
+    ]
+
+
+def _lr0_traces(*, all_max_turns: bool) -> list[dict[str, object]]:
+    traces = []
+    for family in ("specialist_source_ast", "specialist_source_config"):
+        for index in range(8):
+            traces.append(
+                {
+                    "task": {"data": {"family": family}},
+                    "stop_condition": (
+                        "max_turns" if all_max_turns or index else "agent_completed"
+                    ),
+                }
+            )
+    return traces
+
+
+def test_prospective_lr0_health_requires_uncensored_trace_per_family() -> None:
+    validator = _validator_module()
+    with pytest.raises(validator.AuditFailure, match="100% max-turn censored"):
+        validator._validate_prospective_lr0_health(
+            _healthy_lr0_metrics(), _lr0_traces(all_max_turns=True)
+        )
+
+
+@pytest.mark.parametrize(
+    ("key", "value", "message"),
+    (
+        ("unmasked_mismatch_kl/mean", 0.3, "unmasked trainer/inference mismatch"),
+        ("mismatch_kl/all/max", 900.0, "mismatch-KL outliers"),
+        ("is_masked/mean", 0.06, "masks too much"),
+    ),
+)
+def test_prospective_lr0_health_rejects_pathological_mismatch(
+    key: str, value: float, message: str
+) -> None:
+    validator = _validator_module()
+    metrics = _healthy_lr0_metrics()
+    metrics[0][key] = value
+    with pytest.raises(validator.AuditFailure, match=message):
+        validator._validate_prospective_lr0_health(
+            metrics, _lr0_traces(all_max_turns=False)
+        )
+
+
+def test_prospective_lr0_health_accepts_finite_aligned_uncensored_control() -> None:
+    validator = _validator_module()
+    report = validator._validate_prospective_lr0_health(
+        _healthy_lr0_metrics(), _lr0_traces(all_max_turns=False)
+    )
+    assert report["unmasked_mismatch_to_entropy_ratio"] == pytest.approx(0.1)
+    assert all(
+        counts["agent_completed"] == 1
+        for counts in report["stop_conditions"].values()
+    )
 
 
 def test_launcher_uses_source_paths_without_dependency_overlay() -> None:
