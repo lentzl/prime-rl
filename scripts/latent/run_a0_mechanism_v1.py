@@ -21,11 +21,13 @@ import transformers.models.qwen3_5.modeling_qwen3_5
 from transformers import AutoModelForImageTextToText, AutoTokenizer
 
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256, load_and_validate_a0_plan
+from prime_rl.latent.a0c import load_and_validate_a0c_plan, validate_a0c_receipt
 from prime_rl.latent.a0r import load_and_validate_a0r_plan
 from prime_rl.latent.policy_adapter import CapturedFeatures, compose_receiver_inputs
 
 A0_OUTPUT_ROOTS = {
     "a0": Path("/home/ubuntu/rlm/outputs/latent-a0-mechanism-v1"),
+    "a0c": Path("/home/ubuntu/rlm/outputs/latent-a0c-carrier-v1"),
     "a0r": Path("/home/ubuntu/rlm/outputs/latent-a0r-mechanism-v1"),
 }
 A0_SHARED_ENVIRONMENT = Path("/home/ubuntu/rlm/prime-rl/.venv")
@@ -41,7 +43,7 @@ class ArtifactWriter:
             raise ValueError("A0 output root must be an absolute existing non-symlink directory")
         if output_dir.parent.resolve(strict=True) != expected_root.resolve(strict=True):
             raise ValueError("A0 output directory must be a direct child of the frozen output root")
-        if not output_dir.name.startswith(("a0-", "a0r-")) or "/" in output_dir.name:
+        if not output_dir.name.startswith(("a0-", "a0c-", "a0r-")) or "/" in output_dir.name:
             raise ValueError("A0 output directory name is outside the frozen namespace")
         nofollow = getattr(os, "O_NOFOLLOW", 0)
         self.root_fd = os.open(expected_root, os.O_RDONLY | os.O_DIRECTORY | nofollow)
@@ -209,7 +211,14 @@ def tensor_bytes_sha256(tensor: torch.Tensor) -> str:
     return hashlib.sha256(raw_bytes).hexdigest()
 
 
-def probe_example(model, tokenizer, example: dict[str, object], mechanism: dict[str, object]) -> dict[str, object]:
+def probe_example(
+    model,
+    tokenizer,
+    example: dict[str, object],
+    mechanism: dict[str, object],
+    *,
+    include_cache: bool = True,
+) -> dict[str, object]:
     parent_ids = render_ids(tokenizer, example["parent_messages"], generation_prompt=False).to("cuda:0")
     child_prefix_ids = render_ids(tokenizer, example["child_messages"], generation_prompt=False).to("cuda:0")
     child_ids = render_ids(tokenizer, example["child_messages"], generation_prompt=True).to("cuda:0")
@@ -412,6 +421,55 @@ def probe_example(model, tokenizer, example: dict[str, object], mechanism: dict[
     ):
         raise MechanismRejected("soft workspace autograd isolation failed")
 
+    result: dict[str, object] = {
+        "example_id": example["example_id"],
+        "status": "complete",
+        "prompt_tokens": {
+            "parent": parent_ids.shape[1],
+            "child_without_assistant_opening": child_prefix_ids.shape[1],
+            "child_with_assistant_opening": child_ids.shape[1],
+        },
+        "hard_bypass": {
+            "bitwise_equal": hard_equal,
+            "logits_finite": hard_logits_finite,
+            "maximum_absolute_logit_difference": hard_max_abs,
+            "additional_positions": 0,
+            "labels_mask_positions_preserved": hard_contract_exact,
+            "four_token_greedy_continuation_equal": True,
+            "four_token_greedy_logits_finite": True,
+            "greedy_token_ids": ids_tokens,
+        },
+        "capture": {
+            "claim_boundary": "rendered_transcript_end_not_harness_acceptance",
+            "layer": -1,
+            "shape": list(captured.hidden_states.shape),
+            "finite": True,
+            "detached": True,
+            "repeat_bitwise_equal": repeat_equal,
+            "mask_and_indices_exact": mask_and_indices_exact,
+            "hidden_padding_content_exact": hidden_padding_content_exact,
+            "tensor_bytes_sha256": capture_tensor_sha256,
+            "capture_spec_sha256": captured.capture_spec_hash,
+        },
+        "soft_insertion": {
+            "claim": "carrier_and_autograd_connectivity_only",
+            "workspace_span": list(soft_batch.workspace_span),
+            "positions": 8,
+            "logits_finite": True,
+            "loss_finite": True,
+            "original_tokens_mask_labels_preserved": original_tokens_mask_labels_preserved,
+            "positions_sequential_shifted": positions_sequential_shifted,
+            "inserted_attention_mask_ones": 8,
+            "inserted_loss_mask_negative_100": 8,
+            "no_other_loss_masking": loss_mask_exact,
+            "workspace_gradient_finite_nonzero": workspace_gradient_ok,
+            "gate_gradient_finite_nonzero": gate_gradient_ok,
+            "base_parameter_gradients": 0,
+        },
+    }
+    if not include_cache:
+        return result
+
     cache_steps: list[dict[str, object]] = []
     with torch.inference_mode():
         full_embeddings = soft_batch.inputs_embeds.detach()
@@ -476,57 +534,12 @@ def probe_example(model, tokenizer, example: dict[str, object], mechanism: dict[
                 }
             )
 
-    return {
-        "example_id": example["example_id"],
-        "status": "complete",
-        "prompt_tokens": {
-            "parent": parent_ids.shape[1],
-            "child_without_assistant_opening": child_prefix_ids.shape[1],
-            "child_with_assistant_opening": child_ids.shape[1],
-        },
-        "hard_bypass": {
-            "bitwise_equal": hard_equal,
-            "logits_finite": hard_logits_finite,
-            "maximum_absolute_logit_difference": hard_max_abs,
-            "additional_positions": 0,
-            "labels_mask_positions_preserved": hard_contract_exact,
-            "four_token_greedy_continuation_equal": True,
-            "four_token_greedy_logits_finite": True,
-            "greedy_token_ids": ids_tokens,
-        },
-        "capture": {
-            "claim_boundary": "rendered_transcript_end_not_harness_acceptance",
-            "layer": -1,
-            "shape": list(captured.hidden_states.shape),
-            "finite": True,
-            "detached": True,
-            "repeat_bitwise_equal": repeat_equal,
-            "mask_and_indices_exact": mask_and_indices_exact,
-            "hidden_padding_content_exact": hidden_padding_content_exact,
-            "tensor_bytes_sha256": capture_tensor_sha256,
-            "capture_spec_sha256": captured.capture_spec_hash,
-        },
-        "soft_insertion": {
-            "claim": "carrier_and_autograd_connectivity_only",
-            "workspace_span": list(soft_batch.workspace_span),
-            "positions": 8,
-            "logits_finite": True,
-            "loss_finite": True,
-            "original_tokens_mask_labels_preserved": original_tokens_mask_labels_preserved,
-            "positions_sequential_shifted": positions_sequential_shifted,
-            "inserted_attention_mask_ones": 8,
-            "inserted_loss_mask_negative_100": 8,
-            "no_other_loss_masking": loss_mask_exact,
-            "workspace_gradient_finite_nonzero": workspace_gradient_ok,
-            "gate_gradient_finite_nonzero": gate_gradient_ok,
-            "base_parameter_gradients": 0,
-        },
-        "cache_probe": {
-            "initial_sequence_length": initial_cache_length,
-            "teacher_forced_token_ids": continuation_ids.flatten().tolist(),
-            "decode_steps": cache_steps,
-        },
+    result["cache_probe"] = {
+        "initial_sequence_length": initial_cache_length,
+        "teacher_forced_token_ids": continuation_ids.flatten().tolist(),
+        "decode_steps": cache_steps,
     }
+    return result
 
 
 def host_ram_bytes() -> int:
@@ -594,11 +607,11 @@ def run(
         "python": platform.python_version(),
         "transformers": require_version("transformers", plan["runtime"]["transformers"]),
     }
-    if args.campaign == "a0r":
+    if args.campaign in {"a0c", "a0r"}:
         versions["torch_distribution"] = require_version("torch", plan["runtime"]["torch_distribution"])
         versions["torch_runtime"] = str(torch.__version__)
         if versions["torch_runtime"] != plan["runtime"]["torch_runtime"]:
-            raise ValueError("Torch runtime string differs from the frozen A0R repair")
+            raise ValueError("Torch runtime string differs from the frozen repaired runtime")
     else:
         versions["torch"] = require_version("torch", plan["runtime"]["torch"])
     runtime_sources = transformers_source_hashes()
@@ -658,7 +671,15 @@ def run(
     probes = []
     for example in bank["examples"]:
         stage["name"] = f"probe_{example['example_id']}"
-        probes.append(probe_example(model, tokenizer, example, plan["mechanism"]))
+        probes.append(
+            probe_example(
+                model,
+                tokenizer,
+                example,
+                plan["mechanism"],
+                include_cache=args.campaign != "a0c",
+            )
+        )
     if len(probes) != 4 or any(probe["status"] != "complete" for probe in probes):
         raise MechanismRejected("fewer than four A0 probes completed")
     post_hashes = {name: file_sha256(path) for name, path in weights.items()}
@@ -669,16 +690,31 @@ def run(
     if post_hashes != pre_hashes or metadata_after != metadata_before:
         raise RuntimeError("protected checkpoint weights or metadata changed during A0")
     stage["name"] = "protected_postflight_verified"
+    carrier_only = args.campaign == "a0c"
     receipt: dict[str, object] = {
         "schema_version": f"prime-rl/latent-{args.campaign}-mechanism-receipt/v1",
-        "status": "rendered_transcript_carrier_mechanism_validated",
-        "claim": "four-probe carrier/autograd/cache validation; not harness acceptance/timing or model admission",
+        "status": (
+            "carrier_only_mechanism_validated_for_b_dependency"
+            if carrier_only
+            else "rendered_transcript_carrier_mechanism_validated"
+        ),
+        "claim": (
+            "four-probe pre-cache carrier/autograd validation for B dependency only"
+            if carrier_only
+            else "four-probe carrier/autograd/cache validation; not harness acceptance/timing or model admission"
+        ),
         "plan_sha256": plan["plan_sha256"],
         "bank_sha256": plan["bank_sha256"],
         "mechanism_code_commit": plan["mechanism_code_commit"],
         "execution_commit": args.execution_commit,
         "asset_sha256": plan["asset_sha256"],
         "versions": versions,
+        "model_runtime": {
+            "class": model.__class__.__name__,
+            "hidden_size": model.config.text_config.hidden_size,
+            "device": str(next(model.parameters()).device),
+            "dtype": str(next(model.parameters()).dtype).removeprefix("torch."),
+        },
         "transformers_runtime_sources": runtime_sources,
         "gpu": {"name": torch.cuda.get_device_name(0), "total_memory_gib": total_gib},
         "host": {"ram_bytes": ram, "free_disk_bytes_before": free_disk},
@@ -698,10 +734,19 @@ def run(
             "expected_files": ["receipt.json"],
             "maximum_directory_bytes": plan["resource_bounds"]["maximum_output_directory_bytes"],
         },
-        "a1_blocker": "live typed-harness action acceptance and capture timing remain unvalidated",
+        "a1_blocker": (
+            "A0R cached/full gate remains rejected; live typed-harness action acceptance and capture timing remain "
+            "unvalidated"
+            if carrier_only
+            else "live typed-harness action acceptance and capture timing remain unvalidated"
+        ),
         "promotion_boundary": plan["promotion_boundary"],
     }
+    if carrier_only:
+        receipt["dependency_scope"] = plan["dependency_scope"]
     receipt["receipt_sha256"] = canonical_json_hash(receipt)
+    if carrier_only:
+        validate_a0c_receipt(receipt, plan=plan)
     return receipt
 
 
@@ -752,7 +797,7 @@ def main() -> None:
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--execution-commit", required=True)
-    parser.add_argument("--campaign", choices=("a0", "a0r"), default="a0")
+    parser.add_argument("--campaign", choices=("a0", "a0c", "a0r"), default="a0")
     parser.add_argument("--owner-approved", action="store_true")
     args = parser.parse_args()
     writer = ArtifactWriter(args.output_dir, A0_OUTPUT_ROOTS[args.campaign])
@@ -765,7 +810,9 @@ def main() -> None:
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm((30 - 2) * 60)
     try:
-        if args.campaign == "a0r":
+        if args.campaign == "a0c":
+            plan, bank = load_and_validate_a0c_plan(args.plan, args.bank)
+        elif args.campaign == "a0r":
             plan, bank = load_and_validate_a0r_plan(args.plan, args.bank)
         else:
             plan, bank = load_and_validate_a0_plan(args.plan, args.bank)

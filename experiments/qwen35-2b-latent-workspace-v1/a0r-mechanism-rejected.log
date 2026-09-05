@@ -1,0 +1,15 @@
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  93%|█████████▎| 576/617 [00:00<00:00, 5730.49it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 5803.03it/s]
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 795, in <module>
+    main()
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 773, in main
+    receipt = run(args, plan, bank, stage)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 661, in run
+    probes.append(probe_example(model, tokenizer, example, plan["mechanism"]))
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 465, in probe_example
+    raise MechanismRejected(
+MechanismRejected: cached/full disagreement at step 1: length=56, max_abs=0.1875, normalized_rms=0.015026240609586239, greedy_equal=True

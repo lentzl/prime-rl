@@ -1,0 +1,39 @@
+{
+  "bank_path": "/home/ubuntu/rlm/prime-rl-strand-a/experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-bank-v1.json",
+  "error": "cached/full disagreement at step 1: length=56, max_abs=0.1875, normalized_rms=0.015026240609586239, greedy_equal=True",
+  "error_type": "MechanismRejected",
+  "execution_commit": "d2a3c47530db59c4829b579aed8874e92b9b8af2",
+  "failure_category": "mechanism_predicate_failure",
+  "failure_sha256": "8856b213a9796186ff328ba0d20584387ffeba3554859f430c7a29fe52ac4746",
+  "mechanism_code_commit": "5abc829ff04d7fc39f3e43a5b55f28eff7c61799",
+  "model_update_attempted": false,
+  "plan_path": "/home/ubuntu/rlm/prime-rl-strand-a/experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-plan-v1.json",
+  "plan_sha256": "d920e79d8dfe4334d99dfc875bea9dbc1ba01fdaf6f4d7c028b2b437814efed1",
+  "protected_hash_probe_after_failure": {
+    "coordinator_e33": {
+      "metadata_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+        "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+      },
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+    },
+    "worker_h176": {
+      "metadata_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+        "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+      },
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    }
+  },
+  "schema_version": "prime-rl/latent-a0r-mechanism-failure/v1",
+  "stage": "probe_a0-mechanism-0001",
+  "status": "mechanism_rejected"
+}
