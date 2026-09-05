@@ -1,8 +1,10 @@
 import argparse
 import ast
+import asyncio
 import hashlib
 import importlib.util
 import json
+import math
 import sys
 import tomllib
 from pathlib import Path
@@ -3811,6 +3813,248 @@ def test_synthetic_generate_response_has_cardinality_matched_finite_logprobs() -
         "token_id:11",
         "token_id:12",
     ]
+
+
+def test_specialist_fixed_action_is_generate_native_and_token_aligned() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    assignment = {
+        "worker_name": "task-worker",
+        "objective": "Inspect both source files and send one compact JSON report.",
+        "paths": [
+            "/workspace/specialist-worker/train/alpha.py",
+            "/workspace/specialist-worker/train/beta.py",
+        ],
+    }
+    prompt = "\n".join(
+        (
+            module.SPECIALIST_WORKER_ROUTING_HEADER,
+            module.LOCAL_COGNITION_FACTS_HEADER,
+            "owns_required_evidence=false",
+            "remaining_work_requires_decomposition=false",
+            "terminal_shards_ready=true",
+            "[capability registry]",
+            json.dumps({"expert_id": "generic_worker"}),
+            json.dumps({"expert_id": "source_inspector"}),
+            module.SPECIALIST_ASSIGNMENT_HEADER,
+            json.dumps(assignment, separators=(",", ":")),
+        )
+    )
+
+    class RecordingTokenizer:
+        encoded: str | None = None
+
+        def decode(self, token_ids, *, skip_special_tokens):
+            assert token_ids == [1, 2, 3]
+            assert skip_special_tokens is False
+            return prompt
+
+        def encode(self, text, *, add_special_tokens):
+            assert add_special_tokens is False
+            self.encoded = text
+            return [10, 11]
+
+        def convert_tokens_to_ids(self, token):
+            assert token == "<|im_end|>"
+            return 12
+
+    tokenizer = RecordingTokenizer()
+    completion = module.exact_specialist_fixed_action_completion_ids(
+        tokenizer,
+        [1, 2, 3],
+        role="coordinator",
+        expert_id="source_inspector",
+    )
+    assert completion is not None
+    completion_ids, action_sha = completion
+    assert completion_ids == [10, 11, 12]
+    assert tokenizer.encoded is not None
+    assert "task_worker = await rlm(" in tokenizer.encoded
+    assert "expert_id=source_inspector" in tokenizer.encoded
+    assert len(action_sha) == 64
+
+    response = json.loads(
+        module.synthetic_generate_response(completion_ids, sequence=19)
+    )
+    choice = response["choices"][0]
+    assert choice["token_ids"] == completion_ids
+    assert len(choice["logprobs"]["content"]) == len(completion_ids)
+    assert all(
+        math.isfinite(item["logprob"])
+        for item in choice["logprobs"]["content"]
+    )
+
+
+def test_specialist_fixed_generate_action_never_rewrites_child_or_later_turn() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+
+    class ChildTokenizer:
+        def decode(self, *_args, **_kwargs):
+            raise AssertionError("child token prompts must not be decoded for rewriting")
+
+    assert (
+        module.exact_specialist_fixed_action_completion_ids(
+            ChildTokenizer(),
+            [1, 2, 3],
+            role="child",
+            expert_id="source_inspector",
+        )
+        is None
+    )
+
+    class LaterTurnTokenizer:
+        def decode(self, *_args, **_kwargs):
+            return (
+                module.SPECIALIST_WORKER_ROUTING_HEADER
+                + "\ntask_worker = await rlm('already assigned', name=\"task-worker\")"
+            )
+
+    assert (
+        module.exact_specialist_fixed_action_completion_ids(
+            LaterTurnTokenizer(),
+            [1, 2, 3],
+            role="coordinator",
+            expert_id="source_inspector",
+        )
+        is None
+    )
+
+
+def test_generate_endpoint_forces_only_first_coordinator_assignment(tmp_path) -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    assignment = {
+        "worker_name": "task-worker",
+        "objective": "Inspect both source files and send one compact JSON report.",
+        "paths": [
+            "/workspace/specialist-worker/train/alpha.py",
+            "/workspace/specialist-worker/train/beta.py",
+        ],
+    }
+    prompt = "\n".join(
+        (
+            module.SPECIALIST_WORKER_ROUTING_HEADER,
+            module.LOCAL_COGNITION_FACTS_HEADER,
+            "owns_required_evidence=false",
+            "remaining_work_requires_decomposition=false",
+            "terminal_shards_ready=true",
+            "[capability registry]",
+            json.dumps({"expert_id": "generic_worker"}),
+            json.dumps({"expert_id": "source_inspector"}),
+            module.SPECIALIST_ASSIGNMENT_HEADER,
+            json.dumps(assignment, separators=(",", ":")),
+        )
+    )
+
+    class Tokenizer:
+        def decode(self, token_ids, *, skip_special_tokens):
+            assert 99 not in token_ids, "child requests must not enter fixed rewriting"
+            assert skip_special_tokens is False
+            return prompt
+
+        def encode(self, text, *, add_special_tokens):
+            assert add_special_tokens is False
+            assert "expert_id=source_inspector" in text
+            return [10, 11]
+
+        def convert_tokens_to_ids(self, token):
+            assert token == "<|im_end|>"
+            return 12
+
+    upstream_body = json.dumps(
+        {
+            "choices": [
+                {
+                    "index": 0,
+                    "token_ids": [88],
+                    "logprobs": {
+                        "content": [{"token": "token_id:88", "logprob": -0.2}]
+                    },
+                    "finish_reason": "stop",
+                }
+            ]
+        }
+    ).encode()
+
+    class Upstream:
+        status = 200
+        headers = {"content-type": "application/json"}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def read(self):
+            return upstream_body
+
+    class Client:
+        calls = []
+
+        def post(self, url, *, data, headers):
+            self.calls.append((url, json.loads(data), dict(headers)))
+            return Upstream()
+
+    class Request:
+        def __init__(self, token_ids, session):
+            self.headers = {"x-session-id": session}
+            self._body = json.dumps(
+                {"model": "external", "token_ids": token_ids}
+            ).encode()
+
+        async def read(self):
+            return self._body
+
+    proxy = module.DualPolicyProxy(
+        coordinator_url="http://coordinator/v1",
+        coordinator_model="coordinator",
+        child_url="http://child/v1",
+        child_model="child",
+        external_model="external",
+        audit_log=tmp_path / "routing.jsonl",
+        private_evidence_token_ids=[99],
+        tokenizer=Tokenizer(),
+        specialist_routes={
+            "source_inspector": ("http://child/v1", "child")
+        },
+        specialist_fixed_expert="source_inspector",
+        specialist_force_fixed_action=True,
+        specialist_worker_routing=True,
+    )
+    client = Client()
+    proxy.client = client
+
+    first = asyncio.run(proxy.generate(Request([1, 2, 3], "coordinator-session")))
+    first_body = json.loads(first.body)
+    assert first_body["choices"][0]["token_ids"] == [10, 11, 12]
+    assert client.calls == []
+
+    repeated = asyncio.run(
+        proxy.generate(Request([1, 2, 3], "coordinator-session"))
+    )
+    child = asyncio.run(proxy.generate(Request([99, 2, 3], "child-session")))
+    assert repeated.body == upstream_body
+    assert child.body == upstream_body
+    assert [call[1]["model"] for call in client.calls] == ["coordinator", "child"]
+    assert [call[1]["token_ids"] for call in client.calls] == [
+        [1, 2, 3],
+        [99, 2, 3],
+    ]
+
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "routing.jsonl").read_text().splitlines()
+    ]
+    forced = [
+        event
+        for event in events
+        if event["mode"] == "forced_specialist_assignment_generate_action"
+    ]
+    assert len(forced) == 1
+    assert forced[0]["endpoint"] == "/inference/v1/generate"
+    assert forced[0]["role"] == "coordinator"
+    assert forced[0]["expert_id"] == "source_inspector"
+    assert events[-1]["role"] == "child"
+    assert events[-1]["mode"] == "forwarded"
 
 
 def test_child_direct_generation_strips_broken_named_tool_choice_constraint() -> None:

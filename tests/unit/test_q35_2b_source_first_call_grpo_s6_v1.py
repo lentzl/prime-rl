@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -26,6 +28,17 @@ AST_PATHS = ("/workspace/sample/alpha.py", "/workspace/sample/beta.py")
 CONFIG_PATHS = ("/workspace/sample/service.toml", "/workspace/sample/features.env")
 LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_first_call_grpo_s6_v1.sh"
 VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_first_call_grpo_s6_v1.py"
+
+
+def _validator_module():
+    spec = importlib.util.spec_from_file_location(
+        "source_first_call_validator", VALIDATOR_PATH
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def test_atomic_ast_loop_receives_full_reward() -> None:
@@ -182,3 +195,134 @@ def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
     assert "if name != EXPECTED_REWARD" in validator
     assert 'payload.get("score") not in (0, 0.0)' in validator
     assert "has non-S6 reward leakage" in validator
+
+
+def test_runtime_validator_matches_forced_routes_to_every_trace_and_group() -> None:
+    validator = _validator_module()
+    traces = []
+    audits = []
+    for group in range(2):
+        code = (
+            "task_worker = await rlm("
+            f"'[selected terminal capability]\\nexpert_id=source_inspector\\ngroup={group}', "
+            'name="task-worker")'
+        )
+        action_sha = hashlib.sha256(code.encode()).hexdigest()
+        for rollout in range(8):
+            client_session_id = f"session-{group}-{rollout}"
+            traces.append(
+                {
+                    "task": {"key": f"group-{group}"},
+                    "nodes": [
+                        {
+                            "message": {
+                                "role": "assistant",
+                                "tool_calls": [
+                                    {
+                                        "name": "ipython",
+                                        "arguments": json.dumps({"code": code}),
+                                    }
+                                ],
+                            }
+                        }
+                    ],
+                    "calls": [
+                        {"node": 0, "client_session_id": client_session_id}
+                    ],
+                }
+            )
+            audits.append(
+                {
+                    "schema_version": "qwen35-2b-dual-policy-route/v1",
+                    "mode": validator.FORCED_ROUTE_MODE,
+                    "endpoint": "/inference/v1/generate",
+                    "role": "coordinator",
+                    "expert_id": "source_inspector",
+                    "status": 200,
+                    "session_sha256": hashlib.sha256(
+                        client_session_id.encode()
+                    ).hexdigest(),
+                    "action_sha256": action_sha,
+                }
+            )
+
+    report = validator._validate_forced_assignment_routes(traces, audits)
+    assert report["events"] == 16
+    assert report["matched_effective_events"] == 16
+    assert report["extra_filtered_events"] == 0
+    assert report["sessions"] == 16
+    assert report["groups"] == 2
+    assert sorted(report["effective_action_sha256_counts"].values()) == [8, 8]
+
+    extra_session = "filtered-raw-session"
+    report = validator._validate_forced_assignment_routes(
+        traces,
+        [
+            *audits,
+            {
+                **audits[0],
+                "session_sha256": hashlib.sha256(extra_session.encode()).hexdigest(),
+            },
+        ],
+    )
+    assert report["events"] == 17
+    assert report["extra_filtered_events"] == 1
+
+    with pytest.raises(validator.AuditFailure, match="more than once in a session"):
+        validator._validate_forced_assignment_routes(traces, [*audits, audits[0]])
+
+    with pytest.raises(
+        validator.AuditFailure,
+        match="lacks its exact forced-assignment route event",
+    ):
+        validator._validate_forced_assignment_routes(traces, audits[:-1])
+
+
+def test_runtime_validator_rejects_child_or_unmatched_forced_route() -> None:
+    validator = _validator_module()
+    code = (
+        "task_worker = await rlm("
+        "'[selected terminal capability]\\nexpert_id=source_inspector', "
+        'name="task-worker")'
+    )
+    action_sha = hashlib.sha256(code.encode()).hexdigest()
+    traces = []
+    for index in range(16):
+        traces.append(
+            {
+                "task": {"key": f"group-{index // 8}"},
+                "nodes": [
+                    {
+                        "message": {
+                            "role": "assistant",
+                            "tool_calls": [
+                                {
+                                    "function": {
+                                        "name": "ipython",
+                                        "arguments": json.dumps({"code": code}),
+                                    }
+                                }
+                            ],
+                        }
+                    }
+                ],
+                "calls": [{"node": 0, "client_session_id": f"session-{index}"}],
+            }
+        )
+    audits = [
+        {
+            "schema_version": "qwen35-2b-dual-policy-route/v1",
+            "mode": validator.FORCED_ROUTE_MODE,
+            "endpoint": "/inference/v1/generate",
+            "role": "child" if index == 0 else "coordinator",
+            "expert_id": "source_inspector",
+            "status": 200,
+            "session_sha256": hashlib.sha256(
+                f"session-{index}".encode()
+            ).hexdigest(),
+            "action_sha256": action_sha,
+        }
+        for index in range(16)
+    ]
+    with pytest.raises(validator.AuditFailure, match="invalid forced-assignment"):
+        validator._validate_forced_assignment_routes(traces, audits)

@@ -3699,6 +3699,45 @@ def exact_child_ipython_completion_ids(
     return _encoded_ipython_completion(tokenizer, code)
 
 
+def exact_specialist_fixed_action_completion_ids(
+    tokenizer: Any,
+    token_ids: list[int],
+    *,
+    role: str,
+    expert_id: str,
+) -> tuple[list[int], str] | None:
+    """Build a generate-native fixed terminal-specialist assignment.
+
+    Prime-RL's direct renderer calls ``/inference/v1/generate`` with rendered
+    token ids, so the chat-completions specialist normalizer cannot see that
+    first coordinator turn. Reconstruct only the already-disclosed canonical
+    terminal action. Role isolation and the absence of a prior canonical
+    spawn are checked here as defense in depth; the proxy additionally applies
+    this scaffold at most once per session.
+    """
+
+    if role != "coordinator":
+        return None
+    prompt = tokenizer.decode(token_ids, skip_special_tokens=False)
+    if not _contains_marker(prompt, SPECIALIST_WORKER_ROUTING_HEADER):
+        return None
+    if "task_worker = await rlm(" in prompt:
+        return None
+    facts = local_cognition_facts_from_messages(prompt)
+    disclosed = disclosed_specialist_actions_from_messages(prompt)
+    if facts is None or disclosed is None:
+        raise ValueError("specialist generate request lacks facts or legal mechanics")
+    actions, registry_ids = disclosed
+    if expert_id not in registry_ids:
+        raise ValueError(f"fixed specialist is absent from registry: {expert_id}")
+    if cognitive_action_from_facts(facts) != "delegate_terminal":
+        return None
+    code = actions.get(("delegate_terminal", expert_id))
+    if code is None:
+        raise ValueError("fixed specialist has no disclosed terminal action")
+    return _encoded_ipython_completion(tokenizer, code)
+
+
 def synthetic_generate_response(completion_ids: list[int], *, sequence: int) -> bytes:
     payload = {
         "request_id": f"role-router-leak-{sequence}",
@@ -3877,6 +3916,7 @@ class DualPolicyProxy:
             "document_manager": set(),
             "coordinator_return": set(),
             "child": set(),
+            "specialist_fixed": set(),
         }
         self.completed_typed_return_hashes: set[str] = set()
         self.completed_typed_child_report_hashes: set[str] = set()
@@ -3925,6 +3965,14 @@ class DualPolicyProxy:
                 )
                 if leak_scope is not None and isinstance(session_sha256, str):
                     self.leaked_session_hashes[leak_scope].add(session_sha256)
+                if (
+                    event.get("mode")
+                    == "forced_specialist_assignment_generate_action"
+                    and isinstance(session_sha256, str)
+                ):
+                    self.leaked_session_hashes["specialist_fixed"].add(
+                        session_sha256
+                    )
                 if (
                     event.get("mode") == "forwarded_typed_coordinator_return"
                     and isinstance(session_sha256, str)
@@ -5252,6 +5300,57 @@ class DualPolicyProxy:
             routed = {**routed, "stream": False}
             routed.pop("stream_options", None)
         body = json.dumps(routed, separators=(",", ":"), ensure_ascii=False).encode()
+        fixed_specialist_generate = None
+        if (
+            endpoint == "/inference/v1/generate"
+            and self.specialist_worker_routing
+            and self.specialist_force_fixed_action
+            and self.specialist_fixed_expert is not None
+        ):
+            token_ids = payload.get("token_ids")
+            if isinstance(token_ids, list) and all(
+                isinstance(token_id, int) for token_id in token_ids
+            ):
+                fixed_specialist_generate = (
+                    exact_specialist_fixed_action_completion_ids(
+                        self.tokenizer,
+                        token_ids,
+                        role=role,
+                        expert_id=self.specialist_fixed_expert,
+                    )
+                )
+        if fixed_specialist_generate is not None:
+            if session_sha256 is None:
+                self._audit(
+                    role=role,
+                    endpoint=endpoint,
+                    body=body,
+                    status=400,
+                    mode="forced_specialist_assignment_rejected_missing_session",
+                    expert_id=self.specialist_fixed_expert,
+                )
+                return web.json_response(
+                    {"error": "fixed specialist assignment requires x-session-id"},
+                    status=400,
+                )
+            if session_sha256 not in self.leaked_session_hashes["specialist_fixed"]:
+                self.leaked_session_hashes["specialist_fixed"].add(session_sha256)
+                completion_ids, action_sha256 = fixed_specialist_generate
+                response_body = synthetic_generate_response(
+                    completion_ids, sequence=self.sequence
+                )
+                self._audit(
+                    role=role,
+                    endpoint=endpoint,
+                    body=body,
+                    status=200,
+                    mode="forced_specialist_assignment_generate_action",
+                    action_sha256=action_sha256,
+                    session_sha256=session_sha256,
+                    upstream_model=self.models[route_key],
+                    expert_id=self.specialist_fixed_expert,
+                )
+                return web.Response(body=response_body, content_type="application/json")
         leak_specs = []
         if role == "coordinator" and self.leak_coordinator_exact_action:
             leak_specs.append(("coordinator", exact_ipython_completion_ids))

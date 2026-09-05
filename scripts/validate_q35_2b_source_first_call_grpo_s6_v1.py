@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import tomllib
@@ -25,6 +26,17 @@ EXPECTED_BATCH_SIZE = 16
 EXPECTED_GROUP_SIZE = 8
 EXPECTED_TRAIN_SEED = 20270909
 EXPECTED_TRAIN_OFFSET = 70000
+EXPECTED_ROUTING_AUDIT = {
+    "audit": Path(
+        "/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/"
+        "zero-lr-routing-audit.jsonl"
+    ),
+    "update": Path(
+        "/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/"
+        "step1-routing-audit.jsonl"
+    ),
+}
+FORCED_ROUTE_MODE = "forced_specialist_assignment_generate_action"
 
 
 class AuditFailure(ValueError):
@@ -272,11 +284,143 @@ def _validate_runtime_configs(
         or router.get("specialist_force_fixed_action") is not True
     ):
         raise AuditFailure("resolved S6 audit changed role isolation or fixed routing")
+    audit_log = router.get("audit_log")
+    if audit_log != str(EXPECTED_ROUTING_AUDIT[stage]):
+        raise AuditFailure("resolved S6 audit changed its write-once routing audit")
     return {
         "trainer_model": model_paths["trainer"],
         "anchor_model": router["anchor_model"],
         "policy_scope": "non_root",
         "checkpoint_enabled": checkpoint_enabled,
+        "routing_audit": audit_log,
+    }
+
+
+def _ipython_code(tool_call: Any) -> str | None:
+    if not isinstance(tool_call, dict):
+        return None
+    function = tool_call.get("function")
+    if isinstance(function, dict):
+        name = function.get("name")
+        arguments = function.get("arguments")
+    else:
+        name = tool_call.get("name")
+        arguments = tool_call.get("arguments")
+    if name != "ipython" or not isinstance(arguments, str):
+        return None
+    try:
+        payload = json.loads(arguments)
+    except json.JSONDecodeError:
+        return None
+    code = payload.get("code") if isinstance(payload, dict) else None
+    return code if isinstance(code, str) else None
+
+
+def _forced_assignment_identity(
+    record: dict[str, Any], index: int
+) -> tuple[str, str]:
+    matches: list[tuple[str, str]] = []
+    calls = record.get("calls")
+    if not isinstance(calls, list):
+        raise AuditFailure(f"effective trace {index} lacks call/session evidence")
+    for node_index, node in enumerate(record.get("nodes", [])):
+        message = node.get("message") if isinstance(node, dict) else None
+        if not isinstance(message, dict) or message.get("role") != "assistant":
+            continue
+        for tool_call in message.get("tool_calls") or []:
+            code = _ipython_code(tool_call)
+            if (
+                code is not None
+                and "task_worker = await rlm(" in code
+                and "expert_id=source_inspector" in code
+                and 'name="task-worker"' in code
+            ):
+                session_ids = {
+                    call.get("client_session_id")
+                    for call in calls
+                    if isinstance(call, dict) and call.get("node") == node_index
+                }
+                if len(session_ids) != 1 or not all(
+                    isinstance(session_id, str) and session_id
+                    for session_id in session_ids
+                ):
+                    raise AuditFailure(
+                        f"effective trace {index} forced action lacks one session id"
+                    )
+                session_id = next(iter(session_ids))
+                matches.append(
+                    (
+                        hashlib.sha256(code.encode()).hexdigest(),
+                        hashlib.sha256(session_id.encode()).hexdigest(),
+                    )
+                )
+    if len(matches) != 1:
+        raise AuditFailure(
+            f"effective trace {index} has {len(matches)} canonical forced assignments"
+        )
+    return matches[0]
+
+
+def _validate_forced_assignment_routes(
+    trace_records: list[dict[str, Any]], audit_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    trace_actions: Counter[str] = Counter()
+    trace_sessions: dict[str, str] = {}
+    group_actions: dict[str, set[str]] = defaultdict(set)
+    for index, record in enumerate(trace_records):
+        task = record.get("task", {})
+        task_key = task.get("key") or task.get("hash")
+        if not isinstance(task_key, str):
+            raise AuditFailure(f"effective trace {index} lacks a task key for route audit")
+        action_sha, session_sha = _forced_assignment_identity(record, index)
+        if session_sha in trace_sessions:
+            raise AuditFailure("effective traces reused a coordinator session")
+        trace_sessions[session_sha] = action_sha
+        trace_actions[action_sha] += 1
+        group_actions[task_key].add(action_sha)
+    if len(group_actions) != 2 or any(
+        len(actions) != 1 for actions in group_actions.values()
+    ):
+        raise AuditFailure("forced assignment is not stable within both GRPO groups")
+
+    forced = [
+        record for record in audit_records if record.get("mode") == FORCED_ROUTE_MODE
+    ]
+    forced_by_session: dict[str, str] = {}
+    for index, record in enumerate(forced):
+        session_sha = record.get("session_sha256")
+        action_sha = record.get("action_sha256")
+        if (
+            record.get("schema_version") != "qwen35-2b-dual-policy-route/v1"
+            or record.get("endpoint") != "/inference/v1/generate"
+            or record.get("role") != "coordinator"
+            or record.get("expert_id") != "source_inspector"
+            or record.get("status") != 200
+            or not isinstance(session_sha, str)
+            or len(session_sha) != 64
+            or not isinstance(action_sha, str)
+            or len(action_sha) != 64
+        ):
+            raise AuditFailure(f"invalid forced-assignment route event {index}")
+        if session_sha in forced_by_session:
+            raise AuditFailure("forced assignment was emitted more than once in a session")
+        forced_by_session[session_sha] = action_sha
+    for session_sha, action_sha in trace_sessions.items():
+        if forced_by_session.get(session_sha) != action_sha:
+            raise AuditFailure(
+                "an effective trace lacks its exact forced-assignment route event"
+            )
+    matched_actions = Counter(trace_sessions.values())
+    if matched_actions != trace_actions:
+        raise AuditFailure("effective route reconciliation changed action multiplicity")
+    return {
+        "mode": FORCED_ROUTE_MODE,
+        "events": len(forced),
+        "matched_effective_events": len(trace_sessions),
+        "extra_filtered_events": len(forced) - len(trace_sessions),
+        "sessions": len(forced_by_session),
+        "groups": len(group_actions),
+        "effective_action_sha256_counts": dict(matched_actions),
     }
 
 
@@ -305,6 +449,9 @@ def validate_runtime(
         raise AuditFailure(
             f"S6 audit requires exactly {EXPECTED_BATCH_SIZE} effective traces"
         )
+    routing_report = _validate_forced_assignment_routes(
+        trace_records, _read_jsonl(Path(config_report["routing_audit"]))
+    )
     task_rewards: dict[str, list[float]] = defaultdict(list)
     families: Counter[str] = Counter()
     typed: list[vf.WireTrace] = []
@@ -422,6 +569,7 @@ def validate_runtime(
         "verdict": "pass",
         "stage": stage,
         "config": config_report,
+        "routing": routing_report,
         "gradient_norm": grad_norm,
         "families": dict(families),
         "groups": {key: values for key, values in task_rewards.items()},
