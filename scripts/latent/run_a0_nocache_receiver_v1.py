@@ -414,7 +414,7 @@ def run(args, plan, bank, stage):
     tokenizer = _base.AutoTokenizer.from_pretrained(args.coordinator, local_files_only=True)
     try:
         disjointness = runtime_disjointness(tokenizer, args.bank, bank)
-    except DiagnosticIncomplete:
+    except (CacheAllocationDetected, DiagnosticIncomplete, TimeoutError, torch.cuda.OutOfMemoryError):
         raise
     except Exception as error:
         raise DiagnosticIncomplete(f"A0NC token-disjointness diagnostic failed: {error}") from error
@@ -448,14 +448,14 @@ def run(args, plan, bank, stage):
                         call_log,
                     )
                 )
-            except (CacheAllocationDetected, DiagnosticIncomplete, torch.cuda.OutOfMemoryError):
+            except (CacheAllocationDetected, DiagnosticIncomplete, TimeoutError, torch.cuda.OutOfMemoryError):
                 raise
             except Exception as error:
                 raise DiagnosticIncomplete(f"A0NC probe diagnostic execution failed: {error}") from error
             cache_guard.verify_closure()
     try:
         cache_guard_evidence = cache_guard.evidence(expected_probe_checks=len(probes))
-    except DiagnosticIncomplete:
+    except (CacheAllocationDetected, DiagnosticIncomplete, TimeoutError, torch.cuda.OutOfMemoryError):
         raise
     except Exception as error:
         raise DiagnosticIncomplete(f"A0NC cache-guard evidence failed: {error}") from error

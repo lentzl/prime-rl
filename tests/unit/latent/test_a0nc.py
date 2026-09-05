@@ -87,6 +87,7 @@ def test_a0nc_recursive_cache_subclass_closure_includes_indirect_classes():
             DiagnosticIncomplete("nonfinite or diagnostic contract failure"),
             ("diagnostic_incomplete", "diagnostic_execution_or_finiteness_failure"),
         ),
+        (TimeoutError("deadline"), ("infrastructure_invalid", "environment_provenance_timeout_or_oom")),
         (RuntimeError("environment failure"), ("infrastructure_invalid", "environment_provenance_timeout_or_oom")),
     ],
 )
