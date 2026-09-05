@@ -1,0 +1,90 @@
+{
+  "schema_version": "q35-2b-source-route-parity-p1-audit-p2-plan/v1",
+  "recorded_at": "2026-09-05",
+  "p1_execution_revision": "906661c236f4fbb340f3685627199d21b6edd900",
+  "p1_verdict": "mechanism_rejected",
+  "p1_artifacts": {
+    "metrics_sha256": "6c1fbb5804b12e2ecf87201de9929e9ad924174632224385f16d9ecb0d2f9fff",
+    "raw_traces_sha256": "40ad58939ef11e469ae0a064da9991c21c639dddf891d76fe8051cedb2eb4bc6",
+    "effective_traces_sha256": "4a07524637aff3d23fabeaad60f47542873414d99eb09109afe6ca0a0f6a2c14",
+    "token_exports_sha256": "98cb6e750088cba81f900d4e70ebc7dec545e42bb6b4c4942a177d88170aba1d",
+    "routing_audit_sha256": "2fe2046fdc0cda1f087faf95dc9e48479aa12fd79431641c56e6d7b5eed554c9",
+    "model_preflight_sha256": "863732af4abb63753e91ddd57d189d25c1744ea2d647f05f5aed9da4ca3a91a5"
+  },
+  "p1_selection": {
+    "raw_traces": 24,
+    "effective_traces": 16,
+    "effective_subset_of_raw": true,
+    "accepted_groups": [
+      {
+        "family": "specialist_source_config",
+        "task_key": "86b3328cff095e106d4ff5560038ebc26ff8b30c21e5b8c4519e1f50c1e0174f",
+        "rewards": [-0.79, -0.79, -0.79, -0.79, -0.79, -0.65, -0.34, 0.30],
+        "population_variance": 0.132175,
+        "agent_completed": 1,
+        "max_turns": 7
+      },
+      {
+        "family": "specialist_source_ast",
+        "task_key": "2f40d0e415d3c3faa6978359d0c9bbad124443a640fc2b54cb27676a145fba05",
+        "rewards": [-0.79, -0.79, -0.62, -0.49, -0.31, -0.31, 0.30, 0.30],
+        "population_variance": 0.1658609375,
+        "agent_completed": 1,
+        "max_turns": 7
+      }
+    ],
+    "rejected_groups": [
+      {
+        "family": "specialist_source_ast",
+        "task_key": "fc6caa7ee6bfe1b7af9ac208ae9c6fee03463800c9178d487f7d15fa2ae46a01",
+        "rollouts": 8,
+        "reward": -0.79,
+        "population_variance": 0.0,
+        "reason": "zero_advantage_filter"
+      }
+    ]
+  },
+  "p1_mechanism_evidence": {
+    "optimizer": {"learning_rate": 0.0, "update_succeeded": 1.0, "gradient_norm": 3.550170660018921},
+    "exports": {"count": 16, "active_rl_tokens": 8387, "ast_tokens": 4116, "config_tokens": 4271, "masked_tokens": 0, "stable": true},
+    "likelihood": {
+      "aggregate_unmasked_mismatch_mean": 0.0008921562694013119,
+      "aggregate_mismatch_max_abs": 0.24912714958190918,
+      "ast_unmasked_mean_to_entropy_mean": 0.0031211825901459925,
+      "ast_max_abs_to_entropy_max": 0.04084389171931201,
+      "config_unmasked_mean_to_entropy_mean": 0.003426498727557775,
+      "config_max_abs_to_entropy_max": 0.029080739057730922
+    },
+    "routing": {"raw_sessions": 24, "events": 198, "calls": 198, "coordinator_events": 93, "child_events": 105, "forced_events": 24, "status_200": 198, "contiguous_sequences": true, "unique_request_hashes": true, "audit_only_events": 0},
+    "terminal_residues": {"raw": 6, "effective": 4, "all_final_call_entries": true, "all_max_turns": true, "all_error_null": true, "inferred_roles": {"child": 4, "coordinator": 2}},
+    "topology_violation": {"trace_id": "57f6214886ce4f70a69f3eb2754770ce", "raw_index": 13, "effective": false, "behavior": "terminal source worker spawned a child whose task lacked the exact source_inspector marker", "misrouted_audit_sequence": 105, "misrouted_upstream": "e33"},
+    "join_limit": "P1 timestamps and rollout-scoped session IDs establish exact aggregate cardinality, but overlapping requests do not prove a request-level bijection; P2 therefore requires branch-native session evidence and uses time only as corroboration.",
+    "model_artifacts_written": 0,
+    "protected_model_hashes_recomputed_equal_preflight": true
+  },
+  "p2_prospective_design": {
+    "purpose": "Admit the LR0 mechanism while explicitly accounting for complete zero-variance groups rejected by GRPO; never authorize weights.",
+    "fresh_seed": null,
+    "fresh_offset": null,
+    "config_sha256": null,
+    "sampling_sha256": null,
+    "task_bank_sha256": null,
+    "execution_revision": null,
+    "verifiers_revision": null,
+    "write_once_paths": null,
+    "topology_repair": {"RLM_MAX_DEPTH": "1", "reason": "root may spawn the designated terminal source worker; that worker must be a leaf and cannot create a child"},
+    "strong_join_evidence": "Proxy hashes the exact branch conversation-log UUID decoded from each request as branch_session_sha256; validator matches it to SHA256(trace call client_session_id), alongside rollout session, role, contiguous sequence, and unique request SHA. Timing is corroboration only.",
+    "raw_effective_partition_gate": {
+      "effective": "exactly 16 traces in two complete eight-way groups, one per family",
+      "raw": "effective identities plus zero, one, or two complete rejected eight-way groups; total 16, 24, or 32",
+      "rejected_group_requirements": ["exactly 8 unique trace identities sharing one source/family/task key", "all finite rewards exactly equal and population variance exactly zero", "explicit zero_advantage filter disposition in orchestrator evidence", "no partial group, no nondegenerate discarded group, no effective/rejected identity overlap"],
+      "routing_scope": "all raw rollouts, including rejected groups"
+    },
+    "route_and_topology_gate": ["one route event for every raw trace call and none extra", "every attached root/coordinator call routes e33", "every designated source-worker call routes exact S5 with exact marker", "no child spawned by a terminal source worker", "all route status 200; sequence contiguous; request SHA unique", "branch_session_sha256 produces exact call/event bijection; ambiguous or missing join fails"],
+    "terminal_artifact_gate": ["at most one node=null final call per rollout", "only max_turns or delivery-cancel terminal state", "exact branch-session route join and no audit-only event", "node=null absent from every trainable branch and token export", "wasted completion tokens recorded", "report raw and effective incidence separately"],
+    "unchanged_effective_health_gates": "Use all P1 likelihood, masking, reward contrast, termination, gradient, token mass, stable export, no-checkpoint, and protected-model pre/post gates on the effective 16.",
+    "decision": "Pass means mechanism admission only. Stop with no checkpoint, optimizer authorization, or evaluation continuation. Any topology, partition, routing, or health failure rejects P2."
+  },
+  "downstream_admission_gate": {"changed": false, "minimum_hard": 4, "minimum_per_family": 2, "minimum_recoveries": 4, "maximum_regressions": 0},
+  "authorization": {"remote_mutation": false, "gpu_or_model_calls": false, "nonzero_update": false}
+}
