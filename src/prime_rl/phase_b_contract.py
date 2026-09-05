@@ -133,6 +133,19 @@ class ValidatedFailedStartEvidence:
     failure: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class ValidatedPreflightRejectionEvidence:
+    binding: dict[str, Any]
+    binding_path: Path
+    binding_hash_path: Path
+    manifest_path: Path
+    log_path: Path
+    binding_file_sha256: str
+    manifest_file_sha256: str
+    log_file_sha256: str
+    manifest: dict[str, Any]
+
+
 def file_sha256(path: Path) -> str:
     """Hash one direct regular file and reject symlink indirection."""
 
@@ -334,6 +347,65 @@ def validate_failed_start_evidence(binding_path: Path, hash_path: Path) -> Valid
         failure_file_sha256=failure_hash,
         log_file_sha256=log_hash,
         failure=failure,
+    )
+
+
+def validate_preflight_rejection_evidence(
+    binding_path: Path, hash_path: Path
+) -> ValidatedPreflightRejectionEvidence:
+    """Bind the exact no-model B-R preflight rejection motivating B-R2."""
+
+    binding_file_hash = validate_hash_sidecar(binding_path, hash_path)
+    binding = load_json_file(binding_path)
+    if binding.get("schema_version") != "q35-2b-phase-b-preflight-rejection-binding/v1":
+        raise PhaseBContractError("unsupported Phase B preflight rejection binding schema")
+    if binding.get("status") != "bound_pre_model_rejection":
+        raise PhaseBContractError("Phase B preflight rejection evidence is not bound")
+
+    manifest_path = Path(binding.get("manifest_absolute_path", ""))
+    log_path = Path(binding.get("log_absolute_path", ""))
+    manifest_hash = file_sha256(manifest_path)
+    log_hash = file_sha256(log_path)
+    if manifest_hash != binding.get("manifest_file_sha256"):
+        raise PhaseBContractError("prior Phase B preflight manifest hash differs from its binding")
+    if log_hash != binding.get("log_file_sha256"):
+        raise PhaseBContractError("prior Phase B preflight log hash differs from its binding")
+    manifest = load_json_file(manifest_path)
+
+    predicates = binding.get("manifest_predicates")
+    if not isinstance(predicates, dict) or not predicates:
+        raise PhaseBContractError("prior Phase B preflight binding lacks exact predicates")
+    for semantic_name, predicate in predicates.items():
+        if not isinstance(predicate, dict) or set(predicate) != {"path", "expected"}:
+            raise PhaseBContractError(f"preflight-rejection predicate {semantic_name!r} is malformed")
+        actual = _resolve_dotted_path(manifest, predicate["path"])
+        expected = predicate["expected"]
+        if type(actual) is not type(expected) or actual != expected:
+            raise PhaseBContractError(
+                f"preflight-rejection predicate {semantic_name!r} at {predicate['path']!r} was "
+                f"{actual!r}, expected {expected!r}"
+            )
+
+    try:
+        log_text = log_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise PhaseBContractError(f"prior Phase B preflight log is not valid UTF-8: {error}") from error
+    markers = binding.get("required_log_markers")
+    if not isinstance(markers, list) or not markers or any(not isinstance(marker, str) for marker in markers):
+        raise PhaseBContractError("prior Phase B preflight log markers are malformed")
+    if any(marker not in log_text for marker in markers):
+        raise PhaseBContractError("prior Phase B preflight log lacks a bound marker")
+
+    return ValidatedPreflightRejectionEvidence(
+        binding=binding,
+        binding_path=binding_path,
+        binding_hash_path=hash_path,
+        manifest_path=manifest_path,
+        log_path=log_path,
+        binding_file_sha256=binding_file_hash,
+        manifest_file_sha256=manifest_hash,
+        log_file_sha256=log_hash,
+        manifest=manifest,
     )
 
 

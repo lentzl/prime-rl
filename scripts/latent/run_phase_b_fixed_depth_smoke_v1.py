@@ -33,13 +33,14 @@ from prime_rl.phase_b_contract import (
     validate_a0c_binding,
     validate_failed_start_evidence,
     validate_plan_authorization,
+    validate_preflight_rejection_evidence,
 )
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br1-plan.json"
+PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br2-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-PLAN_SHA256 = "2d30be851381fa9c76a2b9fc9d0df6c3e6e695458b801ac870c91dd7e21f3214"
+PLAN_SHA256 = "UNFROZEN_PHASE_B_REPAIR2"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
@@ -85,7 +86,9 @@ def exact_git_commit(worktree: Path) -> str:
     return result.stdout.strip()
 
 
-def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], Any, Any]:
+def preflight_before_heavy_imports(
+    args: argparse.Namespace,
+) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any]:
     if args.plan != PLAN or args.selection != SELECTION:
         raise PhaseBContractError("plan and selection paths differ from the deployed worktree")
     if file_sha256(args.plan) != PLAN_SHA256:
@@ -173,6 +176,21 @@ def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, 
     if hashlib.sha256(prior_source).hexdigest() != repair_dependency.get("prior_runner_sha256"):
         raise PhaseBContractError("prior Phase B runner source differs from the repair dependency")
 
+    br1_dependency = plan.get("br1_preflight_dependency")
+    if not isinstance(br1_dependency, dict):
+        raise PhaseBContractError("Phase B-R2 plan lacks the exact B-R preflight rejection")
+    preflight_rejection = validate_preflight_rejection_evidence(
+        Path(br1_dependency.get("binding_path", "")),
+        Path(br1_dependency.get("binding_hash_path", "")),
+    )
+    if preflight_rejection.binding_file_sha256 != br1_dependency.get("binding_sha256"):
+        raise PhaseBContractError("Phase B-R2 plan does not bind the exact preflight rejection")
+    if (
+        preflight_rejection.manifest_file_sha256 != br1_dependency.get("manifest_file_sha256")
+        or preflight_rejection.log_file_sha256 != br1_dependency.get("log_file_sha256")
+    ):
+        raise PhaseBContractError("Phase B-R preflight artifacts differ from the B-R2 plan")
+
     if len(args.execution_commit) != 40 or any(
         character not in "0123456789abcdef" for character in args.execution_commit
     ):
@@ -209,13 +227,13 @@ def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, 
         raise PhaseBContractError("host has less than the frozen 60 GiB free-disk floor")
     if args.output_dir.exists() or args.output_dir.is_symlink():
         raise PhaseBContractError("Phase B output namespace already exists")
-    return plan, selection, binding, failed_start
+    return plan, selection, binding, failed_start, preflight_rejection
 
 
 def main() -> int:
     args = parse_args()
     try:
-        plan, selection, binding, failed_start = preflight_before_heavy_imports(args)
+        plan, selection, binding, failed_start, preflight_rejection = preflight_before_heavy_imports(args)
     except BaseException as error:
         print(f"Phase B preflight refusal: {type(error).__name__}: {error}", file=sys.stderr)
         return 2
@@ -249,6 +267,7 @@ def main() -> int:
                     "receipt_internal_sha256": binding.receipt_canonical_sha256,
                     "execution_commit": args.execution_commit,
                     "failed_start_binding_sha256": failed_start.binding_file_sha256,
+                    "br1_preflight_binding_sha256": preflight_rejection.binding_file_sha256,
                     "normalization_and_render_proofs": tokenizer_context["proofs"],
                     "model_loaded": False,
                     "cuda_initialized_during_preflight": tokenizer_context["cuda_initialized"],
@@ -290,6 +309,7 @@ def main() -> int:
             plan=plan,
             binding=binding,
             failed_start=failed_start,
+            preflight_rejection=preflight_rejection,
             tokenizer_context=tokenizer_context,
             torch=torch,
             transformers=transformers,
@@ -312,7 +332,7 @@ def main() -> int:
         if output_created:
             try:
                 signal.alarm(FAILURE_AUDIT_HEADROOM_SECONDS)
-                post_failure_audit = _post_failure_hash_audit(plan, binding, failed_start)
+                post_failure_audit = _post_failure_hash_audit(plan, binding, failed_start, preflight_rejection)
             except BaseException as audit_error:
                 post_failure_audit = {
                     "audit_complete": False,
@@ -336,6 +356,11 @@ def main() -> int:
                     "failure_file_sha256": failed_start.failure_file_sha256,
                     "log_file_sha256": failed_start.log_file_sha256,
                 },
+                "br1_preflight_rejection": {
+                    "binding_file_sha256": preflight_rejection.binding_file_sha256,
+                    "manifest_file_sha256": preflight_rejection.manifest_file_sha256,
+                    "log_file_sha256": preflight_rejection.log_file_sha256,
+                },
                 "post_failure_hash_audit": post_failure_audit,
             }
             try:
@@ -346,7 +371,12 @@ def main() -> int:
         return 1
 
 
-def _post_failure_hash_audit(plan: dict[str, Any], binding: Any, failed_start: Any = None) -> dict[str, Any]:
+def _post_failure_hash_audit(
+    plan: dict[str, Any],
+    binding: Any,
+    failed_start: Any = None,
+    preflight_rejection: Any = None,
+) -> dict[str, Any]:
     """Best-effort durable preservation evidence after any started run fails."""
 
     errors: list[str] = []
@@ -395,6 +425,25 @@ def _post_failure_hash_audit(plan: dict[str, Any], binding: Any, failed_start: A
                 errors.append("repair_dependency:validated evidence object changed during run")
         except BaseException as error:
             errors.append(f"repair_dependency:{type(error).__name__}:{error}")
+    if preflight_rejection is not None:
+        try:
+            rebound_preflight = validate_preflight_rejection_evidence(
+                preflight_rejection.binding_path, preflight_rejection.binding_hash_path
+            )
+            audit["br1_preflight_rejection"] = {
+                "binding_file_sha256": rebound_preflight.binding_file_sha256,
+                "binding_matches": rebound_preflight.binding_file_sha256
+                == preflight_rejection.binding_file_sha256,
+                "manifest_file_sha256": rebound_preflight.manifest_file_sha256,
+                "manifest_matches": rebound_preflight.manifest_file_sha256
+                == preflight_rejection.manifest_file_sha256,
+                "log_file_sha256": rebound_preflight.log_file_sha256,
+                "log_matches": rebound_preflight.log_file_sha256 == preflight_rejection.log_file_sha256,
+            }
+            if rebound_preflight != preflight_rejection:
+                errors.append("br1_preflight_rejection:validated evidence object changed during run")
+        except BaseException as error:
+            errors.append(f"br1_preflight_rejection:{type(error).__name__}:{error}")
     try:
         audit["plan_selection"] = {
             "plan_sha256": file_sha256(PLAN),
@@ -458,6 +507,10 @@ def _tokenizer_only_preflight(  # noqa: N803
                 raise PhaseBContractError("row lacks a multi-message assistant target")
             raw_messages_sha256 = canonical_json_sha256(messages)
             raw_target_sha256 = canonical_json_sha256(messages[-1])
+            reasoning_content = messages[-1].get("reasoning_content")
+            if not isinstance(reasoning_content, str) or not reasoning_content.strip():
+                raise PhaseBContractError("final assistant target lacks nonempty reasoning_content")
+            reasoning_content_sha256 = hashlib.sha256(reasoning_content.encode()).hexdigest()
             normalized, records = normalize_assistant_tool_call_arguments(messages, expected_action=action)
             if canonical_json_sha256(messages) != raw_messages_sha256 or len(records) != 1:
                 raise PhaseBContractError("normalization mutated the source or modified multiple paths")
@@ -471,6 +524,8 @@ def _tokenizer_only_preflight(  # noqa: N803
             ]
             if restored != messages:
                 raise PhaseBContractError("normalization changed content outside the one allowed path")
+            if normalized[-1].get("reasoning_content") != reasoning_content:
+                raise PhaseBContractError("normalization changed reasoning_content")
 
             raw_tools = source_row.get("tools")
             tools = json.loads(raw_tools) if isinstance(raw_tools, str) else json.loads(json.dumps(raw_tools))
@@ -480,6 +535,10 @@ def _tokenizer_only_preflight(  # noqa: N803
             plain_rendered = _render(tokenizer, prefix, tools, False)
             open_rendered = _render(tokenizer, prefix, tools, True)
             full_rendered = _render(tokenizer, normalized, tools, False)
+            if not open_rendered.startswith(plain_rendered):
+                raise PhaseBContractError("explicit-thinking opening does not string-prefix the plain context")
+            if not full_rendered.startswith(open_rendered):
+                raise PhaseBContractError("full target does not preserve the explicit-thinking string opening")
             plain_ids = _token_ids_list(tokenizer, plain_rendered)
             open_ids = _token_ids_list(tokenizer, open_rendered)
             full_ids = _token_ids_list(tokenizer, full_rendered)
@@ -501,6 +560,9 @@ def _tokenizer_only_preflight(  # noqa: N803
             "raw_messages_sha256": raw_messages_sha256,
             "raw_target_sha256": raw_target_sha256,
             "normalized_target_sha256": canonical_json_sha256(normalized[-1]),
+            "reasoning_content_sha256": reasoning_content_sha256,
+            "reasoning_content_utf8_bytes": len(reasoning_content.encode()),
+            "reasoning_content_preserved_byte_exact": True,
             "modified_paths": [record["modified_path"]],
             "raw_arguments_sha256": record["raw_arguments_sha256"],
             "normalized_arguments_sha256": record["normalized_arguments_sha256"],
@@ -553,6 +615,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     plan: dict[str, Any],
     binding: Any,
     failed_start: Any,
+    preflight_rejection: Any,
     tokenizer_context: dict[str, Any],
     torch: Any,
     transformers: Any,
@@ -750,6 +813,11 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     rebound_failed_start = validate_failed_start_evidence(failed_start.binding_path, failed_start.binding_hash_path)
     if rebound_failed_start != failed_start:
         raise PhaseBContractError("failed-start repair evidence changed during the smoke")
+    rebound_preflight = validate_preflight_rejection_evidence(
+        preflight_rejection.binding_path, preflight_rejection.binding_hash_path
+    )
+    if rebound_preflight != preflight_rejection:
+        raise PhaseBContractError("B-R preflight rejection evidence changed during the smoke")
     if any(parameter.grad is not None for parameter in model.parameters()):
         raise PhaseBContractError("protected e33 accumulated gradients")
 
@@ -776,6 +844,14 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             "prior_status": failed_start.failure["status"],
             "prior_error_type": failed_start.failure["error_type"],
             "prior_error": failed_start.failure["error"],
+        },
+        "br1_preflight_rejection": {
+            "binding_file_sha256": preflight_rejection.binding_file_sha256,
+            "manifest_file_sha256": preflight_rejection.manifest_file_sha256,
+            "log_file_sha256": preflight_rejection.log_file_sha256,
+            "model_loaded": preflight_rejection.manifest["model_loaded"],
+            "cuda_initialized": preflight_rejection.manifest["cuda_initialized"],
+            "output_created": preflight_rejection.manifest["output_created"],
         },
         "optimizer": None,
         "optimizer_updates": 0,
@@ -899,6 +975,7 @@ def _render(tokenizer: Any, messages: list[dict[str, Any]], tools: list[dict[str
         tools=tools,
         tokenize=False,
         add_generation_prompt=generation,
+        enable_thinking=True,
     )
 
 

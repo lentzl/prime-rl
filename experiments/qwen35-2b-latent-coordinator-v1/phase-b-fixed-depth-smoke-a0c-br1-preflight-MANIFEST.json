@@ -1,0 +1,19 @@
+{
+  "schema_version": "q35-2b-phase-b-br1-preflight-rejection-snapshot/v1",
+  "captured_at_local_date": "2026-09-05",
+  "remote_host": "ubuntu@216.81.200.39",
+  "execution_commit": "b78499e8f9bf7585b125afb3d947f08e0f79a381",
+  "plan_sha256": "2d30be851381fa9c76a2b9fc9d0df6c3e6e695458b801ac870c91dd7e21f3214",
+  "command": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br1.sh b78499e8f9bf7585b125afb3d947f08e0f79a381 2d30be851381fa9c76a2b9fc9d0df6c3e6e695458b801ac870c91dd7e21f3214 --preflight-only",
+  "exit_code": 1,
+  "model_loaded": false,
+  "cuda_initialized": false,
+  "output_created": false,
+  "failure": "row document_adaptive_d0-v0-i34100:solve-anchor-1 tokenizer preflight failed: full target does not preserve the generation prefix",
+  "files": {
+    "preflight.log": {
+      "bytes": 689,
+      "sha256": "7addbc0f71ec05258e5c482b5bf2f9d642fde008fffdc2fdfa361a816b138fb8"
+    }
+  }
+}

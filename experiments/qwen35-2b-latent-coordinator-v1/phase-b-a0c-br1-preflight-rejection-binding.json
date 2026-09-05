@@ -1,0 +1,59 @@
+{
+  "schema_version": "q35-2b-phase-b-preflight-rejection-binding/v1",
+  "status": "bound_pre_model_rejection",
+  "manifest_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br1-preflight-MANIFEST.json",
+  "manifest_file_sha256": "c3957b90d10310d2a65f6856fca50450dd18054dee136838862ed54f242dc611",
+  "log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br1-preflight.log",
+  "log_file_sha256": "7addbc0f71ec05258e5c482b5bf2f9d642fde008fffdc2fdfa361a816b138fb8",
+  "manifest_predicates": {
+    "schema_exact": {
+      "path": "schema_version",
+      "expected": "q35-2b-phase-b-br1-preflight-rejection-snapshot/v1"
+    },
+    "execution_commit_exact": {
+      "path": "execution_commit",
+      "expected": "b78499e8f9bf7585b125afb3d947f08e0f79a381"
+    },
+    "plan_exact": {
+      "path": "plan_sha256",
+      "expected": "2d30be851381fa9c76a2b9fc9d0df6c3e6e695458b801ac870c91dd7e21f3214"
+    },
+    "exit_one": {
+      "path": "exit_code",
+      "expected": 1
+    },
+    "model_not_loaded": {
+      "path": "model_loaded",
+      "expected": false
+    },
+    "cuda_not_initialized": {
+      "path": "cuda_initialized",
+      "expected": false
+    },
+    "output_not_created": {
+      "path": "output_created",
+      "expected": false
+    },
+    "failure_exact": {
+      "path": "failure",
+      "expected": "row document_adaptive_d0-v0-i34100:solve-anchor-1 tokenizer preflight failed: full target does not preserve the generation prefix"
+    }
+  },
+  "required_log_markers": [
+    "phase-b-fixed-depth-smoke-a0c-br1-plan.json: OK",
+    "../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK"
+  ],
+  "diagnosis": {
+    "independently_localized_cause": "The pinned Qwen template's default generation opening emits a closed empty think block, while the full normalized target preserves a nonempty reasoning_content field and therefore renders a nonempty think block. Both extend the same plain context but the default opening is not the full target's prefix.",
+    "prospective_repair": "Render plain, generation-opening, and full-target variants with explicit enable_thinking=true; require plain to prefix the opening and the explicit-thinking opening to prefix the full target; preserve nonempty reasoning_content byte-for-byte; inject and mask through the explicit-thinking opening.",
+    "forbidden_repairs": [
+      "longest-common-prefix boundary",
+      "disable thinking",
+      "delete or rewrite reasoning_content",
+      "weaken either exact string or token prefix predicate"
+    ],
+    "prior_runner_sha256": "4889a4ba0b9020f956f45cb7d91500d0f2f2be2362e69150191c5c85f3eb19fd",
+    "prior_launcher_sha256": "0708e9d31040914f04e7c710986ae9185abdc2143a5764e6a7be3671054d4ef6",
+    "prior_manifest_sha256": "9e68b02e5a2116d5d763636ef0c886bb1e8f69f68b9ec5d2a2748672542043dc"
+  }
+}

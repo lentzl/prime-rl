@@ -70,5 +70,15 @@ template iterates over it as a mapping. Its exact FAILURE, log, and post-failure
 preserved by the failed-start binding. The prospective B-R runner converts only that one final target
 path with strict JSON-string-to-object parsing, proves the source unchanged elsewhere, and renders and
 tokenizes all 12 exact selected targets before importing the model class or entering any CUDA-facing
-path. The runner intentionally carries an unfrozen plan sentinel until the repair mechanism receives a
-separate reviewed plan/launcher freeze; the prior output namespace must never be reused.
+path. B-R received a separate reviewed plan/launcher freeze; the prior output namespace remains
+immutable and must never be reused.
+
+That first B-R tokenizer-only preflight then rejected before model/CUDA/output because the generic
+generation prompt and the full assistant target did not have the required prefix relationship. The
+preserved target has nonempty `reasoning_content`: the pinned Qwen template's default opening emits an
+empty closed think block, while the full target renders the preserved reasoning inside its think block.
+The prospective B-R2 repair does not use a longest-common-prefix boundary, disable thinking, or alter
+reasoning. It passes `enable_thinking=True` explicitly for plain, opening, and full renders, requires
+both exact string and token prefix relations, hashes the nonempty reasoning bytes before/after, and
+continues to inject before and mask through the verified explicit-thinking assistant opening. B-R2 is
+again nonlaunchable until its own mechanism/freeze pair receives independent review.

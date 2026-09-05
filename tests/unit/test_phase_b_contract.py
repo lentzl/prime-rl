@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import posixpath
 import subprocess
 import sys
 from pathlib import Path
@@ -19,6 +20,7 @@ from prime_rl.phase_b_contract import (
     validate_a0c_binding,
     validate_failed_start_evidence,
     validate_plan_authorization,
+    validate_preflight_rejection_evidence,
 )
 
 EXACT_ACTIONS_BY_TASK_KEY = {
@@ -97,6 +99,7 @@ def test_exact_twelve_targets_normalize_only_arguments_and_preserve_actions() ->
             {
                 "role": "assistant",
                 "content": "",
+                "reasoning_content": f"reason-{task_key}",
                 "tool_calls": [
                     {
                         "id": f"call-{task_key}",
@@ -118,6 +121,7 @@ def test_exact_twelve_targets_normalize_only_arguments_and_preserve_actions() ->
         assert records[0]["normalized_arguments_sha256"] == canonical_json_sha256({"action": action})
         assert records[0]["normalized_arguments"] == {"action": action}
         assert normalized[-1]["tool_calls"][0]["function"]["arguments"] == {"action": action}
+        assert normalized[-1]["reasoning_content"] == original[-1]["reasoning_content"]
         assert normalized[-1]["tool_calls"][0]["id"] == original[-1]["tool_calls"][0]["id"]
         restored = json.loads(json.dumps(normalized))
         restored[-1]["tool_calls"][0]["function"]["arguments"] = raw_arguments
@@ -426,6 +430,36 @@ def test_checked_in_failed_start_assets_are_exact_and_prove_no_update_boundary(t
     assert hashlib.sha256(prior_source).hexdigest() == control["prior_runner_sha256"]
 
 
+def test_checked_in_br1_preflight_rejection_is_exact_and_pre_model(tmp_path: Path) -> None:
+    repository = Path(__file__).resolve().parents[2]
+    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
+    manifest_source = experiment / "phase-b-fixed-depth-smoke-a0c-br1-preflight-MANIFEST.json"
+    log_source = experiment / "phase-b-fixed-depth-smoke-a0c-br1-preflight.log"
+    binding_source = experiment / "phase-b-a0c-br1-preflight-rejection-binding.json"
+    binding = json.loads(binding_source.read_text(encoding="utf-8"))
+    assert hashlib.sha256(manifest_source.read_bytes()).hexdigest() == (
+        "c3957b90d10310d2a65f6856fca50450dd18054dee136838862ed54f242dc611"
+    )
+    assert hashlib.sha256(log_source.read_bytes()).hexdigest() == (
+        "7addbc0f71ec05258e5c482b5bf2f9d642fde008fffdc2fdfa361a816b138fb8"
+    )
+
+    binding["manifest_absolute_path"] = str(manifest_source.resolve())
+    binding["log_absolute_path"] = str(log_source.resolve())
+    binding_path = (tmp_path / "binding.json").resolve()
+    hash_path = (tmp_path / "binding.sha256").resolve()
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    binding_hash = hashlib.sha256(binding_path.read_bytes()).hexdigest()
+    hash_path.write_text(f"{binding_hash}  {binding_path.name}\n", encoding="ascii")
+
+    validated = validate_preflight_rejection_evidence(binding_path, hash_path)
+
+    assert validated.manifest["model_loaded"] is False
+    assert validated.manifest["cuda_initialized"] is False
+    assert validated.manifest["output_created"] is False
+    assert "longest-common-prefix boundary" in validated.binding["diagnosis"]["forbidden_repairs"]
+
+
 def test_atomic_terminal_receipt_is_exclusive(tmp_path: Path) -> None:
     output = (tmp_path / "run").resolve()
     output.mkdir()
@@ -531,8 +565,8 @@ def test_repair_plan_is_exact_and_prior_plans_remain_immutable() -> None:
     assert repair_plan["repair_dependency"]["prior_output_reuse_forbidden"] is True
     assert repair_plan["outputs"]["directory"] != plan["outputs"]["directory"]
     assert repair_plan["tokenizer_only_repair_preflight"]["rows"] == 12
-    assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br1-plan.json"
-    assert runner.PLAN_SHA256 == hashlib.sha256(repair_plan_path.read_bytes()).hexdigest()
+    assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br2-plan.json"
+    assert runner.PLAN_SHA256 == "UNFROZEN_PHASE_B_REPAIR2"
 
 
 def test_failure_audit_rehashes_e33_binding_receipt_and_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -626,6 +660,7 @@ def test_preflight_only_returns_without_heavy_import_or_output(
         receipt_canonical_sha256="d" * 64,
     )
     failed_start = SimpleNamespace(binding_file_sha256="e" * 64)
+    preflight_rejection = SimpleNamespace(binding_file_sha256="f" * 64)
     fake_parquet = ModuleType("pyarrow.parquet")
     fake_pyarrow = ModuleType("pyarrow")
     fake_pyarrow.__path__ = []  # type: ignore[attr-defined]
@@ -636,7 +671,11 @@ def test_preflight_only_returns_without_heavy_import_or_output(
     monkeypatch.setitem(sys.modules, "pyarrow.parquet", fake_parquet)
     monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
     monkeypatch.setattr(runner, "parse_args", lambda: args)
-    monkeypatch.setattr(runner, "preflight_before_heavy_imports", lambda _args: ({}, {}, binding, failed_start))
+    monkeypatch.setattr(
+        runner,
+        "preflight_before_heavy_imports",
+        lambda _args: ({}, {}, binding, failed_start, preflight_rejection),
+    )
     monkeypatch.setattr(
         runner,
         "_tokenizer_only_preflight",
@@ -670,6 +709,7 @@ def test_tokenizer_preflight_normalizes_and_renders_all_twelve_before_model_use(
                     {
                         "role": "assistant",
                         "content": "",
+                        "reasoning_content": f"reasoning-for-{task_key}",
                         "tool_calls": [
                             {
                                 "id": f"call-{task_key}",
@@ -686,6 +726,7 @@ def test_tokenizer_preflight_normalizes_and_renders_all_twelve_before_model_use(
             }
         )
     source_snapshot = json.loads(json.dumps(rows))
+    render_invocations: list[tuple[bool, bool]] = []
 
     class FakeTokenizer:
         def apply_chat_template(
@@ -695,15 +736,21 @@ def test_tokenizer_preflight_normalizes_and_renders_all_twelve_before_model_use(
             tools: list[dict[str, object]],
             tokenize: bool,
             add_generation_prompt: bool,
+            enable_thinking: bool,
         ) -> str:
-            assert tools and tokenize is False
+            assert tools and tokenize is False and enable_thinking is True
+            render_invocations.append((add_generation_prompt, enable_thinking))
             if add_generation_prompt:
-                return json.dumps(messages, sort_keys=True) + "<assistant>"
+                return json.dumps(messages, sort_keys=True) + "<assistant><think>\n"
             if messages[-1]["role"] == "assistant":
                 arguments = messages[-1]["tool_calls"][0]["function"]["arguments"]  # type: ignore[index]
                 assert isinstance(arguments, dict)
-                return json.dumps(messages[:-1], sort_keys=True) + "<assistant>" + json.dumps(
-                    messages[-1], sort_keys=True
+                return (
+                    json.dumps(messages[:-1], sort_keys=True)
+                    + "<assistant><think>\n"
+                    + str(messages[-1]["reasoning_content"])
+                    + "</think>"
+                    + json.dumps(messages[-1], sort_keys=True)
                 )
             return json.dumps(messages, sort_keys=True)
 
@@ -752,10 +799,16 @@ def test_tokenizer_preflight_normalizes_and_renders_all_twelve_before_model_use(
 
     assert rows == source_snapshot
     assert len(context["rows"]) == len(context["proofs"]) == 12
+    assert len(render_invocations) == 36
+    assert all(enable_thinking is True for _, enable_thinking in render_invocations)
     assert context["cuda_initialized"] is False
     for proof in context["proofs"]:
         assert proof["modified_paths"] == ["messages.2.tool_calls.0.function.arguments"]
         assert proof["normalized_arguments"] == {"action": proof["action"]}
+        assert proof["reasoning_content_preserved_byte_exact"] is True
+        assert proof["reasoning_content_utf8_bytes"] > 0
+        expected_reasoning = f"reasoning-for-{proof['task_key']}"
+        assert proof["reasoning_content_sha256"] == hashlib.sha256(expected_reasoning.encode()).hexdigest()
         assert proof["full_target_tokens"] > proof["generation_prefix_tokens"] > proof["plain_prefix_tokens"]
 
 
@@ -774,21 +827,24 @@ def test_launcher_supplies_independent_outer_timeout_and_exact_environment() -> 
     assert '--execution-commit "$EXECUTION_COMMIT"' in launcher
 
 
-def test_repair_freeze_manifest_closes_exact_launch_assets() -> None:
+def test_br1_freeze_manifest_remains_valid_at_its_immutable_commit() -> None:
     repository = Path(__file__).resolve().parents[2]
-    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
-
-    result = subprocess.run(
-        ["sha256sum", "--check", "phase-b-fixed-depth-smoke-a0c-br1.sha256"],
-        cwd=experiment,
-        text=True,
-        capture_output=True,
-        check=True,
+    commit = "b78499e8f9bf7585b125afb3d947f08e0f79a381"
+    manifest_path = "experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br1.sha256"
+    manifest = subprocess.run(
+        ["git", "show", f"{commit}:{manifest_path}"], cwd=repository, capture_output=True, check=True
+    ).stdout.decode()
+    assert hashlib.sha256(manifest.encode()).hexdigest() == (
+        "9e68b02e5a2116d5d763636ef0c886bb1e8f69f68b9ec5d2a2748672542043dc"
     )
-
-    assert "phase-b-fixed-depth-smoke-a0c-v1-FAILURE.json: OK" in result.stdout
-    assert "phase-b-fixed-depth-smoke-a0c-v1-run.log: OK" in result.stdout
-    assert "../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK" in result.stdout
+    manifest_directory = posixpath.dirname(manifest_path)
+    for line in manifest.splitlines():
+        expected, relative_path = line.split(maxsplit=1)
+        blob_path = posixpath.normpath(posixpath.join(manifest_directory, relative_path))
+        blob = subprocess.run(
+            ["git", "show", f"{commit}:{blob_path}"], cwd=repository, capture_output=True, check=True
+        ).stdout
+        assert hashlib.sha256(blob).hexdigest() == expected
 
 
 def _load_runner():
