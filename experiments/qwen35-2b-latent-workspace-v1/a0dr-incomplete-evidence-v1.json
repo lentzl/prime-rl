@@ -1,0 +1,7 @@
+{
+  "schema_version": "prime-rl/latent-a0dr-incomplete-evidence/v1",
+  "durable_snapshot": "/Users/ilkkalehto/Documents/rlm/tmp/durable-snapshots/2026-09-05-a0dr-incomplete-receipt",
+  "failure_file_sha256": "d6f498c77c23cceb5018149b7f18ab4472965c730f1f831d32279c4614fba064",
+  "failure_internal_sha256": "c06a83fad2a591b0192c8bf28308a906d033580dfbcced2c89cd2cff94a12f26",
+  "launch_log_sha256": "84d650cdbfacef48e718a6d4c356fa266a56606f458631e604cf607c0644f3eb"
+}

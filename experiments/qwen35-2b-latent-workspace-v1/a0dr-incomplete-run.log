@@ -1,0 +1,21 @@
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  68%|██████▊   | 420/617 [00:00<00:00, 4197.67it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 4583.07it/s]
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0dr_cache_diagnostic_v1.py", line 599, in run
+    validate_a0dr_receipt(receipt, plan=plan)
+  File "/home/ubuntu/rlm/prime-rl-strand-a/src/prime_rl/latent/a0dr.py", line 385, in validate_a0dr_receipt
+    raise ValueError("A0DR prepared cache provenance changed")
+ValueError: A0DR prepared cache provenance changed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0dr_cache_diagnostic_v1.py", line 672, in <module>
+    main()
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0dr_cache_diagnostic_v1.py", line 661, in main
+    receipt = run(args, plan, bank, stage)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0dr_cache_diagnostic_v1.py", line 601, in run
+    raise DiagnosticIncomplete(f"A0D receipt contract failed: {error}") from error
+DiagnosticIncomplete: A0D receipt contract failed: A0DR prepared cache provenance changed

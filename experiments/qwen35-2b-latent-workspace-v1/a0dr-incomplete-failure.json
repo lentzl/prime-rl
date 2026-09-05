@@ -1,0 +1,37 @@
+{
+  "error": "A0D receipt contract failed: A0DR prepared cache provenance changed",
+  "error_type": "DiagnosticIncomplete",
+  "execution_commit": "dbb377b816d0838e10f7e4b8ed44913a6d6aa5b9",
+  "failure_category": "diagnostic_execution_or_finiteness_failure",
+  "failure_sha256": "c06a83fad2a591b0192c8bf28308a906d033580dfbcced2c89cd2cff94a12f26",
+  "mechanism_code_commit": "c3e8e951d198e4c2e7d4b425a60237bc4f288b6e",
+  "model_update_attempted": false,
+  "plan_sha256": "1226c9598875df8e4874cc2dee6da2c538f8a3b12cb8ac7dc1109fe3847601a2",
+  "protected_hash_probe_after_failure": {
+    "coordinator_e33": {
+      "metadata_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+        "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+      },
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+    },
+    "worker_h176": {
+      "metadata_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+        "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+      },
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    }
+  },
+  "schema_version": "prime-rl/latent-a0dr-cache-diagnostic-failure/v1",
+  "stage": "protected_postflight_verified",
+  "status": "diagnostic_incomplete"
+}
