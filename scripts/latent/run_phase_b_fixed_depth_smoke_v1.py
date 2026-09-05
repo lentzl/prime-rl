@@ -39,9 +39,7 @@ WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
 PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br1-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-# A mechanism commit must remain non-launchable until a subsequent immutable
-# freeze pins the prospective repair plan's exact hash here.
-PLAN_SHA256 = "UNFROZEN_PHASE_B_REPAIR"
+PLAN_SHA256 = "2d30be851381fa9c76a2b9fc9d0df6c3e6e695458b801ac870c91dd7e21f3214"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (

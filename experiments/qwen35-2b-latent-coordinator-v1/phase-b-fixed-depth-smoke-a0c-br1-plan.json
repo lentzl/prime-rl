@@ -1,0 +1,278 @@
+{
+  "schema_version": "q35-2b-phase-b-fixed-depth-smoke-plan/v3-repair1",
+  "status": "frozen_bound_a0c_authorized",
+  "claim_class": "no_update_mechanism_connectivity_only",
+  "implementation_commit": "c4ba6c59c03780d5aa4e9a3430be4f56755a3381",
+  "implementation_parent": "a51b821cb5fc35ba2fdd391e1874d6d8db4b9759",
+  "protected_models": {
+    "coordinator": {
+      "repo_id": "lentzl/rlm-prime-agent-qwen35-2b-spade-coordinator",
+      "revision": "790a7ea3109c5445995d2ea5a31c01e9adee46bf",
+      "expected_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "host_path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+      "architecture": "Qwen3_5ForConditionalGeneration",
+      "text_hidden_size": 2048,
+      "trainable": false
+    },
+    "worker": {
+      "label": "H176",
+      "expected_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "load": false,
+      "trainable": false
+    }
+  },
+  "software": {
+    "model_backend": "upstream Transformers Qwen3_5ForConditionalGeneration; do not use the custom PrimeRL VLM wrapper for this smoke",
+    "transformers": "5.6.2",
+    "torch": "2.11.0+cu128",
+    "dependency_updates_allowed": false,
+    "torch_distribution": "2.11.0+cu128",
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "execution_environment": {
+    "uv": "/home/ubuntu/.local/bin/uv",
+    "uv_project": "/home/ubuntu/rlm/prime-rl",
+    "UV_PROJECT_ENVIRONMENT": "/home/ubuntu/rlm/prime-rl/.venv",
+    "deployed_worktree": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1",
+    "PYTHONPATH": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src:/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/packages/prime-rl-configs/src",
+    "uv_flags": [
+      "--project",
+      "/home/ubuntu/rlm/prime-rl",
+      "--no-sync"
+    ]
+  },
+  "model_metadata_sha256": {
+    "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+    "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f",
+    "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+    "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+    "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1"
+  },
+  "data": {
+    "host_parquet_path": "/home/ubuntu/rlm/datasets/q35-2b-adaptive-cognition-sft-v1/adaptive-action48-nonroot-first-v3/train.parquet",
+    "host_manifest_path": "/home/ubuntu/rlm/datasets/q35-2b-adaptive-cognition-sft-v1/adaptive-action48-nonroot-first-v3/MANIFEST.json",
+    "source_parquet_sha256": "256328cbdb33dc8880370688e2c6f4256341f644757a9d9d033bb5febc74e12e",
+    "source_manifest_sha256": "52b50f8f57d2ad6cf084c13bfe429293b304824c76df2c979b6e7793d1344575",
+    "selection_file": "phase-b-fixed-depth-smoke-v1-selection.json",
+    "selection_sha256": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe",
+    "probe_rows": 12,
+    "backward_probe_rows": 1,
+    "split_semantics": "none",
+    "purpose": "Use already preserved coordinator-action examples only to test forward/backward connectivity; do not interpret this as training or held-out capability evidence."
+  },
+  "shared_input_path": {
+    "feature_source": "same coordinator prompt, never another node",
+    "capture": "last eight visible final text hidden states, detached",
+    "workspace_shape": [
+      8,
+      256
+    ],
+    "injection": "eight soft embeddings immediately before the verified assistant-generation opening",
+    "latent_labels": -100,
+    "embedding_shell": "mean L2 norm of frozen e33 input embeddings, computed once and recorded",
+    "inter_node_workspace": false,
+    "workspace_provenance_or_delivery": false
+  },
+  "arms": {
+    "BASE": {
+      "local_depth": 0,
+      "trainable_parameters": 0,
+      "optimizer_updates": 0,
+      "path": "ordinary frozen e33 teacher-forced evaluation; no latent positions"
+    },
+    "STATIC": {
+      "local_depth": 0,
+      "trainable_parameters": 1055489,
+      "optimizer_updates": 0,
+      "path": "LocalDepthCodec task anchor decoded directly; no sidecar"
+    },
+    "FFN": {
+      "local_depth": 1,
+      "trainable_parameters": 11617644,
+      "optimizer_updates": 0,
+      "path": "LocalDepthCodec plus one 10562155-parameter OneShotFeedForwardSidecar"
+    },
+    "RECURRENT": {
+      "local_depth": 4,
+      "trainable_parameters": 11617537,
+      "optimizer_updates": 0,
+      "path": "LocalDepthCodec plus one 10562048-parameter TimestepFreeRecurrentSidecar shared for exactly four steps",
+      "timestep_input": false,
+      "bptt": "one diagnostic backward pass through all four smoke steps; no optimizer step"
+    }
+  },
+  "matched_conditions": {
+    "seed": 20260905,
+    "forward_microbatch_rows": 1,
+    "backward_probe_task_key": "document_adaptive_d3-v0-i34100:top-manager",
+    "optimizer": null,
+    "optimizer_updates": 0,
+    "precision": "bfloat16 model/activations; float32 diagnostic gradient summaries",
+    "prompt_features": "cache in host RAM only and reuse bitwise across arms",
+    "arm_order": [
+      "BASE",
+      "STATIC",
+      "FFN",
+      "RECURRENT"
+    ],
+    "model_generation": false,
+    "loss": "teacher-forced next-token cross-entropy on accepted coordinator action targets only",
+    "parameter_mutation": false
+  },
+  "preflight_gates": [
+    "Refuse unless the exact committed A0C binding and sidecar validate one immutable four-of-four carrier-only SUCCESS receipt with file SHA d88dd97e... and internal canonical SHA 40dde68d...; binding files remain outside the fresh terminal output namespace.",
+    "Refuse if the exact implementation ancestry, clean execution commit, plan hash, selection hash, source dataset hashes, model path, model revision, model hash, metadata hashes, execution environment, model backend, Transformers version/source hashes, or Torch version differs.",
+    "Refuse if host free disk is below 60 GiB or projected new artifacts exceed 512 MiB.",
+    "Refuse if H176 or any specialist checkpoint is loaded.",
+    "Refuse unless every e33 parameter has requires_grad=false and no optimizer is constructed.",
+    "Use the bound A0C bitwise hard-bypass receipt as the shared standard-path equivalence proof; do not import rejected A0R cache evidence or replace bitwise equality with argmax/tolerance.",
+    "Before importing the model class or entering a CUDA-facing path, strictly decode only the single final assistant target's function.arguments JSON string; require exactly one select_cognitive_action call whose decoded object is exactly {action: row.action}; reject malformed, duplicate-key, non-finite, non-object, extra-key, wrong-action, already-mapped, or multi-call targets.",
+    "Before model load, prove on all 12 exact rows that the raw source is unchanged, the sole modified path ends .function.arguments, restoring that path gives deep equality with the source, and plain/open/full rendering and tokenization pass full > opening > plain prefix preservation. Record raw-row, raw-message, raw-target, raw-argument, canonical normalized-argument, normalized-target, rendered-string, and token-ID SHA-256 values.",
+    "Verify the assistant-opening injection index against the live tokenizer/template and record tokenizer, template, and rendered-prefix SHA-256 values before any model load or backward probe.",
+    "Verify exactly eight inserted positions, attention-mask ones, sequential position IDs, and -100 labels.",
+    "Verify STATIC, FFN, and RECURRENT share bitwise-identical initial LocalDepthCodec weights.",
+    "Verify FFN and RECURRENT total trainable parameter counts differ by exactly 107 parameters.",
+    "Verify zero-initialized FFN and RECURRENT visible outputs equal the STATIC task anchor exactly.",
+    "Hash every parameter tensor for e33, LocalDepthCodec, FFN, and RECURRENT before the first forward and after the last backward; every pre/post hash must match."
+  ],
+  "connectivity_requirements": [
+    "All four arms produce finite teacher-forced loss on all 12 probe rows.",
+    "STATIC has finite nonzero diagnostic gradients in both codec projections on the frozen backward-probe row.",
+    "FFN and RECURRENT output-scale diagnostic gradients are finite and nonzero on the frozen backward-probe row.",
+    "At exact-zero sidecar output scale, FFN hidden/output and RECURRENT transition/memory/workspace diagnostic gradients are expected to be zero.",
+    "A second hypothetical open-gate diagnostic on the same row passes residual_scale_override=0.001 as a call argument without changing or persisting any parameter; it must produce finite nonzero gradients in FFN hidden/output and RECURRENT transition/memory/workspace projections.",
+    "The hypothetical open-gate diagnostic is reported separately and is never described as canonical-state behavior.",
+    "FFN and RECURRENT visible workspaces equal STATIC exactly on every probe row.",
+    "RECURRENT private memory changes at every one of the four steps on at least one row.",
+    "RECURRENT visible/private state diagnostics contain no non-finite values; change norms, contraction ratios, and direction cosines are recorded for every row.",
+    "No parameter changes in memory or on disk; e33 rehashes exactly after the smoke.",
+    "No arm is required to beat another in this connectivity smoke. Any capability or local-depth claim requires a later independently frozen evaluation."
+  ],
+  "outputs": {
+    "directory": "/home/ubuntu/rlm/results/q35-2b-phase-b-fixed-depth-smoke-a0c-br1",
+    "allowed": [
+      "frozen plan and selection copies",
+      "environment/tokenizer/template/hash manifest",
+      "per-arm forward losses and diagnostic gradient summaries",
+      "per-row recurrent diagnostics",
+      "timing, VRAM, and process logs",
+      "immutable pre/post parameter hashes",
+      "exactly one atomic SUCCESS.json or FAILURE.json receipt"
+    ],
+    "forbidden": [
+      "model checkpoint",
+      "optimizer checkpoint",
+      "feature cache on disk",
+      "H176 files",
+      "latent tensor persistence",
+      "Hugging Face publication"
+    ],
+    "new_artifact_hard_cap_bytes": 536870912
+  },
+  "host_schedule": {
+    "host": "ubuntu@216.81.200.39",
+    "expected_gpus": "2 x NVIDIA A6000 48GB",
+    "observed_free_disk_before_schedule": "88GB",
+    "gpu_0": "Run BASE, STATIC, FFN, and RECURRENT sequentially with one frozen e33 instance; retain e33 activations only for the active arm's soft-input loss backward.",
+    "gpu_1": "remain idle; a second model placement is unnecessary for this same-node no-update probe",
+    "wall_clock_reservation": "2 hours hard stop",
+    "network_after_staging": false
+  },
+  "launch_surface": {
+    "launcher": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br1.sh",
+    "arguments": [
+      "exact clean execution commit",
+      "root-authorized exact SHA-256 of this plan file"
+    ],
+    "outer_timeout": "GNU timeout sends TERM at 120 minutes and KILL 30 seconds later",
+    "inner_timeout": "Python stops compute at 114 minutes, reserves 5 minutes for failure hashes, and leaves 1 minute for terminal receipt publication",
+    "offline": "HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1; uv --no-sync",
+    "gpu_visibility": "CUDA_VISIBLE_DEVICES=0,1; runner uses cuda:0 sequentially and leaves cuda:1 idle",
+    "pre_output_checks": "clean exact commit, root-authorized repair-plan file hash, complete repair freeze-manifest hashes, exact failed-start binding/artifacts, absent fresh output namespace; --preflight-only renders/tokenizes all 12 without creating output",
+    "owner_authorization": "Supplying the prospectively reviewed plan file SHA as the second argument is required but does not replace root's explicit scheduling decision."
+  },
+  "stop_conditions": [
+    "any preflight gate fails",
+    "any e33 hash mismatch",
+    "any optimizer is constructed or any parameter value changes",
+    "any non-finite loss, state, parameter, or gradient",
+    "artifact footprint reaches 512 MiB",
+    "free disk falls below 60 GiB",
+    "unexpected process uses GPU 0",
+    "both SUCCESS.json and FAILURE.json exist or either receipt is overwritten/non-atomically published"
+  ],
+  "interpretation_boundary": "This prospective repair changes only the representation of the exact final assistant target's OpenAI-wire function.arguments from a strict JSON string to the semantically identical mapping required by the pinned Qwen template. The zero-update fixed-depth smoke establishes only whether the self-local codec and bounded timestep-free recurrent path execute, preserve the standard no-op surface, evolve private memory, and expose the expected first-order gate gradients. It does not establish trainability behind the closed gate, test C2C/workspace handoff, specialist competence, end-to-end delegation, adaptive depth, halting, corruption curricula, or matched-parameter capability gain.",
+  "authorization": "A0C-bound B-R frozen plan only. Independent gatekeeper review and an explicit root schedule are still required; this document does not authorize SSH, GPU/model execution, optimizer updates, publication, A0/A1 reinterpretation, or cache/generation claims. The prior failed namespace is immutable and must never be reused.",
+  "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
+  "a0c_dependency": {
+    "required_before_launch": true,
+    "claim_scope": "B frozen-decoder teacher-forced carrier dependency only",
+    "binding_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-a0c-binding-v1.json",
+    "binding_hash_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-a0c-binding-v1.sha256",
+    "binding_sha256": "8b7e34f8edd66ac640826c466ba57d008a98aa9c658d1a91bf628db8a44ec2aa",
+    "receipt_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/a0c-carrier-success-receipt-v1.json",
+    "receipt_file_sha256": "d88dd97eb37c9c3dd61bc07fe422df6c7fa0034837897346e43ed16bb634e63c",
+    "receipt_internal_sha256": "40dde68d34deb592f864739b48da8c22faafe470f2f0bc6708bce608ae482de7",
+    "receipt_schema_version": "prime-rl/latent-a0c-mechanism-receipt/v1",
+    "a0c_plan_sha256": "0def45abb5981761eaf34a9228313cf9494e2fdf23c39055a36e095fd70482be",
+    "a0c_bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+    "a0c_execution_commit": "81e10c5ff362a4ac586fc9ecd81cdfe6f2196583",
+    "a0c_mechanism_commit": "7a35cfd34406305c42109e2f7318d91120119996",
+    "a0r_rejection_preserved": {
+      "status": "mechanism_rejected",
+      "complete_probes": 0,
+      "failure_file_sha256": "b38319aedb72f1cffe9cf1b4cb90adca430813a24f1d1120efd9213ea0256a20",
+      "failure_internal_sha256": "8856b213a9796186ff328ba0d20584387ffeba3554859f430c7a29fe52ac4746",
+      "reason": "cached/full normalized RMS 0.015026 exceeded 0.01; A0C does not support cache, generation, A0, or A1"
+    }
+  },
+  "repair_dependency": {
+    "required_before_launch": true,
+    "claim_scope": "narrow final-assistant tool-call render-boundary repair only",
+    "binding_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-a0c-v1-failed-start-binding.json",
+    "binding_hash_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-a0c-v1-failed-start-binding.sha256",
+    "binding_sha256": "2344c72ecb594df3fbbb5f6c086d0d14733b0dad8645e200a99e4ad3ff7cfbab",
+    "failure_file_sha256": "0ddc8b349de0497f5c886cbff85d6e12b9a7a0156c16c2789b9d5985ded1d014",
+    "log_file_sha256": "4bb4d7941a5207d4384230d0873b6df2d2cafd71c3c74fbc2f31dab9ee05ca6b",
+    "prior_plan_sha256": "154f65eead8d206316e111b8e18dc3f86fe4ea69a4f0d731de8390749d800e1b",
+    "prior_execution_commit": "a51b821cb5fc35ba2fdd391e1874d6d8db4b9759",
+    "prior_runner_path": "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py",
+    "prior_runner_sha256": "793b66fdaab73c3c69f312ccab7092e579f761f2b1387eb89c7bdf62b708266f",
+    "prior_output_directory": "/home/ubuntu/rlm/results/q35-2b-phase-b-fixed-depth-smoke-a0c-v1",
+    "prior_output_reuse_forbidden": true,
+    "preservation_evidence": "Exact prior FAILURE and log are committed. FAILURE reports infrastructure_invalid TypeError at target rendering and a complete, error-free post-failure e33/A0C/plan audit. Exact prior runner control flow places _prepare_example rendering before codec/sidecar construction, any model forward, and backward; it contains no optimizer construction, optimizer step, generation, or checkpoint write path. Root observed no parameter-update/checkpoint artifacts and GPU idle after failure."
+  },
+  "tokenizer_only_repair_preflight": {
+    "rows": 12,
+    "actions": {
+      "solve_owned": 4,
+      "delegate_terminal": 4,
+      "delegate_coordinator": 4
+    },
+    "normalization_scope": "messages[-1].tool_calls[0].function.arguments only",
+    "source_format": "OpenAI JSON string",
+    "render_variants": [
+      "plain_prefix",
+      "assistant_generation_opening",
+      "full_normalized_target"
+    ],
+    "model_class_import_before_completion": false,
+    "model_load_before_completion": false,
+    "cuda_initialization_before_or_during_completion": false,
+    "remote_tokenizer_only_rationale": "An earlier no-model/no-CUDA tokenizer proof rendered all exact 12 rows after the same strict string-to-object conversion, recovered exact action semantics, and observed full > opening > plain for each 4/4/4 action group. The prospective runner must independently repeat and receipt the full check before model load."
+  },
+  "failure_classification": {
+    "mechanism_rejected": "a prospectively declared B connectivity predicate fails",
+    "infrastructure_invalid": "provenance, environment, timeout, OOM, resource, immutable-hash, or artifact contract fails",
+    "compute_limit_seconds": 6840,
+    "failure_audit_headroom_seconds": 300,
+    "terminal_publication_headroom_seconds": 60,
+    "outer_wall_clock_seconds": 7200,
+    "post_failure_required": "rehash e33 weight+metadata, exact A0C binding+receipt, exact failed-start binding+FAILURE+log, plan, and selection; record hash_probe_error even when audit is incomplete"
+  }
+}
