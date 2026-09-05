@@ -1,0 +1,37 @@
+{
+  "admission": {
+    "acceptance_gates_relaxed": false,
+    "maximum_paired_regressions": 0,
+    "minimum_hard_successes_per_family": 2,
+    "minimum_paired_recoveries": 4,
+    "minimum_treatment_hard_successes": 4
+  },
+  "family_counts": {
+    "specialist_source_ast": 8,
+    "specialist_source_config": 8
+  },
+  "frozen_before_model_calls": true,
+  "heldout_config": "experiments/qwen35-2b-document-recursion-zero-update-v1/specialist-source-competence-s6-heldout-v1.toml",
+  "heldout_config_sha256": "59c8a7b393fa431058e125e961fed6c1ad0241eff3a300b53b6927b687b7d8c6",
+  "instance_offset": 62000,
+  "routing": {
+    "mode": "forced_delegate_terminal_source_inspector_assignment",
+    "worker_computation_scaffolded": false,
+    "worker_parent_send_scaffolded": false
+  },
+  "sampling": {
+    "max_tokens": 4096,
+    "min_p": 0.0,
+    "reasoning_effort": "high",
+    "temperature": 0.0,
+    "top_k": 20,
+    "top_p": 0.95
+  },
+  "schema_version": "q35-2b-source-first-call-s6-sampling/v1",
+  "seed": 20270910,
+  "task_count": 16,
+  "template_variants": [
+    4,
+    5
+  ]
+}

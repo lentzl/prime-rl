@@ -49,6 +49,7 @@ legacy_verifiers_gitlink=5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f
 live_detached_verifiers_prefix=53bafca
 uv_bin=/home/ubuntu/.local/bin/uv
 uv_environment=/home/ubuntu/rlm/prime-rl/.venv
+verifiers_env_pythonpath="$root/deps/verifiers/environments/subagent_communication_v1:$root/deps/verifiers/environments/source_worker_first_call_v1"
 
 cd "$root"
 if [[ "$(git rev-parse HEAD)" != "$revision" ]]; then
@@ -175,8 +176,8 @@ if [[ -e "$output_root" || -e "$result_root" ]]; then
   echo "refusing duplicate or partial S6 output/result root" >&2
   exit 1
 fi
-UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync \
-  --with-editable "$root/deps/verifiers/environments/subagent_communication_v1" \
+PYTHONPATH="$verifiers_env_pythonpath${PYTHONPATH:+:$PYTHONPATH}" \
+  UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync \
   python \
   scripts/hash_q35_2b_specialist_task_bank_v1.py "$heldout_config" \
   --expected-sha256 "$task_bank_sha"
@@ -195,15 +196,13 @@ fi
 
 export PATH="$uv_environment/bin:$HOME/.local/bin:$PATH"
 run_s6_rl() {
-  UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync \
-    --with-editable "$root/deps/verifiers/environments/subagent_communication_v1" \
-    --with-editable "$root/deps/verifiers/environments/source_worker_first_call_v1" \
+  PYTHONPATH="$verifiers_env_pythonpath${PYTHONPATH:+:$PYTHONPATH}" \
+    UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync \
     rl @ "$@"
 }
 run_s6_python() {
-  UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync \
-    --with-editable "$root/deps/verifiers/environments/subagent_communication_v1" \
-    --with-editable "$root/deps/verifiers/environments/source_worker_first_call_v1" \
+  PYTHONPATH="$verifiers_env_pythonpath${PYTHONPATH:+:$PYTHONPATH}" \
+    UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync \
     python "$@"
 }
 if [[ "$dry_run" == true ]]; then

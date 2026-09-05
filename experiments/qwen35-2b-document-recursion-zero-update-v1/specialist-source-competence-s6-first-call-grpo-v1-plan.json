@@ -2,7 +2,7 @@
   "schema_version": "q35-2b-specialist-competence-plan/v1",
   "experiment_id": "specialist-source-competence-s6-first-call-grpo-v1",
   "recorded_at": "2026-09-05",
-  "status": "prospective_pending_root_freeze_and_authorization",
+  "status": "prospective_frozen_and_authorized",
   "objective": "Test whether execution-grounded group-relative policy learning can bind file parsing, exact arithmetic, compact JSON serialization, and exactly-once same-call parent delivery after positive-only SFT failed.",
   "trigger": {
     "required": [
@@ -37,7 +37,7 @@
     "live_detached_revision_observed": "53bafcaca612",
     "staged_payload": "patches/verifiers/environments/source_worker_first_call_v1",
     "target_directory": "environments/source_worker_first_call_v1",
-    "required_durable_commit": "ROOT_FREEZE_REQUIRED_S6_VERIFIERS_REVISION",
+    "required_durable_commit": "6f952419af98576ae9dcb17a466611bfaa4a9189",
     "required_parent_action": "Commit the staged environment on a durable Verifiers branch, update the parent submodule pointer, and freeze the exact new revision before any model call."
   },
   "training_partition": {
@@ -79,7 +79,7 @@
   },
   "mechanism_audit": {
     "config": "specialist-source-competence-s6-first-call-grpo-zero-lr.toml",
-    "config_sha256": "ROOT_FREEZE_REQUIRED_S6_AUDIT_CONFIG_SHA256",
+    "config_sha256": "99e83485bd7831b1246f06e67c41156546dfe6cad6b4be7001ebb73b22df42a1",
     "learning_rate": 0.0,
     "checkpoint": false,
     "groups": 2,
@@ -101,7 +101,7 @@
   },
   "conditional_update": {
     "config": "specialist-source-competence-s6-first-call-grpo-step1.toml",
-    "config_sha256": "ROOT_FREEZE_REQUIRED_S6_UPDATE_CONFIG_SHA256",
+    "config_sha256": "fbf8f70c22d23518468db1488aae2552572fd97008854c67703199a042abe3e6",
     "initialization": "frozen rejected S5",
     "role": "non-root source_inspector task worker only",
     "update_type": "full_dense",
@@ -115,11 +115,11 @@
   "paired_evaluation": {
     "heldout_template": "specialist-source-competence-s6-heldout-template.toml",
     "materializer": "scripts/materialize_q35_2b_source_first_call_s6_heldout_v1.py",
-    "heldout_seed": "ROOT_FREEZE_REQUIRED_S6_HELDOUT_SEED",
-    "heldout_instance_offset": "ROOT_FREEZE_REQUIRED_S6_HELDOUT_OFFSET",
-    "heldout_config_sha256": "ROOT_FREEZE_REQUIRED_S6_HELDOUT_CONFIG_SHA256",
-    "sampling_contract_sha256": "ROOT_FREEZE_REQUIRED_S6_SAMPLING_SHA256",
-    "task_bank_sha256": "ROOT_FREEZE_REQUIRED_S6_TASK_BANK_SHA256",
+    "heldout_seed": 20270910,
+    "heldout_instance_offset": 62000,
+    "heldout_config_sha256": "59c8a7b393fa431058e125e961fed6c1ad0241eff3a300b53b6927b687b7d8c6",
+    "sampling_contract_sha256": "62d0f70ca6403b322856e7047301f3ebe7ef3e3dde43d7fffbc714d2d598713a",
+    "task_bank_sha256": "2e025d9ae94da540c41ebb1881ac2086f206573b267a7c0ef692f2528c0b37d5",
     "template_variants": [4, 5],
     "temperature": 0.0,
     "tasks": 16,
@@ -155,7 +155,8 @@
     "never resume or overwrite a partial run"
   ],
   "resource_request": {
-    "authorization_required": true,
+    "authorization_required": false,
+    "authorization_basis": "Owner explicitly authorized autonomous operation and launch on the existing two-GPU host on 2026-09-05.",
     "host": "existing host only; no added infrastructure",
     "gpu": "2x RTX A6000 48 GiB",
     "layout": "GPU0 one full-dense trainer; GPU1 colocated S5 child-policy inference plus frozen e33 anchor with explicit 4 GiB KV caches",

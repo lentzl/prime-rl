@@ -24,6 +24,7 @@ score_first_call = REWARD.score_first_call
 
 AST_PATHS = ("/workspace/sample/alpha.py", "/workspace/sample/beta.py")
 CONFIG_PATHS = ("/workspace/sample/service.toml", "/workspace/sample/features.env")
+LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_first_call_grpo_s6_v1.sh"
 
 
 def test_atomic_ast_loop_receives_full_reward() -> None:
@@ -159,3 +160,10 @@ await agent_message.send('{"value":30}', receiver_role='parent')
     assert result.extra_sends == 1
     assert result.retries == 1
     assert result.score == pytest.approx(0.26)
+
+
+def test_launcher_uses_source_paths_without_dependency_overlay() -> None:
+    launcher = LAUNCHER_PATH.read_text()
+    assert "verifiers_env_pythonpath=" in launcher
+    assert 'PYTHONPATH="$verifiers_env_pythonpath${PYTHONPATH:+:$PYTHONPATH}"' in launcher
+    assert "--with-editable" not in launcher
