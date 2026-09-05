@@ -756,6 +756,8 @@ def test_repair_plan_is_exact_and_prior_plans_remain_immutable() -> None:
     repair3_plan = json.loads(repair3_plan_path.read_text(encoding="utf-8"))
     repair4_plan_path = experiment / "phase-b-fixed-depth-smoke-a0c-br4-plan.json"
     repair4_plan = json.loads(repair4_plan_path.read_text(encoding="utf-8"))
+    repair5_plan_path = experiment / "phase-b-fixed-depth-smoke-a0c-br5-plan.json"
+    repair5_plan = json.loads(repair5_plan_path.read_text(encoding="utf-8"))
     selection_path = experiment / "phase-b-fixed-depth-smoke-v1-selection.json"
 
     with pytest.raises(PhaseBContractError):
@@ -847,8 +849,31 @@ def test_repair_plan_is_exact_and_prior_plans_remain_immutable() -> None:
         "a81f84119148fb90597cf0fa7bd60dadf1b939cedc53a31d81caa4e458b55243"
     )
     assert repair4_plan["outputs"]["directory"] != repair3_plan["outputs"]["directory"]
-    assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br4-plan.json"
-    assert runner.PLAN_SHA256 == hashlib.sha256(repair4_plan_path.read_bytes()).hexdigest()
+    validate_plan_authorization(repair5_plan)
+    assert repair5_plan["implementation_commit"] == "cb9e2bc80e09ae7e21b3d08582ab3ab3b5fe2fec"
+    assert repair5_plan["arms"] == repair4_plan["arms"]
+    assert repair5_plan["matched_conditions"] == repair4_plan["matched_conditions"]
+    assert repair5_plan["data"] == repair4_plan["data"]
+    assert repair5_plan["br4_oom_dependency"]["binding_sha256"] == (
+        "b9f23ddfb0d7f2535758a874c11db9a37a629c55edd853247ebc75219d59da54"
+    )
+    assert repair5_plan["br4_oom_dependency"]["failure_file_sha256"] == (
+        "8eb85b98d554a51fb3f764c83309fc949d24802a6c4af17af73748fccb6b6d30"
+    )
+    assert repair5_plan["br4_oom_dependency"]["preflight_log_file_sha256"] == (
+        "4bb386f507ae99e7260ef5037f1a5260bd7501c54f9dd9af71778d9de5ff98a4"
+    )
+    assert repair5_plan["br4_oom_dependency"]["run_log_file_sha256"] == (
+        "f52dbb346b095b8475dc51c6dc84dbf84709ab760dc732e703292829df231af8"
+    )
+    assert repair5_plan["supervised_suffix_projection"]["exact_base_suffix_lengths"] == {
+        "solve_owned": 54,
+        "delegate_terminal": 54,
+        "delegate_coordinator": 55,
+    }
+    assert repair5_plan["outputs"]["directory"] != repair4_plan["outputs"]["directory"]
+    assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br5-plan.json"
+    assert runner.PLAN_SHA256 == hashlib.sha256(repair5_plan_path.read_bytes()).hexdigest()
 
 
 def test_failure_audit_rehashes_e33_binding_receipt_and_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1110,14 +1135,14 @@ def test_tokenizer_preflight_normalizes_and_renders_all_twelve_before_model_use(
 
 def test_launcher_supplies_independent_outer_timeout_and_exact_environment() -> None:
     repository = Path(__file__).resolve().parents[2]
-    launcher = (repository / "scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br4.sh").read_text(encoding="utf-8")
+    launcher = (repository / "scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br5.sh").read_text(encoding="utf-8")
 
     assert "timeout --signal=TERM --kill-after=30s 120m" in launcher
     assert 'UV_PROJECT_ENVIRONMENT="$SHARED_ENV"' in launcher
     assert "CUDA_VISIBLE_DEVICES=0,1" in launcher
     assert "HF_HUB_OFFLINE=1" in launcher
     assert "ROOT_AUTHORIZED_PLAN_SHA256=$2" in launcher
-    assert "sha256sum --check phase-b-fixed-depth-smoke-a0c-br4.sha256" in launcher
+    assert "sha256sum --check phase-b-fixed-depth-smoke-a0c-br5.sha256" in launcher
     assert "[--preflight-only]" in launcher
     assert "--no-sync python" in launcher
     assert '--execution-commit "$EXECUTION_COMMIT"' in launcher
@@ -1201,6 +1226,26 @@ def test_br4_freeze_manifest_remains_valid_at_its_immutable_commit() -> None:
             ["git", "show", f"{commit}:{blob_path}"], cwd=repository, capture_output=True, check=True
         ).stdout
         assert hashlib.sha256(blob).hexdigest() == expected
+
+
+def test_br5_freeze_manifest_closes_full_logit_failure_and_prior_evidence() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    manifest_path = (
+        repository
+        / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br5.sha256"
+    )
+    lines = manifest_path.read_text(encoding="utf-8").splitlines()
+
+    assert len(lines) == 45
+    assert any("phase-b-fixed-depth-smoke-a0c-br4-FAILURE.json" in line for line in lines)
+    assert any("phase-b-fixed-depth-smoke-a0c-br4-preflight.log" in line for line in lines)
+    assert any("phase-b-fixed-depth-smoke-a0c-br4-run.log" in line for line in lines)
+    assert any("phase-b-fixed-depth-smoke-a0c-br5-plan.json" in line for line in lines)
+    assert any("run_phase_b_fixed_depth_smoke_a0c_br5.sh" in line for line in lines)
+    for line in lines:
+        expected, relative_path = line.split(maxsplit=1)
+        artifact = (manifest_path.parent / relative_path).resolve()
+        assert hashlib.sha256(artifact.read_bytes()).hexdigest() == expected
 
 
 def _load_runner():

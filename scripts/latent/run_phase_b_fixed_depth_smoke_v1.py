@@ -43,9 +43,9 @@ from prime_rl.phase_b_contract import (
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br4-plan.json"
+PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br5-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-PLAN_SHA256 = "0cc8a47c1a26c0857e42ba53287f1d399e1b543d4601d0f60a26b29a5740bc70"
+PLAN_SHA256 = "17549e30a5a3c280e2d7c2180125be8c0c2c6400519c6b7ff0930446c7e74481"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
