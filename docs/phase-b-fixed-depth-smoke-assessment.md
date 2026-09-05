@@ -25,10 +25,11 @@ surface but adds optimization surface.
 
 The independent ordering recommendation is therefore unchanged:
 
-1. Run A0 first because its hard-bypass/no-update result isolates the common soft-input integration
-   boundary with less destructive power.
-2. Bind the frozen B smoke to A0's immutable success receipt, then run B without waiting for A1
-   capability training. B consumes A0's model-interface proof, not an A workspace or bridge checkpoint.
+1. Run the prospective A0C carrier-only probe because its hard-bypass/no-update result isolates the
+   exact model-interface predicates B consumes with less destructive power.
+2. Bind a newly frozen B smoke to A0C's immutable four-of-four success receipt, then run B without
+   waiting for A1 capability training. B consumes A0C's model-interface proof, not an A workspace or
+   bridge checkpoint. Rejected A0R control-flow is not a substitute for that prospective receipt.
 3. Keep A1 semantic transfer and B local-depth capability as independent claims. Do not combine them
    until each has passed its own causal evaluation.
 
@@ -46,10 +47,10 @@ fresh held-out tasks, hashes, and a quantitative admission rule before any capab
 
 ## Host fit
 
-The host's two 48GB A6000s are ample for two frozen 2B copies plus approximately 11.6M gradient-bearing
-parameters per active arm. Disk, not VRAM, is the immediate constraint: only 88GB is free. The smoke
+The host's two 48GB A6000s are ample for the one frozen 2B instance plus approximately 11.6M
+gradient-bearing parameters in the active arm. Disk, not VRAM, is the immediate constraint: only 88GB is free. The smoke
 keeps feature caches in RAM, disables every checkpoint save, forbids tensor persistence, caps new
-artifacts at 512MiB, and refuses to start below 60GiB free. A six-hour hard stop is conservative for
+artifacts at 512MiB, and refuses to start below 60GiB free. A two-hour hard stop is conservative for
 the zero-update probe while preventing an integration fault from occupying the host indefinitely.
 
 The staged coordinator is `Qwen3_5ForConditionalGeneration` with a 2048-wide text model under
@@ -62,5 +63,17 @@ must retain e33 activations for the currently active arm. GPU 1 remains idle. Pa
 memory and reproducibility surface without making a twelve-row no-update probe meaningfully faster.
 
 Completion is transactional: the run writes either `SUCCESS.json` or `FAILURE.json` through a temporary
-file and atomic rename, never both, and never overwrites either. The receipt includes immutable pre/post
-hashes for e33 and every codec/sidecar parameter tensor plus the bound A0 receipt hash.
+file and an atomic no-replace hard link, never both, and never overwrites either. The receipt includes
+immutable pre/post hashes for e33 and every codec/sidecar parameter tensor plus the bound A0C receipt
+hash.
+
+## Runner readiness boundary
+
+`scripts/latent/run_phase_b_fixed_depth_smoke_v1.py` contains the host execution path, but the checked-in
+state cannot launch it. The current plan retains the status
+`frozen_pending_a0_receipt_binding_not_authorized`, and the checked-in A0C binding is an explicitly
+unresolved placeholder. Both checks execute before Torch or Transformers is imported and before an
+output directory is created. After A0C succeeds, root must prospectively freeze a replacement plan and
+binding containing the exact A0C receipt schema, receipt file and canonical hashes, A0C plan hash,
+execution commit, e33 identity, and required predicate paths. The runner and its exact plan hash then
+need a new implementation freeze; no existing hash may be edited in place.

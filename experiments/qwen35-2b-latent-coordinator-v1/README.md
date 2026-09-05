@@ -57,3 +57,9 @@ The prospective controls, training hypothesis, diagnostics, and resource account
 `phase-b-recurrent-sidecar-v1-plan.json`. Evaluation seeds, held-out hashes, and final quantitative
 admission thresholds remain owned by the independent evaluation strand or root and must be filled in
 before the first model call.
+
+The fixed-depth host runner is present at `scripts/latent/run_phase_b_fixed_depth_smoke_v1.py`, but its
+checked-in state is intentionally non-launchable. It requires both a newly authorized plan and an exact
+binding to a prospective four-of-four A0C carrier-only success receipt before importing Torch or
+Transformers. `phase-b-a0c-binding-placeholder-v1.json` documents that interface and remains marked
+`unresolved`; rejected A0R evidence is never accepted through this path.

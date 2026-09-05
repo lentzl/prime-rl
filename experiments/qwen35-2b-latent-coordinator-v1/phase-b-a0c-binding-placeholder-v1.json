@@ -1,0 +1,49 @@
+{
+  "schema_version": "q35-2b-phase-b-a0c-binding/v1",
+  "status": "unresolved",
+  "required_claim": "four_probe_carrier_only_for_phase_b",
+  "receipt_absolute_path": null,
+  "receipt_file_sha256": null,
+  "receipt_canonical_sha256": null,
+  "receipt_schema_version": null,
+  "a0c_plan_sha256": null,
+  "a0c_execution_commit": null,
+  "identity": {
+    "e33_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "config_sha256": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+    "tokenizer_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "tokenizer_config_sha256": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f",
+    "chat_template_sha256": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80"
+  },
+  "required_predicate_semantics": [
+    "exactly four prospectively selected carrier probes completed",
+    "input_ids and hard inputs_embeds paths are bitwise equal for every probe",
+    "final-text hidden capture is detached, finite, deterministic, and selects the declared visible indices",
+    "soft insertion has exactly eight positions with attention one, sequential positions, and labels -100",
+    "full-recompute teacher-forced soft-input loss and logits are finite",
+    "soft-input loss exposes finite nonzero upstream carrier gradients",
+    "every protected e33 parameter remains requires_grad false with no accumulated gradient",
+    "e33 weight tensors, weight file, and tokenizer-template metadata have identical pre/post hashes"
+  ],
+  "predicate_paths": {
+    "four_probes_completed": null,
+    "hard_bypass_bitwise_all": null,
+    "capture_detached_all": null,
+    "capture_finite_all": null,
+    "capture_deterministic_all": null,
+    "capture_visible_indices_valid_all": null,
+    "insertion_eight_slots_all": null,
+    "insertion_attention_one_all": null,
+    "insertion_positions_sequential_all": null,
+    "insertion_labels_masked_all": null,
+    "soft_loss_finite_all": null,
+    "soft_logits_finite_all": null,
+    "upstream_gradients_finite_all": null,
+    "upstream_gradients_nonzero_all": null,
+    "e33_requires_grad_false_all": null,
+    "e33_gradients_absent_all": null,
+    "e33_tensor_hash_unchanged": null,
+    "e33_file_and_metadata_hashes_unchanged": null
+  },
+  "note": "This placeholder is intentionally non-launchable. Root must prospectively freeze an exact A0C receipt schema, file hash, canonical hash, plan hash, execution commit, and predicate map after A0C succeeds; no field may be inferred from rejected A0R evidence."
+}
