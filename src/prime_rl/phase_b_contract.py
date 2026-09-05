@@ -16,24 +16,35 @@ from pathlib import Path
 from typing import Any
 
 REQUIRED_A0C_PREDICATES = (
+    "receipt_status_exact",
+    "receipt_claim_exact",
+    "receipt_plan_sha256_exact",
+    "receipt_execution_commit_exact",
+    "receipt_dependency_scope_exact",
     "four_probes_completed",
+    "probe_status_complete_all",
     "hard_bypass_bitwise_all",
+    "hard_bypass_contract_exact_all",
     "capture_detached_all",
     "capture_finite_all",
     "capture_deterministic_all",
     "capture_visible_indices_valid_all",
+    "capture_content_exact_all",
     "insertion_eight_slots_all",
+    "insertion_original_content_preserved_all",
     "insertion_attention_one_all",
     "insertion_positions_sequential_all",
     "insertion_labels_masked_all",
+    "insertion_no_other_masking_all",
     "soft_loss_finite_all",
     "soft_logits_finite_all",
-    "upstream_gradients_finite_all",
-    "upstream_gradients_nonzero_all",
-    "e33_requires_grad_false_all",
+    "workspace_gradient_finite_nonzero_all",
+    "gate_gradient_finite_nonzero_all",
     "e33_gradients_absent_all",
-    "e33_tensor_hash_unchanged",
-    "e33_file_and_metadata_hashes_unchanged",
+    "e33_file_hash_before_exact",
+    "e33_file_hash_after_exact",
+    "e33_metadata_before_exact",
+    "e33_metadata_after_exact",
 )
 
 
@@ -237,12 +248,19 @@ def atomic_exclusive_json(
 
 
 def _resolve_dotted_path(value: dict[str, Any], dotted_path: str) -> Any:
-    current: Any = value
-    for component in dotted_path.split("."):
+    def resolve(current: Any, components: list[str]) -> Any:
+        if not components:
+            return current
+        component, *remaining = components
+        if component == "*":
+            if not isinstance(current, list):
+                raise PhaseBContractError(f"A0C receipt wildcard is not a list in {dotted_path!r}")
+            return [resolve(item, remaining) for item in current]
         if not isinstance(current, dict) or component not in current:
             raise PhaseBContractError(f"A0C receipt lacks predicate path {dotted_path!r}")
-        current = current[component]
-    return current
+        return resolve(current[component], remaining)
+
+    return resolve(value, dotted_path.split("."))
 
 
 def _directory_bytes(path: Path) -> int:

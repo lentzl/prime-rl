@@ -33,10 +33,10 @@ def _write_binding(tmp_path: Path, *, receipt: dict[str, object]) -> tuple[Path,
         "a0c_execution_commit": "b" * 40,
         "identity": {},
         "predicate_paths": {
-            name: {"path": f"predicates.{name}", "expected": receipt["predicates"][name]}  # type: ignore[index]
-            for name in REQUIRED_A0C_PREDICATES
+            name: {"path": f"probes.*.{name}", "expected": [True, True, True, True]} for name in REQUIRED_A0C_PREDICATES
         },
     }
+    binding["predicate_paths"]["four_probes_completed"] = {"path": "complete_probes", "expected": 4}
     binding_path = (tmp_path / "A0C_BINDING.json").resolve()
     binding_path.write_text(json.dumps(binding), encoding="utf-8")
     binding_hash = hashlib.sha256(binding_path.read_bytes()).hexdigest()
@@ -72,7 +72,8 @@ def test_exact_bound_receipt_and_predicates_validate(tmp_path: Path) -> None:
         "schema_version": "q35-2b-a0c-carrier-receipt/v1",
         "status": "SUCCESS",
         "claim": "four_probe_carrier_only_for_phase_b",
-        "predicates": {name: 4 if name == "four_probes_completed" else True for name in REQUIRED_A0C_PREDICATES},
+        "complete_probes": 4,
+        "probes": [{name: True for name in REQUIRED_A0C_PREDICATES} for _ in range(4)],
     }
     binding_path, hash_path = _write_binding(tmp_path, receipt=receipt)
 
@@ -87,11 +88,12 @@ def test_binding_rejects_receipt_changed_after_freeze(tmp_path: Path) -> None:
         "schema_version": "q35-2b-a0c-carrier-receipt/v1",
         "status": "SUCCESS",
         "claim": "four_probe_carrier_only_for_phase_b",
-        "predicates": {name: 4 if name == "four_probes_completed" else True for name in REQUIRED_A0C_PREDICATES},
+        "complete_probes": 4,
+        "probes": [{name: True for name in REQUIRED_A0C_PREDICATES} for _ in range(4)],
     }
     binding_path, hash_path = _write_binding(tmp_path, receipt=receipt)
     receipt_path = tmp_path / "A0C_SUCCESS.json"
-    receipt["predicates"]["four_probes_completed"] = 3  # type: ignore[index]
+    receipt["complete_probes"] = 3
     receipt_path.write_text(json.dumps(receipt), encoding="utf-8")
 
     with pytest.raises(PhaseBContractError, match="file hash"):
@@ -103,7 +105,8 @@ def test_binding_requires_every_named_carrier_predicate(tmp_path: Path) -> None:
         "schema_version": "q35-2b-a0c-carrier-receipt/v1",
         "status": "SUCCESS",
         "claim": "four_probe_carrier_only_for_phase_b",
-        "predicates": {name: 4 if name == "four_probes_completed" else True for name in REQUIRED_A0C_PREDICATES},
+        "complete_probes": 4,
+        "probes": [{name: True for name in REQUIRED_A0C_PREDICATES} for _ in range(4)],
     }
     binding_path, hash_path = _write_binding(tmp_path, receipt=receipt)
     binding = json.loads(binding_path.read_text(encoding="utf-8"))
@@ -152,3 +155,17 @@ def test_checked_in_runner_refuses_old_plan_before_heavy_imports(tmp_path: Path)
     assert "torch" not in sys.modules
     assert "transformers" not in sys.modules
     assert not args.output_dir.exists()
+
+
+def test_checked_in_placeholder_maps_exact_a0c_carrier_schema() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    placeholder = json.loads(
+        (repository / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-a0c-binding-placeholder-v1.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert placeholder["status"] == "unresolved"
+    assert placeholder["receipt_schema_version"] == "prime-rl/latent-a0c-mechanism-receipt/v1"
+    assert set(placeholder["predicate_paths"]) == set(REQUIRED_A0C_PREDICATES)
+    assert placeholder["predicate_paths"]["receipt_execution_commit_exact"]["expected"] is None

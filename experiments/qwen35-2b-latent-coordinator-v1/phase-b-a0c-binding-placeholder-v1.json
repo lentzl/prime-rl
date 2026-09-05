@@ -5,8 +5,8 @@
   "receipt_absolute_path": null,
   "receipt_file_sha256": null,
   "receipt_canonical_sha256": null,
-  "receipt_schema_version": null,
-  "a0c_plan_sha256": null,
+  "receipt_schema_version": "prime-rl/latent-a0c-mechanism-receipt/v1",
+  "a0c_plan_sha256": "0def45abb5981761eaf34a9228313cf9494e2fdf23c39055a36e095fd70482be",
   "a0c_execution_commit": null,
   "identity": {
     "e33_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
@@ -21,29 +21,151 @@
     "final-text hidden capture is detached, finite, deterministic, and selects the declared visible indices",
     "soft insertion has exactly eight positions with attention one, sequential positions, and labels -100",
     "full-recompute teacher-forced soft-input loss and logits are finite",
-    "soft-input loss exposes finite nonzero upstream carrier gradients",
-    "every protected e33 parameter remains requires_grad false with no accumulated gradient",
-    "e33 weight tensors, weight file, and tokenizer-template metadata have identical pre/post hashes"
+    "soft-input loss exposes finite nonzero workspace and gate gradients while e33 has no gradient",
+    "e33 weight-file and tokenizer-template metadata match their exact expected identities before and after"
   ],
   "predicate_paths": {
-    "four_probes_completed": null,
-    "hard_bypass_bitwise_all": null,
-    "capture_detached_all": null,
-    "capture_finite_all": null,
-    "capture_deterministic_all": null,
-    "capture_visible_indices_valid_all": null,
-    "insertion_eight_slots_all": null,
-    "insertion_attention_one_all": null,
-    "insertion_positions_sequential_all": null,
-    "insertion_labels_masked_all": null,
-    "soft_loss_finite_all": null,
-    "soft_logits_finite_all": null,
-    "upstream_gradients_finite_all": null,
-    "upstream_gradients_nonzero_all": null,
-    "e33_requires_grad_false_all": null,
-    "e33_gradients_absent_all": null,
-    "e33_tensor_hash_unchanged": null,
-    "e33_file_and_metadata_hashes_unchanged": null
+    "receipt_status_exact": {
+      "path": "status",
+      "expected": "carrier_only_mechanism_validated_for_b_dependency"
+    },
+    "receipt_claim_exact": {
+      "path": "claim",
+      "expected": "four-probe pre-cache carrier/autograd validation for B dependency only"
+    },
+    "receipt_plan_sha256_exact": {
+      "path": "plan_sha256",
+      "expected": "0def45abb5981761eaf34a9228313cf9494e2fdf23c39055a36e095fd70482be"
+    },
+    "receipt_execution_commit_exact": {
+      "path": "execution_commit",
+      "expected": null
+    },
+    "receipt_dependency_scope_exact": {
+      "path": "dependency_scope",
+      "expected": {
+        "may_support": [
+          "B frozen-decoder teacher-forced carrier dependency"
+        ],
+        "does_not_support": [
+          "A0 cache mechanism",
+          "A1 latent bridge",
+          "A1 semantic communication",
+          "generation or cached decoding",
+          "model admission"
+        ]
+      }
+    },
+    "four_probes_completed": {
+      "path": "complete_probes",
+      "expected": 4
+    },
+    "probe_status_complete_all": {
+      "path": "probes.*.status",
+      "expected": ["complete", "complete", "complete", "complete"]
+    },
+    "hard_bypass_bitwise_all": {
+      "path": "probes.*.hard_bypass.bitwise_equal",
+      "expected": [true, true, true, true]
+    },
+    "hard_bypass_contract_exact_all": {
+      "path": "probes.*.hard_bypass.labels_mask_positions_preserved",
+      "expected": [true, true, true, true]
+    },
+    "capture_detached_all": {
+      "path": "probes.*.capture.detached",
+      "expected": [true, true, true, true]
+    },
+    "capture_finite_all": {
+      "path": "probes.*.capture.finite",
+      "expected": [true, true, true, true]
+    },
+    "capture_deterministic_all": {
+      "path": "probes.*.capture.repeat_bitwise_equal",
+      "expected": [true, true, true, true]
+    },
+    "capture_visible_indices_valid_all": {
+      "path": "probes.*.capture.mask_and_indices_exact",
+      "expected": [true, true, true, true]
+    },
+    "capture_content_exact_all": {
+      "path": "probes.*.capture.hidden_padding_content_exact",
+      "expected": [true, true, true, true]
+    },
+    "insertion_eight_slots_all": {
+      "path": "probes.*.soft_insertion.positions",
+      "expected": [8, 8, 8, 8]
+    },
+    "insertion_original_content_preserved_all": {
+      "path": "probes.*.soft_insertion.original_tokens_mask_labels_preserved",
+      "expected": [true, true, true, true]
+    },
+    "insertion_attention_one_all": {
+      "path": "probes.*.soft_insertion.inserted_attention_mask_ones",
+      "expected": [8, 8, 8, 8]
+    },
+    "insertion_positions_sequential_all": {
+      "path": "probes.*.soft_insertion.positions_sequential_shifted",
+      "expected": [true, true, true, true]
+    },
+    "insertion_labels_masked_all": {
+      "path": "probes.*.soft_insertion.inserted_loss_mask_negative_100",
+      "expected": [8, 8, 8, 8]
+    },
+    "insertion_no_other_masking_all": {
+      "path": "probes.*.soft_insertion.no_other_loss_masking",
+      "expected": [true, true, true, true]
+    },
+    "soft_loss_finite_all": {
+      "path": "probes.*.soft_insertion.loss_finite",
+      "expected": [true, true, true, true]
+    },
+    "soft_logits_finite_all": {
+      "path": "probes.*.soft_insertion.logits_finite",
+      "expected": [true, true, true, true]
+    },
+    "workspace_gradient_finite_nonzero_all": {
+      "path": "probes.*.soft_insertion.workspace_gradient_finite_nonzero",
+      "expected": [true, true, true, true]
+    },
+    "gate_gradient_finite_nonzero_all": {
+      "path": "probes.*.soft_insertion.gate_gradient_finite_nonzero",
+      "expected": [true, true, true, true]
+    },
+    "e33_gradients_absent_all": {
+      "path": "probes.*.soft_insertion.base_parameter_gradients",
+      "expected": [0, 0, 0, 0]
+    },
+    "e33_file_hash_before_exact": {
+      "path": "protected_hashes_before.coordinator_e33",
+      "expected": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+    },
+    "e33_file_hash_after_exact": {
+      "path": "protected_hashes_after.coordinator_e33",
+      "expected": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+    },
+    "e33_metadata_before_exact": {
+      "path": "checkpoint_metadata_before.coordinator_e33",
+      "expected": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+        "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+      }
+    },
+    "e33_metadata_after_exact": {
+      "path": "checkpoint_metadata_after.coordinator_e33",
+      "expected": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+        "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+      }
+    }
   },
   "note": "This placeholder is intentionally non-launchable. Root must prospectively freeze an exact A0C receipt schema, file hash, canonical hash, plan hash, execution commit, and predicate map after A0C succeeds; no field may be inferred from rejected A0R evidence."
 }
