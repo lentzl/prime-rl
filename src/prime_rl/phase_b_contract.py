@@ -62,6 +62,7 @@ class ValidatedA0CBinding:
     binding_file_sha256: str
     receipt_file_sha256: str
     receipt_canonical_sha256: str
+    receipt_whole_object_sha256: str
 
 
 def file_sha256(path: Path) -> str:
@@ -76,8 +77,12 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def canonical_json_sha256(value: Any) -> str:
-    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+def canonical_json_sha256(value: Any, *, omitted_fields: tuple[str, ...] = ()) -> str:
+    if not isinstance(value, dict):
+        canonical = value
+    else:
+        canonical = {key: item for key, item in value.items() if key not in omitted_fields}
+    encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
     return hashlib.sha256(encoded).hexdigest()
 
 
@@ -146,7 +151,9 @@ def validate_a0c_binding(binding_path: Path, hash_path: Path) -> ValidatedA0CBin
     if receipt_file_hash != binding.get("receipt_file_sha256"):
         raise PhaseBContractError("A0C receipt file hash differs from the binding")
     receipt = load_json_file(receipt_path)
-    receipt_canonical_hash = canonical_json_sha256(receipt)
+    receipt_canonical_hash = canonical_json_sha256(receipt, omitted_fields=("receipt_sha256",))
+    if receipt.get("receipt_sha256") != receipt_canonical_hash:
+        raise PhaseBContractError("A0C receipt internal canonical hash is missing or invalid")
     if receipt_canonical_hash != binding.get("receipt_canonical_sha256"):
         raise PhaseBContractError("A0C receipt canonical hash differs from the binding")
     if receipt.get("schema_version") != binding.get("receipt_schema_version"):
@@ -177,6 +184,7 @@ def validate_a0c_binding(binding_path: Path, hash_path: Path) -> ValidatedA0CBin
         binding_file_sha256=binding_file_hash,
         receipt_file_sha256=receipt_file_hash,
         receipt_canonical_sha256=receipt_canonical_hash,
+        receipt_whole_object_sha256=canonical_json_sha256(receipt),
     )
 
 

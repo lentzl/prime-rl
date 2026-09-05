@@ -1,13 +1,13 @@
 {
   "schema_version": "q35-2b-phase-b-a0c-binding/v1",
-  "status": "unresolved",
+  "status": "bound",
   "required_claim": "four_probe_carrier_only_for_phase_b",
-  "receipt_absolute_path": null,
-  "receipt_file_sha256": null,
-  "receipt_canonical_sha256": null,
+  "receipt_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/a0c-carrier-success-receipt-v1.json",
+  "receipt_file_sha256": "d88dd97eb37c9c3dd61bc07fe422df6c7fa0034837897346e43ed16bb634e63c",
+  "receipt_canonical_sha256": "40dde68d34deb592f864739b48da8c22faafe470f2f0bc6708bce608ae482de7",
   "receipt_schema_version": "prime-rl/latent-a0c-mechanism-receipt/v1",
   "a0c_plan_sha256": "0def45abb5981761eaf34a9228313cf9494e2fdf23c39055a36e095fd70482be",
-  "a0c_execution_commit": null,
+  "a0c_execution_commit": "81e10c5ff362a4ac586fc9ecd81cdfe6f2196583",
   "identity": {
     "e33_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
     "config_sha256": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
@@ -39,7 +39,7 @@
     },
     "receipt_execution_commit_exact": {
       "path": "execution_commit",
-      "expected": null
+      "expected": "81e10c5ff362a4ac586fc9ecd81cdfe6f2196583"
     },
     "receipt_dependency_scope_exact": {
       "path": "dependency_scope",
@@ -167,5 +167,5 @@
       }
     }
   },
-  "note": "This placeholder is intentionally non-launchable. Root must prospectively freeze an exact A0C receipt schema, file hash, canonical hash, plan hash, execution commit, and predicate map after A0C succeeds; no field may be inferred from rejected A0R evidence."
+  "note": "Prospectively bound only to the independently revalidated four-of-four A0C carrier receipt. It supports B's frozen-decoder teacher-forced carrier dependency only; rejected A0R remains rejected and no cache, generation, A0, A1, communication, or model-admission claim is imported."
 }

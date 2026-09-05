@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import importlib
 import importlib.metadata
 import json
 import os
@@ -33,9 +34,9 @@ from prime_rl.phase_b_contract import (
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-plan.json"
+PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-v1-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-PLAN_SHA256 = "a835f6fa0ecaacc8585b1bd7bc4885ce6bd36183155ffc51cdaa1d4a9cb1a90b"
+PLAN_SHA256 = "d457c59251f925371419496eb3f002e8013bd96138f22c3a1899227a335f1aa5"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
@@ -45,14 +46,20 @@ EXPECTED_PYTHONPATH = (
 ARTIFACT_CAP = 536_870_912
 MINIMUM_FREE_BYTES = 60 * 1024**3
 WALL_CLOCK_LIMIT_SECONDS = 2 * 60 * 60
+FAILURE_AUDIT_HEADROOM_SECONDS = 5 * 60
+COMPUTE_LIMIT_SECONDS = WALL_CLOCK_LIMIT_SECONDS - FAILURE_AUDIT_HEADROOM_SECONDS
 
 
 class PhaseBWallClockExceeded(RuntimeError):
     pass
 
 
+class PhaseBMechanismRejected(RuntimeError):
+    pass
+
+
 def _wall_clock_timeout(_signal_number: int, _frame: Any) -> None:
-    raise PhaseBWallClockExceeded("Phase B crossed its two-hour wall-clock limit")
+    raise PhaseBWallClockExceeded("Phase B crossed its 115-minute compute limit")
 
 
 def parse_args() -> argparse.Namespace:
@@ -96,6 +103,12 @@ def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, 
         raise PhaseBContractError("authorized plan and A0C binding disagree on the A0C plan")
     if binding.binding.get("a0c_execution_commit") != dependency.get("a0c_execution_commit"):
         raise PhaseBContractError("authorized plan and A0C binding disagree on the A0C execution commit")
+    if (
+        binding.receipt_file_sha256 != dependency.get("receipt_file_sha256")
+        or binding.receipt_canonical_sha256 != dependency.get("receipt_internal_sha256")
+        or binding.receipt.get("schema_version") != dependency.get("receipt_schema_version")
+    ):
+        raise PhaseBContractError("authorized plan and A0C binding disagree on exact receipt identity")
     required_identity = {
         "e33_sha256": plan["protected_models"]["coordinator"]["expected_sha256"],
         "config_sha256": plan["model_metadata_sha256"]["config.json"],
@@ -170,7 +183,7 @@ def main() -> int:
     output_created = False
     started = time.time()
     signal.signal(signal.SIGALRM, _wall_clock_timeout)
-    signal.alarm(WALL_CLOCK_LIMIT_SECONDS)
+    signal.alarm(COMPUTE_LIMIT_SECONDS)
     try:
         args.output_dir.mkdir(mode=0o700, parents=False, exist_ok=False)
         output_created = True
@@ -199,15 +212,28 @@ def main() -> int:
     except BaseException as error:
         signal.alarm(0)
         if output_created:
+            try:
+                signal.alarm(FAILURE_AUDIT_HEADROOM_SECONDS)
+                post_failure_audit = _post_failure_hash_audit(plan, binding)
+            except BaseException as audit_error:
+                post_failure_audit = {
+                    "audit_complete": False,
+                    "hash_probe_error": f"{type(audit_error).__name__}: {audit_error}",
+                }
+            finally:
+                signal.alarm(0)
+            failure_category = _classify_failure(error)
             failure = {
                 "schema_version": "q35-2b-phase-b-fixed-depth-smoke-failure/v1",
-                "status": "FAILURE",
+                "status": failure_category,
+                "failure_category": failure_category,
                 "claim_class": "no_update_mechanism_connectivity_only",
                 "error_type": type(error).__name__,
                 "error": str(error),
                 "elapsed_seconds": time.time() - started,
                 "plan_sha256": PLAN_SHA256,
                 "selection_sha256": SELECTION_SHA256,
+                "post_failure_hash_audit": post_failure_audit,
             }
             try:
                 atomic_exclusive_json(args.output_dir, "FAILURE.json", failure, maximum_directory_bytes=ARTIFACT_CAP)
@@ -215,6 +241,58 @@ def main() -> int:
                 print(f"Phase B failure receipt publication failed: {receipt_error}", file=sys.stderr)
         print(f"Phase B failed: {type(error).__name__}: {error}", file=sys.stderr)
         return 1
+
+
+def _post_failure_hash_audit(plan: dict[str, Any], binding: Any) -> dict[str, Any]:
+    """Best-effort durable preservation evidence after any started run fails."""
+
+    errors: list[str] = []
+    audit: dict[str, Any] = {}
+    try:
+        model_path = Path(plan["protected_models"]["coordinator"]["host_path"])
+        weight_hash = file_sha256(model_path / "model.safetensors")
+        metadata = _metadata_hashes(model_path)
+        audit["e33"] = {
+            "weight_file_sha256": weight_hash,
+            "weight_file_matches": weight_hash == plan["protected_models"]["coordinator"]["expected_sha256"],
+            "metadata_sha256": metadata,
+            "metadata_matches": metadata == plan["model_metadata_sha256"],
+        }
+    except BaseException as error:
+        errors.append(f"e33:{type(error).__name__}:{error}")
+    try:
+        rebound = validate_a0c_binding(binding.binding_path, binding.binding_hash_path)
+        audit["a0c"] = {
+            "binding_file_sha256": rebound.binding_file_sha256,
+            "binding_matches": rebound.binding_file_sha256 == binding.binding_file_sha256,
+            "receipt_file_sha256": rebound.receipt_file_sha256,
+            "receipt_file_matches": rebound.receipt_file_sha256 == binding.receipt_file_sha256,
+            "receipt_internal_sha256": rebound.receipt_canonical_sha256,
+            "receipt_internal_matches": rebound.receipt_canonical_sha256 == binding.receipt_canonical_sha256,
+            "receipt_whole_object_sha256": rebound.receipt_whole_object_sha256,
+        }
+        if rebound != binding:
+            errors.append("a0c:validated binding object changed during run")
+    except BaseException as error:
+        errors.append(f"a0c:{type(error).__name__}:{error}")
+    try:
+        audit["plan_selection"] = {
+            "plan_sha256": file_sha256(PLAN),
+            "selection_sha256": file_sha256(SELECTION),
+        }
+        if audit["plan_selection"] != {"plan_sha256": PLAN_SHA256, "selection_sha256": SELECTION_SHA256}:
+            errors.append("plan_selection:hash changed during run")
+    except BaseException as error:
+        errors.append(f"plan_selection:{type(error).__name__}:{error}")
+    audit["audit_complete"] = not errors
+    audit["hash_probe_error"] = "; ".join(errors) if errors else None
+    return audit
+
+
+def _classify_failure(error: BaseException) -> str:
+    if isinstance(error, PhaseBMechanismRejected):
+        return "mechanism_rejected"
+    return "infrastructure_invalid"
 
 
 def execute_smoke(  # noqa: PLR0913, PLR0915
@@ -339,7 +417,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
         if not torch.equal(anchors["STATIC"], anchors["FFN"]) or not torch.equal(
             anchors["STATIC"], anchors["RECURRENT"]
         ):
-            raise PhaseBContractError("identical codecs did not produce bitwise-identical task anchors")
+            raise PhaseBMechanismRejected("identical codecs did not produce bitwise-identical task anchors")
         visible = {
             "STATIC": anchors["STATIC"],
             "FFN": ffn(anchors["FFN"]),
@@ -349,7 +427,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
         if not torch.equal(visible["STATIC"], visible["FFN"]) or not torch.equal(
             visible["STATIC"], visible["RECURRENT"]
         ):
-            raise PhaseBContractError("zero-scale sidecars changed the STATIC visible workspace")
+            raise PhaseBMechanismRejected("zero-scale sidecars changed the STATIC visible workspace")
 
         for arm in ("STATIC", "FFN", "RECURRENT"):
             result = _latent_forward(
@@ -366,17 +444,17 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             if arm == "RECURRENT":
                 diagnostic = diagnose_recurrent_states(trajectory)
                 if diagnostic.nonfinite:
-                    raise PhaseBContractError("RECURRENT state diagnostics are non-finite")
+                    raise PhaseBMechanismRejected("RECURRENT state diagnostics are non-finite")
                 memory_changes = diagnostic.memory_change_norms
                 if not bool(torch.count_nonzero(memory_changes)):
-                    raise PhaseBContractError("RECURRENT private memory did not change")
+                    raise PhaseBMechanismRejected("RECURRENT private memory did not change")
                 every_step_changed = bool(torch.all(memory_changes > 0))
                 recurrent_every_step_changed.append(every_step_changed)
                 row_metric["state"] = _diagnostic_json(diagnostic)
                 row_metric["private_memory_changed_at_every_step"] = every_step_changed
             metrics[arm].append(row_metric)
     if not any(recurrent_every_step_changed):
-        raise PhaseBContractError("no RECURRENT row changed private memory at every one of four steps")
+        raise PhaseBMechanismRejected("no RECURRENT row changed private memory at every one of four steps")
 
     backward_key = selection["backward_probe_task_key"]
     backward_example = next(example for example in examples if example["task_key"] == backward_key)
@@ -412,7 +490,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     model_file_after = file_sha256(model_file)
     metadata_after = _metadata_hashes(model_path)
     if module_tensor_before != module_tensor_after:
-        raise PhaseBContractError("one or more Phase B module parameters changed")
+        raise PhaseBMechanismRejected("one or more Phase B module parameters changed")
     if model_tensor_before != model_tensor_after or model_file_before != model_file_after:
         raise PhaseBContractError("protected e33 parameters changed")
     if metadata_before != metadata_after:
@@ -442,6 +520,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             "binding_file_sha256": binding.binding_file_sha256,
             "receipt_file_sha256": binding.receipt_file_sha256,
             "receipt_canonical_sha256": binding.receipt_canonical_sha256,
+            "receipt_whole_object_sha256": binding.receipt_whole_object_sha256,
             "claim": binding.binding["required_claim"],
         },
         "optimizer": None,
@@ -471,10 +550,20 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
 def _validate_runtime(plan: dict[str, Any], *, torch: Any, transformers: Any) -> None:
     if transformers.__version__ != plan["software"]["transformers"]:
         raise PhaseBContractError("Transformers version differs from the plan")
-    if ".".join(torch.__version__.split(".")[:2]) != plan["software"]["torch"]:
-        raise PhaseBContractError("Torch major/minor differs from the plan")
+    if torch.__version__ != plan["software"]["torch"]:
+        raise PhaseBContractError("Torch runtime version differs from the plan")
+    if importlib.metadata.version("torch") != plan["software"]["torch_distribution"]:
+        raise PhaseBContractError("Torch distribution version differs from the plan")
     if importlib.metadata.version("transformers") != transformers.__version__:
         raise PhaseBContractError("Transformers package metadata differs from its runtime version")
+    for module_name, expected_hash in plan["software"]["transformers_source_sha256"].items():
+        module = importlib.import_module(module_name)
+        module_path = Path(module.__file__).resolve(strict=True)
+        if (
+            not module_path.is_relative_to(EXPECTED_ENV.resolve(strict=True))
+            or file_sha256(module_path) != expected_hash
+        ):
+            raise PhaseBContractError(f"Transformers runtime source differs from the plan: {module_name}")
 
 
 def _require_gpu0_idle() -> None:
@@ -570,11 +659,11 @@ def _prepare_example(row: dict[str, Any], *, tokenizer: Any, model: Any, torch: 
     open_ids = _ids(tokenizer, open_rendered, torch)
     full_ids = _ids(tokenizer, full_rendered, torch)
     if plain_ids.shape[1] < 8 or open_ids.shape[1] <= plain_ids.shape[1]:
-        raise PhaseBContractError(f"row {row['task_key']} has no verified assistant-generation opening")
+        raise PhaseBMechanismRejected(f"row {row['task_key']} has no verified assistant-generation opening")
     if full_ids.shape[1] <= open_ids.shape[1] or not torch.equal(full_ids[:, : open_ids.shape[1]], open_ids):
-        raise PhaseBContractError(f"row {row['task_key']} full target does not preserve the generation prefix")
+        raise PhaseBMechanismRejected(f"row {row['task_key']} full target does not preserve the generation prefix")
     if not torch.equal(open_ids[:, : plain_ids.shape[1]], plain_ids):
-        raise PhaseBContractError(f"row {row['task_key']} generation opening does not extend its plain prefix")
+        raise PhaseBMechanismRejected(f"row {row['task_key']} generation opening does not extend its plain prefix")
     plain_mask = torch.ones_like(plain_ids)
     with torch.no_grad():
         capture = (
@@ -591,7 +680,7 @@ def _prepare_example(row: dict[str, Any], *, tokenizer: Any, model: Any, torch: 
             .cpu()
         )
     if capture.shape != (1, 8, 2048) or capture.requires_grad or not bool(torch.isfinite(capture).all()):
-        raise PhaseBContractError(f"row {row['task_key']} produced an invalid detached local feature capture")
+        raise PhaseBMechanismRejected(f"row {row['task_key']} produced an invalid detached local feature capture")
     labels = full_ids.clone()
     labels[:, : open_ids.shape[1]] = -100
     full_mask = torch.ones_like(full_ids)
@@ -640,14 +729,14 @@ def _latent_forward(
     )
     start, stop = composed.latent_span
     if stop - start != 8:
-        raise PhaseBContractError("latent insertion does not contain exactly eight slots")
+        raise PhaseBMechanismRejected("latent insertion does not contain exactly eight slots")
     if not bool(torch.all(composed.attention_mask[:, start:stop] == 1)):
-        raise PhaseBContractError("latent attention mask differs from one")
+        raise PhaseBMechanismRejected("latent attention mask differs from one")
     if not bool(torch.all(composed.labels[:, start:stop] == -100)):
-        raise PhaseBContractError("latent labels differ from -100")
+        raise PhaseBMechanismRejected("latent labels differ from -100")
     expected_positions = torch.arange(start, stop, device="cuda:0")[None]
     if not torch.equal(composed.position_ids[:, start:stop], expected_positions):
-        raise PhaseBContractError("latent positions are not sequential at the verified boundary")
+        raise PhaseBMechanismRejected("latent positions are not sequential at the verified boundary")
     return model(
         inputs_embeds=composed.inputs_embeds,
         attention_mask=composed.attention_mask,
@@ -731,7 +820,7 @@ def _validate_gradients(gradients: dict[str, Any]) -> None:
     for arm, name in required_nonzero:
         summary = canonical[arm][name]
         if not summary["finite"] or not summary["nonzero"]:
-            raise PhaseBContractError(f"canonical {arm} gradient {name} is not finite and nonzero")
+            raise PhaseBMechanismRejected(f"canonical {arm} gradient {name} is not finite and nonzero")
     required_zero_prefixes = {
         "FFN": ("sidecar.hidden.", "sidecar.output."),
         "RECURRENT": (
@@ -744,12 +833,12 @@ def _validate_gradients(gradients: dict[str, Any]) -> None:
     for arm, prefixes in required_zero_prefixes.items():
         for name, summary in canonical[arm].items():
             if name.startswith(prefixes) and (not summary["finite"] or summary["nonzero"]):
-                raise PhaseBContractError(f"closed-gate {arm} internal gradient {name} is unexpectedly nonzero")
+                raise PhaseBMechanismRejected(f"closed-gate {arm} internal gradient {name} is unexpectedly nonzero")
     open_gate = gradients["hypothetical_open_gate"]
     for arm, prefixes in required_zero_prefixes.items():
         for name, summary in open_gate[arm].items():
             if name.startswith(prefixes) and (not summary["finite"] or not summary["nonzero"]):
-                raise PhaseBContractError(f"open-gate {arm} internal gradient {name} is not finite and nonzero")
+                raise PhaseBMechanismRejected(f"open-gate {arm} internal gradient {name} is not finite and nonzero")
 
 
 def _parameter_count(module: Any) -> int:
@@ -779,13 +868,13 @@ def _mean_embedding_norm(weight: Any, torch: Any) -> Any:
     result = (total / weight.shape[0]).to(dtype=weight.dtype)
     _require_finite(result, "embedding shell norm", torch)
     if not bool(result > 0):
-        raise PhaseBContractError("embedding shell norm is not positive")
+        raise PhaseBMechanismRejected("embedding shell norm is not positive")
     return result
 
 
 def _require_finite(value: Any, label: str, torch: Any) -> None:
     if not bool(torch.isfinite(value).all()):
-        raise PhaseBContractError(f"{label} is non-finite")
+        raise PhaseBMechanismRejected(f"{label} is non-finite")
 
 
 def _diagnostic_json(diagnostic: Any) -> dict[str, Any]:
