@@ -1,0 +1,231 @@
+{
+  "schema_version": "q35-2b-phase-b-teacher-forced-value-screen/v1",
+  "status": "frozen_pending_independent_review",
+  "claim_class": "nomination_only_teacher_forced_local_depth_screen",
+  "implementation_commit": "fe66b8a80d729e276a568e9e2ae43c7386a2f248",
+  "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
+  "protected_model": {
+    "name": "e33",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "weight_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "trainable": false
+  },
+  "software": {
+    "transformers": "5.6.2",
+    "torch": "2.11.0+cu128",
+    "torch_distribution": "2.11.0+cu128",
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.loss.loss_utils": "3df3438f0cb80cb7b903d6d06f522839756f4ca9301a02d793748ae099c27d9f",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "model_metadata_sha256": {
+    "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+    "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f",
+    "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+    "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+    "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1"
+  },
+  "execution_environment": {
+    "uv": "/home/ubuntu/.local/bin/uv",
+    "uv_project": "/home/ubuntu/rlm/prime-rl",
+    "UV_PROJECT_ENVIRONMENT": "/home/ubuntu/rlm/prime-rl/.venv",
+    "PYTHONPATH": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src:/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/packages/prime-rl-configs/src"
+  },
+  "br5_dependency": {
+    "receipt_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br5-SUCCESS.json",
+    "receipt_file_sha256": "3e9a9d26a076382dd873ac1c1ec8d35d15dc05983b9f645340315fcb1cd080b9",
+    "run_log_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br5-run.log",
+    "run_log_sha256": "ecfe72ede951f1212effcb5067649c137f87ecd7f6317b03a0ff97324a6cb0bf",
+    "preflight_log_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br5-preflight.log",
+    "preflight_log_sha256": "9349a182847564f66c37880e678271ac84df75fca7ff316f7c1b2c2d298262de",
+    "snapshot_manifest_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br5-success-MANIFEST.sha256",
+    "snapshot_manifest_sha256": "8907b07627a3e77d2cde853f58fb7693715ff881b95d52b43d21db4170326ad2",
+    "execution_commit": "88fff956479cb48263b18a95d660fe2e3dd7e61b",
+    "plan_sha256": "17549e30a5a3c280e2d7c2180125be8c0c2c6400519c6b7ff0930446c7e74481",
+    "selection_sha256": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe",
+    "required_status": "SUCCESS",
+    "required_claim_class": "no_update_mechanism_connectivity_only"
+  },
+  "training_source": {
+    "parquet_path": "/home/ubuntu/rlm/datasets/q35-2b-adaptive-cognition-sft-v1/adaptive-action48-nonroot-first-v3/train.parquet",
+    "parquet_sha256": "256328cbdb33dc8880370688e2c6f4256341f644757a9d9d033bb5febc74e12e",
+    "manifest_path": "/home/ubuntu/rlm/datasets/q35-2b-adaptive-cognition-sft-v1/adaptive-action48-nonroot-first-v3/MANIFEST.json",
+    "manifest_sha256": "52b50f8f57d2ad6cf084c13bfe429293b304824c76df2c979b6e7793d1344575",
+    "rows": 48,
+    "rows_per_action": 16,
+    "ordered_task_key_sha256": "cd24743d41543e07485a6c9c690e3622847807f6ec813374f99cc5115236fb9a",
+    "nested_batch_sha256": "4bc83af062e1ca3f152daf32199ea6c1708c1e7f5dc54cad281ad67322170afb",
+    "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1/training-selection.json",
+    "selection_sha256": "f049818029e3b241d0b3b777696e500d0f7320f9614f6a49cc57def13dfc9b1b"
+  },
+  "heldout": {
+    "generator_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/export_phase_b_value_screen_b1_bank_v1.py",
+    "generator_sha256": "0c799ff8cbaef65113b4208996e05a3995736461e4772e490b263cebfad6ce39",
+    "generator_seed": 20261113,
+    "template_variants": [
+      4,
+      5
+    ],
+    "ordered_task_key_sha256": "d50a1ef713303c38db16f72a5c8bbde60d13e6445dd896091b0a07a4f41155b4",
+    "ordered_key_action_sha256": "180b8067ecabcf8451aba5f0a454f3f6d28b6a8b35978de88f4505524f7d43e9",
+    "row_list_canonical_sha256": "94de16b26d8b4fbc99b22ab0e1312933e3a83e5f79a521d2a6327f2f28fae988",
+    "parquet_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1/heldout.parquet",
+    "parquet_sha256": "951bd90164e5c43a5730081c63fba8d6c78362cd3bf4fa48dfc68598fc92871d",
+    "manifest_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1/MANIFEST.json",
+    "manifest_sha256": "a1b9fa94dc65640cf5bf174edf6cf6581bb1e50e32f454cf474c9230e116f10e",
+    "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1/heldout-selection.json",
+    "selection_sha256": "e086b751155c2c5e8d000cd60d3ff999bbdd91e6faaf3a3c68a5913de5957aca",
+    "runtime_source_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1/runtime-source.json",
+    "runtime_source_sha256": "4f8156c32ff97dcef1752e35fe282385c182bc6101ebe6e0500ea42ee0f6080a",
+    "taskset_source_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1/taskset-5283a85.py",
+    "taskset_source_sha256": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499",
+    "taskset_commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "bank_rule": "split=eval; families=d0,d1,d2; variants=4,5; instances=2; offset=34100; seed=20261113; order=instance,variant,family",
+    "freshness_claim": "fresh exact task keys excluded from e33 and B1 weight-training data",
+    "prior_exposure_disclosure": "variants 4/5 were previously evaluated at instance offset 33100"
+  },
+  "training": {
+    "arm_order": [
+      "STATIC",
+      "FFN",
+      "RECURRENT"
+    ],
+    "optimizer_updates_per_arm": 4,
+    "rows_per_update": 12,
+    "rows_per_action_per_update": 4,
+    "unique_row_exposures_per_arm": 48,
+    "early_stop": false,
+    "recurrent_depth": 4,
+    "bptt_window": 4,
+    "optimizer": {
+      "name": "AdamW",
+      "learning_rate": 0.0001,
+      "betas": [
+        0.9,
+        0.95
+      ],
+      "epsilon": 1e-08,
+      "weight_decay": 0.0,
+      "gradient_clip_norm": 1.0
+    },
+    "initialization_seed_payload": "q35-2b-b1-teacher-forced-value-screen-v1:init",
+    "initialization_derivation_sha256": "0c597a15ad1983c226a6426f9d9c7dde1017190915705483672427c6a87e93ed",
+    "initialization_seed": 207190549,
+    "construction_order": [
+      "codec_template",
+      "STATIC.codec bitwise copy",
+      "FFN.codec bitwise copy",
+      "RECURRENT.codec bitwise copy",
+      "FFN.sidecar",
+      "RECURRENT.sidecar"
+    ],
+    "trainable_modules": {
+      "STATIC": ["codec"],
+      "FFN": ["codec", "one-shot sidecar"],
+      "RECURRENT": ["codec", "timestep-free recurrent sidecar"]
+    },
+    "canonical_sidecar_gates_only": true,
+    "optimizer_lifecycle": "construct only after baseline, destroy state and object before next arm",
+    "update_rule": "zero_grad(set_to_none=True); 12 sequential row backwards of loss/12; verify e33 no gradients after every row and update; one finite global preclip norm; clip once; step once",
+    "internal_gradient_gate": "FFN internal and each recurrent transition/memory/workspace group must each have at least one finite nonzero gradient observation across updates 2..4",
+    "output_scale_gate": "FFN and recurrent output_scale must be finite and nonzero after update 1",
+    "schedule": false,
+    "amp_scaler": false,
+    "row_skip": false,
+    "precision": "bfloat16 modules and frozen e33; float32 loss/gradient summaries",
+    "feature_cache": "detached host RAM only",
+    "loss": "BR5-aligned supervised suffix causal cross-entropy",
+    "checkpoint_selection": "final update only; no early stopping or heldout selection",
+    "evaluation_timing": "one shared baseline before optimizer construction; each arm final evaluation immediately after its step 4 and optimizer destruction"
+  },
+  "evaluation": {
+    "recurrent_depths": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "primary_contrast": "RECURRENT_T4_minus_FFN",
+    "strict_win_epsilon": 0.000001,
+    "secondary_contrasts": [
+      "RECURRENT_T4_minus_RECURRENT_T1",
+      "RECURRENT_T4_minus_STATIC",
+      "STATIC_minus_BASE"
+    ],
+    "metric": "BR5-aligned heldout target NLL plus exact correct-path token-trie action margin from the same forward",
+    "action_margin": {
+      "counterfactuals": "change only final select_cognitive_action function.arguments.action among the three frozen actions",
+      "trie": "unique non-prefix leaves over assistant-target suffix token IDs in frozen action order",
+      "branch_value": "correct-token logit minus maximum other live-child-token logit at every branching node along the correct teacher-forced leaf",
+      "row_value": "minimum branch value",
+      "extra_forward": false
+    },
+    "aggregation": {
+      "dtype": "float64",
+      "order": "frozen heldout selection order",
+      "median": "midpoint median",
+      "strict_win_epsilon": 0.000001,
+      "per_action_means": true,
+      "exclusions": false
+    },
+    "nomination_gates": {
+      "1_execution": "exact 4x12 updates for every arm, exact order/exposure/hparams, 12/12 heldout pre/post, finite, no e33 grad or update",
+      "2_recurrent_learning": "mean L_REC4>=.001; median>=0; strict wins>=7/12; every action mean>=-.005; worst>=-.05; mean M_REC4>=0; worst>=-.50",
+      "3_matched_noninferiority": "mean A_N>=-.0025; median>=-.005; every action mean>=-.010; worst>=-.050; mean A_M>=-.050; every action mean>=-.10; worst>=-.50",
+      "4_positive_recurrence": "NLL route: mean A_N>=.001, median>=0, wins>=7/12, at least 2/3 action means>=0; OR action route: mean A_M>=.020, median>=0, wins>=7/12, at least 2/3 action means>=0",
+      "5_depth": "R1_NLL-R4_NLL mean>=-.0025 and worst>=-.05; R4_margin-R1_margin mean>=-.05 and worst>=-.50; plus NLL mean>=.0005 OR margin mean>=.010",
+      "6_retention": "for every row and R1/R2/R4/R8 flattened visible slot state versus encoded task anchor: cosine>=.995, norm ratio in [.95,1.05], relative L2<=.10",
+      "7_stability": "all eight memory RMS changes>1e-6; every row median memory contraction steps2..8<=.90 and max<=1.25; every row memory oscillation<=.25 and aggregate mean<=.10; finite",
+      "8_R8_nonregression": "R8_NLL-R4_NLL mean<=.005 and worst<=.05; R8_margin-R4_margin mean>=-.10 and worst>=-.50"
+    },
+    "nomination_rule": "gates 1-3 and 5-8 plus either route in gate 4; otherwise valid b1_not_nominated",
+    "depth_selection_after_results": false
+  },
+  "outputs": {
+    "directory": "/home/ubuntu/rlm/results/q35-2b-phase-b1-teacher-forced-value-screen-v1",
+    "artifact_cap_bytes": 536870912,
+    "saved_state": [
+      "STATIC.final.pt: codec only",
+      "FFN.final.pt: codec and one-shot sidecar only",
+      "RECURRENT.final.pt: codec and recurrent sidecar only"
+    ],
+    "candidate_artifact_validity": "Compact candidate files are scientifically valid only when their hashes are bound by the exact atomic SUCCESS.json terminal receipt. A caught post-write fault publishes FAILURE.json with hashes of every present candidate and marks them invalid_unclassified_do_not_use. If infrastructure loss prevents either exclusive terminal receipt, every candidate file in the namespace is invalid_unclassified_do_not_use and MUST NOT be evaluated, nominated, resumed, or published.",
+    "terminal_sequencing": "All evaluation, protected-state audits, and immutable-input rehashes precede candidate writes. Candidate writes are exclusive and atomic per file; terminal SUCCESS/FAILURE publication is exclusive and atomic. This contract does not claim multi-file transactional atomicity and therefore makes the terminal receipt, not filename presence, the validity authority.",
+    "forbidden": [
+      "e33 weights",
+      "optimizer state",
+      "prompt-feature tensors",
+      "H176 weights",
+      "generated text",
+      "A workspace state"
+    ]
+  },
+  "boundaries": {
+    "generation": false,
+    "cache": false,
+    "load_H176": false,
+    "combine_with_A": false,
+    "e33_trainable": false,
+    "save_e33_checkpoint": false,
+    "nomination_only": true,
+    "teacher_forced_rows_are_live_trajectories": false,
+    "teacher_forced_live_trajectory_count": 0,
+    "live_promotion_minimum_complete_trajectories": 4,
+    "promotion_statement": "B1 cannot promote. Any later promotion requires at least four complete, error-free live harness trajectories on four distinct fresh task keys under the unchanged contract."
+  },
+  "resources": {
+    "gpu": "one NVIDIA RTX A6000 48GB used sequentially; second GPU remains idle",
+    "observed_br5_peak_allocated_bytes": 27622350848,
+    "outer_wall_clock_seconds": 14400,
+    "compute_limit_seconds": 14040,
+    "failure_audit_limit_seconds": 300,
+    "terminal_publication_headroom_seconds": 60,
+    "minimum_free_disk_bytes": 64424509440,
+    "artifact_cap_bytes": 536870912
+  },
+  "authorization": "Prospectively frozen for independent review. This commit is not execution authorization. Only root may schedule the exact reviewed commit and plan hash; otherwise the launcher must not be used."
+}
