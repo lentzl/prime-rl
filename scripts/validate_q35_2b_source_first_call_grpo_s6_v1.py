@@ -1338,10 +1338,33 @@ def _validate_p2_raw_effective_partition(
     ):
         raise AuditFailure("P2 effective groups are not one per family")
     rejected_fraction = len(rejected) * 8 / len(raw_records)
-    if (
-        _metric(metrics, "pre_filters/all/dropped_rate") != rejected_fraction
-        or _metric(metrics, "pre_filters/all/zero_advantage/rate") != rejected_fraction
-    ):
+    dropped_rate = _metric(metrics, "pre_filters/all/dropped_rate")
+    if rejected:
+        zero_advantage_rate = _metric(
+            metrics, "pre_filters/all/zero_advantage/rate"
+        )
+    else:
+        # PrimeRL omits the aggregate pre-filter reason when no sample was
+        # dropped.  Treat that omission as zero only when the trace identity
+        # proof already establishes raw == effective and every emitted
+        # all/effective zero-advantage monitor is present and exactly zero.
+        # This is deliberately narrower than making a missing metric optional.
+        zero_drop_evidence = (
+            "train/agg/all/agent/filters/zero_advantage/mean",
+            "train/agg/effective/agent/filters/zero_advantage/mean",
+            "train/source-worker-ast-s6/all/agent/filters/zero_advantage/mean",
+            "train/source-worker-ast-s6/effective/agent/filters/zero_advantage/mean",
+            "train/source-worker-config-s6/all/agent/filters/zero_advantage/mean",
+            "train/source-worker-config-s6/effective/agent/filters/zero_advantage/mean",
+        )
+        if raw_ids != effective_ids or any(
+            _metric(metrics, name) != 0.0 for name in zero_drop_evidence
+        ):
+            raise AuditFailure(
+                "P2 missing zero-advantage aggregate lacks exact no-drop corroboration"
+            )
+        zero_advantage_rate = 0.0
+    if dropped_rate != rejected_fraction or zero_advantage_rate != rejected_fraction:
         raise AuditFailure("P2 group rejection lacks exact zero-advantage metric evidence")
     return {
         "raw": len(raw_ids),
@@ -1352,6 +1375,12 @@ def _validate_p2_raw_effective_partition(
         "partial_or_nondegenerate_groups_dropped": 0,
         "rejected_groups_have_trainable_advantages": False,
         "attempted_groups_by_family": dict(attempts_by_family),
+        "zero_advantage_rate": zero_advantage_rate,
+        "zero_advantage_rate_source": (
+            "pre_filters/all/zero_advantage/rate"
+            if rejected
+            else "raw_equals_effective_plus_all_zero_filter_monitors"
+        ),
     }
 
 

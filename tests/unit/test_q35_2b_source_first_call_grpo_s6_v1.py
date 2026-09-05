@@ -44,6 +44,8 @@ P2R_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p2r_v1.
 P2R_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p2r_v1.sh"
 P2_FAILED_START_PATH = EXPERIMENT / "specialist-source-route-parity-p2-failed-start-v1.json"
 P1_FORENSIC_PATH = REPO / "scripts/recover_q35_2b_source_route_parity_p1_v1.py"
+P2R_FORENSIC_PATH = REPO / "scripts/recover_q35_2b_source_route_parity_p2r_v1.py"
+P2R_NEXT_PLAN_PATH = EXPERIMENT / "specialist-source-p2r-rejection-preference-plan-v1.json"
 
 
 def _validator_module():
@@ -98,6 +100,17 @@ def _p2_validator_module():
 def _p2r_validator_module():
     spec = importlib.util.spec_from_file_location(
         "source_route_parity_p2r_validator", P2R_VALIDATOR_PATH
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _p2r_recovery_module():
+    spec = importlib.util.spec_from_file_location(
+        "source_route_parity_p2r_recovery", P2R_FORENSIC_PATH
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -1401,6 +1414,56 @@ def test_p2_partition_accepts_only_complete_zero_advantage_groups() -> None:
         )
 
 
+def test_p2_partition_accepts_omitted_aggregate_reason_only_for_proven_no_drop() -> None:
+    validator = _validator_module()
+    config = [
+        _p2_trace(
+            trace_id=f"config-{index}",
+            family="specialist_source_config",
+            source="source-worker-config-s6",
+            task_key="config-key",
+            group_id="config-group",
+            reward=-0.79 + index / 10,
+        )
+        for index in range(8)
+    ]
+    ast = [
+        _p2_trace(
+            trace_id=f"ast-{index}",
+            family="specialist_source_ast",
+            source="source-worker-ast-s6",
+            task_key="ast-key",
+            group_id="ast-group",
+            reward=-0.79 + index / 10,
+        )
+        for index in range(8)
+    ]
+    metrics = [{"pre_filters/all/dropped_rate": 0.0}]
+    for scope in ("agg", "source-worker-ast-s6", "source-worker-config-s6"):
+        for population in ("all", "effective"):
+            metrics[0][
+                f"train/{scope}/{population}/agent/filters/zero_advantage/mean"
+            ] = 0.0
+
+    report = validator._validate_p2_raw_effective_partition(
+        [*config, *ast], [*config, *ast], metrics
+    )
+
+    assert report["raw"] == report["effective"] == 16
+    assert report["zero_advantage_rate"] == 0.0
+    assert (
+        report["zero_advantage_rate_source"]
+        == "raw_equals_effective_plus_all_zero_filter_monitors"
+    )
+    del metrics[0][
+        "train/source-worker-config-s6/effective/agent/filters/zero_advantage/mean"
+    ]
+    with pytest.raises(validator.AuditFailure, match="missing numeric metric"):
+        validator._validate_p2_raw_effective_partition(
+            [*config, *ast], [*config, *ast], metrics
+        )
+
+
 def test_p2_forced_routes_cover_all_raw_resampled_groups() -> None:
     validator = _validator_module()
     traces = []
@@ -1805,3 +1868,84 @@ def test_p2r_failed_start_proof_matches_durable_snapshot(
 
 
 BAD_TRACE_ID_IN_FORENSIC = "57f6214886ce4f70a69f3eb2754770ce"
+
+
+def test_p2r_recovery_is_hash_locked_rejected_and_non_authorizing() -> None:
+    source = P2R_FORENSIC_PATH.read_text()
+
+    assert 'EXECUTION_REVISION = "c5af5ad0bc7fe89e7a256804d1e7cc2591e1a612"' in source
+    assert 'VERIFIERS_REVISION = "c1a2f5bf3db3f34206e45b04442e64ca6a7770de"' in source
+    assert 'SNAPSHOT_MANIFEST_SHA256 = "538ecc2007ec25cc050993aa6ccd47b959f79248634d7e9ac79695a3d45e69c9"' in source
+    assert "RETAINED_HASHES" in source and "RESULT_HASHES" in source
+    assert '"verdict": "mechanism_rejected"' in source
+    assert '"p2r_mechanism_admitted": False' in source
+    assert '"optimizer_update_authorized": False' in source
+    assert '"next_step_authorized": False' in source
+
+
+def test_p2r_recovery_reproduces_durable_snapshot(tmp_path: Path) -> None:
+    snapshot = REPO.parent / "durable-snapshots/2026-09-05-p2r-rejected"
+    if not snapshot.is_dir():
+        pytest.skip("durable P2R rejected snapshot is not present")
+    recovery = _p2r_recovery_module()
+    run_dir = (
+        snapshot
+        / "outputs/lr0-calibration/source-route-parity-p2r-lr0-admission"
+    )
+
+    report = recovery.recover(
+        run_dir,
+        snapshot / "results",
+        snapshot / "MANIFEST.md",
+        tmp_path / "forensic-receipt.json",
+        audit_revision="a" * 40,
+    )
+
+    assert report["verdict"] == "mechanism_rejected"
+    assert report["structural_evidence"]["raw_effective_identity_equal"] is True
+    assert report["structural_evidence"]["routing"]["trace_calls"] == 133
+    assert report["structural_evidence"]["routing"]["terminal_worker_descendants"] == 0
+    assert report["structural_evidence"]["routing"]["wasted_completion_tokens"] == 825
+    assert report["structural_evidence"]["exports"]["active_rl_tokens"] == 10057
+    assert report["mechanism_failures"]["config_natural_termination"]["observed"] == {
+        "max_turns": 8
+    }
+    assert report["mechanism_failures"]["ast_absolute_mismatch_max"][
+        "observed"
+    ] == pytest.approx(0.43322479724884033)
+    assert report["interpretation"]["next_step_authorized"] is False
+
+
+def test_p2r_next_plan_uses_honest_offline_preference_boundary() -> None:
+    plan = json.loads(P2R_NEXT_PLAN_PATH.read_text())
+
+    assert plan["decision"]["p2r_verdict"] == "mechanism_rejected"
+    assert "chosen/rejected offline" in plan["decision"]["next_boundary"]
+    assert "does not ingest an external canonical chosen response" in plan["decision"][
+        "not_current_sdpo"
+    ]
+    assert plan["required_framework_surface"]["status"] == "not_implemented_launch_blocking"
+    assert plan["preference_data_contract"]["chosen_response"][
+        "dynamic_no_oracle_rule"
+    ]
+    assert plan["preference_data_contract"]["chosen_response"][
+        "sandbox_admission"
+    ].endswith("extra_sends=0")
+    assert "no_tool_response" in plan["preference_data_contract"]["rejected_response"][
+        "no_tool_row_rule"
+    ]
+    assert plan["first_execution_lr0_audit"]["execution"] == {
+        "learning_rate": 0.0,
+        "optimizer_steps_executed": 1,
+        "checkpoint": False,
+        "persisted_optimizer_state": False,
+        "gpu_request_after_root_authorization": "exactly 2x RTX A6000",
+        "new_write_once_paths": True,
+    }
+    assert plan["downstream_admission_gate"] == {
+        "changed": False,
+        "minimum_hard": 4,
+        "minimum_per_family": 2,
+        "minimum_recoveries": 4,
+        "maximum_regressions": 0,
+    }

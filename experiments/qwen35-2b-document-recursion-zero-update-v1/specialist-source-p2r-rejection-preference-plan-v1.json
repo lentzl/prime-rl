@@ -1,0 +1,182 @@
+{
+  "schema_version": "q35-2b-specialist-source-p2r-rejection-preference-plan/v1",
+  "recorded_at": "2026-09-05",
+  "status": "prospective_local_only_root_freeze_required",
+  "decision": {
+    "p2r_verdict": "mechanism_rejected",
+    "next_boundary": "new write-once chosen/rejected offline first-response preference surface, beginning with its own LR0 mechanism audit",
+    "reason": "P2R proved fixed routing and child-only export but had zero useful first calls. Repeating LR0 cannot create support, and its GRPO gradient would favor zero-retry silence over failed source attempts.",
+    "not_current_sdpo": "PrimeRL SDPO does not ingest an external canonical chosen response. Without a successful sibling it teacher-evaluates the original completion under feedback; P2R has neither successful siblings nor typed feedback. No synthetic sibling or answer-bearing feedback is permitted.",
+    "alternative_not_selected": "A canonical-SFT baseline is simpler but repeats positive-only training and does not contrast the observed failure distribution.",
+    "p2r_retrospectively_admitted": false,
+    "nonzero_update_authorized": false,
+    "gpu_or_model_action_authorized": false
+  },
+  "p2r_immutable_inputs": {
+    "snapshot_manifest_sha256": "538ecc2007ec25cc050993aa6ccd47b959f79248634d7e9ac79695a3d45e69c9",
+    "execution_revision": "c5af5ad0bc7fe89e7a256804d1e7cc2591e1a612",
+    "verifiers_revision": "c1a2f5bf3db3f34206e45b04442e64ca6a7770de",
+    "config_sha256": "dba4062e27c6b4395c37c6a1477bd4fd6edf549b6e622bc174fe95add1fffabf",
+    "sampling_contract_sha256": "26f7c37076e178528358357fc3a6840455e33b4e639fb1e4fac48c44601aca74",
+    "task_bank_sha256": "cb67bfe68866e0ec355159a39e8dea5fed92ba5f7f0c4e7b5185e6371088c5db",
+    "task_key_set_sha256": "f0e577eb1872d0ad0b6bbd8208d09448de3b8ab65ae0e4da92310ae70f59284e",
+    "raw_traces_sha256": "b6408adedb7865ace065909c9afdc60fbfa8f0ea6a57656fb2be601d449e0974",
+    "effective_traces_sha256": "f7a59c0e12da0002f4f5c766f3b88146c769cb828b12a945f40fbf8055610bc5",
+    "metrics_sha256": "76116297c4e68f12c88462d595b23ce5f9c7aaa8ea5bc4a9174cec334a6adb1b",
+    "token_exports_sha256": "9b6f9861a94e71817847c16f02f11ca7894d2499238c033b48c2a53fdd565c53",
+    "routing_audit_sha256": "bd093a5bd42606eaa0480ffd7db412a6c95181d7b726fec91c25c3b7d47a9124",
+    "preflight_model_receipt_sha256": "1c400f31954c4bfb6a455fb2ed2add08304a7711368f532bf018f5cb8ac72c0c",
+    "postflight_model_receipt_sha256": "2ccf9ea70ae5855457bd549d5389ea8d934f79a62618010ca7b3228aeb1931a1"
+  },
+  "p2r_failures_to_address": {
+    "no_drop_metric_schema": {
+      "observed": "PrimeRL omitted pre_filters/all/zero_advantage/rate when raw equaled effective and no group was dropped.",
+      "repair": "Treat the absent aggregate as zero only when raw IDs equal effective IDs, dropped_rate is exactly zero, and six aggregate/per-source all/effective zero-advantage monitors are all present and exactly zero.",
+      "scientific_effect": "schema repair only; it does not change P2R's verdict or any health threshold"
+    },
+    "config_natural_termination": {
+      "observed": {"agent_completed": 0, "max_turns": 8},
+      "unchanged_gate": "at least one agent_completed and at most seven max_turns per family",
+      "response": "Every chosen training response performs the complete source action and one parent send in its first call. Natural termination is not claimed from offline training; it must pass unchanged in a fresh on-policy post-update LR0 rung."
+    },
+    "ast_mismatch": {
+      "observed_active_mismatch_max_abs": 0.43322479724884033,
+      "maximum": 0.35,
+      "observed_max_mismatch_to_entropy_max_ratio": 0.06479487953010178,
+      "maximum_ratio": 0.05,
+      "response": "The preference LR0 audit must report chosen and rejected parity separately for AST/config and pass the same absolute and normalized ceilings before any update; no clipping, expanded masking, or threshold change."
+    },
+    "silence_advantage": {
+      "observed": "Two zero-retry AST trajectories with no useful source work scored 0.0, while most attempts were negative and the one later exact config recovery scored -0.01.",
+      "response": "The offline objective uses an explicit chosen/rejected ordering instead of P2R scalar advantages. A recoverable no-tool response is a reject, never a chosen row or zero-advantage sample."
+    }
+  },
+  "preference_data_contract": {
+    "scope": "training-only variants 0-3; no held-out variants, seeds, paths, answers, or evaluation traces",
+    "memory_risk": "P2R contains only two unique task keys and two canonical solution programs. Those rows alone are insufficient for a competence claim or update.",
+    "dynamic_task_requirement": "Materialize a root-frozen number of distinct AST and config tasks from the existing train-only generator. Each task has fresh paths/content/shapes and a unique key; no duplicated P2R rollout may increase task weight.",
+    "chosen_response": {
+      "provenance": "deterministic builder revision + task payload SHA + exact child-prefix SHA + rendered first-response token SHA",
+      "dynamic_no_oracle_rule": "The code reads the assigned runtime paths and computes value from file content. The expected integer, answer field, or a task-specific literal result may not appear in code, prompt feedback, or hidden metadata consumed by the model.",
+      "action": "exactly one serialized IPython tool call containing all file reads, family computation, exact arithmetic, compact JSON parent send, and no retry/delegation/extra send",
+      "sandbox_admission": "Execute in a fresh task sandbox; require reward scorer exception_free_first_call=1, correct_file_api=1, exact_oracle_value=1, atomic_compact_parent_send=1, score=1.0, retries=0, duplicates=0, extra_sends=0",
+      "first_response_only": true
+    },
+    "rejected_response": {
+      "p2r_rows": "Extract exact first source_inspector assistant response from immutable P2R trace with source trace/node/token hash; no later retry, tool result, parent message, or coordinator token.",
+      "generated_rows": "For new train tasks, mutations must be deterministic, labeled, and sandbox-executed to prove a specific API/arithmetic/serialization failure; no random or invented prose reject.",
+      "no_tool_row_rule": "A P2R first response without a tool call may be retained only when its nonempty serialized assistant response and exact token span are recoverable. Label no_tool_response and mask that full response. If no response/token span exists, exclude it from loss and record it in a write-once exclusion ledger; never synthesize an empty IPython call.",
+      "first_response_only": true
+    },
+    "pairing_and_weighting": {
+      "prompt_identity": "chosen and rejected share the exact same disclosed terminal child prefix and task payload",
+      "per_task_weight": "total preference weight is equal per unique task key and equal across AST/config; multiple rejects for one task divide that task's fixed mass",
+      "duplicate_rule": "duplicate prompt/chosen/rejected token triples are refused",
+      "minimums": "exact task, pair, mutation-category, and no-tool counts remain pending independent root freeze"
+    },
+    "token_masks": {
+      "chosen": "mask exactly the first assistant response token span, including tool-call JSON and assistant terminator; prompt/system/user/tool-output/later-turn tokens are zero",
+      "rejected": "mask exactly the original first assistant response span under the same renderer; prompt/system/user/tool-output/later-turn tokens are zero",
+      "role_isolation": "only the designated exact-prefix source_inspector child may receive preference mass; coordinator, generic child, later child turns, and terminal residues receive zero",
+      "length_handling": "chosen and rejected sequences are scored independently; do not position-align unequal responses or truncate one to the other"
+    },
+    "neutral_control": {
+      "construction": "write-once matched source prompts with identical chosen/rejected first responses and zero preference weight, plus non-source/coordinator branches that must export zero weight",
+      "purpose": "prove the new surface does not invent gradient from neutral pairs or escape role/family scope"
+    },
+    "immutable_outputs": [
+      "canonical chosen/rejected JSONL",
+      "sandbox receipts for every chosen and generated reject",
+      "P2R provenance and no-tool exclusion ledger",
+      "rendered-token and exact-mask ledger",
+      "neutral-control ledger",
+      "dataset/pair/task-key SHA-256 values and per-task normalized weights"
+    ],
+    "root_freeze_placeholders": {
+      "builder_revision": null,
+      "dataset_sha256": null,
+      "task_key_set_sha256": null,
+      "pair_key_set_sha256": null,
+      "unique_tasks_per_family": null,
+      "pairs_per_failure_category": null,
+      "no_tool_rows_per_family": null
+    }
+  },
+  "required_framework_surface": {
+    "status": "not_implemented_launch_blocking",
+    "objective": "explicit offline chosen/rejected preference loss; do not route through current SDPO successful-sibling or feedback paths",
+    "requirements": [
+      "read only the frozen write-once pair contract",
+      "score chosen and rejected first-response sequences independently under frozen S5 at LR0",
+      "apply preference loss only to the exact masks in the token ledger",
+      "export pair key, task key, family, chosen/rejected token SHAs, masks, per-task normalized weight, log-probability sums, and component token mass",
+      "refuse missing/duplicate/cross-task pairs, non-designated child prefixes, dynamic-oracle violations, failed chosen sandbox receipts, or any neutral/control weight",
+      "no current-SDPO teacher span, synthetic successful sibling, answer-bearing feedback, or coordinator loss"
+    ]
+  },
+  "first_execution_lr0_audit": {
+    "purpose": "mechanism evidence only; cannot authorize weights",
+    "starting_policy": "frozen rejected S5",
+    "coordinator_policy": "not sampled or trained by the offline objective; canonical e33 remains hash-protected",
+    "execution": {
+      "learning_rate": 0.0,
+      "optimizer_steps_executed": 1,
+      "checkpoint": false,
+      "persisted_optimizer_state": false,
+      "gpu_request_after_root_authorization": "exactly 2x RTX A6000",
+      "new_write_once_paths": true
+    },
+    "structural_gates": [
+      "exact immutable dataset/config/revision/model identities",
+      "all chosen sandbox components equal one and every chosen cell is dynamic/no-oracle",
+      "one-to-one pair/token/mask/export attribution and exact per-task normalized weighting",
+      "positive preference token mass in both families and a finite positive LR0 gradient",
+      "zero RL/CE/reference-KL/SDPO/coordinator/later-turn/neutral-control token mass",
+      "finite chosen/rejected log probabilities and nonzero preference contrast in both families",
+      "STABLE export, no checkpoint, e33/H176/S2/S5 exact pre/post hashes"
+    ],
+    "likelihood_gates_retained_from_p2r": {
+      "absolute_unmasked_aggregate_mean_max": 0.003,
+      "aggregate_mean_to_entropy_mean_max": 0.01,
+      "aggregate_active_mismatch_max_abs": 0.35,
+      "per_family_mean_to_entropy_mean_max": 0.01,
+      "per_family_max_mismatch_to_entropy_max": 0.05,
+      "aggregate_mask_fraction_max": 0.005,
+      "per_family_mask_fraction_max": 0.01,
+      "per_export_mask_fraction_max": 0.02
+    },
+    "quantitative_behavior_thresholds": "all task counts, preference-margin floors, gradient bounds, memory qualification thresholds, and neutral-control tolerances remain pending independent root freeze",
+    "root_freeze_placeholders": {
+      "execution_revision": null,
+      "framework_revision": null,
+      "config_sha256": null,
+      "dataset_sha256": null,
+      "exact_preference_token_floor_per_family": null,
+      "exact_preference_margin_floor_per_family": null,
+      "write_once_output_root": null,
+      "write_once_result_root": null
+    },
+    "pass_semantics": "stop after LR0 with no checkpoint and no update authorization"
+  },
+  "conditional_sequence_after_lr0": [
+    "Root may separately preregister one full-dense S5-derived child-only preference update only after every LR0 mechanism gate passes.",
+    "After any update, run a fresh, full-bank-disjoint behavioral probe on root-frozen variants/seed/offset. Require dynamic file/path/value generalization, first-call atomicity, natural completion in both families, and memory qualification comparing train-key versus fresh-key behavior. All quantitative behavioral thresholds are frozen before the update.",
+    "Then run a fresh-seed, inference-only behavioral calibration under the corrected execution scorer and fixed P2R routing. It retains the unchanged natural-termination and reward-support gates; trainer/inference mismatch and masking stay owned by the preference LR0 audit. Do not construct another GRPO update path.",
+    "Only after those checks may a held-out H176/S2/S5/candidate evaluation run under the unchanged downstream gate."
+  ],
+  "downstream_admission_gate": {
+    "changed": false,
+    "minimum_hard": 4,
+    "minimum_per_family": 2,
+    "minimum_recoveries": 4,
+    "maximum_regressions": 0
+  },
+  "authorization": {
+    "remote_mutation": false,
+    "deployment": false,
+    "gpu_or_model_calls": false,
+    "model_weight_change": false,
+    "gate_change": false,
+    "push": false
+  }
+}
