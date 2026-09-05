@@ -255,6 +255,20 @@ def start_role_router(config: InferenceConfig) -> list[subprocess.Popen]:
         proxy_command.append("--strip-child-tool-choice")
     if router.strip_coordinator_tool_choice:
         proxy_command.append("--strip-coordinator-tool-choice")
+    if router.specialist_fixed_expert is not None:
+        proxy_command.extend(
+            [
+                "--specialist-worker-routing",
+                "--specialist-route",
+                router.specialist_fixed_expert,
+                child_url,
+                child_model,
+                "--specialist-fixed-expert",
+                router.specialist_fixed_expert,
+            ]
+        )
+    if router.specialist_force_fixed_action:
+        proxy_command.append("--specialist-force-fixed-action")
     proxy_process = subprocess.Popen(
         proxy_command,
         stdout=proxy_log,

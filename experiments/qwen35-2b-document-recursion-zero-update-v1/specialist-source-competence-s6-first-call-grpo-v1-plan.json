@@ -1,0 +1,175 @@
+{
+  "schema_version": "q35-2b-specialist-competence-plan/v1",
+  "experiment_id": "specialist-source-competence-s6-first-call-grpo-v1",
+  "recorded_at": "2026-09-05",
+  "status": "prospective_pending_root_freeze_and_authorization",
+  "objective": "Test whether execution-grounded group-relative policy learning can bind file parsing, exact arithmetic, compact JSON serialization, and exactly-once same-call parent delivery after positive-only SFT failed.",
+  "trigger": {
+    "required": [
+      "the final S5 primary summary is immutable and rejected",
+      "the S5 primary summary SHA-256 is cda2cdba4b9e6e8519f3008b4a49bf178474b8d4e6c42384e634dae58b45f90e",
+      "root freezes a durable Verifiers commit containing source-worker-first-call-v1",
+      "root freezes both S6 train configs plus fresh heldout coordinates, config bytes, sampling contract, and task-bank hash"
+    ],
+    "forbidden": [
+      "running against Verifiers gitlink 5283a85 or detached live revision 53bafcaca612",
+      "starting a nonzero update before the zero-LR audit passes every invariant",
+      "writing a checkpoint during the zero-LR audit",
+      "using heldout variants 4 or 5 for training",
+      "changing e33, H176, S2, S5, or any admission threshold"
+    ]
+  },
+  "protected_models": {
+    "e33_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "H176_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+    "S2_sha256": "937a96154cd47d8dda1fb01125d9f552037a91bc0542748f417652ceddd47f47",
+    "S5_sha256": "09a2e3e88030d17896e554211d8fc7eff709d6b4a619e99e3342d05aacde0782",
+    "optimizer_updates_allowed": {
+      "e33": 0,
+      "H176": 0,
+      "S2": 0,
+      "S5": 0,
+      "S6_candidate": 1
+    }
+  },
+  "verifiers_dependency": {
+    "parent_gitlink_at_design_time": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "live_detached_revision_observed": "53bafcaca612",
+    "staged_payload": "patches/verifiers/environments/source_worker_first_call_v1",
+    "target_directory": "environments/source_worker_first_call_v1",
+    "required_durable_commit": "ROOT_FREEZE_REQUIRED_S6_VERIFIERS_REVISION",
+    "required_parent_action": "Commit the staged environment on a durable Verifiers branch, update the parent submodule pointer, and freeze the exact new revision before any model call."
+  },
+  "training_partition": {
+    "split": "train",
+    "families": [
+      "specialist_source_ast",
+      "specialist_source_config"
+    ],
+    "template_variants": [0, 1, 2, 3],
+    "seed": 20270909,
+    "instance_offset": 70000,
+    "instances_per_template": 8,
+    "heldout_variants_excluded": [4, 5],
+    "teacher_demonstrations": false,
+    "heldout_trace_or_answer_replay": false
+  },
+  "reward": {
+    "source": "actual typed trace, sandbox tool results, and parent-observed delivery body",
+    "hierarchy": {
+      "exception_free_first_ipython": 0.1,
+      "all_required_paths_read_with_correct_api_family": 0.2,
+      "exact_oracle_integer_delivered": 0.3,
+      "one_compact_json_parent_send_in_same_first_call": 0.4
+    },
+    "penalties": {
+      "each_retry_cell": 0.31,
+      "each_duplicate_cell": 0.02,
+      "each_extra_send": 0.03,
+      "total_cap": 0.79
+    },
+    "bounds": [-0.79, 1.0],
+    "anti_hacking": [
+      "path literals receive no credit unless they participate in a read/open construct",
+      "API credit also requires an exception-free first tool result",
+      "oracle credit comes from the body observed by the parent, not source-code tokens",
+      "atomic credit requires one first-cell send attempt, one successful first-cell receipt, one delivered body, and zero later sends",
+      "a later exact recovery scores below an exception-free correct-API first call"
+    ]
+  },
+  "mechanism_audit": {
+    "config": "specialist-source-competence-s6-first-call-grpo-zero-lr.toml",
+    "config_sha256": "ROOT_FREEZE_REQUIRED_S6_AUDIT_CONFIG_SHA256",
+    "learning_rate": 0.0,
+    "checkpoint": false,
+    "groups": 2,
+    "group_size": 8,
+    "batch_size": 16,
+    "sampling_temperature": 1.0,
+    "required_pass_evidence": [
+      "eight AST and eight config effective traces",
+      "both eight-way groups have finite nonzero reward variance",
+      "positive child-policy trainable token mass",
+      "finite positive gradient norm at LR=0",
+      "all weighted branches are non-root task-worker branches",
+      "zero coordinator weighted token mass",
+      "no CE, SDPO, or reference-KL component weights",
+      "exact S5 trainable model and frozen e33 anchor identity",
+      "no checkpoint or model artifact"
+    ],
+    "failure_action": "Stop without a model update or evaluation."
+  },
+  "conditional_update": {
+    "config": "specialist-source-competence-s6-first-call-grpo-step1.toml",
+    "config_sha256": "ROOT_FREEZE_REQUIRED_S6_UPDATE_CONFIG_SHA256",
+    "initialization": "frozen rejected S5",
+    "role": "non-root source_inspector task worker only",
+    "update_type": "full_dense",
+    "optimizer_updates": 1,
+    "learning_rate": 0.000001,
+    "zero_variance_groups_rejected": true,
+    "coordinator": "frozen e33 through role router",
+    "fixed_route": "harness-owned delegate_terminal/source_inspector; computation and parent send remain model-authored",
+    "kl_control": "Prime-RL default loss kl_tau=0.001 against rollout inference logprobs. Because this is exactly one step collected from S5 before weight broadcast, it is an S5-at-collection trust-region control, not a persistent external frozen-reference KL."
+  },
+  "paired_evaluation": {
+    "heldout_template": "specialist-source-competence-s6-heldout-template.toml",
+    "materializer": "scripts/materialize_q35_2b_source_first_call_s6_heldout_v1.py",
+    "heldout_seed": "ROOT_FREEZE_REQUIRED_S6_HELDOUT_SEED",
+    "heldout_instance_offset": "ROOT_FREEZE_REQUIRED_S6_HELDOUT_OFFSET",
+    "heldout_config_sha256": "ROOT_FREEZE_REQUIRED_S6_HELDOUT_CONFIG_SHA256",
+    "sampling_contract_sha256": "ROOT_FREEZE_REQUIRED_S6_SAMPLING_SHA256",
+    "task_bank_sha256": "ROOT_FREEZE_REQUIRED_S6_TASK_BANK_SHA256",
+    "template_variants": [4, 5],
+    "temperature": 0.0,
+    "tasks": 16,
+    "family_counts": {
+      "specialist_source_ast": 8,
+      "specialist_source_config": 8
+    },
+    "arms_in_order": [
+      "frozen H176 control",
+      "frozen rejected S2 bridge",
+      "frozen rejected S5 bridge",
+      "S6 treatment"
+    ],
+    "primary_pair": "H176 versus S6",
+    "diagnostic_pairs": [
+      "S2 versus S6",
+      "S5 versus S6"
+    ],
+    "hard_success_definition": "exact answer plus protocol_aligned=1 plus clean_protocol_aligned=1 plus agent_completed plus model-authored read/compute/send in one call",
+    "thresholds": {
+      "minimum_treatment_hard_successes": 4,
+      "minimum_hard_successes_per_family": 2,
+      "minimum_paired_H176_fail_to_S6_hard_recoveries": 4,
+      "maximum_paired_regressions": 0,
+      "acceptance_gates_relaxed": false
+    }
+  },
+  "duplicate_and_provenance_policy": [
+    "refuse any existing audit, update, candidate, result, or receipt target",
+    "require exact clean execution revision and exact clean non-legacy Verifiers revision",
+    "require immutable rejected S5 summary and exact S5/e33/H176/S2 model hashes",
+    "rehash e33, H176, S2, and S5 after audit, update, and evaluation",
+    "never resume or overwrite a partial run"
+  ],
+  "resource_request": {
+    "authorization_required": true,
+    "host": "existing host only; no added infrastructure",
+    "gpu": "2x RTX A6000 48 GiB",
+    "layout": "GPU0 one full-dense trainer; GPU1 colocated S5 child-policy inference plus frozen e33 anchor with explicit 4 GiB KV caches",
+    "host_ram_minimum_gib": 90,
+    "disk_free_minimum_gib": 80,
+    "estimated_audit_wall_time": "45-90 minutes for sixteen long Prime Agent trajectories plus one backward pass",
+    "estimated_update_wall_time": "45-90 minutes for fresh sixteen-trajectory sampling plus one dense update",
+    "estimated_evaluation_episodes": 64,
+    "concurrency": "one S6 stage or one evaluation arm at a time"
+  },
+  "framework_limitations": [
+    "The two-GPU topology cannot host an additional independent frozen-S5 reference engine while also serving trainable S5 and frozen e33. The one-step rollout-logprob KL is the supported control.",
+    "The executable taskset must land in a separately durable Verifiers commit; the parent staging payload is not itself importable through the current empty local gitlink.",
+    "Group composition relies on the taskset's deterministic AST-then-config ordering and is independently verified from effective trace task keys before update authorization."
+  ],
+  "publication": "No Hugging Face publication or canonical checkpoint replacement without admission and owner approval."
+}

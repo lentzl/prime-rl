@@ -336,8 +336,24 @@ class RoleRouterConfig(BaseConfig):
     strip_coordinator_tool_choice: bool = False
     """For coordinator-policy bootstrap only, remove named chat tool-choice controls
     from direct token-in generation. The tool schema remains in the rendered prompt."""
+    specialist_fixed_expert: Literal["source_inspector"] | None = None
+    """Route terminal specialist assignments to one fixed child-policy identity."""
+    specialist_force_fixed_action: bool = False
+    """Force the disclosed terminal-delegation action before applying the fixed route."""
     state_dir: Path
     audit_log: Path
+
+    @model_validator(mode="after")
+    def validate_specialist_fixed_route(self):
+        if self.specialist_force_fixed_action and self.specialist_fixed_expert is None:
+            raise ValueError(
+                "specialist_force_fixed_action requires specialist_fixed_expert"
+            )
+        if self.specialist_fixed_expert is not None and self.policy_role != "child":
+            raise ValueError(
+                "a fixed specialist route requires the child policy to be trainable"
+            )
+        return self
 
 
 class LlmdRouterConfig(BaseConfig):
