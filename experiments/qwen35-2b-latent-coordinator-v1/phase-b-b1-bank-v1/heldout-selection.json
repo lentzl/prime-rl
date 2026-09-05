@@ -1,0 +1,74 @@
+{
+  "expected_action_counts": {
+    "delegate_coordinator": 4,
+    "delegate_terminal": 4,
+    "solve_owned": 4
+  },
+  "key_actions": [
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v4-i34100:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v4-i34100"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v4-i34100"
+    },
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v5-i34100:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v5-i34100"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v5-i34100"
+    },
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v4-i34101:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v4-i34101"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v4-i34101"
+    },
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v5-i34101:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v5-i34101"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v5-i34101"
+    }
+  ],
+  "ordered_key_action_sha256": "180b8067ecabcf8451aba5f0a454f3f6d28b6a8b35978de88f4505524f7d43e9",
+  "ordered_task_key_sha256": "d50a1ef713303c38db16f72a5c8bbde60d13e6445dd896091b0a07a4f41155b4",
+  "schema_version": "q35-2b-phase-b1-heldout-selection/v1",
+  "task_keys": [
+    "document_adaptive_d0-v4-i34100:solve-anchor-1",
+    "document_adaptive_d1-v4-i34100",
+    "document_adaptive_d2-v4-i34100",
+    "document_adaptive_d0-v5-i34100:solve-anchor-1",
+    "document_adaptive_d1-v5-i34100",
+    "document_adaptive_d2-v5-i34100",
+    "document_adaptive_d0-v4-i34101:solve-anchor-1",
+    "document_adaptive_d1-v4-i34101",
+    "document_adaptive_d2-v4-i34101",
+    "document_adaptive_d0-v5-i34101:solve-anchor-1",
+    "document_adaptive_d1-v5-i34101",
+    "document_adaptive_d2-v5-i34101"
+  ]
+}

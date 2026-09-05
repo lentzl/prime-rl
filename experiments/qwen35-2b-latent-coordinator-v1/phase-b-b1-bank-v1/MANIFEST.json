@@ -1,0 +1,68 @@
+{
+  "artifacts": {
+    "heldout-selection.json": "e086b751155c2c5e8d000cd60d3ff999bbdd91e6faaf3a3c68a5913de5957aca",
+    "heldout.parquet": "951bd90164e5c43a5730081c63fba8d6c78362cd3bf4fa48dfc68598fc92871d",
+    "runtime-source.json": "4f8156c32ff97dcef1752e35fe282385c182bc6101ebe6e0500ea42ee0f6080a",
+    "taskset-5283a85.py": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499",
+    "training-selection.json": "f049818029e3b241d0b3b777696e500d0f7320f9614f6a49cc57def13dfc9b1b"
+  },
+  "freshness": {
+    "claim": "fresh exact task keys excluded from e33 and B1 weight-training data",
+    "disclosure": "variants 4/5 were previously evaluated at instance offset 33100",
+    "exact_task_key_overlap_with_e33_and_b1_training": 0,
+    "heldout_variants": [
+      4,
+      5
+    ],
+    "training_variants": [
+      0,
+      1,
+      2,
+      3
+    ]
+  },
+  "generation": {
+    "d0_suffix": ":solve-anchor-1",
+    "families": [
+      "document_adaptive_d0",
+      "document_adaptive_d1",
+      "document_adaptive_d2"
+    ],
+    "instance_offset": 34100,
+    "instances_per_template": 2,
+    "order": "instance_then_variant_then_family",
+    "seed": 20261113,
+    "split": "eval",
+    "template_variants": [
+      4,
+      5
+    ]
+  },
+  "generator": {
+    "source_path": "scripts/export_phase_b_value_screen_b1_bank_v1.py",
+    "source_sha256": "0c799ff8cbaef65113b4208996e05a3995736461e4772e490b263cebfad6ce39"
+  },
+  "row_canonical_sha256": [
+    "2fbe0f325ca46ff7cea25950036119c9ace3230b3ff8800c95bae9672993c44e",
+    "b3423a464dd4ee0a5876164758bb3c66f74c8a516f43f3180fea15747cb66768",
+    "b6fe956abf6c4102389c2dcd6f9ec1593e7d5979ef981da06beb19dc7926885e",
+    "970e57fa746dc030ef9bc6962d8810b7a690f22ce6953c1309e8935e7f1fb661",
+    "a0c6fc6bb44ef48415a9a1d40393cb941dd6eb599057e3f249a7d7b8ee831ade",
+    "3f4273e45f0f513ca24c0ca97a9caea2a708e9c2f26e321f0e88e608ca64f33a",
+    "9831777ca930fe5efc4f70bce4cc5455e6577c2b0c37bc9560cdb21c29057066",
+    "13f2e833e555d2879c90e762ca4ac164e625a155223d3bd72420b297292653ae",
+    "a13eac2429912a6e04950767c0c7f0321a361366639f1ce45bfca9dd2ff591bf",
+    "aab8f5a746b69aa7bf7c63c586f6a597942e850e6a5ae03482f343ae1798d502",
+    "0020bb240c1a86d2fba5470a9755aa9c02dcf8322aa7b8484246f82a46213877",
+    "59660835e87ea81bb22d6caa3bdabbc5c9cb8fa1a630fd1e3d5ebe2f59bfae76"
+  ],
+  "row_list_canonical_sha256": "94de16b26d8b4fbc99b22ab0e1312933e3a83e5f79a521d2a6327f2f28fae988",
+  "rows": 12,
+  "schema_version": "q35-2b-phase-b1-heldout-bank/v1",
+  "status": "complete",
+  "taskset": {
+    "commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "source_path": "experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1-bank-v1/taskset-5283a85.py",
+    "source_sha256": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499"
+  }
+}

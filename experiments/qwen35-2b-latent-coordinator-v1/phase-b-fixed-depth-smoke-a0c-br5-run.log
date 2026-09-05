@@ -1,0 +1,48 @@
+phase-b-fixed-depth-smoke-a0c-br5-plan.json: OK
+phase-b-fixed-depth-smoke-v1-selection.json: OK
+phase-b-a0c-binding-v1.json: OK
+phase-b-a0c-binding-v1.sha256: OK
+a0c-carrier-success-receipt-v1.json: OK
+a0c-carrier-success-receipt-v1.sha256: OK
+phase-b-a0c-v1-failed-start-binding.json: OK
+phase-b-a0c-v1-failed-start-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-v1-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-v1-run.log: OK
+phase-b-a0c-br1-preflight-rejection-binding.json: OK
+phase-b-a0c-br1-preflight-rejection-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br1-preflight-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br1-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br1-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br1.sha256: OK
+phase-b-a0c-br2-scalar-hash-failure-binding.json: OK
+phase-b-a0c-br2-scalar-hash-failure-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br2-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-br2-failure-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br2-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br2-run.log: OK
+phase-b-fixed-depth-smoke-a0c-br2-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br2.sha256: OK
+phase-b-a0c-br3-oom-failure-binding.json: OK
+phase-b-a0c-br3-oom-failure-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br3-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-br3-failure-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br3-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br3-run.log: OK
+phase-b-fixed-depth-smoke-a0c-br3-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br3.sha256: OK
+phase-b-a0c-br4-oom-failure-binding.json: OK
+phase-b-a0c-br4-oom-failure-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br4-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-br4-failure-MANIFEST.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br4-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br4-run.log: OK
+phase-b-fixed-depth-smoke-a0c-br4-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br4.sha256: OK
+../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK
+../../scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br5.sh: OK
+../../src/prime_rl/phase_b_contract.py: OK
+../../src/prime_rl/latent/local_depth.py: OK
+../../src/prime_rl/latent/recurrent.py: OK
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  66%|██████▌   | 405/617 [00:00<00:00, 4019.04it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 4900.83it/s]
