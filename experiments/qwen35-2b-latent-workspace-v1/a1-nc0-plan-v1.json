@@ -55,7 +55,7 @@
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json": "8e87309df0c37cce7bbd0bb98a3daed098f0b354f0c00ae15c27024047539c5e",
     "scripts/latent/run_a0_nocache_receiver_v1.py": "de1a1997660e7ebcf3fc12faf84754ed7a6b007171f19c1ae8218da0e3b811cc",
     "scripts/latent/run_a0_nocache_receiver_v1.sh": "934bbc7bd132a6a907b580c5aa3b2da51487714d24f07977252c7f582ba70767",
-    "scripts/latent/run_a1_nc0_nomination_v1.py": "99900e0bd366d96ce55ebc3825b39f2957d9d8d2a8dd7706cd663b803767e595",
+    "scripts/latent/run_a1_nc0_nomination_v1.py": "68f670c1abc9bc91e6b4aedeeb5462ed22da0044022d2c2f7c0abef6195c2ecc",
     "scripts/latent/run_a1_nc0_nomination_v1.sh": "c21208ec76c904ce0a3fa90af2649ac5abdab30a44c916025064279dfcfc6723",
     "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
     "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
@@ -66,11 +66,11 @@
     "src/prime_rl/latent/a0dr2.py": "40a628aff96527d01d964c865b5a26b2d9cb58e3da0c4660c0162504022df42a",
     "src/prime_rl/latent/a0nc.py": "41c69fe874bc214b9cd4cb3bba377bbe8bdad9f039d16cb60bd089b28e413404",
     "src/prime_rl/latent/a0r.py": "128f98b20f3872c0057ea08a87047b51a2f6642b4867b1f25a5fb54ea86e37cd",
-    "src/prime_rl/latent/a1nc0.py": "228ebdb163032c7abf5a6571934b018c11e7ba915897b4cf85e326b5383da83c",
+    "src/prime_rl/latent/a1nc0.py": "9700e0359a8968d7fc0d085274546523df9c38990c185203c49d650dda8927f5",
     "src/prime_rl/latent/bridge.py": "ee0be34513201c615036dccdcd18c2c4eff68bcd706a7f507255dd097f0960d4",
     "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81",
     "src/prime_rl/latent/transfer_bank.py": "29c420b1f3d90c42c3a992f04f782b3bfad17a81ee0f2ec697bd65c1c9319c78",
-    "tests/unit/latent/test_a1nc0.py": "8afbb0ae8b579c36e45eec2b98eecdbae744ea3fbb4dd06484d85ae1c664c3d3"
+    "tests/unit/latent/test_a1nc0.py": "eeb98abe282ab739b7895d4e2f151ae4c04bab67871fb887cfaddccd8b1b9c62"
   },
   "bank_disjointness": {
     "all_pairwise_intersections_zero": true,
@@ -173,19 +173,19 @@
     "negative_control": "DynamicCache allocation must raise",
     "recursive_class_closure": [
       {
-        "distribution": "transformers==5.6.2",
+        "distribution": "flash-linear-attention==0.5.2",
         "fqcn": "fla.models.utils.Cache",
         "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
         "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
       },
       {
-        "distribution": "transformers==5.6.2",
+        "distribution": "flash-linear-attention==0.5.2",
         "fqcn": "fla.models.utils.FLACache",
         "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
         "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
       },
       {
-        "distribution": "transformers==5.6.2",
+        "distribution": "flash-linear-attention==0.5.2",
         "fqcn": "fla.models.utils.LegacyFLACache",
         "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
         "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
@@ -272,7 +272,7 @@
     "validation_gate_not_met": "valid_not_nominated_validation"
   },
   "interpretation_boundary": "nomination-only no-cache bridge learnability; A0R and relative-cache calibration remain rejected; A1 admission, live typed-harness delivery, A2, model promotion, and any A+B claim remain blocked",
-  "mechanism_code_commit": "eca69f59769b0715eb65229e03d04802389f7072",
+  "mechanism_code_commit": "efa9a79baec118c80c279031a5e08a9c5ac9e015",
   "nomination_gate": {
     "complete_tasks": 48,
     "m0_to_mcur_recoveries_minimum": 9,
@@ -298,7 +298,7 @@
     "moth_recovery_fraction_of_mcur_maximum": 0.25,
     "noise_recovery_fraction_of_mcur_maximum": 0.25
   },
-  "plan_sha256": "1dfcd9295d9e6dd08c404c81dd2072c21c82bb2a12fbdebd5ac3cf3e2622b756",
+  "plan_sha256": "35c75821e7e5b1a359c31536dc3047d3d9e42785316f7a5631263d1d7e78458d",
   "protected_checkpoints": {
     "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
     "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
@@ -338,6 +338,7 @@
     },
     "device": "cuda:0",
     "dtype": "bfloat16",
+    "flash_linear_attention": "0.5.2",
     "hidden_size": 2048,
     "local_files_only": true,
     "model_class": "Qwen3_5ForConditionalGeneration",
