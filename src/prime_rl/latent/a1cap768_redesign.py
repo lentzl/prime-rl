@@ -207,7 +207,7 @@ STATIC_GUARD_PROOF1_EVIDENCE = {
     "scientific_exposure": False,
     "model_update_attempted": False,
 }
-STATIC_GUARD_PROOF_EVIDENCE = {
+STATIC_GUARD_PROOF2_EVIDENCE = {
     "receipt_file_sha256": "6b566efd7b893520a7a0bf3edc51337e95f290aa1bf9812770c86ed5d973b431",
     "receipt_internal_sha256": "311da17d7fe19cb4f50d829048963a02eb2eeda0eb38f2cf2376fcda3ce50900",
     "command_file_sha256": "da36abc7f33b8927de8859d48b4ef92ca2c3fb67979fbe6fcf49cf45ab4cb53e",
@@ -223,6 +223,32 @@ STATIC_GUARD_PROOF_EVIDENCE = {
     "scientific_exposure": False,
     "model_update_attempted": False,
 }
+STATIC_GUARD_PROOF_EVIDENCE = {
+    "receipt_file_sha256": "32ff5413754deca01fa4e8beff66ddad5370d3c9121e485be5d2fd944afdb267",
+    "receipt_internal_sha256": "d4d370aaad994dc0cd4be8886096152f04eab3106dbf8892edfdc32b2eb854d2",
+    "command_file_sha256": "69f365e0dceb589092c8dee5838f8684ecf24427af6d4df1118627a5517f77cd",
+    "proof_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit_status_file_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "execution_commit": "3bc863706ba881af5ac6e453969fbff312dc657d",
+    "runner_sha256": "8403c3af2bb4f3cdcbb8fd866fb34c673c897c65cfefafd6b448688a5ceebea4",
+    "guard_module_sha256": "ed7d6c0fc16cc0c24f8cc55907db69cf77079adebc963425f2cc1e7c78e568f6",
+    "negative_fixture_count": 5,
+    "cuda_hidden_uninitialized": True,
+    "model_loaded": False,
+    "model_forward_count": 0,
+    "scientific_exposure": False,
+    "model_update_attempted": False,
+}
+SUPERSEDED_PAIR_NO_GO = {
+    "status": "gatekeeper_no_go_not_authorized",
+    "mechanism_code_commit": "4fb657d1730727ecab747ca6bcc14188124c8e64",
+    "freeze_commit": "add62ececae4c64c0a42ad746e66b08cfa8028b5",
+    "plan_file_sha256": "2198d6edb30b8a3d216dea92a4e31d4a78262abb56af15859e4a9fdeb1fcc5a9",
+    "plan_internal_sha256": "a9ee9d6759c20937b9a85385a1e7b20a9816d5fd073d795e63a5bb2810bc7aee",
+    "exact_blocker": "release checkpoint retained CUDA ids, padded, mask, and positions tensors",
+    "model_or_gpu_exposure": False,
+    "execution_authorized": False,
+}
 
 ASSET_PATHS = set(FLAG0_ASSET_PATHS) | {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-flag0-plan-v1.json",
@@ -236,6 +262,10 @@ ASSET_PATHS = set(FLAG0_ASSET_PATHS) | {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v2-command.txt",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v2-exit.txt",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v2.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v3-receipt.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v3-command.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v3-exit.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v3.log",
     "scripts/latent/run_a1_nc0_cap768_redesign_v1.py",
     "scripts/latent/run_a1_nc0_cap768_redesign_v1.sh",
     "scripts/latent/prove_a1_nc0_cap768_redesign_static_guard_v1.py",
@@ -423,7 +453,7 @@ def validate_static_guard_proof(repo: Path) -> dict[str, object]:
     return _validate_static_guard_proof(
         repo,
         expected=STATIC_GUARD_PROOF_EVIDENCE,
-        stem="a1-nc0-cap768-redesign-static-guard-proof-v2",
+        stem="a1-nc0-cap768-redesign-static-guard-proof-v3",
     )
 
 
@@ -459,6 +489,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         "flag0_incomplete_evidence",
         "static_guard_proof_evidence",
         "superseded_static_guard_proof_evidence",
+        "superseded_pair_no_go",
         "scientific_exposure_boundary",
         "scientific_exposure_boundary_sha256",
         "protected_checkpoints",
@@ -497,7 +528,9 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("memory_labels_sha256") != MEMORY_LABELS_SHA256
         or plan.get("flag0_incomplete_evidence") != FLAG0_INCOMPLETE_EVIDENCE
         or plan.get("static_guard_proof_evidence") != STATIC_GUARD_PROOF_EVIDENCE
-        or plan.get("superseded_static_guard_proof_evidence") != STATIC_GUARD_PROOF1_EVIDENCE
+        or plan.get("superseded_static_guard_proof_evidence")
+        != [STATIC_GUARD_PROOF1_EVIDENCE, STATIC_GUARD_PROOF2_EVIDENCE]
+        or plan.get("superseded_pair_no_go") != SUPERSEDED_PAIR_NO_GO
         or plan.get("scientific_exposure_boundary") != SCIENTIFIC_EXPOSURE_BOUNDARY
         or plan.get("scientific_exposure_boundary_sha256") != SCIENTIFIC_EXPOSURE_BOUNDARY_SHA256
         or plan.get("protected_checkpoints") != {"coordinator_e33": _E33, "worker_h176": _H176}
@@ -519,14 +552,19 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         raise ValueError("CAP768R FLAG0 binding changed")
     if validate_static_guard_proof(repo) != plan["static_guard_proof_evidence"]:
         raise ValueError("CAP768R static guard proof binding changed")
-    if (
+    superseded_proofs = [
         _validate_static_guard_proof(
             repo,
             expected=STATIC_GUARD_PROOF1_EVIDENCE,
             stem="a1-nc0-cap768-redesign-static-guard-proof",
-        )
-        != plan["superseded_static_guard_proof_evidence"]
-    ):
+        ),
+        _validate_static_guard_proof(
+            repo,
+            expected=STATIC_GUARD_PROOF2_EVIDENCE,
+            stem="a1-nc0-cap768-redesign-static-guard-proof-v2",
+        ),
+    ]
+    if superseded_proofs != plan["superseded_static_guard_proof_evidence"]:
         raise ValueError("CAP768R superseded proof binding changed")
     return plan
 
