@@ -1,0 +1,37 @@
+{
+  "schema_version": "q35-2b-source-route-parity-p2-failed-start/v1",
+  "snapshot_manifest_sha256": "114c0bcbee839e247bb503e33a8bdabb57f0399d398fc48f5a472cfcdf011ab9",
+  "execution_revision": "5d71696770808f1f2a08d30d950d5aa9af992e1f",
+  "verifiers_revision": "c1a2f5bf3db3f34206e45b04442e64ca6a7770de",
+  "config_sha256": "01eafbda63875161d63532e3a2762c1f3ccfa0de5f8b76daf9892051c20c7f16",
+  "sampling_contract_sha256": "1003d33f4d4e9d5770dbac579fc3669299e240cb2b03ca3c208b9184889c2a7c",
+  "task_bank_sha256": "cb67bfe68866e0ec355159a39e8dea5fed92ba5f7f0c4e7b5185e6371088c5db",
+  "task_key_set_sha256": "f0e577eb1872d0ad0b6bbd8208d09448de3b8ab65ae0e4da92310ae70f59284e",
+  "failed_run_dir": "/home/ubuntu/rlm/outputs/q35-2b-source-route-parity-p2-v1/lr0-calibration/source-route-parity-p2-lr0-admission",
+  "failed_result_root": "/home/ubuntu/rlm/results/q35-2b-source-route-parity-p2-v1",
+  "required_artifacts": {
+    "rollouts/step_1/train/all/traces.jsonl": "b16a896677060e0e245f629a9e5ade07c1eea2a189083d98e5f694cd3d5816fd",
+    "metrics.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "result:preflight-model-hashes.json": "d35649f38c4adb45b1faa8a7fc14bf86b8ee4d4e3949e1412ee86b4b3ec3aeed",
+    "result:role-router/proxy.log": "7b091fb42c7b675bd2b4c5ff504828b79b557207f7f3dd9596a46a5895168ff9",
+    "logs/attempt_1/orchestrator.log": "bb18edd968df648dca7cb70b46b9b4fb34506fc66e04a6463f6c87b13e5deb21",
+    "logs/attempt_1/trainer.log": "eaf33be3a24a685e2295778c818e850517092b6a3aec2f74da465477c7b86c4b"
+  },
+  "required_absent": [
+    "rollouts/step_1/train/effective/traces.jsonl",
+    "result:routing-audit.jsonl",
+    "result:mechanism-admission.json",
+    "result:postflight-model-hashes.json"
+  ],
+  "observed": {
+    "raw_traces": 8,
+    "trace_calls": 32,
+    "successful_trace_calls": 0,
+    "route_events": 0,
+    "upstream_model_responses": 0,
+    "effective_traces": 0,
+    "optimizer_steps": 0,
+    "checkpoint_or_weight_files": 0
+  },
+  "reuse_boundary": "The frozen seed and task bank may be reused only after exact core-Verifiers import provenance passes before any rollout."
+}

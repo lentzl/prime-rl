@@ -5,6 +5,7 @@ import hashlib
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -38,6 +39,10 @@ P2_CONFIG_PATH = EXPERIMENT / "specialist-source-route-parity-p2-lr0.toml"
 P2_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p2_v1.py"
 P2_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p2_v1.sh"
 P2_HASHER_PATH = REPO / "scripts/hash_q35_2b_source_route_parity_p2_tasks_v1.py"
+P2R_CONFIG_PATH = EXPERIMENT / "specialist-source-route-parity-p2r-lr0.toml"
+P2R_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p2r_v1.py"
+P2R_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p2r_v1.sh"
+P2_FAILED_START_PATH = EXPERIMENT / "specialist-source-route-parity-p2-failed-start-v1.json"
 P1_FORENSIC_PATH = REPO / "scripts/recover_q35_2b_source_route_parity_p1_v1.py"
 
 
@@ -82,6 +87,17 @@ def _p1_hasher_module():
 def _p2_validator_module():
     spec = importlib.util.spec_from_file_location(
         "source_route_parity_p2_validator", P2_VALIDATOR_PATH
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _p2r_validator_module():
+    spec = importlib.util.spec_from_file_location(
+        "source_route_parity_p2r_validator", P2R_VALIDATOR_PATH
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -1695,6 +1711,97 @@ def test_p2_launch_assets_are_calibration_only_and_hash_locked() -> None:
     assert "pairwise_disjoint" in hasher and "P2_P1" in hasher
     assert "rejected_trace_exports" in validator
     assert BAD_TRACE_ID_IN_FORENSIC in P1_FORENSIC_PATH.read_text()
+
+
+def test_p2r_core_import_provenance_requires_worktree_module_and_behavior(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = _p2r_validator_module()
+    train_path = tmp_path / "deps/verifiers/verifiers/v1/clients/train.py"
+    client_path = tmp_path / "deps/verifiers/verifiers/v1/clients/client.py"
+    train_path.parent.mkdir(parents=True)
+    train_path.write_text("# reviewed train client\n")
+    client_path.write_text("# reviewed client constants\n")
+
+    train = types.ModuleType("verifiers.v1.clients.train")
+    train.__file__ = str(train_path)
+    train.forwarded_session_headers = lambda session_id, headers: {
+        "X-Session-ID": session_id,
+        "X-Client-Session-ID": headers["session_id"],
+    }
+    client = types.ModuleType("verifiers.v1.clients.client")
+    client.__file__ = str(client_path)
+    client.SESSION_ID_HEADER = "X-Session-ID"
+    client.CLIENT_SESSION_ID_HEADER = "X-Client-Session-ID"
+    clients = types.ModuleType("verifiers.v1.clients")
+    clients.train = train
+    clients.client = client
+    v1 = types.ModuleType("verifiers.v1")
+    v1.clients = clients
+    verifiers = types.ModuleType("verifiers")
+    verifiers.v1 = v1
+    for name, module in {
+        "verifiers": verifiers,
+        "verifiers.v1": v1,
+        "verifiers.v1.clients": clients,
+        "verifiers.v1.clients.train": train,
+        "verifiers.v1.clients.client": client,
+    }.items():
+        monkeypatch.setitem(sys.modules, name, module)
+
+    report = validator.verify_core_import_provenance(tmp_path)
+    assert report["train_client_module"] == str(train_path)
+    assert report["branch_header"] == "X-Client-Session-ID"
+    assert report["exact_behavior_probe_passed"] is True
+
+    train.__file__ = str(tmp_path / "shared-environment/train.py")
+    with pytest.raises(validator.BASE.AuditFailure, match="import provenance"):
+        validator.verify_core_import_provenance(tmp_path)
+
+
+def test_p2r_launcher_prioritizes_reviewed_core_verifiers() -> None:
+    launcher = P2R_LAUNCHER_PATH.read_text()
+    config = P2R_CONFIG_PATH.read_text()
+
+    assert 'p2r_pythonpath="$root/deps/verifiers:$root/src:' in launcher
+    assert "--verify-core-import-provenance" in launcher
+    assert "--write-core-import-provenance" in launcher
+    assert '--core-import-provenance "$core_import_provenance"' in launcher
+    assert "--validate-failed-start-evidence" in launcher
+    assert '--failed-start-evidence-sha256 "$failed_start_sha"' in launcher
+    assert "q35-2b-source-route-parity-p2r-v1" in config
+    assert "q35-2b-source-route-parity-p2-v1" not in config
+
+
+def test_p2r_failed_start_proof_matches_durable_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    validator = _p2r_validator_module()
+    snapshot = REPO.parent / "durable-snapshots/2026-09-05-p2-failed-start"
+    if not snapshot.is_dir():
+        pytest.skip("durable P2 failed-start snapshot is not present")
+    run_dir = (
+        snapshot
+        / "outputs/lr0-calibration/source-route-parity-p2-lr0-admission"
+    )
+    result_root = snapshot / "results"
+    evidence = json.loads(P2_FAILED_START_PATH.read_text())
+    evidence["failed_run_dir"] = str(run_dir)
+    evidence["failed_result_root"] = str(result_root)
+    evidence_path = tmp_path / "failed-start.json"
+    evidence_path.write_text(json.dumps(evidence, sort_keys=True) + "\n")
+    monkeypatch.setattr(validator, "FAILED_RUN_DIR", run_dir)
+    monkeypatch.setattr(validator, "FAILED_RESULT_ROOT", result_root)
+    monkeypatch.setattr(validator, "FAILED_START_EVIDENCE", evidence_path)
+
+    report = validator.validate_failed_start_evidence(
+        hashlib.sha256(evidence_path.read_bytes()).hexdigest()
+    )
+
+    assert report["raw_traces"] == 8
+    assert report["failed_calls"] == 32
+    assert report["upstream_model_responses"] == 0
+    assert report["same_seed_and_bank_reuse_justified"] is True
 
 
 BAD_TRACE_ID_IN_FORENSIC = "57f6214886ce4f70a69f3eb2754770ce"
