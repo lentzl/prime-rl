@@ -26,7 +26,10 @@ CONFIG_PATHS = ("/workspace/sample/service.toml", "/workspace/sample/features.en
 LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_first_call_grpo_s6_v1.sh"
 VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_first_call_grpo_s6_v1.py"
 PROXY_PATH = REPO / "scripts/dual_policy_openai_proxy_v1.py"
+P0_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p0_v1.py"
+P0_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p0_v1.sh"
 EXPERIMENT = REPO / "experiments/qwen35-2b-document-recursion-zero-update-v1"
+P0_CONFIG_PATH = EXPERIMENT / "specialist-source-route-parity-p0-lr0.toml"
 
 
 def _validator_module():
@@ -40,6 +43,17 @@ def _validator_module():
 
 def _proxy_module():
     spec = importlib.util.spec_from_file_location("source_first_call_proxy", PROXY_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _p0_validator_module():
+    spec = importlib.util.spec_from_file_location(
+        "source_route_parity_p0_validator", P0_VALIDATOR_PATH
+    )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -330,6 +344,116 @@ def test_prospective_lr0_health_accepts_finite_aligned_uncensored_control() -> N
         counts["agent_completed"] == 1
         for counts in report["stop_conditions"].values()
     )
+
+
+def test_p0_observes_pathological_lr0_values_without_applying_thresholds() -> None:
+    validator = _validator_module()
+    metrics = _healthy_lr0_metrics()
+    metrics[0].update(
+        {
+            "entropy/all/std": 0.0,
+            "unmasked_mismatch_kl/mean": 999.0,
+            "unmasked_mismatch_kl/max": 9999.0,
+            "mismatch_kl/all/mean": 1000.0,
+            "mismatch_kl/all/std": 500.0,
+            "mismatch_kl/all/max": 10000.0,
+            "masked_mismatch_kl/mean": 2000.0,
+            "masked_mismatch_kl/max": 20000.0,
+            "is_masked/max": 1.0,
+            "is_masked_low/mean": 0.5,
+            "is_masked_low/max": 1.0,
+            "is_masked_high/mean": 0.5,
+            "is_masked_high/max": 1.0,
+            "kl_ent_ratio/mean": 999.0,
+        }
+    )
+    for metric in ("entropy", "mismatch_kl"):
+        for source in ("source-worker-ast-s6", "source-worker-config-s6"):
+            for statistic, value in (("mean", 1.0), ("std", 2.0), ("max", 3.0)):
+                metrics[0][f"{metric}/{source}/{statistic}"] = value
+    report = validator._observe_lr0_health(
+        metrics, _lr0_traces(all_max_turns=True)
+    )
+
+    assert report["thresholds_evaluated"] is False
+    assert report["thresholds_frozen"] is False
+    assert report["max_turn_fraction"] == {
+        "specialist_source_ast": 1.0,
+        "specialist_source_config": 1.0,
+    }
+    assert report["metrics"]["unmasked_mismatch_kl/mean"] == 999.0
+    assert report["metrics"]["entropy/source-worker-ast-s6/std"] == 2.0
+    assert report["metrics"]["mismatch_kl/source-worker-config-s6/max"] == 3.0
+
+
+def test_p0_config_is_unique_old_seed_lr0_observational_calibration() -> None:
+    validator = _p0_validator_module()
+    report = validator.validate_config(
+        Path(
+            "experiments/qwen35-2b-document-recursion-zero-update-v1/"
+            "specialist-source-route-parity-p0-lr0.toml"
+        )
+    )
+    config = P0_CONFIG_PATH.read_text()
+
+    assert report["learning_rate"] == 0.0
+    assert report["checkpoint_enabled"] is False
+    assert report["observational_only"] is True
+    assert report["thresholds_evaluated"] is False
+    assert report["optimizer_update_authorized"] is False
+    assert config.count("seed = 20270909") == 2
+    assert config.count("instance_offset = 70000") == 2
+    assert "[trainer.ckpt]" not in config
+    assert "[orchestrator.ckpt]" not in config
+    assert "q35-2b-source-route-parity-p0-v1" in config
+
+
+def test_p0_records_zero_reward_variance_without_rejecting_it() -> None:
+    validator = _p0_validator_module()
+    traces = [
+        {
+            "id": f"trace-{index}",
+            "task": {
+                "key": f"task-{index // 8}",
+                "data": {
+                    "family": (
+                        "specialist_source_ast"
+                        if index < 8
+                        else "specialist_source_config"
+                    )
+                },
+            },
+            "rewards": {"source_worker_first_call": {"score": 0.0}},
+        }
+        for index in range(16)
+    ]
+
+    report = validator._reward_observations(traces)
+
+    assert report["overall"]["population_variance"] == 0.0
+    assert report["overall"]["unique_values"] == [0.0]
+    assert report["variance_is_observational"] is True
+
+
+def test_p0_launcher_is_write_once_lr0_only_and_rehashes_protected_models() -> None:
+    launcher = P0_LAUNCHER_PATH.read_text()
+    validator = P0_VALIDATOR_PATH.read_text()
+
+    assert "specialist-source-route-parity-p0-lr0.toml" in launcher
+    assert "specialist-source-competence-s6-first-call-grpo-step1.toml" not in launcher
+    assert "run_q35_2b_specialist_competence_eval_v1.sh" not in launcher
+    assert "refusing duplicate or partial P0 output/result root" in launcher
+    assert "exactly 2x RTX A6000" in launcher
+    assert "--runtime" in launcher
+    assert launcher.count("rehash_protected_models") == 4
+    assert "--output \"$calibration_result\"" in launcher
+    assert '"optimizer_steps_executed": 1' in validator
+    assert '"learning_rate": 0.0' in validator
+    assert '"persisted_optimizer_state": False' in validator
+    assert '"model_weight_identity_verified_pre_and_post": True' in validator
+    assert 'for source in EXPECTED_SOURCE_FAMILIES' in (
+        REPO / "scripts/validate_q35_2b_source_first_call_grpo_s6_v1.py"
+    ).read_text()
 
 
 def test_launcher_uses_source_paths_without_dependency_overlay() -> None:

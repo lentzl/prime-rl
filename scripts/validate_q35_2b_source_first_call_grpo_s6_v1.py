@@ -267,6 +267,66 @@ def _validate_prospective_lr0_health(
     }
 
 
+def _observe_lr0_health(
+    records: list[dict[str, Any]], trace_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Record calibration values without interpreting them as pass/fail gates."""
+
+    stops: dict[str, Counter[str]] = {
+        family: Counter() for family in EXPECTED_FAMILIES
+    }
+    for index, record in enumerate(trace_records):
+        family = record.get("task", {}).get("data", {}).get("family")
+        stop = record.get("stop_condition")
+        if family not in stops or not isinstance(stop, str) or not stop:
+            raise AuditFailure(
+                f"effective trace {index} lacks calibration stop/family evidence"
+            )
+        stops[family][stop] += 1
+    aggregate_metric_keys = (
+        "entropy/all/mean",
+        "entropy/all/std",
+        "entropy/all/max",
+        "unmasked_mismatch_kl/mean",
+        "unmasked_mismatch_kl/max",
+        "mismatch_kl/all/mean",
+        "mismatch_kl/all/std",
+        "mismatch_kl/all/max",
+        "masked_mismatch_kl/mean",
+        "masked_mismatch_kl/max",
+        "is_masked/mean",
+        "is_masked/max",
+        "is_masked_low/mean",
+        "is_masked_low/max",
+        "is_masked_high/mean",
+        "is_masked_high/max",
+        "kl_ent_ratio/mean",
+    )
+    per_source_metric_keys = tuple(
+        f"{metric}/{source}/{statistic}"
+        for metric in ("entropy", "mismatch_kl")
+        for source in EXPECTED_SOURCE_FAMILIES
+        for statistic in ("mean", "std", "max")
+    )
+    metrics = {
+        key: _metric(records, key)
+        for key in (*aggregate_metric_keys, *per_source_metric_keys)
+    }
+    return {
+        "interpretation": "observational_only_no_thresholds_applied",
+        "stop_conditions": {
+            family: dict(sorted(counts.items())) for family, counts in stops.items()
+        },
+        "max_turn_fraction": {
+            family: counts["max_turns"] / sum(counts.values())
+            for family, counts in stops.items()
+        },
+        "metrics": metrics,
+        "thresholds_evaluated": False,
+        "thresholds_frozen": False,
+    }
+
+
 def _is_child_branch(branch: Any, user_message_type: type, content_text_fn: Any) -> bool:
     return any(
         isinstance(node.message, user_message_type)
@@ -289,7 +349,12 @@ def _active_rl_tokens(record: dict[str, Any]) -> int:
     )
 
 
-def _validate_runtime_configs(run_dir: Path, stage: Literal["audit", "update"]) -> dict[str, Any]:
+def _validate_runtime_configs(
+    run_dir: Path,
+    stage: Literal["audit", "update"],
+    *,
+    routing_audit_path: Path | None = None,
+) -> dict[str, Any]:
     trainer = _read_json(run_dir / "configs" / "trainer.json")
     orchestrator = _read_json(run_dir / "configs" / "orchestrator.json")
     inference = _read_json(run_dir / "configs" / "inference.json")
@@ -363,7 +428,8 @@ def _validate_runtime_configs(run_dir: Path, stage: Literal["audit", "update"]) 
     ):
         raise AuditFailure("resolved S6 audit changed role isolation or fixed routing")
     audit_log = router.get("audit_log")
-    if audit_log != str(EXPECTED_ROUTING_AUDIT[stage]):
+    expected_routing_audit = routing_audit_path or EXPECTED_ROUTING_AUDIT[stage]
+    if audit_log != str(expected_routing_audit):
         raise AuditFailure("resolved S6 audit changed its write-once routing audit")
     return {
         "trainer_model": model_paths["trainer"],
@@ -653,13 +719,23 @@ def _validate_raw_equals_effective(
     return {"raw": len(raw_ids), "effective": len(effective_ids), "identical": True}
 
 
-def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[str, Any]:
+def validate_runtime(
+    run_dir: Path,
+    stage: Literal["audit", "update"],
+    *,
+    calibration_only: bool = False,
+    routing_audit_path: Path | None = None,
+) -> dict[str, Any]:
     import verifiers.v1 as vf
     from verifiers.v1.types import UserMessage, content_text
 
     from prime_rl.orchestrator.trajectories import iter_trainable_branches
 
-    config_report = _validate_runtime_configs(run_dir, stage)
+    if calibration_only and stage != "audit":
+        raise AuditFailure("calibration-only validation requires LR=0 audit stage")
+    config_report = _validate_runtime_configs(
+        run_dir, stage, routing_audit_path=routing_audit_path
+    )
     records = _read_jsonl(run_dir / "metrics.jsonl")
     expected_lr = 0.0 if stage == "audit" else 1e-6
     if _metric(records, "optim/lr") != expected_lr:
@@ -667,18 +743,20 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
     if _metric(records, "optim/update_succeeded") != 1:
         raise AuditFailure("zero-LR forward/backward did not complete")
     grad_norm = _metric(records, "optim/grad_norm")
-    if grad_norm <= 0:
+    if grad_norm <= 0 and not calibration_only:
         raise AuditFailure("zero-LR audit did not produce a positive finite gradient")
 
     trace_path = run_dir / "rollouts" / "step_1" / "train" / "effective" / "traces.jsonl"
     trace_records = _read_jsonl(trace_path)
     if len(trace_records) != EXPECTED_BATCH_SIZE:
         raise AuditFailure(f"S6 audit requires exactly {EXPECTED_BATCH_SIZE} effective traces")
-    health_report = (
-        _validate_prospective_lr0_health(records, trace_records)
-        if stage == "audit"
-        else None
-    )
+    health_report = None
+    if stage == "audit":
+        health_report = (
+            _observe_lr0_health(records, trace_records)
+            if calibration_only
+            else _validate_prospective_lr0_health(records, trace_records)
+        )
     raw_trace_records = _read_jsonl(
         run_dir / "rollouts" / "step_1" / "train" / "all" / "traces.jsonl"
     )
@@ -747,7 +825,9 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         raise AuditFailure("S6 effective batch is not exactly one group per family source")
     if len(task_rewards) != 2 or any(len(values) != 8 for values in task_rewards.values()):
         raise AuditFailure("S6 audit did not contain two complete eight-way groups")
-    if any(len(set(values)) < 2 for values in task_rewards.values()):
+    if not calibration_only and any(
+        len(set(values)) < 2 for values in task_rewards.values()
+    ):
         raise AuditFailure("S6 audit contains a zero-variance reward group")
     if child_trainable_tokens <= 0 or child_branches <= 0:
         raise AuditFailure("S6 has no positive trainable child token mass")
@@ -824,6 +904,8 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         "coordinator_exported_trainable_tokens": 0,
         "exported_rl_tokens": exported_rl_tokens,
         "checkpoint_written": stage == "update",
+        "calibration_only": calibration_only,
+        "optimizer_update_authorized": False if calibration_only else None,
     }
 
 
