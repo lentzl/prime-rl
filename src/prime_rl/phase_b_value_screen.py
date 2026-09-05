@@ -27,11 +27,31 @@ class TrainingBatch:
     task_keys: tuple[str, ...]
 
 
+def canonical_plan_sha256(plan: dict[str, Any]) -> str:
+    """Hash a B1 plan while omitting only its self-referential hash field."""
+
+    if "plan_sha256" not in plan:
+        raise PhaseBContractError("B1 plan lacks its internal canonical hash field")
+    payload = dict(plan)
+    payload.pop("plan_sha256")
+    return canonical_json_sha256(payload)
+
+
 def validate_value_screen_plan(plan: dict[str, Any], *, require_authorized: bool = True) -> None:
     """Validate the prospective B1 matched-learning screen."""
 
     if plan.get("schema_version") != "q35-2b-phase-b-teacher-forced-value-screen/v1":
         raise PhaseBContractError("B1 plan schema differs from the implemented value screen")
+    implementation_commit = plan.get("implementation_commit")
+    if (
+        not isinstance(implementation_commit, str)
+        or len(implementation_commit) != 40
+        or any(character not in "0123456789abcdef" for character in implementation_commit)
+        or plan.get("mechanism_code_commit") != implementation_commit
+    ):
+        raise PhaseBContractError("B1 plan does not bind one exact mechanism code commit")
+    if plan.get("plan_sha256") != canonical_plan_sha256(plan):
+        raise PhaseBContractError("B1 internal canonical plan hash differs")
     values = {key: plan.get(key) for key in ("training", "evaluation", "boundaries", "heldout")}
     if not all(isinstance(value, dict) for value in values.values()):
         raise PhaseBContractError("B1 plan lacks training, evaluation, heldout, or boundary mappings")

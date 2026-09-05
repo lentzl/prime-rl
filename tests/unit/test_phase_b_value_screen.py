@@ -13,6 +13,7 @@ from prime_rl.phase_b_value_screen import (
     TRAINING_ARMS,
     action_margin_from_logits,
     build_action_trie,
+    canonical_plan_sha256,
     evaluate_nomination,
     paired_loss_deltas,
     validate_evaluation_keys,
@@ -40,6 +41,22 @@ def _balanced_selection(rows: list[dict[str, str]]) -> dict[str, object]:
 def test_learning_screen_arm_and_depth_constants_are_fixed() -> None:
     assert TRAINING_ARMS == ("STATIC", "FFN", "RECURRENT")
     assert EVALUATION_DEPTHS == (1, 2, 4, 8)
+
+
+def test_plan_internal_hash_omits_only_its_self_referential_field() -> None:
+    payload = {"schema_version": "example", "plan_sha256": "ignored", "nested": {"value": 3}}
+    expected = hashlib.sha256(
+        json.dumps(
+            {"schema_version": "example", "nested": {"value": 3}},
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
+    assert canonical_plan_sha256(payload) == expected
+    changed = {**payload, "nested": {"value": 4}}
+    assert canonical_plan_sha256(changed) != expected
+    with pytest.raises(PhaseBContractError, match="internal canonical hash"):
+        canonical_plan_sha256({"schema_version": "example"})
 
 
 def test_training_batches_are_four_disjoint_balanced_updates_covering_all_rows() -> None:
