@@ -8,7 +8,7 @@ from pathlib import Path
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
 from prime_rl.latent.a1nc0 import _CACHE_CLASS_CLOSURE, _E33, _H176, _RUNTIME
 
-PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-plan/v1"
+PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-r1-plan/v1"
 RECEIPT_SCHEMA = "prime-rl/latent-a1-nc0-cap768-receipt/v1"
 FAILURE_SCHEMA = "prime-rl/latent-a1-nc0-cap768-failure/v1"
 _SHA = re.compile(r"^[0-9a-f]{64}$")
@@ -47,6 +47,7 @@ SELECTION = [
 SELECTION_SHA256 = "4696e1e8e075bc6a525054387c7d09ea3890c71915be70847c9352660d829020"
 SCHEDULE_SHA256 = "44a41c3f48b013366d318cdf520f1fc62ffa44b117edf966e3dbeb9888632216"
 REPAIR_COMMIT = "5c7da8ee788b80a144bd48a89ddb2d037c3766b4"
+AUTHORIZED_RUN_ID = "a1-nc0-cap768-run2"
 RESOURCE_BOUNDS = {
     "gpus_used": 1,
     "gpu_model": "NVIDIA RTX A6000",
@@ -78,6 +79,23 @@ PRIOR_EVIDENCE = {
     "repair_attempt_log_sha256": None,
     "repair_attempt_status": None,
 }
+LAUNCHER_REJECTION_EVIDENCE = {
+    "status": "launcher_rejected_pre_python",
+    "failed_run_id": "a1-nc0-cap768-run1",
+    "failed_execution_commit": "38f712b652da0cb86d8ad71087761a5ead9ecdba",
+    "failed_mechanism_code_commit": "be5bf43b92a7b999bbf8e700ff49d439f3f7f538",
+    "failed_plan_file_sha256": "5f6266d64fb523e11ff48d64246066e948b6d49b564169aa184dc9bbe1c7910b",
+    "failed_plan_internal_sha256": "a8af6c2c9a925d8acbddfc103cd587adabc3f353a97430e66f1f189719a22bb7",
+    "launch_log_sha256": "b70f54b49c6d9812f801fb793ee3ceee8683186b03213831db7692d7727d6078",
+    "exact_error": "scripts/latent/run_a1_nc0_cap768_v1.sh: line 16: shared_project: unbound variable",
+    "stage": "shell_readonly_initialization",
+    "output_namespace_created": False,
+    "python_started": False,
+    "cuda_runtime_contacted": False,
+    "model_loaded": False,
+    "scientific_exposure": False,
+    "model_update_attempted": False,
+}
 INTERPRETATION = (
     "capture geometry and resource fit only for a prospective A1 refreeze; no training authorization, bridge "
     "learning, nomination, semantic held-out output, A1 admission, or four-live-floor change"
@@ -89,6 +107,7 @@ ASSET_PATHS = {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-run.log",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census-manifest.sha256",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-launcher-rejection-run.log",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json",
@@ -190,6 +209,21 @@ def _validate_prior_evidence(repo: Path) -> dict[str, object]:
     return observed
 
 
+def _validate_launcher_rejection_evidence(repo: Path) -> dict[str, object]:
+    path = (
+        repo
+        / "experiments/qwen35-2b-latent-workspace-v1"
+        / "a1-nc0-cap768-launcher-rejection-run.log"
+    )
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("CAP768 launcher-rejection evidence absent or symlinked")
+    if file_sha256(path) != LAUNCHER_REJECTION_EVIDENCE["launch_log_sha256"]:
+        raise ValueError("CAP768 launcher-rejection log changed")
+    if path.read_text().rstrip("\n") != LAUNCHER_REJECTION_EVIDENCE["exact_error"]:
+        raise ValueError("CAP768 launcher-rejection error changed")
+    return LAUNCHER_REJECTION_EVIDENCE
+
+
 def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
     if plan_path.is_symlink() or not plan_path.is_file():
         raise ValueError("CAP768 plan absent or symlinked")
@@ -198,7 +232,8 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         "schema_version", "status", "mechanism_code_commit", "plan_sha256", "asset_sha256",
         "selection", "selection_sha256", "call_schedule", "call_schedule_sha256", "memory_labels",
         "memory_labels_sha256", "prior_evidence", "protected_checkpoints", "runtime", "resource_bounds",
-        "interpretation_boundary", "execution_authorization",
+        "interpretation_boundary", "execution_authorization", "authorized_run_id",
+        "launcher_rejection_evidence",
     }
     assets = plan.get("asset_sha256")
     if (
@@ -206,6 +241,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("schema_version") != PLAN_SCHEMA
         or plan.get("status") != "preregistered"
         or plan.get("execution_authorization") != "root_and_evaluator_review_required"
+        or plan.get("authorized_run_id") != AUTHORIZED_RUN_ID
         or not _COMMIT.fullmatch(str(plan.get("mechanism_code_commit", "")))
         or plan.get("selection") != SELECTION
         or plan.get("selection_sha256") != SELECTION_SHA256
@@ -214,6 +250,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("memory_labels") != memory_labels()
         or plan.get("memory_labels_sha256") != canonical_json_hash(memory_labels())
         or plan.get("prior_evidence") != PRIOR_EVIDENCE
+        or plan.get("launcher_rejection_evidence") != LAUNCHER_REJECTION_EVIDENCE
         or plan.get("protected_checkpoints") != {"coordinator_e33": _E33, "worker_h176": _H176}
         or plan.get("runtime") != _RUNTIME
         or plan.get("resource_bounds") != RESOURCE_BOUNDS
@@ -231,6 +268,8 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
             raise ValueError(f"CAP768 asset changed: {relative}")
     if _validate_prior_evidence(repo) != plan["prior_evidence"]:
         raise ValueError("CAP768 prior evidence binding changed")
+    if _validate_launcher_rejection_evidence(repo) != plan["launcher_rejection_evidence"]:
+        raise ValueError("CAP768 launcher-rejection evidence binding changed")
     return plan
 
 
@@ -238,7 +277,8 @@ def validate_receipt(receipt: dict[str, object], *, plan: dict[str, object]) -> 
     expected_top_keys = {
         "schema_version", "status", "plan_sha256", "mechanism_code_commit", "execution_commit",
         "asset_sha256", "selection", "selection_sha256", "call_schedule", "call_schedule_sha256",
-        "prior_evidence", "versions", "runtime_sources", "static_guard", "render_preflight", "protected_hashes_before",
+        "prior_evidence", "launcher_rejection_evidence", "run_id", "versions", "runtime_sources",
+        "static_guard", "render_preflight", "protected_hashes_before",
         "protected_hashes_after", "checkpoint_metadata_before", "checkpoint_metadata_after",
         "e33_state_tree_before", "e33_state_tree_after", "e33_parameters_frozen_no_grad",
         "worker_h176_loaded", "model_runtime", "probes", "calls", "no_cache_contract", "cache_guard", "memory_ledger",
@@ -261,6 +301,8 @@ def validate_receipt(receipt: dict[str, object], *, plan: dict[str, object]) -> 
         or receipt.get("call_schedule") != build_schedule()
         or receipt.get("call_schedule_sha256") != SCHEDULE_SHA256
         or receipt.get("prior_evidence") != PRIOR_EVIDENCE
+        or receipt.get("launcher_rejection_evidence") != LAUNCHER_REJECTION_EVIDENCE
+        or receipt.get("run_id") != AUTHORIZED_RUN_ID
         or receipt.get("protected_hashes_before") != plan.get("protected_checkpoints")
         or receipt.get("protected_hashes_after") != plan.get("protected_checkpoints")
         or receipt.get("interpretation_boundary") != INTERPRETATION

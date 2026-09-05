@@ -1,5 +1,6 @@
 import copy
 import hashlib
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -18,6 +19,7 @@ def test_selection_schedule_memory_and_prior_evidence_are_exact():
     assert len(cap.build_schedule()) == 32
     assert len(cap.memory_labels()) == len(set(cap.memory_labels())) == 67
     assert cap._validate_prior_evidence(cap.Path(".")) == cap.PRIOR_EVIDENCE
+    assert cap._validate_launcher_rejection_evidence(cap.Path(".")) == cap.LAUNCHER_REJECTION_EVIDENCE
 
 
 @pytest.mark.parametrize(
@@ -35,11 +37,32 @@ def test_terminal_taxonomy(error, status):
 
 def test_cap_launcher_freezes_fresh_namespace_and_full_resource_bounds():
     shell = Path("scripts/latent/run_a1_nc0_cap768_v1.sh").read_text()
-    assert "^a1-nc0-cap768-" in shell
-    assert "a1-nc0-cap768-run1".startswith("a1-nc0-cap768-")
+    assert "$3 != a1-nc0-cap768-run2" in shell
     assert "62914560" in shell and "67108864" in shell
     assert "CUDA_VISIBLE_DEVICES=0" in shell
     assert "3600s" in shell and "134217728" in shell
+
+
+def test_launcher_declarations_execute_under_nounset_and_reject_reused_namespace():
+    shell = Path("scripts/latent/run_a1_nc0_cap768_v1.sh").read_text()
+    declarations = shell.split('\nfor asset in ', 1)[0]
+    command = declarations + '\nprintf "%s\\n" "$shared_venv"'
+    valid = subprocess.run(
+        ["bash", "-c", command, "launcher", "a" * 40, "b" * 64, cap.AUTHORIZED_RUN_ID],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert valid.returncode == 0
+    assert valid.stdout == "/home/ubuntu/rlm/prime-rl/.venv\n"
+    assert "unbound variable" not in valid.stderr
+    reused = subprocess.run(
+        ["bash", "-c", declarations, "launcher", "a" * 40, "b" * 64, "a1-nc0-cap768-run1"],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert reused.returncode == 64
 
 
 def test_single_compute_alarm_covers_plan_through_probes():
@@ -126,6 +149,8 @@ def valid_receipt():
         "asset_sha256": {"scripts/latent/run_a1_nc0_cap768_v1.py": digest("runner")},
         "protected_checkpoints": {"coordinator_e33": cap._E33, "worker_h176": cap._H176},
         "prior_evidence": cap.PRIOR_EVIDENCE,
+        "launcher_rejection_evidence": cap.LAUNCHER_REJECTION_EVIDENCE,
+        "authorized_run_id": cap.AUTHORIZED_RUN_ID,
         "memory_labels": cap.memory_labels(),
     }
     physical = {"names": ["NVIDIA RTX A6000", "NVIDIA RTX A6000"], "uuids": ["GPU-0", "GPU-1"],
@@ -158,6 +183,8 @@ def valid_receipt():
         "selection": cap.SELECTION, "selection_sha256": cap.SELECTION_SHA256,
         "call_schedule": schedule, "call_schedule_sha256": cap.SCHEDULE_SHA256,
         "prior_evidence": cap.PRIOR_EVIDENCE,
+        "launcher_rejection_evidence": cap.LAUNCHER_REJECTION_EVIDENCE,
+        "run_id": cap.AUTHORIZED_RUN_ID,
         "versions": {key: cap._RUNTIME[key] for key in ("python", "transformers", "flash_linear_attention",
                                                          "torch_distribution", "torch_runtime")},
         "runtime_sources": {

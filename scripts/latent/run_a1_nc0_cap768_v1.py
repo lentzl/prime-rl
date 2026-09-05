@@ -25,8 +25,10 @@ from transformers import AutoModelForImageTextToText, AutoTokenizer
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
 from prime_rl.latent.a0nc import recursive_subclass_closure
 from prime_rl.latent.a1cap768 import (
+    AUTHORIZED_RUN_ID,
     FAILURE_SCHEMA,
     INTERPRETATION,
+    LAUNCHER_REJECTION_EVIDENCE,
     RECEIPT_SCHEMA,
     RESOURCE_BOUNDS,
     SCHEDULE_SHA256,
@@ -63,7 +65,7 @@ class ArtifactWriter:
             or OUTPUT_ROOT.is_symlink()
             or not OUTPUT_ROOT.is_dir()
             or output_dir.parent.resolve(strict=True) != OUTPUT_ROOT.resolve(strict=True)
-            or not output_dir.name.startswith("a1-nc0-cap768-")
+            or output_dir.name != AUTHORIZED_RUN_ID
             or output_dir.exists()
             or output_dir.is_symlink()
         ):
@@ -573,7 +575,10 @@ def run(args, plan, writer, stage):
         "execution_commit": args.execution_commit, "asset_sha256": plan["asset_sha256"],
         "selection": SELECTION, "selection_sha256": SELECTION_SHA256,
         "call_schedule": build_schedule(), "call_schedule_sha256": SCHEDULE_SHA256,
-        "prior_evidence": plan["prior_evidence"], "versions": versions, "runtime_sources": runtime_sources,
+        "prior_evidence": plan["prior_evidence"],
+        "launcher_rejection_evidence": plan["launcher_rejection_evidence"],
+        "run_id": args.output_dir.name,
+        "versions": versions, "runtime_sources": runtime_sources,
         "static_guard": _static_guard(Path(__file__)), "render_preflight": preflight,
         "protected_hashes_before": before, "protected_hashes_after": after,
         "checkpoint_metadata_before": metadata_before, "checkpoint_metadata_after": metadata_after,
@@ -674,6 +679,12 @@ def failure_record(args, error, plan, stage):
         "optimizer_created": False, "backward_used": False, "checkpoint_created": False,
         "candidate_created": False, "worker_h176_loaded": False, "failure_sha256": "",
         "prior_evidence": None if plan is None else plan.get("prior_evidence"),
+        "launcher_rejection_evidence": (
+            LAUNCHER_REJECTION_EVIDENCE
+            if plan is None
+            else plan.get("launcher_rejection_evidence")
+        ),
+        "run_id": args.output_dir.name,
         "protected_hashes_before": stage.get("protected_before"),
         "protected_hash_probe_after_failure": protected_after,
         "checkpoint_metadata_before": stage.get("metadata_before"),

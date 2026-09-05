@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -ne 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ || ! $3 =~ ^a1-nc0-cap768-[a-z0-9][a-z0-9._-]{2,48}$ ]]; then
+if [[ $# -ne 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ || $3 != a1-nc0-cap768-run2 ]]; then
   echo "usage: $0 <exact-execution-commit> <authorized-plan-sha256> <fresh-run-id>" >&2
   exit 64
 fi
@@ -13,7 +13,9 @@ readonly coordinator=/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c
 readonly worker=/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8
 readonly output_root=/home/ubuntu/rlm/outputs/latent-a1-nc0-cap768-v1
 readonly output_dir="$output_root/$run_id"
-readonly uv_bin=/home/ubuntu/.local/bin/uv shared_project=/home/ubuntu/rlm/prime-rl shared_venv="$shared_project/.venv"
+readonly uv_bin=/home/ubuntu/.local/bin/uv
+readonly shared_project=/home/ubuntu/rlm/prime-rl
+readonly shared_venv="$shared_project/.venv"
 
 for asset in "$repo" "$coordinator" "$worker" "$shared_venv"; do [[ -d "$asset" && ! -L "$asset" ]] || exit 2; done
 [[ -x "$uv_bin" && -f "$plan" && ! -L "$plan" && ! -L "$output_root" && ! -e "$output_dir" ]] || exit 2
