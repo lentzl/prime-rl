@@ -8,12 +8,12 @@ fi
 readonly execution_commit=$1
 readonly authorized_plan_sha256=$2
 run_id=$3
-[[ "$run_id" =~ ^a1-nc0-[a-z0-9][a-z0-9._-]{2,60}$ ]] || exit 2
+[[ "$run_id" =~ ^a1-nc0-r1-[a-z0-9][a-z0-9._-]{2,60}$ ]] || exit 2
 readonly repo=/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1
 [[ -d "$repo" && ! -L "$repo" ]] || exit 2
 
 experiment="$repo/experiments/qwen35-2b-latent-workspace-v1"
-plan="$experiment/a1-nc0-plan-v1.json"
+plan="$experiment/a1-nc0-r1-plan-v1.json"
 schedule="$experiment/a1-nc0-schedule-v1.json"
 disjointness="$experiment/a1-nc0-disjointness-v1.json"
 train_bank="$experiment/a1-nc0-train-bank-v1.json"
@@ -21,7 +21,7 @@ validation_bank="$experiment/a1-nc0-validation-bank-v1.json"
 held_out_bank="$experiment/a1-nc0-held_out-bank-v1.json"
 coordinator=/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2
 worker=/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8
-output_root=/home/ubuntu/rlm/outputs/latent-a1-nc0-nomination-v1
+output_root=/home/ubuntu/rlm/outputs/latent-a1-nc0-r1-nomination-v1
 output_dir="$output_root/$run_id"
 uv_bin=/home/ubuntu/.local/bin/uv
 shared_project=/home/ubuntu/rlm/prime-rl

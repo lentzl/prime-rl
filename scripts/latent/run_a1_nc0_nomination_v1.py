@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import collections
 import contextlib
 import gc
 import hashlib
@@ -25,6 +26,7 @@ import transformers.loss.loss_utils
 import transformers.models.qwen3_5.modeling_qwen3_5
 from safetensors.torch import save as save_safetensors
 from transformers import AutoModelForImageTextToText, AutoTokenizer
+from transformers.tokenization_utils_base import BatchEncoding
 
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
 from prime_rl.latent.a0nc import recursive_subclass_closure
@@ -43,6 +45,7 @@ from prime_rl.latent.a1nc0 import (
     norm_matched_noise,
     summarize_arm_results,
     tensor_bytes_sha256,
+    validate_a1nc0_r1_evidence,
     validate_finite_metrics,
     validate_receipt,
     validation_gate_passes,
@@ -50,7 +53,7 @@ from prime_rl.latent.a1nc0 import (
 from prime_rl.latent.bridge import WorkspaceBridge, WorkspaceBridgeConfig
 from prime_rl.latent.policy_adapter import HiddenStateCaptureSpec, capture_parent_features, compose_receiver_inputs
 
-OUTPUT_ROOT = Path("/home/ubuntu/rlm/outputs/latent-a1-nc0-nomination-v1")
+OUTPUT_ROOT = Path("/home/ubuntu/rlm/outputs/latent-a1-nc0-r1-nomination-v1")
 SHARED_ENVIRONMENT = Path("/home/ubuntu/rlm/prime-rl/.venv")
 FIXED_CONTINUATION_TEXT = " Acknowledged and continuing safely."
 FIXED_CONTINUATION_IDS = [49265, 48338, 3438, 321]
@@ -108,7 +111,7 @@ class ArtifactWriter:
             raise ValueError("A1-NC0 output root must be absolute, existing, and non-symlinked")
         if output_dir.parent.resolve(strict=True) != OUTPUT_ROOT.resolve(strict=True):
             raise ValueError("A1-NC0 output directory must be a direct child of its frozen root")
-        if not output_dir.name.startswith("a1-nc0-") or "/" in output_dir.name:
+        if not output_dir.name.startswith("a1-nc0-r1-") or "/" in output_dir.name:
             raise ValueError("A1-NC0 output directory is outside the frozen namespace")
         nofollow = getattr(os, "O_NOFOLLOW", 0)
         self.root_fd = os.open(OUTPUT_ROOT, os.O_RDONLY | os.O_DIRECTORY | nofollow)
@@ -414,6 +417,27 @@ def render_ids(tokenizer, messages: list[dict[str, object]], *, generation_promp
     if not isinstance(ids, torch.Tensor) or ids.ndim != 2 or ids.shape[0] != 1:
         raise ExperimentIncomplete("chat template did not return one token sequence")
     return ids.to("cuda:0")
+
+
+def preflight_template_input_ids(
+    encoded: object,
+    *,
+    label: str,
+    extraction_counts: collections.Counter[str] | None = None,
+) -> list[int]:
+    """Extract one flat token sequence from the pinned chat-template container."""
+    if not isinstance(encoded, BatchEncoding):
+        raise ExperimentIncomplete(f"A1-NC0 {label} template did not return BatchEncoding")
+    input_ids = encoded.input_ids
+    if (
+        not isinstance(input_ids, list)
+        or not input_ids
+        or any(isinstance(token, bool) or not isinstance(token, int) or token < 0 for token in input_ids)
+    ):
+        raise ExperimentIncomplete(f"A1-NC0 {label} template input_ids are not one flat nonempty integer list")
+    if extraction_counts is not None:
+        extraction_counts[label] += 1
+    return list(input_ids)
 
 
 def parent_messages(evidence: str) -> list[dict[str, object]]:
@@ -1678,6 +1702,7 @@ def evaluate_split(
 def validate_rendering_preflight(
     tokenizer, artifacts: dict[str, dict[str, object]], expected_eos: int
 ) -> dict[str, object]:
+    extraction_counts: collections.Counter[str] = collections.Counter()
     if tokenizer.eos_token_id != expected_eos or tokenizer.pad_token_id != expected_eos:
         raise ValueError("A1-NC0 tokenizer EOS identity changed")
     terminal = tokenizer("<|im_end|>\n", add_special_tokens=False, return_tensors="pt").input_ids.flatten().tolist()
@@ -1700,12 +1725,16 @@ def validate_rendering_preflight(
                 add_generation_prompt=False,
                 enable_thinking=False,
             )
-            parent_ids = tokenizer.apply_chat_template(
-                parent_messages(record["parent_evidence"]),
-                tools=PARENT_TOOLS,
-                tokenize=True,
-                add_generation_prompt=False,
-                enable_thinking=False,
+            parent_ids = preflight_template_input_ids(
+                tokenizer.apply_chat_template(
+                    parent_messages(record["parent_evidence"]),
+                    tools=PARENT_TOOLS,
+                    tokenize=True,
+                    add_generation_prompt=False,
+                    enable_thinking=False,
+                ),
+                label="parent",
+                extraction_counts=extraction_counts,
             )
             maximum_feature_tokens = max(maximum_feature_tokens, len(parent_ids))
             if len(parent_ids) > 256:
@@ -1722,22 +1751,38 @@ def validate_rendering_preflight(
                 full_text = tokenizer.apply_chat_template(
                     full_messages, tools=None, tokenize=False, add_generation_prompt=False, enable_thinking=False
                 )
-                plain_ids = tokenizer.apply_chat_template(
-                    messages, tools=None, tokenize=True, add_generation_prompt=False, enable_thinking=False
+                plain_ids = preflight_template_input_ids(
+                    tokenizer.apply_chat_template(
+                        messages, tools=None, tokenize=True, add_generation_prompt=False, enable_thinking=False
+                    ),
+                    label="child_plain",
+                    extraction_counts=extraction_counts,
                 )
-                opening_ids = tokenizer.apply_chat_template(
-                    messages, tools=None, tokenize=True, add_generation_prompt=True, enable_thinking=False
+                opening_ids = preflight_template_input_ids(
+                    tokenizer.apply_chat_template(
+                        messages, tools=None, tokenize=True, add_generation_prompt=True, enable_thinking=False
+                    ),
+                    label="child_opening",
+                    extraction_counts=extraction_counts,
                 )
-                full_ids = tokenizer.apply_chat_template(
-                    full_messages, tools=None, tokenize=True, add_generation_prompt=False, enable_thinking=False
+                full_ids = preflight_template_input_ids(
+                    tokenizer.apply_chat_template(
+                        full_messages, tools=None, tokenize=True, add_generation_prompt=False, enable_thinking=False
+                    ),
+                    label="child_full",
+                    extraction_counts=extraction_counts,
                 )
                 answer_ids = tokenizer(query["answer"], add_special_tokens=False).input_ids
-                self_ids = tokenizer.apply_chat_template(
-                    self_messages(query["child_query"]),
-                    tools=PARENT_TOOLS,
-                    tokenize=True,
-                    add_generation_prompt=False,
-                    enable_thinking=False,
+                self_ids = preflight_template_input_ids(
+                    tokenizer.apply_chat_template(
+                        self_messages(query["child_query"]),
+                        tools=PARENT_TOOLS,
+                        tokenize=True,
+                        add_generation_prompt=False,
+                        enable_thinking=False,
+                    ),
+                    label="mself_parent",
+                    extraction_counts=extraction_counts,
                 )
                 validate_parent_fixture(query["child_query"])
                 self_text = tokenizer.apply_chat_template(
@@ -1785,6 +1830,15 @@ def validate_rendering_preflight(
                 materialized_queries += 1
     if materialized_queries != 288:
         raise ExperimentIncomplete("A1-NC0 materialized query count changed")
+    expected_extractions = {
+        "parent": 96,
+        "child_plain": 288,
+        "child_opening": 288,
+        "child_full": 288,
+        "mself_parent": 288,
+    }
+    if dict(extraction_counts) != expected_extractions:
+        raise ExperimentIncomplete("A1-NC0 BatchEncoding extraction schedule changed")
     return {
         "enable_thinking": False,
         "tools_none_for_child": True,
@@ -1799,6 +1853,9 @@ def validate_rendering_preflight(
         "maximum_unpadded_feature_tokens": maximum_feature_tokens,
         "feature_sequences_truncated": 0,
         "materialized_queries": materialized_queries,
+        "tokenized_template_container": "transformers.tokenization_utils_base.BatchEncoding",
+        "preflight_input_ids_extracted_from_batch_encoding": True,
+        "batch_encoding_extraction_counts": expected_extractions,
         "answer_key_interpolation_scope": "teacher_target_and_scoring_only",
         "answer_key_not_interpolated_into_parent_or_child_opening": True,
         "render_hashes_sha256": canonical_json_hash(hashes),
@@ -1823,8 +1880,11 @@ def verify_execution_tree(args: argparse.Namespace, plan: dict[str, object]) -> 
     parent = subprocess.run(
         ["git", "rev-parse", f"{head}^"], cwd=args.repo, check=True, text=True, capture_output=True
     ).stdout.strip()
-    if parent != plan["mechanism_code_commit"]:
-        raise ValueError("A1-NC0 freeze commit is not the exact child of its mechanism commit")
+    mechanism_parent = subprocess.run(
+        ["git", "rev-parse", f"{parent}^"], cwd=args.repo, check=True, text=True, capture_output=True
+    ).stdout.strip()
+    if parent != plan["evidence_commit"] or mechanism_parent != plan["mechanism_code_commit"]:
+        raise ValueError("A1-NC0-R1 freeze/evidence/mechanism lineage changed")
     for relative, expected in plan["asset_sha256"].items():
         path = args.repo / relative
         if path.is_symlink() or not path.is_file() or file_sha256(path) != expected:
@@ -1951,6 +2011,8 @@ def run(args, plan, artifacts, schedule, disjointness, stage, writer: ArtifactWr
         raise ValueError("A1-NC0 runner memory labels differ from frozen schedule")
     a0nc_evidence = validate_a0nc_binding(args.repo, plan)
     stage["a0nc_success_evidence_observed"] = a0nc_evidence
+    r1_evidence = validate_a1nc0_r1_evidence(args.repo, plan)
+    stage["a1nc0_r1_evidence_observed"] = r1_evidence
     stage["frozen_asset_paths"] = {
         relative: str((args.repo / relative).resolve(strict=True)) for relative in plan["asset_sha256"]
     }
@@ -2180,14 +2242,16 @@ def run(args, plan, artifacts, schedule, disjointness, stage, writer: ArtifactWr
     if audit_seconds > plan["resource_bounds"]["audit_seconds"]:
         raise TimeoutError("A1-NC0 audit phase exceeded its frozen budget")
     receipt = {
-        "schema_version": "prime-rl/latent-a1-nc0-receipt/v1",
+        "schema_version": "prime-rl/latent-a1-nc0-r1-receipt/v1",
         "status": status,
         "plan_sha256": plan["plan_sha256"],
         "mechanism_code_commit": plan["mechanism_code_commit"],
+        "evidence_commit": plan["evidence_commit"],
         "execution_commit": args.execution_commit,
-        "execution_commit_is_exact_child_of_mechanism": True,
+        "execution_commit_is_exact_child_of_evidence": True,
         "asset_sha256": plan["asset_sha256"],
         "a0nc_success_evidence": a0nc_evidence,
+        "a1nc0_r1_evidence": r1_evidence,
         "bank_disjointness": {
             "file_sha256": plan["bank_disjointness"]["file_sha256"],
             "report_sha256": disjointness["report_sha256"],
@@ -2354,7 +2418,7 @@ def failure_record(
         except BaseException as guard_error:
             guard_evidence = {"unavailable": f"{type(guard_error).__name__}:{guard_error}"}
     failure = {
-        "schema_version": "prime-rl/latent-a1-nc0-failure/v1",
+        "schema_version": "prime-rl/latent-a1-nc0-r1-failure/v1",
         "status": status,
         "failure_category": category,
         "stage": stage["name"],

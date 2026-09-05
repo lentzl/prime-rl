@@ -1,0 +1,152 @@
+{
+  "a0nc_success_evidence_matches_plan": true,
+  "a0nc_success_evidence_observed": {
+    "bank_sha256": "b77df46145d67e9147f42b9dd1e403a6253955e2a67bab3c95490357fe255ea3",
+    "checkpoint_created": false,
+    "claim": "no_cache_full_recompute_diagnostic_valid_for_B",
+    "complete_distinct_probes": 4,
+    "execution_commit": "a150e2cee216c04fe4d600c039edf472d91fdc35",
+    "mechanism_code_commit": "8d18937bdf4dedc92d4d9abf88070784a2a4a5c0",
+    "model_update_attempted": false,
+    "optimizer_created": false,
+    "plan_sha256": "6f50fc1c83cafac99f89212aa4b8349984caed4e4b389fff284edc1922e860fd",
+    "prior_cache_rejection": {
+      "complete_distinct_probes": 4,
+      "execution_commit": "2b7d3c8b26c6813da4fb7e534c0061b3814769ec",
+      "launch_log_sha256": "c3b3d2ff004e46543bcc9435256c39b00f3e8d957c273dfac819150e76cb949d",
+      "plan_sha256": "eeda1c571359b29882f16acbd50f573ecd3fa71238882f9f95bb99040e8e7578",
+      "qualifying_probes": 2,
+      "receipt_file_sha256": "707d507bd24f64ea7b4d872268d5335520bd7f1e7771f380b37fa1fb5be97ab1",
+      "receipt_internal_sha256": "10b5008dcc8ba45f8375590d850fd4306e1d591d6e4e6da7b1df3c7a98deae23",
+      "snapshot_manifest_sha256": "b1bc015a9711015592d89edfdaefe1343da69e78ac09584131a7c24d49102cc9",
+      "status": "relative_cache_rejected"
+    },
+    "protected_hashes_after": {
+      "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "protected_hashes_before": {
+      "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+    },
+    "receipt_file_sha256": "4a713486110d8c17c1fb6e03ffddb87ffc514ecd840ddc4c3f5998021b36f4f2",
+    "receipt_internal_sha256": "20186c98f3d2f9a56ec9db9b02be5dc1302aa12ca2049076d402a98c88a7c2ba",
+    "status": "nocache_receiver_mechanism_validated"
+  },
+  "base_model_update_attempted": false,
+  "bridge_update_attempted": false,
+  "cache_guard_partial": null,
+  "candidate_inventory": [],
+  "candidate_valid": false,
+  "checkpoint_created": false,
+  "checkpoint_metadata_after_completed_audit": null,
+  "checkpoint_metadata_before": {
+    "coordinator_e33": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "worker_h176": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    }
+  },
+  "e33_gradients_absent_failure_audit": null,
+  "e33_parameter_tree_matches_preflight": false,
+  "e33_parameter_tree_sha256_after_completed_audit": null,
+  "e33_parameter_tree_sha256_before": null,
+  "e33_parameter_tree_sha256_failure_audit": null,
+  "error": "A1-NC0 materialized render boundary changed",
+  "error_type": "ExperimentIncomplete",
+  "execution_commit": "810d5610ab080e58776be610a6bcf927c16b964f",
+  "failure_audit_bounded_seconds": 180,
+  "failure_audit_errors": [],
+  "failure_category": "training_or_evaluation_contract_incomplete",
+  "failure_sha256": "d6e688e377054b667ab1889c217a0d3da35c578efd373c4deeb3a1e363ce85b1",
+  "frozen_asset_hash_probe_after_failure": {
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-plan-v1.json": "c8bcd393a3d436a70d76deee12a3257a2731940c24a7b1826fac3ae46cd7221c",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-rejected-manifest.sha256": "b1bc015a9711015592d89edfdaefe1343da69e78ac09584131a7c24d49102cc9",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-rejected-receipt.json": "707d507bd24f64ea7b4d872268d5335520bd7f1e7771f380b37fa1fb5be97ab1",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-cache-calibration-rejected-run.log": "c3b3d2ff004e46543bcc9435256c39b00f3e8d957c273dfac819150e76cb949d",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-bank-v1.json": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-plan-v1.json": "105490570f48144f677662758927b08e930ae317140ee51cec2db678d5316c5a",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-nocache-bank-v1.json": "b77df46145d67e9147f42b9dd1e403a6253955e2a67bab3c95490357fe255ea3",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-nocache-disjointness-v1.json": "88c730b9688abcbc7a2df4792706df2cb86962e5f1be8fd04ac75f6f5766644f",
+    "experiments/qwen35-2b-latent-workspace-v1/a0-nocache-plan-v1.json": "c42bcd2be57b116c3ed81cf95cf30cd8b0b565464b8cfab9b876ca545ef47dde",
+    "experiments/qwen35-2b-latent-workspace-v1/a0c-carrier-plan-v1.json": "efb948c90d402aef82d58a42b4f5e74d63891a97f380ff6b758526414e89b4d5",
+    "experiments/qwen35-2b-latent-workspace-v1/a0d-cache-diagnostic-plan-v1.json": "f415990d7dbf0df98fa0835020b5e4e5a0147742e9d4d340503f36c5e17a41a4",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr-cache-diagnostic-plan-v1.json": "c897c1f6136b2aa62a4d7c816984539bae6cdec83266e2de90ea15720e5129e2",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-cache-diagnostic-plan-v1.json": "22b6a441b5a6b4a62d2f2a9c30f5544c1c97d15b9e30c90b2f44ca11d59695f0",
+    "experiments/qwen35-2b-latent-workspace-v1/a0nc-success-receipt.json": "4a713486110d8c17c1fb6e03ffddb87ffc514ecd840ddc4c3f5998021b36f4f2",
+    "experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-plan-v1.json": "965df64a2a98b13238d4366294de60ecf6368f7d009e15cfec0210863f7a36fa",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-disjointness-v1.json": "44c78fb0680d837a284c0d63b6154b51ea1b76ea4f3a0cf0dac7de56c96974e2",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json": "204e6605fca20f94b23468fbd9f56b86ca16e8296191dd09b877a021c9ab2381",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-schedule-v1.json": "13aef778baf93f1ac55270c0f2d9a8c60d78d4fbb0b20c436393c7b318a6e92a",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json": "cea92c57536ec7a93e68c64c4a01669e11dab1dc483a86c711c97c1181bb08d8",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json": "8e87309df0c37cce7bbd0bb98a3daed098f0b354f0c00ae15c27024047539c5e",
+    "scripts/latent/run_a0_nocache_receiver_v1.py": "de1a1997660e7ebcf3fc12faf84754ed7a6b007171f19c1ae8218da0e3b811cc",
+    "scripts/latent/run_a0_nocache_receiver_v1.sh": "934bbc7bd132a6a907b580c5aa3b2da51487714d24f07977252c7f582ba70767",
+    "scripts/latent/run_a1_nc0_nomination_v1.py": "68f670c1abc9bc91e6b4aedeeb5462ed22da0044022d2c2f7c0abef6195c2ecc",
+    "scripts/latent/run_a1_nc0_nomination_v1.sh": "c21208ec76c904ce0a3fa90af2649ac5abdab30a44c916025064279dfcfc6723",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/a0c.py": "7e191ba210df5790176014707a8da5939bd7884d38ff4c1f9c791f89c55d1bf4",
+    "src/prime_rl/latent/a0cal.py": "873ab738a1384f63aaf5cbc0c877f2d9a60ed96d9c9fc4ddb23d38c4a25fa269",
+    "src/prime_rl/latent/a0d.py": "307c617b5f46a61472d7a042fe705bbf228974bb45ea495c9c90a21273a16ebc",
+    "src/prime_rl/latent/a0dr.py": "c765e7c3fe5618b3577f202d3f2525f55b8fb2b61ff20d5255063db63bd69c00",
+    "src/prime_rl/latent/a0dr2.py": "40a628aff96527d01d964c865b5a26b2d9cb58e3da0c4660c0162504022df42a",
+    "src/prime_rl/latent/a0nc.py": "41c69fe874bc214b9cd4cb3bba377bbe8bdad9f039d16cb60bd089b28e413404",
+    "src/prime_rl/latent/a0r.py": "128f98b20f3872c0057ea08a87047b51a2f6642b4867b1f25a5fb54ea86e37cd",
+    "src/prime_rl/latent/a1nc0.py": "9700e0359a8968d7fc0d085274546523df9c38990c185203c49d650dda8927f5",
+    "src/prime_rl/latent/bridge.py": "ee0be34513201c615036dccdcd18c2c4eff68bcd706a7f507255dd097f0960d4",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81",
+    "src/prime_rl/latent/transfer_bank.py": "29c420b1f3d90c42c3a992f04f782b3bfad17a81ee0f2ec697bd65c1c9319c78",
+    "tests/unit/latent/test_a1nc0.py": "eeb98abe282ab739b7895d4e2f151ae4c04bab67871fb887cfaddccd8b1b9c62"
+  },
+  "frozen_asset_hashes_match_plan": true,
+  "mechanism_code_commit": "efa9a79baec118c80c279031a5e08a9c5ac9e015",
+  "memory_ledger_partial": [],
+  "memory_maxima": {},
+  "plan_sha256": "35c75821e7e5b1a359c31536dc3047d3d9e42785316f7a5631263d1d7e78458d",
+  "protected_hash_probe_after_failure": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "protected_hashes_after_completed_audit": null,
+  "protected_hashes_before": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "protected_metadata_probe_after_failure": {
+    "coordinator_e33": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "worker_h176": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    }
+  },
+  "run_id_reusable": false,
+  "schema_version": "prime-rl/latent-a1-nc0-failure/v1",
+  "stage": "artifact_namespace_created",
+  "stage_breadcrumbs": [
+    "artifact_namespace_created"
+  ],
+  "status": "mechanism_rejected"
+}

@@ -596,9 +596,12 @@ def _positive_receipt(tmp_path):
     plan = {
         "plan_sha256": "1" * 64,
         "mechanism_code_commit": "2" * 40,
+        "evidence_commit": "3" * 40,
         "asset_sha256": {"scripts/latent/run_a1_nc0_nomination_v1.py": digest("runner")},
         "protected_checkpoints": protected,
         "a0nc_success_evidence": {"status": "nocache_receiver_mechanism_validated"},
+        "prior_render_rejection": a1nc0._PRIOR_RENDER_REJECTION,
+        "tokenizer_only_proof": {"status": "tokenizer_render_mechanism_validated"},
         "bank_disjointness": a1nc0._DISJOINTNESS,
         "runtime": a1nc0._RUNTIME,
         "cache_guard_contract": a1nc0._CACHE_GUARD_CONTRACT,
@@ -610,10 +613,15 @@ def _positive_receipt(tmp_path):
         "status": "a1_nc0_nominated",
         "plan_sha256": plan["plan_sha256"],
         "mechanism_code_commit": plan["mechanism_code_commit"],
+        "evidence_commit": plan["evidence_commit"],
         "execution_commit": "4" * 40,
-        "execution_commit_is_exact_child_of_mechanism": True,
+        "execution_commit_is_exact_child_of_evidence": True,
         "asset_sha256": plan["asset_sha256"],
         "a0nc_success_evidence": plan["a0nc_success_evidence"],
+        "a1nc0_r1_evidence": {
+            "prior_render_rejection": plan["prior_render_rejection"],
+            "tokenizer_only_proof": plan["tokenizer_only_proof"],
+        },
         "bank_disjointness": {
             "file_sha256": a1nc0._DISJOINTNESS["file_sha256"],
             "report_sha256": a1nc0._DISJOINTNESS["report_sha256"],
@@ -657,6 +665,15 @@ def _positive_receipt(tmp_path):
             "maximum_unpadded_feature_tokens": 200,
             "feature_sequences_truncated": 0,
             "materialized_queries": 288,
+            "tokenized_template_container": "transformers.tokenization_utils_base.BatchEncoding",
+            "preflight_input_ids_extracted_from_batch_encoding": True,
+            "batch_encoding_extraction_counts": {
+                "parent": 96,
+                "child_plain": 288,
+                "child_opening": 288,
+                "child_full": 288,
+                "mself_parent": 288,
+            },
             "answer_key_interpolation_scope": "teacher_target_and_scoring_only",
             "answer_key_not_interpolated_into_parent_or_child_opening": True,
             "render_hashes_sha256": digest("renders"),
@@ -998,7 +1015,7 @@ def test_candidate_without_terminal_is_invalid_and_failure_can_follow(tmp_path):
     output_root = tmp_path / "outputs"
     output_root.mkdir()
     runner.OUTPUT_ROOT = output_root
-    writer = runner.ArtifactWriter(output_root / "a1-nc0-test")
+    writer = runner.ArtifactWriter(output_root / "a1-nc0-r1-test")
     try:
         candidate = writer.write_candidate({"decoder.receiver_gate": torch.tensor(0.0)}, 1024 * 1024)
         assert candidate["name"] == "bridge-candidate.safetensors"
@@ -1024,8 +1041,28 @@ def test_launcher_idle_guard_does_not_match_its_own_script_name():
     assert "[p]rime_rl" in guard
 
 
+def test_preflight_template_input_ids_requires_real_batch_encoding():
+    transformers = pytest.importorskip("transformers")
+    runner_path = Path("scripts/latent/run_a1_nc0_nomination_v1.py").resolve()
+    spec = importlib.util.spec_from_file_location("a1nc0_runner_for_batch_encoding_test", runner_path)
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    counts = runner.collections.Counter()
+    encoded = transformers.BatchEncoding({"input_ids": [1, 2, 248046]})
+    assert runner.preflight_template_input_ids(encoded, label="child_full", extraction_counts=counts) == [
+        1,
+        2,
+        248046,
+    ]
+    assert counts == {"child_full": 1}
+    with pytest.raises(ExperimentIncomplete):
+        runner.preflight_template_input_ids([1, 2], label="raw_list")
+    with pytest.raises(ExperimentIncomplete):
+        runner.preflight_template_input_ids(transformers.BatchEncoding({"input_ids": [[1, 2]]}), label="nested")
+
+
 def test_frozen_plan_loads_with_exact_assets():
-    plan = EXPERIMENT / "a1-nc0-plan-v1.json"
+    plan = EXPERIMENT / "a1-nc0-r1-plan-v1.json"
     if not plan.exists():
         pytest.skip("freeze commit not materialized yet")
     loaded, artifacts, schedule, disjointness = load_plan(

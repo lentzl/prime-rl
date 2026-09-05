@@ -14,8 +14,8 @@ from safetensors import safe_open
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
 from prime_rl.latent.transfer_bank import FAMILIES, build_transfer_bank
 
-A1NC0_PLAN_SCHEMA = "prime-rl/latent-a1-nc0-plan/v1"
-A1NC0_RECEIPT_SCHEMA = "prime-rl/latent-a1-nc0-receipt/v1"
+A1NC0_PLAN_SCHEMA = "prime-rl/latent-a1-nc0-r1-plan/v1"
+A1NC0_RECEIPT_SCHEMA = "prime-rl/latent-a1-nc0-r1-receipt/v1"
 
 _SHA = re.compile(r"^[0-9a-f]{64}$")
 _COMMIT = re.compile(r"^[0-9a-f]{40}$")
@@ -208,6 +208,33 @@ _A0NC_SUCCESS = {
         "qualifying_probes": 2,
     },
 }
+_PRIOR_RENDER_REJECTION = {
+    "status": "mechanism_rejected",
+    "failure_category": "training_or_evaluation_contract_incomplete",
+    "error_type": "ExperimentIncomplete",
+    "error": "A1-NC0 materialized render boundary changed",
+    "stage": "artifact_namespace_created",
+    "failure_file_sha256": "9e41fb8107af77ae5258c10d9caff7f13773aaa26162850faab7c085c6440d80",
+    "failure_internal_sha256": "d6e688e377054b667ab1889c217a0d3da35c578efd373c4deeb3a1e363ce85b1",
+    "launch_log_sha256": "5d4f519dba35d5e8307fce54b1d979bfa937a7d636e4abb29fdddef14b7f0fc3",
+    "snapshot_manifest_sha256": "755bd5ae763d2309f2cd77b0771be2c430e4370c88287bc14c3b3c4a835a6eb5",
+    "execution_commit": "810d5610ab080e58776be610a6bcf927c16b964f",
+    "mechanism_code_commit": "efa9a79baec118c80c279031a5e08a9c5ac9e015",
+    "plan_sha256": "35c75821e7e5b1a359c31536dc3047d3d9e42785316f7a5631263d1d7e78458d",
+    "cuda_runtime_contacted": True,
+    "model_or_material_allocation_attempted": False,
+    "base_model_update_attempted": False,
+    "bridge_update_attempted": False,
+    "optimizer_created": False,
+    "checkpoint_created": False,
+    "candidate_inventory": [],
+    "candidate_valid": False,
+    "memory_ledger_partial": [],
+    "cache_guard_partial": None,
+    "protected_hashes_exact": True,
+    "frozen_assets_exact": True,
+    "run_id_reusable": False,
+}
 _FAILURE_CLASSIFICATION = {
     "infrastructure_or_provenance_failure": "infrastructure_invalid",
     "mechanism_or_contract_failure": "mechanism_rejected",
@@ -324,7 +351,7 @@ _RESOURCE_BOUNDS = {
     "failure_audit_seconds": 180,
     "terminal_seconds": 60,
     "network": False,
-    "output_root": "/home/ubuntu/rlm/outputs/latent-a1-nc0-nomination-v1",
+    "output_root": "/home/ubuntu/rlm/outputs/latent-a1-nc0-r1-nomination-v1",
 }
 _CACHE_CLASS_CLOSURE = [
     {
@@ -380,12 +407,20 @@ _ASSET_PATHS = {
     "experiments/qwen35-2b-latent-workspace-v1/a0nc-success-receipt.json",
     "experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-plan-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-disjointness-v1.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-plan-v1.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-failure.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-manifest.sha256",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-run.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-r1-tokenizer-proof-receipt.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-r1-tokenizer-proof.log",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-schedule-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json",
     "scripts/latent/run_a0_nocache_receiver_v1.py",
     "scripts/latent/run_a0_nocache_receiver_v1.sh",
+    "scripts/latent/prove_a1_nc0_r1_tokenizer_v1.py",
+    "scripts/latent/prove_a1_nc0_r1_tokenizer_v1.sh",
     "scripts/latent/run_a1_nc0_nomination_v1.py",
     "scripts/latent/run_a1_nc0_nomination_v1.sh",
     "src/prime_rl/latent/__init__.py",
@@ -766,15 +801,133 @@ def norm_matched_noise(target: torch.Tensor, *, split: str, evidence_id: str) ->
     return NormMatchedNoise(tensor=noise, evidence=evidence)
 
 
+def validate_a1nc0_r1_evidence(repo: Path, plan: dict[str, object]) -> dict[str, object]:
+    """Bind the clean failed start and the tokenizer-only repair proof before model load."""
+    experiment = repo / "experiments/qwen35-2b-latent-workspace-v1"
+    failure_path = experiment / "a1-nc0-render-rejection-failure.json"
+    log_path = experiment / "a1-nc0-render-rejection-run.log"
+    manifest_path = experiment / "a1-nc0-render-rejection-manifest.sha256"
+    proof_path = experiment / "a1-nc0-r1-tokenizer-proof-receipt.json"
+    proof_log_path = experiment / "a1-nc0-r1-tokenizer-proof.log"
+    paths = (failure_path, log_path, manifest_path, proof_path, proof_log_path)
+    if any(path.is_symlink() or not path.is_file() for path in paths):
+        raise ValueError("A1-NC0-R1 prospective evidence is absent or symlinked")
+
+    failure = json.loads(failure_path.read_text())
+    manifest = manifest_path.read_text()
+    prior_observed = {
+        "status": failure.get("status"),
+        "failure_category": failure.get("failure_category"),
+        "error_type": failure.get("error_type"),
+        "error": failure.get("error"),
+        "stage": failure.get("stage"),
+        "failure_file_sha256": file_sha256(failure_path),
+        "failure_internal_sha256": failure.get("failure_sha256"),
+        "launch_log_sha256": file_sha256(log_path),
+        "snapshot_manifest_sha256": file_sha256(manifest_path),
+        "execution_commit": failure.get("execution_commit"),
+        "mechanism_code_commit": failure.get("mechanism_code_commit"),
+        "plan_sha256": failure.get("plan_sha256"),
+        "cuda_runtime_contacted": True,
+        "model_or_material_allocation_attempted": failure.get("e33_parameter_tree_sha256_before") is not None,
+        "base_model_update_attempted": failure.get("base_model_update_attempted"),
+        "bridge_update_attempted": failure.get("bridge_update_attempted"),
+        "optimizer_created": False,
+        "checkpoint_created": failure.get("checkpoint_created"),
+        "candidate_inventory": failure.get("candidate_inventory"),
+        "candidate_valid": failure.get("candidate_valid"),
+        "memory_ledger_partial": failure.get("memory_ledger_partial"),
+        "cache_guard_partial": failure.get("cache_guard_partial"),
+        "protected_hashes_exact": failure.get("protected_hash_probe_after_failure")
+        == {"coordinator_e33": _E33, "worker_h176": _H176}
+        and failure.get("protected_hashes_before") == {"coordinator_e33": _E33, "worker_h176": _H176},
+        "frozen_assets_exact": failure.get("frozen_asset_hashes_match_plan"),
+        "run_id_reusable": failure.get("run_id_reusable"),
+    }
+    if (
+        prior_observed != _PRIOR_RENDER_REJECTION
+        or plan.get("prior_render_rejection") != _PRIOR_RENDER_REJECTION
+        or manifest
+        != "9e41fb8107af77ae5258c10d9caff7f13773aaa26162850faab7c085c6440d80  failure.json\n"
+        "5d4f519dba35d5e8307fce54b1d979bfa937a7d636e4abb29fdddef14b7f0fc3  run.log\n"
+        or failure.get("e33_parameter_tree_sha256_before") is not None
+        or failure.get("e33_parameter_tree_sha256_failure_audit") is not None
+        or failure.get("e33_gradients_absent_failure_audit") is not None
+        or failure.get("checkpoint_metadata_before") != failure.get("protected_metadata_probe_after_failure")
+        or failure.get("a0nc_success_evidence_matches_plan") is not True
+    ):
+        raise ValueError("A1-NC0-R1 failed-start evidence changed")
+
+    proof = json.loads(proof_path.read_text())
+    preflight = proof.get("preflight")
+    proof_observed = {
+        "status": proof.get("status"),
+        "receipt_file_sha256": file_sha256(proof_path),
+        "receipt_internal_sha256": proof.get("receipt_sha256"),
+        "proof_log_sha256": file_sha256(proof_log_path),
+        "mechanism_commit": proof.get("mechanism_commit"),
+        "versions": proof.get("versions"),
+        "transformers_runtime_version": proof.get("transformers_runtime_version"),
+        "tokenizer_class": proof.get("tokenizer_class"),
+        "tokenizer_asset_sha256": proof.get("tokenizer_asset_sha256"),
+        "bank_file_sha256": proof.get("bank_file_sha256"),
+        "materialized_queries": preflight.get("materialized_queries") if isinstance(preflight, dict) else None,
+        "batch_encoding_extraction_counts": preflight.get("batch_encoding_extraction_counts")
+        if isinstance(preflight, dict)
+        else None,
+        "maximum_unpadded_feature_tokens": preflight.get("maximum_unpadded_feature_tokens")
+        if isinstance(preflight, dict)
+        else None,
+        "render_hashes_sha256": preflight.get("render_hashes_sha256") if isinstance(preflight, dict) else None,
+        "label_alignment_sha256": preflight.get("label_alignment_sha256")
+        if isinstance(preflight, dict)
+        else None,
+        "repeat_preflight_bitwise_canonical_equal": proof.get("repeat_preflight_bitwise_canonical_equal"),
+        "cuda_visible_devices": proof.get("cuda_visible_devices"),
+        "torch_cuda_initialized_before": proof.get("torch_cuda_initialized_before"),
+        "torch_cuda_initialized_after": proof.get("torch_cuda_initialized_after"),
+        "model_from_pretrained_calls": proof.get("model_from_pretrained_calls"),
+        "model_loaded": proof.get("model_loaded"),
+        "optimizer_created": proof.get("optimizer_created"),
+        "model_update_attempted": proof.get("model_update_attempted"),
+    }
+    expected_proof = plan.get("tokenizer_only_proof")
+    if (
+        not isinstance(expected_proof, dict)
+        or proof_observed != expected_proof
+        or proof.get("schema_version") != "prime-rl/latent-a1-nc0-r1-tokenizer-proof/v1"
+        or proof.get("receipt_sha256") != canonical_json_hash(proof, omitted_fields=("receipt_sha256",))
+        or proof.get("proof_log", {}).get("sha256") != proof_observed["proof_log_sha256"]
+        or proof.get("repeat_render_hashes_sha256") != proof_observed["render_hashes_sha256"]
+        or proof.get("repeat_label_alignment_sha256") != proof_observed["label_alignment_sha256"]
+        or not _valid_sha(proof_observed["render_hashes_sha256"])
+        or not _valid_sha(proof_observed["label_alignment_sha256"])
+        or proof_observed["materialized_queries"] != 288
+        or proof_observed["batch_encoding_extraction_counts"]
+        != {"parent": 96, "child_plain": 288, "child_opening": 288, "child_full": 288, "mself_parent": 288}
+        or proof_observed["torch_cuda_initialized_before"] is not False
+        or proof_observed["torch_cuda_initialized_after"] is not False
+        or proof_observed["model_from_pretrained_calls"] != 0
+        or proof_observed["model_loaded"] is not False
+        or proof_observed["optimizer_created"] is not False
+        or proof_observed["model_update_attempted"] is not False
+    ):
+        raise ValueError("A1-NC0-R1 tokenizer-only proof changed")
+    return {"prior_render_rejection": prior_observed, "tokenizer_only_proof": proof_observed}
+
+
 def validate_plan(plan: dict[str, object], *, bank_file_hashes: dict[str, str]) -> None:
     required = {
         "schema_version",
         "status",
         "execution_authorization",
         "mechanism_code_commit",
+        "evidence_commit",
         "asset_sha256",
         "plan_sha256",
         "a0nc_success_evidence",
+        "prior_render_rejection",
+        "tokenizer_only_proof",
         "protected_checkpoints",
         "remote_paths",
         "runtime",
@@ -798,8 +951,14 @@ def validate_plan(plan: dict[str, object], *, bank_file_hashes: dict[str, str]) 
         or plan.get("execution_authorization") != "root_and_evaluator_review_required"
     ):
         raise ValueError("A1-NC0 freeze or authorization changed")
-    if not isinstance(plan.get("mechanism_code_commit"), str) or not _COMMIT.fullmatch(plan["mechanism_code_commit"]):
-        raise ValueError("A1-NC0 mechanism commit malformed")
+    if (
+        not isinstance(plan.get("mechanism_code_commit"), str)
+        or not _COMMIT.fullmatch(plan["mechanism_code_commit"])
+        or not isinstance(plan.get("evidence_commit"), str)
+        or not _COMMIT.fullmatch(plan["evidence_commit"])
+        or plan["evidence_commit"] == plan["mechanism_code_commit"]
+    ):
+        raise ValueError("A1-NC0 mechanism/evidence commit malformed")
     assets = plan.get("asset_sha256")
     if (
         not isinstance(assets, dict)
@@ -818,6 +977,50 @@ def validate_plan(plan: dict[str, object], *, bank_file_hashes: dict[str, str]) 
         raise ValueError("A1-NC0 protected checkpoints changed")
     if plan.get("a0nc_success_evidence") != _A0NC_SUCCESS:
         raise ValueError("A1-NC0 A0NC dependency evidence changed")
+    proof = plan.get("tokenizer_only_proof")
+    if plan.get("prior_render_rejection") != _PRIOR_RENDER_REJECTION or not isinstance(proof, dict):
+        raise ValueError("A1-NC0-R1 prospective evidence declaration changed")
+    if (
+        set(proof)
+        != {
+            "status",
+            "receipt_file_sha256",
+            "receipt_internal_sha256",
+            "proof_log_sha256",
+            "mechanism_commit",
+            "versions",
+            "transformers_runtime_version",
+            "tokenizer_class",
+            "tokenizer_asset_sha256",
+            "bank_file_sha256",
+            "materialized_queries",
+            "batch_encoding_extraction_counts",
+            "maximum_unpadded_feature_tokens",
+            "render_hashes_sha256",
+            "label_alignment_sha256",
+            "repeat_preflight_bitwise_canonical_equal",
+            "cuda_visible_devices",
+            "torch_cuda_initialized_before",
+            "torch_cuda_initialized_after",
+            "model_from_pretrained_calls",
+            "model_loaded",
+            "optimizer_created",
+            "model_update_attempted",
+        }
+        or proof.get("status") != "tokenizer_render_mechanism_validated"
+        or proof.get("mechanism_commit") != plan["mechanism_code_commit"]
+        or any(
+            not _valid_sha(proof.get(key))
+            for key in (
+                "receipt_file_sha256",
+                "receipt_internal_sha256",
+                "proof_log_sha256",
+                "render_hashes_sha256",
+                "label_alignment_sha256",
+            )
+        )
+    ):
+        raise ValueError("A1-NC0-R1 tokenizer-proof declaration malformed")
     if plan.get("remote_paths") != {
         "coordinator_e33": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
         "worker_h176": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8",
@@ -1204,6 +1407,17 @@ def _validate_render_receipt(render: object, *, plan: dict[str, object]) -> None
         or render.get("tokenizer_pad_token_id") != 248046
         or render.get("feature_sequences_truncated") != 0
         or render.get("materialized_queries") != 288
+        or render.get("tokenized_template_container")
+        != "transformers.tokenization_utils_base.BatchEncoding"
+        or render.get("preflight_input_ids_extracted_from_batch_encoding") is not True
+        or render.get("batch_encoding_extraction_counts")
+        != {
+            "parent": 96,
+            "child_plain": 288,
+            "child_opening": 288,
+            "child_full": 288,
+            "mself_parent": 288,
+        }
         or render.get("answer_key_interpolation_scope") != "teacher_target_and_scoring_only"
         or render.get("answer_key_not_interpolated_into_parent_or_child_opening") is not True
         or not isinstance(render.get("maximum_unpadded_feature_tokens"), int)
@@ -1818,10 +2032,11 @@ def _validate_receipt(
         or receipt.get("status") not in allowed_statuses
         or receipt.get("plan_sha256") != plan.get("plan_sha256")
         or receipt.get("mechanism_code_commit") != plan.get("mechanism_code_commit")
+        or receipt.get("evidence_commit") != plan.get("evidence_commit")
         or not isinstance(receipt.get("execution_commit"), str)
         or _COMMIT.fullmatch(receipt["execution_commit"]) is None
         or receipt.get("execution_commit") == receipt.get("mechanism_code_commit")
-        or receipt.get("execution_commit_is_exact_child_of_mechanism") is not True
+        or receipt.get("execution_commit_is_exact_child_of_evidence") is not True
         or receipt.get("asset_sha256") != plan.get("asset_sha256")
         or receipt.get("protected_hashes_before") != plan.get("protected_checkpoints")
         or receipt.get("protected_hashes_after") != plan.get("protected_checkpoints")
@@ -1839,6 +2054,11 @@ def _validate_receipt(
         or receipt.get("claim") != "A1-NC0 nomination-only no-cache bridge learnability"
         or receipt.get("bound_a0nc_dependency_valid_for_B_only") is not True
         or receipt.get("a0nc_success_evidence") != plan.get("a0nc_success_evidence")
+        or receipt.get("a1nc0_r1_evidence")
+        != {
+            "prior_render_rejection": plan.get("prior_render_rejection"),
+            "tokenizer_only_proof": plan.get("tokenizer_only_proof"),
+        }
         or receipt.get("bank_disjointness")
         != {
             "file_sha256": plan.get("bank_disjointness", {}).get("file_sha256"),

@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_nomination_v1.py", line 2461, in <module>
+    main()
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_nomination_v1.py", line 2438, in main
+    receipt = run(args, plan, artifacts, schedule, disjointness, stage, writer)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_nomination_v1.py", line 2018, in run
+    render_preflight = validate_rendering_preflight(tokenizer, artifacts, plan["runtime"]["tokenizer_eos_token_id"])
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_nomination_v1.py", line 1761, in validate_rendering_preflight
+    raise ExperimentIncomplete("A1-NC0 materialized render boundary changed")
+prime_rl.latent.a1nc0.ExperimentIncomplete: A1-NC0 materialized render boundary changed
