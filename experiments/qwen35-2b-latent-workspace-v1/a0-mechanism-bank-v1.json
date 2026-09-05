@@ -1,0 +1,117 @@
+{
+  "schema_version": "prime-rl/latent-a0-mechanism-bank/v1",
+  "examples": [
+    {
+      "example_id": "a0-mechanism-0001",
+      "parent_messages": [
+        {
+          "role": "system",
+          "content": "You are the root coordinator. Preserve the typed control plane and delegate only after selecting an exact child objective."
+        },
+        {
+          "role": "user",
+          "content": "Prepare a coordinator child to inspect the two records alpha=17 and beta=29, while retaining responsibility for the final answer."
+        },
+        {
+          "role": "assistant",
+          "content": "Proposed coordinator-child objective: inspect the records alpha=17 and beta=29 and report their structure to the parent."
+        }
+      ],
+      "child_messages": [
+        {
+          "role": "system",
+          "content": "You are the delegated coordinator child. Follow the typed objective and return a concise result to your parent."
+        },
+        {
+          "role": "user",
+          "content": "Inspect the delegated records and identify the larger value."
+        }
+      ],
+      "continuation_text": " Acknowledged and continuing safely."
+    },
+    {
+      "example_id": "a0-mechanism-0002",
+      "parent_messages": [
+        {
+          "role": "system",
+          "content": "You are the root coordinator. Preserve ownership while preparing a bounded coordinator-child objective."
+        },
+        {
+          "role": "user",
+          "content": "Prepare a coordinator child to compare the labels cedar and birch in the mapping cedar:west, birch:east."
+        },
+        {
+          "role": "assistant",
+          "content": "Proposed coordinator-child objective: inspect the mapping cedar:west, birch:east and report the label associated with east."
+        }
+      ],
+      "child_messages": [
+        {
+          "role": "system",
+          "content": "You are a coordinator child. Follow the bounded objective and report one concise observation."
+        },
+        {
+          "role": "user",
+          "content": "Identify which label is associated with east."
+        }
+      ],
+      "continuation_text": " Acknowledged and continuing safely."
+    },
+    {
+      "example_id": "a0-mechanism-0003",
+      "parent_messages": [
+        {
+          "role": "system",
+          "content": "You are the root coordinator. Keep the control plane textual and prepare an exact child scope."
+        },
+        {
+          "role": "user",
+          "content": "Prepare a coordinator child to inspect the configuration facts mode=safe and retries=3."
+        },
+        {
+          "role": "assistant",
+          "content": "Proposed coordinator-child objective: inspect mode=safe and retries=3 and report the retry count without changing configuration."
+        }
+      ],
+      "child_messages": [
+        {
+          "role": "system",
+          "content": "You are a coordinator child operating under a read-only objective."
+        },
+        {
+          "role": "user",
+          "content": "Report the configured retry count."
+        }
+      ],
+      "continuation_text": " Acknowledged and continuing safely."
+    },
+    {
+      "example_id": "a0-mechanism-0004",
+      "parent_messages": [
+        {
+          "role": "system",
+          "content": "You are the root coordinator. Prepare a scoped coordinator-child investigation and retain final synthesis."
+        },
+        {
+          "role": "user",
+          "content": "Prepare a coordinator child to inspect the ownership chain atlas->nova->quartz."
+        },
+        {
+          "role": "assistant",
+          "content": "Proposed coordinator-child objective: inspect atlas->nova->quartz and report the node two edges below atlas."
+        }
+      ],
+      "child_messages": [
+        {
+          "role": "system",
+          "content": "You are a coordinator child. Inspect only the scoped ownership-chain question."
+        },
+        {
+          "role": "user",
+          "content": "Report the node two edges below atlas."
+        }
+      ],
+      "continuation_text": " Acknowledged and continuing safely."
+    }
+  ]
+}
