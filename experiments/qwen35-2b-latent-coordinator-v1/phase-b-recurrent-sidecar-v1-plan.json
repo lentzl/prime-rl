@@ -174,7 +174,7 @@
   "requested_resources": {
     "preflight": "1 x NVIDIA A6000 48GB for up to 4 GPU-hours",
     "primary_run": "2 x NVIDIA A6000 48GB for up to 24 wall-clock hours (48 GPU-hours), contingent on valid preflight",
-    "storage": "150GB local scratch plus 25GB durable artifacts",
+    "storage": "hard cap 8GB new local artifacts; checkpoint saving disabled for the connectivity smoke",
     "network": "not required after protected checkpoint and tokenizer are staged",
     "reason": "one device can hold frozen e33 plus the 10.56M sidecar for correctness; two devices separate feature extraction/evaluation from sidecar training and reduce idle serialized work"
   },

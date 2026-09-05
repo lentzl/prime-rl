@@ -25,6 +25,12 @@ parameters differ from the recurrent module's 10,562,048 by 107 parameters (abou
 the same task anchor once, has the same bounded zero-initialized output form, and has no persistent
 state or repeated update.
 
+`LocalDepthCodec` keeps Phase B independent from inter-node handoff. It detaches the last eight visible
+states from the same coordinator's own prompt, projects them to the local task anchor, and decodes the
+refined workspace onto the frozen embedding-norm shell. `compose_local_depth_inputs` inserts those
+vectors at a caller-verified assistant boundary and excludes them from the token loss. Neither object
+constructs workspace provenance or accepts another node's state.
+
 The local PrimeRL dense Qwen3.5 language body already supports both required prototype interfaces:
 
 - `Qwen3_5Model.forward(..., inputs_embeds=..., seq_lens=...)` accepts continuous embeddings;
