@@ -412,7 +412,12 @@ def run(args, plan, bank, stage):
     torch.cuda.reset_peak_memory_stats(0)
     started = time.perf_counter()
     tokenizer = _base.AutoTokenizer.from_pretrained(args.coordinator, local_files_only=True)
-    disjointness = runtime_disjointness(tokenizer, args.bank, bank)
+    try:
+        disjointness = runtime_disjointness(tokenizer, args.bank, bank)
+    except DiagnosticIncomplete:
+        raise
+    except Exception as error:
+        raise DiagnosticIncomplete(f"A0NC token-disjointness diagnostic failed: {error}") from error
     model = _base.AutoModelForImageTextToText.from_pretrained(
         args.coordinator, local_files_only=True, torch_dtype=torch.bfloat16, attn_implementation="eager"
     ).to("cuda:0")
@@ -432,18 +437,28 @@ def run(args, plan, bank, stage):
     with cache_guard:
         probes = []
         for example in bank["examples"]:
-            probes.append(
-                run_probe(
-                    model,
-                    tokenizer,
-                    example,
-                    bank["continuation_text"],
-                    bank["continuation_token_ids"],
-                    call_log,
+            try:
+                probes.append(
+                    run_probe(
+                        model,
+                        tokenizer,
+                        example,
+                        bank["continuation_text"],
+                        bank["continuation_token_ids"],
+                        call_log,
+                    )
                 )
-            )
+            except (CacheAllocationDetected, DiagnosticIncomplete, torch.cuda.OutOfMemoryError):
+                raise
+            except Exception as error:
+                raise DiagnosticIncomplete(f"A0NC probe diagnostic execution failed: {error}") from error
             cache_guard.verify_closure()
-    cache_guard_evidence = cache_guard.evidence(expected_probe_checks=len(probes))
+    try:
+        cache_guard_evidence = cache_guard.evidence(expected_probe_checks=len(probes))
+    except DiagnosticIncomplete:
+        raise
+    except Exception as error:
+        raise DiagnosticIncomplete(f"A0NC cache-guard evidence failed: {error}") from error
     after = {name: file_sha256(path) for name, path in weights.items()}
     metadata_after = {
         "coordinator_e33": _base.metadata_hashes(args.coordinator),
