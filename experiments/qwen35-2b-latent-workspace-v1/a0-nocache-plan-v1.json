@@ -13,7 +13,7 @@
     "experiments/qwen35-2b-latent-workspace-v1/a0dr-cache-diagnostic-plan-v1.json": "c897c1f6136b2aa62a4d7c816984539bae6cdec83266e2de90ea15720e5129e2",
     "experiments/qwen35-2b-latent-workspace-v1/a0dr2-cache-diagnostic-plan-v1.json": "22b6a441b5a6b4a62d2f2a9c30f5544c1c97d15b9e30c90b2f44ca11d59695f0",
     "experiments/qwen35-2b-latent-workspace-v1/a0r-mechanism-plan-v1.json": "965df64a2a98b13238d4366294de60ecf6368f7d009e15cfec0210863f7a36fa",
-    "scripts/latent/run_a0_nocache_receiver_v1.py": "73a53f3e67bf08174df083d2568610ec76e746b7fd1818d898db1a7609190dba",
+    "scripts/latent/run_a0_nocache_receiver_v1.py": "de1a1997660e7ebcf3fc12faf84754ed7a6b007171f19c1ae8218da0e3b811cc",
     "scripts/latent/run_a0_nocache_receiver_v1.sh": "934bbc7bd132a6a907b580c5aa3b2da51487714d24f07977252c7f582ba70767",
     "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
     "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
@@ -59,8 +59,8 @@
     "steps_per_probe": 4,
     "use_cache": false
   },
-  "mechanism_code_commit": "d7b4cf87b38a5218e1566b32ee1288ef7cf5a1c6",
-  "plan_sha256": "e39b9ddad4e851070d46eef9c9d76ee7537214460fafdfc7ce33e56850e89a97",
+  "mechanism_code_commit": "8d18937bdf4dedc92d4d9abf88070784a2a4a5c0",
+  "plan_sha256": "6f50fc1c83cafac99f89212aa4b8349984caed4e4b389fff284edc1922e860fd",
   "prior_cache_rejection": {
     "complete_distinct_probes": 4,
     "execution_commit": "2b7d3c8b26c6813da4fb7e534c0061b3814769ec",
