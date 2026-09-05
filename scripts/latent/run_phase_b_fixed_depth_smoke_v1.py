@@ -40,7 +40,7 @@ WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
 PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br2-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-PLAN_SHA256 = "UNFROZEN_PHASE_B_REPAIR2"
+PLAN_SHA256 = "2852f73d13d35fc60b137544e47e6744fc712960138266f503a1c6b5c38ef296"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
@@ -577,6 +577,8 @@ def _tokenizer_only_preflight(  # noqa: N803
             "generation_prefix_tokens": len(open_ids),
             "full_target_tokens": len(full_ids),
             "generation_opening_tokens": len(open_ids) - len(plain_ids),
+            "latent_injection_token_index": len(plain_ids),
+            "label_mask_through_token_index": len(open_ids),
         }
         proofs.append(proof)
         prepared_rows.append(
