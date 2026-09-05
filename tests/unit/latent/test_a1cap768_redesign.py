@@ -166,4 +166,7 @@ def test_case_release_drops_all_tensor_views_before_memory_checkpoint():
     checkpoint = source.index('ledger.checkpoint(f"post_CAP768R_', release)
     assert "id1_last_hidden" in source[source.rfind("del ", 0, release) : release]
     assert "id0_last_hidden" in source[source.rfind("del ", 0, release) : release]
+    release_block = source[source.rfind("del exact", 0, release) : release]
+    for name in ("ids", "padded", "mask", "positions"):
+        assert name in release_block
     assert release < checkpoint
