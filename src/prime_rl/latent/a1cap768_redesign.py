@@ -191,7 +191,7 @@ FLAG0_INCOMPLETE_EVIDENCE = {
     "asset_count": 42,
     "failure_audit_errors": [],
 }
-STATIC_GUARD_PROOF_EVIDENCE = {
+STATIC_GUARD_PROOF1_EVIDENCE = {
     "receipt_file_sha256": "0ad3dcf09cdd69dcbd9a9f9cb6facb091cdd43ed360f3c8fc324607c30f66c00",
     "receipt_internal_sha256": "16b4439d836d3684060a407211e8f6f00095a7da333f80e01212f8c85691f0af",
     "command_file_sha256": "2aeff6b1293bade5081d46cab2b8dd58592a4692a0bc3b4efd34d19c88754011",
@@ -199,6 +199,22 @@ STATIC_GUARD_PROOF_EVIDENCE = {
     "exit_status_file_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
     "execution_commit": "6ca5caf13f1ace6f270ddcd8b09845df64922e90",
     "runner_sha256": "ff5ef962ec3e70d399e85d966f24dbe6493fb34c818a8063a73de1f6ae94d2e4",
+    "guard_module_sha256": "ed7d6c0fc16cc0c24f8cc55907db69cf77079adebc963425f2cc1e7c78e568f6",
+    "negative_fixture_count": 5,
+    "cuda_hidden_uninitialized": True,
+    "model_loaded": False,
+    "model_forward_count": 0,
+    "scientific_exposure": False,
+    "model_update_attempted": False,
+}
+STATIC_GUARD_PROOF_EVIDENCE = {
+    "receipt_file_sha256": "6b566efd7b893520a7a0bf3edc51337e95f290aa1bf9812770c86ed5d973b431",
+    "receipt_internal_sha256": "311da17d7fe19cb4f50d829048963a02eb2eeda0eb38f2cf2376fcda3ce50900",
+    "command_file_sha256": "da36abc7f33b8927de8859d48b4ef92ca2c3fb67979fbe6fcf49cf45ab4cb53e",
+    "proof_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit_status_file_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "execution_commit": "339613b77f515c95bf18f3cba4deeeb201d6b0f5",
+    "runner_sha256": "1397b26e4b1d86acae9f928c290cd9b4dbd7304a260bd28b3a13e2f4263d9e99",
     "guard_module_sha256": "ed7d6c0fc16cc0c24f8cc55907db69cf77079adebc963425f2cc1e7c78e568f6",
     "negative_fixture_count": 5,
     "cuda_hidden_uninitialized": True,
@@ -216,6 +232,10 @@ ASSET_PATHS = set(FLAG0_ASSET_PATHS) | {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-command.txt",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-exit.txt",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v2-receipt.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v2-command.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v2-exit.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-v2.log",
     "scripts/latent/run_a1_nc0_cap768_redesign_v1.py",
     "scripts/latent/run_a1_nc0_cap768_redesign_v1.sh",
     "scripts/latent/prove_a1_nc0_cap768_redesign_static_guard_v1.py",
@@ -345,35 +365,37 @@ def validate_flag0_incomplete(repo: Path) -> dict[str, object]:
     return FLAG0_INCOMPLETE_EVIDENCE
 
 
-def validate_static_guard_proof(repo: Path) -> dict[str, object]:
+def _validate_static_guard_proof(
+    repo: Path, *, expected: dict[str, object], stem: str
+) -> dict[str, object]:
     experiment = repo / "experiments/qwen35-2b-latent-workspace-v1"
     paths = {
-        "receipt": experiment / "a1-nc0-cap768-redesign-static-guard-proof-receipt.json",
-        "command": experiment / "a1-nc0-cap768-redesign-static-guard-proof-command.txt",
-        "log": experiment / "a1-nc0-cap768-redesign-static-guard-proof.log",
-        "exit": experiment / "a1-nc0-cap768-redesign-static-guard-proof-exit.txt",
+        "receipt": experiment / f"{stem}-receipt.json",
+        "command": experiment / f"{stem}-command.txt",
+        "log": experiment / f"{stem}.log",
+        "exit": experiment / f"{stem}-exit.txt",
     }
     if any(path.is_symlink() or not path.is_file() for path in paths.values()):
         raise ValueError("CAP768R static guard proof absent or symlinked")
     receipt = json.loads(paths["receipt"].read_text())
     expected_hashes = {
-        "receipt": STATIC_GUARD_PROOF_EVIDENCE["receipt_file_sha256"],
-        "command": STATIC_GUARD_PROOF_EVIDENCE["command_file_sha256"],
-        "log": STATIC_GUARD_PROOF_EVIDENCE["proof_log_sha256"],
-        "exit": STATIC_GUARD_PROOF_EVIDENCE["exit_status_file_sha256"],
+        "receipt": expected["receipt_file_sha256"],
+        "command": expected["command_file_sha256"],
+        "log": expected["proof_log_sha256"],
+        "exit": expected["exit_status_file_sha256"],
     }
     if (
         any(file_sha256(paths[name]) != expected for name, expected in expected_hashes.items())
         or paths["exit"].read_bytes() != b"0\n"
-        or receipt.get("proof_sha256") != STATIC_GUARD_PROOF_EVIDENCE["receipt_internal_sha256"]
+        or receipt.get("proof_sha256") != expected["receipt_internal_sha256"]
         or receipt.get("proof_sha256") != canonical_json_hash({**receipt, "proof_sha256": ""})
-        or receipt.get("execution_commit") != STATIC_GUARD_PROOF_EVIDENCE["execution_commit"]
-        or receipt.get("runner_sha256") != STATIC_GUARD_PROOF_EVIDENCE["runner_sha256"]
-        or receipt.get("guard_module_sha256") != STATIC_GUARD_PROOF_EVIDENCE["guard_module_sha256"]
+        or receipt.get("execution_commit") != expected["execution_commit"]
+        or receipt.get("runner_sha256") != expected["runner_sha256"]
+        or receipt.get("guard_module_sha256") != expected["guard_module_sha256"]
         or receipt.get("status") != "static_guard_validated_cuda_hidden"
         or receipt.get("positive")
         != {
-            "runner_sha256": STATIC_GUARD_PROOF_EVIDENCE["runner_sha256"],
+            "runner_sha256": expected["runner_sha256"],
             "forbidden_calls": [],
             "forbidden_identifiers": [],
             "forbidden_imports": [],
@@ -394,7 +416,15 @@ def validate_static_guard_proof(repo: Path) -> dict[str, object]:
         or receipt.get("model_update_attempted") is not False
     ):
         raise ValueError("CAP768R static guard proof changed")
-    return STATIC_GUARD_PROOF_EVIDENCE
+    return expected
+
+
+def validate_static_guard_proof(repo: Path) -> dict[str, object]:
+    return _validate_static_guard_proof(
+        repo,
+        expected=STATIC_GUARD_PROOF_EVIDENCE,
+        stem="a1-nc0-cap768-redesign-static-guard-proof-v2",
+    )
 
 
 def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
@@ -428,6 +458,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         "memory_labels_sha256",
         "flag0_incomplete_evidence",
         "static_guard_proof_evidence",
+        "superseded_static_guard_proof_evidence",
         "scientific_exposure_boundary",
         "scientific_exposure_boundary_sha256",
         "protected_checkpoints",
@@ -466,6 +497,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("memory_labels_sha256") != MEMORY_LABELS_SHA256
         or plan.get("flag0_incomplete_evidence") != FLAG0_INCOMPLETE_EVIDENCE
         or plan.get("static_guard_proof_evidence") != STATIC_GUARD_PROOF_EVIDENCE
+        or plan.get("superseded_static_guard_proof_evidence") != STATIC_GUARD_PROOF1_EVIDENCE
         or plan.get("scientific_exposure_boundary") != SCIENTIFIC_EXPOSURE_BOUNDARY
         or plan.get("scientific_exposure_boundary_sha256") != SCIENTIFIC_EXPOSURE_BOUNDARY_SHA256
         or plan.get("protected_checkpoints") != {"coordinator_e33": _E33, "worker_h176": _H176}
@@ -487,6 +519,15 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         raise ValueError("CAP768R FLAG0 binding changed")
     if validate_static_guard_proof(repo) != plan["static_guard_proof_evidence"]:
         raise ValueError("CAP768R static guard proof binding changed")
+    if (
+        _validate_static_guard_proof(
+            repo,
+            expected=STATIC_GUARD_PROOF1_EVIDENCE,
+            stem="a1-nc0-cap768-redesign-static-guard-proof",
+        )
+        != plan["superseded_static_guard_proof_evidence"]
+    ):
+        raise ValueError("CAP768R superseded proof binding changed")
     return plan
 
 
