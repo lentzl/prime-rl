@@ -1961,6 +1961,8 @@ def _validate_receipt(
                 or list(tensor.shape) != _BRIDGE["candidate_tensor_shapes"][name]
             ):
                 raise ExperimentIncomplete("A1-NC0 candidate tensor contract changed")
+            if not torch.isfinite(tensor).all():
+                raise ExperimentIncomplete("A1-NC0 candidate tensor is nonfinite")
             entry = {
                 "name": name,
                 "dtype": str(tensor.dtype),

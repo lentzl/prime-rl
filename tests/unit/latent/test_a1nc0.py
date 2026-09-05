@@ -879,6 +879,8 @@ def test_validation_stop_receipt_uses_4526_calls_and_short_memory_branch(tmp_pat
         "candidate_name",
         "candidate_shape",
         "candidate_content",
+        "candidate_nan",
+        "candidate_inf",
         "memory_branch",
         "call_count",
         "cache_guard",
@@ -905,13 +907,17 @@ def test_receipt_candidate_terminal_and_branch_tampering_fail_closed(tmp_path, t
         candidate_path.write_bytes(candidate_path.read_bytes() + b"x")
     elif tamper == "candidate_name":
         receipt["bridge"]["candidate"]["name"] = "wrong.safetensors"
-    elif tamper in {"candidate_shape", "candidate_content"}:
+    elif tamper in {"candidate_shape", "candidate_content", "candidate_nan", "candidate_inf"}:
         tensors = {
             name: torch.zeros(shape if shape else (), dtype=torch.float32)
             for name, shape in a1nc0._BRIDGE["candidate_tensor_shapes"].items()
         }
         if tamper == "candidate_shape":
             tensors["decoder.receiver_gate"] = torch.zeros((1,), dtype=torch.float32)
+        elif tamper == "candidate_nan":
+            tensors["decoder.receiver_gate"] = torch.tensor(float("nan"), dtype=torch.float32)
+        elif tamper == "candidate_inf":
+            tensors["decoder.receiver_gate"] = torch.tensor(float("inf"), dtype=torch.float32)
         else:
             tensors["decoder.receiver_gate"] = torch.tensor(1.0, dtype=torch.float32)
         save_file(tensors, candidate_path, metadata={"schema": "prime-rl/latent-a1-nc0-candidate/v1"})
