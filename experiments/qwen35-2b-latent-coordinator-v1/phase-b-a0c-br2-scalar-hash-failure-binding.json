@@ -1,0 +1,160 @@
+{
+  "schema_version": "q35-2b-phase-b-br2-failure-binding/v1",
+  "status": "bound_post_model_scalar_hash_failure",
+  "failure_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br2-FAILURE.json",
+  "failure_file_sha256": "3a92476defa4a31876819e8a090353176dd1bc0da7146932ab0ce5dc95d741d5",
+  "manifest_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br2-failure-MANIFEST.json",
+  "manifest_file_sha256": "9b6dcec8c6c873fb2e6edaa8a912ec69ee8fc94aa52fbb7782471cf96c94e3af",
+  "preflight_log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br2-preflight.log",
+  "preflight_log_file_sha256": "43210493e9124395c1edd9bb66cad56843f1b884836c19986488550336a0f87e",
+  "run_log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br2-run.log",
+  "run_log_file_sha256": "ab26bb1d2d5cd15030a5a136f0f3ef4b27bc87df6301ec225a81430743fc8eb6",
+  "manifest_predicates": {
+    "schema_exact": {
+      "path": "schema_version",
+      "expected": "q35-2b-phase-b-br2-scalar-hash-failure-snapshot/v1"
+    },
+    "mechanism_exact": {
+      "path": "mechanism_commit",
+      "expected": "2cad98d5b5a077f7e4b86b93d9cc269fd2d3d376"
+    },
+    "execution_exact": {
+      "path": "execution_commit",
+      "expected": "82a1c613e8259ff0a877d25a80297b6a15c47fd1"
+    },
+    "plan_exact": {
+      "path": "plan_sha256",
+      "expected": "2852f73d13d35fc60b137544e47e6744fc712960138266f503a1c6b5c38ef296"
+    },
+    "selection_exact": {
+      "path": "selection_sha256",
+      "expected": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+    },
+    "preflight_passed": {
+      "path": "preflight_status",
+      "expected": "tokenizer_preflight_only_passed"
+    },
+    "full_run_infrastructure_invalid": {
+      "path": "full_run_status",
+      "expected": "infrastructure_invalid"
+    },
+    "error_exact": {
+      "path": "error",
+      "expected": "self.dim() cannot be 0 to view BFloat16 as Byte (different element sizes)"
+    },
+    "model_loaded": {
+      "path": "model_loaded",
+      "expected": true
+    },
+    "cuda_allocated": {
+      "path": "cuda_allocated",
+      "expected": true
+    },
+    "no_useful_forward": {
+      "path": "useful_model_forward_completed",
+      "expected": false
+    },
+    "no_update_attempt": {
+      "path": "model_update_attempted",
+      "expected": false
+    },
+    "no_optimizer": {
+      "path": "optimizer_created",
+      "expected": false
+    },
+    "no_checkpoint": {
+      "path": "checkpoint_created",
+      "expected": false
+    },
+    "e33_exact": {
+      "path": "protected_e33_postflight_exact",
+      "expected": true
+    },
+    "audit_complete": {
+      "path": "post_failure_audit_complete",
+      "expected": true
+    }
+  },
+  "failure_predicates": {
+    "schema_exact": {
+      "path": "schema_version",
+      "expected": "q35-2b-phase-b-fixed-depth-smoke-failure/v1"
+    },
+    "status_infrastructure_invalid": {
+      "path": "status",
+      "expected": "infrastructure_invalid"
+    },
+    "category_infrastructure_invalid": {
+      "path": "failure_category",
+      "expected": "infrastructure_invalid"
+    },
+    "claim_no_update": {
+      "path": "claim_class",
+      "expected": "no_update_mechanism_connectivity_only"
+    },
+    "error_type_exact": {
+      "path": "error_type",
+      "expected": "RuntimeError"
+    },
+    "error_exact": {
+      "path": "error",
+      "expected": "self.dim() cannot be 0 to view BFloat16 as Byte (different element sizes)"
+    },
+    "plan_exact": {
+      "path": "plan_sha256",
+      "expected": "2852f73d13d35fc60b137544e47e6744fc712960138266f503a1c6b5c38ef296"
+    },
+    "selection_exact": {
+      "path": "selection_sha256",
+      "expected": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+    },
+    "audit_complete": {
+      "path": "post_failure_hash_audit.audit_complete",
+      "expected": true
+    },
+    "audit_no_error": {
+      "path": "post_failure_hash_audit.hash_probe_error",
+      "expected": null
+    },
+    "e33_weight_exact": {
+      "path": "post_failure_hash_audit.e33.weight_file_matches",
+      "expected": true
+    },
+    "e33_metadata_exact": {
+      "path": "post_failure_hash_audit.e33.metadata_matches",
+      "expected": true
+    },
+    "a0c_binding_exact": {
+      "path": "post_failure_hash_audit.a0c.binding_matches",
+      "expected": true
+    },
+    "initial_failure_binding_exact": {
+      "path": "post_failure_hash_audit.repair_dependency.binding_matches",
+      "expected": true
+    },
+    "br1_rejection_binding_exact": {
+      "path": "post_failure_hash_audit.br1_preflight_rejection.binding_matches",
+      "expected": true
+    }
+  },
+  "required_run_log_markers": [
+    "phase-b-fixed-depth-smoke-a0c-br2-plan.json: OK",
+    "Loading weights:",
+    "Phase B failed: RuntimeError: self.dim() cannot be 0 to view BFloat16 as Byte (different element sizes)"
+  ],
+  "control_flow_proof": {
+    "prior_execution_commit": "82a1c613e8259ff0a877d25a80297b6a15c47fd1",
+    "prior_runner_path": "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py",
+    "prior_runner_sha256": "0251c36bdca2d021cde922ceeea59789d3f922571525acd0c21e6fb2f349dcd1",
+    "failure_stage": "_module_tensor_sha256(model) immediately after frozen model load, before feature capture, example preparation, sidecar construction, model forward, or backward",
+    "cause": "At least one e33 state_dict entry is a zero-dimensional BF16 tensor. PyTorch rejects direct scalar BF16 view(torch.uint8) when source and target element sizes differ.",
+    "prospective_fix": "In _module_tensor_sha256 only, flatten the contiguous CPU tensor with reshape(-1) before view(torch.uint8). Continue hashing the original name, dtype, and shape before raw bytes.",
+    "numerical_mechanism_changed": false,
+    "tensor_bytes_sha256_changed": false,
+    "tensor_bytes_sha256_actual_consumers": [
+      "rank-2 token ID tensors",
+      "rank-3 detached hidden capture tensors"
+    ],
+    "root_observed_gpu_idle_after_failure": true
+  }
+}

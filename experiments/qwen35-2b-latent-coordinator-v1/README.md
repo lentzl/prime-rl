@@ -82,3 +82,12 @@ reasoning. It passes `enable_thinking=True` explicitly for plain, opening, and f
 both exact string and token prefix relations, hashes the nonempty reasoning bytes before/after, and
 continues to inject before and mask through the verified explicit-thinking assistant opening. B-R2 is
 again nonlaunchable until its own mechanism/freeze pair receives independent review.
+
+B-R2 then passed that real tokenizer-only gate on all 12 frozen rows with balanced 4/4/4 actions and
+reached the protected model load. It failed before its first useful forward in provenance hashing:
+e33's state dictionary contains a zero-dimensional BF16 tensor, and PyTorch cannot reinterpret that
+scalar directly as `uint8` when the element sizes differ. The prospective B-R3 repair changes only
+`_module_tensor_sha256`: it reshapes the contiguous CPU tensor to one dimension before the byte view,
+while continuing to hash the original tensor name, dtype, and shape separately. The raw tensor helper
+is unchanged because each of its actual call sites hashes a rank-2 token tensor or rank-3 hidden-state
+capture. B-R3 changes no tensor value, model path, sidecar, arm, or numerical predicate.

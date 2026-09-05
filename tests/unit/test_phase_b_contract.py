@@ -18,6 +18,7 @@ from prime_rl.phase_b_contract import (
     canonical_json_sha256,
     normalize_assistant_tool_call_arguments,
     validate_a0c_binding,
+    validate_br2_failure_evidence,
     validate_failed_start_evidence,
     validate_plan_authorization,
     validate_preflight_rejection_evidence,
@@ -460,6 +461,48 @@ def test_checked_in_br1_preflight_rejection_is_exact_and_pre_model(tmp_path: Pat
     assert "longest-common-prefix boundary" in validated.binding["diagnosis"]["forbidden_repairs"]
 
 
+def test_checked_in_br2_failure_binds_all_artifacts_and_twelve_row_pass(tmp_path: Path) -> None:
+    repository = Path(__file__).resolve().parents[2]
+    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
+    names = {
+        "failure": "phase-b-fixed-depth-smoke-a0c-br2-FAILURE.json",
+        "manifest": "phase-b-fixed-depth-smoke-a0c-br2-failure-MANIFEST.json",
+        "preflight_log": "phase-b-fixed-depth-smoke-a0c-br2-preflight.log",
+        "run_log": "phase-b-fixed-depth-smoke-a0c-br2-run.log",
+    }
+    expected_hashes = {
+        "failure": "3a92476defa4a31876819e8a090353176dd1bc0da7146932ab0ce5dc95d741d5",
+        "manifest": "9b6dcec8c6c873fb2e6edaa8a912ec69ee8fc94aa52fbb7782471cf96c94e3af",
+        "preflight_log": "43210493e9124395c1edd9bb66cad56843f1b884836c19986488550336a0f87e",
+        "run_log": "ab26bb1d2d5cd15030a5a136f0f3ef4b27bc87df6301ec225a81430743fc8eb6",
+    }
+    binding_source = experiment / "phase-b-a0c-br2-scalar-hash-failure-binding.json"
+    binding = json.loads(binding_source.read_text(encoding="utf-8"))
+    for key, name in names.items():
+        source = experiment / name
+        assert hashlib.sha256(source.read_bytes()).hexdigest() == expected_hashes[key]
+        binding[f"{key}_absolute_path"] = str(source.resolve())
+    binding_path = (tmp_path / "binding.json").resolve()
+    hash_path = (tmp_path / "binding.sha256").resolve()
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    binding_hash = hashlib.sha256(binding_path.read_bytes()).hexdigest()
+    hash_path.write_text(f"{binding_hash}  {binding_path.name}\n", encoding="ascii")
+
+    validated = validate_br2_failure_evidence(binding_path, hash_path)
+
+    proofs = validated.preflight_report["normalization_and_render_proofs"]
+    assert len(proofs) == 12
+    assert {action: [proof["action"] for proof in proofs].count(action) for action in EXACT_ACTIONS_BY_TASK_KEY.values()} == {
+        "solve_owned": 4,
+        "delegate_terminal": 4,
+        "delegate_coordinator": 4,
+    }
+    assert validated.manifest["model_loaded"] is True
+    assert validated.manifest["useful_model_forward_completed"] is False
+    assert validated.manifest["model_update_attempted"] is False
+    assert validated.binding["control_flow_proof"]["tensor_bytes_sha256_changed"] is False
+
+
 def test_atomic_terminal_receipt_is_exclusive(tmp_path: Path) -> None:
     output = (tmp_path / "run").resolve()
     output.mkdir()
@@ -586,8 +629,8 @@ def test_repair_plan_is_exact_and_prior_plans_remain_immutable() -> None:
         "forbidden_boundary_repairs"
     ]
     assert repair2_plan["outputs"]["directory"] != repair_plan["outputs"]["directory"]
-    assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br2-plan.json"
-    assert runner.PLAN_SHA256 == hashlib.sha256(repair2_plan_path.read_bytes()).hexdigest()
+    assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br3-plan.json"
+    assert runner.PLAN_SHA256 == "UNFROZEN_PHASE_B_REPAIR3"
 
 
 def test_failure_audit_rehashes_e33_binding_receipt_and_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -682,6 +725,7 @@ def test_preflight_only_returns_without_heavy_import_or_output(
     )
     failed_start = SimpleNamespace(binding_file_sha256="e" * 64)
     preflight_rejection = SimpleNamespace(binding_file_sha256="f" * 64)
+    br2_failure = SimpleNamespace(binding_file_sha256="1" * 64)
     fake_parquet = ModuleType("pyarrow.parquet")
     fake_pyarrow = ModuleType("pyarrow")
     fake_pyarrow.__path__ = []  # type: ignore[attr-defined]
@@ -695,7 +739,7 @@ def test_preflight_only_returns_without_heavy_import_or_output(
     monkeypatch.setattr(
         runner,
         "preflight_before_heavy_imports",
-        lambda _args: ({}, {}, binding, failed_start, preflight_rejection),
+        lambda _args: ({}, {}, binding, failed_start, preflight_rejection, br2_failure),
     )
     monkeypatch.setattr(
         runner,
@@ -870,22 +914,24 @@ def test_br1_freeze_manifest_remains_valid_at_its_immutable_commit() -> None:
         assert hashlib.sha256(blob).hexdigest() == expected
 
 
-def test_br2_freeze_manifest_closes_both_rejection_evidence_sets() -> None:
+def test_br2_freeze_manifest_remains_valid_at_its_immutable_commit() -> None:
     repository = Path(__file__).resolve().parents[2]
-    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
-
-    result = subprocess.run(
-        ["sha256sum", "--check", "phase-b-fixed-depth-smoke-a0c-br2.sha256"],
-        cwd=experiment,
-        text=True,
-        capture_output=True,
-        check=True,
+    commit = "82a1c613e8259ff0a877d25a80297b6a15c47fd1"
+    manifest_path = "experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br2.sha256"
+    manifest = subprocess.run(
+        ["git", "show", f"{commit}:{manifest_path}"], cwd=repository, capture_output=True, check=True
+    ).stdout.decode()
+    assert hashlib.sha256(manifest.encode()).hexdigest() == (
+        "2721e318a360d7989264c65cb4291b54cb94df76f1c0940809405f424b2f73e6"
     )
-
-    assert "phase-b-fixed-depth-smoke-a0c-v1-FAILURE.json: OK" in result.stdout
-    assert "phase-b-fixed-depth-smoke-a0c-br1-preflight-MANIFEST.json: OK" in result.stdout
-    assert "phase-b-fixed-depth-smoke-a0c-br1-preflight.log: OK" in result.stdout
-    assert "../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK" in result.stdout
+    manifest_directory = posixpath.dirname(manifest_path)
+    for line in manifest.splitlines():
+        expected, relative_path = line.split(maxsplit=1)
+        blob_path = posixpath.normpath(posixpath.join(manifest_directory, relative_path))
+        blob = subprocess.run(
+            ["git", "show", f"{commit}:{blob_path}"], cwd=repository, capture_output=True, check=True
+        ).stdout
+        assert hashlib.sha256(blob).hexdigest() == expected
 
 
 def _load_runner():

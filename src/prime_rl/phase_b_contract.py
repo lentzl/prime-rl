@@ -146,6 +146,25 @@ class ValidatedPreflightRejectionEvidence:
     manifest: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class ValidatedBR2FailureEvidence:
+    binding: dict[str, Any]
+    binding_path: Path
+    binding_hash_path: Path
+    failure_path: Path
+    manifest_path: Path
+    preflight_log_path: Path
+    run_log_path: Path
+    binding_file_sha256: str
+    failure_file_sha256: str
+    manifest_file_sha256: str
+    preflight_log_file_sha256: str
+    run_log_file_sha256: str
+    failure: dict[str, Any]
+    manifest: dict[str, Any]
+    preflight_report: dict[str, Any]
+
+
 def file_sha256(path: Path) -> str:
     """Hash one direct regular file and reject symlink indirection."""
 
@@ -406,6 +425,132 @@ def validate_preflight_rejection_evidence(
         manifest_file_sha256=manifest_hash,
         log_file_sha256=log_hash,
         manifest=manifest,
+    )
+
+
+def validate_br2_failure_evidence(binding_path: Path, hash_path: Path) -> ValidatedBR2FailureEvidence:
+    """Bind B-R2's 12/12 tokenizer pass and scalar module-hash failure."""
+
+    binding_file_hash = validate_hash_sidecar(binding_path, hash_path)
+    binding = load_json_file(binding_path)
+    if binding.get("schema_version") != "q35-2b-phase-b-br2-failure-binding/v1":
+        raise PhaseBContractError("unsupported Phase B-R2 failure binding schema")
+    if binding.get("status") != "bound_post_model_scalar_hash_failure":
+        raise PhaseBContractError("Phase B-R2 failure evidence is not bound")
+
+    paths: dict[str, Path] = {}
+    hashes: dict[str, str] = {}
+    for name in ("failure", "manifest", "preflight_log", "run_log"):
+        path = Path(binding.get(f"{name}_absolute_path", ""))
+        actual_hash = file_sha256(path)
+        if actual_hash != binding.get(f"{name}_file_sha256"):
+            raise PhaseBContractError(f"Phase B-R2 {name} hash differs from its binding")
+        paths[name] = path
+        hashes[name] = actual_hash
+    failure = load_json_file(paths["failure"])
+    manifest = load_json_file(paths["manifest"])
+
+    for object_name, value in (("failure", failure), ("manifest", manifest)):
+        predicates = binding.get(f"{object_name}_predicates")
+        if not isinstance(predicates, dict) or not predicates:
+            raise PhaseBContractError(f"Phase B-R2 binding lacks {object_name} predicates")
+        for semantic_name, predicate in predicates.items():
+            if not isinstance(predicate, dict) or set(predicate) != {"path", "expected"}:
+                raise PhaseBContractError(f"B-R2 {object_name} predicate {semantic_name!r} is malformed")
+            actual = _resolve_dotted_path(value, predicate["path"])
+            expected = predicate["expected"]
+            if type(actual) is not type(expected) or actual != expected:
+                raise PhaseBContractError(
+                    f"B-R2 {object_name} predicate {semantic_name!r} at {predicate['path']!r} was "
+                    f"{actual!r}, expected {expected!r}"
+                )
+
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        raise PhaseBContractError("Phase B-R2 snapshot manifest lacks its file map")
+    expected_manifest_files = {
+        "FAILURE.json": hashes["failure"],
+        "preflight.log": hashes["preflight_log"],
+        "run.log": hashes["run_log"],
+    }
+    if any(
+        not isinstance(files.get(name), dict) or files[name].get("sha256") != expected_hash
+        for name, expected_hash in expected_manifest_files.items()
+    ):
+        raise PhaseBContractError("Phase B-R2 snapshot manifest file map differs from bound artifacts")
+
+    try:
+        preflight_lines = paths["preflight_log"].read_text(encoding="utf-8").splitlines()
+        run_text = paths["run_log"].read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise PhaseBContractError(f"Phase B-R2 logs are not valid UTF-8: {error}") from error
+    if not preflight_lines:
+        raise PhaseBContractError("Phase B-R2 preflight log is empty")
+    try:
+        preflight_report = json.loads(preflight_lines[-1])
+    except json.JSONDecodeError as error:
+        raise PhaseBContractError("Phase B-R2 preflight log lacks its terminal JSON report") from error
+    if not isinstance(preflight_report, dict):
+        raise PhaseBContractError("Phase B-R2 preflight report must be an object")
+    if (
+        preflight_report.get("status") != "tokenizer_preflight_only_passed"
+        or preflight_report.get("plan_sha256") != manifest.get("plan_sha256")
+        or preflight_report.get("selection_sha256") != manifest.get("selection_sha256")
+        or preflight_report.get("execution_commit") != manifest.get("execution_commit")
+        or preflight_report.get("model_loaded") is not False
+        or preflight_report.get("cuda_initialized_during_preflight") is not False
+        or preflight_report.get("output_created") is not False
+    ):
+        raise PhaseBContractError("Phase B-R2 preflight report identity or no-model boundary is invalid")
+    proofs = preflight_report.get("normalization_and_render_proofs")
+    if not isinstance(proofs, list) or len(proofs) != 12:
+        raise PhaseBContractError("Phase B-R2 preflight report is not an exact 12-row pass")
+    actions = [proof.get("action") for proof in proofs if isinstance(proof, dict)]
+    if {action: actions.count(action) for action in set(actions)} != {
+        "solve_owned": 4,
+        "delegate_terminal": 4,
+        "delegate_coordinator": 4,
+    }:
+        raise PhaseBContractError("Phase B-R2 preflight report is not action-balanced 4/4/4")
+    for proof in proofs:
+        if (
+            not isinstance(proof, dict)
+            or proof.get("reasoning_content_preserved_byte_exact") is not True
+            or proof.get("normalized_arguments") != {"action": proof.get("action")}
+            or proof.get("modified_paths")
+            != ["messages.2.tool_calls.0.function.arguments"]
+            or not (
+                proof.get("full_target_tokens", 0)
+                > proof.get("generation_prefix_tokens", 0)
+                > proof.get("plain_prefix_tokens", 0)
+            )
+            or proof.get("latent_injection_token_index") != proof.get("plain_prefix_tokens")
+            or proof.get("label_mask_through_token_index") != proof.get("generation_prefix_tokens")
+        ):
+            raise PhaseBContractError("Phase B-R2 preflight row proof violates the frozen render contract")
+
+    markers = binding.get("required_run_log_markers")
+    if not isinstance(markers, list) or not markers or any(not isinstance(marker, str) for marker in markers):
+        raise PhaseBContractError("Phase B-R2 run-log markers are malformed")
+    if any(marker not in run_text for marker in markers):
+        raise PhaseBContractError("Phase B-R2 run log lacks a bound marker")
+
+    return ValidatedBR2FailureEvidence(
+        binding=binding,
+        binding_path=binding_path,
+        binding_hash_path=hash_path,
+        failure_path=paths["failure"],
+        manifest_path=paths["manifest"],
+        preflight_log_path=paths["preflight_log"],
+        run_log_path=paths["run_log"],
+        binding_file_sha256=binding_file_hash,
+        failure_file_sha256=hashes["failure"],
+        manifest_file_sha256=hashes["manifest"],
+        preflight_log_file_sha256=hashes["preflight_log"],
+        run_log_file_sha256=hashes["run_log"],
+        failure=failure,
+        manifest=manifest,
+        preflight_report=preflight_report,
     )
 
 

@@ -31,6 +31,7 @@ from prime_rl.phase_b_contract import (
     load_json_file,
     normalize_assistant_tool_call_arguments,
     validate_a0c_binding,
+    validate_br2_failure_evidence,
     validate_failed_start_evidence,
     validate_plan_authorization,
     validate_preflight_rejection_evidence,
@@ -38,9 +39,9 @@ from prime_rl.phase_b_contract import (
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br2-plan.json"
+PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br3-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-PLAN_SHA256 = "2852f73d13d35fc60b137544e47e6744fc712960138266f503a1c6b5c38ef296"
+PLAN_SHA256 = "UNFROZEN_PHASE_B_REPAIR3"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
@@ -88,7 +89,7 @@ def exact_git_commit(worktree: Path) -> str:
 
 def preflight_before_heavy_imports(
     args: argparse.Namespace,
-) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any]:
+) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any, Any]:
     if args.plan != PLAN or args.selection != SELECTION:
         raise PhaseBContractError("plan and selection paths differ from the deployed worktree")
     if file_sha256(args.plan) != PLAN_SHA256:
@@ -191,6 +192,23 @@ def preflight_before_heavy_imports(
     ):
         raise PhaseBContractError("Phase B-R preflight artifacts differ from the B-R2 plan")
 
+    br2_dependency = plan.get("br2_failure_dependency")
+    if not isinstance(br2_dependency, dict):
+        raise PhaseBContractError("Phase B-R3 plan lacks the exact B-R2 scalar-hash failure")
+    br2_failure = validate_br2_failure_evidence(
+        Path(br2_dependency.get("binding_path", "")),
+        Path(br2_dependency.get("binding_hash_path", "")),
+    )
+    if br2_failure.binding_file_sha256 != br2_dependency.get("binding_sha256"):
+        raise PhaseBContractError("Phase B-R3 plan does not bind the exact B-R2 failure")
+    if (
+        br2_failure.failure_file_sha256 != br2_dependency.get("failure_file_sha256")
+        or br2_failure.manifest_file_sha256 != br2_dependency.get("manifest_file_sha256")
+        or br2_failure.preflight_log_file_sha256 != br2_dependency.get("preflight_log_file_sha256")
+        or br2_failure.run_log_file_sha256 != br2_dependency.get("run_log_file_sha256")
+    ):
+        raise PhaseBContractError("Phase B-R2 scalar-hash artifacts differ from the B-R3 plan")
+
     if len(args.execution_commit) != 40 or any(
         character not in "0123456789abcdef" for character in args.execution_commit
     ):
@@ -227,13 +245,13 @@ def preflight_before_heavy_imports(
         raise PhaseBContractError("host has less than the frozen 60 GiB free-disk floor")
     if args.output_dir.exists() or args.output_dir.is_symlink():
         raise PhaseBContractError("Phase B output namespace already exists")
-    return plan, selection, binding, failed_start, preflight_rejection
+    return plan, selection, binding, failed_start, preflight_rejection, br2_failure
 
 
 def main() -> int:
     args = parse_args()
     try:
-        plan, selection, binding, failed_start, preflight_rejection = preflight_before_heavy_imports(args)
+        plan, selection, binding, failed_start, preflight_rejection, br2_failure = preflight_before_heavy_imports(args)
     except BaseException as error:
         print(f"Phase B preflight refusal: {type(error).__name__}: {error}", file=sys.stderr)
         return 2
@@ -268,6 +286,7 @@ def main() -> int:
                     "execution_commit": args.execution_commit,
                     "failed_start_binding_sha256": failed_start.binding_file_sha256,
                     "br1_preflight_binding_sha256": preflight_rejection.binding_file_sha256,
+                    "br2_failure_binding_sha256": br2_failure.binding_file_sha256,
                     "normalization_and_render_proofs": tokenizer_context["proofs"],
                     "model_loaded": False,
                     "cuda_initialized_during_preflight": tokenizer_context["cuda_initialized"],
@@ -310,6 +329,7 @@ def main() -> int:
             binding=binding,
             failed_start=failed_start,
             preflight_rejection=preflight_rejection,
+            br2_failure=br2_failure,
             tokenizer_context=tokenizer_context,
             torch=torch,
             transformers=transformers,
@@ -332,7 +352,9 @@ def main() -> int:
         if output_created:
             try:
                 signal.alarm(FAILURE_AUDIT_HEADROOM_SECONDS)
-                post_failure_audit = _post_failure_hash_audit(plan, binding, failed_start, preflight_rejection)
+                post_failure_audit = _post_failure_hash_audit(
+                    plan, binding, failed_start, preflight_rejection, br2_failure
+                )
             except BaseException as audit_error:
                 post_failure_audit = {
                     "audit_complete": False,
@@ -361,6 +383,13 @@ def main() -> int:
                     "manifest_file_sha256": preflight_rejection.manifest_file_sha256,
                     "log_file_sha256": preflight_rejection.log_file_sha256,
                 },
+                "br2_failure": {
+                    "binding_file_sha256": br2_failure.binding_file_sha256,
+                    "failure_file_sha256": br2_failure.failure_file_sha256,
+                    "manifest_file_sha256": br2_failure.manifest_file_sha256,
+                    "preflight_log_file_sha256": br2_failure.preflight_log_file_sha256,
+                    "run_log_file_sha256": br2_failure.run_log_file_sha256,
+                },
                 "post_failure_hash_audit": post_failure_audit,
             }
             try:
@@ -376,6 +405,7 @@ def _post_failure_hash_audit(
     binding: Any,
     failed_start: Any = None,
     preflight_rejection: Any = None,
+    br2_failure: Any = None,
 ) -> dict[str, Any]:
     """Best-effort durable preservation evidence after any started run fails."""
 
@@ -444,6 +474,26 @@ def _post_failure_hash_audit(
                 errors.append("br1_preflight_rejection:validated evidence object changed during run")
         except BaseException as error:
             errors.append(f"br1_preflight_rejection:{type(error).__name__}:{error}")
+    if br2_failure is not None:
+        try:
+            rebound_br2 = validate_br2_failure_evidence(br2_failure.binding_path, br2_failure.binding_hash_path)
+            audit["br2_failure"] = {
+                "binding_file_sha256": rebound_br2.binding_file_sha256,
+                "binding_matches": rebound_br2.binding_file_sha256 == br2_failure.binding_file_sha256,
+                "failure_file_sha256": rebound_br2.failure_file_sha256,
+                "failure_matches": rebound_br2.failure_file_sha256 == br2_failure.failure_file_sha256,
+                "manifest_file_sha256": rebound_br2.manifest_file_sha256,
+                "manifest_matches": rebound_br2.manifest_file_sha256 == br2_failure.manifest_file_sha256,
+                "preflight_log_file_sha256": rebound_br2.preflight_log_file_sha256,
+                "preflight_log_matches": rebound_br2.preflight_log_file_sha256
+                == br2_failure.preflight_log_file_sha256,
+                "run_log_file_sha256": rebound_br2.run_log_file_sha256,
+                "run_log_matches": rebound_br2.run_log_file_sha256 == br2_failure.run_log_file_sha256,
+            }
+            if rebound_br2 != br2_failure:
+                errors.append("br2_failure:validated evidence object changed during run")
+        except BaseException as error:
+            errors.append(f"br2_failure:{type(error).__name__}:{error}")
     try:
         audit["plan_selection"] = {
             "plan_sha256": file_sha256(PLAN),
@@ -618,6 +668,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     binding: Any,
     failed_start: Any,
     preflight_rejection: Any,
+    br2_failure: Any,
     tokenizer_context: dict[str, Any],
     torch: Any,
     transformers: Any,
@@ -820,6 +871,9 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     )
     if rebound_preflight != preflight_rejection:
         raise PhaseBContractError("B-R preflight rejection evidence changed during the smoke")
+    rebound_br2 = validate_br2_failure_evidence(br2_failure.binding_path, br2_failure.binding_hash_path)
+    if rebound_br2 != br2_failure:
+        raise PhaseBContractError("B-R2 failure evidence changed during the smoke")
     if any(parameter.grad is not None for parameter in model.parameters()):
         raise PhaseBContractError("protected e33 accumulated gradients")
 
@@ -854,6 +908,16 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             "model_loaded": preflight_rejection.manifest["model_loaded"],
             "cuda_initialized": preflight_rejection.manifest["cuda_initialized"],
             "output_created": preflight_rejection.manifest["output_created"],
+        },
+        "br2_failure": {
+            "binding_file_sha256": br2_failure.binding_file_sha256,
+            "failure_file_sha256": br2_failure.failure_file_sha256,
+            "manifest_file_sha256": br2_failure.manifest_file_sha256,
+            "preflight_log_file_sha256": br2_failure.preflight_log_file_sha256,
+            "run_log_file_sha256": br2_failure.run_log_file_sha256,
+            "preflight_rows": len(br2_failure.preflight_report["normalization_and_render_proofs"]),
+            "no_useful_forward": not br2_failure.manifest["useful_model_forward_completed"],
+            "no_update_attempt": not br2_failure.manifest["model_update_attempted"],
         },
         "optimizer": None,
         "optimizer_updates": 0,
@@ -1181,7 +1245,7 @@ def _module_tensor_sha256(module: Any, torch: Any) -> str:
         digest.update(name.encode())
         digest.update(str(contiguous.dtype).encode())
         digest.update(json.dumps(list(contiguous.shape), separators=(",", ":")).encode())
-        digest.update(contiguous.view(torch.uint8).numpy().tobytes())
+        digest.update(contiguous.reshape(-1).view(torch.uint8).numpy().tobytes())
     return digest.hexdigest()
 
 
