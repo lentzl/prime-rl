@@ -8,12 +8,17 @@ readonly SHARED_ENV=/home/ubuntu/rlm/prime-rl/.venv
 readonly EXPERIMENT_DIR="$WORKTREE/experiments/qwen35-2b-latent-coordinator-v1"
 readonly OUTPUT_DIR=/home/ubuntu/rlm/results/q35-2b-phase-b-fixed-depth-smoke-a0c-v1
 
-if [[ $# -ne 2 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ ]]; then
-  echo "usage: $0 <exact-clean-execution-commit> <root-authorized-plan-sha256>" >&2
+if [[ $# -lt 2 || $# -gt 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ ]]; then
+  echo "usage: $0 <exact-clean-execution-commit> <root-authorized-plan-sha256> [--preflight-only]" >&2
   exit 64
 fi
 readonly EXECUTION_COMMIT=$1
 readonly ROOT_AUTHORIZED_PLAN_SHA256=$2
+readonly MODE=${3:-}
+if [[ -n $MODE && $MODE != --preflight-only ]]; then
+  echo "third argument must be --preflight-only" >&2
+  exit 64
+fi
 
 cd "$WORKTREE"
 [[ $(git rev-parse HEAD) == "$EXECUTION_COMMIT" ]]
@@ -28,8 +33,9 @@ export CUDA_VISIBLE_DEVICES=0,1
 export HF_HUB_OFFLINE=1
 export TRANSFORMERS_OFFLINE=1
 
-# Python stops compute at 115 minutes and reserves five minutes for its
-# post-failure immutable-hash audit. GNU timeout is the independent outer bound.
+# Python stops compute at 114 minutes, reserves five minutes for its
+# post-failure hash audit, and leaves one minute for terminal publication.
+# GNU timeout is the independent outer bound.
 exec timeout --signal=TERM --kill-after=30s 120m \
   "$UV" run --project "$UV_PROJECT" --no-sync python \
   scripts/latent/run_phase_b_fixed_depth_smoke_v1.py \
@@ -38,4 +44,5 @@ exec timeout --signal=TERM --kill-after=30s 120m \
   --a0c-binding "$EXPERIMENT_DIR/phase-b-a0c-binding-v1.json" \
   --a0c-binding-hash "$EXPERIMENT_DIR/phase-b-a0c-binding-v1.sha256" \
   --output-dir "$OUTPUT_DIR" \
-  --execution-commit "$EXECUTION_COMMIT"
+  --execution-commit "$EXECUTION_COMMIT" \
+  ${MODE:+"$MODE"}

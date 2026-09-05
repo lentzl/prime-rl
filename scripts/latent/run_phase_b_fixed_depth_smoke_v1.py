@@ -36,7 +36,7 @@ WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
 PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-v1-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-PLAN_SHA256 = "d457c59251f925371419496eb3f002e8013bd96138f22c3a1899227a335f1aa5"
+PLAN_SHA256 = "ce9cc99233bb4b6341986bbd7d4f73630967d4be79ad63074f2da24a35708299"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
@@ -47,7 +47,10 @@ ARTIFACT_CAP = 536_870_912
 MINIMUM_FREE_BYTES = 60 * 1024**3
 WALL_CLOCK_LIMIT_SECONDS = 2 * 60 * 60
 FAILURE_AUDIT_HEADROOM_SECONDS = 5 * 60
-COMPUTE_LIMIT_SECONDS = WALL_CLOCK_LIMIT_SECONDS - FAILURE_AUDIT_HEADROOM_SECONDS
+TERMINAL_PUBLICATION_HEADROOM_SECONDS = 60
+COMPUTE_LIMIT_SECONDS = (
+    WALL_CLOCK_LIMIT_SECONDS - FAILURE_AUDIT_HEADROOM_SECONDS - TERMINAL_PUBLICATION_HEADROOM_SECONDS
+)
 
 
 class PhaseBWallClockExceeded(RuntimeError):
@@ -59,7 +62,7 @@ class PhaseBMechanismRejected(RuntimeError):
 
 
 def _wall_clock_timeout(_signal_number: int, _frame: Any) -> None:
-    raise PhaseBWallClockExceeded("Phase B crossed its 115-minute compute limit")
+    raise PhaseBWallClockExceeded("Phase B crossed its 114-minute compute limit")
 
 
 def parse_args() -> argparse.Namespace:
@@ -70,6 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--a0c-binding-hash", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--execution-commit", required=True)
+    parser.add_argument("--preflight-only", action="store_true")
     return parser.parse_args()
 
 
@@ -165,6 +169,24 @@ def main() -> int:
     except BaseException as error:
         print(f"Phase B preflight refusal: {type(error).__name__}: {error}", file=sys.stderr)
         return 2
+    if args.preflight_only:
+        print(
+            json.dumps(
+                {
+                    "status": "preflight_only_passed",
+                    "plan_sha256": PLAN_SHA256,
+                    "selection_sha256": SELECTION_SHA256,
+                    "binding_sha256": binding.binding_file_sha256,
+                    "receipt_file_sha256": binding.receipt_file_sha256,
+                    "receipt_internal_sha256": binding.receipt_canonical_sha256,
+                    "execution_commit": args.execution_commit,
+                    "heavy_imports": False,
+                    "output_created": False,
+                },
+                sort_keys=True,
+            )
+        )
+        return 0
 
     # Imports below this point can initialize accelerator-facing libraries, so
     # they are unreachable until both prospective authorization gates pass.
