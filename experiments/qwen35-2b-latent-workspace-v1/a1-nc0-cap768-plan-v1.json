@@ -3,7 +3,7 @@
   "status": "preregistered",
   "execution_authorization": "root_and_evaluator_review_required",
   "authorized_run_id": "a1-nc0-cap768-run2",
-  "mechanism_code_commit": "4481550fd3a1db872d1820d51fac8f9e56a27daa",
+  "mechanism_code_commit": "60a9955b316339ca4679759bd52aa5595f85469b",
   "asset_sha256": {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census-manifest.sha256": "6d526e7a54d4f2ba63f57277c02a801b90d4ca0a68b698320d3bae8196ed2372",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census.json": "9bb6e6548553bc78a3f83e05d897fc19865ae8a96f653d33be713e88a4d965ea",
@@ -21,13 +21,13 @@
     "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
     "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
     "src/prime_rl/latent/a0nc.py": "41c69fe874bc214b9cd4cb3bba377bbe8bdad9f039d16cb60bd089b28e413404",
-    "src/prime_rl/latent/a1cap768.py": "d1d4dfb4d3d09595389b49cf44eda437b81a6ae4839d01ee3c811ed9c5b4fc62",
+    "src/prime_rl/latent/a1cap768.py": "9410dcfeb2d3016f14f65bffbc958763c2c40cf6ad38f76e13874a64a386962c",
     "src/prime_rl/latent/a1nc0.py": "495249009c216ab1a67421ec9f439f0114364b08e4aa719f17ed537221362d7e",
     "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81",
     "src/prime_rl/latent/transfer_bank.py": "29c420b1f3d90c42c3a992f04f782b3bfad17a81ee0f2ec697bd65c1c9319c78",
-    "tests/unit/latent/test_a1cap768.py": "a8505f7713c01a97b6ecf975df19e62458b7b56311a9c4efd8e62c7ee8318d37"
+    "tests/unit/latent/test_a1cap768.py": "e5184830b053f007a2c66405ae74d278a8859394d2e76474c3c57aab32956d0b"
   },
-  "plan_sha256": "5a2bc3df30b42f025fb2ed57a4cbb9f7e2dff46cbc1485a64e367a3f36217cff",
+  "plan_sha256": "9fddd25b0c8267c18b4cef3ee8c0569605be86883b9d1784322e9b9af76c722d",
   "selection": [
     {
       "family": "keyed_numeric",
@@ -380,6 +380,8 @@
     "launch_log_sha256": "b70f54b49c6d9812f801fb793ee3ceee8683186b03213831db7692d7727d6078",
     "exact_error": "scripts/latent/run_a1_nc0_cap768_v1.sh: line 16: shared_project: unbound variable",
     "stage": "shell_readonly_initialization",
+    "artifacts": [],
+    "shell_exit_nonzero": true,
     "output_namespace_created": false,
     "python_started": false,
     "cuda_runtime_contacted": false,
