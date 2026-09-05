@@ -1,0 +1,209 @@
+{
+  "schema_version": "q35-2b-specialist-competence-plan/v1",
+  "experiment_id": "specialist-source-competence-s5-remedial-curriculum-v1",
+  "recorded_at": "2026-09-05",
+  "status": "draft_conditional_on_final_s3_rejection_without_candidate_specific_clean_progress",
+  "execution_authorization": "none",
+  "trigger": {
+    "required": [
+      "S3 completes with valid provenance and competence_gate_passed=false",
+      "S3 H_source_s2 treatment has zero admission-hard successes or zero candidate-specific clean paired recoveries",
+      "root records that the S4 identical-corpus branch is not authorized"
+    ],
+    "forbidden": [
+      "starting from a partial S3 snapshot",
+      "including any S1, S2, or S3 heldout prompt, path, task key, file value, answer, trace continuation, or model response in training",
+      "updating, overwriting, or relabeling e33 or H176",
+      "changing the frozen specialist competence gate"
+    ]
+  },
+  "objective": "Teach H_source_s2 to execute correct source/config parsing, exact arithmetic, compact JSON serialization, and the exactly-once parent send together in its first IPython work call, using a training-only leak-then-tighten curriculum.",
+  "diagnosis_from_s3_read_only_snapshot": {
+    "control_completed": 16,
+    "control_admission_hard": 0,
+    "control_exact_answers": 0,
+    "control_protocol_aligned": 6,
+    "control_clean_protocol_aligned": 0,
+    "treatment_completed_at_snapshot": 6,
+    "treatment_admission_hard": 0,
+    "treatment_exact_answers": 0,
+    "treatment_protocol_aligned": 4,
+    "treatment_clean_protocol_aligned": 0,
+    "observed_treatment_ast_failure": "The deterministic treatment often reaches Path.read_text plus ast.parse, but uses only ast.iter_child_nodes, merges sync and async nodes, omits decorator_list, applies a wrong formula, then sends a dict and later a scalar in separate calls.",
+    "observed_treatment_config_failure": "The treatment intermittently selects tomllib but misreads the runtime mapping and feature dictionary, or falls back to json.loads on TOML; it commonly attempts dict transport that raises before later scalar transport.",
+    "conclusion": "Temperature alone did not expose a clean learned mode. Transport intent and isolated API fragments exist, but the atomic read-compute-serialize-send program is not bound reliably enough for identical-corpus continuation to be the default."
+  },
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates_allowed": 0
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates_allowed": 0
+    },
+    "experimental_parent": {
+      "label": "H_source_s2",
+      "model_sha256": "937a96154cd47d8dda1fb01125d9f552037a91bc0542748f417652ceddd47f47",
+      "optimizer_updates_allowed": 8,
+      "admitted": false
+    }
+  },
+  "candidate": {
+    "label": "H_source_s5_remedial",
+    "parent": "H_source_s2",
+    "role": "terminal_worker",
+    "update_type": "full_dense",
+    "generic_worker_overwrite_allowed": false,
+    "optimizer_updates": 8,
+    "batch_size": 16,
+    "learning_rate": 0.000002,
+    "optimizer_state_continuous_from_parent": false,
+    "optimizer_state_boundary": "S2 retained weights only, so S5 uses fresh Adam state from the exact S2 dense weights."
+  },
+  "training_corpus": {
+    "builder": "scripts/export_q35_2b_source_worker_remedial_sft_v1.py",
+    "base_context_source": "The frozen answer-free 64-row source-inspector training corpus, not any heldout trace.",
+    "schema_version": "qwen35-2b-source-worker-remedial-sft/v1",
+    "rows": 128,
+    "family_counts": {
+      "source_ast": 64,
+      "source_config": 64
+    },
+    "phase_counts": {
+      "procedure_leak": 64,
+      "live_shape": 64
+    },
+    "curriculum_phase_order": [
+      "procedure_leak",
+      "live_shape"
+    ],
+    "training_template_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "instance_offset": 60000,
+    "instances_per_variant": 8,
+    "heldout_template_variants_excluded": [
+      4,
+      5
+    ],
+    "answer_free": true,
+    "heldout_tasks_or_values_used": false,
+    "procedure_leak": "The first phase explicitly names the canonical APIs, mapping accesses, formulas, JSON serialization, and same-call parent send. It contains no answer or heldout fixture.",
+    "tightening": "The final phase removes the procedure card and restores the live worker assignment shape while retaining the identical one-call positive target.",
+    "first_call_target": "Exactly one IPython work call performs every read, computation, json.dumps(..., separators=(',', ':')), and agent_message.send(..., receiver_role='parent'); the assistant then stops.",
+    "manifest_sha256": "ROOT_FREEZE_REQUIRED_REMEDIAL_MANIFEST_SHA256",
+    "train_parquet_sha256": "ROOT_FREEZE_REQUIRED_REMEDIAL_PARQUET_SHA256"
+  },
+  "training": {
+    "runner": "scripts/run_q35_2b_source_worker_remedial_sft_v1.py",
+    "updates": 8,
+    "batch_size": 16,
+    "shuffle": false,
+    "curriculum_schedule": "The first four updates consume the 64 procedure-leak rows; the last four consume the 64 live-shape rows. All 128 rows are seen exactly once.",
+    "learning_rate": 0.000002,
+    "maximum_predeclared_rungs": 1,
+    "additional_updates_require_new_plan": true,
+    "fail_closed": [
+      "exact S2 parent SHA required",
+      "exact prospectively frozen manifest and parquet SHA values required",
+      "both GPUs idle before training",
+      "partial output directories are never resumed or overwritten",
+      "finite loss and gradient norm required",
+      "output weights must differ from the parent"
+    ]
+  },
+  "paired_evaluation": {
+    "claim": "scaffolded_source_worker_first_call_competence_at_temperature_zero",
+    "arms_in_order": [
+      "frozen H176 control",
+      "frozen H_source_s2 same-bank bridge",
+      "H_source_s5_remedial treatment"
+    ],
+    "primary_admission_pair": "H176 versus H_source_s5_remedial",
+    "incremental_diagnostic_pair": "H_source_s2 versus H_source_s5_remedial",
+    "force_mechanism": "SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION=1",
+    "force_scope": "pristine delegate_terminal action and source_inspector identity only; no file, arithmetic, serialization, or transport repair",
+    "worker_temperature": 0.0,
+    "proposed_task_count": 16,
+    "proposed_family_counts": {
+      "specialist_source_ast": 8,
+      "specialist_source_config": 8
+    },
+    "heldout_template_variants": [
+      4,
+      5
+    ],
+    "heldout_seed": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "heldout_instance_offset": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "freshness_requirements": [
+      "zero task-key, task-name, and instance-root overlap with training, S1, S2, and S3",
+      "no heldout trace replay",
+      "all three arms use byte-identical task contracts and sampling",
+      "task bank and sampling contract are hashed before the H176 arm",
+      "the frozen AST generator's finite variant/parity payload support is disclosed rather than represented as byte-novel"
+    ]
+  },
+  "admission": {
+    "final_thresholds": {
+      "forced_worker_activations_each_arm": 16,
+      "minimum_treatment_hard_successes": 4,
+      "minimum_hard_successes_per_family": 2,
+      "minimum_paired_h176_fail_to_candidate_success_recoveries": 4,
+      "maximum_paired_regressions": 0
+    },
+    "acceptance_gates_relaxed": false,
+    "existing_minimum_complete_qualifying_floor_may_not_be_relaxed": 4,
+    "hard_success_definition": "Use the existing committed _hard_success implementation: exact answer, protocol_aligned=1, clean_protocol_aligned=1, agent_completed, and model-authored read/compute/send in one call.",
+    "primary_decision": "Only the H176-versus-H_source_s5_remedial paired summary can admit S5; the S2 bridge cannot weaken the gate.",
+    "required_invariants": [
+      "forced assignment exact for every arm",
+      "fixed route and worker provenance exact",
+      "no specialist-router calls",
+      "e33 and H176 bitwise unchanged",
+      "zero evaluation errors and 16 distinct complete task contracts"
+    ]
+  },
+  "decision_boundary": {
+    "if_primary_gate_passes": "Admit only the tight scaffolded source-worker claim at temperature 0.0. Preserve separate model identity; do not overwrite H176.",
+    "if_primary_gate_rejects": "Reject S5 and stop repeating positive-only source SFT. The next branch must test a different learning objective or a stronger harness-owned typed tool contract under a separately frozen claim.",
+    "if_s5_regresses_from_s2_bridge": "Reject S5 regardless of aggregate appearance and preserve S2 only as an unadmitted experimental checkpoint.",
+    "if_provenance_or_training_is_invalid": "Mark infrastructure-invalid, do not evaluate or publish, and rehash e33/H176."
+  },
+  "confounds_and_controls": [
+    "The data curriculum changes at the same time as eight new updates; the same-bank S2 bridge attributes the resulting policy delta but cannot separate which curriculum phase caused it.",
+    "Fresh Adam state means S5 is a weights continuation, not optimizer-continuous update 9 through 16.",
+    "The procedure card is an intentional training-time leak. The live-shape second half tests whether the pattern persists after that support is removed.",
+    "Temperature remains 0.0 across all evaluation arms, so decoding does not confound the weight comparison."
+  ],
+  "immutable_results": {
+    "schema": "specialist-competence-result-schema-v1.json",
+    "primary_result": "H176-versus-H_source_s5_remedial result conforming to the existing immutable schema",
+    "additional_write_once_artifacts": [
+      "S2-versus-S5 same-bank incremental comparison",
+      "S5 remedial training receipt",
+      "all arm traces and routing audits",
+      "protected-model preflight and postflight hashes"
+    ],
+    "write_policy": "write once; no retrospective threshold, corpus, task-bank, sampling, or summary replacement"
+  },
+  "resource_request": {
+    "authorization_required": true,
+    "host": "existing rented host only; no added infrastructure",
+    "gpu": "2x RTX A6000 48 GiB",
+    "host_ram_minimum_gib": 90,
+    "local_disk_free_minimum_gib": 80,
+    "training_layout": "both GPUs, full-dense distributed update, no colocated inference",
+    "evaluation_layout": "GPU0 e33; GPU1 one worker checkpoint at a time",
+    "estimated_training_steps": 8,
+    "estimated_training_wall_seconds_from_s2_step_time": 352.01742541603744,
+    "estimated_evaluation_episodes": 48,
+    "concurrency": "one training job or one evaluation arm at a time"
+  },
+  "publication": "No Hugging Face publication without separate admission and owner approval."
+}
