@@ -22,7 +22,9 @@ h176_sha=77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e
 s2_candidate_sha=937a96154cd47d8dda1fb01125d9f552037a91bc0542748f417652ceddd47f47
 config_sha=fff439c348cb5f31946cc549d3ec7688e14c05b6e7cbc930cd0ba7432447a0e7
 sampling_sha=da08080c6d1accbbb4ee49c4f6ef891808bf9488942d5d7035faffe0b0c4df98
-task_bank_sha=ROOT_FREEZE_REQUIRED_TASK_BANK_SHA256
+task_bank_sha=9e029eb5213737aeb63984e601cbdf29911a8d549a3375cc2226a8a261662c66
+uv_bin=/home/ubuntu/.local/bin/uv
+uv_environment=/home/ubuntu/rlm/prime-rl/.venv
 
 cd "$root"
 if [[ "$(git rev-parse HEAD)" != "$revision" ]]; then
@@ -52,7 +54,8 @@ test -f "$e33/STABLE"
 test -f "$h176/STABLE"
 test -f "$s2_candidate/STABLE"
 
-python3 - "$config" "$sampling_contract" <<'PY'
+UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync python - \
+  "$config" "$sampling_contract" <<'PY'
 import json
 import sys
 import tomllib
@@ -93,7 +96,8 @@ if (
     raise SystemExit("invalid S3 heldout or sampling contract")
 PY
 
-python3 - "$s2_summary" "$h176" "$s2_candidate" <<'PY'
+UV_PROJECT_ENVIRONMENT="$uv_environment" "$uv_bin" run --no-sync python - \
+  "$s2_summary" "$h176" "$s2_candidate" <<'PY'
 import json
 import sys
 from pathlib import Path

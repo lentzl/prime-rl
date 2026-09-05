@@ -2,8 +2,8 @@
   "schema_version": "q35-2b-specialist-competence-plan/v1",
   "experiment_id": "specialist-source-competence-s3-low-temperature-v1",
   "recorded_at": "2026-09-05",
-  "status": "draft_requires_root_and_strand_e_freeze_before_any_s3_model_call",
-  "execution_authorization": "none",
+  "status": "prospective_frozen_before_any_s3_model_call",
+  "execution_authorization": "owner_active_goal_existing_2x_a6000_host_only_2026-09-05",
   "trigger": {
     "required": "specialist-source-competence-s2-v1 completes validly and rejects under its prospectively frozen gate",
     "forbidden": [
@@ -45,12 +45,16 @@
       "loss_nan_count": 0,
       "gradient_norm_last_record": 29.75
     },
-    "treatment_snapshot": {
-      "completed_tasks": 5,
-      "answer_and_protocol_successes": 1,
+    "treatment_final": {
+      "completed_tasks": 16,
+      "answer_and_protocol_successes": 2,
       "admission_hard_successes_under_committed_summarizer": 0,
-      "parent_send_tasks": 1,
-      "diagnosis": "AST v4 i44001 eventually computed the exact value and sent a parent message, but only after four failed cells; the successful send was separate from file reading and carried scalar text rather than the requested compact JSON object. It is a useful mechanics signal, not an admission-hard success."
+      "protocol_aligned_tasks": 9,
+      "clean_protocol_aligned_tasks": 0,
+      "model_authored_one_cell_computation_tasks": 5,
+      "failed_cells": 138,
+      "paired_hard_recoveries": 0,
+      "diagnosis": "S2 increased exact answers from zero to two and protocol-aligned reports from three to nine versus H176, but every treatment task had at least one failed cell and no task met the authoritative clean hard-success definition. This is an intermittent mechanics and entropy signal, not admission evidence."
     }
   },
   "paired_evaluation": {
@@ -83,7 +87,7 @@
     "heldout_config_sha256": "fff439c348cb5f31946cc549d3ec7688e14c05b6e7cbc930cd0ba7432447a0e7",
     "sampling_contract": "specialist-source-competence-s3-low-temperature-sampling-contract-v1.json",
     "sampling_contract_sha256": "da08080c6d1accbbb4ee49c4f6ef891808bf9488942d5d7035faffe0b0c4df98",
-    "heldout_task_bank_sha256": "ROOT_FREEZE_REQUIRED_TASK_BANK_SHA256",
+    "heldout_task_bank_sha256": "9e029eb5213737aeb63984e601cbdf29911a8d549a3375cc2226a8a261662c66",
     "freshness_requirements": [
       "zero task-key and task-name overlap with training, S1, and S2",
       "fresh instance roots and no trace replay",
@@ -141,7 +145,7 @@
       "exact immutable rejected S2 paired-summary SHA-256"
     ],
     "duplicate_policy": "Refuse launch if the S3 result root already exists, including a partial prior attempt.",
-    "task_bank_freeze": "Root must replace the explicit task-bank SHA-256 placeholder in the plan and runner after independent materialization, then commit before any S3 model call."
+    "task_bank_freeze": "Root independently materialized the 16-task bank on the pinned taskset before any S3 model call and froze SHA-256 9e029eb5213737aeb63984e601cbdf29911a8d549a3375cc2226a8a261662c66."
   },
   "resource_request": {
     "authorization_required": true,
