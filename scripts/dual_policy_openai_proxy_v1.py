@@ -3805,6 +3805,7 @@ class DualPolicyProxy:
         specialist_router_generic_relative_cost: float = 0.5,
         specialist_fixed_expert: str | None = None,
         specialist_force_fixed_action: bool = False,
+        require_client_session_id: bool = False,
         recursive_coordinator_token_ids: list[int] | None = None,
         document_coordinator_token_ids: list[int] | None = None,
         specialist_child_token_ids: list[int] | None = None,
@@ -3880,6 +3881,7 @@ class DualPolicyProxy:
             )
         self.specialist_fixed_expert = specialist_fixed_expert
         self.specialist_force_fixed_action = specialist_force_fixed_action
+        self.require_client_session_id = require_client_session_id
         self.external_model = external_model
         self.audit_log = audit_log
         self.private_evidence_token_ids = private_evidence_token_ids
@@ -4102,6 +4104,7 @@ class DualPolicyProxy:
         mode: str = "forwarded",
         action_sha256: str | None = None,
         session_sha256: str | None = None,
+        branch_session_sha256: str | None = None,
         response_rewrites: int = 0,
         document_report_stems: tuple[str, ...] | None = None,
         document_root_topology: str | None = None,
@@ -4133,6 +4136,8 @@ class DualPolicyProxy:
             event["action_sha256"] = action_sha256
         if session_sha256 is not None:
             event["session_sha256"] = session_sha256
+        if branch_session_sha256 is not None:
+            event["branch_session_sha256"] = branch_session_sha256
         if response_rewrites:
             event["response_rewrites"] = {
                 "abort_finish_reason_to_stop": response_rewrites
@@ -4320,6 +4325,18 @@ class DualPolicyProxy:
         session_sha256 = (
             hashlib.sha256(session_id.encode()).hexdigest() if session_id else None
         )
+        branch_session_id = request.headers.get("x-client-session-id")
+        branch_session_sha256 = (
+            hashlib.sha256(branch_session_id.encode()).hexdigest()
+            if branch_session_id
+            else None
+        )
+        if (
+            self.require_client_session_id
+            and endpoint == "/inference/v1/generate"
+            and branch_session_sha256 is None
+        ):
+            raise ValueError("token-native request lacks x-client-session-id")
         session_document_topology = (
             self.root_document_topologies.get(session_sha256)
             if session_sha256 is not None
@@ -5406,6 +5423,7 @@ class DualPolicyProxy:
                     mode="forced_specialist_assignment_generate_action",
                     action_sha256=action_sha256,
                     session_sha256=session_sha256,
+                    branch_session_sha256=branch_session_sha256,
                     upstream_model=self.models[route_key],
                     expert_id=self.specialist_fixed_expert,
                     route_evidence="coordinator_without_specialist_child_prefix",
@@ -5832,6 +5850,7 @@ class DualPolicyProxy:
                     or forced_chat_action_sha256
                 ),
                 session_sha256=session_sha256,
+                branch_session_sha256=branch_session_sha256,
                 response_rewrites=response_rewrites,
                 upstream_model=self.models[route_key],
                 expert_id=specialist_selected_expert or routed_expert_id,
@@ -5886,6 +5905,7 @@ def main() -> None:
     parser.add_argument("--specialist-router-model")
     parser.add_argument("--specialist-fixed-expert")
     parser.add_argument("--specialist-force-fixed-action", action="store_true")
+    parser.add_argument("--require-client-session-id", action="store_true")
     parser.add_argument(
         "--specialist-router-generic-relative-cost", type=float, default=0.5
     )
@@ -5973,6 +5993,7 @@ def main() -> None:
         ),
         specialist_fixed_expert=args.specialist_fixed_expert,
         specialist_force_fixed_action=args.specialist_force_fixed_action,
+        require_client_session_id=args.require_client_session_id,
         external_model=args.external_model,
         audit_log=args.audit_log.resolve(),
         private_evidence_token_ids=private_evidence_token_ids,

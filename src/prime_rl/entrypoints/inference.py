@@ -269,6 +269,8 @@ def start_role_router(config: InferenceConfig) -> list[subprocess.Popen]:
         )
     if router.specialist_force_fixed_action:
         proxy_command.append("--specialist-force-fixed-action")
+    if router.require_client_session_id:
+        proxy_command.append("--require-client-session-id")
     proxy_process = subprocess.Popen(
         proxy_command,
         stdout=proxy_log,

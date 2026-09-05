@@ -1,0 +1,561 @@
+diff --git a/environments/source_worker_first_call_v1/source_worker_first_call_v1/reward.py b/environments/source_worker_first_call_v1/source_worker_first_call_v1/reward.py
+index 1ffe158..1c5a644 100644
+--- a/environments/source_worker_first_call_v1/source_worker_first_call_v1/reward.py
++++ b/environments/source_worker_first_call_v1/source_worker_first_call_v1/reward.py
+@@ -9,6 +9,13 @@ from typing import Literal
+
+ Family = Literal["specialist_source_ast", "specialist_source_config"]
+
++SOURCE_INSPECTOR_TASK_MARKERS = (
++    "[task from parent]",
++    "[selected terminal capability]",
++    "expert_id=source_inspector",
++    "session_role=terminal_worker",
++)
++
+
+ @dataclass(frozen=True)
+ class CellEvidence:
+@@ -84,18 +91,13 @@ def _string_literals(tree: ast.AST | None) -> set[str]:
+ def _bound_iterable_paths(tree: ast.AST, variable: str) -> set[str]:
+     paths: set[str] = set()
+     for node in ast.walk(tree):
+-        if isinstance(node, ast.For) and isinstance(node.target, ast.Name):
+-            if node.target.id == variable:
+-                paths.update(_string_literals(node.iter))
+-                if isinstance(node.iter, ast.Name):
+-                    paths.update(_assigned_paths(tree, node.iter.id))
+-        elif isinstance(node, ast.comprehension) and isinstance(
++        is_bound_iterator = isinstance(node, (ast.For, ast.comprehension)) and isinstance(
+             node.target, ast.Name
+-        ):
+-            if node.target.id == variable:
+-                paths.update(_string_literals(node.iter))
+-                if isinstance(node.iter, ast.Name):
+-                    paths.update(_assigned_paths(tree, node.iter.id))
++        )
++        if is_bound_iterator and node.target.id == variable:
++            paths.update(_string_literals(node.iter))
++            if isinstance(node.iter, ast.Name):
++                paths.update(_assigned_paths(tree, node.iter.id))
+     return paths
+
+
+@@ -175,6 +177,72 @@ def _correct_api(family: Family, required_paths: tuple[str, ...], tree: ast.AST
+     raise ValueError(f"unsupported source-worker family: {family}")
+
+
++def _has_nonconstant_arithmetic(tree: ast.AST | None) -> bool:
++    if tree is None:
++        return False
++    for node in ast.walk(tree):
++        if (
++            isinstance(node, ast.BinOp)
++            and isinstance(node.op, (ast.Add, ast.Mult))
++            and not (
++                isinstance(node.left, ast.Constant)
++                and isinstance(node.right, ast.Constant)
++            )
++        ):
++            return True
++        if isinstance(node, ast.Call) and _call_name(node) in {"sum", "len"}:
++            return True
++    return False
++
++
++def _attempts_family_computation(family: Family, tree: ast.AST | None) -> bool:
++    """Require source-family work beyond merely opening or parsing files."""
++
++    calls = _calls(tree)
++    names = {_call_name(call) for call in calls}
++    attributes = {
++        node.attr for node in ast.walk(tree) if isinstance(node, ast.Attribute)
++    } if tree is not None else set()
++    if family == "specialist_source_ast":
++        structural_targets = {
++            "FunctionDef",
++            "AsyncFunctionDef",
++            "decorator_list",
++        }
++        return (
++            "ast.parse" in names
++            and "ast.walk" in names
++            and bool(attributes & structural_targets)
++            and _has_nonconstant_arithmetic(tree)
++        )
++    if family == "specialist_source_config":
++        has_true_comparison = any(
++            isinstance(node, ast.Compare)
++            and any(
++                isinstance(comparator, ast.Constant)
++                and comparator.value == "true"
++                for comparator in node.comparators
++            )
++            for node in ast.walk(tree)
++        ) if tree is not None else False
++        return (
++            ("tomllib.loads" in names or "tomllib.load" in names)
++            and any(_has_split_key_value(call) for call in calls)
++            and has_true_comparison
++            and _has_nonconstant_arithmetic(tree)
++        )
++    raise ValueError(f"unsupported source-worker family: {family}")
++
++
++def is_designated_source_inspector_task(text: str) -> bool:
++    """Recognize only the harness-authored terminal source-worker assignment."""
++
++    stripped = text.lstrip()
++    return stripped.startswith(SOURCE_INSPECTOR_TASK_MARKERS[0]) and all(
++        marker in stripped for marker in SOURCE_INSPECTOR_TASK_MARKERS[1:]
++    )
++
++
+ def _parent_sends(tree: ast.AST | None) -> list[ast.Call]:
+     return [
+         call
+@@ -206,7 +274,18 @@ def score_first_call(
+     all_sends = [call for tree in all_trees for call in _parent_sends(tree)]
+     first_sends = _parent_sends(first_tree)
+
+-    exception_free = bool(first and first_tree is not None and not _failed(first.output))
++    # A syntactically valid, quiet cell is not useful source work.  The first
++    # call earns its smallest positive component only when its observed
++    # exception-free execution also reads every assigned path and attempts the
++    # requested family computation.  This keeps silence, early stopping, and
++    # roster/transcript/goal inspection at zero rather than above partial work.
++    exception_free = bool(
++        first
++        and first_tree is not None
++        and not _failed(first.output)
++        and set(required_paths).issubset(_read_path_coverage(first_tree))
++        and _attempts_family_computation(family, first_tree)
++    )
+     correct_api = exception_free and _correct_api(family, required_paths, first_tree)
+     compact = json.dumps({"value": expected_value}, separators=(",", ":"))
+     # A later exact report earns bounded recovery credit, but never atomic credit.
+diff --git a/environments/source_worker_first_call_v1/source_worker_first_call_v1/taskset.py b/environments/source_worker_first_call_v1/source_worker_first_call_v1/taskset.py
+index 841eadf..6ab4b3f 100644
+--- a/environments/source_worker_first_call_v1/source_worker_first_call_v1/taskset.py
++++ b/environments/source_worker_first_call_v1/source_worker_first_call_v1/taskset.py
+@@ -5,8 +5,6 @@ from __future__ import annotations
+ from typing import Literal
+
+ from pydantic import Field, model_validator
+-
+-import verifiers.v1 as vf
+ from subagent_communication_v1.taskset import (
+     SubagentCommunicationConfig,
+     SubagentCommunicationTask,
+@@ -15,9 +13,14 @@ from subagent_communication_v1.taskset import (
+     _incoming_child_messages,
+     _ipython_events,
+ )
+-from verifiers.v1.types import UserMessage, content_text
+
+-from source_worker_first_call_v1.reward import CellEvidence, score_first_call
++import verifiers.v1 as vf
++from source_worker_first_call_v1.reward import (
++    CellEvidence,
++    is_designated_source_inspector_task,
++    score_first_call,
++)
++from verifiers.v1.types import UserMessage, content_text
+
+ SOURCE_FAMILIES = ("specialist_source_ast", "specialist_source_config")
+
+@@ -26,15 +29,15 @@ class SourceWorkerFirstCallTaskConfig(SubagentCommunicationTaskConfig):
+     reward_mode: Literal["source_worker_first_call"] = "source_worker_first_call"
+
+
+-def _is_child_node(trace: vf.Trace, node_index: int) -> bool:
++def _is_source_inspector_node(trace: vf.Trace, node_index: int) -> bool:
+     visited: set[int] = set()
+     while node_index not in visited:
+         visited.add(node_index)
+         node = trace.nodes[node_index]
+-        if isinstance(node.message, UserMessage) and content_text(
+-            node.message.content
+-        ).lstrip().startswith("[task from parent]"):
+-            return True
++        if isinstance(node.message, UserMessage):
++            text = content_text(node.message.content)
++            if text.lstrip().startswith("[task from parent]"):
++                return is_designated_source_inspector_task(text)
+         if node.parent is None:
+             return False
+         node_index = node.parent
+@@ -49,7 +52,7 @@ class SourceWorkerFirstCallTask(SubagentCommunicationTask):
+         events = tuple(
+             CellEvidence(event.code, event.output)
+             for event in _ipython_events(trace)
+-            if _is_child_node(trace, event.node_index)
++            if _is_source_inspector_node(trace, event.node_index)
+         )
+         messages = tuple(
+             message.body
+@@ -58,7 +61,7 @@ class SourceWorkerFirstCallTask(SubagentCommunicationTask):
+         )
+         expected_value = self.data.answer.get("result")
+         if not isinstance(expected_value, int):
+-            raise ValueError("source-worker task requires one integer result oracle")
++            raise TypeError("source-worker task requires one integer result oracle")
+         if self.data.family not in SOURCE_FAMILIES:
+             raise ValueError(f"unsupported source-worker family: {self.data.family}")
+         return score_first_call(
+diff --git a/environments/source_worker_first_call_v1/tests/test_reward.py b/environments/source_worker_first_call_v1/tests/test_reward.py
+new file mode 100644
+index 0000000..681fe54
+--- /dev/null
++++ b/environments/source_worker_first_call_v1/tests/test_reward.py
+@@ -0,0 +1,257 @@
++import importlib.util
++import sys
++from pathlib import Path
++
++import pytest
++
++REWARD_PATH = Path(__file__).parents[1] / "source_worker_first_call_v1/reward.py"
++SPEC = importlib.util.spec_from_file_location("source_worker_first_call_reward_test", REWARD_PATH)
++assert SPEC is not None and SPEC.loader is not None
++REWARD = importlib.util.module_from_spec(SPEC)
++sys.modules[SPEC.name] = REWARD
++SPEC.loader.exec_module(REWARD)
++CellEvidence = REWARD.CellEvidence
++is_designated_source_inspector_task = REWARD.is_designated_source_inspector_task
++score_first_call = REWARD.score_first_call
++
++AST_PATHS = ("/workspace/sample/alpha.py", "/workspace/sample/beta.py")
++CONFIG_PATHS = ("/workspace/sample/service.toml", "/workspace/sample/features.env")
++
++
++def test_direct_ast_reads_receive_partial_first_call_credit() -> None:
++    code = """import ast
++from pathlib import Path
++left = ast.parse(Path('/workspace/sample/alpha.py').read_text())
++right = ast.parse(Path('/workspace/sample/beta.py').read_text())
++value = sum(isinstance(node, ast.FunctionDef) for tree in (left, right) for node in ast.walk(tree))
++"""
++    result = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    assert result.correct_file_api == 1
++    assert result.score == pytest.approx(0.3)
++
++
++def test_two_hop_loop_proves_each_path_is_read() -> None:
++    code = """import ast
++from pathlib import Path
++paths = ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')
++trees = []
++for path in paths:
++    trees.append(ast.parse(Path(path).read_text()))
++value = sum(isinstance(node, ast.FunctionDef) for tree in trees for node in ast.walk(tree))
++"""
++    result = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    assert result.correct_file_api == 1
++
++
++def test_unused_path_literals_do_not_count_as_reads() -> None:
++    code = """import ast
++from pathlib import Path
++claimed = ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')
++tree = ast.parse(Path('/workspace/sample/other.py').read_text())
++value = sum(isinstance(node, ast.FunctionDef) for node in ast.walk(tree))
++"""
++    result = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    assert result.exception_free_first_call == 0
++    assert result.correct_file_api == 0
++
++
++@pytest.mark.parametrize(
++    "toml_expression",
++    (
++        "tomllib.loads(Path('/workspace/sample/service.toml').read_text())",
++        "tomllib.load(open('/workspace/sample/service.toml', 'rb'))",
++    ),
++)
++def test_config_requires_tomllib_env_split_true_and_nonconstant_compute(
++    toml_expression: str,
++) -> None:
++    code = f"""import tomllib
++from pathlib import Path
++config = {toml_expression}
++features = dict(line.split('=', 1) for line in Path('/workspace/sample/features.env').read_text().splitlines())
++value = config['runtime']['workers'] * config['runtime']['timeout_seconds'] + sum(item == 'true' for item in features.values())
++"""
++    result = score_first_call(
++        family="specialist_source_config",
++        required_paths=CONFIG_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    assert result.correct_file_api == 1
++    assert result.score == pytest.approx(0.3)
++
++
++@pytest.mark.parametrize("loader", ("json.loads", "yaml.safe_load"))
++def test_config_rejects_json_and_yaml_substitutes(loader: str) -> None:
++    module = loader.split(".")[0]
++    code = f"""import {module}
++from pathlib import Path
++config = {loader}(Path('/workspace/sample/service.toml').read_text())
++features = dict(line.split('=', 1) for line in Path('/workspace/sample/features.env').read_text().splitlines())
++value = len(config) + sum(item == 'true' for item in features.values())
++"""
++    result = score_first_call(
++        family="specialist_source_config",
++        required_paths=CONFIG_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    assert result.exception_free_first_call == 0
++    assert result.correct_file_api == 0
++
++
++@pytest.mark.parametrize(
++    "computation",
++    (
++        "value = len(trees)",
++        "value = sum(1 for tree in trees for node in ast.walk(tree))",
++    ),
++)
++def test_ast_requires_walk_and_structural_target(computation: str) -> None:
++    code = f"""import ast
++from pathlib import Path
++trees = [ast.parse(Path(path).read_text()) for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
++{computation}
++"""
++    result = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    assert result.exception_free_first_call == 0
++    assert result.correct_file_api == 0
++
++
++@pytest.mark.parametrize(
++    "code",
++    (
++        "",
++        "rlm.list_subagents()",
++        "await agent_observe('child')",
++        "print('conversation log')",
++        "goal = 'inspect source eventually'",
++    ),
++)
++def test_silence_and_control_plane_inspection_earn_no_positive_credit(
++    code: str,
++) -> None:
++    cells = () if not code else (CellEvidence(code, "ok"),)
++    result = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=cells,
++        delivered_bodies=(),
++    )
++    assert result.exception_free_first_call == 0
++    assert result.correct_file_api == 0
++    assert result.score == pytest.approx(0.0)
++
++
++def test_reads_without_family_computation_earn_no_positive_credit() -> None:
++    code = """from pathlib import Path
++texts = [Path(path).read_text() for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
++"""
++    result = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    assert result.exception_free_first_call == 0
++    assert result.score == pytest.approx(0.0)
++
++
++def test_partial_correct_source_work_outranks_silence() -> None:
++    code = """import ast
++from pathlib import Path
++trees = [ast.parse(Path(path).read_text()) for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
++value = sum(isinstance(node, ast.FunctionDef) for tree in trees for node in ast.walk(tree))
++"""
++    partial = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(code, "ok"),),
++        delivered_bodies=(),
++    )
++    silence = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(),
++        delivered_bodies=(),
++    )
++    assert partial.exception_free_first_call == 1
++    assert partial.correct_file_api == 1
++    assert partial.score == pytest.approx(0.3)
++    assert partial.score > silence.score
++
++
++def test_later_exact_retry_cannot_outrank_correct_first_call() -> None:
++    correct = """import ast
++from pathlib import Path
++trees = [ast.parse(Path(path).read_text()) for path in ('/workspace/sample/alpha.py', '/workspace/sample/beta.py')]
++value = sum(isinstance(node, ast.FunctionDef) for tree in trees for node in ast.walk(tree))
++"""
++    baseline = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(CellEvidence(correct, "ok"),),
++        delivered_bodies=(),
++    )
++    recovered = score_first_call(
++        family="specialist_source_ast",
++        required_paths=AST_PATHS,
++        expected_value=30,
++        cells=(
++            CellEvidence("value = 29", "29"),
++            CellEvidence(
++                "await agent_message.send('{\"value\":30}', receiver_role='parent')",
++                "Agent message sent: agentmsg_456",
++            ),
++        ),
++        delivered_bodies=('{"value":30}',),
++    )
++    assert baseline.score == pytest.approx(0.3)
++    assert recovered.exact_oracle_value == 1
++    assert recovered.atomic_compact_parent_send == 0
++    assert recovered.score < baseline.score
++
++
++def test_only_typed_source_inspector_assignment_is_designated() -> None:
++    typed = """[task from parent]
++[selected terminal capability]
++expert_id=source_inspector
++session_role=terminal_worker
++Read both files.
++"""
++    assert is_designated_source_inspector_task(typed)
++    assert not is_designated_source_inspector_task("[task from parent]\nInspect files")
++    assert not is_designated_source_inspector_task(
++        typed.replace("expert_id=source_inspector", "expert_id=table_analyst")
++    )
+diff --git a/tests/v1/test_client_lineage.py b/tests/v1/test_client_lineage.py
+index 2345d63..419f34b 100644
+--- a/tests/v1/test_client_lineage.py
++++ b/tests/v1/test_client_lineage.py
+@@ -3,7 +3,9 @@ from types import SimpleNamespace
+ import pytest
+
+ from verifiers.v1.clients import EvalClientConfig
++from verifiers.v1.clients.client import CLIENT_SESSION_ID_HEADER, SESSION_ID_HEADER
+ from verifiers.v1.clients.eval import EvalClient
++from verifiers.v1.clients.train import forwarded_session_headers
+ from verifiers.v1.dialects import ChatDialect
+ from verifiers.v1.interception.server import InterceptionServer
+ from verifiers.v1.types import SamplingConfig
+@@ -54,6 +56,18 @@ def test_record_call_preserves_client_session_id() -> None:
+     assert session.trace.calls[0].client_session_id == "prime-agent-child"
+
+
++def test_train_client_forwards_branch_id_separately_from_rollout_id() -> None:
++    headers = forwarded_session_headers(
++        session_id="rollout-trace",
++        headers={"session_id": "prime-agent-child"},
++    )
++
++    assert headers == {
++        SESSION_ID_HEADER: "rollout-trace",
++        CLIENT_SESSION_ID_HEADER: "prime-agent-child",
++    }
++
++
+ def test_chat_eval_max_tokens_removes_competing_program_alias() -> None:
+     body = {
+         "model": "program-model",
+diff --git a/verifiers/v1/clients/client.py b/verifiers/v1/clients/client.py
+index ec78a88..2a62cc5 100644
+--- a/verifiers/v1/clients/client.py
++++ b/verifiers/v1/clients/client.py
+@@ -17,6 +17,9 @@ SESSION_ID_HEADER = "X-Session-ID"
+ """Per-rollout routing header (the trace id, same value every turn), so a session-affinity
+ router pins a rollout's turns to one engine and its growing prefix stays KV-cached."""
+
++CLIENT_SESSION_ID_HEADER = "X-Client-Session-ID"
++"""Per-branch Prime Agent session id, forwarded separately from rollout affinity."""
++
+
+ @dataclass
+ class RelayReply:
+diff --git a/verifiers/v1/clients/train.py b/verifiers/v1/clients/train.py
+index c1e6cab..c878014 100644
+--- a/verifiers/v1/clients/train.py
++++ b/verifiers/v1/clients/train.py
+@@ -15,7 +15,12 @@ from renderers import RenderedTokens, Renderer, RendererConfig
+ from renderers.base import ToolCallParseStatus
+
+ from verifiers.v1.clients.base import build_async_openai
+-from verifiers.v1.clients.client import SESSION_ID_HEADER, Client, RelayReply
++from verifiers.v1.clients.client import (
++    CLIENT_SESSION_ID_HEADER,
++    SESSION_ID_HEADER,
++    Client,
++    RelayReply,
++)
+ from verifiers.v1.configs.client import TrainClientConfig
+ from verifiers.v1.dialects import FINISH_REASONS, Dialect
+ from verifiers.v1.dialects.chat import message_to_wire
+@@ -39,6 +44,16 @@ logger = logging.getLogger(__name__)
+ T = TypeVar("T")
+
+
++def forwarded_session_headers(
++    session_id: str | None, headers: Mapping[str, str] | None
++) -> dict[str, str] | None:
++    forwarded = {SESSION_ID_HEADER: session_id} if session_id else {}
++    client_session_id = headers.get("session_id") if headers else None
++    if client_session_id:
++        forwarded[CLIENT_SESSION_ID_HEADER] = client_session_id
++    return forwarded or None
++
++
+ def tool_to_wire(tool: Tool) -> dict:
+     function: dict = {
+         "name": tool.name,
+@@ -380,9 +395,7 @@ class TrainClient(Client):
+                     prompt_attribution=prompt_attribution,
+                     tools=wire_tools,
+                     sampling_params=sampling_params,
+-                    extra_headers={SESSION_ID_HEADER: session_id}
+-                    if session_id
+-                    else None,
++                    extra_headers=forwarded_session_headers(session_id, headers),
+                 )
+             except RendererOverlongPromptError as e:
+                 raise OverlongPromptError(str(e)) from e

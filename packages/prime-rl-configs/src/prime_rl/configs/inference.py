@@ -340,6 +340,8 @@ class RoleRouterConfig(BaseConfig):
     """Route terminal specialist assignments to one fixed child-policy identity."""
     specialist_force_fixed_action: bool = False
     """Force the disclosed terminal-delegation action before applying the fixed route."""
+    require_client_session_id: bool = False
+    """Require and audit a hashed branch-session identifier on token-native requests."""
     state_dir: Path
     audit_log: Path
 

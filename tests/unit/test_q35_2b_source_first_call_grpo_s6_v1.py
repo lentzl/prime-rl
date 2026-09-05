@@ -34,6 +34,11 @@ P1_CONFIG_PATH = EXPERIMENT / "specialist-source-route-parity-p1-lr0.toml"
 P1_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p1_v1.py"
 P1_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p1_v1.sh"
 P1_HASHER_PATH = REPO / "scripts/hash_q35_2b_source_route_parity_p1_tasks_v1.py"
+P2_CONFIG_PATH = EXPERIMENT / "specialist-source-route-parity-p2-lr0.toml"
+P2_VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_route_parity_p2_v1.py"
+P2_LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_route_parity_p2_v1.sh"
+P2_HASHER_PATH = REPO / "scripts/hash_q35_2b_source_route_parity_p2_tasks_v1.py"
+P1_FORENSIC_PATH = REPO / "scripts/recover_q35_2b_source_route_parity_p1_v1.py"
 
 
 def _validator_module():
@@ -67,6 +72,26 @@ def _p0_validator_module():
 
 def _p1_hasher_module():
     spec = importlib.util.spec_from_file_location("p1_task_hasher_test", P1_HASHER_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _p2_validator_module():
+    spec = importlib.util.spec_from_file_location(
+        "source_route_parity_p2_validator", P2_VALIDATOR_PATH
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _p2_hasher_module():
+    spec = importlib.util.spec_from_file_location("p2_task_hasher_test", P2_HASHER_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -572,8 +597,10 @@ def test_generate_routes_exact_specialist_child_without_rewriting_it(tmp_path: P
             return Upstream()
 
     class Request:
-        def __init__(self, token_ids, session):
+        def __init__(self, token_ids, session, client_session=None):
             self.headers = {"x-session-id": session}
+            if client_session is not None:
+                self.headers["x-client-session-id"] = client_session
             self._body = json.dumps(
                 {"model": "external", "token_ids": token_ids}
             ).encode()
@@ -595,13 +622,16 @@ def test_generate_routes_exact_specialist_child_without_rewriting_it(tmp_path: P
         specialist_fixed_expert="source_inspector",
         specialist_force_fixed_action=True,
         specialist_worker_routing=True,
+        require_client_session_id=True,
     )
     client = Client()
     proxy.client = client
 
-    forced = asyncio.run(proxy.generate(Request([1, 2, 3], "rollout-root")))
+    forced = asyncio.run(
+        proxy.generate(Request([1, 2, 3], "rollout-root", "root-branch"))
+    )
     child = asyncio.run(
-        proxy.generate(Request([4, *marker, 5], "rollout-child"))
+        proxy.generate(Request([4, *marker, 5], "rollout-child", "child-branch"))
     )
 
     assert json.loads(forced.body)["choices"][0]["token_ids"] == [10, 11, 12]
@@ -615,10 +645,17 @@ def test_generate_routes_exact_specialist_child_without_rewriting_it(tmp_path: P
     ]
     assert events[0]["role"] == "coordinator"
     assert events[0]["upstream_model"] == "e33"
+    assert events[0]["session_sha256"] == hashlib.sha256(b"rollout-root").hexdigest()
+    assert events[0]["branch_session_sha256"] == hashlib.sha256(
+        b"root-branch"
+    ).hexdigest()
     assert events[1]["role"] == "child"
     assert events[1]["expert_id"] == "source_inspector"
     assert events[1]["upstream_model"] == "S5"
     assert events[1]["route_evidence"] == "exact_specialist_child_prefix"
+    assert events[1]["session_sha256"] != events[1]["branch_session_sha256"]
+    with pytest.raises(ValueError, match="lacks x-client-session-id"):
+        asyncio.run(proxy.generate(Request([1, 2, 3], "missing-branch")))
 
 
 def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
@@ -1272,3 +1309,392 @@ def test_proxy_audit_records_joinable_wall_clock_interval() -> None:
     assert '"request_start_unix_s": request_start_unix_s' in source
     assert '"request_end_unix_s": request_end_unix_s' in source
     assert "request_end_unix_s - latency_ms / 1000.0" in source
+
+
+def _p2_trace(
+    *, trace_id: str, family: str, source: str, task_key: str, group_id: str, reward: float
+) -> dict:
+    return {
+        "id": trace_id,
+        "ok": True,
+        "errors": [],
+        "task": {"key": task_key, "data": {"family": family}},
+        "info": {"env_name": source, "group_id": group_id},
+        "rewards": {"source_worker_first_call": {"score": reward}},
+        "nodes": [{"sampled": True, "advantages": None}],
+    }
+
+
+def test_p2_partition_accepts_only_complete_zero_advantage_groups() -> None:
+    validator = _validator_module()
+    config = [
+        _p2_trace(
+            trace_id=f"config-{index}",
+            family="specialist_source_config",
+            source="source-worker-config-s6",
+            task_key="config-key",
+            group_id="config-group",
+            reward=-0.79 + index / 10,
+        )
+        for index in range(8)
+    ]
+    ast = [
+        _p2_trace(
+            trace_id=f"ast-{index}",
+            family="specialist_source_ast",
+            source="source-worker-ast-s6",
+            task_key="ast-key",
+            group_id="ast-group",
+            reward=-0.79 + index / 10,
+        )
+        for index in range(8)
+    ]
+    rejected = [
+        _p2_trace(
+            trace_id=f"rejected-{index}",
+            family="specialist_source_ast",
+            source="source-worker-ast-s6",
+            task_key="rejected-key",
+            group_id="rejected-group",
+            reward=-0.79,
+        )
+        for index in range(8)
+    ]
+    metrics = [
+        {
+            "pre_filters/all/dropped_rate": 1 / 3,
+            "pre_filters/all/zero_advantage/rate": 1 / 3,
+        }
+    ]
+
+    report = validator._validate_p2_raw_effective_partition(
+        [*config, *ast, *rejected], [*config, *ast], metrics
+    )
+
+    assert report["raw"] == 24
+    assert report["effective"] == 16
+    assert report["attempted_groups_by_family"] == {
+        "specialist_source_config": 1,
+        "specialist_source_ast": 2,
+    }
+    assert len(report["rejected_zero_advantage_groups"]) == 1
+    rejected[0]["rewards"]["source_worker_first_call"]["score"] = -0.78
+    with pytest.raises(validator.AuditFailure, match="nondegenerate"):
+        validator._validate_p2_raw_effective_partition(
+            [*config, *ast, *rejected], [*config, *ast], metrics
+        )
+
+
+def test_p2_forced_routes_cover_all_raw_resampled_groups() -> None:
+    validator = _validator_module()
+    traces = []
+    audits = []
+    group_specs = (
+        ("specialist_source_ast", "source-worker-ast-s6", "ast-a"),
+        ("specialist_source_ast", "source-worker-ast-s6", "ast-b"),
+        ("specialist_source_config", "source-worker-config-s6", "config-a"),
+    )
+    for family, source, group_id in group_specs:
+        code = (
+            "task_worker = await rlm("
+            "'[selected terminal capability]\\n"
+            f"expert_id=source_inspector\\ngroup={group_id}', "
+            'name="task-worker")'
+        )
+        action_sha = hashlib.sha256(code.encode()).hexdigest()
+        for rollout in range(8):
+            session_id = f"rollout-{group_id}-{rollout}"
+            trace = _p2_trace(
+                trace_id=session_id,
+                family=family,
+                source=source,
+                task_key=f"task-{group_id}",
+                group_id=group_id,
+                reward=-0.79,
+            )
+            trace["nodes"] = [
+                {
+                    "sampled": True,
+                    "advantages": None,
+                    "message": {
+                        "role": "assistant",
+                        "tool_calls": [
+                            {
+                                "name": "ipython",
+                                "arguments": json.dumps({"code": code}),
+                            }
+                        ],
+                    },
+                }
+            ]
+            trace["calls"] = [{"node": 0, "client_session_id": session_id}]
+            traces.append(trace)
+            audits.append(
+                {
+                    "schema_version": validator.ROUTE_SCHEMA,
+                    "mode": validator.FORCED_ROUTE_MODE,
+                    "endpoint": "/inference/v1/generate",
+                    "role": "coordinator",
+                    "expert_id": "source_inspector",
+                    "status": 200,
+                    "session_sha256": hashlib.sha256(session_id.encode()).hexdigest(),
+                    "action_sha256": action_sha,
+                }
+            )
+
+    report = validator._validate_p2_forced_assignment_routes(traces, audits)
+    assert report["scope"] == "all_raw_rollouts"
+    assert report["events"] == 24
+    assert report["matched_raw_events"] == 24
+    assert report["groups"] == 3
+    assert sorted(report["raw_action_sha256_counts"].values()) == [8, 8, 8]
+
+    with pytest.raises(validator.AuditFailure, match="exact action multiplicity"):
+        validator._validate_p2_forced_assignment_routes(traces, audits[:-1])
+    with pytest.raises(validator.AuditFailure, match="more than once in a rollout"):
+        validator._validate_p2_forced_assignment_routes(traces, [*audits, audits[0]])
+
+
+def _p2_route_trace(validator, *, third_root: bool = False) -> tuple[dict, list[dict]]:
+    rollout_session = "a" * 64
+    root_session = "root-branch-session"
+    child_session = "child-branch-session"
+    nodes = [
+        {
+            "parent": None,
+            "message": {
+                "role": "user",
+                "content": (
+                    "Recursive agent depth: 0\n[specialist worker routing contract]\n"
+                    f"/tmp/vf-prime-agent-runs/{rollout_session[:16]}/root"
+                ),
+            },
+        },
+        {"parent": 0, "message": {"role": "assistant", "content": "root"}},
+        {
+            "parent": None,
+            "message": {
+                "role": "user",
+                "content": (
+                    "Recursive agent depth: 1\n"
+                    f"/tmp/vf-prime-agent-runs/{rollout_session[:16]}/child"
+                ),
+            },
+        },
+        {
+            "parent": 2,
+            "message": {
+                "role": "user",
+                "content": validator.SPECIALIST_CHILD_PREFIX + "\ncan_delegate=false",
+            },
+        },
+        {"parent": 3, "message": {"role": "assistant", "content": "child"}},
+    ]
+    calls = [
+        {
+            "node": 1,
+            "client_session_id": root_session,
+            "time": {"start": 10.0, "end": 11.0},
+            "error": None,
+        },
+        {
+            "node": 4,
+            "client_session_id": child_session,
+            "time": {"start": 12.0, "end": 13.0},
+            "error": None,
+        },
+    ]
+    if third_root:
+        nodes.extend(
+            [
+                {
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": "Recursive agent depth: 2\nYou are a child agent spawned by task-worker",
+                    },
+                },
+                {"parent": 5, "message": {"role": "assistant", "content": "nested"}},
+            ]
+        )
+        calls.append(
+            {
+                "node": 6,
+                "client_session_id": "nested-branch-session",
+                "time": {"start": 14.0, "end": 15.0},
+                "error": None,
+            }
+        )
+    trace = {
+        "id": "trace-1",
+        "nodes": nodes,
+        "calls": calls,
+        "stop_condition": "agent_completed",
+    }
+    audits = [
+        {
+            "schema_version": validator.ROUTE_SCHEMA,
+            "sequence": 0,
+            "role": "coordinator",
+            "endpoint": "/inference/v1/generate",
+            "request_sha256": "1" * 64,
+            "session_sha256": rollout_session,
+            "branch_session_sha256": hashlib.sha256(root_session.encode()).hexdigest(),
+            "upstream_model": str(validator.E33_PATH),
+            "status": 200,
+            "mode": validator.FORCED_ROUTE_MODE,
+            "route_evidence": "coordinator_without_specialist_child_prefix",
+            "request_start_unix_s": 10.1,
+            "request_end_unix_s": 10.9,
+        },
+        {
+            "schema_version": validator.ROUTE_SCHEMA,
+            "sequence": 1,
+            "role": "child",
+            "endpoint": "/inference/v1/generate",
+            "request_sha256": "2" * 64,
+            "session_sha256": rollout_session,
+            "branch_session_sha256": hashlib.sha256(child_session.encode()).hexdigest(),
+            "upstream_model": str(validator.S5_PATH),
+            "expert_id": "source_inspector",
+            "status": 200,
+            "mode": "forwarded",
+            "route_evidence": "exact_specialist_child_prefix",
+            "request_start_unix_s": 12.1,
+            "request_end_unix_s": 12.9,
+        },
+    ]
+    return trace, audits
+
+
+def test_p2_branch_join_uses_distinct_rollout_and_client_sessions() -> None:
+    validator = _validator_module()
+    trace, audits = _p2_route_trace(validator)
+
+    report = validator._validate_p2_branch_call_routes([trace], [trace], audits)
+
+    assert report["branch_rollout_timing_bijection"] is True
+    assert report["terminal_worker_descendants"] == 0
+    assert audits[0]["session_sha256"] != audits[0]["branch_session_sha256"]
+    audits[1]["role"] = "coordinator"
+    with pytest.raises(validator.AuditFailure, match="route|branch role"):
+        validator._validate_p2_branch_call_routes([trace], [trace], audits)
+
+
+def test_p2_rejects_p1_style_named_grandchild_third_root() -> None:
+    validator = _validator_module()
+    trace, _ = _p2_route_trace(validator, third_root=True)
+
+    with pytest.raises(validator.AuditFailure, match="only coordinator and terminal"):
+        validator._validate_no_terminal_worker_descendant(trace, 0)
+
+
+def test_p2_wrapper_executes_group_atomic_base_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    validator = _p2_validator_module()
+    models = {"model": {"path": "/model", "model_sha256": "f" * 64}}
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        validator,
+        "digest",
+        lambda path: "c" * 64
+        if path == validator.CONFIG
+        else "e" * 64
+        if path == validator.SAMPLING_CONTRACT
+        else "a" * 64,
+    )
+    monkeypatch.setattr(validator, "_actual_model_hashes", lambda: models)
+    monkeypatch.setattr(validator, "_run_artifact_hashes", lambda run_dir: {})
+    monkeypatch.setattr(
+        validator.BASE,
+        "_read_json",
+        lambda path: {
+            "schema_version": (
+                "q35-2b-source-route-parity-p2-model-preflight/v1"
+                if path == validator.MODEL_PREFLIGHT
+                else "q35-2b-source-route-parity-p2-model-postflight/v1"
+            ),
+            "execution_revision": "a" * 40,
+            "verifiers_revision": "f" * 40,
+            "config_sha256": "c" * 64,
+            "models": models,
+            "run_artifacts": {},
+            "checkpoint_written": False,
+            "learning_rate": 0.0,
+        },
+    )
+
+    def fake_base_runtime(*args, **kwargs):
+        captured.update(kwargs)
+        return {
+            "exported_rl_tokens": 6000,
+            "gradient_norm": 1.0,
+            "effective_call_routes": {},
+            "trace_sets": {},
+        }
+
+    monkeypatch.setattr(validator.BASE, "validate_runtime", fake_base_runtime)
+    monkeypatch.setattr(validator.BASE, "_read_jsonl", lambda path: [])
+    monkeypatch.setattr(validator, "_validate_resolved_p2_mechanism", lambda path: {})
+    monkeypatch.setattr(validator.BASE, "_observe_lr0_health", lambda metrics, traces: {"metrics": {}})
+    monkeypatch.setattr(validator, "_validate_p2_health", lambda *args: {})
+    monkeypatch.setattr(
+        validator,
+        "_materialize_task_bank",
+        lambda: {
+            "task_bank_sha256": "b" * 64,
+            "task_key_set_sha256": "d" * 64,
+            "tasks": 64,
+            "p0_tasks": 64,
+            "p1_tasks": 64,
+            "pairwise_disjoint": True,
+            "overlaps": {"P2_P0": [], "P2_P1": [], "P0_P1": []},
+            "p0_task_bank_sha256": "0" * 64,
+            "p0_task_key_set_sha256": "1" * 64,
+            "p1_task_bank_sha256": "2" * 64,
+            "p1_task_key_set_sha256": "3" * 64,
+        },
+    )
+
+    validator.validate_runtime(
+        validator.RUN_DIR,
+        config_sha256="c" * 64,
+        task_bank_sha256="b" * 64,
+        task_key_set_sha256="d" * 64,
+        sampling_contract_sha256="e" * 64,
+        execution_revision="a" * 40,
+        verifiers_revision="f" * 40,
+        preflight_model_hashes=validator.MODEL_PREFLIGHT,
+        postflight_model_hashes=validator.MODEL_POSTFLIGHT,
+    )
+
+    assert captured["p2_group_atomic_route_admission"] is True
+    assert "p2_timed_route_admission" not in captured
+
+
+def test_p2_launch_assets_are_calibration_only_and_hash_locked() -> None:
+    config = P2_CONFIG_PATH.read_text()
+    launcher = P2_LAUNCHER_PATH.read_text()
+    validator = P2_VALIDATOR_PATH.read_text()
+    hasher = P2_HASHER_PATH.read_text()
+
+    assert config.count("seed = 20270925") == 2
+    assert config.count("instance_offset = 72000") == 2
+    assert config.count('RLM_MAX_DEPTH = "1"') == 2
+    assert "require_client_session_id = true" in config
+    assert "[trainer.ckpt]" not in config and "[orchestrator.ckpt]" not in config
+    assert "eval" not in launcher.lower()
+    assert "P2_DRY_RUN" in launcher and "preflight_archive" in launcher
+    assert 'mv "$output_root" "$preflight_archive/output-root"' in launcher
+    assert launcher.index("--write-postflight-model-hashes") < launcher.index(
+        '"$run_dir" --runtime'
+    )
+    assert "c1a2f5bf3db3f34206e45b04442e64ca6a7770de" in launcher
+    assert "pairwise_disjoint" in hasher and "P2_P1" in hasher
+    assert "rejected_trace_exports" in validator
+    assert BAD_TRACE_ID_IN_FORENSIC in P1_FORENSIC_PATH.read_text()
+
+
+BAD_TRACE_ID_IN_FORENSIC = "57f6214886ce4f70a69f3eb2754770ce"

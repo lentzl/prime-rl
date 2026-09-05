@@ -8,6 +8,7 @@ import hashlib
 import json
 import math
 import re
+import statistics
 import tomllib
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -463,11 +464,13 @@ def _ipython_code(tool_call: Any) -> str | None:
     return code if isinstance(code, str) else None
 
 
-def _forced_assignment_identity(record: dict[str, Any], index: int) -> str:
+def _forced_assignment_identity(
+    record: dict[str, Any], index: int, *, trace_scope: str = "effective"
+) -> str:
     matches: list[str] = []
     calls = record.get("calls")
     if not isinstance(calls, list):
-        raise AuditFailure(f"effective trace {index} lacks call/session evidence")
+        raise AuditFailure(f"{trace_scope} trace {index} lacks call/session evidence")
     for node_index, node in enumerate(record.get("nodes", [])):
         # The harness may retain a normalized, non-sampled copy of the accepted
         # assignment later in the coordinator branch.  Only the sampled node
@@ -493,10 +496,14 @@ def _forced_assignment_identity(record: dict[str, Any], index: int) -> str:
                 if len(session_ids) != 1 or not all(
                     isinstance(session_id, str) and session_id for session_id in session_ids
                 ):
-                    raise AuditFailure(f"effective trace {index} forced action lacks one session id")
+                    raise AuditFailure(
+                        f"{trace_scope} trace {index} forced action lacks one session id"
+                    )
                 matches.append(hashlib.sha256(code.encode()).hexdigest())
     if len(matches) != 1:
-        raise AuditFailure(f"effective trace {index} has {len(matches)} canonical forced assignments")
+        raise AuditFailure(
+            f"{trace_scope} trace {index} has {len(matches)} canonical forced assignments"
+        )
     return matches[0]
 
 
@@ -547,6 +554,74 @@ def _validate_forced_assignment_routes(
         "sessions": len(forced_by_session),
         "groups": len(group_actions),
         "effective_action_sha256_counts": dict(trace_actions),
+    }
+
+
+def _validate_p2_forced_assignment_routes(
+    raw_trace_records: list[dict[str, Any]], audit_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Prove one stable forced assignment for every raw P2 rollout.
+
+    P2 may discard one complete zero-variance group per family before effective
+    packing.  Routing remains an all-raw invariant: discarded rollouts cannot
+    disappear from this proof merely because they produce no token export.
+    """
+
+    trace_actions: Counter[str] = Counter()
+    group_actions: dict[tuple[str, str, str, str], set[str]] = defaultdict(set)
+    group_sizes: Counter[tuple[str, str, str, str]] = Counter()
+    for index, record in enumerate(raw_trace_records):
+        identity = _trace_group_identity(record, index)
+        action_sha = _forced_assignment_identity(record, index, trace_scope="raw P2")
+        trace_actions[action_sha] += 1
+        group_actions[identity].add(action_sha)
+        group_sizes[identity] += 1
+    if len(group_actions) not in {2, 3, 4}:
+        raise AuditFailure("P2 forced routing requires two to four complete raw groups")
+    if any(size != EXPECTED_GROUP_SIZE for size in group_sizes.values()):
+        raise AuditFailure("P2 forced routing contains a partial raw group")
+    if any(len(actions) != 1 for actions in group_actions.values()):
+        raise AuditFailure("P2 forced assignment is not stable within every raw group")
+
+    forced = [record for record in audit_records if record.get("mode") == FORCED_ROUTE_MODE]
+    forced_by_session: dict[str, str] = {}
+    for index, record in enumerate(forced):
+        session_sha = record.get("session_sha256")
+        action_sha = record.get("action_sha256")
+        if (
+            record.get("schema_version") != ROUTE_SCHEMA
+            or record.get("endpoint") != "/inference/v1/generate"
+            or record.get("role") != "coordinator"
+            or record.get("expert_id") != "source_inspector"
+            or record.get("status") != 200
+            or not isinstance(session_sha, str)
+            or len(session_sha) != 64
+            or not isinstance(action_sha, str)
+            or len(action_sha) != 64
+        ):
+            raise AuditFailure(f"invalid P2 forced-assignment route event {index}")
+        if session_sha in forced_by_session:
+            raise AuditFailure("P2 forced assignment was emitted more than once in a rollout")
+        forced_by_session[session_sha] = action_sha
+
+    audit_actions = Counter(forced_by_session.values())
+    if len(forced) != len(raw_trace_records) or audit_actions != trace_actions:
+        raise AuditFailure(
+            "P2 raw traces and forced-assignment routes lack exact action multiplicity"
+        )
+    return {
+        "mode": FORCED_ROUTE_MODE,
+        "scope": "all_raw_rollouts",
+        "events": len(forced),
+        "matched_raw_events": len(raw_trace_records),
+        "extra_filtered_events": 0,
+        "sessions": len(forced_by_session),
+        "groups": len(group_actions),
+        "raw_action_sha256_counts": dict(trace_actions),
+        "raw_group_action_sha256": {
+            "|".join(identity): next(iter(actions))
+            for identity, actions in sorted(group_actions.items())
+        },
     }
 
 
@@ -1160,6 +1235,392 @@ def _validate_raw_equals_effective(
     return {"raw": len(raw_ids), "effective": len(effective_ids), "identical": True}
 
 
+def _trace_group_identity(record: dict[str, Any], index: int) -> tuple[str, str, str, str]:
+    task = record.get("task", {})
+    data = task.get("data", {}) if isinstance(task, dict) else {}
+    info = record.get("info", {})
+    family = data.get("family") if isinstance(data, dict) else None
+    task_key = task.get("key") or task.get("hash") if isinstance(task, dict) else None
+    source = info.get("env_name") if isinstance(info, dict) else None
+    group_id = info.get("group_id") if isinstance(info, dict) else None
+    expected_source = next(
+        (name for name, source_family in EXPECTED_SOURCE_FAMILIES.items() if source_family == family),
+        None,
+    )
+    if (
+        expected_source is None
+        or source != expected_source
+        or not isinstance(task_key, str)
+        or not task_key
+        or not isinstance(group_id, str)
+        or not group_id
+    ):
+        raise AuditFailure(f"P2 trace {index} lacks exact group identity")
+    return source, family, task_key, group_id
+
+
+def _validate_p2_raw_effective_partition(
+    raw_records: list[dict[str, Any]],
+    effective_records: list[dict[str, Any]],
+    metrics: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Admit only complete zero-advantage groups discarded before effective packing."""
+
+    def identities(records: list[dict[str, Any]], label: str) -> set[str]:
+        values = [record.get("id") for record in records]
+        if not all(isinstance(value, str) and value for value in values):
+            raise AuditFailure(f"P2 {label} traces lack stable identities")
+        if len(set(values)) != len(values):
+            raise AuditFailure(f"P2 {label} traces contain duplicate identities")
+        return set(values)
+
+    raw_ids = identities(raw_records, "raw")
+    effective_ids = identities(effective_records, "effective")
+    if len(effective_ids) != 16 or len(raw_ids) not in {16, 24, 32} or not effective_ids <= raw_ids:
+        raise AuditFailure("P2 requires 16 effective and 16/24/32 raw traces")
+    groups: dict[tuple[str, str, str, str], list[dict[str, Any]]] = defaultdict(list)
+    for index, record in enumerate(raw_records):
+        if record.get("ok") is not True or record.get("errors"):
+            raise AuditFailure(f"P2 raw trace {index} is invalid")
+        groups[_trace_group_identity(record, index)].append(record)
+    if any(len(records) != 8 for records in groups.values()):
+        raise AuditFailure("P2 raw traces contain a partial group")
+    effective_group_ids = {
+        _trace_group_identity(record, index)[3]
+        for index, record in enumerate(effective_records)
+    }
+    if len(effective_group_ids) != 2:
+        raise AuditFailure("P2 effective traces are not exactly two groups")
+    accepted = []
+    rejected = []
+    for identity, records in groups.items():
+        source, family, task_key, group_id = identity
+        ids = {record["id"] for record in records}
+        selected = ids <= effective_ids
+        if ids & effective_ids and not selected:
+            raise AuditFailure("P2 accepted only part of a raw group")
+        rewards = []
+        for record in records:
+            reward = record.get("rewards", {}).get(EXPECTED_REWARD, {}).get("score")
+            if not isinstance(reward, (int, float)) or not math.isfinite(reward):
+                raise AuditFailure("P2 raw group lacks finite reward evidence")
+            rewards.append(float(reward))
+        row = {
+            "source": source,
+            "family": family,
+            "task_key": task_key,
+            "group_id": group_id,
+            "trace_ids": sorted(ids),
+            "rewards": rewards,
+            "population_variance": statistics.pvariance(rewards),
+        }
+        if selected:
+            accepted.append(row)
+            continue
+        if len(set(rewards)) != 1 or statistics.pvariance(rewards) != 0:
+            raise AuditFailure("P2 discarded a nondegenerate reward group")
+        if any(
+            node.get("sampled") is True and node.get("advantages") is not None
+            for record in records
+            for node in record.get("nodes", [])
+            if isinstance(node, dict)
+        ):
+            raise AuditFailure("P2 rejected group contains trainable advantages")
+        row["filter_disposition"] = "zero_advantage"
+        rejected.append(row)
+    if len(accepted) != 2 or len(rejected) not in {0, 1, 2}:
+        raise AuditFailure("P2 group partition count is invalid")
+    attempts_by_family = Counter(row["family"] for row in [*accepted, *rejected])
+    if any(attempts_by_family[family] not in {1, 2} for family in EXPECTED_FAMILIES):
+        raise AuditFailure("P2 permits at most two attempted groups per family")
+    if Counter(row["family"] for row in accepted) != Counter(
+        {family: 1 for family in EXPECTED_FAMILIES}
+    ):
+        raise AuditFailure("P2 effective groups are not one per family")
+    rejected_fraction = len(rejected) * 8 / len(raw_records)
+    if (
+        _metric(metrics, "pre_filters/all/dropped_rate") != rejected_fraction
+        or _metric(metrics, "pre_filters/all/zero_advantage/rate") != rejected_fraction
+    ):
+        raise AuditFailure("P2 group rejection lacks exact zero-advantage metric evidence")
+    return {
+        "raw": len(raw_ids),
+        "effective": len(effective_ids),
+        "accepted_groups": accepted,
+        "rejected_zero_advantage_groups": rejected,
+        "group_atomic": True,
+        "partial_or_nondegenerate_groups_dropped": 0,
+        "rejected_groups_have_trainable_advantages": False,
+        "attempted_groups_by_family": dict(attempts_by_family),
+    }
+
+
+def _branch_root(nodes: list[dict[str, Any]], node_index: int) -> int:
+    seen: set[int] = set()
+    current = node_index
+    while True:
+        if current in seen or current < 0 or current >= len(nodes):
+            raise AuditFailure("P2 trace contains invalid node ancestry")
+        seen.add(current)
+        parent = nodes[current].get("parent")
+        if parent is None:
+            return current
+        if not isinstance(parent, int):
+            raise AuditFailure("P2 trace contains a non-integer node parent")
+        current = parent
+
+
+def _validate_no_terminal_worker_descendant(
+    trace: dict[str, Any], trace_index: int
+) -> dict[str, str]:
+    nodes = trace.get("nodes")
+    calls = trace.get("calls")
+    if not isinstance(nodes, list) or not isinstance(calls, list):
+        raise AuditFailure(f"P2 trace {trace_index} lacks topology evidence")
+    selected_roots = {
+        _branch_root(nodes, index)
+        for index, node in enumerate(nodes)
+        if isinstance(node, dict)
+        and "[selected terminal capability]" in _wire_content_text(node.get("message", {}).get("content"))
+        and "expert_id=source_inspector" in _wire_content_text(node.get("message", {}).get("content"))
+        and "can_delegate=false" in _wire_content_text(node.get("message", {}).get("content"))
+    }
+    if len(selected_roots) != 1:
+        raise AuditFailure(f"P2 trace {trace_index} lacks one designated terminal branch")
+    terminal_root = next(iter(selected_roots))
+    call_roots = {
+        _branch_root(nodes, call["node"])
+        for call in calls
+        if isinstance(call, dict) and isinstance(call.get("node"), int)
+    }
+    if len(call_roots) != 2 or terminal_root not in call_roots:
+        raise AuditFailure(
+            f"P2 trace {trace_index} must have only coordinator and terminal call-bearing roots"
+        )
+    coordinator_root = next(root for root in call_roots if root != terminal_root)
+    coordinator_text = _wire_content_text(
+        nodes[coordinator_root].get("message", {}).get("content")
+    )
+    terminal_text = _wire_content_text(
+        nodes[terminal_root].get("message", {}).get("content")
+    )
+    all_text = "\n".join(
+        _wire_content_text(node.get("message", {}).get("content"))
+        for node in nodes
+        if isinstance(node, dict)
+    )
+    if (
+        "Recursive agent depth: 0" not in coordinator_text
+        or "Recursive agent depth: 1" not in terminal_text
+        or re.search(r"Recursive agent depth: (?:[2-9]|[1-9][0-9]+)", all_text)
+    ):
+        raise AuditFailure(f"P2 trace {trace_index} violates the depth-one topology")
+    sessions_by_root: dict[int, set[str]] = defaultdict(set)
+    for call in calls:
+        node_index = call.get("node") if isinstance(call, dict) else None
+        session_id = call.get("client_session_id") if isinstance(call, dict) else None
+        if isinstance(node_index, int):
+            if not isinstance(session_id, str) or not session_id:
+                raise AuditFailure(f"P2 trace {trace_index} attached call lacks branch session")
+            sessions_by_root[_branch_root(nodes, node_index)].add(session_id)
+    if set(sessions_by_root) != call_roots or any(
+        len(sessions) != 1 for sessions in sessions_by_root.values()
+    ):
+        raise AuditFailure(f"P2 trace {trace_index} root/session mapping is not one-to-one")
+    session_by_root = {
+        root: next(iter(sessions)) for root, sessions in sessions_by_root.items()
+    }
+    if len(set(session_by_root.values())) != 2:
+        raise AuditFailure(f"P2 trace {trace_index} coordinator and terminal sessions overlap")
+    return {
+        hashlib.sha256(session_by_root[coordinator_root].encode()).hexdigest(): "coordinator",
+        hashlib.sha256(session_by_root[terminal_root].encode()).hexdigest(): "child",
+    }
+
+
+def _validate_p2_branch_call_routes(
+    raw_records: list[dict[str, Any]],
+    effective_records: list[dict[str, Any]],
+    audit_records: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Join every raw call by rollout, branch hash, semantic role, and timing."""
+
+    audits_by_session: dict[str, list[tuple[int, dict[str, Any]]]] = defaultdict(list)
+    sequences: set[int] = set()
+    request_hashes: set[str] = set()
+    for index, event in enumerate(audit_records):
+        _validated_route_event_role(event, index)
+        sequence = event.get("sequence")
+        request_sha = event.get("request_sha256")
+        branch_sha = event.get("branch_session_sha256")
+        start = event.get("request_start_unix_s")
+        end = event.get("request_end_unix_s")
+        if (
+            not isinstance(sequence, int)
+            or sequence in sequences
+            or not isinstance(request_sha, str)
+            or len(request_sha) != 64
+            or request_sha in request_hashes
+            or not isinstance(branch_sha, str)
+            or len(branch_sha) != 64
+            or not isinstance(start, (int, float))
+            or not isinstance(end, (int, float))
+            or end < start
+        ):
+            raise AuditFailure("P2 route event lacks sequence/request/branch/timing evidence")
+        sequences.add(sequence)
+        request_hashes.add(request_sha)
+        audits_by_session[event["session_sha256"]].append((index, event))
+    if sequences != set(range(len(audit_records))):
+        raise AuditFailure("P2 route sequences are not contiguous from zero")
+
+    effective_ids = {trace.get("id") for trace in effective_records}
+    matched_sessions: set[str] = set()
+    used_audits: set[int] = set()
+    residues = []
+    raw_calls = effective_calls = 0
+    effective_residues = 0
+    attached_roles: Counter[str] = Counter()
+    branch_role_maps = []
+    for trace_index, trace in enumerate(raw_records):
+        nodes = trace.get("nodes")
+        calls = trace.get("calls")
+        if not isinstance(nodes, list) or not isinstance(calls, list):
+            raise AuditFailure(f"P2 trace {trace_index} lacks call ancestry")
+        branch_roles = _validate_no_terminal_worker_descendant(trace, trace_index)
+        branch_role_maps.append(branch_roles)
+        wire_text = "\n".join(
+            _wire_content_text(node.get("message", {}).get("content"))
+            for node in nodes
+            if isinstance(node, dict) and isinstance(node.get("message"), dict)
+        )
+        prefixes = set(re.findall(r"/vf-prime-agent-runs/([0-9a-f]{16})/", wire_text))
+        sessions = [session for session in audits_by_session if session[:16] in prefixes]
+        if len(prefixes) != 1 or len(sessions) != 1 or sessions[0] in matched_sessions:
+            raise AuditFailure("P2 trace lacks one unique rollout audit session")
+        session = sessions[0]
+        matched_sessions.add(session)
+        events = audits_by_session[session]
+        if any(
+            event.get("branch_session_sha256") not in branch_roles
+            or event.get("role") != branch_roles[event["branch_session_sha256"]]
+            for _, event in events
+        ):
+            raise AuditFailure("P2 audit branch role differs from trace topology")
+        if sum(event.get("mode") == FORCED_ROUTE_MODE for _, event in events) != 1:
+            raise AuditFailure("P2 rollout lacks exactly one forced assignment")
+        attached_call_ends = [
+            call.get("time", {}).get("end")
+            for call in calls
+            if isinstance(call, dict)
+            and call.get("node") is not None
+            and isinstance(call.get("time"), dict)
+            and isinstance(call.get("time", {}).get("end"), (int, float))
+        ]
+        if not attached_call_ends:
+            raise AuditFailure("P2 trace lacks an attached-call timing boundary")
+        max_attached_call_end = max(attached_call_ends)
+        per_trace_residues = 0
+        for call_index, call in enumerate(calls):
+            if not isinstance(call, dict) or not isinstance(call.get("time"), dict):
+                raise AuditFailure("P2 call lacks wall-clock evidence")
+            call_start = call["time"].get("start")
+            call_end = call["time"].get("end")
+            client_session = call.get("client_session_id")
+            if (
+                not isinstance(call_start, (int, float))
+                or not isinstance(call_end, (int, float))
+                or call_end < call_start
+                or not isinstance(client_session, str)
+                or not client_session
+            ):
+                raise AuditFailure("P2 call lacks valid time or client-session evidence")
+            raw_calls += 1
+            is_effective = trace.get("id") in effective_ids
+            effective_calls += int(is_effective)
+            branch_sha = hashlib.sha256(client_session.encode()).hexdigest()
+            expected_branch_role = branch_roles.get(branch_sha)
+            if expected_branch_role is None:
+                raise AuditFailure("P2 call branch is not one of the two call-bearing roots")
+            role = (
+                _attached_call_role(nodes, call, trace_index=trace_index, call_index=call_index)
+                if call.get("node") is not None
+                else None
+            )
+            candidates = [
+                (audit_index, event)
+                for audit_index, event in events
+                if audit_index not in used_audits
+                and event["branch_session_sha256"] == branch_sha
+                and event["role"] == expected_branch_role
+                and (role is None or role == expected_branch_role)
+                and event["request_start_unix_s"] <= call_end
+                and event["request_end_unix_s"] >= call_start
+            ]
+            if len(candidates) != 1:
+                raise AuditFailure(f"P2 trace {trace_index} call {call_index} lacks one branch/timing join")
+            audit_index, event = candidates[0]
+            used_audits.add(audit_index)
+            if role is not None:
+                if call.get("error") is not None:
+                    raise AuditFailure("P2 attached call contains an inference error")
+                attached_roles[role] += 1
+                continue
+            per_trace_residues += 1
+            usage = call.get("usage") if isinstance(call.get("usage"), dict) else {}
+            completion_tokens = usage.get("completion_tokens")
+            error = call.get("error")
+            if (
+                call_index != len(calls) - 1
+                or call_end < max_attached_call_end
+                or trace.get("stop_condition") not in {"max_turns", "agent_completed"}
+                or not isinstance(completion_tokens, int)
+                or completion_tokens < 0
+                or (
+                    error is not None
+                    and (
+                        not isinstance(error, dict)
+                        or error.get("type") != "ClientConnectionResetError"
+                    )
+                )
+            ):
+                raise AuditFailure("P2 node=null call is not a terminal wasted-token residue")
+            residues.append(
+                {
+                    "trace_id": trace.get("id"),
+                    "effective": is_effective,
+                    "role": event["role"],
+                    "audit_sequence": event["sequence"],
+                    "branch_session_sha256": branch_sha,
+                    "wasted_completion_tokens": completion_tokens,
+                    "trainable_branch_or_export_linkage": False,
+                }
+            )
+            effective_residues += int(is_effective)
+        if per_trace_residues > 1:
+            raise AuditFailure("P2 permits at most one terminal residue per trace")
+    if matched_sessions != set(audits_by_session) or len(used_audits) != len(audit_records):
+        raise AuditFailure("P2 has an audit-only event, missing trace, or missing join")
+    if residues and (
+        len(residues) / raw_calls > 0.04
+        or effective_residues / effective_calls > 0.04
+    ):
+        raise AuditFailure("P2 terminal residue exceeds four percent")
+    return {
+        "raw_trace_calls": raw_calls,
+        "effective_trace_calls": effective_calls,
+        "route_events": len(audit_records),
+        "attached_successful_calls": dict(attached_roles),
+        "terminal_residues": residues,
+        "raw_terminal_residue_fraction": len(residues) / raw_calls,
+        "effective_terminal_residue_fraction": effective_residues / effective_calls,
+        "audit_only_events": 0,
+        "branch_rollout_timing_bijection": True,
+        "terminal_worker_descendants": 0,
+        "branch_roles_by_rollout": branch_role_maps,
+    }
+
+
 def validate_runtime(
     run_dir: Path,
     stage: Literal["audit", "update"],
@@ -1169,6 +1630,7 @@ def validate_runtime(
     routing_audit_read_path: Path | None = None,
     p0_terminal_artifact_recovery: bool = False,
     p1_timed_route_admission: bool = False,
+    p2_group_atomic_route_admission: bool = False,
     expected_train_seed: int = EXPECTED_TRAIN_SEED,
     expected_train_offset: int = EXPECTED_TRAIN_OFFSET,
 ) -> dict[str, Any]:
@@ -1181,8 +1643,15 @@ def validate_runtime(
         raise AuditFailure("calibration-only validation requires LR=0 audit stage")
     if p0_terminal_artifact_recovery and not calibration_only:
         raise AuditFailure("P0 terminal-artifact recovery is calibration-only")
-    if p0_terminal_artifact_recovery and p1_timed_route_admission:
-        raise AuditFailure("P0 recovery and P1 admission routes are mutually exclusive")
+    if sum(
+        bool(value)
+        for value in (
+            p0_terminal_artifact_recovery,
+            p1_timed_route_admission,
+            p2_group_atomic_route_admission,
+        )
+    ) > 1:
+        raise AuditFailure("route-admission modes are mutually exclusive")
     config_report = _validate_runtime_configs(
         run_dir,
         stage,
@@ -1214,20 +1683,32 @@ def validate_runtime(
     raw_trace_records = _read_jsonl(
         run_dir / "rollouts" / "step_1" / "train" / "all" / "traces.jsonl"
     )
-    trace_set_report = _validate_raw_equals_effective(
-        raw_trace_records, trace_records
+    trace_set_report = (
+        _validate_p2_raw_effective_partition(raw_trace_records, trace_records, records)
+        if p2_group_atomic_route_admission
+        else _validate_raw_equals_effective(raw_trace_records, trace_records)
     )
     audit_records = _read_jsonl(
         routing_audit_read_path or Path(config_report["routing_audit"])
     )
-    routing_report = _validate_forced_assignment_routes(trace_records, audit_records)
+    routing_report = (
+        _validate_p2_forced_assignment_routes(raw_trace_records, audit_records)
+        if p2_group_atomic_route_admission
+        else _validate_forced_assignment_routes(trace_records, audit_records)
+    )
     effective_call_routes = (
         _validate_p0_terminal_route_artifacts(trace_records, audit_records)
         if p0_terminal_artifact_recovery
         else (
-            _validate_p1_timed_call_routes(trace_records, audit_records)
-            if p1_timed_route_admission
-            else _validate_effective_call_routes(trace_records, audit_records)
+            _validate_p2_branch_call_routes(
+                raw_trace_records, trace_records, audit_records
+            )
+            if p2_group_atomic_route_admission
+            else (
+                _validate_p1_timed_call_routes(trace_records, audit_records)
+                if p1_timed_route_admission
+                else _validate_effective_call_routes(trace_records, audit_records)
+            )
         )
     )
     task_rewards: dict[str, list[float]] = defaultdict(list)
@@ -1369,6 +1850,7 @@ def validate_runtime(
         "calibration_only": calibration_only,
         "p0_terminal_artifact_recovery": p0_terminal_artifact_recovery,
         "p1_timed_route_admission": p1_timed_route_admission,
+        "p2_group_atomic_route_admission": p2_group_atomic_route_admission,
         "optimizer_update_authorized": False if calibration_only else None,
     }
 
