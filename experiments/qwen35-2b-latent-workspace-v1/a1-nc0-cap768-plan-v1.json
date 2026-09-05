@@ -1,0 +1,423 @@
+{
+  "schema_version": "prime-rl/latent-a1-nc0-cap768-plan/v1",
+  "status": "preregistered",
+  "execution_authorization": "root_and_evaluator_review_required",
+  "mechanism_code_commit": "be5bf43b92a7b999bbf8e700ff49d439f3f7f538",
+  "asset_sha256": {
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census-manifest.sha256": "6d526e7a54d4f2ba63f57277c02a801b90d4ca0a68b698320d3bae8196ed2372",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census.json": "9bb6e6548553bc78a3f83e05d897fc19865ae8a96f653d33be713e88a4d965ea",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json": "204e6605fca20f94b23468fbd9f56b86ca16e8296191dd09b877a021c9ab2381",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-plan-v1.json": "0d6857e90e4412f2bcc2a036948b96a4552c2a63412ff120ee27c31913b67a4d",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-failure.json": "9e41fb8107af77ae5258c10d9caff7f13773aaa26162850faab7c085c6440d80",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-manifest.sha256": "755bd5ae763d2309f2cd77b0771be2c430e4370c88287bc14c3b3c4a835a6eb5",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-run.log": "5d4f519dba35d5e8307fce54b1d979bfa937a7d636e4abb29fdddef14b7f0fc3",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json": "cea92c57536ec7a93e68c64c4a01669e11dab1dc483a86c711c97c1181bb08d8",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json": "8e87309df0c37cce7bbd0bb98a3daed098f0b354f0c00ae15c27024047539c5e",
+    "scripts/latent/run_a1_nc0_cap768_v1.py": "858263cb7b82e85387dbb961422a3c83f60404c4a7c787810fe6f8b2dd487fce",
+    "scripts/latent/run_a1_nc0_cap768_v1.sh": "2e1f3ae29f16dd67d66f3b5b17dfad076e78267eb451b3b62d6f765f1fdc994f",
+    "scripts/latent/run_a1_nc0_nomination_v1.py": "9a2d16583b2db9372ddfeb53bf8ed4157605c97b73662bf11cf869f8f1bcfccd",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/a0nc.py": "41c69fe874bc214b9cd4cb3bba377bbe8bdad9f039d16cb60bd089b28e413404",
+    "src/prime_rl/latent/a1cap768.py": "ea915446fd8e49a736a9099ed7aea75d72859e5b5cdf18affcbc12e751cd3916",
+    "src/prime_rl/latent/a1nc0.py": "495249009c216ab1a67421ec9f439f0114364b08e4aa719f17ed537221362d7e",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81",
+    "src/prime_rl/latent/transfer_bank.py": "29c420b1f3d90c42c3a992f04f782b3bfad17a81ee0f2ec697bd65c1c9319c78",
+    "tests/unit/latent/test_a1cap768.py": "d13b516adae9a0042d27e0595b7c72f3f89d8a7ecbd7de67d1133948d894c7d6"
+  },
+  "plan_sha256": "a8af6c2c9a925d8acbddfc103cd587adabc3f353a97430e66f1f189719a22bb7",
+  "selection": [
+    {
+      "family": "keyed_numeric",
+      "evidence_id": "train-keyed_numeric-685221bdf4d3058c",
+      "query_id": "train-keyed_numeric-685221bdf4d3058c-q1",
+      "parent_unpadded_tokens": 517,
+      "mself_unpadded_tokens": 475
+    },
+    {
+      "family": "relational_join",
+      "evidence_id": "train-relational_join-2060fb4da095535a",
+      "query_id": "train-relational_join-2060fb4da095535a-q0",
+      "parent_unpadded_tokens": 599,
+      "mself_unpadded_tokens": 471
+    },
+    {
+      "family": "config_structure",
+      "evidence_id": "held_out-config_structure-92edc7342716a68e",
+      "query_id": "held_out-config_structure-92edc7342716a68e-q2",
+      "parent_unpadded_tokens": 616,
+      "mself_unpadded_tokens": 476
+    },
+    {
+      "family": "ownership_graph",
+      "evidence_id": "held_out-ownership_graph-49bd63f3f5c80cfd",
+      "query_id": "held_out-ownership_graph-49bd63f3f5c80cfd-q0",
+      "parent_unpadded_tokens": 644,
+      "mself_unpadded_tokens": 470
+    }
+  ],
+  "selection_sha256": "4696e1e8e075bc6a525054387c7d09ea3890c71915be70847c9352660d829020",
+  "call_schedule": [
+    {
+      "call_index": 1,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "PARENT",
+      "arm": "CAP768_P01_PARENT_L_ID_KEEP1"
+    },
+    {
+      "call_index": 2,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "PARENT",
+      "arm": "CAP768_P01_PARENT_L_E_KEEP1"
+    },
+    {
+      "call_index": 3,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "PARENT",
+      "arm": "CAP768_P01_PARENT_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 4,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "PARENT",
+      "arm": "CAP768_P01_PARENT_L_ID_KEEP0_CONTROL"
+    },
+    {
+      "call_index": 5,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "MSELF",
+      "arm": "CAP768_P01_MSELF_L_ID_KEEP1"
+    },
+    {
+      "call_index": 6,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "MSELF",
+      "arm": "CAP768_P01_MSELF_L_E_KEEP1"
+    },
+    {
+      "call_index": 7,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "MSELF",
+      "arm": "CAP768_P01_MSELF_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 8,
+      "probe_index": 1,
+      "family": "keyed_numeric",
+      "modality": "MSELF",
+      "arm": "CAP768_P01_MSELF_L_ID_KEEP0_CONTROL"
+    },
+    {
+      "call_index": 9,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "PARENT",
+      "arm": "CAP768_P02_PARENT_L_ID_KEEP1"
+    },
+    {
+      "call_index": 10,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "PARENT",
+      "arm": "CAP768_P02_PARENT_L_E_KEEP1"
+    },
+    {
+      "call_index": 11,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "PARENT",
+      "arm": "CAP768_P02_PARENT_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 12,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "PARENT",
+      "arm": "CAP768_P02_PARENT_L_ID_KEEP0_CONTROL"
+    },
+    {
+      "call_index": 13,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "MSELF",
+      "arm": "CAP768_P02_MSELF_L_ID_KEEP1"
+    },
+    {
+      "call_index": 14,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "MSELF",
+      "arm": "CAP768_P02_MSELF_L_E_KEEP1"
+    },
+    {
+      "call_index": 15,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "MSELF",
+      "arm": "CAP768_P02_MSELF_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 16,
+      "probe_index": 2,
+      "family": "relational_join",
+      "modality": "MSELF",
+      "arm": "CAP768_P02_MSELF_L_ID_KEEP0_CONTROL"
+    },
+    {
+      "call_index": 17,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "PARENT",
+      "arm": "CAP768_P03_PARENT_L_ID_KEEP1"
+    },
+    {
+      "call_index": 18,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "PARENT",
+      "arm": "CAP768_P03_PARENT_L_E_KEEP1"
+    },
+    {
+      "call_index": 19,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "PARENT",
+      "arm": "CAP768_P03_PARENT_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 20,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "PARENT",
+      "arm": "CAP768_P03_PARENT_L_ID_KEEP0_CONTROL"
+    },
+    {
+      "call_index": 21,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "MSELF",
+      "arm": "CAP768_P03_MSELF_L_ID_KEEP1"
+    },
+    {
+      "call_index": 22,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "MSELF",
+      "arm": "CAP768_P03_MSELF_L_E_KEEP1"
+    },
+    {
+      "call_index": 23,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "MSELF",
+      "arm": "CAP768_P03_MSELF_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 24,
+      "probe_index": 3,
+      "family": "config_structure",
+      "modality": "MSELF",
+      "arm": "CAP768_P03_MSELF_L_ID_KEEP0_CONTROL"
+    },
+    {
+      "call_index": 25,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "PARENT",
+      "arm": "CAP768_P04_PARENT_L_ID_KEEP1"
+    },
+    {
+      "call_index": 26,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "PARENT",
+      "arm": "CAP768_P04_PARENT_L_E_KEEP1"
+    },
+    {
+      "call_index": 27,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "PARENT",
+      "arm": "CAP768_P04_PARENT_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 28,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "PARENT",
+      "arm": "CAP768_P04_PARENT_L_ID_KEEP0_CONTROL"
+    },
+    {
+      "call_index": 29,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "MSELF",
+      "arm": "CAP768_P04_MSELF_L_ID_KEEP1"
+    },
+    {
+      "call_index": 30,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "MSELF",
+      "arm": "CAP768_P04_MSELF_L_E_KEEP1"
+    },
+    {
+      "call_index": 31,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "MSELF",
+      "arm": "CAP768_P04_MSELF_L_E_REPEAT_KEEP1"
+    },
+    {
+      "call_index": 32,
+      "probe_index": 4,
+      "family": "ownership_graph",
+      "modality": "MSELF",
+      "arm": "CAP768_P04_MSELF_L_ID_KEEP0_CONTROL"
+    }
+  ],
+  "call_schedule_sha256": "44a41c3f48b013366d318cdf520f1fc62ffa44b117edf966e3dbeb9888632216",
+  "memory_labels": [
+    "model_loaded_frozen",
+    "pre_CAP768_P01_PARENT_L_ID_KEEP1",
+    "post_CAP768_P01_PARENT_L_ID_KEEP1",
+    "pre_CAP768_P01_PARENT_L_E_KEEP1",
+    "post_CAP768_P01_PARENT_L_E_KEEP1",
+    "pre_CAP768_P01_PARENT_L_E_REPEAT_KEEP1",
+    "post_CAP768_P01_PARENT_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P01_PARENT_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P01_PARENT_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_P01_MSELF_L_ID_KEEP1",
+    "post_CAP768_P01_MSELF_L_ID_KEEP1",
+    "pre_CAP768_P01_MSELF_L_E_KEEP1",
+    "post_CAP768_P01_MSELF_L_E_KEEP1",
+    "pre_CAP768_P01_MSELF_L_E_REPEAT_KEEP1",
+    "post_CAP768_P01_MSELF_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P01_MSELF_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P01_MSELF_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_P02_PARENT_L_ID_KEEP1",
+    "post_CAP768_P02_PARENT_L_ID_KEEP1",
+    "pre_CAP768_P02_PARENT_L_E_KEEP1",
+    "post_CAP768_P02_PARENT_L_E_KEEP1",
+    "pre_CAP768_P02_PARENT_L_E_REPEAT_KEEP1",
+    "post_CAP768_P02_PARENT_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P02_PARENT_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P02_PARENT_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_P02_MSELF_L_ID_KEEP1",
+    "post_CAP768_P02_MSELF_L_ID_KEEP1",
+    "pre_CAP768_P02_MSELF_L_E_KEEP1",
+    "post_CAP768_P02_MSELF_L_E_KEEP1",
+    "pre_CAP768_P02_MSELF_L_E_REPEAT_KEEP1",
+    "post_CAP768_P02_MSELF_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P02_MSELF_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P02_MSELF_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_P03_PARENT_L_ID_KEEP1",
+    "post_CAP768_P03_PARENT_L_ID_KEEP1",
+    "pre_CAP768_P03_PARENT_L_E_KEEP1",
+    "post_CAP768_P03_PARENT_L_E_KEEP1",
+    "pre_CAP768_P03_PARENT_L_E_REPEAT_KEEP1",
+    "post_CAP768_P03_PARENT_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P03_PARENT_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P03_PARENT_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_P03_MSELF_L_ID_KEEP1",
+    "post_CAP768_P03_MSELF_L_ID_KEEP1",
+    "pre_CAP768_P03_MSELF_L_E_KEEP1",
+    "post_CAP768_P03_MSELF_L_E_KEEP1",
+    "pre_CAP768_P03_MSELF_L_E_REPEAT_KEEP1",
+    "post_CAP768_P03_MSELF_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P03_MSELF_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P03_MSELF_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_P04_PARENT_L_ID_KEEP1",
+    "post_CAP768_P04_PARENT_L_ID_KEEP1",
+    "pre_CAP768_P04_PARENT_L_E_KEEP1",
+    "post_CAP768_P04_PARENT_L_E_KEEP1",
+    "pre_CAP768_P04_PARENT_L_E_REPEAT_KEEP1",
+    "post_CAP768_P04_PARENT_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P04_PARENT_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P04_PARENT_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_P04_MSELF_L_ID_KEEP1",
+    "post_CAP768_P04_MSELF_L_ID_KEEP1",
+    "pre_CAP768_P04_MSELF_L_E_KEEP1",
+    "post_CAP768_P04_MSELF_L_E_KEEP1",
+    "pre_CAP768_P04_MSELF_L_E_REPEAT_KEEP1",
+    "post_CAP768_P04_MSELF_L_E_REPEAT_KEEP1",
+    "pre_CAP768_P04_MSELF_L_ID_KEEP0_CONTROL",
+    "post_CAP768_P04_MSELF_L_ID_KEEP0_CONTROL",
+    "cache_guard_audit_complete",
+    "protected_postflight_complete"
+  ],
+  "memory_labels_sha256": "5702d3737b30f96926e4fea531fa2d586b6146b04a37c6e76e4a409f452b7e33",
+  "prior_evidence": {
+    "launch_failure_file_sha256": "9e41fb8107af77ae5258c10d9caff7f13773aaa26162850faab7c085c6440d80",
+    "launch_failure_internal_sha256": "d6e688e377054b667ab1889c217a0d3da35c578efd373c4deeb3a1e363ce85b1",
+    "launch_log_sha256": "5d4f519dba35d5e8307fce54b1d979bfa937a7d636e4abb29fdddef14b7f0fc3",
+    "launch_manifest_sha256": "755bd5ae763d2309f2cd77b0771be2c430e4370c88287bc14c3b3c4a835a6eb5",
+    "repair_commit": "5c7da8ee788b80a144bd48a89ddb2d037c3766b4",
+    "census_file_sha256": "9bb6e6548553bc78a3f83e05d897fc19865ae8a96f653d33be713e88a4d965ea",
+    "census_manifest_sha256": "6d526e7a54d4f2ba63f57277c02a801b90d4ca0a68b698320d3bae8196ed2372",
+    "repair_attempt_created_namespace": false,
+    "repair_attempt_artifact_inventory": [],
+    "repair_attempt_receipt_sha256": null,
+    "repair_attempt_log_sha256": null,
+    "repair_attempt_status": null
+  },
+  "protected_checkpoints": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "runtime": {
+    "python": "3.12.14",
+    "transformers": "5.6.2",
+    "flash_linear_attention": "0.5.2",
+    "torch_distribution": "2.11.0+cu128",
+    "torch_runtime": "2.11.0+cu128",
+    "model_class": "Qwen3_5ForConditionalGeneration",
+    "hidden_size": 2048,
+    "vocab_size": 248320,
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "attention_implementation": "eager",
+    "local_files_only": true,
+    "tokenizer_eos_token_id": 248046,
+    "tokenizer_pad_token_id": 248046,
+    "checkpoint_metadata_sha256": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.loss.loss_utils": "3df3438f0cb80cb7b903d6d06f522839756f4ca9301a02d793748ae099c27d9f",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "resource_bounds": {
+    "gpus_used": 1,
+    "gpu_model": "NVIDIA RTX A6000",
+    "minimum_gpu_memory_gib": 47,
+    "allocator_cap_gib": 40,
+    "minimum_host_ram_gib": 64,
+    "minimum_free_disk_gib": 60,
+    "compute_seconds": 3000,
+    "audit_seconds": 240,
+    "failure_audit_seconds": 180,
+    "terminal_seconds": 60,
+    "outer_wall_seconds": 3600,
+    "maximum_receipt_bytes": 67108864,
+    "maximum_failure_bytes": 16777216,
+    "maximum_output_directory_bytes": 134217728,
+    "output_root": "/home/ubuntu/rlm/outputs/latent-a1-nc0-cap768-v1"
+  },
+  "interpretation_boundary": "capture geometry and resource fit only for a prospective A1 refreeze; no training authorization, bridge learning, nomination, semantic held-out output, A1 admission, or four-live-floor change"
+}
