@@ -83,7 +83,13 @@ class TimestepFreeRecurrentSidecar(nn.Module):
             private_memory=torch.zeros_like(task_anchor),
         )
 
-    def step(self, task_anchor: Tensor, state: RecurrentState) -> RecurrentState:
+    def step(
+        self,
+        task_anchor: Tensor,
+        state: RecurrentState,
+        *,
+        residual_scale_override: float | None = None,
+    ) -> RecurrentState:
         self._validate_workspace(task_anchor, "task_anchor")
         self._validate_workspace(state.visible_workspace, "state.visible_workspace")
         self._validate_workspace(state.private_memory, "state.private_memory")
@@ -104,7 +110,8 @@ class TimestepFreeRecurrentSidecar(nn.Module):
         private_memory = retain * state.private_memory + (1.0 - retain) * candidate
 
         delta = torch.tanh(self.workspace_delta(self.memory_norm(private_memory)))
-        visible_workspace = task_anchor + torch.tanh(self.output_scale) * delta
+        residual_scale = _residual_scale(self.output_scale, residual_scale_override)
+        visible_workspace = task_anchor + residual_scale * delta
         return RecurrentState(visible_workspace=visible_workspace, private_memory=private_memory)
 
     def rollout(
@@ -115,6 +122,7 @@ class TimestepFreeRecurrentSidecar(nn.Module):
         state: RecurrentState | None = None,
         truncate_every: int | None = None,
         return_trajectory: bool = False,
+        residual_scale_override: float | None = None,
     ) -> RecurrentState | tuple[RecurrentState, ...]:
         if steps < 0:
             raise ValueError("steps must be non-negative")
@@ -124,7 +132,7 @@ class TimestepFreeRecurrentSidecar(nn.Module):
         current = self.initial_state(task_anchor) if state is None else state
         trajectory = [current]
         for step_index in range(steps):
-            current = self.step(task_anchor, current)
+            current = self.step(task_anchor, current, residual_scale_override=residual_scale_override)
             trajectory.append(current)
             if truncate_every is not None and (step_index + 1) % truncate_every == 0 and step_index + 1 < steps:
                 current = current.detached()
@@ -153,11 +161,12 @@ class OneShotFeedForwardSidecar(nn.Module):
         self.output = nn.Linear(hidden_dim, workspace_dim)
         self.output_scale = nn.Parameter(torch.zeros(workspace_dim))
 
-    def forward(self, task_anchor: Tensor) -> Tensor:
+    def forward(self, task_anchor: Tensor, *, residual_scale_override: float | None = None) -> Tensor:
         _validate_workspace(task_anchor, "task_anchor", self.workspace_dim)
         features = torch.nn.functional.silu(self.hidden(self.input_norm(task_anchor)))
         delta = torch.tanh(self.output(features))
-        return task_anchor + torch.tanh(self.output_scale) * delta
+        residual_scale = _residual_scale(self.output_scale, residual_scale_override)
+        return task_anchor + residual_scale * delta
 
 
 def diagnose_recurrent_states(states: tuple[RecurrentState, ...], epsilon: float = 1e-8) -> RecurrentDiagnostics:
@@ -217,3 +226,11 @@ def _validate_workspace(value: Tensor, name: str, workspace_dim: int) -> None:
         raise ValueError(f"{name} has width {value.shape[-1]}, expected {workspace_dim}")
     if not value.is_floating_point():
         raise TypeError(f"{name} must use a floating-point dtype")
+
+
+def _residual_scale(parameter: Tensor, override: float | None) -> Tensor | float:
+    if override is None:
+        return torch.tanh(parameter)
+    if not 0.0 < override < 1.0:
+        raise ValueError("residual_scale_override must be between zero and one")
+    return override

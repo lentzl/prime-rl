@@ -62,6 +62,28 @@ def test_truncated_rollout_detaches_persistent_history():
     assert torch.isfinite(sidecar.transition.weight.grad).all()
 
 
+def test_fixed_residual_scale_diagnostic_opens_full_path_without_mutating_parameters():
+    torch.manual_seed(19)
+    recurrent = TimestepFreeRecurrentSidecar(workspace_dim=3, transition_dim=9)
+    feed_forward = OneShotFeedForwardSidecar(workspace_dim=3, hidden_dim=12)
+    anchor = torch.randn(1, 2, 3)
+    recurrent_scale = recurrent.output_scale.detach().clone()
+    feed_forward_scale = feed_forward.output_scale.detach().clone()
+
+    recurrent_result = recurrent.rollout(anchor, 2, residual_scale_override=0.001)
+    feed_forward_result = feed_forward(anchor, residual_scale_override=0.001)
+    (recurrent_result.visible_workspace.sum() + feed_forward_result.sum()).backward()
+
+    assert recurrent.transition.weight.grad is not None
+    assert recurrent.workspace_delta.weight.grad is not None
+    assert feed_forward.hidden.weight.grad is not None
+    assert feed_forward.output.weight.grad is not None
+    assert torch.equal(recurrent.output_scale.detach(), recurrent_scale)
+    assert torch.equal(feed_forward.output_scale.detach(), feed_forward_scale)
+    assert recurrent.output_scale.grad is None
+    assert feed_forward.output_scale.grad is None
+
+
 def test_recurrent_diagnostics_separate_contraction_from_oscillation():
     def state(value: float) -> RecurrentState:
         tensor = torch.tensor([[[value]]])
