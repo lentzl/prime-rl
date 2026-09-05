@@ -1,11 +1,13 @@
 {
-  "schema_version": "prime-rl/latent-a1-nc0-cap768-plan/v1",
+  "schema_version": "prime-rl/latent-a1-nc0-cap768-r1-plan/v1",
   "status": "preregistered",
   "execution_authorization": "root_and_evaluator_review_required",
-  "mechanism_code_commit": "be5bf43b92a7b999bbf8e700ff49d439f3f7f538",
+  "authorized_run_id": "a1-nc0-cap768-run2",
+  "mechanism_code_commit": "4481550fd3a1db872d1820d51fac8f9e56a27daa",
   "asset_sha256": {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census-manifest.sha256": "6d526e7a54d4f2ba63f57277c02a801b90d4ca0a68b698320d3bae8196ed2372",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census.json": "9bb6e6548553bc78a3f83e05d897fc19865ae8a96f653d33be713e88a4d965ea",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-launcher-rejection-run.log": "b70f54b49c6d9812f801fb793ee3ceee8683186b03213831db7692d7727d6078",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json": "204e6605fca20f94b23468fbd9f56b86ca16e8296191dd09b877a021c9ab2381",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-plan-v1.json": "0d6857e90e4412f2bcc2a036948b96a4552c2a63412ff120ee27c31913b67a4d",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-failure.json": "9e41fb8107af77ae5258c10d9caff7f13773aaa26162850faab7c085c6440d80",
@@ -13,19 +15,19 @@
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-run.log": "5d4f519dba35d5e8307fce54b1d979bfa937a7d636e4abb29fdddef14b7f0fc3",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json": "cea92c57536ec7a93e68c64c4a01669e11dab1dc483a86c711c97c1181bb08d8",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json": "8e87309df0c37cce7bbd0bb98a3daed098f0b354f0c00ae15c27024047539c5e",
-    "scripts/latent/run_a1_nc0_cap768_v1.py": "858263cb7b82e85387dbb961422a3c83f60404c4a7c787810fe6f8b2dd487fce",
-    "scripts/latent/run_a1_nc0_cap768_v1.sh": "2e1f3ae29f16dd67d66f3b5b17dfad076e78267eb451b3b62d6f765f1fdc994f",
+    "scripts/latent/run_a1_nc0_cap768_v1.py": "bc4f33e55ca2a9a8e88e6c78f2ac60d7adc6e7e9858bb7fdc8c6a6ddbd4d2424",
+    "scripts/latent/run_a1_nc0_cap768_v1.sh": "3a19f52dcdad7a28678e2a7b23aea2e2047d5db865c25c25d1ec172551049df0",
     "scripts/latent/run_a1_nc0_nomination_v1.py": "9a2d16583b2db9372ddfeb53bf8ed4157605c97b73662bf11cf869f8f1bcfccd",
     "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
     "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
     "src/prime_rl/latent/a0nc.py": "41c69fe874bc214b9cd4cb3bba377bbe8bdad9f039d16cb60bd089b28e413404",
-    "src/prime_rl/latent/a1cap768.py": "ea915446fd8e49a736a9099ed7aea75d72859e5b5cdf18affcbc12e751cd3916",
+    "src/prime_rl/latent/a1cap768.py": "d1d4dfb4d3d09595389b49cf44eda437b81a6ae4839d01ee3c811ed9c5b4fc62",
     "src/prime_rl/latent/a1nc0.py": "495249009c216ab1a67421ec9f439f0114364b08e4aa719f17ed537221362d7e",
     "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81",
     "src/prime_rl/latent/transfer_bank.py": "29c420b1f3d90c42c3a992f04f782b3bfad17a81ee0f2ec697bd65c1c9319c78",
-    "tests/unit/latent/test_a1cap768.py": "d13b516adae9a0042d27e0595b7c72f3f89d8a7ecbd7de67d1133948d894c7d6"
+    "tests/unit/latent/test_a1cap768.py": "a8505f7713c01a97b6ecf975df19e62458b7b56311a9c4efd8e62c7ee8318d37"
   },
-  "plan_sha256": "a8af6c2c9a925d8acbddfc103cd587adabc3f353a97430e66f1f189719a22bb7",
+  "plan_sha256": "5a2bc3df30b42f025fb2ed57a4cbb9f7e2dff46cbc1485a64e367a3f36217cff",
   "selection": [
     {
       "family": "keyed_numeric",
@@ -367,6 +369,23 @@
     "repair_attempt_receipt_sha256": null,
     "repair_attempt_log_sha256": null,
     "repair_attempt_status": null
+  },
+  "launcher_rejection_evidence": {
+    "status": "launcher_rejected_pre_python",
+    "failed_run_id": "a1-nc0-cap768-run1",
+    "failed_execution_commit": "38f712b652da0cb86d8ad71087761a5ead9ecdba",
+    "failed_mechanism_code_commit": "be5bf43b92a7b999bbf8e700ff49d439f3f7f538",
+    "failed_plan_file_sha256": "5f6266d64fb523e11ff48d64246066e948b6d49b564169aa184dc9bbe1c7910b",
+    "failed_plan_internal_sha256": "a8af6c2c9a925d8acbddfc103cd587adabc3f353a97430e66f1f189719a22bb7",
+    "launch_log_sha256": "b70f54b49c6d9812f801fb793ee3ceee8683186b03213831db7692d7727d6078",
+    "exact_error": "scripts/latent/run_a1_nc0_cap768_v1.sh: line 16: shared_project: unbound variable",
+    "stage": "shell_readonly_initialization",
+    "output_namespace_created": false,
+    "python_started": false,
+    "cuda_runtime_contacted": false,
+    "model_loaded": false,
+    "scientific_exposure": false,
+    "model_update_attempted": false
   },
   "protected_checkpoints": {
     "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
