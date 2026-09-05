@@ -1,0 +1,362 @@
+{
+  "asset_sha256": {
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census-manifest.sha256": "6d526e7a54d4f2ba63f57277c02a801b90d4ca0a68b698320d3bae8196ed2372",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census.json": "9bb6e6548553bc78a3f83e05d897fc19865ae8a96f653d33be713e88a4d965ea",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-launcher-rejection-run.log": "b70f54b49c6d9812f801fb793ee3ceee8683186b03213831db7692d7727d6078",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-plan-v1.json": "f23edabbb4214de6ef84546b9222eb3cf6b16f9e144c501ab9d29eea4e056292",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r1-import-rejection-run.log": "56a7b2ffbfbdafe6de274152c50ace1e46f5d73487c822c6eaea622f5ed06c15",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof-exit-status.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof-receipt.json": "cae344ea48b87d38405c4490188c33fcc214574ecf3dbce132d98b908872dd16",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-operational-render-rejection-failure.json": "496b6391dffaaec0d3dc70ca2156b639f403a07f630670b5a29137e88e402ac3",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-operational-render-rejection-run.log": "7d5fe6357f4e8d888f67749d28a775233c5d6316701a1869ee3aece101322642",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run1-exit-status.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run1-proof.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run1-receipt.json": "2e19fd227ced20f866f38e028fc7d8c6b1cc4b99111aca7bc22e5c2b79b63466",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run2-exit-status.txt": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run2-proof.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run2-receipt.json": "094fcbfc17ed8a519d980e10d32d64fe557dcbab54b018155341805342be6ca9",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-run4-mechanism-rejection-failure.json": "c2e2219fdf4753496871f5a8b56bbd37875e0b3988279d12b53a3bb2f8d45723",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-run4-mechanism-rejection-run.log": "bc50647f012fa8fbfb2a08fc5daa8aa76bfb3f53271742d682dda8d5aa1a90d6",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json": "204e6605fca20f94b23468fbd9f56b86ca16e8296191dd09b877a021c9ab2381",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-plan-v1.json": "0d6857e90e4412f2bcc2a036948b96a4552c2a63412ff120ee27c31913b67a4d",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-failure.json": "9e41fb8107af77ae5258c10d9caff7f13773aaa26162850faab7c085c6440d80",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-manifest.sha256": "755bd5ae763d2309f2cd77b0771be2c430e4370c88287bc14c3b3c4a835a6eb5",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-render-rejection-run.log": "5d4f519dba35d5e8307fce54b1d979bfa937a7d636e4abb29fdddef14b7f0fc3",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json": "cea92c57536ec7a93e68c64c4a01669e11dab1dc483a86c711c97c1181bb08d8",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json": "8e87309df0c37cce7bbd0bb98a3daed098f0b354f0c00ae15c27024047539c5e",
+    "scripts/latent/prove_a1_nc0_cap768_r3_render_v1.py": "7c85158f830bd129156ff8ddee9b1e2c51b9158add1dabf55ac191442b057907",
+    "scripts/latent/prove_a1_nc0_cap768_r3_render_v1.sh": "e737201f0cf043823c10c6c8edb478815f31aa2b2ba08e9325f96278e0c1f1cd",
+    "scripts/latent/run_a1_nc0_cap768_flag0_v1.py": "4f30cb3be29293f98c09f60a515e37ef1655a8919a4f0c0a8cee41b774b1720b",
+    "scripts/latent/run_a1_nc0_cap768_flag0_v1.sh": "c7f6c0c680a1bd51ce36566bf547e8128622eec73bd279db155c12a603a7e5ee",
+    "scripts/latent/run_a1_nc0_cap768_v1.py": "5de4f57deb324451efd1e3c11576c046fc9bfd31b4f3a3218bd5a90c963bf061",
+    "scripts/latent/run_a1_nc0_cap768_v1.sh": "27b9205eec0b6d9828493936d7d2dbea37f5cc3a2643c0742a83a5a6e8b1c5d1",
+    "scripts/latent/run_a1_nc0_nomination_v1.py": "3ad4949d70edc467e30eeb2b512292a09dfa5d66f411253bf31045d6047034d9",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/a0nc.py": "41c69fe874bc214b9cd4cb3bba377bbe8bdad9f039d16cb60bd089b28e413404",
+    "src/prime_rl/latent/a1cap768.py": "0efe7dfda8ee28ac83c45ba946021504c4ceea77172a64c9f034c7746ef96e53",
+    "src/prime_rl/latent/a1cap768_flag0.py": "b63bb4d5f773a3397f9ec2a08a390168d492f5a6b90615ecbcb25baa934054e8",
+    "src/prime_rl/latent/a1nc0.py": "495249009c216ab1a67421ec9f439f0114364b08e4aa719f17ed537221362d7e",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81",
+    "src/prime_rl/latent/transfer_bank.py": "29c420b1f3d90c42c3a992f04f782b3bfad17a81ee0f2ec697bd65c1c9319c78",
+    "tests/unit/latent/test_a1cap768.py": "d6ffa6fe3a40f05bc34d344dcb270d6cadcc72ae051f10fe32e93706a636dc6d",
+    "tests/unit/latent/test_a1cap768_flag0.py": "2117035ef0f372079bd2321ddbb392445963740f529f13d78bb3667c9742d3b6"
+  },
+  "authorized_run_id": "a1-nc0-cap768-flag-isolation-run1",
+  "comparison_schedule": [
+    {
+      "comparison_index": 1,
+      "lhs": "L_ID_KEEP1.logits",
+      "name": "id_embed_keep1_logits",
+      "rhs": "L_E_KEEP1.logits"
+    },
+    {
+      "comparison_index": 2,
+      "lhs": "L_ID_KEEP1.hidden",
+      "name": "id_embed_keep1_full_hidden",
+      "rhs": "L_E_KEEP1.hidden"
+    },
+    {
+      "comparison_index": 3,
+      "lhs": "L_ID_KEEP1.capture",
+      "name": "id_embed_keep1_capture",
+      "rhs": "L_E_KEEP1.capture"
+    },
+    {
+      "comparison_index": 4,
+      "lhs": "L_E_KEEP1.logits",
+      "name": "repeat_logits",
+      "rhs": "L_E_REPEAT_KEEP1.logits"
+    },
+    {
+      "comparison_index": 5,
+      "lhs": "L_E_KEEP1.hidden",
+      "name": "repeat_full_hidden",
+      "rhs": "L_E_REPEAT_KEEP1.hidden"
+    },
+    {
+      "comparison_index": 6,
+      "lhs": "L_E_KEEP1.capture",
+      "name": "repeat_capture",
+      "rhs": "L_E_REPEAT_KEEP1.capture"
+    },
+    {
+      "comparison_index": 7,
+      "lhs": "L_ID_KEEP1.hidden",
+      "name": "keep0_keep1_full_hidden",
+      "rhs": "L_ID_KEEP0_CONTROL.hidden"
+    },
+    {
+      "comparison_index": 8,
+      "lhs": "L_ID_KEEP1.capture",
+      "name": "keep0_keep1_capture",
+      "rhs": "L_ID_KEEP0_CONTROL.capture"
+    },
+    {
+      "comparison_index": 9,
+      "lhs": "L_ID_KEEP1.logits",
+      "name": "keep0_last_logits_keep1",
+      "rhs": "L_ID_KEEP0_CONTROL.last_logits"
+    },
+    {
+      "comparison_index": 10,
+      "lhs": "PROJ_ID1_LAST.logits",
+      "name": "proj_id1_matches_id1_logits",
+      "rhs": "L_ID_KEEP1.logits"
+    },
+    {
+      "comparison_index": 11,
+      "lhs": "PROJ_ID0_LAST.logits",
+      "name": "proj_id0_matches_id0_last_logits",
+      "rhs": "L_ID_KEEP0_CONTROL.last_logits"
+    },
+    {
+      "comparison_index": 12,
+      "lhs": "PROJ_ID1_LAST.logits",
+      "name": "proj_id1_proj_id0",
+      "rhs": "PROJ_ID0_LAST.logits"
+    },
+    {
+      "comparison_index": 13,
+      "lhs": "L_ID_KEEP1.logits",
+      "name": "id1_logits_proj_id0",
+      "rhs": "PROJ_ID0_LAST.logits"
+    }
+  ],
+  "comparison_schedule_sha256": "f8df624428819cd5dd5a6ee234cc0407bb6b97ebe3cb9ab5f916ab79de66cfc5",
+  "decision_boundary": {
+    "A1_NC0_unblocked": false,
+    "CAP768_validated": false,
+    "admission": false,
+    "claim": "capture768_flag_isolation_only",
+    "four_live_floor_unchanged": true,
+    "live_trajectories": 0,
+    "nomination": false,
+    "promotion": false,
+    "run4_remains_rejected": true,
+    "training_authorized": false
+  },
+  "execution_authorization": "root_and_evaluator_review_required",
+  "fixture": {
+    "capture_indices": [
+      640,
+      768
+    ],
+    "capture_shape": [
+      1,
+      128,
+      2048
+    ],
+    "evidence_id": "train-keyed_numeric-685221bdf4d3058c",
+    "family": "keyed_numeric",
+    "left_pad_tokens": 251,
+    "modality": "PARENT",
+    "padded_tokens": 768,
+    "query_id": "train-keyed_numeric-685221bdf4d3058c-q1",
+    "unpadded_tokens": 517
+  },
+  "fixture_sha256": "2ebbd769a6e50cf4cc41ac99a020497be3e0902f78e79ae0bca131224fee89c9",
+  "flag_names": [
+    "left_padding_exact",
+    "attention_mask_exact",
+    "position_ids_exact",
+    "no_truncation",
+    "id_embed_keep1_logits_bitwise",
+    "id_embed_keep1_full_hidden_bitwise",
+    "id_embed_keep1_capture_bitwise",
+    "repeat_same_embedding_object",
+    "repeat_embedding_unchanged",
+    "repeat_logits_bitwise",
+    "repeat_full_hidden_bitwise",
+    "repeat_capture_bitwise",
+    "keep0_keep1_full_hidden_bitwise",
+    "keep0_keep1_capture_bitwise",
+    "keep0_last_logits_keep1_bitwise",
+    "all_outputs_finite",
+    "all_output_logits_finite",
+    "all_output_full_hidden_finite",
+    "all_capture_finite",
+    "exact_embeddings_finite",
+    "exact_embeddings_requires_grad_false",
+    "proj_id1_matches_id1_logits_bitwise",
+    "proj_id0_matches_id0_last_logits_bitwise",
+    "proj_id1_proj_id0_bitwise",
+    "id1_logits_proj_id0_bitwise"
+  ],
+  "flag_names_sha256": "7527bc4baab849eb819c30d209e7ade244c456166d418987a588c7c959fbe3ee",
+  "interpretation_boundary": "capture768 flag isolation only; run4 remains rejected, CAP768 is not validated, A1-NC0 remains blocked, and no training, nomination, admission, promotion, or four-live-floor change is authorized",
+  "mechanism_code_commit": "1a61d101e7164f2300148c1b452c1f614a15f99e",
+  "memory_labels": [
+    "model_loaded_frozen",
+    "pre_CAP768_FLAG_P01_PARENT_EXACT_EMBED_LOOKUP",
+    "post_CAP768_FLAG_P01_PARENT_EXACT_EMBED_LOOKUP",
+    "pre_CAP768_FLAG_P01_PARENT_L_ID_KEEP1",
+    "post_CAP768_FLAG_P01_PARENT_L_ID_KEEP1",
+    "pre_CAP768_FLAG_P01_PARENT_L_E_KEEP1",
+    "post_CAP768_FLAG_P01_PARENT_L_E_KEEP1",
+    "pre_CAP768_FLAG_P01_PARENT_L_E_REPEAT_KEEP1",
+    "post_CAP768_FLAG_P01_PARENT_L_E_REPEAT_KEEP1",
+    "pre_CAP768_FLAG_P01_PARENT_L_ID_KEEP0_CONTROL",
+    "post_CAP768_FLAG_P01_PARENT_L_ID_KEEP0_CONTROL",
+    "pre_CAP768_FLAG_P01_PARENT_PROJ_ID1_LAST",
+    "post_CAP768_FLAG_P01_PARENT_PROJ_ID1_LAST",
+    "pre_CAP768_FLAG_P01_PARENT_PROJ_ID0_LAST",
+    "post_CAP768_FLAG_P01_PARENT_PROJ_ID0_LAST",
+    "cache_guard_audit_complete",
+    "protected_postflight_complete"
+  ],
+  "memory_labels_sha256": "02fbf26af98251d66e96841fb069321a0c5ad6e4ccd9ab44515b99bff8231ade",
+  "operation_schedule": [
+    {
+      "kind": "embedding_lookup",
+      "name": "CAP768_FLAG_P01_PARENT_EXACT_EMBED_LOOKUP",
+      "operation_index": 1
+    },
+    {
+      "kind": "model_forward",
+      "name": "CAP768_FLAG_P01_PARENT_L_ID_KEEP1",
+      "operation_index": 2
+    },
+    {
+      "kind": "model_forward",
+      "name": "CAP768_FLAG_P01_PARENT_L_E_KEEP1",
+      "operation_index": 3
+    },
+    {
+      "kind": "model_forward",
+      "name": "CAP768_FLAG_P01_PARENT_L_E_REPEAT_KEEP1",
+      "operation_index": 4
+    },
+    {
+      "kind": "model_forward",
+      "name": "CAP768_FLAG_P01_PARENT_L_ID_KEEP0_CONTROL",
+      "operation_index": 5
+    },
+    {
+      "kind": "lm_head_projection",
+      "name": "CAP768_FLAG_P01_PARENT_PROJ_ID1_LAST",
+      "operation_index": 6
+    },
+    {
+      "kind": "lm_head_projection",
+      "name": "CAP768_FLAG_P01_PARENT_PROJ_ID0_LAST",
+      "operation_index": 7
+    }
+  ],
+  "operation_schedule_sha256": "bf211a9dbfae00d76f4abf0dc5be5728d01c6a46916c726e5827edc955c9276a",
+  "plan_sha256": "847ac4caa0e0420b127336650c8e88ea2fe8316e0da30ac9a25ddcddd8a62438",
+  "protected_checkpoints": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "resource_bounds": {
+    "allocator_cap_gib": 40,
+    "audit_seconds": 240,
+    "compute_seconds": 3000,
+    "failure_audit_seconds": 180,
+    "gpu_model": "NVIDIA RTX A6000",
+    "gpus_used": 1,
+    "maximum_failure_bytes": 16777216,
+    "maximum_output_directory_bytes": 134217728,
+    "maximum_receipt_bytes": 67108864,
+    "minimum_free_disk_gib": 60,
+    "minimum_gpu_memory_gib": 47,
+    "minimum_host_ram_gib": 64,
+    "outer_wall_seconds": 3600,
+    "output_root": "/home/ubuntu/rlm/outputs/latent-a1-nc0-cap768-flag-isolation-v1",
+    "terminal_seconds": 60
+  },
+  "run4_flag_names": [
+    "left_padding_exact",
+    "attention_mask_exact",
+    "position_ids_exact",
+    "no_truncation",
+    "id_embed_keep1_logits_bitwise",
+    "id_embed_keep1_full_hidden_bitwise",
+    "id_embed_keep1_capture_bitwise",
+    "repeat_same_embedding_object",
+    "repeat_embedding_unchanged",
+    "repeat_logits_bitwise",
+    "repeat_full_hidden_bitwise",
+    "repeat_capture_bitwise",
+    "keep0_keep1_full_hidden_bitwise",
+    "keep0_keep1_capture_bitwise",
+    "keep0_last_logits_keep1_bitwise",
+    "all_outputs_finite"
+  ],
+  "run4_flag_names_sha256": "2ba84a6ce26dbf74fd200086bb58fa7302fe0c222b83cfeb181ce34c09647969",
+  "run4_rejection_evidence": {
+    "asset_count": 35,
+    "backward_used": false,
+    "bridge_created": false,
+    "cache_closure_check_count": 10,
+    "cache_guard_restored": true,
+    "candidate_created": false,
+    "checkpoint_created": false,
+    "e33_gradients_absent": true,
+    "error_type": "CaptureMechanismRejected",
+    "exact_error": "CAP768 parity/repeat/capture predicate rejected",
+    "execution_commit": "1cbd298e3bb65de38b96c1fa1bafd2e0504bd8e3",
+    "failure_audit_errors": [],
+    "failure_category": "cache_pkv_parity_repeat_capture_geometry_or_finiteness",
+    "failure_file_sha256": "c2e2219fdf4753496871f5a8b56bbd37875e0b3988279d12b53a3bb2f8d45723",
+    "failure_internal_sha256": "e9887d9f1b894dab09f1b88ab56bc26ac71001f56d0022a8bdfec253db69c9a0",
+    "launch_log_sha256": "bc50647f012fa8fbfb2a08fc5daa8aa76bfb3f53271742d682dda8d5aa1a90d6",
+    "mechanism_code_commit": "03df4ce5465373cb529105f97b767306cb738ae7",
+    "memory_labels": [
+      "model_loaded_frozen",
+      "pre_CAP768_P01_PARENT_L_ID_KEEP1",
+      "post_CAP768_P01_PARENT_L_ID_KEEP1",
+      "pre_CAP768_P01_PARENT_L_E_KEEP1",
+      "post_CAP768_P01_PARENT_L_E_KEEP1",
+      "pre_CAP768_P01_PARENT_L_E_REPEAT_KEEP1",
+      "post_CAP768_P01_PARENT_L_E_REPEAT_KEEP1",
+      "pre_CAP768_P01_PARENT_L_ID_KEEP0_CONTROL",
+      "post_CAP768_P01_PARENT_L_ID_KEEP0_CONTROL"
+    ],
+    "model_loaded": true,
+    "model_update_attempted": false,
+    "optimizer_created": false,
+    "plan_file_sha256": "f23edabbb4214de6ef84546b9222eb3cf6b16f9e144c501ab9d29eea4e056292",
+    "plan_internal_sha256": "05414dc4df70326f5571646209c086aa54709db9e7763582605e9cfcd7da4206",
+    "protected_disk_state_metadata_exact": true,
+    "run_id": "a1-nc0-cap768-run4",
+    "snapshot_manifest_exists": false,
+    "status": "capture768_mechanism_rejected",
+    "worker_h176_loaded": false
+  },
+  "runtime": {
+    "attention_implementation": "eager",
+    "checkpoint_metadata_sha256": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "flash_linear_attention": "0.5.2",
+    "hidden_size": 2048,
+    "local_files_only": true,
+    "model_class": "Qwen3_5ForConditionalGeneration",
+    "python": "3.12.14",
+    "tokenizer_eos_token_id": 248046,
+    "tokenizer_pad_token_id": 248046,
+    "torch_distribution": "2.11.0+cu128",
+    "torch_runtime": "2.11.0+cu128",
+    "transformers": "5.6.2",
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.loss.loss_utils": "3df3438f0cb80cb7b903d6d06f522839756f4ca9301a02d793748ae099c27d9f",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    },
+    "vocab_size": 248320
+  },
+  "schema_version": "prime-rl/latent-a1-nc0-cap768-flag-isolation-plan/v1",
+  "status": "preregistered",
+  "train_bank_sha256": "cea92c57536ec7a93e68c64c4a01669e11dab1dc483a86c711c97c1181bb08d8"
+}
