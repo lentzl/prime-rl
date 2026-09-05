@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_a1_nc0_cap768_v1.py", line 27, in <module>
+    from prime_rl.latent.a1cap768 import (
+ImportError: cannot import name 'validate_bank_artifact' from 'prime_rl.latent.a1cap768' (/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/src/prime_rl/latent/a1cap768.py)

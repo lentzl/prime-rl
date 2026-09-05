@@ -27,6 +27,7 @@ from prime_rl.latent.a0nc import recursive_subclass_closure
 from prime_rl.latent.a1cap768 import (
     AUTHORIZED_RUN_ID,
     FAILURE_SCHEMA,
+    IMPORT_REJECTION_EVIDENCE,
     INTERPRETATION,
     LAUNCHER_REJECTION_EVIDENCE,
     RECEIPT_SCHEMA,
@@ -41,10 +42,14 @@ from prime_rl.latent.a1cap768 import (
     classify_failure,
     load_plan,
     memory_labels,
-    validate_bank_artifact,
     validate_receipt,
 )
-from prime_rl.latent.a1nc0 import _CACHE_CLASS_CLOSURE, module_state_tree_sha256, tensor_bytes_sha256
+from prime_rl.latent.a1nc0 import (
+    _CACHE_CLASS_CLOSURE,
+    module_state_tree_sha256,
+    tensor_bytes_sha256,
+    validate_bank_artifact,
+)
 from prime_rl.latent.policy_adapter import HiddenStateCaptureSpec, capture_parent_features
 
 _A1_RUNNER_PATH = Path(__file__).with_name("run_a1_nc0_nomination_v1.py")
@@ -577,6 +582,7 @@ def run(args, plan, writer, stage):
         "call_schedule": build_schedule(), "call_schedule_sha256": SCHEDULE_SHA256,
         "prior_evidence": plan["prior_evidence"],
         "launcher_rejection_evidence": plan["launcher_rejection_evidence"],
+        "import_rejection_evidence": plan["import_rejection_evidence"],
         "run_id": args.output_dir.name,
         "versions": versions, "runtime_sources": runtime_sources,
         "static_guard": _static_guard(Path(__file__)), "render_preflight": preflight,
@@ -683,6 +689,11 @@ def failure_record(args, error, plan, stage):
             LAUNCHER_REJECTION_EVIDENCE
             if plan is None
             else plan.get("launcher_rejection_evidence")
+        ),
+        "import_rejection_evidence": (
+            IMPORT_REJECTION_EVIDENCE
+            if plan is None
+            else plan.get("import_rejection_evidence")
         ),
         "run_id": args.output_dir.name,
         "protected_hashes_before": stage.get("protected_before"),

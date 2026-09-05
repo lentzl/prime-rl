@@ -1,3 +1,4 @@
+import ast
 import copy
 import hashlib
 import subprocess
@@ -6,6 +7,7 @@ from pathlib import Path
 import pytest
 
 import prime_rl.latent.a1cap768 as cap
+import prime_rl.latent.a1nc0 as a1nc0
 from prime_rl.latent.a0 import canonical_json_hash
 
 
@@ -20,6 +22,7 @@ def test_selection_schedule_memory_and_prior_evidence_are_exact():
     assert len(cap.memory_labels()) == len(set(cap.memory_labels())) == 67
     assert cap._validate_prior_evidence(cap.Path(".")) == cap.PRIOR_EVIDENCE
     assert cap._validate_launcher_rejection_evidence(cap.Path(".")) == cap.LAUNCHER_REJECTION_EVIDENCE
+    assert cap._validate_import_rejection_evidence(cap.Path(".")) == cap.IMPORT_REJECTION_EVIDENCE
     assert cap.LAUNCHER_REJECTION_EVIDENCE["artifacts"] == []
     assert cap.LAUNCHER_REJECTION_EVIDENCE["shell_exit_nonzero"] is True
     assert "shell_exit_code" not in cap.LAUNCHER_REJECTION_EVIDENCE
@@ -40,7 +43,7 @@ def test_terminal_taxonomy(error, status):
 
 def test_cap_launcher_freezes_fresh_namespace_and_full_resource_bounds():
     shell = Path("scripts/latent/run_a1_nc0_cap768_v1.sh").read_text()
-    assert "$3 != a1-nc0-cap768-run2" in shell
+    assert "$3 != a1-nc0-cap768-run3" in shell
     assert "62914560" in shell and "67108864" in shell
     assert "CUDA_VISIBLE_DEVICES=0" in shell
     assert "3600s" in shell and "134217728" in shell
@@ -60,12 +63,24 @@ def test_launcher_declarations_execute_under_nounset_and_reject_reused_namespace
     assert valid.stdout == "/home/ubuntu/rlm/prime-rl/.venv\n"
     assert "unbound variable" not in valid.stderr
     reused = subprocess.run(
-        ["bash", "-c", declarations, "launcher", "a" * 40, "b" * 64, "a1-nc0-cap768-run1"],
+        ["bash", "-c", declarations, "launcher", "a" * 40, "b" * 64, "a1-nc0-cap768-run2"],
         check=False,
         capture_output=True,
         text=True,
     )
     assert reused.returncode == 64
+
+
+def test_runner_imports_bank_validator_from_its_defining_module():
+    tree = ast.parse(Path("scripts/latent/run_a1_nc0_cap768_v1.py").read_text())
+    imports = {
+        node.module: {alias.name for alias in node.names}
+        for node in ast.walk(tree)
+        if isinstance(node, ast.ImportFrom)
+    }
+    assert "validate_bank_artifact" in imports["prime_rl.latent.a1nc0"]
+    assert "validate_bank_artifact" not in imports["prime_rl.latent.a1cap768"]
+    assert callable(a1nc0.validate_bank_artifact)
 
 
 def test_single_compute_alarm_covers_plan_through_probes():
@@ -153,6 +168,7 @@ def valid_receipt():
         "protected_checkpoints": {"coordinator_e33": cap._E33, "worker_h176": cap._H176},
         "prior_evidence": cap.PRIOR_EVIDENCE,
         "launcher_rejection_evidence": cap.LAUNCHER_REJECTION_EVIDENCE,
+        "import_rejection_evidence": cap.IMPORT_REJECTION_EVIDENCE,
         "authorized_run_id": cap.AUTHORIZED_RUN_ID,
         "memory_labels": cap.memory_labels(),
     }
@@ -187,6 +203,7 @@ def valid_receipt():
         "call_schedule": schedule, "call_schedule_sha256": cap.SCHEDULE_SHA256,
         "prior_evidence": cap.PRIOR_EVIDENCE,
         "launcher_rejection_evidence": cap.LAUNCHER_REJECTION_EVIDENCE,
+        "import_rejection_evidence": cap.IMPORT_REJECTION_EVIDENCE,
         "run_id": cap.AUTHORIZED_RUN_ID,
         "versions": {key: cap._RUNTIME[key] for key in ("python", "transformers", "flash_linear_attention",
                                                          "torch_distribution", "torch_runtime")},

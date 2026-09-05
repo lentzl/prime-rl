@@ -8,7 +8,7 @@ from pathlib import Path
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
 from prime_rl.latent.a1nc0 import _CACHE_CLASS_CLOSURE, _E33, _H176, _RUNTIME
 
-PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-r1-plan/v1"
+PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-r2-plan/v1"
 RECEIPT_SCHEMA = "prime-rl/latent-a1-nc0-cap768-receipt/v1"
 FAILURE_SCHEMA = "prime-rl/latent-a1-nc0-cap768-failure/v1"
 _SHA = re.compile(r"^[0-9a-f]{64}$")
@@ -47,7 +47,7 @@ SELECTION = [
 SELECTION_SHA256 = "4696e1e8e075bc6a525054387c7d09ea3890c71915be70847c9352660d829020"
 SCHEDULE_SHA256 = "44a41c3f48b013366d318cdf520f1fc62ffa44b117edf966e3dbeb9888632216"
 REPAIR_COMMIT = "5c7da8ee788b80a144bd48a89ddb2d037c3766b4"
-AUTHORIZED_RUN_ID = "a1-nc0-cap768-run2"
+AUTHORIZED_RUN_ID = "a1-nc0-cap768-run3"
 RESOURCE_BOUNDS = {
     "gpus_used": 1,
     "gpu_model": "NVIDIA RTX A6000",
@@ -98,6 +98,30 @@ LAUNCHER_REJECTION_EVIDENCE = {
     "scientific_exposure": False,
     "model_update_attempted": False,
 }
+IMPORT_REJECTION_EVIDENCE = {
+    "status": "import_rejected_pre_main",
+    "failed_run_id": "a1-nc0-cap768-run2",
+    "failed_execution_commit": "1de986e60c6d5a84b78d0db216d1a58a02d0d632",
+    "failed_mechanism_code_commit": "60a9955b316339ca4679759bd52aa5595f85469b",
+    "failed_plan_file_sha256": "b90ed9c6ee25d1134bf4844f34c9cdb7f88927c55a6eed7d1bee432d1bafbb31",
+    "failed_plan_internal_sha256": "9fddd25b0c8267c18b4cef3ee8c0569605be86883b9d1784322e9b9af76c722d",
+    "launch_log_sha256": "56a7b2ffbfbdafe6de274152c50ace1e46f5d73487c822c6eaea622f5ed06c15",
+    "error_type": "ImportError",
+    "exact_error": (
+        "cannot import name 'validate_bank_artifact' from 'prime_rl.latent.a1cap768' "
+        "(/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/src/prime_rl/latent/a1cap768.py)"
+    ),
+    "stage": "python_module_import_pre_main",
+    "artifacts": [],
+    "process_exit_nonzero": True,
+    "output_namespace_created": False,
+    "python_started": True,
+    "main_entered": False,
+    "cuda_runtime_contacted": False,
+    "model_loaded": False,
+    "scientific_exposure": False,
+    "model_update_attempted": False,
+}
 INTERPRETATION = (
     "capture geometry and resource fit only for a prospective A1 refreeze; no training authorization, bridge "
     "learning, nomination, semantic held-out output, A1 admission, or four-live-floor change"
@@ -110,6 +134,7 @@ ASSET_PATHS = {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census-manifest.sha256",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-launcher-rejection-run.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r1-import-rejection-run.log",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json",
@@ -226,6 +251,23 @@ def _validate_launcher_rejection_evidence(repo: Path) -> dict[str, object]:
     return LAUNCHER_REJECTION_EVIDENCE
 
 
+def _validate_import_rejection_evidence(repo: Path) -> dict[str, object]:
+    path = (
+        repo
+        / "experiments/qwen35-2b-latent-workspace-v1"
+        / "a1-nc0-cap768-r1-import-rejection-run.log"
+    )
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("CAP768 import-rejection evidence absent or symlinked")
+    if file_sha256(path) != IMPORT_REJECTION_EVIDENCE["launch_log_sha256"]:
+        raise ValueError("CAP768 import-rejection log changed")
+    final_line = path.read_text().rstrip("\n").splitlines()[-1]
+    expected = f"{IMPORT_REJECTION_EVIDENCE['error_type']}: {IMPORT_REJECTION_EVIDENCE['exact_error']}"
+    if final_line != expected:
+        raise ValueError("CAP768 import-rejection error changed")
+    return IMPORT_REJECTION_EVIDENCE
+
+
 def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
     if plan_path.is_symlink() or not plan_path.is_file():
         raise ValueError("CAP768 plan absent or symlinked")
@@ -235,7 +277,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         "selection", "selection_sha256", "call_schedule", "call_schedule_sha256", "memory_labels",
         "memory_labels_sha256", "prior_evidence", "protected_checkpoints", "runtime", "resource_bounds",
         "interpretation_boundary", "execution_authorization", "authorized_run_id",
-        "launcher_rejection_evidence",
+        "launcher_rejection_evidence", "import_rejection_evidence",
     }
     assets = plan.get("asset_sha256")
     if (
@@ -253,6 +295,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("memory_labels_sha256") != canonical_json_hash(memory_labels())
         or plan.get("prior_evidence") != PRIOR_EVIDENCE
         or plan.get("launcher_rejection_evidence") != LAUNCHER_REJECTION_EVIDENCE
+        or plan.get("import_rejection_evidence") != IMPORT_REJECTION_EVIDENCE
         or plan.get("protected_checkpoints") != {"coordinator_e33": _E33, "worker_h176": _H176}
         or plan.get("runtime") != _RUNTIME
         or plan.get("resource_bounds") != RESOURCE_BOUNDS
@@ -272,6 +315,8 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         raise ValueError("CAP768 prior evidence binding changed")
     if _validate_launcher_rejection_evidence(repo) != plan["launcher_rejection_evidence"]:
         raise ValueError("CAP768 launcher-rejection evidence binding changed")
+    if _validate_import_rejection_evidence(repo) != plan["import_rejection_evidence"]:
+        raise ValueError("CAP768 import-rejection evidence binding changed")
     return plan
 
 
@@ -279,7 +324,8 @@ def validate_receipt(receipt: dict[str, object], *, plan: dict[str, object]) -> 
     expected_top_keys = {
         "schema_version", "status", "plan_sha256", "mechanism_code_commit", "execution_commit",
         "asset_sha256", "selection", "selection_sha256", "call_schedule", "call_schedule_sha256",
-        "prior_evidence", "launcher_rejection_evidence", "run_id", "versions", "runtime_sources",
+        "prior_evidence", "launcher_rejection_evidence", "import_rejection_evidence", "run_id",
+        "versions", "runtime_sources",
         "static_guard", "render_preflight", "protected_hashes_before",
         "protected_hashes_after", "checkpoint_metadata_before", "checkpoint_metadata_after",
         "e33_state_tree_before", "e33_state_tree_after", "e33_parameters_frozen_no_grad",
@@ -304,6 +350,7 @@ def validate_receipt(receipt: dict[str, object], *, plan: dict[str, object]) -> 
         or receipt.get("call_schedule_sha256") != SCHEDULE_SHA256
         or receipt.get("prior_evidence") != PRIOR_EVIDENCE
         or receipt.get("launcher_rejection_evidence") != LAUNCHER_REJECTION_EVIDENCE
+        or receipt.get("import_rejection_evidence") != IMPORT_REJECTION_EVIDENCE
         or receipt.get("run_id") != AUTHORIZED_RUN_ID
         or receipt.get("protected_hashes_before") != plan.get("protected_checkpoints")
         or receipt.get("protected_hashes_after") != plan.get("protected_checkpoints")
