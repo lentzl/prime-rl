@@ -11,6 +11,7 @@ from prime_rl.latent.a0nc import (
     _INTERPRETATION,
     _MECHANISM,
     _REJECTION,
+    load_plan,
     recursive_subclass_closure,
     validate_plan,
 )
@@ -51,6 +52,12 @@ def _plan(prior, bank_sha):
 def test_a0nc_accepts_exact_fresh_four_probe_nocache_design():
     prior, bank_sha = _inputs()
     validate_plan(_plan(prior, bank_sha), prior=prior, bank_sha=bank_sha)
+
+
+def test_a0nc_frozen_plan_closes_rejected_evidence_and_disjoint_banks():
+    plan, bank = load_plan(EXPERIMENT / "a0-nocache-plan-v1.json", EXPERIMENT / "a0-nocache-bank-v1.json")
+    assert plan["plan_sha256"] == "2a4dbf8984d2aab3cd7297419c0ae510a7bd05eaefea64b1754f42d06ade433a"
+    assert len(bank["examples"]) == 4
 
 
 def test_a0nc_recursive_cache_subclass_closure_includes_indirect_classes():
