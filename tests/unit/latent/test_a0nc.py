@@ -11,6 +11,9 @@ from prime_rl.latent.a0nc import (
     _INTERPRETATION,
     _MECHANISM,
     _REJECTION,
+    CacheAllocationDetected,
+    DiagnosticIncomplete,
+    classify_failure,
     load_plan,
     recursive_subclass_closure,
     validate_plan,
@@ -71,6 +74,24 @@ def test_a0nc_recursive_cache_subclass_closure_includes_indirect_classes():
         pass
 
     assert recursive_subclass_closure(Base) == {Base, Direct, Indirect}
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (
+            CacheAllocationDetected("actual cache allocation"),
+            ("nocache_receiver_mechanism_rejected", "cache_allocation_or_past_key_values_detected"),
+        ),
+        (
+            DiagnosticIncomplete("nonfinite or diagnostic contract failure"),
+            ("diagnostic_incomplete", "diagnostic_execution_or_finiteness_failure"),
+        ),
+        (RuntimeError("environment failure"), ("infrastructure_invalid", "environment_provenance_timeout_or_oom")),
+    ],
+)
+def test_a0nc_terminal_classification_is_exact(error, expected):
+    assert classify_failure(error) == expected
 
 
 @pytest.mark.parametrize(

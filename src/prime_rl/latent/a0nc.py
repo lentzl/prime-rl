@@ -88,6 +88,22 @@ _ASSETS = {
 }
 
 
+class DiagnosticIncomplete(RuntimeError):
+    """The diagnostic could not produce interpretable qualifying evidence."""
+
+
+class CacheAllocationDetected(RuntimeError):
+    """The no-cache mechanism allocated or returned cache state."""
+
+
+def classify_failure(error: BaseException) -> tuple[str, str]:
+    if isinstance(error, CacheAllocationDetected):
+        return "nocache_receiver_mechanism_rejected", "cache_allocation_or_past_key_values_detected"
+    if isinstance(error, DiagnosticIncomplete):
+        return "diagnostic_incomplete", "diagnostic_execution_or_finiteness_failure"
+    return "infrastructure_invalid", "environment_provenance_timeout_or_oom"
+
+
 def validate_plan(plan: dict[str, object], *, prior: dict[str, object], bank_sha: str) -> None:
     required = {
         "schema_version",
@@ -289,10 +305,10 @@ def validate_receipt(receipt: dict[str, object], *, plan: dict[str, object]) -> 
     }
     if set(receipt) != required:
         raise ValueError("A0NC receipt fields changed")
-    if receipt.get("schema_version") != "prime-rl/latent-a0-nocache-receipt/v1" or receipt.get("status") not in {
-        "nocache_receiver_mechanism_validated",
-        "nocache_receiver_mechanism_rejected",
-    }:
+    if (
+        receipt.get("schema_version") != "prime-rl/latent-a0-nocache-receipt/v1"
+        or receipt.get("status") != "nocache_receiver_mechanism_validated"
+    ):
         raise ValueError("A0NC receipt status changed")
     for field in ("plan_sha256", "bank_sha256", "mechanism_code_commit", "asset_sha256", "interpretation_boundary"):
         if receipt.get(field) != plan[field]:
@@ -448,9 +464,7 @@ def validate_receipt(receipt: dict[str, object], *, plan: dict[str, object]) -> 
         )
         for p in probes
     )
-    if receipt.get("complete_distinct_probes") != 4 or receipt.get("status") != (
-        "nocache_receiver_mechanism_validated" if qualifies else "nocache_receiver_mechanism_rejected"
-    ):
+    if not qualifies or receipt.get("complete_distinct_probes") != 4:
         raise ValueError("A0NC terminal result changed")
     if receipt.get("receipt_sha256") != canonical_json_hash(receipt, omitted_fields=("receipt_sha256",)):
         raise ValueError("A0NC receipt hash changed")

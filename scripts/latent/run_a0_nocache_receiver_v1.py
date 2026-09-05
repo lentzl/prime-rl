@@ -18,7 +18,14 @@ import transformers.generation.utils
 import transformers.models.qwen3_5.modeling_qwen3_5
 
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
-from prime_rl.latent.a0nc import load_plan, recursive_subclass_closure, validate_receipt
+from prime_rl.latent.a0nc import (
+    CacheAllocationDetected,
+    DiagnosticIncomplete,
+    classify_failure,
+    load_plan,
+    recursive_subclass_closure,
+    validate_receipt,
+)
 from prime_rl.latent.policy_adapter import compose_receiver_inputs
 
 OUTPUT_ROOT = Path("/home/ubuntu/rlm/outputs/latent-a0-nocache-receiver-v1")
@@ -32,15 +39,13 @@ _SPEC.loader.exec_module(_base)
 _base.OUTPUT_ROOT = OUTPUT_ROOT
 
 
-class CacheAllocationDetected(RuntimeError):
-    pass
-
-
 def class_identity(cls: type) -> dict[str, str]:
     module = __import__(cls.__module__, fromlist=["__name__"])
     module_path = Path(module.__file__).resolve(strict=True)
     if not module_path.is_relative_to(SHARED_ENVIRONMENT.resolve(strict=True)):
-        raise ValueError(f"cache class source outside frozen environment: {cls.__module__}.{cls.__qualname__}")
+        raise DiagnosticIncomplete(
+            f"cache class source outside frozen environment: {cls.__module__}.{cls.__qualname__}"
+        )
     return {
         "fqcn": f"{cls.__module__}.{cls.__qualname__}",
         "module_path": str(module_path),
@@ -73,7 +78,7 @@ class CacheGuard:
             except CacheAllocationDetected:
                 self.negative_control_dynamic_cache_tripped = True
             if not self.negative_control_dynamic_cache_tripped:
-                raise RuntimeError("cache allocation negative control did not trip")
+                raise DiagnosticIncomplete("cache allocation negative control did not trip")
             self.verify_closure()
         except BaseException:
             self.stack.close()
@@ -86,7 +91,7 @@ class CacheGuard:
         new_classes = current - self.patched_classes
         if new_classes:
             names = sorted(f"{cls.__module__}.{cls.__qualname__}" for cls in new_classes)
-            raise CacheAllocationDetected(f"new unpatched cache subclasses loaded: {names}")
+            raise DiagnosticIncomplete(f"new unpatched cache subclasses loaded: {names}")
         self.checks += 1
 
     def __exit__(self, exc_type, exc_value, traceback):
@@ -114,7 +119,7 @@ def no_cache_forward(
     model, *, input_ids=None, inputs_embeds=None, attention_mask, position_ids, call_log, arm, **kwargs
 ):
     if (input_ids is None) == (inputs_embeds is None):
-        raise ValueError("exactly one receiver input form is required")
+        raise DiagnosticIncomplete("exactly one receiver input form is required")
     observed = {
         "arm": arm,
         "input_ids_is_none": input_ids is None,
@@ -157,7 +162,7 @@ def render_probe(
     if observed_continuation.flatten().tolist() != continuation_ids or not torch.equal(
         child_ids[:, : child_prefix.shape[1]], child_prefix
     ):
-        raise ValueError("A0NC exact continuation or child rendering changed")
+        raise DiagnosticIncomplete("A0NC exact continuation or child rendering changed")
     fixed_ids = torch.tensor([[40, 4021, 2528, 8976, 35139, 635, 524, 599]], device="cuda:0")
     injection = child_prefix.shape[1]
     length_ids = torch.cat((child_ids[:, :injection], fixed_ids, child_ids[:, injection:]), dim=1)
@@ -188,12 +193,14 @@ def render_probe(
         position_ids=torch.arange(child_ids.shape[1], device="cuda:0").unsqueeze(0),
     )
     if not torch.equal(mask, soft.attention_mask) or not torch.equal(positions, soft.position_ids):
-        raise ValueError("A0NC matched geometry changed")
+        raise DiagnosticIncomplete("A0NC matched geometry changed")
     soft_span = soft.inputs_embeds[:, injection : injection + 8]
     hard_span = length_embeddings[:, injection : injection + 8]
     outside_exact = torch.equal(soft.inputs_embeds[:, :injection], child_embeddings[:, :injection]) and torch.equal(
         soft.inputs_embeds[:, injection + 8 :], child_embeddings[:, injection:]
     )
+    if torch.count_nonzero(soft_span).item() == 0 or torch.equal(soft_span, hard_span) or not outside_exact:
+        raise DiagnosticIncomplete("A0NC soft-span fixture activity changed")
     return (
         length_ids,
         length_embeddings,
@@ -231,9 +238,9 @@ def run_probe(model, tokenizer, example, continuation_text, continuation_ids, ca
         expected_prefix = continuation_ids[:index]
         expected_length = fixture["matched_prompt_length"] + index
         if ids.shape[1] != expected_length or mask.shape[1] != expected_length or positions.shape[1] != expected_length:
-            raise ValueError("A0NC full-prefix geometry changed")
+            raise DiagnosticIncomplete("A0NC full-prefix geometry changed")
         if expected_prefix and ids[:, -index:].flatten().tolist() != expected_prefix:
-            raise ValueError("A0NC continuation prefix changed")
+            raise DiagnosticIncomplete("A0NC continuation prefix changed")
         soft_before = _base.tensor_sha256(soft)
         model.model.rope_deltas = None
         with torch.inference_mode():
@@ -278,6 +285,10 @@ def run_probe(model, tokenizer, example, continuation_text, continuation_ids, ca
         outputs = (l_id, l_e, s1, s2)
         past_outputs += sum(getattr(output, "past_key_values", None) is not None for output in outputs)
         id_logits, e_logits, soft_logits, soft_repeat = (output.logits[:, -1].float() for output in outputs)
+        if not all(torch.isfinite(logits).all() for logits in (id_logits, e_logits, soft_logits, soft_repeat)):
+            raise DiagnosticIncomplete("A0NC nonfinite diagnostic logits")
+        if not torch.equal(id_logits, e_logits) or not torch.equal(soft_logits, soft_repeat):
+            raise DiagnosticIncomplete("A0NC deterministic interface parity changed")
         steps.append(
             {
                 "step": index + 1,
@@ -344,7 +355,7 @@ def runtime_disjointness(tokenizer, bank_path: Path, fresh_bank: dict[str, objec
             rendered[f"{label}:{example['example_id']}:child"] = _base.tensor_sha256(child)
     all_unique = len(rendered) == 16 and len(set(rendered.values())) == 16
     if not all_unique:
-        raise ValueError("A0NC rendered prior/fresh token tensors overlap")
+        raise DiagnosticIncomplete("A0NC rendered prior/fresh token tensors overlap")
     return {
         "reference_sha256": file_sha256(reference_path),
         "prior_bank_sha256": file_sha256(prior_bank_path),
@@ -461,9 +472,11 @@ def run(args, plan, bank, stage):
         )
         for probe in probes
     )
+    if not qualifies:
+        raise DiagnosticIncomplete("A0NC diagnostic fixture or qualification contract failed")
     receipt = {
         "schema_version": "prime-rl/latent-a0-nocache-receipt/v1",
-        "status": "nocache_receiver_mechanism_validated" if qualifies else "nocache_receiver_mechanism_rejected",
+        "status": "nocache_receiver_mechanism_validated",
         "plan_sha256": plan["plan_sha256"],
         "bank_sha256": plan["bank_sha256"],
         "mechanism_code_commit": plan["mechanism_code_commit"],
@@ -518,16 +531,17 @@ def run(args, plan, bank, stage):
     if after != before or metadata_after != metadata_before:
         raise RuntimeError("A0NC protected checkpoints changed")
     receipt["receipt_sha256"] = canonical_json_hash(receipt, omitted_fields=("receipt_sha256",))
-    validate_receipt(receipt, plan=plan)
+    try:
+        validate_receipt(receipt, plan=plan)
+    except ValueError as error:
+        raise DiagnosticIncomplete(f"A0NC receipt contract failed: {error}") from error
     return receipt
 
 
 def failure_record(args, error: BaseException, stage: str, plan: dict[str, object] | None) -> dict[str, object]:
     failure = _base.failure_record(args, error, stage, plan)
     failure["schema_version"] = "prime-rl/latent-a0-nocache-failure/v1"
-    if isinstance(error, CacheAllocationDetected):
-        failure["status"] = "nocache_receiver_mechanism_rejected"
-        failure["failure_category"] = "cache_allocation_or_past_key_values_detected"
+    failure["status"], failure["failure_category"] = classify_failure(error)
     failure["optimizer_created"] = False
     failure["checkpoint_created"] = False
     failure["tensor_persistence"] = False
