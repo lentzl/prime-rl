@@ -32,6 +32,7 @@ from prime_rl.phase_b_contract import (
     normalize_assistant_tool_call_arguments,
     validate_a0c_binding,
     validate_br2_failure_evidence,
+    validate_br3_oom_failure_evidence,
     validate_failed_start_evidence,
     validate_plan_authorization,
     validate_preflight_rejection_evidence,
@@ -89,7 +90,7 @@ def exact_git_commit(worktree: Path) -> str:
 
 def preflight_before_heavy_imports(
     args: argparse.Namespace,
-) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any, Any]:
+) -> tuple[dict[str, Any], dict[str, Any], Any, Any, Any, Any, Any]:
     if args.plan != PLAN or args.selection != SELECTION:
         raise PhaseBContractError("plan and selection paths differ from the deployed worktree")
     if file_sha256(args.plan) != PLAN_SHA256:
@@ -209,6 +210,36 @@ def preflight_before_heavy_imports(
     ):
         raise PhaseBContractError("Phase B-R2 scalar-hash artifacts differ from the B-R3 plan")
 
+    br3_dependency = plan.get("br3_oom_dependency")
+    if not isinstance(br3_dependency, dict):
+        raise PhaseBContractError("Phase B-R4 plan lacks the exact B-R3 OOM failure")
+    br3_failure = validate_br3_oom_failure_evidence(
+        Path(br3_dependency.get("binding_path", "")),
+        Path(br3_dependency.get("binding_hash_path", "")),
+    )
+    if br3_failure.binding_file_sha256 != br3_dependency.get("binding_sha256"):
+        raise PhaseBContractError("Phase B-R4 plan does not bind the exact B-R3 OOM failure")
+    if (
+        br3_failure.failure_file_sha256 != br3_dependency.get("failure_file_sha256")
+        or br3_failure.manifest_file_sha256 != br3_dependency.get("manifest_file_sha256")
+        or br3_failure.preflight_log_file_sha256 != br3_dependency.get("preflight_log_file_sha256")
+        or br3_failure.run_log_file_sha256 != br3_dependency.get("run_log_file_sha256")
+    ):
+        raise PhaseBContractError("Phase B-R3 OOM artifacts differ from the B-R4 plan")
+    br3_control_flow = br3_failure.binding["control_flow_proof"]
+    br3_source = subprocess.run(
+        [
+            "git",
+            "show",
+            f"{br3_control_flow.get('prior_execution_commit')}:{br3_control_flow.get('prior_runner_path')}",
+        ],
+        cwd=WORKTREE,
+        capture_output=True,
+        check=True,
+    ).stdout
+    if hashlib.sha256(br3_source).hexdigest() != br3_control_flow.get("prior_runner_sha256"):
+        raise PhaseBContractError("prior Phase B-R3 runner source differs from the OOM dependency")
+
     if len(args.execution_commit) != 40 or any(
         character not in "0123456789abcdef" for character in args.execution_commit
     ):
@@ -245,13 +276,15 @@ def preflight_before_heavy_imports(
         raise PhaseBContractError("host has less than the frozen 60 GiB free-disk floor")
     if args.output_dir.exists() or args.output_dir.is_symlink():
         raise PhaseBContractError("Phase B output namespace already exists")
-    return plan, selection, binding, failed_start, preflight_rejection, br2_failure
+    return plan, selection, binding, failed_start, preflight_rejection, br2_failure, br3_failure
 
 
 def main() -> int:
     args = parse_args()
     try:
-        plan, selection, binding, failed_start, preflight_rejection, br2_failure = preflight_before_heavy_imports(args)
+        plan, selection, binding, failed_start, preflight_rejection, br2_failure, br3_failure = (
+            preflight_before_heavy_imports(args)
+        )
     except BaseException as error:
         print(f"Phase B preflight refusal: {type(error).__name__}: {error}", file=sys.stderr)
         return 2
@@ -287,6 +320,7 @@ def main() -> int:
                     "failed_start_binding_sha256": failed_start.binding_file_sha256,
                     "br1_preflight_binding_sha256": preflight_rejection.binding_file_sha256,
                     "br2_failure_binding_sha256": br2_failure.binding_file_sha256,
+                    "br3_oom_binding_sha256": br3_failure.binding_file_sha256,
                     "normalization_and_render_proofs": tokenizer_context["proofs"],
                     "model_loaded": False,
                     "cuda_initialized_during_preflight": tokenizer_context["cuda_initialized"],
@@ -330,6 +364,7 @@ def main() -> int:
             failed_start=failed_start,
             preflight_rejection=preflight_rejection,
             br2_failure=br2_failure,
+            br3_failure=br3_failure,
             tokenizer_context=tokenizer_context,
             torch=torch,
             transformers=transformers,
@@ -353,7 +388,7 @@ def main() -> int:
             try:
                 signal.alarm(FAILURE_AUDIT_HEADROOM_SECONDS)
                 post_failure_audit = _post_failure_hash_audit(
-                    plan, binding, failed_start, preflight_rejection, br2_failure
+                    plan, binding, failed_start, preflight_rejection, br2_failure, br3_failure
                 )
             except BaseException as audit_error:
                 post_failure_audit = {
@@ -390,6 +425,13 @@ def main() -> int:
                     "preflight_log_file_sha256": br2_failure.preflight_log_file_sha256,
                     "run_log_file_sha256": br2_failure.run_log_file_sha256,
                 },
+                "br3_oom_failure": {
+                    "binding_file_sha256": br3_failure.binding_file_sha256,
+                    "failure_file_sha256": br3_failure.failure_file_sha256,
+                    "manifest_file_sha256": br3_failure.manifest_file_sha256,
+                    "preflight_log_file_sha256": br3_failure.preflight_log_file_sha256,
+                    "run_log_file_sha256": br3_failure.run_log_file_sha256,
+                },
                 "post_failure_hash_audit": post_failure_audit,
             }
             try:
@@ -406,6 +448,7 @@ def _post_failure_hash_audit(
     failed_start: Any = None,
     preflight_rejection: Any = None,
     br2_failure: Any = None,
+    br3_failure: Any = None,
 ) -> dict[str, Any]:
     """Best-effort durable preservation evidence after any started run fails."""
 
@@ -494,6 +537,28 @@ def _post_failure_hash_audit(
                 errors.append("br2_failure:validated evidence object changed during run")
         except BaseException as error:
             errors.append(f"br2_failure:{type(error).__name__}:{error}")
+    if br3_failure is not None:
+        try:
+            rebound_br3 = validate_br3_oom_failure_evidence(
+                br3_failure.binding_path, br3_failure.binding_hash_path
+            )
+            audit["br3_oom_failure"] = {
+                "binding_file_sha256": rebound_br3.binding_file_sha256,
+                "binding_matches": rebound_br3.binding_file_sha256 == br3_failure.binding_file_sha256,
+                "failure_file_sha256": rebound_br3.failure_file_sha256,
+                "failure_matches": rebound_br3.failure_file_sha256 == br3_failure.failure_file_sha256,
+                "manifest_file_sha256": rebound_br3.manifest_file_sha256,
+                "manifest_matches": rebound_br3.manifest_file_sha256 == br3_failure.manifest_file_sha256,
+                "preflight_log_file_sha256": rebound_br3.preflight_log_file_sha256,
+                "preflight_log_matches": rebound_br3.preflight_log_file_sha256
+                == br3_failure.preflight_log_file_sha256,
+                "run_log_file_sha256": rebound_br3.run_log_file_sha256,
+                "run_log_matches": rebound_br3.run_log_file_sha256 == br3_failure.run_log_file_sha256,
+            }
+            if rebound_br3 != br3_failure:
+                errors.append("br3_oom_failure:validated evidence object changed during run")
+        except BaseException as error:
+            errors.append(f"br3_oom_failure:{type(error).__name__}:{error}")
     try:
         audit["plan_selection"] = {
             "plan_sha256": file_sha256(PLAN),
@@ -669,6 +734,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     failed_start: Any,
     preflight_rejection: Any,
     br2_failure: Any,
+    br3_failure: Any,
     tokenizer_context: dict[str, Any],
     torch: Any,
     transformers: Any,
@@ -755,8 +821,8 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
 
     metrics: dict[str, Any] = {"BASE": [], "STATIC": [], "FFN": [], "RECURRENT": []}
     recurrent_every_step_changed: list[bool] = []
-    for example in examples:
-        with torch.no_grad():
+    with torch.no_grad():
+        for example in examples:
             base = model(
                 input_ids=example["full_ids"],
                 attention_mask=example["full_mask"],
@@ -765,53 +831,66 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
                 use_cache=False,
                 return_dict=True,
             )
-        _require_finite(base.loss, "BASE loss", torch)
-        metrics["BASE"].append({"task_key": example["task_key"], "loss": float(base.loss)})
+            _require_finite(base.loss, "BASE loss", torch)
+            if base.loss.requires_grad:
+                raise PhaseBContractError("BASE forward metric unexpectedly retained a gradient graph")
+            base_loss = float(base.loss)
+            del base
+            metrics["BASE"].append({"task_key": example["task_key"], "loss": base_loss})
 
-        anchors: dict[str, Any] = {}
-        for arm in ("STATIC", "FFN", "RECURRENT"):
+            anchors: dict[str, Any] = {}
             hidden = example["captured_hidden"].to("cuda:0")
             hidden_mask = torch.ones(hidden.shape[:2], dtype=torch.long, device="cuda:0")
-            anchors[arm] = codecs[arm].encode(hidden, hidden_mask)
-        if not torch.equal(anchors["STATIC"], anchors["FFN"]) or not torch.equal(
-            anchors["STATIC"], anchors["RECURRENT"]
-        ):
-            raise PhaseBMechanismRejected("identical codecs did not produce bitwise-identical task anchors")
-        visible = {
-            "STATIC": anchors["STATIC"],
-            "FFN": ffn(anchors["FFN"]),
-        }
-        trajectory = recurrent.rollout(anchors["RECURRENT"], 4, return_trajectory=True)
-        visible["RECURRENT"] = trajectory[-1].visible_workspace
-        if not torch.equal(visible["STATIC"], visible["FFN"]) or not torch.equal(
-            visible["STATIC"], visible["RECURRENT"]
-        ):
-            raise PhaseBMechanismRejected("zero-scale sidecars changed the STATIC visible workspace")
+            for arm in ("STATIC", "FFN", "RECURRENT"):
+                anchors[arm] = codecs[arm].encode(hidden, hidden_mask)
+            del hidden, hidden_mask
+            if not torch.equal(anchors["STATIC"], anchors["FFN"]) or not torch.equal(
+                anchors["STATIC"], anchors["RECURRENT"]
+            ):
+                raise PhaseBMechanismRejected("identical codecs did not produce bitwise-identical task anchors")
+            visible = {
+                "STATIC": anchors["STATIC"],
+                "FFN": ffn(anchors["FFN"]),
+            }
+            trajectory = recurrent.rollout(anchors["RECURRENT"], 4, return_trajectory=True)
+            visible["RECURRENT"] = trajectory[-1].visible_workspace
+            if not torch.equal(visible["STATIC"], visible["FFN"]) or not torch.equal(
+                visible["STATIC"], visible["RECURRENT"]
+            ):
+                raise PhaseBMechanismRejected("zero-scale sidecars changed the STATIC visible workspace")
 
-        for arm in ("STATIC", "FFN", "RECURRENT"):
-            result = _latent_forward(
-                example,
-                visible[arm],
-                codec=codecs[arm],
-                model=model,
-                embedding_shell_norm=embedding_shell_norm,
-                compose_local_depth_inputs=compose_local_depth_inputs,
-                torch=torch,
-            )
-            _require_finite(result.loss, f"{arm} loss", torch)
-            row_metric: dict[str, Any] = {"task_key": example["task_key"], "loss": float(result.loss)}
-            if arm == "RECURRENT":
-                diagnostic = diagnose_recurrent_states(trajectory)
-                if diagnostic.nonfinite:
-                    raise PhaseBMechanismRejected("RECURRENT state diagnostics are non-finite")
-                memory_changes = diagnostic.memory_change_norms
-                if not bool(torch.count_nonzero(memory_changes)):
-                    raise PhaseBMechanismRejected("RECURRENT private memory did not change")
-                every_step_changed = bool(torch.all(memory_changes > 0))
-                recurrent_every_step_changed.append(every_step_changed)
-                row_metric["state"] = _diagnostic_json(diagnostic)
-                row_metric["private_memory_changed_at_every_step"] = every_step_changed
-            metrics[arm].append(row_metric)
+            for arm in ("STATIC", "FFN", "RECURRENT"):
+                result = _latent_forward(
+                    example,
+                    visible[arm],
+                    codec=codecs[arm],
+                    model=model,
+                    embedding_shell_norm=embedding_shell_norm,
+                    compose_local_depth_inputs=compose_local_depth_inputs,
+                    torch=torch,
+                )
+                _require_finite(result.loss, f"{arm} loss", torch)
+                if result.loss.requires_grad:
+                    raise PhaseBContractError(f"{arm} forward metric unexpectedly retained a gradient graph")
+                row_metric: dict[str, Any] = {
+                    "task_key": example["task_key"],
+                    "loss": float(result.loss),
+                }
+                del result
+                if arm == "RECURRENT":
+                    diagnostic = diagnose_recurrent_states(trajectory)
+                    if diagnostic.nonfinite:
+                        raise PhaseBMechanismRejected("RECURRENT state diagnostics are non-finite")
+                    memory_changes = diagnostic.memory_change_norms
+                    if not bool(torch.count_nonzero(memory_changes)):
+                        raise PhaseBMechanismRejected("RECURRENT private memory did not change")
+                    every_step_changed = bool(torch.all(memory_changes > 0))
+                    recurrent_every_step_changed.append(every_step_changed)
+                    row_metric["state"] = _diagnostic_json(diagnostic)
+                    row_metric["private_memory_changed_at_every_step"] = every_step_changed
+                    del diagnostic, memory_changes
+                metrics[arm].append(row_metric)
+            del anchors, visible, trajectory
     if not any(recurrent_every_step_changed):
         raise PhaseBMechanismRejected("no RECURRENT row changed private memory at every one of four steps")
 
@@ -874,6 +953,9 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     rebound_br2 = validate_br2_failure_evidence(br2_failure.binding_path, br2_failure.binding_hash_path)
     if rebound_br2 != br2_failure:
         raise PhaseBContractError("B-R2 failure evidence changed during the smoke")
+    rebound_br3 = validate_br3_oom_failure_evidence(br3_failure.binding_path, br3_failure.binding_hash_path)
+    if rebound_br3 != br3_failure:
+        raise PhaseBContractError("B-R3 OOM failure evidence changed during the smoke")
     if any(parameter.grad is not None for parameter in model.parameters()):
         raise PhaseBContractError("protected e33 accumulated gradients")
 
@@ -918,6 +1000,16 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             "preflight_rows": len(br2_failure.preflight_report["normalization_and_render_proofs"]),
             "no_useful_forward": not br2_failure.manifest["useful_model_forward_completed"],
             "no_update_attempt": not br2_failure.manifest["model_update_attempted"],
+        },
+        "br3_oom_failure": {
+            "binding_file_sha256": br3_failure.binding_file_sha256,
+            "failure_file_sha256": br3_failure.failure_file_sha256,
+            "manifest_file_sha256": br3_failure.manifest_file_sha256,
+            "preflight_log_file_sha256": br3_failure.preflight_log_file_sha256,
+            "run_log_file_sha256": br3_failure.run_log_file_sha256,
+            "preflight_rows": len(br3_failure.preflight_report["normalization_and_render_proofs"]),
+            "partial_forward_execution_reached": br3_failure.manifest["partial_forward_execution_reached"],
+            "no_update_attempt": not br3_failure.manifest["model_update_attempted"],
         },
         "optimizer": None,
         "optimizer_updates": 0,

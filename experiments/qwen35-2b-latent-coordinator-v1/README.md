@@ -91,3 +91,12 @@ scalar directly as `uint8` when the element sizes differ. The prospective B-R3 r
 while continuing to hash the original tensor name, dtype, and shape separately. The raw tensor helper
 is unchanged because each of its actual call sites hashes a rank-2 token tensor or rank-3 hidden-state
 capture. B-R3 changes no tensor value, model path, sidecar, arm, or numerical predicate.
+
+B-R3 passed those boundaries and entered the real four-arm loop, but the forward-metric phase retained
+autograd graphs that are useful only in the later single-row backward probes. A completed latent
+forward still owned nearly all of GPU0 when the next forward requested another 516 MiB, producing an
+atomic OOM failure with exact post-failure e33 and no-update evidence. B-R4 runs only the unchanged
+12-row BASE/STATIC/FFN/RECURRENT metric phase under `torch.no_grad()`, converts each loss and recurrent
+diagnostic to detached Python values, and releases each model output before the next arm. The canonical
+and hypothetical-open-gate backward probes remain separate, gradient-enabled, and numerically
+unchanged. B-R4 does not use checkpointing, offload, fewer rows, shorter sequences, or altered arms.

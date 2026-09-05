@@ -1,0 +1,36 @@
+phase-b-fixed-depth-smoke-a0c-br3-plan.json: OK
+phase-b-fixed-depth-smoke-v1-selection.json: OK
+phase-b-a0c-binding-v1.json: OK
+phase-b-a0c-binding-v1.sha256: OK
+a0c-carrier-success-receipt-v1.json: OK
+a0c-carrier-success-receipt-v1.sha256: OK
+phase-b-a0c-v1-failed-start-binding.json: OK
+phase-b-a0c-v1-failed-start-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-v1-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-v1-run.log: OK
+phase-b-a0c-br1-preflight-rejection-binding.json: OK
+phase-b-a0c-br1-preflight-rejection-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br1-preflight-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br1-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br1-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br1.sha256: OK
+phase-b-a0c-br2-scalar-hash-failure-binding.json: OK
+phase-b-a0c-br2-scalar-hash-failure-binding.sha256: OK
+phase-b-fixed-depth-smoke-a0c-br2-FAILURE.json: OK
+phase-b-fixed-depth-smoke-a0c-br2-failure-MANIFEST.json: OK
+phase-b-fixed-depth-smoke-a0c-br2-preflight.log: OK
+phase-b-fixed-depth-smoke-a0c-br2-run.log: OK
+phase-b-fixed-depth-smoke-a0c-br2-plan.json: OK
+phase-b-fixed-depth-smoke-a0c-br2.sha256: OK
+../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK
+../../scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br3.sh: OK
+../../src/prime_rl/phase_b_contract.py: OK
+../../src/prime_rl/latent/local_depth.py: OK
+../../src/prime_rl/latent/recurrent.py: OK
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  72%|███████▏  | 446/617 [00:00<00:00, 4441.70it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 4597.55it/s]
+/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/run_phase_b_fixed_depth_smoke_v1.py:802: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.
+Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)
+  row_metric: dict[str, Any] = {"task_key": example["task_key"], "loss": float(result.loss)}
+Phase B failed: OutOfMemoryError: CUDA out of memory. Tried to allocate 516.00 MiB. GPU 0 has a total capacity of 47.40 GiB of which 466.31 MiB is free. Including non-PyTorch memory, this process has 46.94 GiB memory in use. Of the allocated memory 46.30 GiB is allocated by PyTorch, and 328.35 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://docs.pytorch.org/docs/stable/notes/cuda.html#optimizing-memory-usage-with-pytorch-cuda-alloc-conf)

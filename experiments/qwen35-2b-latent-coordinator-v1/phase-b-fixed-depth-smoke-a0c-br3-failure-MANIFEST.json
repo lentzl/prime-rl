@@ -1,0 +1,33 @@
+{
+  "schema_version": "q35-2b-phase-b-br3-oom-failure-snapshot/v1",
+  "captured_at_local_date": "2026-09-05",
+  "remote_host": "ubuntu@216.81.200.39",
+  "mechanism_commit": "7cf05a276b954909a9b6e9e1615955d62f643c6c",
+  "execution_commit": "a7d07a764e39280aeaabd21353e23cc1f9680a6b",
+  "plan_sha256": "901182cae2debc1b810824b14e97e1feab8b71e4bd8554d178b390ce1d15d068",
+  "selection_sha256": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe",
+  "preflight_status": "tokenizer_preflight_only_passed",
+  "full_run_status": "infrastructure_invalid",
+  "error_type": "OutOfMemoryError",
+  "error": "CUDA out of memory while allocating 516 MiB with 46.94 GiB in use on GPU0",
+  "model_loaded": true,
+  "partial_forward_execution_reached": true,
+  "complete_four_arm_row_persisted": false,
+  "success_receipt_persisted": false,
+  "model_update_attempted": false,
+  "optimizer_created": false,
+  "checkpoint_created": false,
+  "protected_e33_postflight_exact": true,
+  "post_failure_audit_complete": true,
+  "files": {
+    "FAILURE.json": {
+      "sha256": "286724c41c31a2af373d17154fb760d98dcf45c44267da1e06f7b72846df7543"
+    },
+    "preflight.log": {
+      "sha256": "01dd4257d6b691ba4738d48ec1aa978956c4899250ce0713a4f6a734d3b83c52"
+    },
+    "run.log": {
+      "sha256": "a81f84119148fb90597cf0fa7bd60dadf1b939cedc53a31d81caa4e458b55243"
+    }
+  }
+}

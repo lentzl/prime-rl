@@ -1,0 +1,196 @@
+{
+  "schema_version": "q35-2b-phase-b-br3-oom-failure-binding/v1",
+  "status": "bound_metric_graph_retention_oom",
+  "failure_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br3-FAILURE.json",
+  "failure_file_sha256": "286724c41c31a2af373d17154fb760d98dcf45c44267da1e06f7b72846df7543",
+  "manifest_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br3-failure-MANIFEST.json",
+  "manifest_file_sha256": "5a444149982f672abc342b93c52a970d446376ebb27b97cbf7c37f6eec87a11b",
+  "preflight_log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br3-preflight.log",
+  "preflight_log_file_sha256": "01dd4257d6b691ba4738d48ec1aa978956c4899250ce0713a4f6a734d3b83c52",
+  "run_log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-br3-run.log",
+  "run_log_file_sha256": "a81f84119148fb90597cf0fa7bd60dadf1b939cedc53a31d81caa4e458b55243",
+  "manifest_predicates": {
+    "schema_exact": {
+      "path": "schema_version",
+      "expected": "q35-2b-phase-b-br3-oom-failure-snapshot/v1"
+    },
+    "mechanism_exact": {
+      "path": "mechanism_commit",
+      "expected": "7cf05a276b954909a9b6e9e1615955d62f643c6c"
+    },
+    "execution_exact": {
+      "path": "execution_commit",
+      "expected": "a7d07a764e39280aeaabd21353e23cc1f9680a6b"
+    },
+    "plan_exact": {
+      "path": "plan_sha256",
+      "expected": "901182cae2debc1b810824b14e97e1feab8b71e4bd8554d178b390ce1d15d068"
+    },
+    "selection_exact": {
+      "path": "selection_sha256",
+      "expected": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+    },
+    "preflight_passed": {
+      "path": "preflight_status",
+      "expected": "tokenizer_preflight_only_passed"
+    },
+    "full_run_infrastructure_invalid": {
+      "path": "full_run_status",
+      "expected": "infrastructure_invalid"
+    },
+    "error_type_exact": {
+      "path": "error_type",
+      "expected": "OutOfMemoryError"
+    },
+    "error_exact": {
+      "path": "error",
+      "expected": "CUDA out of memory while allocating 516 MiB with 46.94 GiB in use on GPU0"
+    },
+    "model_loaded": {
+      "path": "model_loaded",
+      "expected": true
+    },
+    "partial_forward_execution": {
+      "path": "partial_forward_execution_reached",
+      "expected": true
+    },
+    "no_complete_four_arm_row": {
+      "path": "complete_four_arm_row_persisted",
+      "expected": false
+    },
+    "no_success_receipt": {
+      "path": "success_receipt_persisted",
+      "expected": false
+    },
+    "no_update_attempt": {
+      "path": "model_update_attempted",
+      "expected": false
+    },
+    "no_optimizer": {
+      "path": "optimizer_created",
+      "expected": false
+    },
+    "no_checkpoint": {
+      "path": "checkpoint_created",
+      "expected": false
+    },
+    "e33_exact": {
+      "path": "protected_e33_postflight_exact",
+      "expected": true
+    },
+    "audit_complete": {
+      "path": "post_failure_audit_complete",
+      "expected": true
+    }
+  },
+  "failure_predicates": {
+    "schema_exact": {
+      "path": "schema_version",
+      "expected": "q35-2b-phase-b-fixed-depth-smoke-failure/v1"
+    },
+    "status_infrastructure_invalid": {
+      "path": "status",
+      "expected": "infrastructure_invalid"
+    },
+    "category_infrastructure_invalid": {
+      "path": "failure_category",
+      "expected": "infrastructure_invalid"
+    },
+    "claim_no_update": {
+      "path": "claim_class",
+      "expected": "no_update_mechanism_connectivity_only"
+    },
+    "error_type_exact": {
+      "path": "error_type",
+      "expected": "OutOfMemoryError"
+    },
+    "plan_exact": {
+      "path": "plan_sha256",
+      "expected": "901182cae2debc1b810824b14e97e1feab8b71e4bd8554d178b390ce1d15d068"
+    },
+    "selection_exact": {
+      "path": "selection_sha256",
+      "expected": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+    },
+    "audit_complete": {
+      "path": "post_failure_hash_audit.audit_complete",
+      "expected": true
+    },
+    "audit_no_error": {
+      "path": "post_failure_hash_audit.hash_probe_error",
+      "expected": null
+    },
+    "e33_weight_exact": {
+      "path": "post_failure_hash_audit.e33.weight_file_matches",
+      "expected": true
+    },
+    "e33_metadata_exact": {
+      "path": "post_failure_hash_audit.e33.metadata_matches",
+      "expected": true
+    },
+    "a0c_binding_exact": {
+      "path": "post_failure_hash_audit.a0c.binding_matches",
+      "expected": true
+    },
+    "a0c_receipt_exact": {
+      "path": "post_failure_hash_audit.a0c.receipt_file_matches",
+      "expected": true
+    },
+    "a0c_internal_exact": {
+      "path": "post_failure_hash_audit.a0c.receipt_internal_matches",
+      "expected": true
+    },
+    "initial_failure_exact": {
+      "path": "post_failure_hash_audit.repair_dependency.binding_matches",
+      "expected": true
+    },
+    "br1_preflight_exact": {
+      "path": "post_failure_hash_audit.br1_preflight_rejection.binding_matches",
+      "expected": true
+    },
+    "br2_failure_exact": {
+      "path": "post_failure_hash_audit.br2_failure.binding_matches",
+      "expected": true
+    }
+  },
+  "required_run_log_markers": [
+    "Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.",
+    "Phase B failed: OutOfMemoryError: CUDA out of memory. Tried to allocate 516.00 MiB.",
+    "GPU 0 has a total capacity of 47.40 GiB",
+    "46.94 GiB memory in use"
+  ],
+  "control_flow_proof": {
+    "prior_execution_commit": "a7d07a764e39280aeaabd21353e23cc1f9680a6b",
+    "prior_runner_path": "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py",
+    "prior_runner_sha256": "56844a3d6fd89c9b7aabe85586ca162aa95a533cc3f2b5dc2ecfab63269877c2",
+    "forward_metric_rows": 12,
+    "forward_metric_arms": [
+      "BASE",
+      "STATIC",
+      "FFN",
+      "RECURRENT"
+    ],
+    "metric_latent_forwards_grad_enabled": true,
+    "separate_backward_probe_after_metric_loop": true,
+    "optimizer_construction_present": false,
+    "optimizer_step_present": false,
+    "checkpoint_write_present": false,
+    "generation_present": false,
+    "cache_present": false
+  },
+  "repair_scope": {
+    "forward_metric_phase": "run the unchanged 12-row BASE/STATIC/FFN/RECURRENT teacher-forced metric calculations under torch.no_grad and immediately convert losses/diagnostics to detached Python values",
+    "release": "delete each BASE/result output after scalar extraction and all row-local tensors before entering the separately scoped backward probes",
+    "backward_probes": "canonical and hypothetical-open-gate probes remain gradient-enabled and otherwise unchanged",
+    "forbidden": [
+      "checkpointing",
+      "offload",
+      "fewer rows",
+      "shorter sequences",
+      "different arms",
+      "different numerical sidecar calls",
+      "optimizer or model update"
+    ]
+  },
+  "interpretation_boundary": "The exact failed run passed all prior preflight/provenance/hash boundaries and reached at least one latent teacher-forced forward, then retained a gradient graph from the forward-metric phase until the next forward and exhausted GPU0. It created no optimizer/checkpoint/update and atomically preserved an exact e33/A0C/prior-evidence post-failure audit. This binding supports only the prospective metric graph-lifetime repair; it is not connectivity or capability evidence."
+}
