@@ -357,9 +357,22 @@ def test_source_remedial_s5_assets_freeze_three_arm_rung() -> None:
         "maximum_paired_regressions": 0,
     }
     assert plan["admission"]["acceptance_gates_relaxed"] is False
-    assert "ROOT_FREEZE_REQUIRED_REMEDIAL_MANIFEST_SHA256" in launcher
-    assert "ROOT_FREEZE_REQUIRED_REMEDIAL_PARQUET_SHA256" in launcher
-    assert "ROOT_FREEZE_REQUIRED_S5_TASK_BANK_SHA256" in launcher
+    assert plan["status"] == "root_frozen_launch_ready"
+    assert (
+        plan["training_corpus"]["manifest_sha256"]
+        == "d406639dcc0d172e13c134328f5926bf30caabd17b16ad3c4d76887585f7ba82"
+    )
+    assert (
+        plan["training_corpus"]["train_parquet_sha256"]
+        == "9b30b54bd1dc25feece22f0c86f6493cb4f2ab4adec3db39ff33ed99c813306c"
+    )
+    assert (
+        plan["paired_evaluation"]["heldout_task_bank_sha256"]
+        == "9be882279cee4e558094c41f7a7c160f425a78aaf28ea93fc98ee6ec345ecf66"
+    )
+    assert plan["training_corpus"]["manifest_sha256"] in launcher
+    assert plan["training_corpus"]["train_parquet_sha256"] in launcher
+    assert plan["paired_evaluation"]["heldout_task_bank_sha256"] in launcher
     assert 'treatment.get("hard_successes") != 0' in launcher
     assert 'task.get("clean_protocol_aligned") == 1' in launcher
     assert "--minimum-treatment-hard-successes 4" in launcher
