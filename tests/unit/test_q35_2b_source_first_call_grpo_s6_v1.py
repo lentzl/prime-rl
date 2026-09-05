@@ -164,8 +164,8 @@ await agent_message.send('{"value":30}', receiver_role='parent')
 
 def test_launcher_uses_source_paths_without_dependency_overlay() -> None:
     launcher = LAUNCHER_PATH.read_text()
-    assert "verifiers_env_pythonpath=" in launcher
-    assert 'PYTHONPATH="$verifiers_env_pythonpath${PYTHONPATH:+:$PYTHONPATH}"' in launcher
+    assert 's6_pythonpath="$root/src:$root/packages/prime-rl-configs/src:' in launcher
+    assert 'export PYTHONPATH="$s6_pythonpath${PYTHONPATH:+:$PYTHONPATH}"' in launcher
     assert "--with-editable" not in launcher
 
 
