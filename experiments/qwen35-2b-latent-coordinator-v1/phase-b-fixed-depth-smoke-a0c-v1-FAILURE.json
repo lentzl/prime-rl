@@ -1,0 +1,41 @@
+{
+  "claim_class": "no_update_mechanism_connectivity_only",
+  "elapsed_seconds": 51.887532472610474,
+  "error": "Can only get item pairs from a mapping.",
+  "error_type": "TypeError",
+  "failure_category": "infrastructure_invalid",
+  "plan_sha256": "154f65eead8d206316e111b8e18dc3f86fe4ea69a4f0d731de8390749d800e1b",
+  "post_failure_hash_audit": {
+    "a0c": {
+      "binding_file_sha256": "8b7e34f8edd66ac640826c466ba57d008a98aa9c658d1a91bf628db8a44ec2aa",
+      "binding_matches": true,
+      "receipt_file_matches": true,
+      "receipt_file_sha256": "d88dd97eb37c9c3dd61bc07fe422df6c7fa0034837897346e43ed16bb634e63c",
+      "receipt_internal_matches": true,
+      "receipt_internal_sha256": "40dde68d34deb592f864739b48da8c22faafe470f2f0bc6708bce608ae482de7",
+      "receipt_whole_object_sha256": "ef12893c29b842ec543f9171db220efae7dc14e8f6458fa1758c0b95b18de0d1"
+    },
+    "audit_complete": true,
+    "e33": {
+      "metadata_matches": true,
+      "metadata_sha256": {
+        "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+        "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+        "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+        "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+        "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+        "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+      },
+      "weight_file_matches": true,
+      "weight_file_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+    },
+    "hash_probe_error": null,
+    "plan_selection": {
+      "plan_sha256": "154f65eead8d206316e111b8e18dc3f86fe4ea69a4f0d731de8390749d800e1b",
+      "selection_sha256": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+    }
+  },
+  "schema_version": "q35-2b-phase-b-fixed-depth-smoke-failure/v1",
+  "selection_sha256": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe",
+  "status": "infrastructure_invalid"
+}

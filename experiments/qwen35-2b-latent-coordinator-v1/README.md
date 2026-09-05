@@ -63,3 +63,12 @@ fixed-depth plan remains intentionally non-launchable. The separate A0C-bound pl
 committed four-of-four carrier-only receipt and binding before importing Torch or Transformers. It is
 still subject to independent gatekeeper review and an explicit root schedule. Rejected A0R evidence is
 preserved as a blocker for cache/generation/A0/A1 claims and is never accepted through this path.
+
+The first authorized A0C-bound start failed before its first useful forward because the preserved
+OpenAI-wire assistant target stores `function.arguments` as a JSON string while the pinned Qwen chat
+template iterates over it as a mapping. Its exact FAILURE, log, and post-failure immutable audit are
+preserved by the failed-start binding. The prospective B-R runner converts only that one final target
+path with strict JSON-string-to-object parsing, proves the source unchanged elsewhere, and renders and
+tokenizes all 12 exact selected targets before importing the model class or entering any CUDA-facing
+path. The runner intentionally carries an unfrozen plan sentinel until the repair mechanism receives a
+separate reviewed plan/launcher freeze; the prior output namespace must never be reused.

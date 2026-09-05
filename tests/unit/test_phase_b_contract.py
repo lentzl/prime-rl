@@ -3,9 +3,10 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 
 import pytest
 
@@ -14,9 +15,26 @@ from prime_rl.phase_b_contract import (
     PhaseBContractError,
     atomic_exclusive_json,
     canonical_json_sha256,
+    normalize_assistant_tool_call_arguments,
     validate_a0c_binding,
+    validate_failed_start_evidence,
     validate_plan_authorization,
 )
+
+EXACT_ACTIONS_BY_TASK_KEY = {
+    "document_adaptive_d0-v0-i34100:solve-anchor-1": "solve_owned",
+    "document_adaptive_d2-v0-i34100:manager": "delegate_terminal",
+    "document_adaptive_d3-v0-i34100:top-manager": "delegate_coordinator",
+    "document_adaptive_d0-v0-i34100:solve-anchor-2": "solve_owned",
+    "document_adaptive_d2-v1-i34100:manager": "delegate_terminal",
+    "document_adaptive_d3-v0-i34101:top-manager": "delegate_coordinator",
+    "document_adaptive_d0-v1-i34100:solve-anchor-1": "solve_owned",
+    "document_adaptive_d2-v2-i34100:manager": "delegate_terminal",
+    "document_adaptive_d3-v1-i34100:top-manager": "delegate_coordinator",
+    "document_adaptive_d0-v1-i34100:solve-anchor-2": "solve_owned",
+    "document_adaptive_d2-v3-i34100:manager": "delegate_terminal",
+    "document_adaptive_d3-v1-i34101:top-manager": "delegate_coordinator",
+}
 
 
 def _write_binding(tmp_path: Path, *, receipt: dict[str, object]) -> tuple[Path, Path]:
@@ -67,6 +85,184 @@ def test_unresolved_binding_and_old_plan_are_non_launchable(tmp_path: Path) -> N
         validate_a0c_binding(binding_path, hash_path)
     with pytest.raises(PhaseBContractError, match="not prospectively"):
         validate_plan_authorization({"status": "frozen_pending_a0_receipt_binding_not_authorized"})
+
+
+def test_exact_twelve_targets_normalize_only_arguments_and_preserve_actions() -> None:
+    observed_actions: list[str] = []
+    for task_key, action in EXACT_ACTIONS_BY_TASK_KEY.items():
+        raw_arguments = json.dumps({"action": action}, separators=(",", ":"))
+        messages = [
+            {"role": "system", "content": "contract"},
+            {"role": "user", "content": task_key},
+            {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": f"call-{task_key}",
+                        "type": "function",
+                        "function": {"name": "select_cognitive_action", "arguments": raw_arguments},
+                    }
+                ],
+            },
+        ]
+        original = json.loads(json.dumps(messages))
+
+        normalized, records = normalize_assistant_tool_call_arguments(messages, expected_action=action)
+
+        assert messages == original
+        assert len(records) == 1
+        assert records[0]["modified_path"] == "messages.2.tool_calls.0.function.arguments"
+        assert records[0]["source_kind"] == "json_string"
+        assert records[0]["raw_arguments_sha256"] == hashlib.sha256(raw_arguments.encode()).hexdigest()
+        assert records[0]["normalized_arguments_sha256"] == canonical_json_sha256({"action": action})
+        assert records[0]["normalized_arguments"] == {"action": action}
+        assert normalized[-1]["tool_calls"][0]["function"]["arguments"] == {"action": action}
+        assert normalized[-1]["tool_calls"][0]["id"] == original[-1]["tool_calls"][0]["id"]
+        restored = json.loads(json.dumps(normalized))
+        restored[-1]["tool_calls"][0]["function"]["arguments"] = raw_arguments
+        assert restored == original
+        observed_actions.append(action)
+    assert {action: observed_actions.count(action) for action in set(observed_actions)} == {
+        "solve_owned": 4,
+        "delegate_terminal": 4,
+        "delegate_coordinator": 4,
+    }
+
+
+@pytest.mark.parametrize("raw", ["[]", "42", '"text"', "null", "{bad", '{"action":NaN}', '{"a":1,"a":2}'])
+def test_tool_argument_normalization_rejects_nonobject_or_malformed_json(raw: str) -> None:
+    messages = [
+        {
+            "role": "assistant",
+            "tool_calls": [{"function": {"name": "select_cognitive_action", "arguments": raw}}],
+        }
+    ]
+
+    with pytest.raises(PhaseBContractError):
+        normalize_assistant_tool_call_arguments(messages, expected_action="solve_owned")
+
+
+@pytest.mark.parametrize(
+    ("messages", "expected_action"),
+    [
+        (
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [{"function": {"name": "wrong", "arguments": '{"action":"solve_owned"}'}}],
+                }
+            ],
+            "solve_owned",
+        ),
+        (
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "select_cognitive_action",
+                                "arguments": '{"action":"solve_owned"}',
+                            }
+                        },
+                        {
+                            "function": {
+                                "name": "select_cognitive_action",
+                                "arguments": '{"action":"solve_owned"}',
+                            }
+                        },
+                    ],
+                }
+            ],
+            "solve_owned",
+        ),
+        (
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "select_cognitive_action",
+                                "arguments": {"action": "solve_owned"},
+                            }
+                        }
+                    ],
+                }
+            ],
+            "solve_owned",
+        ),
+        (
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "select_cognitive_action",
+                                "arguments": '{"action":"delegate_terminal"}',
+                            }
+                        }
+                    ],
+                }
+            ],
+            "solve_owned",
+        ),
+        (
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "select_cognitive_action",
+                                "arguments": '{"action":"solve_owned","extra":true}',
+                            }
+                        }
+                    ],
+                }
+            ],
+            "solve_owned",
+        ),
+        (
+            [
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "select_cognitive_action",
+                                "arguments": '{"action":"solve_owned"}',
+                            }
+                        }
+                    ],
+                },
+                {
+                    "role": "assistant",
+                    "tool_calls": [
+                        {
+                            "function": {
+                                "name": "select_cognitive_action",
+                                "arguments": '{"action":"solve_owned"}',
+                            }
+                        }
+                    ],
+                },
+            ],
+            "solve_owned",
+        ),
+    ],
+)
+def test_tool_argument_normalization_rejects_scope_or_semantic_drift(
+    messages: list[dict[str, object]], expected_action: str
+) -> None:
+    original = json.loads(json.dumps(messages))
+
+    with pytest.raises(PhaseBContractError):
+        normalize_assistant_tool_call_arguments(messages, expected_action=expected_action)
+
+    assert messages == original
 
 
 def test_exact_bound_receipt_and_predicates_validate(tmp_path: Path) -> None:
@@ -143,6 +339,93 @@ def test_binding_requires_every_named_carrier_predicate(tmp_path: Path) -> None:
         validate_a0c_binding(binding_path, hash_path)
 
 
+def test_failed_start_binding_validates_exact_artifacts_and_predicates(tmp_path: Path) -> None:
+    failure = {
+        "status": "infrastructure_invalid",
+        "error_type": "TypeError",
+        "error": "Can only get item pairs from a mapping.",
+        "post_failure_hash_audit": {"audit_complete": True, "hash_probe_error": None},
+    }
+    failure_path = (tmp_path / "FAILURE.json").resolve()
+    log_path = (tmp_path / "run.log").resolve()
+    failure_path.write_text(json.dumps(failure), encoding="utf-8")
+    log_path.write_text("weights loaded\nPhase B failed: TypeError: Can only get item pairs from a mapping.\n")
+    binding = {
+        "schema_version": "q35-2b-phase-b-failed-start-binding/v1",
+        "status": "bound_infrastructure_invalid",
+        "failure_absolute_path": str(failure_path),
+        "failure_file_sha256": hashlib.sha256(failure_path.read_bytes()).hexdigest(),
+        "log_absolute_path": str(log_path),
+        "log_file_sha256": hashlib.sha256(log_path.read_bytes()).hexdigest(),
+        "failure_predicates": {
+            "status": {"path": "status", "expected": "infrastructure_invalid"},
+            "audit": {"path": "post_failure_hash_audit.audit_complete", "expected": True},
+        },
+        "required_log_markers": ["Phase B failed: TypeError"],
+    }
+    binding_path = (tmp_path / "binding.json").resolve()
+    hash_path = (tmp_path / "binding.sha256").resolve()
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    binding_hash = hashlib.sha256(binding_path.read_bytes()).hexdigest()
+    hash_path.write_text(f"{binding_hash}  {binding_path.name}\n", encoding="ascii")
+
+    validated = validate_failed_start_evidence(binding_path, hash_path)
+
+    assert validated.failure == failure
+    assert validated.failure_file_sha256 == binding["failure_file_sha256"]
+    assert validated.log_file_sha256 == binding["log_file_sha256"]
+
+    failure["status"] = "mechanism_rejected"
+    failure_path.write_text(json.dumps(failure), encoding="utf-8")
+    with pytest.raises(PhaseBContractError, match="FAILURE hash"):
+        validate_failed_start_evidence(binding_path, hash_path)
+
+
+def test_checked_in_failed_start_assets_are_exact_and_prove_no_update_boundary(tmp_path: Path) -> None:
+    repository = Path(__file__).resolve().parents[2]
+    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
+    failure_source = experiment / "phase-b-fixed-depth-smoke-a0c-v1-FAILURE.json"
+    log_source = experiment / "phase-b-fixed-depth-smoke-a0c-v1-run.log"
+    binding_source = experiment / "phase-b-a0c-v1-failed-start-binding.json"
+    binding = json.loads(binding_source.read_text(encoding="utf-8"))
+    assert hashlib.sha256(failure_source.read_bytes()).hexdigest() == (
+        "0ddc8b349de0497f5c886cbff85d6e12b9a7a0156c16c2789b9d5985ded1d014"
+    )
+    assert hashlib.sha256(log_source.read_bytes()).hexdigest() == (
+        "4bb4d7941a5207d4384230d0873b6df2d2cafd71c3c74fbc2f31dab9ee05ca6b"
+    )
+    assert hashlib.sha256(binding_source.read_bytes()).hexdigest() == (
+        experiment / "phase-b-a0c-v1-failed-start-binding.sha256"
+    ).read_text(encoding="ascii").split()[0]
+
+    binding["failure_absolute_path"] = str(failure_source.resolve())
+    binding["log_absolute_path"] = str(log_source.resolve())
+    binding_path = (tmp_path / "binding.json").resolve()
+    hash_path = (tmp_path / "binding.sha256").resolve()
+    binding_path.write_text(json.dumps(binding), encoding="utf-8")
+    binding_hash = hashlib.sha256(binding_path.read_bytes()).hexdigest()
+    hash_path.write_text(f"{binding_hash}  {binding_path.name}\n", encoding="ascii")
+
+    validated = validate_failed_start_evidence(binding_path, hash_path)
+
+    control = validated.binding["control_flow_proof"]
+    assert control["optimizer_construction_present"] is False
+    assert control["optimizer_step_present"] is False
+    assert control["checkpoint_write_present"] is False
+    assert control["generation_present"] is False
+    prior_source = subprocess.run(
+        [
+            "git",
+            "show",
+            f"{control['prior_execution_commit']}:{control['prior_runner_path']}",
+        ],
+        cwd=repository,
+        capture_output=True,
+        check=True,
+    ).stdout
+    assert hashlib.sha256(prior_source).hexdigest() == control["prior_runner_sha256"]
+
+
 def test_atomic_terminal_receipt_is_exclusive(tmp_path: Path) -> None:
     output = (tmp_path / "run").resolve()
     output.mkdir()
@@ -204,7 +487,7 @@ def test_checked_in_binding_maps_and_validates_exact_a0c_carrier_receipt(tmp_pat
     assert validated.receipt_canonical_sha256 == "40dde68d34deb592f864739b48da8c22faafe470f2f0bc6708bce608ae482de7"
 
 
-def test_new_plan_is_a0c_bound_while_old_plan_remains_non_launchable() -> None:
+def test_prior_a0c_plan_remains_frozen_while_repair_runner_is_unlaunchable() -> None:
     repository = Path(__file__).resolve().parents[2]
     experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
     old_plan = json.loads((experiment / "phase-b-fixed-depth-smoke-v1-plan.json").read_text(encoding="utf-8"))
@@ -229,7 +512,11 @@ def test_new_plan_is_a0c_bound_while_old_plan_remains_non_launchable() -> None:
     assert hashlib.sha256(selection_path.read_bytes()).hexdigest() == plan["data"]["selection_sha256"]
 
     runner = _load_runner()
-    assert hashlib.sha256(plan_path.read_bytes()).hexdigest() == runner.PLAN_SHA256
+    assert hashlib.sha256(plan_path.read_bytes()).hexdigest() == (
+        "154f65eead8d206316e111b8e18dc3f86fe4ea69a4f0d731de8390749d800e1b"
+    )
+    assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br1-plan.json"
+    assert runner.PLAN_SHA256 == "UNFROZEN_PHASE_B_REPAIR"
 
 
 def test_failure_audit_rehashes_e33_binding_receipt_and_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -322,17 +609,138 @@ def test_preflight_only_returns_without_heavy_import_or_output(
         receipt_file_sha256="c" * 64,
         receipt_canonical_sha256="d" * 64,
     )
+    failed_start = SimpleNamespace(binding_file_sha256="e" * 64)
+    fake_parquet = ModuleType("pyarrow.parquet")
+    fake_pyarrow = ModuleType("pyarrow")
+    fake_pyarrow.__path__ = []  # type: ignore[attr-defined]
+    fake_pyarrow.parquet = fake_parquet  # type: ignore[attr-defined]
+    fake_transformers = ModuleType("transformers")
+    fake_transformers.AutoTokenizer = object()  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "pyarrow", fake_pyarrow)
+    monkeypatch.setitem(sys.modules, "pyarrow.parquet", fake_parquet)
+    monkeypatch.setitem(sys.modules, "transformers", fake_transformers)
     monkeypatch.setattr(runner, "parse_args", lambda: args)
-    monkeypatch.setattr(runner, "preflight_before_heavy_imports", lambda _args: ({}, {}, binding))
+    monkeypatch.setattr(runner, "preflight_before_heavy_imports", lambda _args: ({}, {}, binding, failed_start))
+    monkeypatch.setattr(
+        runner,
+        "_tokenizer_only_preflight",
+        lambda **_kwargs: {"proofs": [{"task_key": key} for key in EXACT_ACTIONS_BY_TASK_KEY], "cuda_initialized": False},
+    )
 
     assert runner.main() == 0
     report = json.loads(capsys.readouterr().out)
-    assert report["status"] == "preflight_only_passed"
-    assert report["heavy_imports"] is False
+    assert report["status"] == "tokenizer_preflight_only_passed"
+    assert len(report["normalization_and_render_proofs"]) == 12
+    assert report["model_loaded"] is False
+    assert report["cuda_initialized_during_preflight"] is False
     assert report["output_created"] is False
     assert "torch" not in sys.modules
-    assert "transformers" not in sys.modules
     assert not output.exists()
+
+
+def test_tokenizer_preflight_normalizes_and_renders_all_twelve_before_model_use(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner = _load_runner()
+    rows = []
+    for task_key, action in EXACT_ACTIONS_BY_TASK_KEY.items():
+        rows.append(
+            {
+                "task_key": task_key,
+                "action": action,
+                "messages": [
+                    {"role": "system", "content": "contract"},
+                    {"role": "user", "content": task_key},
+                    {
+                        "role": "assistant",
+                        "content": "",
+                        "tool_calls": [
+                            {
+                                "id": f"call-{task_key}",
+                                "type": "function",
+                                "function": {
+                                    "name": "select_cognitive_action",
+                                    "arguments": json.dumps({"action": action}, separators=(",", ":")),
+                                },
+                            }
+                        ],
+                    },
+                ],
+                "tools": [{"type": "function", "function": {"name": "select_cognitive_action"}}],
+            }
+        )
+    source_snapshot = json.loads(json.dumps(rows))
+
+    class FakeTokenizer:
+        def apply_chat_template(
+            self,
+            messages: list[dict[str, object]],
+            *,
+            tools: list[dict[str, object]],
+            tokenize: bool,
+            add_generation_prompt: bool,
+        ) -> str:
+            assert tools and tokenize is False
+            if add_generation_prompt:
+                return json.dumps(messages, sort_keys=True) + "<assistant>"
+            if messages[-1]["role"] == "assistant":
+                arguments = messages[-1]["tool_calls"][0]["function"]["arguments"]  # type: ignore[index]
+                assert isinstance(arguments, dict)
+                return json.dumps(messages[:-1], sort_keys=True) + "<assistant>" + json.dumps(
+                    messages[-1], sort_keys=True
+                )
+            return json.dumps(messages, sort_keys=True)
+
+        def __call__(self, rendered: str, *, add_special_tokens: bool) -> SimpleNamespace:
+            assert add_special_tokens is False
+            return SimpleNamespace(input_ids=[value + 1 for value in rendered.encode()])
+
+    class FakeTable:
+        def to_pylist(self) -> list[dict[str, object]]:
+            return rows
+
+    fake_parquet = SimpleNamespace(read_table=lambda _path: FakeTable())
+    fake_auto_tokenizer = SimpleNamespace(from_pretrained=lambda *_args, **_kwargs: FakeTokenizer())
+    monkeypatch.setattr(runner, "_validate_transformers_runtime", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(runner, "_model_file", lambda _path: tmp_path / "model.safetensors")
+    monkeypatch.setattr(runner, "_metadata_hashes", lambda _path: {"config.json": "metadata"})
+
+    hashes = {
+        "model.safetensors": "model",
+        "train.parquet": "parquet",
+        "MANIFEST.json": "manifest",
+    }
+    monkeypatch.setattr(runner, "file_sha256", lambda path: hashes[path.name])
+    plan = {
+        "protected_models": {"coordinator": {"host_path": str(tmp_path), "expected_sha256": "model"}},
+        "model_metadata_sha256": {"config.json": "metadata"},
+        "data": {
+            "host_parquet_path": str(tmp_path / "train.parquet"),
+            "host_manifest_path": str(tmp_path / "MANIFEST.json"),
+            "source_parquet_sha256": "parquet",
+            "source_manifest_sha256": "manifest",
+        },
+    }
+    selection = {
+        "probe_task_keys": list(EXACT_ACTIONS_BY_TASK_KEY),
+        "backward_probe_task_key": "document_adaptive_d3-v0-i34100:top-manager",
+    }
+
+    context = runner._tokenizer_only_preflight(
+        plan=plan,
+        selection=selection,
+        parquet=fake_parquet,
+        transformers=SimpleNamespace(),
+        AutoTokenizer=fake_auto_tokenizer,
+    )
+
+    assert rows == source_snapshot
+    assert len(context["rows"]) == len(context["proofs"]) == 12
+    assert context["cuda_initialized"] is False
+    for proof in context["proofs"]:
+        assert proof["modified_paths"] == ["messages.2.tool_calls.0.function.arguments"]
+        assert proof["normalized_arguments"] == {"action": proof["action"]}
+        assert proof["full_target_tokens"] > proof["generation_prefix_tokens"] > proof["plain_prefix_tokens"]
 
 
 def test_launcher_supplies_independent_outer_timeout_and_exact_environment() -> None:

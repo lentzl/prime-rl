@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Run the prospectively bound, zero-update Phase B fixed-depth smoke.
 
-The checked-in plan and A0C placeholder are intentionally non-launchable.  This
-runner performs all plan/binding/provenance checks before importing Torch or
-Transformers.  A future root-authorized freeze must update the exact constants
-and provide a successful four-probe A0C carrier receipt.
+The runner first performs pure-stdlib authorization/provenance checks, then a
+tokenizer-only normalization/render gate over all 12 selected rows. Torch's
+model path and CUDA-facing Phase B modules remain unreachable until that gate
+passes. A future root-authorized freeze must pin the repair's exact constants.
 """
 
 from __future__ import annotations
@@ -26,17 +26,22 @@ from typing import Any
 from prime_rl.phase_b_contract import (
     PhaseBContractError,
     atomic_exclusive_json,
+    canonical_json_sha256,
     file_sha256,
     load_json_file,
+    normalize_assistant_tool_call_arguments,
     validate_a0c_binding,
+    validate_failed_start_evidence,
     validate_plan_authorization,
 )
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-v1-plan.json"
+PLAN = EXPERIMENT / "phase-b-fixed-depth-smoke-a0c-br1-plan.json"
 SELECTION = EXPERIMENT / "phase-b-fixed-depth-smoke-v1-selection.json"
-PLAN_SHA256 = "154f65eead8d206316e111b8e18dc3f86fe4ea69a4f0d731de8390749d800e1b"
+# A mechanism commit must remain non-launchable until a subsequent immutable
+# freeze pins the prospective repair plan's exact hash here.
+PLAN_SHA256 = "UNFROZEN_PHASE_B_REPAIR"
 SELECTION_SHA256 = "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
 EXPECTED_PYTHONPATH = (
@@ -82,7 +87,7 @@ def exact_git_commit(worktree: Path) -> str:
     return result.stdout.strip()
 
 
-def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], Any]:
+def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any], Any, Any]:
     if args.plan != PLAN or args.selection != SELECTION:
         raise PhaseBContractError("plan and selection paths differ from the deployed worktree")
     if file_sha256(args.plan) != PLAN_SHA256:
@@ -123,6 +128,53 @@ def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, 
     if binding.binding.get("identity") != required_identity:
         raise PhaseBContractError("A0C binding identity differs from the Phase B model identity")
 
+    repair_dependency = plan.get("repair_dependency")
+    if not isinstance(repair_dependency, dict):
+        raise PhaseBContractError("Phase B-R plan lacks its exact failed-start dependency")
+    failed_start = validate_failed_start_evidence(
+        Path(repair_dependency.get("binding_path", "")),
+        Path(repair_dependency.get("binding_hash_path", "")),
+    )
+    if failed_start.binding_file_sha256 != repair_dependency.get("binding_sha256"):
+        raise PhaseBContractError("Phase B-R plan does not bind the exact failed-start evidence")
+    if (
+        failed_start.failure_file_sha256 != repair_dependency.get("failure_file_sha256")
+        or failed_start.log_file_sha256 != repair_dependency.get("log_file_sha256")
+    ):
+        raise PhaseBContractError("Phase B-R failed-start artifacts differ from the plan")
+    control_flow = failed_start.binding.get("control_flow_proof")
+    expected_control_identity = {
+        "prior_execution_commit": repair_dependency.get("prior_execution_commit"),
+        "prior_runner_path": repair_dependency.get("prior_runner_path"),
+        "prior_runner_sha256": repair_dependency.get("prior_runner_sha256"),
+    }
+    if not isinstance(control_flow, dict) or any(
+        control_flow.get(key) != expected for key, expected in expected_control_identity.items()
+    ):
+        raise PhaseBContractError("Phase B-R plan and failed-start control-flow proof disagree")
+    if any(
+        control_flow.get(field) is not False
+        for field in (
+            "optimizer_construction_present",
+            "optimizer_step_present",
+            "checkpoint_write_present",
+            "generation_present",
+        )
+    ):
+        raise PhaseBContractError("failed-start evidence does not prove the no-update/no-checkpoint boundary")
+    prior_source = subprocess.run(
+        [
+            "git",
+            "show",
+            f"{repair_dependency.get('prior_execution_commit')}:{repair_dependency.get('prior_runner_path')}",
+        ],
+        cwd=WORKTREE,
+        capture_output=True,
+        check=True,
+    ).stdout
+    if hashlib.sha256(prior_source).hexdigest() != repair_dependency.get("prior_runner_sha256"):
+        raise PhaseBContractError("prior Phase B runner source differs from the repair dependency")
+
     if len(args.execution_commit) != 40 or any(
         character not in "0123456789abcdef" for character in args.execution_commit
     ):
@@ -159,48 +211,55 @@ def preflight_before_heavy_imports(args: argparse.Namespace) -> tuple[dict[str, 
         raise PhaseBContractError("host has less than the frozen 60 GiB free-disk floor")
     if args.output_dir.exists() or args.output_dir.is_symlink():
         raise PhaseBContractError("Phase B output namespace already exists")
-    return plan, selection, binding
+    return plan, selection, binding, failed_start
 
 
 def main() -> int:
     args = parse_args()
     try:
-        plan, selection, binding = preflight_before_heavy_imports(args)
+        plan, selection, binding, failed_start = preflight_before_heavy_imports(args)
     except BaseException as error:
         print(f"Phase B preflight refusal: {type(error).__name__}: {error}", file=sys.stderr)
         return 2
+    # Only the data reader and tokenizer are imported at this boundary. The
+    # all-12 normalization/render preflight must finish before Torch, the model
+    # class, or any accelerator-facing Phase B module is imported.
+    import pyarrow.parquet as parquet
+    import transformers
+    from transformers import AutoTokenizer
+
     if args.preflight_only:
+        try:
+            tokenizer_context = _tokenizer_only_preflight(
+                plan=plan,
+                selection=selection,
+                parquet=parquet,
+                transformers=transformers,
+                AutoTokenizer=AutoTokenizer,
+            )
+        except BaseException as error:
+            print(f"Phase B tokenizer preflight refusal: {type(error).__name__}: {error}", file=sys.stderr)
+            return 2
         print(
             json.dumps(
                 {
-                    "status": "preflight_only_passed",
+                    "status": "tokenizer_preflight_only_passed",
                     "plan_sha256": PLAN_SHA256,
                     "selection_sha256": SELECTION_SHA256,
                     "binding_sha256": binding.binding_file_sha256,
                     "receipt_file_sha256": binding.receipt_file_sha256,
                     "receipt_internal_sha256": binding.receipt_canonical_sha256,
                     "execution_commit": args.execution_commit,
-                    "heavy_imports": False,
+                    "failed_start_binding_sha256": failed_start.binding_file_sha256,
+                    "normalization_and_render_proofs": tokenizer_context["proofs"],
+                    "model_loaded": False,
+                    "cuda_initialized_during_preflight": tokenizer_context["cuda_initialized"],
                     "output_created": False,
                 },
                 sort_keys=True,
             )
         )
         return 0
-
-    # Imports below this point can initialize accelerator-facing libraries, so
-    # they are unreachable until both prospective authorization gates pass.
-    import pyarrow.parquet as parquet
-    import torch
-    import transformers
-    from transformers import AutoModelForImageTextToText, AutoTokenizer
-
-    from prime_rl.latent.local_depth import LocalDepthCodec, compose_local_depth_inputs
-    from prime_rl.latent.recurrent import (
-        OneShotFeedForwardSidecar,
-        TimestepFreeRecurrentSidecar,
-        diagnose_recurrent_states,
-    )
 
     output_created = False
     started = time.time()
@@ -209,15 +268,34 @@ def main() -> int:
     try:
         args.output_dir.mkdir(mode=0o700, parents=False, exist_ok=False)
         output_created = True
-        receipt = execute_smoke(
+        tokenizer_context = _tokenizer_only_preflight(
             plan=plan,
             selection=selection,
-            binding=binding,
             parquet=parquet,
+            transformers=transformers,
+            AutoTokenizer=AutoTokenizer,
+        )
+
+        # The tokenizer-only repair gate above is complete for all 12 rows.
+        # Model/CUDA imports and loading are deliberately unreachable before it.
+        import torch
+        from transformers import AutoModelForImageTextToText
+
+        from prime_rl.latent.local_depth import LocalDepthCodec, compose_local_depth_inputs
+        from prime_rl.latent.recurrent import (
+            OneShotFeedForwardSidecar,
+            TimestepFreeRecurrentSidecar,
+            diagnose_recurrent_states,
+        )
+
+        receipt = execute_smoke(
+            plan=plan,
+            binding=binding,
+            failed_start=failed_start,
+            tokenizer_context=tokenizer_context,
             torch=torch,
             transformers=transformers,
             AutoModelForImageTextToText=AutoModelForImageTextToText,
-            AutoTokenizer=AutoTokenizer,
             LocalDepthCodec=LocalDepthCodec,
             compose_local_depth_inputs=compose_local_depth_inputs,
             OneShotFeedForwardSidecar=OneShotFeedForwardSidecar,
@@ -236,7 +314,7 @@ def main() -> int:
         if output_created:
             try:
                 signal.alarm(FAILURE_AUDIT_HEADROOM_SECONDS)
-                post_failure_audit = _post_failure_hash_audit(plan, binding)
+                post_failure_audit = _post_failure_hash_audit(plan, binding, failed_start)
             except BaseException as audit_error:
                 post_failure_audit = {
                     "audit_complete": False,
@@ -255,6 +333,11 @@ def main() -> int:
                 "elapsed_seconds": time.time() - started,
                 "plan_sha256": PLAN_SHA256,
                 "selection_sha256": SELECTION_SHA256,
+                "failed_start": {
+                    "binding_file_sha256": failed_start.binding_file_sha256,
+                    "failure_file_sha256": failed_start.failure_file_sha256,
+                    "log_file_sha256": failed_start.log_file_sha256,
+                },
                 "post_failure_hash_audit": post_failure_audit,
             }
             try:
@@ -265,7 +348,7 @@ def main() -> int:
         return 1
 
 
-def _post_failure_hash_audit(plan: dict[str, Any], binding: Any) -> dict[str, Any]:
+def _post_failure_hash_audit(plan: dict[str, Any], binding: Any, failed_start: Any = None) -> dict[str, Any]:
     """Best-effort durable preservation evidence after any started run fails."""
 
     errors: list[str] = []
@@ -297,6 +380,23 @@ def _post_failure_hash_audit(plan: dict[str, Any], binding: Any) -> dict[str, An
             errors.append("a0c:validated binding object changed during run")
     except BaseException as error:
         errors.append(f"a0c:{type(error).__name__}:{error}")
+    if failed_start is not None:
+        try:
+            rebound_failed_start = validate_failed_start_evidence(
+                failed_start.binding_path, failed_start.binding_hash_path
+            )
+            audit["repair_dependency"] = {
+                "binding_file_sha256": rebound_failed_start.binding_file_sha256,
+                "binding_matches": rebound_failed_start.binding_file_sha256 == failed_start.binding_file_sha256,
+                "failure_file_sha256": rebound_failed_start.failure_file_sha256,
+                "failure_matches": rebound_failed_start.failure_file_sha256 == failed_start.failure_file_sha256,
+                "log_file_sha256": rebound_failed_start.log_file_sha256,
+                "log_matches": rebound_failed_start.log_file_sha256 == failed_start.log_file_sha256,
+            }
+            if rebound_failed_start != failed_start:
+                errors.append("repair_dependency:validated evidence object changed during run")
+        except BaseException as error:
+            errors.append(f"repair_dependency:{type(error).__name__}:{error}")
     try:
         audit["plan_selection"] = {
             "plan_sha256": file_sha256(PLAN),
@@ -317,33 +417,25 @@ def _classify_failure(error: BaseException) -> str:
     return "infrastructure_invalid"
 
 
-def execute_smoke(  # noqa: PLR0913, PLR0915
+def _tokenizer_only_preflight(  # noqa: N803
     *,
     plan: dict[str, Any],
     selection: dict[str, Any],
-    binding: Any,
     parquet: Any,
-    torch: Any,
     transformers: Any,
-    AutoModelForImageTextToText: Any,
     AutoTokenizer: Any,
-    LocalDepthCodec: Any,
-    compose_local_depth_inputs: Any,
-    OneShotFeedForwardSidecar: Any,
-    TimestepFreeRecurrentSidecar: Any,
-    diagnose_recurrent_states: Any,
-    execution_commit: str,
 ) -> dict[str, Any]:
-    """Execute only full-recompute, teacher-forced forwards and diagnostics."""
+    """Normalize and render every selected target before model/CUDA access."""
 
-    _validate_runtime(plan, torch=torch, transformers=transformers)
+    if _cuda_initialized_if_torch_loaded():
+        raise PhaseBContractError("CUDA was already initialized before tokenizer preflight")
+    _validate_transformers_runtime(plan, transformers=transformers)
     model_path = Path(plan["protected_models"]["coordinator"]["host_path"])
-    model_file = _model_file(model_path)
-    model_file_before = file_sha256(model_file)
-    if model_file_before != plan["protected_models"]["coordinator"]["expected_sha256"]:
+    model_file_hash = file_sha256(_model_file(model_path))
+    if model_file_hash != plan["protected_models"]["coordinator"]["expected_sha256"]:
         raise PhaseBContractError("e33 weight-file hash differs from the plan")
-    metadata_before = _metadata_hashes(model_path)
-    if metadata_before != plan["model_metadata_sha256"]:
+    metadata = _metadata_hashes(model_path)
+    if metadata != plan["model_metadata_sha256"]:
         raise PhaseBContractError("e33 metadata hashes differ from the plan")
 
     data_plan = plan["data"]
@@ -354,6 +446,138 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     if file_sha256(manifest_path) != data_plan["source_manifest_sha256"]:
         raise PhaseBContractError("source manifest hash differs from the plan")
     selected_rows = _select_rows(parquet.read_table(parquet_path).to_pylist(), selection)
+    tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
+
+    prepared_rows: list[dict[str, Any]] = []
+    proofs: list[dict[str, Any]] = []
+    for source_row in selected_rows:
+        task_key = source_row["task_key"]
+        action = source_row["action"]
+        try:
+            raw_row_sha256 = canonical_json_sha256(source_row)
+            messages = json.loads(json.dumps(source_row["messages"]))
+            if not isinstance(messages, list) or len(messages) < 2:
+                raise PhaseBContractError("row lacks a multi-message assistant target")
+            raw_messages_sha256 = canonical_json_sha256(messages)
+            raw_target_sha256 = canonical_json_sha256(messages[-1])
+            normalized, records = normalize_assistant_tool_call_arguments(messages, expected_action=action)
+            if canonical_json_sha256(messages) != raw_messages_sha256 or len(records) != 1:
+                raise PhaseBContractError("normalization mutated the source or modified multiple paths")
+            record = records[0]
+            expected_path = f"messages.{len(messages) - 1}.tool_calls.0.function.arguments"
+            if record["modified_path"] != expected_path:
+                raise PhaseBContractError("normalization modified an unexpected path")
+            restored = json.loads(json.dumps(normalized))
+            restored[-1]["tool_calls"][0]["function"]["arguments"] = messages[-1]["tool_calls"][0]["function"][
+                "arguments"
+            ]
+            if restored != messages:
+                raise PhaseBContractError("normalization changed content outside the one allowed path")
+
+            raw_tools = source_row.get("tools")
+            tools = json.loads(raw_tools) if isinstance(raw_tools, str) else json.loads(json.dumps(raw_tools))
+            if not isinstance(tools, list):
+                raise PhaseBContractError("row tools must be a list")
+            prefix = normalized[:-1]
+            plain_rendered = _render(tokenizer, prefix, tools, False)
+            open_rendered = _render(tokenizer, prefix, tools, True)
+            full_rendered = _render(tokenizer, normalized, tools, False)
+            plain_ids = _token_ids_list(tokenizer, plain_rendered)
+            open_ids = _token_ids_list(tokenizer, open_rendered)
+            full_ids = _token_ids_list(tokenizer, full_rendered)
+            if len(plain_ids) < 8 or len(open_ids) <= len(plain_ids):
+                raise PhaseBContractError("target has no verified assistant-generation opening")
+            if len(full_ids) <= len(open_ids) or full_ids[: len(open_ids)] != open_ids:
+                raise PhaseBContractError("full target does not preserve the generation prefix")
+            if open_ids[: len(plain_ids)] != plain_ids:
+                raise PhaseBContractError("generation opening does not extend its plain prefix")
+        except PhaseBContractError as error:
+            raise PhaseBContractError(f"row {task_key} tokenizer preflight failed: {error}") from error
+        except BaseException as error:
+            raise PhaseBContractError(f"row {task_key} tokenizer preflight failed: {error}") from error
+
+        proof = {
+            "task_key": task_key,
+            "action": action,
+            "raw_row_sha256": raw_row_sha256,
+            "raw_messages_sha256": raw_messages_sha256,
+            "raw_target_sha256": raw_target_sha256,
+            "normalized_target_sha256": canonical_json_sha256(normalized[-1]),
+            "modified_paths": [record["modified_path"]],
+            "raw_arguments_sha256": record["raw_arguments_sha256"],
+            "normalized_arguments_sha256": record["normalized_arguments_sha256"],
+            "normalized_arguments": record["normalized_arguments"],
+            "plain_prefix_sha256": hashlib.sha256(plain_rendered.encode()).hexdigest(),
+            "generation_prefix_sha256": hashlib.sha256(open_rendered.encode()).hexdigest(),
+            "full_target_sha256": hashlib.sha256(full_rendered.encode()).hexdigest(),
+            "plain_prefix_token_ids_sha256": canonical_json_sha256(plain_ids),
+            "generation_prefix_token_ids_sha256": canonical_json_sha256(open_ids),
+            "full_target_token_ids_sha256": canonical_json_sha256(full_ids),
+            "plain_prefix_tokens": len(plain_ids),
+            "generation_prefix_tokens": len(open_ids),
+            "full_target_tokens": len(full_ids),
+            "generation_opening_tokens": len(open_ids) - len(plain_ids),
+        }
+        proofs.append(proof)
+        prepared_rows.append(
+            {
+                "task_key": task_key,
+                "action": action,
+                "plain_ids": plain_ids,
+                "open_ids": open_ids,
+                "full_ids": full_ids,
+                "render_proof": proof,
+            }
+        )
+
+    if len(prepared_rows) != 12 or len(proofs) != 12:
+        raise PhaseBContractError("tokenizer preflight did not complete all 12 selected rows")
+    if _cuda_initialized_if_torch_loaded():
+        raise PhaseBContractError("CUDA initialized during tokenizer-only preflight")
+    return {
+        "rows": prepared_rows,
+        "proofs": proofs,
+        "backward_probe_task_key": selection["backward_probe_task_key"],
+        "model_file_sha256": model_file_hash,
+        "metadata_sha256": metadata,
+        "cuda_initialized": False,
+    }
+
+
+def _cuda_initialized_if_torch_loaded() -> bool:
+    torch_module = sys.modules.get("torch")
+    cuda_module = getattr(torch_module, "cuda", None)
+    return bool(cuda_module is not None and cuda_module.is_initialized())
+
+
+def execute_smoke(  # noqa: PLR0913, PLR0915
+    *,
+    plan: dict[str, Any],
+    binding: Any,
+    failed_start: Any,
+    tokenizer_context: dict[str, Any],
+    torch: Any,
+    transformers: Any,
+    AutoModelForImageTextToText: Any,
+    LocalDepthCodec: Any,
+    compose_local_depth_inputs: Any,
+    OneShotFeedForwardSidecar: Any,
+    TimestepFreeRecurrentSidecar: Any,
+    diagnose_recurrent_states: Any,
+    execution_commit: str,
+) -> dict[str, Any]:
+    """Execute only full-recompute, teacher-forced forwards and diagnostics."""
+
+    _validate_torch_runtime(plan, torch=torch)
+    _validate_transformers_runtime(plan, transformers=transformers)
+    model_path = Path(plan["protected_models"]["coordinator"]["host_path"])
+    model_file = _model_file(model_path)
+    model_file_before = tokenizer_context["model_file_sha256"]
+    metadata_before = tokenizer_context["metadata_sha256"]
+    data_plan = plan["data"]
+    parquet_path = Path(data_plan["host_parquet_path"])
+    manifest_path = Path(data_plan["host_manifest_path"])
+    selected_rows = tokenizer_context["rows"]
 
     _require_gpu0_idle()
     if not torch.cuda.is_available() or torch.cuda.device_count() < 2:
@@ -364,7 +588,6 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     torch.manual_seed(plan["matched_conditions"]["seed"])
     torch.cuda.manual_seed_all(plan["matched_conditions"]["seed"])
 
-    tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
     model = AutoModelForImageTextToText.from_pretrained(
         model_path,
         local_files_only=True,
@@ -383,7 +606,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
 
     model_tensor_before = _module_tensor_sha256(model, torch)
     embedding_shell_norm = _mean_embedding_norm(model.get_input_embeddings().weight, torch)
-    examples = [_prepare_example(row, tokenizer=tokenizer, model=model, torch=torch) for row in selected_rows]
+    examples = [_prepare_example(row, model=model, torch=torch) for row in selected_rows]
 
     codec_template = LocalDepthCodec().to(device="cuda:0", dtype=torch.bfloat16).eval()
     codec_state = {name: value.detach().clone() for name, value in codec_template.state_dict().items()}
@@ -478,7 +701,7 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     if not any(recurrent_every_step_changed):
         raise PhaseBMechanismRejected("no RECURRENT row changed private memory at every one of four steps")
 
-    backward_key = selection["backward_probe_task_key"]
+    backward_key = tokenizer_context["backward_probe_task_key"]
     backward_example = next(example for example in examples if example["task_key"] == backward_key)
     gradients = {
         "canonical": _backward_probes(
@@ -526,6 +749,9 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     rebound = validate_a0c_binding(binding.binding_path, binding.binding_hash_path)
     if rebound != binding:
         raise PhaseBContractError("A0C binding or receipt changed during the smoke")
+    rebound_failed_start = validate_failed_start_evidence(failed_start.binding_path, failed_start.binding_hash_path)
+    if rebound_failed_start != failed_start:
+        raise PhaseBContractError("failed-start repair evidence changed during the smoke")
     if any(parameter.grad is not None for parameter in model.parameters()):
         raise PhaseBContractError("protected e33 accumulated gradients")
 
@@ -545,11 +771,25 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
             "receipt_whole_object_sha256": binding.receipt_whole_object_sha256,
             "claim": binding.binding["required_claim"],
         },
+        "repair_dependency": {
+            "binding_file_sha256": failed_start.binding_file_sha256,
+            "failure_file_sha256": failed_start.failure_file_sha256,
+            "log_file_sha256": failed_start.log_file_sha256,
+            "prior_status": failed_start.failure["status"],
+            "prior_error_type": failed_start.failure["error_type"],
+            "prior_error": failed_start.failure["error"],
+        },
         "optimizer": None,
         "optimizer_updates": 0,
         "generation": False,
         "cache": False,
         "worker_loaded": False,
+        "tokenizer_preflight_before_model_load": {
+            "completed_rows": len(tokenizer_context["proofs"]),
+            "model_loaded_during_preflight": False,
+            "cuda_initialized_during_preflight": tokenizer_context["cuda_initialized"],
+            "proofs": tokenizer_context["proofs"],
+        },
         "parameter_counts": counts,
         "metrics": metrics,
         "gradients": gradients,
@@ -569,23 +809,28 @@ def execute_smoke(  # noqa: PLR0913, PLR0915
     }
 
 
-def _validate_runtime(plan: dict[str, Any], *, torch: Any, transformers: Any) -> None:
+def _validate_transformers_runtime(plan: dict[str, Any], *, transformers: Any) -> None:
     if transformers.__version__ != plan["software"]["transformers"]:
         raise PhaseBContractError("Transformers version differs from the plan")
-    if torch.__version__ != plan["software"]["torch"]:
-        raise PhaseBContractError("Torch runtime version differs from the plan")
-    if importlib.metadata.version("torch") != plan["software"]["torch_distribution"]:
-        raise PhaseBContractError("Torch distribution version differs from the plan")
     if importlib.metadata.version("transformers") != transformers.__version__:
         raise PhaseBContractError("Transformers package metadata differs from its runtime version")
     for module_name, expected_hash in plan["software"]["transformers_source_sha256"].items():
-        module = importlib.import_module(module_name)
-        module_path = Path(module.__file__).resolve(strict=True)
+        spec = importlib.util.find_spec(module_name)
+        if spec is None or spec.origin is None:
+            raise PhaseBContractError(f"Transformers source module cannot be located: {module_name}")
+        module_path = Path(spec.origin).resolve(strict=True)
         if (
             not module_path.is_relative_to(EXPECTED_ENV.resolve(strict=True))
             or file_sha256(module_path) != expected_hash
         ):
             raise PhaseBContractError(f"Transformers runtime source differs from the plan: {module_name}")
+
+
+def _validate_torch_runtime(plan: dict[str, Any], *, torch: Any) -> None:
+    if torch.__version__ != plan["software"]["torch"]:
+        raise PhaseBContractError("Torch runtime version differs from the plan")
+    if importlib.metadata.version("torch") != plan["software"]["torch_distribution"]:
+        raise PhaseBContractError("Torch distribution version differs from the plan")
 
 
 def _require_gpu0_idle() -> None:
@@ -659,33 +904,22 @@ def _render(tokenizer: Any, messages: list[dict[str, Any]], tools: list[dict[str
     )
 
 
-def _ids(tokenizer: Any, rendered: str, torch: Any) -> Any:
-    return tokenizer(rendered, add_special_tokens=False, return_tensors="pt").input_ids.to(
-        device="cuda:0", dtype=torch.long
-    )
+def _token_ids_list(tokenizer: Any, rendered: str) -> list[int]:
+    encoded = tokenizer(rendered, add_special_tokens=False)
+    values = encoded.input_ids if hasattr(encoded, "input_ids") else encoded["input_ids"]
+    if values and isinstance(values[0], list):
+        if len(values) != 1:
+            raise PhaseBContractError("tokenizer returned an unexpected batch dimension")
+        values = values[0]
+    if not isinstance(values, list) or not values or any(type(value) is not int or value < 0 for value in values):
+        raise PhaseBContractError("tokenizer returned invalid token IDs")
+    return values
 
 
-def _prepare_example(row: dict[str, Any], *, tokenizer: Any, model: Any, torch: Any) -> dict[str, Any]:
-    messages = json.loads(json.dumps(row["messages"]))
-    if not isinstance(messages, list) or len(messages) < 2 or messages[-1].get("role") != "assistant":
-        raise PhaseBContractError(f"row {row['task_key']} lacks one assistant target")
-    raw_tools = row.get("tools")
-    tools = json.loads(raw_tools) if isinstance(raw_tools, str) else raw_tools
-    if not isinstance(tools, list):
-        raise PhaseBContractError(f"row {row['task_key']} has invalid tools")
-    prefix = messages[:-1]
-    plain_rendered = _render(tokenizer, prefix, tools, False)
-    open_rendered = _render(tokenizer, prefix, tools, True)
-    full_rendered = _render(tokenizer, messages, tools, False)
-    plain_ids = _ids(tokenizer, plain_rendered, torch)
-    open_ids = _ids(tokenizer, open_rendered, torch)
-    full_ids = _ids(tokenizer, full_rendered, torch)
-    if plain_ids.shape[1] < 8 or open_ids.shape[1] <= plain_ids.shape[1]:
-        raise PhaseBMechanismRejected(f"row {row['task_key']} has no verified assistant-generation opening")
-    if full_ids.shape[1] <= open_ids.shape[1] or not torch.equal(full_ids[:, : open_ids.shape[1]], open_ids):
-        raise PhaseBMechanismRejected(f"row {row['task_key']} full target does not preserve the generation prefix")
-    if not torch.equal(open_ids[:, : plain_ids.shape[1]], plain_ids):
-        raise PhaseBMechanismRejected(f"row {row['task_key']} generation opening does not extend its plain prefix")
+def _prepare_example(row: dict[str, Any], *, model: Any, torch: Any) -> dict[str, Any]:
+    plain_ids = torch.tensor([row["plain_ids"]], device="cuda:0", dtype=torch.long)
+    open_ids = torch.tensor([row["open_ids"]], device="cuda:0", dtype=torch.long)
+    full_ids = torch.tensor([row["full_ids"]], device="cuda:0", dtype=torch.long)
     plain_mask = torch.ones_like(plain_ids)
     with torch.no_grad():
         capture = (
@@ -715,16 +949,12 @@ def _prepare_example(row: dict[str, Any], *, tokenizer: Any, model: Any, torch: 
         "injection_index": int(plain_ids.shape[1]),
         "captured_hidden": capture,
         "rendered_hashes": {
-            "task_key": row["task_key"],
-            "plain_prefix_sha256": hashlib.sha256(plain_rendered.encode()).hexdigest(),
-            "generation_prefix_sha256": hashlib.sha256(open_rendered.encode()).hexdigest(),
-            "full_target_sha256": hashlib.sha256(full_rendered.encode()).hexdigest(),
-            "plain_prefix_token_ids_sha256": _tensor_bytes_sha256(plain_ids, torch),
-            "generation_prefix_token_ids_sha256": _tensor_bytes_sha256(open_ids, torch),
-            "full_target_token_ids_sha256": _tensor_bytes_sha256(full_ids, torch),
+            **row["render_proof"],
+            "plain_prefix_token_tensor_sha256": _tensor_bytes_sha256(plain_ids, torch),
+            "generation_prefix_token_tensor_sha256": _tensor_bytes_sha256(open_ids, torch),
+            "full_target_token_tensor_sha256": _tensor_bytes_sha256(full_ids, torch),
             "captured_hidden_sha256": _tensor_bytes_sha256(capture, torch),
             "injection_index": int(plain_ids.shape[1]),
-            "generation_opening_tokens": int(open_ids.shape[1] - plain_ids.shape[1]),
         },
     }
 

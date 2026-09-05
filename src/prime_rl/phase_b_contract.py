@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import stat
+from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -52,6 +53,60 @@ class PhaseBContractError(RuntimeError):
     """The prospective Phase B execution contract is not satisfied."""
 
 
+def normalize_assistant_tool_call_arguments(
+    messages: list[dict[str, Any]],
+    *,
+    expected_action: str,
+) -> tuple[list[dict[str, Any]], tuple[dict[str, Any], ...]]:
+    """Decode only assistant tool-call argument JSON strings into mappings.
+
+    Qwen's pinned template iterates over ``function.arguments|items``. OpenAI
+    wire rows store that value as a JSON string, so rendering requires one
+    explicit boundary conversion. The source object is never mutated.
+    """
+
+    allowed_actions = {"solve_owned", "delegate_terminal", "delegate_coordinator"}
+    if expected_action not in allowed_actions:
+        raise PhaseBContractError("row action is outside the exact cognitive-action grammar")
+    if not messages or not isinstance(messages[-1], dict) or messages[-1].get("role") != "assistant":
+        raise PhaseBContractError("final chat message must be the assistant target")
+    for message in messages[:-1]:
+        if not isinstance(message, dict):
+            raise PhaseBContractError("chat message must be a mapping")
+        if message.get("role") == "assistant" and message.get("tool_calls"):
+            raise PhaseBContractError("only the single final assistant target may contain tool calls")
+
+    normalized = deepcopy(messages)
+    message_index = len(normalized) - 1
+    tool_calls = normalized[-1].get("tool_calls")
+    if not isinstance(tool_calls, list) or len(tool_calls) != 1:
+        raise PhaseBContractError("final assistant target must contain exactly one tool call")
+    tool_call = tool_calls[0]
+    if not isinstance(tool_call, dict) or not isinstance(tool_call.get("function"), dict):
+        raise PhaseBContractError("assistant tool call function must be a mapping")
+    function = tool_call["function"]
+    if function.get("name") != "select_cognitive_action":
+        raise PhaseBContractError("final assistant target must call select_cognitive_action")
+    raw_arguments = function.get("arguments")
+    if not isinstance(raw_arguments, str):
+        raise PhaseBContractError("final assistant tool-call arguments must be an OpenAI JSON string")
+    decoded = _strict_json_object(raw_arguments)
+    if set(decoded) != {"action"} or decoded["action"] != expected_action:
+        raise PhaseBContractError("decoded tool-call action does not exactly equal the row action")
+    function["arguments"] = decoded
+    record = {
+        "message_index": message_index,
+        "call_index": 0,
+        "function_name": function["name"],
+        "source_kind": "json_string",
+        "modified_path": f"messages.{message_index}.tool_calls.0.function.arguments",
+        "raw_arguments_sha256": hashlib.sha256(raw_arguments.encode()).hexdigest(),
+        "normalized_arguments_sha256": canonical_json_sha256(decoded),
+        "normalized_arguments": decoded,
+    }
+    return normalized, (record,)
+
+
 @dataclass(frozen=True)
 class ValidatedA0CBinding:
     binding: dict[str, Any]
@@ -63,6 +118,19 @@ class ValidatedA0CBinding:
     receipt_file_sha256: str
     receipt_canonical_sha256: str
     receipt_whole_object_sha256: str
+
+
+@dataclass(frozen=True)
+class ValidatedFailedStartEvidence:
+    binding: dict[str, Any]
+    binding_path: Path
+    binding_hash_path: Path
+    failure_path: Path
+    log_path: Path
+    binding_file_sha256: str
+    failure_file_sha256: str
+    log_file_sha256: str
+    failure: dict[str, Any]
 
 
 def file_sha256(path: Path) -> str:
@@ -82,8 +150,32 @@ def canonical_json_sha256(value: Any, *, omitted_fields: tuple[str, ...] = ()) -
         canonical = value
     else:
         canonical = {key: item for key, item in value.items() if key not in omitted_fields}
-    encoded = json.dumps(canonical, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
-    return hashlib.sha256(encoded).hexdigest()
+    return hashlib.sha256(_canonical_json_bytes(canonical)).hexdigest()
+
+
+def _canonical_json_bytes(value: Any) -> bytes:
+    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def _strict_json_object(raw: str) -> dict[str, Any]:
+    def reject_constant(value: str) -> None:
+        raise ValueError(f"non-JSON constant {value}")
+
+    def unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise ValueError(f"duplicate key {key!r}")
+            result[key] = value
+        return result
+
+    try:
+        decoded = json.loads(raw, parse_constant=reject_constant, object_pairs_hook=unique_object)
+    except (json.JSONDecodeError, ValueError) as error:
+        raise PhaseBContractError(f"assistant tool-call arguments are malformed JSON: {error}") from error
+    if not isinstance(decoded, dict):
+        raise PhaseBContractError("assistant tool-call arguments JSON must decode to an object")
+    return decoded
 
 
 def load_json_file(path: Path) -> dict[str, Any]:
@@ -185,6 +277,63 @@ def validate_a0c_binding(binding_path: Path, hash_path: Path) -> ValidatedA0CBin
         receipt_file_sha256=receipt_file_hash,
         receipt_canonical_sha256=receipt_canonical_hash,
         receipt_whole_object_sha256=canonical_json_sha256(receipt),
+    )
+
+
+def validate_failed_start_evidence(binding_path: Path, hash_path: Path) -> ValidatedFailedStartEvidence:
+    """Bind the exact failed B start that prospectively motivates B-R."""
+
+    binding_file_hash = validate_hash_sidecar(binding_path, hash_path)
+    binding = load_json_file(binding_path)
+    if binding.get("schema_version") != "q35-2b-phase-b-failed-start-binding/v1":
+        raise PhaseBContractError("unsupported Phase B failed-start binding schema")
+    if binding.get("status") != "bound_infrastructure_invalid":
+        raise PhaseBContractError("Phase B failed-start evidence is not bound")
+
+    failure_path = Path(binding.get("failure_absolute_path", ""))
+    log_path = Path(binding.get("log_absolute_path", ""))
+    failure_hash = file_sha256(failure_path)
+    log_hash = file_sha256(log_path)
+    if failure_hash != binding.get("failure_file_sha256"):
+        raise PhaseBContractError("prior Phase B FAILURE hash differs from its binding")
+    if log_hash != binding.get("log_file_sha256"):
+        raise PhaseBContractError("prior Phase B log hash differs from its binding")
+    failure = load_json_file(failure_path)
+
+    predicates = binding.get("failure_predicates")
+    if not isinstance(predicates, dict) or not predicates:
+        raise PhaseBContractError("prior Phase B failure binding lacks exact predicates")
+    for semantic_name, predicate in predicates.items():
+        if not isinstance(predicate, dict) or set(predicate) != {"path", "expected"}:
+            raise PhaseBContractError(f"failed-start predicate {semantic_name!r} is malformed")
+        actual = _resolve_dotted_path(failure, predicate["path"])
+        expected = predicate["expected"]
+        if type(actual) is not type(expected) or actual != expected:
+            raise PhaseBContractError(
+                f"failed-start predicate {semantic_name!r} at {predicate['path']!r} was "
+                f"{actual!r}, expected {expected!r}"
+            )
+
+    try:
+        log_text = log_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        raise PhaseBContractError(f"prior Phase B log is not valid UTF-8: {error}") from error
+    markers = binding.get("required_log_markers")
+    if not isinstance(markers, list) or not markers or any(not isinstance(marker, str) for marker in markers):
+        raise PhaseBContractError("prior Phase B log markers are malformed")
+    if any(marker not in log_text for marker in markers):
+        raise PhaseBContractError("prior Phase B log lacks a bound failure marker")
+
+    return ValidatedFailedStartEvidence(
+        binding=binding,
+        binding_path=binding_path,
+        binding_hash_path=hash_path,
+        failure_path=failure_path,
+        log_path=log_path,
+        binding_file_sha256=binding_file_hash,
+        failure_file_sha256=failure_hash,
+        log_file_sha256=log_hash,
+        failure=failure,
     )
 
 

@@ -1,0 +1,93 @@
+{
+  "schema_version": "q35-2b-phase-b-failed-start-binding/v1",
+  "status": "bound_infrastructure_invalid",
+  "failure_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-v1-FAILURE.json",
+  "failure_file_sha256": "0ddc8b349de0497f5c886cbff85d6e12b9a7a0156c16c2789b9d5985ded1d014",
+  "log_absolute_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-fixed-depth-smoke-a0c-v1-run.log",
+  "log_file_sha256": "4bb4d7941a5207d4384230d0873b6df2d2cafd71c3c74fbc2f31dab9ee05ca6b",
+  "failure_predicates": {
+    "schema_exact": {
+      "path": "schema_version",
+      "expected": "q35-2b-phase-b-fixed-depth-smoke-failure/v1"
+    },
+    "status_infrastructure_invalid": {
+      "path": "status",
+      "expected": "infrastructure_invalid"
+    },
+    "category_infrastructure_invalid": {
+      "path": "failure_category",
+      "expected": "infrastructure_invalid"
+    },
+    "claim_no_update_connectivity_only": {
+      "path": "claim_class",
+      "expected": "no_update_mechanism_connectivity_only"
+    },
+    "error_type_exact": {
+      "path": "error_type",
+      "expected": "TypeError"
+    },
+    "error_exact": {
+      "path": "error",
+      "expected": "Can only get item pairs from a mapping."
+    },
+    "prior_plan_exact": {
+      "path": "plan_sha256",
+      "expected": "154f65eead8d206316e111b8e18dc3f86fe4ea69a4f0d731de8390749d800e1b"
+    },
+    "selection_exact": {
+      "path": "selection_sha256",
+      "expected": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+    },
+    "post_failure_audit_complete": {
+      "path": "post_failure_hash_audit.audit_complete",
+      "expected": true
+    },
+    "post_failure_audit_no_error": {
+      "path": "post_failure_hash_audit.hash_probe_error",
+      "expected": null
+    },
+    "e33_weight_matches": {
+      "path": "post_failure_hash_audit.e33.weight_file_matches",
+      "expected": true
+    },
+    "e33_weight_exact": {
+      "path": "post_failure_hash_audit.e33.weight_file_sha256",
+      "expected": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+    },
+    "e33_metadata_matches": {
+      "path": "post_failure_hash_audit.e33.metadata_matches",
+      "expected": true
+    },
+    "a0c_binding_matches": {
+      "path": "post_failure_hash_audit.a0c.binding_matches",
+      "expected": true
+    },
+    "a0c_receipt_matches": {
+      "path": "post_failure_hash_audit.a0c.receipt_file_matches",
+      "expected": true
+    },
+    "a0c_internal_matches": {
+      "path": "post_failure_hash_audit.a0c.receipt_internal_matches",
+      "expected": true
+    }
+  },
+  "required_log_markers": [
+    "Loading weights:",
+    "Phase B failed: TypeError: Can only get item pairs from a mapping."
+  ],
+  "control_flow_proof": {
+    "prior_execution_commit": "a51b821cb5fc35ba2fdd391e1874d6d8db4b9759",
+    "prior_runner_path": "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py",
+    "prior_runner_sha256": "793b66fdaab73c3c69f312ccab7092e579f761f2b1387eb89c7bdf62b708266f",
+    "observed_failure_stage": "first selected row chat-template render inside _prepare_example",
+    "ordering": "model load completed; _prepare_example render failed before LocalDepthCodec/sidecar construction, any model forward, any backward, or any possible parameter gradient",
+    "optimizer_construction_present": false,
+    "optimizer_step_present": false,
+    "checkpoint_write_present": false,
+    "generation_present": false,
+    "root_observed_gpu_idle_after_failure": true,
+    "root_observed_parameter_update_artifacts": false,
+    "root_observed_checkpoint_artifacts": false,
+    "interpretation": "The exact FAILURE and log establish the error and successful immutable post-failure rehash. The exact prior runner source establishes the failure's position before all forward/backward and sidecar paths; the root observations establish that the failed namespace produced no update or checkpoint artifacts. This evidence motivates only the narrow render-boundary repair."
+  }
+}

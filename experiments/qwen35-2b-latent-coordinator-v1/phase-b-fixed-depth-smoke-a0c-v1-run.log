@@ -1,0 +1,8 @@
+phase-b-fixed-depth-smoke-a0c-v1-plan.json: OK
+phase-b-fixed-depth-smoke-v1-selection.json: OK
+phase-b-a0c-binding-v1.json: OK
+a0c-carrier-success-receipt-v1.json: OK
+[transformers] `torch_dtype` is deprecated! Use `dtype` instead!
+[transformers] The fast path is not available because one of the required library is not installed. Falling back to torch implementation. To install follow https://github.com/fla-org/flash-linear-attention#installation and https://github.com/Dao-AILab/causal-conv1d
+Loading weights:   0%|          | 0/617 [00:00<?, ?it/s]Loading weights:  93%|█████████▎| 572/617 [00:00<00:00, 5705.15it/s]Loading weights: 100%|██████████| 617/617 [00:00<00:00, 5735.54it/s]
+Phase B failed: TypeError: Can only get item pairs from a mapping.
