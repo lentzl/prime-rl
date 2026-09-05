@@ -280,6 +280,7 @@ _DISJOINTNESS = {
 _RUNTIME = {
     "python": "3.12.14",
     "transformers": "5.6.2",
+    "flash_linear_attention": "0.5.2",
     "torch_distribution": "2.11.0+cu128",
     "torch_runtime": "2.11.0+cu128",
     "model_class": "Qwen3_5ForConditionalGeneration",
@@ -330,29 +331,33 @@ _CACHE_CLASS_CLOSURE = [
         "fqcn": fqcn,
         "module_path": module_path,
         "module_sha256": module_sha256,
-        "distribution": "transformers==5.6.2",
+        "distribution": distribution,
     }
-    for fqcn, module_path, module_sha256 in (
+    for fqcn, module_path, module_sha256, distribution in (
         (
             "fla.models.utils.Cache",
             "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
             "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1",
+            "flash-linear-attention==0.5.2",
         ),
         (
             "fla.models.utils.FLACache",
             "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
             "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1",
+            "flash-linear-attention==0.5.2",
         ),
         (
             "fla.models.utils.LegacyFLACache",
             "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
             "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1",
+            "flash-linear-attention==0.5.2",
         ),
         *(
             (
                 f"transformers.cache_utils.{name}",
                 "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
                 "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+                "transformers==5.6.2",
             )
             for name in ("Cache", "DynamicCache", "EncoderDecoderCache", "QuantizedCache", "StaticCache")
         ),
@@ -1866,6 +1871,7 @@ def _validate_receipt(
         != {
             "python": expected_runtime.get("python"),
             "transformers": expected_runtime.get("transformers"),
+            "flash_linear_attention": expected_runtime.get("flash_linear_attention"),
             "torch_distribution": expected_runtime.get("torch_distribution"),
             "torch_runtime": expected_runtime.get("torch_runtime"),
         }

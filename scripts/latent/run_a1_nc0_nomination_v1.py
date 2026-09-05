@@ -301,11 +301,12 @@ def class_identity(cls: type) -> dict[str, str]:
     path = Path(module.__file__).resolve(strict=True)
     if not path.is_relative_to(SHARED_ENVIRONMENT.resolve(strict=True)):
         raise ExperimentIncomplete(f"cache class outside frozen environment: {cls.__module__}.{cls.__qualname__}")
+    distribution = "flash-linear-attention" if cls.__module__.split(".", 1)[0] == "fla" else "transformers"
     return {
         "fqcn": f"{cls.__module__}.{cls.__qualname__}",
         "module_path": str(path),
         "module_sha256": file_sha256(path),
-        "distribution": f"transformers=={importlib.metadata.version('transformers')}",
+        "distribution": f"{distribution}=={importlib.metadata.version(distribution)}",
     }
 
 
@@ -1961,6 +1962,7 @@ def run(args, plan, artifacts, schedule, disjointness, stage, writer: ArtifactWr
     versions = {
         "python": platform.python_version(),
         "transformers": importlib.metadata.version("transformers"),
+        "flash_linear_attention": importlib.metadata.version("flash-linear-attention"),
         "torch_distribution": importlib.metadata.version("torch"),
         "torch_runtime": str(torch.__version__),
     }
@@ -1969,6 +1971,7 @@ def run(args, plan, artifacts, schedule, disjointness, stage, writer: ArtifactWr
     if (
         versions["python"] != expected_runtime["python"]
         or versions["transformers"] != expected_runtime["transformers"]
+        or versions["flash_linear_attention"] != expected_runtime["flash_linear_attention"]
         or versions["torch_distribution"] != expected_runtime["torch_distribution"]
         or versions["torch_runtime"] != expected_runtime["torch_runtime"]
         or {name: item["sha256"] for name, item in sources.items()} != expected_runtime["transformers_source_sha256"]

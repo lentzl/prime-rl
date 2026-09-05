@@ -120,6 +120,20 @@ def test_module_state_tree_hash_includes_registered_buffers():
     assert module_state_tree_sha256(module) != before
 
 
+def test_cache_closure_uses_exact_owning_distributions():
+    observed = {item["fqcn"]: item["distribution"] for item in a1nc0._CACHE_CLASS_CLOSURE}
+    assert all(
+        observed[name] == "flash-linear-attention==0.5.2"
+        for name in ("fla.models.utils.Cache", "fla.models.utils.FLACache", "fla.models.utils.LegacyFLACache")
+    )
+    assert all(
+        distribution == "transformers==5.6.2"
+        for name, distribution in observed.items()
+        if name.startswith("transformers.")
+    )
+    assert a1nc0._RUNTIME["flash_linear_attention"] == "0.5.2"
+
+
 def test_fixed_feature_inputs_are_exactly_left_padded_without_truncation():
     ids = torch.tensor([[4, 5, 6]], dtype=torch.long)
     padded, mask = fixed_feature_inputs(ids, pad_token_id=99, budget=8)
@@ -616,7 +630,14 @@ def _positive_receipt(tmp_path):
             "receiver_gate_applied_by_bridge_then_compose_gate_one": True,
         },
         "versions": {
-            key: a1nc0._RUNTIME[key] for key in ("python", "transformers", "torch_distribution", "torch_runtime")
+            key: a1nc0._RUNTIME[key]
+            for key in (
+                "python",
+                "transformers",
+                "flash_linear_attention",
+                "torch_distribution",
+                "torch_runtime",
+            )
         },
         "runtime_sources": {
             name: {"path": f"/frozen/{name}.py", "sha256": sha}
