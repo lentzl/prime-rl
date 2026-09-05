@@ -167,3 +167,10 @@ def test_launcher_uses_source_paths_without_dependency_overlay() -> None:
     assert "verifiers_env_pythonpath=" in launcher
     assert 'PYTHONPATH="$verifiers_env_pythonpath${PYTHONPATH:+:$PYTHONPATH}"' in launcher
     assert "--with-editable" not in launcher
+
+
+def test_launcher_checks_s5_exactness_at_task_schema_location() -> None:
+    launcher = LAUNCHER_PATH.read_text()
+    assert 'treatment_tasks = summary.get("treatment", {}).get("tasks", [])' in launcher
+    assert 'task.get("answer_accuracy") != 0' in launcher
+    assert 'get("exact_answers")' not in launcher

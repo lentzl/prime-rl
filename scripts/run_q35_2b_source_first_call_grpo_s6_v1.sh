@@ -129,6 +129,7 @@ from pathlib import Path
 summary = json.loads(Path(sys.argv[1]).read_text())
 config = tomllib.loads(Path(sys.argv[2]).read_text())
 contract = json.loads(Path(sys.argv[3]).read_text())
+treatment_tasks = summary.get("treatment", {}).get("tasks", [])
 expected_thresholds = {
     "minimum_worker_activations": 16,
     "minimum_treatment_hard_successes": 4,
@@ -144,7 +145,8 @@ if (
     or summary.get("thresholds") != expected_thresholds
     or summary.get("control", {}).get("hard_successes") != 0
     or summary.get("treatment", {}).get("hard_successes") != 0
-    or summary.get("treatment", {}).get("exact_answers") != 0
+    or len(treatment_tasks) != 16
+    or any(task.get("answer_accuracy") != 0 for task in treatment_tasks)
 ):
     raise SystemExit("S6 requires the exact structurally rejected S5 primary summary")
 taskset = config.get("env", {}).get("taskset", {})
