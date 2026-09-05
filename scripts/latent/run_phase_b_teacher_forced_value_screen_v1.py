@@ -141,6 +141,10 @@ def _validated_cuda_memory_contract(audit_context: dict[str, Any]) -> dict[str, 
         raise ResourceContractExceeded("B1R CUDA memory checkpoint ledger order or count differs")
     if contract.get("cap_bytes") != CUDA_MEMORY_CAP_BYTES:
         raise ResourceContractExceeded("B1R CUDA memory cap differs")
+    if contract.get("allocator_fraction_applied") is not True or contract.get(
+        "peak_stats_reset_after_allocator_fraction"
+    ) is not True:
+        raise ResourceContractExceeded("B1R CUDA allocator fraction or peak reset is unproven")
     requested = contract.get("requested_fraction")
     observed = contract.get("observed_fraction")
     if not isinstance(requested, float) or not isinstance(observed, float) or not math.isclose(
@@ -1037,24 +1041,39 @@ def execute_value_screen(
     torch.cuda.set_device(0)
     total_device_bytes = int(torch.cuda.get_device_properties(0).total_memory)
     requested_fraction = CUDA_MEMORY_CAP_BYTES / total_device_bytes
+    audit_context.update(
+        {
+            "torch": torch,
+            "stage": "allocator_contract_initialization",
+            "cuda_memory_contract": {
+                "cap_bytes": CUDA_MEMORY_CAP_BYTES,
+                "total_device_bytes": total_device_bytes,
+                "requested_fraction": requested_fraction,
+                "observed_fraction": None,
+                "allocator_fraction_applied": False,
+                "peak_stats_reset_after_allocator_fraction": False,
+                "checkpoint_ledger": [],
+            },
+        }
+    )
     torch.cuda.set_per_process_memory_fraction(requested_fraction, 0)
     observed_fraction = float(torch.cuda.get_per_process_memory_fraction(0))
     torch.cuda.reset_peak_memory_stats(0)
-    audit_context["cuda_memory_contract"] = {
-        "cap_bytes": CUDA_MEMORY_CAP_BYTES,
-        "total_device_bytes": total_device_bytes,
-        "requested_fraction": requested_fraction,
-        "observed_fraction": observed_fraction,
-        "peak_stats_reset_after_allocator_fraction": True,
-        "checkpoint_ledger": [],
-    }
+    audit_context["cuda_memory_contract"].update(
+        {
+            "observed_fraction": observed_fraction,
+            "allocator_fraction_applied": True,
+            "peak_stats_reset_after_allocator_fraction": True,
+        }
+    )
     audit_context["expected_memory_checkpoint_labels"] = _expected_memory_checkpoint_labels(tokenizer_context)
     seed = plan["training"]["initialization_seed"]
     model_path = Path(plan["protected_model"]["path"])
+    audit_context.update({"model_path": model_path, "stage": "model_load"})
     model = AutoModelForImageTextToText.from_pretrained(
         model_path, local_files_only=True, torch_dtype=torch.bfloat16, attn_implementation="eager"
     ).to("cuda:0")
-    audit_context.update({"model": model, "model_path": model_path, "torch": torch})
+    audit_context.update({"model": model, "stage": "model_loaded"})
     _enforce_cuda_memory_cap(torch, audit_context, "after_model_load")
     model.eval()
     for parameter in model.parameters():
