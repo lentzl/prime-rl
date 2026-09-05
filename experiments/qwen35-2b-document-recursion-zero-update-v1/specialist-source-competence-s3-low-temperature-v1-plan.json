@@ -1,0 +1,139 @@
+{
+  "schema_version": "q35-2b-specialist-competence-plan/v1",
+  "experiment_id": "specialist-source-competence-s3-low-temperature-v1",
+  "recorded_at": "2026-09-05",
+  "status": "draft_requires_root_and_strand_e_freeze_before_any_s3_model_call",
+  "execution_authorization": "none",
+  "trigger": {
+    "required": "specialist-source-competence-s2-v1 completes validly and rejects under its prospectively frozen gate",
+    "forbidden": [
+      "restarting or extending S2",
+      "reusing an S1 or S2 task key, task name, instance path, or file payload",
+      "changing e33, H176, H_source_s2, the specialist action scaffold, or an admission threshold"
+    ]
+  },
+  "objective": "Determine whether S2 exposed an intermittently sampled source-worker mode by evaluating the frozen H_source_s2 candidate and frozen H176 at deterministic worker sampling on one fresh paired source/config bank.",
+  "recommendation": "Run this single zero-gradient causal screen before applying more dense updates. The S2 snapshot shows access to correct parsing and parent transport after stochastic errors, while the training corpus already contains the exact clean sequence; temperature is therefore a live confound that can be isolated without mutating weights.",
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates_allowed": 0
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates_allowed": 0
+    },
+    "source_candidate": {
+      "label": "H_source_s2",
+      "model_sha256": "937a96154cd47d8dda1fb01125d9f552037a91bc0542748f417652ceddd47f47",
+      "optimizer_updates_allowed": 0,
+      "source_model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates_already_applied": 8
+    }
+  },
+  "recovered_s2_evidence_at_plan_time": {
+    "receipt": {
+      "status": "complete",
+      "full_dense": true,
+      "dataset_rows": 64,
+      "dataset_train_parquet_sha256": "01d7359cac90f5664ff0364520b3c98cc31227c56496b1d78f704712f9a5bab3",
+      "optimizer_updates": 8,
+      "learning_rate": 0.000002,
+      "loss_mean_last_record": 0.18263483047485352,
+      "loss_nan_count": 0,
+      "gradient_norm_last_record": 29.75
+    },
+    "treatment_snapshot": {
+      "completed_tasks": 5,
+      "answer_and_protocol_successes": 1,
+      "admission_hard_successes_under_committed_summarizer": 0,
+      "parent_send_tasks": 1,
+      "diagnosis": "AST v4 i44001 eventually computed the exact value and sent a parent message, but only after four failed cells; the successful send was separate from file reading and carried scalar text rather than the requested compact JSON object. It is a useful mechanics signal, not an admission-hard success."
+    }
+  },
+  "paired_evaluation": {
+    "claim": "scaffolded_worker_only_competence_at_temperature_zero",
+    "control": "Frozen e33 plus frozen H176 under the same forced source_inspector assignment and deterministic worker sampling.",
+    "treatment": "Frozen e33 plus frozen H_source_s2 under the same forced source_inspector assignment and deterministic worker sampling.",
+    "force_mechanism": "SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION=1",
+    "force_scope": "pristine specialist action and expert identity only",
+    "worker_sampling": {
+      "temperature": 0.0,
+      "top_p": 0.95,
+      "top_k": 20,
+      "min_p": 0.0,
+      "reasoning_effort": "high",
+      "max_tokens": 4096
+    },
+    "sampling_note": "The coordinator action request remains irrelevant to the claim because the action and expert identity are rewritten to the frozen forced assignment. Both worker arms must receive byte-identical sampling parameters.",
+    "proposed_task_count": 16,
+    "proposed_family_counts": {
+      "specialist_source_ast": 8,
+      "specialist_source_config": 8
+    },
+    "required_heldout_template_variants": [
+      4,
+      5
+    ],
+    "heldout_seed": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "heldout_instance_offset": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "freshness_requirements": [
+      "zero task-key and task-name overlap with training, S1, and S2",
+      "fresh instance roots and fresh file payloads",
+      "task bank and sampling contract hashed before either arm starts",
+      "one rollout per task with shuffle disabled",
+      "control and treatment task contracts byte-identical"
+    ]
+  },
+  "admission": {
+    "threshold_source": "Copy the S2 final-threshold object without relaxation; Strand E/root assigns and hashes it before model calls.",
+    "existing_minimum_complete_qualifying_floor_may_not_be_relaxed": 4,
+    "hard_success_definition": "Use _hard_success from summarize_q35_2b_specialist_population_v1.py: answer_accuracy=1, protocol_aligned=1, clean_protocol_aligned=1, agent_completed, and model-authored file computation. Protocol-gated accuracy alone is not hard success.",
+    "required_invariants": [
+      "forced assignment audit exact in both arms",
+      "fixed route and worker-checkpoint provenance exact",
+      "no specialist-router calls",
+      "zero model updates",
+      "e33, H176, and H_source_s2 rehash unchanged",
+      "zero evaluation errors and 16 distinct complete task contracts"
+    ]
+  },
+  "decision_boundary": {
+    "if_gate_passes": "Admit only the narrow scaffolded source-worker claim with worker temperature fixed at 0.0; do not claim unforced routing or unassisted end-to-end admission, and do not run dense continuation S4.",
+    "if_gate_rejects_with_candidate_specific_progress": "Keep S2 unadmitted and authorize review of the separately prospective S4 four-update dense continuation. Candidate-specific progress means at least one H176-fail to H_source_s2 admission-hard recovery, or a strictly positive paired increase in clean exactly-once parent-report computation; scalar/wrong-answer sends alone do not satisfy this branch.",
+    "if_gate_rejects_without_candidate_specific_progress": "Do not apply more updates on the identical corpus. Freeze a new remedial-corpus plan that addresses first-call parsing and compact JSON transport on training-only variants, then use another fresh heldout bank.",
+    "if_control_and_treatment_move_together": "Treat temperature as a harness-wide effect rather than evidence for H_source_s2; the unchanged paired-recovery gate still decides admission."
+  },
+  "confounds_and_controls": [
+    "A treatment-only temperature change would confound policy and decoding, so both arms use temperature 0.0.",
+    "S3 must not replay S2 tasks because those treatment outcomes were observed before this plan.",
+    "Temperature 0.0 can expose a deterministic bad mode as well as a good mode; rejection is therefore diagnostic, not proof that the trained sequence is absent.",
+    "The tight scaffold may only fix action and expert identity; it must not perform file parsing, arithmetic, message serialization, or parent send on the worker's behalf."
+  ],
+  "immutable_results": {
+    "schema": "specialist-competence-result-schema-v1.json",
+    "training_receipt_reference": "h-source-s2-step8-v1-receipt.json",
+    "required_artifacts": [
+      "prospectively frozen heldout config",
+      "prospectively frozen sampling contract",
+      "materialized task-bank hash",
+      "H176 traces and routing audit",
+      "H_source_s2 traces and routing audit",
+      "paired summary",
+      "protected-model postflight hashes"
+    ],
+    "write_policy": "write once; no retrospective threshold, task-bank, sampling, or summary replacement"
+  },
+  "resource_request": {
+    "authorization_required": true,
+    "host": "existing rented host only; no added infrastructure",
+    "gpu": "2x RTX A6000 48 GiB",
+    "training_gpu_seconds": 0,
+    "evaluation_layout": "GPU0 e33; GPU1 one worker checkpoint at a time",
+    "estimated_evaluation_episodes": 32,
+    "concurrency": "one arm at a time; no colocated training"
+  },
+  "publication": "No Hugging Face publication without separate admission and owner approval."
+}

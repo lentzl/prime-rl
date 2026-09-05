@@ -1,0 +1,171 @@
+{
+  "schema_version": "q35-2b-specialist-competence-plan/v1",
+  "experiment_id": "specialist-source-competence-s4-dense-continuation-v1",
+  "recorded_at": "2026-09-05",
+  "status": "draft_conditional_requires_root_and_strand_e_freeze_and_owner_execution_authorization",
+  "execution_authorization": "none",
+  "trigger": {
+    "required": [
+      "S2 completes validly and rejects under its frozen gate",
+      "S3 low-temperature paired screen also rejects under the unchanged gate",
+      "S2 or S3 contains candidate-specific clean progress under the decision definition frozen in the S3 plan"
+    ],
+    "forbidden": [
+      "starting before S2 and S3 immutable results exist",
+      "overwriting or promoting H176",
+      "reusing any prior heldout task or relaxing a gate",
+      "stacking another identical-corpus continuation after S4 rejection"
+    ]
+  },
+  "objective": "Apply the smallest balanced additional full-dense dose to the frozen H_source_s2 experimental branch, then measure its incremental and total source-worker effect on one fresh paired bank under the decoding condition selected prospectively from S3.",
+  "protected_models": {
+    "coordinator": {
+      "label": "adaptive-core-v1-e33",
+      "model_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "optimizer_updates_allowed": 0
+    },
+    "generic_worker": {
+      "label": "H176",
+      "model_sha256": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "optimizer_updates_allowed": 0
+    },
+    "experimental_parent": {
+      "label": "H_source_s2",
+      "model_sha256": "937a96154cd47d8dda1fb01125d9f552037a91bc0542748f417652ceddd47f47",
+      "optimizer_updates_allowed": 4
+    }
+  },
+  "candidate": {
+    "label": "H_source_s4",
+    "parent": "H_source_s2",
+    "role": "terminal_worker",
+    "update_type": "full_dense",
+    "generic_worker_overwrite_allowed": false,
+    "optimizer_updates": 4,
+    "batch_size": 16,
+    "learning_rate": 0.000002,
+    "reason_four_updates_is_minimal_balanced_dose": "Four batches expose all 64 frozen rows exactly once with shuffle disabled, adding one balanced epoch rather than another eight-update jump."
+  },
+  "training_corpus": {
+    "expert_id": "source_inspector",
+    "rows": 64,
+    "family_counts": {
+      "source_ast": 32,
+      "source_config": 32
+    },
+    "training_template_variants": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "heldout_template_variants_excluded": [
+      4,
+      5
+    ],
+    "train_parquet_sha256": "01d7359cac90f5664ff0364520b3c98cc31227c56496b1d78f704712f9a5bab3",
+    "answer_free": true,
+    "strict_one_cell_target": "Each target reads the files, computes the answer, serializes one compact JSON object, and sends it to receiver_role='parent' in one IPython call."
+  },
+  "optimizer_continuity_boundary": {
+    "continuous_from_s2": false,
+    "reason": "The S2 training config retained weights-only checkpoints, so Adam moments and data-loader state are not recoverable.",
+    "declared_treatment": "four-update fresh-Adam continuation from the exact S2 dense weights",
+    "not_claimed": "a twelve-step optimizer-continuous run from H176",
+    "safety_reason": "Re-running twelve steps from H176 would duplicate the completed eight-update job, cost more, and erase the direct experimental continuation path."
+  },
+  "preflight": [
+    "Verify S2 model SHA-256 and STABLE marker before training.",
+    "Verify e33 and H176 protected SHA-256 values before and after the rung.",
+    "Verify the exact frozen corpus and manifest hashes.",
+    "Refuse launch if any S4 candidate, receipt, trace, audit, bridge summary, or final summary already exists.",
+    "Require both GPUs idle at the optimizer boundary."
+  ],
+  "paired_evaluation": {
+    "claim": "scaffolded_worker_only_competence",
+    "force_mechanism": "SPECIALIST_COMPETENCE_FORCE_FIXED_ACTION=1",
+    "force_scope": "pristine specialist action and expert identity only",
+    "arms_in_order": [
+      "frozen H176 control",
+      "frozen H_source_s2 same-bank bridge",
+      "H_source_s4 treatment"
+    ],
+    "primary_admission_pair": "H176 versus H_source_s4",
+    "incremental_diagnostic_pair": "H_source_s2 versus H_source_s4 on the identical task bank",
+    "worker_temperature_selection": {
+      "temperature_zero": "Use 0.0 only if S3 produced a strictly positive candidate-specific increase in admission-hard recoveries over its H176 control without regression.",
+      "original_temperature": "Otherwise retain the original 0.4 sampling contract.",
+      "freeze_requirement": "Strand E/root records the chosen branch and hashes one sampling contract before any S4 evaluation call."
+    },
+    "proposed_task_count": 16,
+    "proposed_family_counts": {
+      "specialist_source_ast": 8,
+      "specialist_source_config": 8
+    },
+    "required_heldout_template_variants": [
+      4,
+      5
+    ],
+    "heldout_seed": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "heldout_instance_offset": "assigned_and_hashed_prospectively_by_strand_e_or_root",
+    "freshness_requirements": [
+      "zero task-key and task-name overlap with training, S1, S2, and S3",
+      "fresh instance roots and fresh file payloads",
+      "all three arms use byte-identical task contracts and sampling",
+      "task bank, sampling contract, and unchanged admission threshold object are hashed before the H176 arm"
+    ]
+  },
+  "admission": {
+    "threshold_source": "Copy the S2 final-threshold object without relaxation; Strand E/root assigns and hashes it before model calls.",
+    "existing_minimum_complete_qualifying_floor_may_not_be_relaxed": 4,
+    "hard_success_definition": "Use the existing committed specialist _hard_success implementation without modification.",
+    "primary_decision": "Only the H176-versus-H_source_s4 paired summary can admit S4. The S2 bridge is diagnostic and cannot weaken the primary gate.",
+    "required_invariants": [
+      "forced assignment exact for all arms",
+      "fixed route and worker provenance exact",
+      "no specialist-router calls",
+      "zero regressions beyond the already frozen maximum",
+      "e33 and H176 bitwise unchanged",
+      "zero evaluation errors and 16 distinct complete task contracts"
+    ]
+  },
+  "decision_boundary": {
+    "if_primary_gate_passes": "Admit only the scaffolded source-worker claim at the prospectively selected temperature; retain S2 and S4 receipts and do not overwrite H176.",
+    "if_primary_gate_rejects": "Reject S4 and stop identical-corpus dense continuation. The next experiment must change the training curriculum prospectively, emphasizing clean first-call parsing and one-call compact JSON transport on training-only variants.",
+    "if_s4_regresses_from_s2_bridge": "Reject S4 even if an aggregate count appears favorable; preserve S2 as an unadmitted experimental checkpoint until root decides retention.",
+    "if_training_is_nonfinite_or_provenance_changes": "Mark infrastructure-invalid, do not evaluate or publish, and keep e33/H176 protected."
+  },
+  "confounds_and_controls": [
+    "Fresh Adam state makes S4 a continuation from weights, not optimizer-continuous step 9 through 12; the receipt and result must say so.",
+    "The same-bank S2 bridge separates the incremental four-update effect from task-bank difficulty.",
+    "The H176 control preserves the canonical admission comparison.",
+    "Temperature is selected by a predeclared S3 branch and then held identical across all S4 arms.",
+    "The tight scaffold must not repair parsing, arithmetic, serialization, or parent transport."
+  ],
+  "immutable_results": {
+    "schema": "specialist-competence-result-schema-v1.json",
+    "primary_result": "H176-versus-H_source_s4 result conforming to the existing immutable schema",
+    "additional_write_once_artifacts": [
+      "H176-versus-H_source_s2 same-bank bridge summary",
+      "H_source_s2-versus-H_source_s4 incremental comparison",
+      "S4 training receipt with optimizer reset disclosed",
+      "all arm traces and routing audits",
+      "protected-model postflight hashes"
+    ],
+    "write_policy": "write once; no retrospective threshold, task-bank, temperature, or summary replacement"
+  },
+  "resource_request": {
+    "authorization_required": true,
+    "host": "existing rented host only; no added infrastructure",
+    "gpu": "2x RTX A6000 48 GiB",
+    "host_ram_minimum_gib": 90,
+    "local_disk_free_minimum_gib": 80,
+    "training_layout": "both GPUs, full-dense distributed update, no colocated inference",
+    "evaluation_layout": "GPU0 e33; GPU1 one worker checkpoint at a time",
+    "estimated_training_steps": 4,
+    "estimated_training_wall_seconds_from_s2_step_time": 176.00871270801872,
+    "estimated_evaluation_episodes": 48,
+    "concurrency": "one training job or one evaluation arm at a time"
+  },
+  "publication": "No Hugging Face publication without separate admission and owner approval."
+}
