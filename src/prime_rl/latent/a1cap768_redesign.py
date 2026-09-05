@@ -42,6 +42,25 @@ CASE_SCHEDULE = [
     for modality in ("PARENT", "MSELF")
 ]
 CASE_SCHEDULE_SHA256 = "7830929d5b6135cf5641c748ba49d5ecb8229cf9023c73338859b39b3b715445"
+SCIENTIFIC_EXPOSURE_BOUNDARY = {
+    "schema": "prime-rl/latent-a1-nc0-cap768-redesign-scientific-exposure-boundary/v1",
+    "selection_reused": True,
+    "selection_adaptive": False,
+    "all_eight_selection_and_token_lengths_previously_exposed_tokenizer_only": True,
+    "scientific_forward_exposure_before_redesign": [
+        {
+            **case,
+            "exposed": case["probe_index"] == 1 and case["modality"] == "PARENT",
+            "sources": ["CAP768_RUN4", "FLAG0_RUN1"]
+            if case["probe_index"] == 1 and case["modality"] == "PARENT"
+            else [],
+        }
+        for case in CASE_SCHEDULE
+    ],
+    "reuse_scope": "interface_mechanism_only",
+    "heldout_or_generalization_claim_allowed": False,
+}
+SCIENTIFIC_EXPOSURE_BOUNDARY_SHA256 = "b8a4398654b6d53966ad3e56ac685ee20a02593c5f260ca78fe3a04b3704ddfe"
 
 LOCAL_OPERATIONS = (
     ("embedding_lookup", "EXACT_EMBED_LOOKUP"),
@@ -172,11 +191,31 @@ FLAG0_INCOMPLETE_EVIDENCE = {
     "asset_count": 42,
     "failure_audit_errors": [],
 }
+STATIC_GUARD_PROOF_EVIDENCE = {
+    "receipt_file_sha256": "0ad3dcf09cdd69dcbd9a9f9cb6facb091cdd43ed360f3c8fc324607c30f66c00",
+    "receipt_internal_sha256": "16b4439d836d3684060a407211e8f6f00095a7da333f80e01212f8c85691f0af",
+    "command_file_sha256": "2aeff6b1293bade5081d46cab2b8dd58592a4692a0bc3b4efd34d19c88754011",
+    "proof_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit_status_file_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "execution_commit": "6ca5caf13f1ace6f270ddcd8b09845df64922e90",
+    "runner_sha256": "ff5ef962ec3e70d399e85d966f24dbe6493fb34c818a8063a73de1f6ae94d2e4",
+    "guard_module_sha256": "ed7d6c0fc16cc0c24f8cc55907db69cf77079adebc963425f2cc1e7c78e568f6",
+    "negative_fixture_count": 5,
+    "cuda_hidden_uninitialized": True,
+    "model_loaded": False,
+    "model_forward_count": 0,
+    "scientific_exposure": False,
+    "model_update_attempted": False,
+}
 
 ASSET_PATHS = set(FLAG0_ASSET_PATHS) | {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-flag0-plan-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-flag0-incomplete-failure.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-flag0-incomplete-run.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-receipt.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-command.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof-exit.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-redesign-static-guard-proof.log",
     "scripts/latent/run_a1_nc0_cap768_redesign_v1.py",
     "scripts/latent/run_a1_nc0_cap768_redesign_v1.sh",
     "scripts/latent/prove_a1_nc0_cap768_redesign_static_guard_v1.py",
@@ -206,6 +245,7 @@ def validate_constants() -> None:
     values = (
         (SELECTION, SELECTION_SHA256),
         (CASE_SCHEDULE, CASE_SCHEDULE_SHA256),
+        (SCIENTIFIC_EXPOSURE_BOUNDARY, SCIENTIFIC_EXPOSURE_BOUNDARY_SHA256),
         (build_operation_schedule(), OPERATION_SCHEDULE_SHA256),
         (LOCAL_COMPARISONS, LOCAL_COMPARISONS_SHA256),
         (build_comparison_schedule(), COMPARISON_SCHEDULE_SHA256),
@@ -305,6 +345,58 @@ def validate_flag0_incomplete(repo: Path) -> dict[str, object]:
     return FLAG0_INCOMPLETE_EVIDENCE
 
 
+def validate_static_guard_proof(repo: Path) -> dict[str, object]:
+    experiment = repo / "experiments/qwen35-2b-latent-workspace-v1"
+    paths = {
+        "receipt": experiment / "a1-nc0-cap768-redesign-static-guard-proof-receipt.json",
+        "command": experiment / "a1-nc0-cap768-redesign-static-guard-proof-command.txt",
+        "log": experiment / "a1-nc0-cap768-redesign-static-guard-proof.log",
+        "exit": experiment / "a1-nc0-cap768-redesign-static-guard-proof-exit.txt",
+    }
+    if any(path.is_symlink() or not path.is_file() for path in paths.values()):
+        raise ValueError("CAP768R static guard proof absent or symlinked")
+    receipt = json.loads(paths["receipt"].read_text())
+    expected_hashes = {
+        "receipt": STATIC_GUARD_PROOF_EVIDENCE["receipt_file_sha256"],
+        "command": STATIC_GUARD_PROOF_EVIDENCE["command_file_sha256"],
+        "log": STATIC_GUARD_PROOF_EVIDENCE["proof_log_sha256"],
+        "exit": STATIC_GUARD_PROOF_EVIDENCE["exit_status_file_sha256"],
+    }
+    if (
+        any(file_sha256(paths[name]) != expected for name, expected in expected_hashes.items())
+        or paths["exit"].read_bytes() != b"0\n"
+        or receipt.get("proof_sha256") != STATIC_GUARD_PROOF_EVIDENCE["receipt_internal_sha256"]
+        or receipt.get("proof_sha256") != canonical_json_hash({**receipt, "proof_sha256": ""})
+        or receipt.get("execution_commit") != STATIC_GUARD_PROOF_EVIDENCE["execution_commit"]
+        or receipt.get("runner_sha256") != STATIC_GUARD_PROOF_EVIDENCE["runner_sha256"]
+        or receipt.get("guard_module_sha256") != STATIC_GUARD_PROOF_EVIDENCE["guard_module_sha256"]
+        or receipt.get("status") != "static_guard_validated_cuda_hidden"
+        or receipt.get("positive")
+        != {
+            "runner_sha256": STATIC_GUARD_PROOF_EVIDENCE["runner_sha256"],
+            "forbidden_calls": [],
+            "forbidden_identifiers": [],
+            "forbidden_imports": [],
+        }
+        or receipt.get("negative_fixtures")
+        != {
+            "adamw_attribute": True,
+            "backward_call": True,
+            "generate_call": True,
+            "optimizer_step_call": True,
+            "workspace_bridge_name": True,
+        }
+        or receipt.get("cuda_visible_devices") != ""
+        or receipt.get("cuda_initialized_before_after") is not True
+        or receipt.get("model_loaded") is not False
+        or receipt.get("model_forward_count") != 0
+        or receipt.get("scientific_exposure") is not False
+        or receipt.get("model_update_attempted") is not False
+    ):
+        raise ValueError("CAP768R static guard proof changed")
+    return STATIC_GUARD_PROOF_EVIDENCE
+
+
 def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
     validate_constants()
     if plan_path.is_symlink() or not plan_path.is_file():
@@ -335,6 +427,9 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         "memory_labels",
         "memory_labels_sha256",
         "flag0_incomplete_evidence",
+        "static_guard_proof_evidence",
+        "scientific_exposure_boundary",
+        "scientific_exposure_boundary_sha256",
         "protected_checkpoints",
         "runtime",
         "resource_bounds",
@@ -370,6 +465,9 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("memory_labels") != memory_labels()
         or plan.get("memory_labels_sha256") != MEMORY_LABELS_SHA256
         or plan.get("flag0_incomplete_evidence") != FLAG0_INCOMPLETE_EVIDENCE
+        or plan.get("static_guard_proof_evidence") != STATIC_GUARD_PROOF_EVIDENCE
+        or plan.get("scientific_exposure_boundary") != SCIENTIFIC_EXPOSURE_BOUNDARY
+        or plan.get("scientific_exposure_boundary_sha256") != SCIENTIFIC_EXPOSURE_BOUNDARY_SHA256
         or plan.get("protected_checkpoints") != {"coordinator_e33": _E33, "worker_h176": _H176}
         or plan.get("runtime") != _RUNTIME
         or plan.get("resource_bounds") != RESOURCE_BOUNDS
@@ -387,6 +485,8 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
             raise ValueError(f"CAP768R asset changed: {relative}")
     if validate_flag0_incomplete(repo) != plan["flag0_incomplete_evidence"]:
         raise ValueError("CAP768R FLAG0 binding changed")
+    if validate_static_guard_proof(repo) != plan["static_guard_proof_evidence"]:
+        raise ValueError("CAP768R static guard proof binding changed")
     return plan
 
 

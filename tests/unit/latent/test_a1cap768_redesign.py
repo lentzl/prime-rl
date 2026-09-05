@@ -18,6 +18,7 @@ from prime_rl.latent.a1cap768_redesign import (
     MEMORY_LABELS_SHA256,
     OPERATION_SCHEDULE_SHA256,
     RESOURCE_BOUNDS,
+    STATIC_GUARD_PROOF_EVIDENCE,
     DiagnosticIncomplete,
     NoCacheRejected,
     ResourceFitRejected,
@@ -29,6 +30,7 @@ from prime_rl.latent.a1cap768_redesign import (
     validate_comparison,
     validate_constants,
     validate_flag0_incomplete,
+    validate_static_guard_proof,
 )
 from prime_rl.latent.cap768_redesign_invariants import (
     inspect_no_training_runner,
@@ -124,6 +126,14 @@ def test_bound_flag0_incomplete_artifacts_are_exact():
     assert evidence == FLAG0_INCOMPLETE_EVIDENCE
     assert evidence["false_flags"] == DESCRIPTIVE_FLAG_NAMES
     assert evidence["failure_audit_errors"] == []
+
+
+def test_bound_exact_host_static_guard_proof_is_exact():
+    evidence = validate_static_guard_proof(Path("."))
+    assert evidence == STATIC_GUARD_PROOF_EVIDENCE
+    assert evidence["negative_fixture_count"] == 5
+    assert evidence["cuda_hidden_uninitialized"] is True
+    assert evidence["model_loaded"] is False
 
 
 def test_real_runner_ast_guard_and_pre_model_order():
