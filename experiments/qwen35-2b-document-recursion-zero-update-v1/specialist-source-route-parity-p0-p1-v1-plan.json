@@ -1,0 +1,71 @@
+{
+  "schema_version": "q35-2b-specialist-route-parity-plan/v1",
+  "experiment_id": "specialist-source-route-parity-p0-p1-v1",
+  "recorded_at": "2026-09-05",
+  "status": "prospective_root_review_required",
+  "objective": "Prove that direct-renderer coordinator calls use frozen e33 and exact disclosed source_inspector child calls use frozen rejected S5 before any further optimizer authorization.",
+  "cause": {
+    "rejected_run": "S6",
+    "observed_failure": "All successful direct-renderer route events were labeled coordinator and sent to e33, including child branches whose trainer tokens were evaluated under S5.",
+    "repair": "Token-native exact specialist-child prefix recognition plus explicit route evidence and aggregate raw/effective/call/event reconciliation."
+  },
+  "protected_models": {
+    "coordinator": "frozen e33",
+    "specialist_child": "frozen rejected S5",
+    "canonical_models_mutated": false
+  },
+  "p0_calibration": {
+    "purpose": "Measure true same-policy trainer/inference mismatch, termination, and reward behavior on the repaired route while retaining direct comparability to S6.",
+    "train_seed": 20270909,
+    "instance_offset": 70000,
+    "learning_rate": 0.0,
+    "checkpoint": false,
+    "optimizer_update_authorized": false,
+    "may_authorize_later_update": false,
+    "output_policy": "new write-once path; never resume or overwrite S6",
+    "required_route_evidence": [
+      "raw trace identities equal effective trace identities",
+      "no unattached call nodes",
+      "exact aggregate call and route multiplicity",
+      "every child route has exact_specialist_child_prefix, expert_id=source_inspector, and S5 upstream",
+      "every coordinator route has coordinator_without_specialist_child_prefix and e33 upstream",
+      "exactly 16 forced coordinator assignments and 16 rollout-scoped sessions"
+    ],
+    "disposition": "Archive measurements and stop. P0 can never produce a checkpoint or authorize an update."
+  },
+  "p1_admission_audit": {
+    "purpose": "Fresh-path LR=0 mechanism admission after P0 thresholds are independently frozen.",
+    "train_seed": null,
+    "instance_offset": null,
+    "task_bank_sha256": null,
+    "config_sha256": null,
+    "route_audit_sha256": null,
+    "thresholds": null,
+    "root_freeze_required": true,
+    "learning_rate": 0.0,
+    "checkpoint": false,
+    "optimizer_update_authorized": false,
+    "required_before_launch": [
+      "root assigns a fresh seed and offset",
+      "root freezes task/config hashes",
+      "root freezes mismatch, censoring, reward-variance, token-mass, and route-parity thresholds prospectively from P0 evidence",
+      "P1 uses a new write-once output and audit path"
+    ],
+    "failure_action": "Stop without checkpoint, update, evaluation, or gate change."
+  },
+  "future_update_boundary": "A nonzero optimizer step requires a separate prospective plan and explicit root authorization after P1 passes. Neither P0 nor this plan authorizes it.",
+  "heldout_admission_gate": {
+    "changed": false,
+    "minimum_treatment_hard_successes": 4,
+    "minimum_hard_successes_per_family": 2,
+    "minimum_paired_H176_fail_to_candidate_hard_recoveries": 4,
+    "maximum_paired_regressions": 0
+  },
+  "resources": {
+    "host": "existing host only",
+    "gpu": "2x RTX A6000 48 GiB",
+    "layout": "GPU0 LR=0 full-dense forward/backward mechanism probe; GPU1 S5 policy inference plus frozen e33 anchor",
+    "concurrency": "one calibration or audit stage at a time",
+    "deployment_authorized": false
+  }
+}

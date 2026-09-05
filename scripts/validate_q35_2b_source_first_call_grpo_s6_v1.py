@@ -35,6 +35,13 @@ EXPECTED_ROUTING_AUDIT = {
     "update": Path("/home/ubuntu/rlm/results/q35-2b-source-first-call-s6-v1/step1-routing-audit.jsonl"),
 }
 FORCED_ROUTE_MODE = "forced_specialist_assignment_generate_action"
+ROUTE_SCHEMA = "qwen35-2b-dual-policy-route/v1"
+SPECIALIST_CHILD_PREFIX = (
+    "[task from parent]\n\n"
+    "[selected terminal capability]\n"
+    "expert_id=source_inspector\n"
+    "session_role=terminal_worker"
+)
 MAX_MISMATCH_TO_ENTROPY_RATIO = 0.25
 MAX_MISMATCH_OUTLIER_TO_ENTROPY_MAX = 100.0
 MAX_DPPO_MASKED_FRACTION = 0.05
@@ -474,6 +481,178 @@ def _validate_forced_assignment_routes(
     }
 
 
+def _wire_content_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        return "".join(
+            item.get("text", "")
+            for item in content
+            if isinstance(item, dict) and isinstance(item.get("text"), str)
+        )
+    return ""
+
+
+def _call_branch_texts(
+    nodes: list[Any], node_index: Any, *, trace_index: int, call_index: int
+) -> list[str]:
+    if not isinstance(node_index, int):
+        raise AuditFailure(
+            f"effective trace {trace_index} call {call_index} is unattached"
+        )
+    texts: list[str] = []
+    visited: set[int] = set()
+    current: int | None = node_index
+    while current is not None:
+        if current in visited or current < 0 or current >= len(nodes):
+            raise AuditFailure(
+                f"effective trace {trace_index} call {call_index} has invalid ancestry"
+            )
+        visited.add(current)
+        node = nodes[current]
+        if not isinstance(node, dict):
+            raise AuditFailure(
+                f"effective trace {trace_index} call {call_index} has invalid node"
+            )
+        message = node.get("message")
+        if isinstance(message, dict):
+            text = _wire_content_text(message.get("content"))
+            if text:
+                texts.append(text)
+        parent = node.get("parent")
+        if parent is not None and not isinstance(parent, int):
+            raise AuditFailure(
+                f"effective trace {trace_index} call {call_index} has invalid parent"
+            )
+        current = parent
+    return texts
+
+
+def _validate_effective_call_routes(
+    trace_records: list[dict[str, Any]], audit_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Reconcile node ancestry with every successful generate route event.
+
+    The proxy request id is rollout-scoped, not call-scoped, so there is no
+    honest one-to-one call join. The caller first proves the raw and effective
+    trace sets are identical; this check then requires exact aggregate
+    call/event multiplicity, rejects unattached calls, and requires each event
+    to carry token-native role evidence plus the exact upstream identity.
+    """
+
+    expected: Counter[str] = Counter()
+    for trace_index, record in enumerate(trace_records):
+        nodes = record.get("nodes")
+        calls = record.get("calls")
+        if not isinstance(nodes, list) or not isinstance(calls, list):
+            raise AuditFailure(
+                f"effective trace {trace_index} lacks route reconciliation evidence"
+            )
+        for call_index, call in enumerate(calls):
+            if not isinstance(call, dict):
+                raise AuditFailure(
+                    f"effective trace {trace_index} call {call_index} is invalid"
+                )
+            texts = _call_branch_texts(
+                nodes,
+                call.get("node"),
+                trace_index=trace_index,
+                call_index=call_index,
+            )
+            parent_tasks = [
+                text for text in texts if text.lstrip().startswith("[task from parent]")
+            ]
+            if parent_tasks:
+                if len(parent_tasks) != 1 or not parent_tasks[0].startswith(
+                    SPECIALIST_CHILD_PREFIX
+                ):
+                    raise AuditFailure(
+                        f"effective trace {trace_index} call {call_index} is not the exact source_inspector child"
+                    )
+                expected["child"] += 1
+            elif any("[specialist worker routing contract]" in text for text in texts):
+                expected["coordinator"] += 1
+            else:
+                raise AuditFailure(
+                    f"effective trace {trace_index} call {call_index} is unattached"
+                )
+
+    observed: Counter[str] = Counter()
+    sessions: set[str] = set()
+    forced = 0
+    for index, record in enumerate(audit_records):
+        role = record.get("role")
+        session_sha = record.get("session_sha256")
+        if (
+            record.get("schema_version") != ROUTE_SCHEMA
+            or record.get("endpoint") != "/inference/v1/generate"
+            or record.get("status") != 200
+            or role not in {"coordinator", "child"}
+            or not isinstance(session_sha, str)
+            or len(session_sha) != 64
+        ):
+            raise AuditFailure(f"invalid effective route audit event {index}")
+        sessions.add(session_sha)
+        if role == "child":
+            if (
+                record.get("upstream_model") != str(S5_PATH)
+                or record.get("expert_id") != "source_inspector"
+                or record.get("route_evidence") != "exact_specialist_child_prefix"
+                or not str(record.get("mode", "")).startswith("forwarded")
+            ):
+                raise AuditFailure(
+                    f"effective child route {index} is not exact source_inspector/S5"
+                )
+        elif (
+            record.get("upstream_model") != str(E33_PATH)
+            or record.get("route_evidence")
+            != "coordinator_without_specialist_child_prefix"
+        ):
+            raise AuditFailure(f"effective coordinator route {index} is not frozen e33")
+        if record.get("mode") == FORCED_ROUTE_MODE:
+            if role != "coordinator":
+                raise AuditFailure("forced specialist assignment was not coordinator-owned")
+            forced += 1
+        observed[role] += 1
+
+    if expected != observed:
+        raise AuditFailure(
+            f"effective call/route multiplicity differs: expected={dict(expected)} observed={dict(observed)}"
+        )
+    if forced != EXPECTED_BATCH_SIZE or len(sessions) != EXPECTED_BATCH_SIZE:
+        raise AuditFailure(
+            "effective route audit must have one forced assignment and one session per rollout"
+        )
+    return {
+        "expected_calls": dict(expected),
+        "observed_routes": dict(observed),
+        "forced_assignments": forced,
+        "rollout_sessions": len(sessions),
+        "child_upstream": str(S5_PATH),
+        "coordinator_upstream": str(E33_PATH),
+    }
+
+
+def _validate_raw_equals_effective(
+    raw_records: list[dict[str, Any]], effective_records: list[dict[str, Any]]
+) -> dict[str, Any]:
+    def identities(records: list[dict[str, Any]], label: str) -> set[str]:
+        values = [record.get("id") for record in records]
+        if not all(isinstance(value, str) and value for value in values):
+            raise AuditFailure(f"{label} trace set lacks stable identities")
+        if len(set(values)) != len(values):
+            raise AuditFailure(f"{label} trace set contains duplicate identities")
+        return set(values)
+
+    raw_ids = identities(raw_records, "raw")
+    effective_ids = identities(effective_records, "effective")
+    if raw_ids != effective_ids:
+        raise AuditFailure(
+            "calibration requires identical raw and effective trace sets before route reconciliation"
+        )
+    return {"raw": len(raw_ids), "effective": len(effective_ids), "identical": True}
+
+
 def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[str, Any]:
     import verifiers.v1 as vf
     from verifiers.v1.types import UserMessage, content_text
@@ -500,8 +679,16 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         if stage == "audit"
         else None
     )
-    routing_report = _validate_forced_assignment_routes(
-        trace_records, _read_jsonl(Path(config_report["routing_audit"]))
+    raw_trace_records = _read_jsonl(
+        run_dir / "rollouts" / "step_1" / "train" / "all" / "traces.jsonl"
+    )
+    trace_set_report = _validate_raw_equals_effective(
+        raw_trace_records, trace_records
+    )
+    audit_records = _read_jsonl(Path(config_report["routing_audit"]))
+    routing_report = _validate_forced_assignment_routes(trace_records, audit_records)
+    effective_call_routes = _validate_effective_call_routes(
+        trace_records, audit_records
     )
     task_rewards: dict[str, list[float]] = defaultdict(list)
     families: Counter[str] = Counter()
@@ -623,6 +810,8 @@ def validate_runtime(run_dir: Path, stage: Literal["audit", "update"]) -> dict[s
         "stage": stage,
         "config": config_report,
         "routing": routing_report,
+        "effective_call_routes": effective_call_routes,
+        "trace_sets": trace_set_report,
         "prospective_lr0_health": health_report,
         "gradient_norm": grad_norm,
         "families": dict(families),

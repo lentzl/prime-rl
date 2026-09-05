@@ -399,12 +399,32 @@ def _contains_token_subsequence(token_ids: list[int], marker_ids: list[int]) -> 
     return any(token_ids[start : start + width] == marker_ids for start in range(len(token_ids) - width + 1))
 
 
+def specialist_child_disclosure_prefix(expert_id: str) -> str:
+    """Return the exact harness-owned prefix that identifies a terminal child.
+
+    The complete contiguous prefix is intentional. Coordinator transcripts can
+    contain the selected-capability text inside a quoted ``rlm(...)`` action, so
+    routing on the expert id or capability header alone would misroute resumed
+    coordinator turns.
+    """
+
+    if not SPECIALIST_EXPERT_ID_PATTERN.fullmatch(expert_id):
+        raise ValueError(f"invalid specialist expert id: {expert_id}")
+    return (
+        "[task from parent]\n\n"
+        f"{SELECTED_TERMINAL_CAPABILITY_HEADER}\n"
+        f"expert_id={expert_id}\n"
+        "session_role=terminal_worker"
+    )
+
+
 def request_role(
     payload: dict[str, Any],
     *,
     private_evidence_token_ids: list[int] | None = None,
     recursive_coordinator_token_ids: list[int] | None = None,
     document_coordinator_token_ids: list[int] | None = None,
+    specialist_child_token_ids: list[int] | None = None,
     root_depth_token_ids: list[int] | None = None,
     depth_default_child: bool = False,
 ) -> str:
@@ -430,17 +450,21 @@ def request_role(
         marker_ids = private_evidence_token_ids or []
         coordinator_ids = recursive_coordinator_token_ids or []
         document_ids = document_coordinator_token_ids or []
+        specialist_ids = specialist_child_token_ids or []
         root_ids = root_depth_token_ids or []
         has_private = _contains_token_subsequence(token_ids, marker_ids)
         has_recursive_coordinator = _contains_token_subsequence(token_ids, coordinator_ids)
         has_document_coordinator = _contains_token_subsequence(token_ids, document_ids)
-        if has_private and (has_recursive_coordinator or has_document_coordinator):
+        has_specialist_child = _contains_token_subsequence(token_ids, specialist_ids)
+        if (has_private or has_specialist_child) and (
+            has_recursive_coordinator or has_document_coordinator
+        ):
             raise ValueError("request contains conflicting delegated-session role markers")
         if has_document_coordinator:
             return "coordinator"
         if depth_default_child and not _contains_token_subsequence(token_ids, root_ids):
             return "child"
-        return "child" if has_private else "coordinator"
+        return "child" if has_private or has_specialist_child else "coordinator"
     raise ValueError("role-routed request lacks messages or token_ids")
 
 
@@ -452,6 +476,7 @@ def routed_payload(
     private_evidence_token_ids: list[int] | None = None,
     recursive_coordinator_token_ids: list[int] | None = None,
     document_coordinator_token_ids: list[int] | None = None,
+    specialist_child_token_ids: list[int] | None = None,
     root_depth_token_ids: list[int] | None = None,
     depth_default_child: bool = False,
 ) -> tuple[str, dict[str, Any]]:
@@ -460,6 +485,7 @@ def routed_payload(
         private_evidence_token_ids=private_evidence_token_ids,
         recursive_coordinator_token_ids=recursive_coordinator_token_ids,
         document_coordinator_token_ids=document_coordinator_token_ids,
+        specialist_child_token_ids=specialist_child_token_ids,
         root_depth_token_ids=root_depth_token_ids,
         depth_default_child=depth_default_child,
     )
@@ -3781,6 +3807,7 @@ class DualPolicyProxy:
         specialist_force_fixed_action: bool = False,
         recursive_coordinator_token_ids: list[int] | None = None,
         document_coordinator_token_ids: list[int] | None = None,
+        specialist_child_token_ids: list[int] | None = None,
         root_depth_token_ids: list[int] | None = None,
         depth_default_child: bool = False,
         leak_coordinator_exact_action: bool = False,
@@ -3858,6 +3885,11 @@ class DualPolicyProxy:
         self.private_evidence_token_ids = private_evidence_token_ids
         self.recursive_coordinator_token_ids = recursive_coordinator_token_ids or []
         self.document_coordinator_token_ids = document_coordinator_token_ids or []
+        self.specialist_child_token_ids = specialist_child_token_ids or []
+        if self.specialist_child_token_ids and self.specialist_fixed_expert is None:
+            raise ValueError(
+                "specialist child token marker requires a fixed specialist expert"
+            )
         self.root_depth_token_ids = root_depth_token_ids or []
         self.depth_default_child = depth_default_child
         self.tokenizer = tokenizer
@@ -4075,6 +4107,7 @@ class DualPolicyProxy:
         document_root_topology: str | None = None,
         upstream_model: str | None = None,
         expert_id: str | None = None,
+        route_evidence: str | None = None,
         response_sha256: str | None = None,
         latency_ms: float | None = None,
     ) -> None:
@@ -4102,6 +4135,8 @@ class DualPolicyProxy:
             event["document_root_topology"] = document_root_topology
         if expert_id is not None:
             event["expert_id"] = expert_id
+        if route_evidence is not None:
+            event["route_evidence"] = route_evidence
         if response_sha256 is not None:
             event["response_sha256"] = response_sha256
         if latency_ms is not None:
@@ -4187,15 +4222,31 @@ class DualPolicyProxy:
             private_evidence_token_ids=self.private_evidence_token_ids,
             recursive_coordinator_token_ids=self.recursive_coordinator_token_ids,
             document_coordinator_token_ids=self.document_coordinator_token_ids,
+            specialist_child_token_ids=self.specialist_child_token_ids,
             root_depth_token_ids=self.root_depth_token_ids,
             depth_default_child=self.depth_default_child,
         )
         route_key = role
         routed_expert_id = None
+        token_native_specialist = False
         if role == "child":
             routed_expert_id = selected_terminal_expert_from_messages(
                 payload.get("messages")
             )
+            token_ids = payload.get("token_ids")
+            token_native_specialist = (
+                isinstance(token_ids, list)
+                and all(isinstance(token_id, int) for token_id in token_ids)
+                and _contains_token_subsequence(
+                    token_ids, self.specialist_child_token_ids
+                )
+            )
+            if token_native_specialist:
+                if routed_expert_id is not None:
+                    raise ValueError(
+                        "specialist request mixes message and token-native identities"
+                    )
+                routed_expert_id = self.specialist_fixed_expert
             if routed_expert_id is not None:
                 route_key = self.specialist_route_keys.get(routed_expert_id, "")
                 if not self.specialist_worker_routing or not route_key:
@@ -5349,6 +5400,7 @@ class DualPolicyProxy:
                     session_sha256=session_sha256,
                     upstream_model=self.models[route_key],
                     expert_id=self.specialist_fixed_expert,
+                    route_evidence="coordinator_without_specialist_child_prefix",
                 )
                 return web.Response(body=response_body, content_type="application/json")
         leak_specs = []
@@ -5775,6 +5827,16 @@ class DualPolicyProxy:
                 response_rewrites=response_rewrites,
                 upstream_model=self.models[route_key],
                 expert_id=specialist_selected_expert or routed_expert_id,
+                route_evidence=(
+                    "exact_specialist_child_prefix"
+                    if token_native_specialist
+                    else (
+                        "coordinator_without_specialist_child_prefix"
+                        if endpoint == "/inference/v1/generate"
+                        and role == "coordinator"
+                        else None
+                    )
+                ),
                 latency_ms=(time.perf_counter() - request_started) * 1000,
             )
             return response
@@ -5865,6 +5927,15 @@ def main() -> None:
     document_coordinator_token_ids = tokenizer.encode(
         DOCUMENT_COORDINATOR_HEADER, add_special_tokens=False
     )
+    specialist_child_token_ids = (
+        tokenizer.encode(
+            "<|im_start|>user\n"
+            + specialist_child_disclosure_prefix(args.specialist_fixed_expert),
+            add_special_tokens=False,
+        )
+        if args.specialist_fixed_expert is not None
+        else []
+    )
     root_depth_token_ids = tokenizer.encode("Recursive agent depth: 0", add_special_tokens=False)
     if not private_evidence_token_ids:
         raise RuntimeError("private-evidence role marker encoded to an empty token sequence")
@@ -5872,6 +5943,8 @@ def main() -> None:
         raise RuntimeError("recursive-coordinator role marker encoded to an empty token sequence")
     if not document_coordinator_token_ids:
         raise RuntimeError("document-coordinator role marker encoded to an empty token sequence")
+    if args.specialist_fixed_expert is not None and not specialist_child_token_ids:
+        raise RuntimeError("specialist-child role marker encoded to an empty token sequence")
     if not root_depth_token_ids:
         raise RuntimeError("root-depth role marker encoded to an empty token sequence")
     specialist_routes = {
@@ -5897,6 +5970,7 @@ def main() -> None:
         private_evidence_token_ids=private_evidence_token_ids,
         recursive_coordinator_token_ids=recursive_coordinator_token_ids,
         document_coordinator_token_ids=document_coordinator_token_ids,
+        specialist_child_token_ids=specialist_child_token_ids,
         root_depth_token_ids=root_depth_token_ids,
         depth_default_child=args.depth_default_child,
         tokenizer=tokenizer,

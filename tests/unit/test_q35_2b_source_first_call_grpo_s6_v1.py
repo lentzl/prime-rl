@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import importlib.util
 import json
@@ -24,11 +25,21 @@ AST_PATHS = ("/workspace/sample/alpha.py", "/workspace/sample/beta.py")
 CONFIG_PATHS = ("/workspace/sample/service.toml", "/workspace/sample/features.env")
 LAUNCHER_PATH = REPO / "scripts/run_q35_2b_source_first_call_grpo_s6_v1.sh"
 VALIDATOR_PATH = REPO / "scripts/validate_q35_2b_source_first_call_grpo_s6_v1.py"
+PROXY_PATH = REPO / "scripts/dual_policy_openai_proxy_v1.py"
 EXPERIMENT = REPO / "experiments/qwen35-2b-document-recursion-zero-update-v1"
 
 
 def _validator_module():
     spec = importlib.util.spec_from_file_location("source_first_call_validator", VALIDATOR_PATH)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def _proxy_module():
+    spec = importlib.util.spec_from_file_location("source_first_call_proxy", PROXY_PATH)
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
@@ -346,6 +357,133 @@ def test_launcher_uses_nested_run_roots_and_fail_closed_audit_resume() -> None:
     assert "S6 resume requires exactly one unvalidated completed audit" in launcher
 
 
+def test_generate_routes_exact_specialist_child_without_rewriting_it(tmp_path: Path) -> None:
+    proxy_module = _proxy_module()
+    marker = [77, 78]
+    assignment = {
+        "worker_name": "task-worker",
+        "objective": "Inspect both files and send one compact JSON report.",
+        "paths": [
+            "/workspace/specialist-worker/train/a.py",
+            "/workspace/specialist-worker/train/b.py",
+        ],
+    }
+    coordinator_prompt = "\n".join(
+        (
+            proxy_module.SPECIALIST_WORKER_ROUTING_HEADER,
+            proxy_module.LOCAL_COGNITION_FACTS_HEADER,
+            "owns_required_evidence=false",
+            "remaining_work_requires_decomposition=false",
+            "terminal_shards_ready=true",
+            "[capability registry]",
+            json.dumps({"expert_id": "generic_worker"}),
+            json.dumps({"expert_id": "source_inspector"}),
+            proxy_module.SPECIALIST_ASSIGNMENT_HEADER,
+            json.dumps(assignment, separators=(",", ":")),
+        )
+    )
+
+    class Tokenizer:
+        def decode(self, token_ids, *, skip_special_tokens):
+            assert marker[0] not in token_ids, "child request entered coordinator rewrite"
+            assert skip_special_tokens is False
+            return coordinator_prompt
+
+        def encode(self, text, *, add_special_tokens):
+            assert add_special_tokens is False
+            assert "expert_id=source_inspector" in text
+            return [10, 11]
+
+        def convert_tokens_to_ids(self, token):
+            assert token == "<|im_end|>"
+            return 12
+
+    upstream_body = json.dumps(
+        {
+            "choices": [
+                {
+                    "index": 0,
+                    "token_ids": [88],
+                    "logprobs": {
+                        "content": [{"token": "token_id:88", "logprob": -0.2}]
+                    },
+                    "finish_reason": "stop",
+                }
+            ]
+        }
+    ).encode()
+
+    class Upstream:
+        status = 200
+        headers = {"content-type": "application/json"}
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *_args):
+            return None
+
+        async def read(self):
+            return upstream_body
+
+    class Client:
+        def __init__(self):
+            self.calls = []
+
+        def post(self, url, *, data, headers):
+            self.calls.append((url, json.loads(data), dict(headers)))
+            return Upstream()
+
+    class Request:
+        def __init__(self, token_ids, session):
+            self.headers = {"x-session-id": session}
+            self._body = json.dumps(
+                {"model": "external", "token_ids": token_ids}
+            ).encode()
+
+        async def read(self):
+            return self._body
+
+    proxy = proxy_module.DualPolicyProxy(
+        coordinator_url="http://coordinator/v1",
+        coordinator_model="e33",
+        child_url="http://child/v1",
+        child_model="S5",
+        external_model="external",
+        audit_log=tmp_path / "routing.jsonl",
+        private_evidence_token_ids=[99],
+        specialist_child_token_ids=marker,
+        tokenizer=Tokenizer(),
+        specialist_routes={"source_inspector": ("http://child/v1", "S5")},
+        specialist_fixed_expert="source_inspector",
+        specialist_force_fixed_action=True,
+        specialist_worker_routing=True,
+    )
+    client = Client()
+    proxy.client = client
+
+    forced = asyncio.run(proxy.generate(Request([1, 2, 3], "rollout-root")))
+    child = asyncio.run(
+        proxy.generate(Request([4, *marker, 5], "rollout-child"))
+    )
+
+    assert json.loads(forced.body)["choices"][0]["token_ids"] == [10, 11, 12]
+    assert child.body == upstream_body
+    assert len(client.calls) == 1
+    assert client.calls[0][0] == "http://child/inference/v1/generate"
+    assert client.calls[0][1]["model"] == "S5"
+    events = [
+        json.loads(line)
+        for line in (tmp_path / "routing.jsonl").read_text().splitlines()
+    ]
+    assert events[0]["role"] == "coordinator"
+    assert events[0]["upstream_model"] == "e33"
+    assert events[1]["role"] == "child"
+    assert events[1]["expert_id"] == "source_inspector"
+    assert events[1]["upstream_model"] == "S5"
+    assert events[1]["route_evidence"] == "exact_specialist_child_prefix"
+
+
 def test_runtime_validator_rejects_non_source_reward_leakage() -> None:
     validator = VALIDATOR_PATH.read_text()
     assert "if name != EXPECTED_REWARD" in validator
@@ -536,3 +674,139 @@ def test_runtime_validator_rejects_child_or_unmatched_forced_route() -> None:
     ]
     with pytest.raises(validator.AuditFailure, match="invalid forced-assignment"):
         validator._validate_forced_assignment_routes(traces, audits)
+
+
+def _effective_route_fixture(validator):
+    traces = []
+    audits = []
+    for index in range(16):
+        session_sha = hashlib.sha256(f"rollout-{index}".encode()).hexdigest()
+        traces.append(
+            {
+                "nodes": [
+                    {
+                        "parent": None,
+                        "message": {"role": "user", "content": "root system"},
+                    },
+                    {
+                        "parent": 0,
+                        "message": {
+                            "role": "user",
+                            "content": "[specialist worker routing contract]",
+                        },
+                    },
+                    {
+                        "parent": 1,
+                        "message": {"role": "assistant", "content": None},
+                    },
+                    {
+                        "parent": None,
+                        "message": {"role": "user", "content": "child system"},
+                    },
+                    {
+                        "parent": 3,
+                        "message": {
+                            "role": "user",
+                            "content": validator.SPECIALIST_CHILD_PREFIX
+                            + "\nis_root=false\nassigned paths",
+                        },
+                    },
+                    {
+                        "parent": 4,
+                        "message": {"role": "assistant", "content": None},
+                    },
+                ],
+                "calls": [
+                    {"node": 2, "client_session_id": f"root-{index}"},
+                    {"node": 5, "client_session_id": f"child-{index}"},
+                ],
+            }
+        )
+        audits.extend(
+            (
+                {
+                    "schema_version": validator.ROUTE_SCHEMA,
+                    "endpoint": "/inference/v1/generate",
+                    "status": 200,
+                    "role": "coordinator",
+                    "mode": validator.FORCED_ROUTE_MODE,
+                    "session_sha256": session_sha,
+                    "upstream_model": str(validator.E33_PATH),
+                    "expert_id": "source_inspector",
+                    "route_evidence": "coordinator_without_specialist_child_prefix",
+                },
+                {
+                    "schema_version": validator.ROUTE_SCHEMA,
+                    "endpoint": "/inference/v1/generate",
+                    "status": 200,
+                    "role": "child",
+                    "mode": "forwarded_without_tool_choice",
+                    "session_sha256": session_sha,
+                    "upstream_model": str(validator.S5_PATH),
+                    "expert_id": "source_inspector",
+                    "route_evidence": "exact_specialist_child_prefix",
+                },
+            )
+        )
+    return traces, audits
+
+
+def test_runtime_validator_reconciles_every_child_and_coordinator_route() -> None:
+    validator = _validator_module()
+    traces, audits = _effective_route_fixture(validator)
+
+    report = validator._validate_effective_call_routes(traces, audits)
+
+    assert report["expected_calls"] == {"coordinator": 16, "child": 16}
+    assert report["observed_routes"] == report["expected_calls"]
+    assert report["forced_assignments"] == 16
+    assert report["rollout_sessions"] == 16
+
+
+def test_runtime_validator_requires_raw_and_effective_trace_identity() -> None:
+    validator = _validator_module()
+    effective = [{"id": f"trace-{index}"} for index in range(16)]
+    report = validator._validate_raw_equals_effective(
+        list(reversed(effective)), effective
+    )
+    assert report == {"raw": 16, "effective": 16, "identical": True}
+
+    with pytest.raises(validator.AuditFailure, match="identical raw and effective"):
+        validator._validate_raw_equals_effective(
+            [*effective, {"id": "filtered-extra"}], effective
+        )
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "message"),
+    (
+        ("role", "coordinator", "not frozen e33"),
+        ("upstream_model", "/wrong/model", "exact source_inspector/S5"),
+        ("expert_id", None, "exact source_inspector/S5"),
+        ("route_evidence", None, "exact source_inspector/S5"),
+    ),
+)
+def test_runtime_validator_rejects_misrouted_effective_child_calls(
+    field: str, value: object, message: str
+) -> None:
+    validator = _validator_module()
+    traces, audits = _effective_route_fixture(validator)
+    audits[1][field] = value
+
+    with pytest.raises(validator.AuditFailure, match=message):
+        validator._validate_effective_call_routes(traces, audits)
+
+
+def test_runtime_validator_rejects_non_disclosed_or_unattached_child_calls() -> None:
+    validator = _validator_module()
+    traces, audits = _effective_route_fixture(validator)
+    traces[0]["nodes"][4]["message"]["content"] = (
+        "[task from parent]\n\nexpert_id=source_inspector"
+    )
+    with pytest.raises(validator.AuditFailure, match="not the exact source_inspector child"):
+        validator._validate_effective_call_routes(traces, audits)
+
+    traces, audits = _effective_route_fixture(validator)
+    traces[0]["calls"][1]["node"] = None
+    with pytest.raises(validator.AuditFailure, match="is unattached"):
+        validator._validate_effective_call_routes(traces, audits)

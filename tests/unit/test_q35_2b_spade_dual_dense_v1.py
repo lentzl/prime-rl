@@ -567,6 +567,30 @@ def test_proxy_routes_private_evidence_only_to_the_child_model() -> None:
     )
 
 
+def test_proxy_routes_only_exact_token_native_specialist_child_prefix() -> None:
+    module = _module("dual_policy_openai_proxy_v1")
+    marker = [71, 72, 73, 74]
+    kwargs = {
+        "coordinator_model": "coordinator",
+        "child_model": "source-inspector",
+        "specialist_child_token_ids": marker,
+    }
+
+    assert module.routed_payload(
+        {"token_ids": [1, *marker, 2], "model": "external"}, **kwargs
+    ) == (
+        "child",
+        {"token_ids": [1, *marker, 2], "model": "source-inspector"},
+    )
+    assert module.routed_payload(
+        {"token_ids": [1, 71, 72, 74, 2], "model": "external"}, **kwargs
+    )[0] == "coordinator"
+    assert module.specialist_child_disclosure_prefix("source_inspector") == (
+        "[task from parent]\n\n[selected terminal capability]\n"
+        "expert_id=source_inspector\nsession_role=terminal_worker"
+    )
+
+
 def test_proxy_routes_recursive_coordinator_context_to_coordinator_model() -> None:
     module = _module("dual_policy_openai_proxy_v1")
     recursive = {
@@ -4012,6 +4036,7 @@ def test_generate_endpoint_forces_only_first_coordinator_assignment(tmp_path) ->
         external_model="external",
         audit_log=tmp_path / "routing.jsonl",
         private_evidence_token_ids=[99],
+        specialist_child_token_ids=[77, 78],
         tokenizer=Tokenizer(),
         specialist_routes={
             "source_inspector": ("http://child/v1", "child")
@@ -4031,13 +4056,13 @@ def test_generate_endpoint_forces_only_first_coordinator_assignment(tmp_path) ->
     repeated = asyncio.run(
         proxy.generate(Request([1, 2, 3], "coordinator-session"))
     )
-    child = asyncio.run(proxy.generate(Request([99, 2, 3], "child-session")))
+    child = asyncio.run(proxy.generate(Request([77, 78, 2, 3], "child-session")))
     assert repeated.body == upstream_body
     assert child.body == upstream_body
     assert [call[1]["model"] for call in client.calls] == ["coordinator", "child"]
     assert [call[1]["token_ids"] for call in client.calls] == [
         [1, 2, 3],
-        [99, 2, 3],
+        [77, 78, 2, 3],
     ]
 
     events = [
@@ -4053,7 +4078,11 @@ def test_generate_endpoint_forces_only_first_coordinator_assignment(tmp_path) ->
     assert forced[0]["endpoint"] == "/inference/v1/generate"
     assert forced[0]["role"] == "coordinator"
     assert forced[0]["expert_id"] == "source_inspector"
+    assert forced[0]["route_evidence"] == "coordinator_without_specialist_child_prefix"
     assert events[-1]["role"] == "child"
+    assert events[-1]["expert_id"] == "source_inspector"
+    assert events[-1]["upstream_model"] == "child"
+    assert events[-1]["route_evidence"] == "exact_specialist_child_prefix"
     assert events[-1]["mode"] == "forwarded"
 
 
