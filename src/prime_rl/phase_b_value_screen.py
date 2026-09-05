@@ -40,7 +40,7 @@ def canonical_plan_sha256(plan: dict[str, Any]) -> str:
 def validate_value_screen_plan(plan: dict[str, Any], *, require_authorized: bool = True) -> None:
     """Validate the prospective B1 matched-learning screen."""
 
-    if plan.get("schema_version") != "q35-2b-phase-b-teacher-forced-value-screen/v1":
+    if plan.get("schema_version") != "q35-2b-phase-b-teacher-forced-value-screen/v1-repair1":
         raise PhaseBContractError("B1 plan schema differs from the implemented value screen")
     implementation_commit = plan.get("implementation_commit")
     if (
@@ -71,6 +71,8 @@ def validate_value_screen_plan(plan: dict[str, Any], *, require_authorized: bool
         raise PhaseBContractError("B1 requires four balanced 4/4/4 twelve-row updates per arm")
     if training.get("unique_row_exposures_per_arm") != 48 or training.get("early_stop") is not False:
         raise PhaseBContractError("B1 must expose all 48 unique rows once per arm without early stop")
+    if not isinstance(training.get("restart_rule"), str) or "do not load or reuse" not in training["restart_rule"]:
+        raise PhaseBContractError("B1R must restart every arm without partial-state reuse")
     if training.get("recurrent_depth") != 4 or training.get("bptt_window") != 4:
         raise PhaseBContractError("B1 recurrence must use exact T=4 full BPTT")
     optimizer = training.get("optimizer")
@@ -132,9 +134,35 @@ def validate_value_screen_plan(plan: dict[str, Any], *, require_authorized: bool
         or resources.get("terminal_publication_headroom_seconds") != 60
         or resources.get("minimum_free_disk_bytes") != 60 * 1024**3
         or resources.get("artifact_cap_bytes") != 512 * 1024**2
+        or resources.get("cuda_memory_cap_bytes") != 32 * 1024**3
+        or resources.get("memory_checkpoint_count") != 404
         or outputs.get("artifact_cap_bytes") != 512 * 1024**2
     ):
         raise PhaseBContractError("B1 resource caps differ")
+    invalid_dependency = plan.get("b1_invalid_dependency")
+    if not isinstance(invalid_dependency, dict) or (
+        invalid_dependency.get("receipt_file_sha256"),
+        invalid_dependency.get("prior_freeze_commit"),
+        invalid_dependency.get("prior_mechanism_commit"),
+        invalid_dependency.get("prior_plan_file_sha256"),
+        invalid_dependency.get("prior_plan_internal_sha256"),
+    ) != (
+        "27cb02d3907acd0d203a56e70e4de8f1f82a8672a7ed1264d4abb2cc39033025",
+        "d438b07c2549794c4a533b369c9ef6f5a8dc28b9",
+        "d2130f9407151ab93985c761bc63f16da8beb9d2",
+        "6013e4ade15fba3a85c7e202008ef8222504796203348b8cee2d3b1e366dc00d",
+        "1dfd449499da846fc49844e310a94f8d1c27e44b3343fda94ca6a6b6026fce67",
+    ):
+        raise PhaseBContractError("B1R invalid-run provenance binding differs")
+    material_violation = invalid_dependency.get("material_violation")
+    if not isinstance(material_violation, dict) or (
+        material_violation.get("cap_bytes"),
+        material_violation.get("maximum_allocated_bytes"),
+        material_violation.get("maximum_reserved_bytes"),
+        material_violation.get("candidate_files"),
+        material_violation.get("audit_complete"),
+    ) != (32 * 1024**3, 33_097_241_600, 34_978_398_208, 0, True):
+        raise PhaseBContractError("B1R material memory violation evidence differs")
     if require_authorized:
         pending_paths = _pending_paths(plan)
         if pending_paths:
