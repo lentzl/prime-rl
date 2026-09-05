@@ -1,0 +1,121 @@
+{
+  "schema_version": "prime-rl/latent-a0-mechanism-plan/v1",
+  "status": "preregistered",
+  "execution_authorization": "root_review_required",
+  "mechanism_code_commit": "57aef2c09eea031427be70cc4351bdf774856aa6",
+  "asset_sha256": {
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-bank-v1.json": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+    "scripts/latent/run_a0_mechanism_v1.py": "ec4325468b01b7377dc2c3926156200c1e6dbd8f554a948cd2d9e38a1cb0ca39",
+    "scripts/latent/run_a0_mechanism_v1.sh": "b5e409fa9fa6480ac4ab4a8f3f7109f2b53a0a4185944a91571321482261f03c",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81"
+  },
+  "plan_sha256": "444e10f6f9ca92f19bba5c393eb8308a8cd3674970b9695d0854ab2f1f39d9a8",
+  "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+  "protected_checkpoints": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "remote_paths": {
+    "coordinator_e33": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "worker_h176": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8"
+  },
+  "runtime": {
+    "python": "3.12",
+    "transformers": "5.6.2",
+    "torch": "2.11.0",
+    "model_class": "Qwen3_5ForConditionalGeneration",
+    "hidden_size": 2048,
+    "device": "cuda:0",
+    "dtype": "bfloat16",
+    "attention_implementation": "eager",
+    "local_files_only": true,
+    "checkpoint_metadata_sha256": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "mechanism": {
+    "capture_layer": -1,
+    "capture_boundary": "rendered_transcript_end_not_harness_acceptance",
+    "capture_tokens": 128,
+    "capture_detached": true,
+    "workspace_slots": 8,
+    "workspace_projection": "identity_final_hidden_2048_probe_only",
+    "injection_boundary": "before_assistant_generation_opening",
+    "hard_bypass_gate": 0.0,
+    "soft_probe_gate": 0.125,
+    "soft_probe_trainable": [
+      "workspace_input",
+      "receiver_gate"
+    ],
+    "base_model_trainable_parameters": 0,
+    "optimizer": null,
+    "model_update": false,
+    "decode_probe_tokens": 4,
+    "cache_full_recompute_max_abs": 0.5,
+    "cache_full_recompute_normalized_rms": 0.01
+  },
+  "admission": {
+    "standard_vs_hard_bypass_logits": "bitwise_equal",
+    "standard_and_hard_bypass_logits_finite": true,
+    "standard_vs_hard_bypass_four_token_greedy": "exact",
+    "standard_and_hard_bypass_greedy_logits_finite": true,
+    "hard_bypass_additional_positions": 0,
+    "hard_bypass_labels_mask_positions_preserved": true,
+    "soft_insertion_positions": 8,
+    "soft_logits_finite": true,
+    "soft_loss_finite": true,
+    "soft_original_tokens_mask_labels_preserved": true,
+    "soft_positions_sequential_shifted": true,
+    "soft_inserted_attention_mask_ones": 8,
+    "soft_inserted_loss_mask_negative_100": 8,
+    "soft_no_other_loss_masking": true,
+    "workspace_gradient_finite_nonzero": true,
+    "gate_gradient_finite_nonzero": true,
+    "captured_hidden_finite": true,
+    "captured_hidden_detached": true,
+    "capture_repeat_bitwise_equal": true,
+    "capture_mask_and_indices_exact": true,
+    "capture_hidden_padding_content_exact": true,
+    "capture_tensor_sha256_recorded": true,
+    "cache_prefill_finite": true,
+    "cache_sequence_length_increments_exactly": true,
+    "four_step_decode_finite": true,
+    "cached_vs_full_max_abs_at_most": 0.5,
+    "cached_vs_full_normalized_rms_at_most": 0.01,
+    "cached_vs_full_greedy_tokens_equal": true,
+    "protected_hashes_unchanged": true,
+    "minimum_complete_probes": 4,
+    "receipt_complete": true
+  },
+  "resource_bounds": {
+    "gpus_used": 1,
+    "gpu_model": "NVIDIA RTX A6000",
+    "minimum_gpu_memory_gib": 47,
+    "minimum_host_ram_gib": 64,
+    "minimum_free_disk_gib": 8,
+    "maximum_output_bytes": 1048576,
+    "maximum_output_directory_bytes": 16777216,
+    "network": false,
+    "maximum_wall_minutes": 30,
+    "failure_cleanup_headroom_minutes": 2,
+    "output_root": "/home/ubuntu/rlm/outputs/latent-a0-mechanism-v1"
+  },
+  "failure_classification": {
+    "mechanism_predicate_failure": "mechanism_rejected",
+    "environment_provenance_timeout_or_oom": "infrastructure_invalid",
+    "run_id_reusable": false
+  },
+  "promotion_boundary": "A0 rendered-transcript carrier/autograd mechanism only; no harness acceptance/timing, bridge learnability, training, model admission, or A1 authorization"
+}
