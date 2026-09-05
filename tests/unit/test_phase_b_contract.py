@@ -574,6 +574,8 @@ def test_repair_plan_is_exact_and_prior_plans_remain_immutable() -> None:
     repair_plan = json.loads(repair_plan_path.read_text(encoding="utf-8"))
     repair2_plan_path = experiment / "phase-b-fixed-depth-smoke-a0c-br2-plan.json"
     repair2_plan = json.loads(repair2_plan_path.read_text(encoding="utf-8"))
+    repair3_plan_path = experiment / "phase-b-fixed-depth-smoke-a0c-br3-plan.json"
+    repair3_plan = json.loads(repair3_plan_path.read_text(encoding="utf-8"))
     selection_path = experiment / "phase-b-fixed-depth-smoke-v1-selection.json"
 
     with pytest.raises(PhaseBContractError):
@@ -629,8 +631,26 @@ def test_repair_plan_is_exact_and_prior_plans_remain_immutable() -> None:
         "forbidden_boundary_repairs"
     ]
     assert repair2_plan["outputs"]["directory"] != repair_plan["outputs"]["directory"]
+    validate_plan_authorization(repair3_plan)
+    assert repair3_plan["implementation_commit"] == "7cf05a276b954909a9b6e9e1615955d62f643c6c"
+    assert repair3_plan["arms"] == repair2_plan["arms"]
+    assert repair3_plan["matched_conditions"] == repair2_plan["matched_conditions"]
+    assert repair3_plan["data"] == repair2_plan["data"]
+    assert repair3_plan["br2_failure_dependency"]["binding_sha256"] == (
+        "316917c6023cd04a453a94c0610afa942a211e9eded1da3a406e9b9fb3f78817"
+    )
+    assert repair3_plan["br2_failure_dependency"]["failure_file_sha256"] == (
+        "3a92476defa4a31876819e8a090353176dd1bc0da7146932ab0ce5dc95d741d5"
+    )
+    assert repair3_plan["br2_failure_dependency"]["preflight_log_file_sha256"] == (
+        "43210493e9124395c1edd9bb66cad56843f1b884836c19986488550336a0f87e"
+    )
+    assert repair3_plan["br2_failure_dependency"]["run_log_file_sha256"] == (
+        "ab26bb1d2d5cd15030a5a136f0f3ef4b27bc87df6301ec225a81430743fc8eb6"
+    )
+    assert repair3_plan["outputs"]["directory"] != repair2_plan["outputs"]["directory"]
     assert runner.PLAN.name == "phase-b-fixed-depth-smoke-a0c-br3-plan.json"
-    assert runner.PLAN_SHA256 == "UNFROZEN_PHASE_B_REPAIR3"
+    assert runner.PLAN_SHA256 == hashlib.sha256(repair3_plan_path.read_bytes()).hexdigest()
 
 
 def test_failure_audit_rehashes_e33_binding_receipt_and_plan(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -881,14 +901,14 @@ def test_tokenizer_preflight_normalizes_and_renders_all_twelve_before_model_use(
 
 def test_launcher_supplies_independent_outer_timeout_and_exact_environment() -> None:
     repository = Path(__file__).resolve().parents[2]
-    launcher = (repository / "scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br2.sh").read_text(encoding="utf-8")
+    launcher = (repository / "scripts/latent/run_phase_b_fixed_depth_smoke_a0c_br3.sh").read_text(encoding="utf-8")
 
     assert "timeout --signal=TERM --kill-after=30s 120m" in launcher
     assert 'UV_PROJECT_ENVIRONMENT="$SHARED_ENV"' in launcher
     assert "CUDA_VISIBLE_DEVICES=0,1" in launcher
     assert "HF_HUB_OFFLINE=1" in launcher
     assert "ROOT_AUTHORIZED_PLAN_SHA256=$2" in launcher
-    assert "sha256sum --check phase-b-fixed-depth-smoke-a0c-br2.sha256" in launcher
+    assert "sha256sum --check phase-b-fixed-depth-smoke-a0c-br3.sha256" in launcher
     assert "[--preflight-only]" in launcher
     assert "--no-sync python" in launcher
     assert '--execution-commit "$EXECUTION_COMMIT"' in launcher
@@ -932,6 +952,24 @@ def test_br2_freeze_manifest_remains_valid_at_its_immutable_commit() -> None:
             ["git", "show", f"{commit}:{blob_path}"], cwd=repository, capture_output=True, check=True
         ).stdout
         assert hashlib.sha256(blob).hexdigest() == expected
+
+
+def test_br3_freeze_manifest_closes_scalar_failure_and_prior_evidence() -> None:
+    repository = Path(__file__).resolve().parents[2]
+    experiment = repository / "experiments/qwen35-2b-latent-coordinator-v1"
+
+    result = subprocess.run(
+        ["sha256sum", "--check", "phase-b-fixed-depth-smoke-a0c-br3.sha256"],
+        cwd=experiment,
+        text=True,
+        capture_output=True,
+        check=True,
+    )
+
+    assert "phase-b-fixed-depth-smoke-a0c-br2-FAILURE.json: OK" in result.stdout
+    assert "phase-b-fixed-depth-smoke-a0c-br2-preflight.log: OK" in result.stdout
+    assert "phase-b-fixed-depth-smoke-a0c-br2-run.log: OK" in result.stdout
+    assert "../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py: OK" in result.stdout
 
 
 def _load_runner():
