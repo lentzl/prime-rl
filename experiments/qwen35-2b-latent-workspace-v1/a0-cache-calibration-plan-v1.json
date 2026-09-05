@@ -1,0 +1,115 @@
+{
+  "schema_version": "prime-rl/latent-a0-cache-calibration-plan/v1",
+  "status": "preregistered",
+  "execution_authorization": "root_and_evaluator_review_required",
+  "mechanism_code_commit": "1125a84c6124433c990cb9be2247ece65cb0e3be",
+  "asset_sha256": {
+    "experiments/qwen35-2b-latent-workspace-v1/a0-mechanism-bank-v1.json": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+    "experiments/qwen35-2b-latent-workspace-v1/a0c-carrier-success-receipt.json": "d88dd97eb37c9c3dd61bc07fe422df6c7fa0034837897346e43ed16bb634e63c",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-cache-diagnostic-plan-v1.json": "22b6a441b5a6b4a62d2f2a9c30f5544c1c97d15b9e30c90b2f44ca11d59695f0",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-diagnostic-complete-receipt.json": "6ed279ce60a7162aee7fb70f07b554d84a6ebd57e87ddc1a70a8e3f350238fab",
+    "experiments/qwen35-2b-latent-workspace-v1/a0dr2-diagnostic-complete-run.log": "778b7655044f3d0c0697d28b616afae88c026423958fa29da2f102997286c544",
+    "scripts/latent/run_a0dr_cache_diagnostic_v1.py": "950c1e4bbfc502fdecaab20b51bbf61af98645f186d865f92aff2396a00d1dcb",
+    "scripts/latent/run_a0dr2_cache_diagnostic_v1.py": "d15f0435d6f986ad975c0992dff3d4a34e359c98e7e6e1830cc60f6fa1cd059b",
+    "scripts/latent/run_a0_cache_calibration_v1.py": "9d2e7375c482905279e6467df6b6b01b47226c19b1dffe6f0872597ad21e8b3e",
+    "scripts/latent/run_a0_cache_calibration_v1.sh": "8d40d7fbe6f03500c3f185fe847f217c5a2a93c61c1cabaf23677d91d35967e4",
+    "src/prime_rl/latent/__init__.py": "807928a611b82649f39fe3f3ecc91e35a50f78472159d512ba9c505793374ee1",
+    "src/prime_rl/latent/a0.py": "2b1716fc6dd93f78c35fffda88e58f56b5cdd02dad6244d172cf1ed543840df5",
+    "src/prime_rl/latent/a0cal.py": "873ab738a1384f63aaf5cbc0c877f2d9a60ed96d9c9fc4ddb23d38c4a25fa269",
+    "src/prime_rl/latent/a0c.py": "7e191ba210df5790176014707a8da5939bd7884d38ff4c1f9c791f89c55d1bf4",
+    "src/prime_rl/latent/a0d.py": "307c617b5f46a61472d7a042fe705bbf228974bb45ea495c9c90a21273a16ebc",
+    "src/prime_rl/latent/a0dr.py": "c765e7c3fe5618b3577f202d3f2525f55b8fb2b61ff20d5255063db63bd69c00",
+    "src/prime_rl/latent/a0dr2.py": "40a628aff96527d01d964c865b5a26b2d9cb58e3da0c4660c0162504022df42a",
+    "src/prime_rl/latent/a0r.py": "128f98b20f3872c0057ea08a87047b51a2f6642b4867b1f25a5fb54ea86e37cd",
+    "src/prime_rl/latent/policy_adapter.py": "dda6a739cbbcb38805ecdd8a9dd0b75cdfba78ab709bd713437101700bb91e81"
+  },
+  "plan_sha256": "eeda1c571359b29882f16acbd50f573ecd3fa71238882f9f95bb99040e8e7578",
+  "bank_sha256": "0e940fedadf3f11591e65f963c082c4b96025b883dac68255a07f4cb3f38b9a1",
+  "a0dr2_evidence": {
+    "status": "diagnostic_complete",
+    "receipt_file_sha256": "6ed279ce60a7162aee7fb70f07b554d84a6ebd57e87ddc1a70a8e3f350238fab",
+    "receipt_internal_sha256": "1f5490dc20016f655f8b7b1c7b02e6a62157250eb6217c23667ef2879f983f1b",
+    "launch_log_sha256": "778b7655044f3d0c0697d28b616afae88c026423958fa29da2f102997286c544",
+    "mechanism_commit": "945c262399b3794c74ddc3604f00233757f7d4dd",
+    "execution_commit": "f6d45f3fd15c424304a4cb755de121e1a6917bcf",
+    "plan_sha256": "be6077168a09ea25f6f96716b66472d00583ee0174126e7bd448dc8edf5d016b",
+    "plan_file_sha256": "22b6a441b5a6b4a62d2f2a9c30f5544c1c97d15b9e30c90b2f44ca11d59695f0",
+    "probe_1_role": "calibration_anchor_not_heldout_confirmation",
+    "probes_2_to_4_role": "prospective_first_cache_exposure"
+  },
+  "calibration_basis": {
+    "anchor_probe": "a0-mechanism-0001",
+    "anchor_discrete_mean_nrms": 0.01765758660621941,
+    "anchor_soft_mean_nrms": 0.01621906436048448,
+    "anchor_max_positive_soft_minus_discrete_step_nrms": 0.001720189116895199,
+    "threshold_freeze_timing": "before any cache exposure of probes 2 through 4",
+    "step_excess_limit_rationale": "0.005 is more than 2.9 times the anchor positive excess but remains bounded",
+    "mean_rule_rationale": "25 percent relative allowance with a 0.0025 numerical floor prevents near-zero ratio instability"
+  },
+  "protected_checkpoints": {
+    "coordinator_e33": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "worker_h176": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e"
+  },
+  "remote_paths": {
+    "coordinator_e33": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "worker_h176": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8"
+  },
+  "runtime": {
+    "python": "3.12", "transformers": "5.6.2", "torch_distribution": "2.11.0+cu128", "torch_runtime": "2.11.0+cu128",
+    "model_class": "Qwen3_5ForConditionalGeneration", "hidden_size": 2048, "device": "cuda:0", "dtype": "bfloat16",
+    "attention_implementation": "eager", "local_files_only": true,
+    "checkpoint_metadata_sha256": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "expected_probes": {
+    "a0-mechanism-0001": {"parent": 93, "child": 47, "injection": 40, "matched": 55},
+    "a0-mechanism-0002": {"parent": 84, "child": 42, "injection": 35, "matched": 50},
+    "a0-mechanism-0003": {"parent": 77, "child": 35, "injection": 28, "matched": 43},
+    "a0-mechanism-0004": {"parent": 74, "child": 40, "injection": 33, "matched": 48}
+  },
+  "length_control": {
+    "token_ids": [40, 4021, 2528, 8976, 35139, 635, 524, 599],
+    "token_ids_sha256": "e86e01e61315008783cc217a5bb83a1b3aced0daaecbc920b8d3b45ab4b205d8",
+    "tokens_must_be_non_special": true, "insertion_count": 8, "same_boundary_mask_and_positions_as_soft": true
+  },
+  "criterion": {
+    "complete_distinct_probe_floor": 4,
+    "required_probe_ids": ["a0-mechanism-0001", "a0-mechanism-0002", "a0-mechanism-0003", "a0-mechanism-0004"],
+    "continuation_tokens_per_probe": 4,
+    "arms": ["L_ID", "L_E", "S"],
+    "position_branch": "explicit_next_position",
+    "fresh_cache_per_arm": true,
+    "discrete_interface_parity": "L_ID and L_E prefill/step metrics and cached/full logit hashes exact",
+    "maximum_absolute_logit_difference_per_step": 0.5,
+    "cached_full_greedy_equal_each_step": true,
+    "maximum_soft_minus_discrete_nrms_per_step": 0.005,
+    "soft_mean_nrms_rule": "soft_mean <= discrete_mean + max(0.0025, 0.25 * discrete_mean)",
+    "mean_excess_floor": 0.0025,
+    "mean_relative_excess_fraction": 0.25,
+    "all_probes_must_qualify": true,
+    "posthoc_threshold_change_allowed": false
+  },
+  "resource_bounds": {
+    "gpus_used": 1, "gpu_model": "NVIDIA RTX A6000", "minimum_gpu_memory_gib": 47,
+    "minimum_host_ram_gib": 64, "minimum_free_disk_gib": 8, "maximum_output_bytes": 1048576,
+    "maximum_output_directory_bytes": 16777216, "network": false, "maximum_wall_minutes": 30,
+    "failure_cleanup_headroom_minutes": 2, "output_root": "/home/ubuntu/rlm/outputs/latent-a0-cache-calibration-v1"
+  },
+  "failure_classification": {
+    "diagnostic_execution_or_finiteness_failure": "diagnostic_incomplete",
+    "environment_provenance_timeout_or_oom": "infrastructure_invalid",
+    "run_id_reusable": false
+  },
+  "interpretation_boundary": "prospective relative cache calibration only; A0R remains rejected and A1 remains blocked during this run; a validated result clears only the cache-specific relative-calibration question for later root/evaluator review, not live harness capture, bridge learnability, model admission, training, or A1 authorization"
+}
