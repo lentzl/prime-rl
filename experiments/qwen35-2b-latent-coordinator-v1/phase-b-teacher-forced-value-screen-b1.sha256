@@ -1,9 +1,9 @@
-1af62025be99b77696bfef58bbf87156ce07b7dfc811cf1a1170f873cccba594  phase-b-teacher-forced-value-screen-b1-plan.json
+6013e4ade15fba3a85c7e202008ef8222504796203348b8cee2d3b1e366dc00d  phase-b-teacher-forced-value-screen-b1-plan.json
 ed78d8683b3d057d46b34f4f84f5d36fc22f01f1450442a8adf29d2a0eda388b  ../../scripts/latent/run_phase_b_teacher_forced_value_screen_b1.sh
 baaf8f6fd2e87eab5d92bf23203032adeece50ce8eecd482001d44e7626a3b47  ../../scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py
 0c799ff8cbaef65113b4208996e05a3995736461e4772e490b263cebfad6ce39  ../../scripts/export_phase_b_value_screen_b1_bank_v1.py
 0a84ba0816dccd7688d148cdd0cf7e3e8943ea4d33907754691fdb3eba6ce88e  ../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py
-c4ff316cba1bdcca2bd32bad806a0eed0aabd63a5be459422df169da1a382e3a  ../../src/prime_rl/phase_b_value_screen.py
+c4b6f1779746d39850457194a2d7c107c216a89f81b7c032624636e37da281f8  ../../src/prime_rl/phase_b_value_screen.py
 c351349dac78a90072f78321c9ce54aaf7ad0a83641df0940558b853e68f9d67  ../../src/prime_rl/phase_b_contract.py
 b0de959f8c33a978802bd2bcba743ed854ac96e68843e60e6cfe7d7c4eacd692  ../../src/prime_rl/latent/local_depth.py
 3e7b6aec0168450e790bf1eb994e9b249dde413ccd78e848a755dda22773714d  ../../src/prime_rl/latent/recurrent.py
