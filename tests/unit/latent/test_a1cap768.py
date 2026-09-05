@@ -1,6 +1,7 @@
 import ast
 import copy
 import hashlib
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -23,9 +24,27 @@ def test_selection_schedule_memory_and_prior_evidence_are_exact():
     assert cap._validate_prior_evidence(cap.Path(".")) == cap.PRIOR_EVIDENCE
     assert cap._validate_launcher_rejection_evidence(cap.Path(".")) == cap.LAUNCHER_REJECTION_EVIDENCE
     assert cap._validate_import_rejection_evidence(cap.Path(".")) == cap.IMPORT_REJECTION_EVIDENCE
+    assert cap._validate_import_proof_evidence(cap.Path(".")) == cap.IMPORT_PROOF_EVIDENCE
     assert cap.LAUNCHER_REJECTION_EVIDENCE["artifacts"] == []
     assert cap.LAUNCHER_REJECTION_EVIDENCE["shell_exit_nonzero"] is True
     assert "shell_exit_code" not in cap.LAUNCHER_REJECTION_EVIDENCE
+
+
+def test_exact_host_import_proof_fails_closed_on_tamper(tmp_path):
+    relative = Path("experiments/qwen35-2b-latent-workspace-v1")
+    target = tmp_path / relative
+    target.mkdir(parents=True)
+    names = (
+        "a1-nc0-cap768-r2-import-proof-receipt.json",
+        "a1-nc0-cap768-r2-import-proof.log",
+        "a1-nc0-cap768-r2-import-proof-exit-status.txt",
+    )
+    for name in names:
+        shutil.copy2(relative / name, target / name)
+    assert cap._validate_import_proof_evidence(tmp_path) == cap.IMPORT_PROOF_EVIDENCE
+    (target / names[2]).write_text("1\n")
+    with pytest.raises(ValueError, match="import-proof artifact changed"):
+        cap._validate_import_proof_evidence(tmp_path)
 
 
 @pytest.mark.parametrize(

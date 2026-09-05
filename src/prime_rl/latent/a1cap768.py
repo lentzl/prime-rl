@@ -8,7 +8,7 @@ from pathlib import Path
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256
 from prime_rl.latent.a1nc0 import _CACHE_CLASS_CLOSURE, _E33, _H176, _RUNTIME
 
-PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-r2-plan/v1"
+PLAN_SCHEMA = "prime-rl/latent-a1-nc0-cap768-r3-plan/v1"
 RECEIPT_SCHEMA = "prime-rl/latent-a1-nc0-cap768-receipt/v1"
 FAILURE_SCHEMA = "prime-rl/latent-a1-nc0-cap768-failure/v1"
 _SHA = re.compile(r"^[0-9a-f]{64}$")
@@ -122,6 +122,33 @@ IMPORT_REJECTION_EVIDENCE = {
     "scientific_exposure": False,
     "model_update_attempted": False,
 }
+IMPORT_PROOF_EVIDENCE = {
+    "status": "import_smoke_validated",
+    "schema_version": "prime-rl/latent-a1-nc0-cap768-r2-import-proof/v1",
+    "execution_commit": "4ed771c82f92c0fc9188eca8551faeab09b87ff5",
+    "receipt_file_sha256": "cae344ea48b87d38405c4490188c33fcc214574ecf3dbce132d98b908872dd16",
+    "proof_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit_status_file_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "exit_status": 0,
+    "runner_sha256": "e0f8d50025452e2fa086e5f4d7ed8a221ec155fb882828f0c90fcbaa80a64a25",
+    "a1nc0_sha256": "495249009c216ab1a67421ec9f439f0114364b08e4aa719f17ed537221362d7e",
+    "runtime": {
+        "python": "3.12.14",
+        "transformers": "5.6.2",
+        "flash_linear_attention": "0.5.2",
+        "torch_distribution": "2.11.0+cu128",
+        "torch_runtime": "2.11.0+cu128",
+    },
+    "cuda_visible_devices": "",
+    "cuda_uninitialized_before_after": True,
+    "run3_namespace_absent": True,
+    "cap_output_inventory_unchanged_empty": True,
+    "tokenizer_and_model_load_calls_zero": True,
+    "main_called": False,
+    "model_loaded": False,
+    "scientific_exposure": False,
+    "model_update_attempted": False,
+}
 INTERPRETATION = (
     "capture geometry and resource fit only for a prospective A1 refreeze; no training authorization, bridge "
     "learning, nomination, semantic held-out output, A1 admission, or four-live-floor change"
@@ -135,6 +162,9 @@ ASSET_PATHS = {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-census-manifest.sha256",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-launcher-rejection-run.log",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r1-import-rejection-run.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof-receipt.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof-exit-status.txt",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json",
@@ -268,6 +298,62 @@ def _validate_import_rejection_evidence(repo: Path) -> dict[str, object]:
     return IMPORT_REJECTION_EVIDENCE
 
 
+def _validate_import_proof_evidence(repo: Path) -> dict[str, object]:
+    experiment = repo / "experiments/qwen35-2b-latent-workspace-v1"
+    paths = {
+        "receipt": experiment / "a1-nc0-cap768-r2-import-proof-receipt.json",
+        "log": experiment / "a1-nc0-cap768-r2-import-proof.log",
+        "exit": experiment / "a1-nc0-cap768-r2-import-proof-exit-status.txt",
+    }
+    if any(path.is_symlink() or not path.is_file() for path in paths.values()):
+        raise ValueError("CAP768 import-proof evidence absent or symlinked")
+    if (
+        file_sha256(paths["receipt"]) != IMPORT_PROOF_EVIDENCE["receipt_file_sha256"]
+        or file_sha256(paths["log"]) != IMPORT_PROOF_EVIDENCE["proof_log_sha256"]
+        or file_sha256(paths["exit"]) != IMPORT_PROOF_EVIDENCE["exit_status_file_sha256"]
+        or paths["log"].read_bytes() != b""
+        or paths["exit"].read_bytes() != b"0\n"
+    ):
+        raise ValueError("CAP768 import-proof artifact changed")
+    receipt = json.loads(paths["receipt"].read_text())
+    expected_keys = {
+        "a1nc0_path", "a1nc0_sha256", "artifacts_created_in_cap_output", "cap_output_after",
+        "cap_output_before", "checks", "cuda_visible_devices", "execution_commit",
+        "flash_linear_attention", "main_called", "model_loaded", "model_update_attempted", "offline",
+        "python", "runner_path", "runner_sha256", "schema_version", "scientific_exposure", "status",
+        "torch_distribution", "torch_runtime", "transformers",
+    }
+    expected_checks = {
+        "cap_output_inventory_unchanged", "clean_worktree", "cuda_uninitialized_after",
+        "cuda_uninitialized_before", "exact_execution_commit", "model_from_pretrained_calls_zero",
+        "run3_namespace_absent", "runner_import_succeeded", "tokenizer_from_pretrained_calls_zero",
+        "validator_defining_module", "validator_object_identity",
+    }
+    runtime = IMPORT_PROOF_EVIDENCE["runtime"]
+    if (
+        set(receipt) != expected_keys
+        or receipt.get("schema_version") != IMPORT_PROOF_EVIDENCE["schema_version"]
+        or receipt.get("status") != IMPORT_PROOF_EVIDENCE["status"]
+        or receipt.get("execution_commit") != IMPORT_PROOF_EVIDENCE["execution_commit"]
+        or receipt.get("runner_sha256") != IMPORT_PROOF_EVIDENCE["runner_sha256"]
+        or receipt.get("a1nc0_sha256") != IMPORT_PROOF_EVIDENCE["a1nc0_sha256"]
+        or {key: receipt.get(key) for key in runtime} != runtime
+        or receipt.get("cuda_visible_devices") != ""
+        or set(receipt.get("checks", {})) != expected_checks
+        or any(value is not True for value in receipt["checks"].values())
+        or receipt.get("cap_output_before") != {"entries": [], "exists": True}
+        or receipt.get("cap_output_after") != {"entries": [], "exists": True}
+        or receipt.get("artifacts_created_in_cap_output") != []
+        or receipt.get("offline") != {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
+        or receipt.get("main_called") is not False
+        or receipt.get("model_loaded") is not False
+        or receipt.get("model_update_attempted") is not False
+        or receipt.get("scientific_exposure") is not False
+    ):
+        raise ValueError("CAP768 import-proof receipt changed")
+    return IMPORT_PROOF_EVIDENCE
+
+
 def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
     if plan_path.is_symlink() or not plan_path.is_file():
         raise ValueError("CAP768 plan absent or symlinked")
@@ -277,7 +363,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         "selection", "selection_sha256", "call_schedule", "call_schedule_sha256", "memory_labels",
         "memory_labels_sha256", "prior_evidence", "protected_checkpoints", "runtime", "resource_bounds",
         "interpretation_boundary", "execution_authorization", "authorized_run_id",
-        "launcher_rejection_evidence", "import_rejection_evidence",
+        "launcher_rejection_evidence", "import_rejection_evidence", "import_proof_evidence",
     }
     assets = plan.get("asset_sha256")
     if (
@@ -296,6 +382,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("prior_evidence") != PRIOR_EVIDENCE
         or plan.get("launcher_rejection_evidence") != LAUNCHER_REJECTION_EVIDENCE
         or plan.get("import_rejection_evidence") != IMPORT_REJECTION_EVIDENCE
+        or plan.get("import_proof_evidence") != IMPORT_PROOF_EVIDENCE
         or plan.get("protected_checkpoints") != {"coordinator_e33": _E33, "worker_h176": _H176}
         or plan.get("runtime") != _RUNTIME
         or plan.get("resource_bounds") != RESOURCE_BOUNDS
@@ -317,6 +404,8 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         raise ValueError("CAP768 launcher-rejection evidence binding changed")
     if _validate_import_rejection_evidence(repo) != plan["import_rejection_evidence"]:
         raise ValueError("CAP768 import-rejection evidence binding changed")
+    if _validate_import_proof_evidence(repo) != plan["import_proof_evidence"]:
+        raise ValueError("CAP768 import-proof evidence binding changed")
     return plan
 
 
