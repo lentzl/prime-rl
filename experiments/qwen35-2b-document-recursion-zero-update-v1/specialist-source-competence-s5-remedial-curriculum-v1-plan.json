@@ -2,12 +2,12 @@
   "schema_version": "q35-2b-specialist-competence-plan/v1",
   "experiment_id": "specialist-source-competence-s5-remedial-curriculum-v1",
   "recorded_at": "2026-09-05",
-  "status": "draft_conditional_on_final_s3_rejection_without_candidate_specific_clean_progress",
-  "execution_authorization": "none",
+  "status": "root_frozen_launch_ready",
+  "execution_authorization": "Owner explicitly started persistent autonomous operation on the existing two-A6000 pipeline; root authorized this predeclared remedial rung after final S3 rejection.",
   "trigger": {
     "required": [
       "S3 completes with valid provenance and competence_gate_passed=false",
-      "S3 H_source_s2 treatment has zero admission-hard successes or zero candidate-specific clean paired recoveries",
+      "S3 H_source_s2 treatment has zero admission-hard successes and zero clean protocol-aligned tasks",
       "root records that the S4 identical-corpus branch is not authorized"
     ],
     "forbidden": [
@@ -18,17 +18,22 @@
     ]
   },
   "objective": "Teach H_source_s2 to execute correct source/config parsing, exact arithmetic, compact JSON serialization, and the exactly-once parent send together in its first IPython work call, using a training-only leak-then-tighten curriculum.",
-  "diagnosis_from_s3_read_only_snapshot": {
+  "diagnosis_from_final_s3": {
+    "summary_sha256": "390ccf6a964f2cc672852d01015a9e2f5aa36259822646950adc1774a465c476",
     "control_completed": 16,
     "control_admission_hard": 0,
     "control_exact_answers": 0,
     "control_protocol_aligned": 6,
     "control_clean_protocol_aligned": 0,
-    "treatment_completed_at_snapshot": 6,
+    "control_model_authored_computation": 8,
+    "control_failed_cells": 170,
+    "treatment_completed": 16,
     "treatment_admission_hard": 0,
     "treatment_exact_answers": 0,
-    "treatment_protocol_aligned": 4,
+    "treatment_protocol_aligned": 7,
     "treatment_clean_protocol_aligned": 0,
+    "treatment_model_authored_computation": 10,
+    "treatment_failed_cells": 188,
     "observed_treatment_ast_failure": "The deterministic treatment often reaches Path.read_text plus ast.parse, but uses only ast.iter_child_nodes, merges sync and async nodes, omits decorator_list, applies a wrong formula, then sends a dict and later a scalar in separate calls.",
     "observed_treatment_config_failure": "The treatment intermittently selects tomllib but misreads the runtime mapping and feature dictionary, or falls back to json.loads on TOML; it commonly attempts dict transport that raises before later scalar transport.",
     "conclusion": "Temperature alone did not expose a clean learned mode. Transport intent and isolated API fragments exist, but the atomic read-compute-serialize-send program is not bound reliably enough for identical-corpus continuation to be the default."
@@ -97,8 +102,8 @@
     "procedure_leak": "The first phase explicitly names the canonical APIs, mapping accesses, formulas, JSON serialization, and same-call parent send. It contains no answer or heldout fixture.",
     "tightening": "The final phase removes the procedure card and restores the live worker assignment shape while retaining the identical one-call positive target.",
     "first_call_target": "Exactly one IPython work call performs every read, computation, json.dumps(..., separators=(',', ':')), and agent_message.send(..., receiver_role='parent'); the assistant then stops.",
-    "manifest_sha256": "ROOT_FREEZE_REQUIRED_REMEDIAL_MANIFEST_SHA256",
-    "train_parquet_sha256": "ROOT_FREEZE_REQUIRED_REMEDIAL_PARQUET_SHA256"
+    "manifest_sha256": "d406639dcc0d172e13c134328f5926bf30caabd17b16ad3c4d76887585f7ba82",
+    "train_parquet_sha256": "9b30b54bd1dc25feece22f0c86f6493cb4f2ab4adec3db39ff33ed99c813306c"
   },
   "training": {
     "runner": "scripts/run_q35_2b_source_worker_remedial_sft_v1.py",
@@ -145,7 +150,7 @@
     "heldout_config_sha256": "3fd8c3179e2e9a1eb907e3a8185c6ae6f8810071626532335e8ca9aa5cacdf18",
     "sampling_contract": "specialist-source-competence-s5-remedial-sampling-contract-v1.json",
     "sampling_contract_sha256": "032f9f218a49f3310bdfc41951d63bef9aee108837c0b71305200294d252c9bd",
-    "heldout_task_bank_sha256": "ROOT_FREEZE_REQUIRED_S5_TASK_BANK_SHA256",
+    "heldout_task_bank_sha256": "9be882279cee4e558094c41f7a7c160f425a78aaf28ea93fc98ee6ec345ecf66",
     "freshness_requirements": [
       "zero task-key, task-name, and instance-root overlap with training, S1, S2, and S3",
       "no heldout trace replay",
