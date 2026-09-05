@@ -29,6 +29,16 @@ def test_selection_schedule_memory_and_prior_evidence_are_exact():
         cap._validate_operational_render_rejection_evidence(cap.Path("."))
         == cap.OPERATIONAL_RENDER_REJECTION_EVIDENCE
     )
+    assert (
+        cap._validate_render_proof(cap.Path("."), run=1, expected=cap.RENDER_PROOF1_EVIDENCE)
+        == cap.RENDER_PROOF1_EVIDENCE
+    )
+    assert (
+        cap._validate_render_proof(cap.Path("."), run=2, expected=cap.RENDER_PROOF2_EVIDENCE)
+        == cap.RENDER_PROOF2_EVIDENCE
+    )
+    assert cap.RENDER_PROOF1_EVIDENCE["classification"] == "proof_incomplete_for_cap_runner_import"
+    assert cap.RENDER_PROOF2_EVIDENCE["classification"] == "operational_render_proof_validated"
     assert cap.LAUNCHER_REJECTION_EVIDENCE["artifacts"] == []
     assert cap.LAUNCHER_REJECTION_EVIDENCE["shell_exit_nonzero"] is True
     assert "shell_exit_code" not in cap.LAUNCHER_REJECTION_EVIDENCE
@@ -69,6 +79,23 @@ def test_operational_render_rejection_fails_closed_on_tamper(tmp_path):
         handle.write(b"tamper")
     with pytest.raises(ValueError, match="operational-render rejection artifact changed"):
         cap._validate_operational_render_rejection_evidence(tmp_path)
+
+
+def test_exact_host_render_proofs_fail_closed_on_tamper(tmp_path):
+    relative = Path("experiments/qwen35-2b-latent-workspace-v1")
+    target = tmp_path / relative
+    target.mkdir(parents=True)
+    for run in (1, 2):
+        for suffix in ("receipt.json", "proof.log", "exit-status.txt"):
+            name = f"a1-nc0-cap768-r3-render-proof-run{run}-{suffix}"
+            shutil.copy2(relative / name, target / name)
+    assert cap._validate_render_proof(tmp_path, run=1, expected=cap.RENDER_PROOF1_EVIDENCE)
+    assert cap._validate_render_proof(tmp_path, run=2, expected=cap.RENDER_PROOF2_EVIDENCE)
+    path = target / "a1-nc0-cap768-r3-render-proof-run2-receipt.json"
+    with path.open("ab") as handle:
+        handle.write(b"tamper")
+    with pytest.raises(ValueError, match="operational-render proof artifact changed"):
+        cap._validate_render_proof(tmp_path, run=2, expected=cap.RENDER_PROOF2_EVIDENCE)
 
 
 @pytest.mark.parametrize(

@@ -176,6 +176,31 @@ OPERATIONAL_RENDER_REJECTION_EVIDENCE = {
     "candidate_created": False,
     "failure_audit_complete": True,
 }
+RENDER_PROOF1_EVIDENCE = {
+    "classification": "proof_incomplete_for_cap_runner_import",
+    "receipt_file_sha256": "2e19fd227ced20f866f38e028fc7d8c6b1cc4b99111aca7bc22e5c2b79b63466",
+    "receipt_internal_sha256": "a824fec2cb403d38b4297409f9081288a9f63d7d92df8edb04439d310d8de799",
+    "proof_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit_status_file_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "execution_commit": "c607a54fa7a9b3803ee2f78122be70a6aa3864e1",
+    "proof_script_sha256": "c5191c9b2b48657f890146b46455316d5687c64e3dd835b75cfe10647a19c5ae",
+    "base_runner_sha256": "3ad4949d70edc467e30eeb2b512292a09dfa5d66f411253bf31045d6047034d9",
+    "cap_runner_dynamically_imported": False,
+    "exit_status": 0,
+}
+RENDER_PROOF2_EVIDENCE = {
+    "classification": "operational_render_proof_validated",
+    "receipt_file_sha256": "094fcbfc17ed8a519d980e10d32d64fe557dcbab54b018155341805342be6ca9",
+    "receipt_internal_sha256": "2e57d77eb7bbd287e0ad9655c7fce63825a008b9985dc97cf1d1228e2d5e7abd",
+    "proof_log_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "exit_status_file_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "execution_commit": "aafb510ffa8de1013761d19c2774c1debaa2d9bf",
+    "proof_script_sha256": "7c85158f830bd129156ff8ddee9b1e2c51b9158add1dabf55ac191442b057907",
+    "cap_runner_sha256": "5de4f57deb324451efd1e3c11576c046fc9bfd31b4f3a3218bd5a90c963bf061",
+    "base_runner_sha256": "3ad4949d70edc467e30eeb2b512292a09dfa5d66f411253bf31045d6047034d9",
+    "validator_module": "prime_rl.latent.a1nc0",
+    "exit_status": 0,
+}
 INTERPRETATION = (
     "capture geometry and resource fit only for a prospective A1 refreeze; no training authorization, bridge "
     "learning, nomination, semantic held-out output, A1 admission, or four-live-floor change"
@@ -194,6 +219,12 @@ ASSET_PATHS = {
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-import-proof-exit-status.txt",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-operational-render-rejection-failure.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r2-operational-render-rejection-run.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run1-receipt.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run1-proof.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run1-exit-status.txt",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run2-receipt.json",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run2-proof.log",
+    "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-cap768-r3-render-proof-run2-exit-status.txt",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-train-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-validation-bank-v1.json",
     "experiments/qwen35-2b-latent-workspace-v1/a1-nc0-held_out-bank-v1.json",
@@ -432,6 +463,118 @@ def _validate_operational_render_rejection_evidence(repo: Path) -> dict[str, obj
     return OPERATIONAL_RENDER_REJECTION_EVIDENCE
 
 
+def _validate_render_proof(
+    repo: Path, *, run: int, expected: dict[str, object]
+) -> dict[str, object]:
+    experiment = repo / "experiments/qwen35-2b-latent-workspace-v1"
+    prefix = experiment / f"a1-nc0-cap768-r3-render-proof-run{run}"
+    paths = {
+        "receipt": Path(f"{prefix}-receipt.json"),
+        "log": Path(f"{prefix}-proof.log"),
+        "exit": Path(f"{prefix}-exit-status.txt"),
+    }
+    if any(path.is_symlink() or not path.is_file() for path in paths.values()):
+        raise ValueError("CAP768 operational-render proof absent or symlinked")
+    if (
+        file_sha256(paths["receipt"]) != expected["receipt_file_sha256"]
+        or file_sha256(paths["log"]) != expected["proof_log_sha256"]
+        or file_sha256(paths["exit"]) != expected["exit_status_file_sha256"]
+        or paths["log"].read_bytes() != b""
+        or paths["exit"].read_bytes() != b"0\n"
+    ):
+        raise ValueError("CAP768 operational-render proof artifact changed")
+    receipt = json.loads(paths["receipt"].read_text())
+    cases = receipt.get("cases")
+    common_required = {
+        "cap_output_inventory_after", "cap_output_inventory_before", "case_count", "case_order",
+        "cases", "coordinator_metadata_sha256", "cuda_uninitialized_after", "cuda_uninitialized_before",
+        "cuda_visible_devices", "execution_commit", "expected_lengths", "main_called", "model_load_calls",
+        "model_loaded", "model_update_attempted", "offline", "proof_script_sha256", "receipt_sha256",
+        "run4_namespace_absent", "runner_path", "runner_sha256", "runtime", "schema_version",
+        "scientific_exposure", "status", "tokenizer_load_calls",
+    }
+    proof2_only = {
+        "cap_base_module_identity", "cap_runner_import_succeeded", "cap_runner_path",
+        "cap_runner_sha256", "validator_defining_module", "validator_object_identity",
+    }
+    expected_lengths = [517, 475, 599, 471, 616, 476, 644, 470]
+    if (
+        set(receipt) != common_required | (proof2_only if run == 2 else set())
+        or receipt.get("schema_version") != "prime-rl/latent-a1-nc0-cap768-r3-render-proof/v1"
+        or receipt.get("status") != "operational_render_mechanism_validated"
+        or receipt.get("execution_commit") != expected["execution_commit"]
+        or receipt.get("proof_script_sha256") != expected["proof_script_sha256"]
+        or receipt.get("runner_sha256") != expected["base_runner_sha256"]
+        or receipt.get("receipt_sha256") != expected["receipt_internal_sha256"]
+        or receipt.get("receipt_sha256")
+        != canonical_json_hash(receipt, omitted_fields=("receipt_sha256",))
+        or receipt.get("runtime")
+        != {
+            "python": "3.12.14", "transformers": "5.6.2", "flash_linear_attention": "0.5.2",
+            "torch_distribution": "2.11.0+cu128", "torch_runtime": "2.11.0+cu128",
+        }
+        or receipt.get("coordinator_metadata_sha256") != _RUNTIME["checkpoint_metadata_sha256"]
+        or receipt.get("cuda_visible_devices") != ""
+        or receipt.get("cuda_uninitialized_before") is not True
+        or receipt.get("cuda_uninitialized_after") is not True
+        or receipt.get("offline") != {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
+        or receipt.get("tokenizer_load_calls") != 1
+        or receipt.get("model_load_calls") != 0
+        or receipt.get("main_called") is not False
+        or receipt.get("model_loaded") is not False
+        or receipt.get("model_update_attempted") is not False
+        or receipt.get("scientific_exposure") is not False
+        or receipt.get("cap_output_inventory_before") != ["a1-nc0-cap768-run3"]
+        or receipt.get("cap_output_inventory_after") != ["a1-nc0-cap768-run3"]
+        or receipt.get("run4_namespace_absent") is not True
+        or receipt.get("case_count") != 8
+        or receipt.get("case_order") != ["PARENT", "MSELF"] * 4
+        or receipt.get("expected_lengths") != expected_lengths
+        or not isinstance(cases, list)
+        or len(cases) != 8
+    ):
+        raise ValueError("CAP768 operational-render proof receipt changed")
+    for index, (row, selection, modality, length) in enumerate(
+        zip(cases, [item for item in SELECTION for _ in range(2)], ["PARENT", "MSELF"] * 4,
+            expected_lengths, strict=True),
+        1,
+    ):
+        if (
+            not isinstance(row, dict)
+            or set(row)
+            != {
+                "container_fqcn", "evidence_id", "family", "input_ids_contiguous", "input_ids_device",
+                "input_ids_dtype", "input_ids_sha256", "input_ids_shape", "modality", "probe_index",
+                "query_id",
+            }
+            or row.get("probe_index") != (index + 1) // 2
+            or row.get("family") != selection["family"]
+            or row.get("evidence_id") != selection["evidence_id"]
+            or row.get("query_id") != selection["query_id"]
+            or row.get("modality") != modality
+            or row.get("container_fqcn") != "transformers.tokenization_utils_base.BatchEncoding"
+            or row.get("input_ids_shape") != [1, length]
+            or row.get("input_ids_dtype") != "torch.int64"
+            or row.get("input_ids_device") != "cpu"
+            or row.get("input_ids_contiguous") is not True
+            or not _SHA.fullmatch(str(row.get("input_ids_sha256", "")))
+        ):
+            raise ValueError("CAP768 operational-render proof case changed")
+    if run == 1:
+        if expected["classification"] != "proof_incomplete_for_cap_runner_import":
+            raise ValueError("CAP768 proof1 classification changed")
+    elif (
+        receipt.get("cap_runner_import_succeeded") is not True
+        or receipt.get("cap_base_module_identity") is not True
+        or receipt.get("validator_object_identity") is not True
+        or receipt.get("validator_defining_module") != expected["validator_module"]
+        or receipt.get("cap_runner_sha256") != expected["cap_runner_sha256"]
+        or expected["classification"] != "operational_render_proof_validated"
+    ):
+        raise ValueError("CAP768 proof2 CAP boundary changed")
+    return expected
+
+
 def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
     if plan_path.is_symlink() or not plan_path.is_file():
         raise ValueError("CAP768 plan absent or symlinked")
@@ -442,6 +585,7 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         "memory_labels_sha256", "prior_evidence", "protected_checkpoints", "runtime", "resource_bounds",
         "interpretation_boundary", "execution_authorization", "authorized_run_id",
         "launcher_rejection_evidence", "import_rejection_evidence", "import_proof_evidence",
+        "operational_render_rejection_evidence", "render_proof1_evidence", "render_proof2_evidence",
     }
     assets = plan.get("asset_sha256")
     if (
@@ -461,6 +605,9 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or plan.get("launcher_rejection_evidence") != LAUNCHER_REJECTION_EVIDENCE
         or plan.get("import_rejection_evidence") != IMPORT_REJECTION_EVIDENCE
         or plan.get("import_proof_evidence") != IMPORT_PROOF_EVIDENCE
+        or plan.get("operational_render_rejection_evidence") != OPERATIONAL_RENDER_REJECTION_EVIDENCE
+        or plan.get("render_proof1_evidence") != RENDER_PROOF1_EVIDENCE
+        or plan.get("render_proof2_evidence") != RENDER_PROOF2_EVIDENCE
         or plan.get("protected_checkpoints") != {"coordinator_e33": _E33, "worker_h176": _H176}
         or plan.get("runtime") != _RUNTIME
         or plan.get("resource_bounds") != RESOURCE_BOUNDS
@@ -469,6 +616,12 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         or not assets
         or set(assets) != ASSET_PATHS
         or any(not _SHA.fullmatch(str(digest)) for digest in assets.values())
+        or assets.get("scripts/latent/run_a1_nc0_cap768_v1.py")
+        != RENDER_PROOF2_EVIDENCE["cap_runner_sha256"]
+        or assets.get("scripts/latent/run_a1_nc0_nomination_v1.py")
+        != RENDER_PROOF2_EVIDENCE["base_runner_sha256"]
+        or assets.get("scripts/latent/prove_a1_nc0_cap768_r3_render_v1.py")
+        != RENDER_PROOF2_EVIDENCE["proof_script_sha256"]
         or plan.get("plan_sha256") != canonical_json_hash(plan, omitted_fields=("plan_sha256",))
     ):
         raise ValueError("CAP768 plan changed")
@@ -484,6 +637,15 @@ def load_plan(plan_path: Path, repo: Path) -> dict[str, object]:
         raise ValueError("CAP768 import-rejection evidence binding changed")
     if _validate_import_proof_evidence(repo) != plan["import_proof_evidence"]:
         raise ValueError("CAP768 import-proof evidence binding changed")
+    if (
+        _validate_operational_render_rejection_evidence(repo)
+        != plan["operational_render_rejection_evidence"]
+    ):
+        raise ValueError("CAP768 operational-render rejection binding changed")
+    if _validate_render_proof(repo, run=1, expected=RENDER_PROOF1_EVIDENCE) != plan["render_proof1_evidence"]:
+        raise ValueError("CAP768 render proof1 binding changed")
+    if _validate_render_proof(repo, run=2, expected=RENDER_PROOF2_EVIDENCE) != plan["render_proof2_evidence"]:
+        raise ValueError("CAP768 render proof2 binding changed")
     return plan
 
 
