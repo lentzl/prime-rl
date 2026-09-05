@@ -1073,6 +1073,12 @@ def execute_value_screen(
             "nomination": nomination,
         },
         "checkpoint_hashes": checkpoint_hashes,
+        "candidate_artifact_validity": {
+            "valid": True,
+            "valid_only_with_exact_terminal_receipt": "SUCCESS.json",
+            "scope": "B1 nomination-only candidate modules; never an admitted policy",
+            "absence_of_terminal_receipt": "invalid_unclassified_do_not_use",
+        },
         "optimizer_state_persisted": False,
         "optimizer_destroyed_before_next_arm": all(
             training_evidence[arm]["optimizer_destroyed_before_next_arm"] for arm in TRAINING_ARMS
@@ -1214,6 +1220,12 @@ def main() -> int:
                 "worker_loaded": False,
                 "strand_a_combined": False,
                 "promotion_floor_unchanged": 4,
+                "candidate_artifact_validity": {
+                    "valid": False,
+                    "disposition": "invalid_unclassified_do_not_use",
+                    "reason": "No candidate module is valid unless paired with the exact atomic SUCCESS.json receipt",
+                    "present_file_hashes": post_failure_hash_audit.get("compact_checkpoint_hashes", {}),
+                },
                 "post_failure_hash_audit": post_failure_hash_audit,
                 "failure_class": "infrastructure_invalid",
                 "wall_clock_contract": {

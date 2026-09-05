@@ -180,6 +180,9 @@ def test_runner_has_exact_update_surface_and_no_promotion_or_optimizer_checkpoin
     assert source.index("immutable_input_hashes = {") < source.index("checkpoint_hashes = {")
     assert '"minimum_complete_live_trajectories_unchanged": 4' in source
     assert '"teacher_forced_rows_count_as_live_trajectories": False' in source
+    assert '"valid_only_with_exact_terminal_receipt": "SUCCESS.json"' in source
+    assert source.count('"invalid_unclassified_do_not_use"') == 2
+    assert '"present_file_hashes": post_failure_hash_audit.get("compact_checkpoint_hashes", {})' in source
     assert ".generate(" not in source
     assert "use_cache=True" not in source
     assert not any(
