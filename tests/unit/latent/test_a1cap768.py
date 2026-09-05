@@ -20,6 +20,9 @@ def test_selection_schedule_memory_and_prior_evidence_are_exact():
     assert len(cap.memory_labels()) == len(set(cap.memory_labels())) == 67
     assert cap._validate_prior_evidence(cap.Path(".")) == cap.PRIOR_EVIDENCE
     assert cap._validate_launcher_rejection_evidence(cap.Path(".")) == cap.LAUNCHER_REJECTION_EVIDENCE
+    assert cap.LAUNCHER_REJECTION_EVIDENCE["artifacts"] == []
+    assert cap.LAUNCHER_REJECTION_EVIDENCE["shell_exit_nonzero"] is True
+    assert "shell_exit_code" not in cap.LAUNCHER_REJECTION_EVIDENCE
 
 
 @pytest.mark.parametrize(

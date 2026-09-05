@@ -89,6 +89,8 @@ LAUNCHER_REJECTION_EVIDENCE = {
     "launch_log_sha256": "b70f54b49c6d9812f801fb793ee3ceee8683186b03213831db7692d7727d6078",
     "exact_error": "scripts/latent/run_a1_nc0_cap768_v1.sh: line 16: shared_project: unbound variable",
     "stage": "shell_readonly_initialization",
+    "artifacts": [],
+    "shell_exit_nonzero": True,
     "output_namespace_created": False,
     "python_started": False,
     "cuda_runtime_contacted": False,
