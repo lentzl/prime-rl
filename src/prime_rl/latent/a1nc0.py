@@ -1406,6 +1406,7 @@ def _validate_render_receipt(render: object, *, plan: dict[str, object]) -> None
         or render.get("tokenizer_eos_token_id") != 248046
         or render.get("tokenizer_pad_token_id") != 248046
         or render.get("feature_sequences_truncated") != 0
+        or render.get("feature_token_budget") != 256
         or render.get("materialized_queries") != 288
         or render.get("tokenized_template_container")
         != "transformers.tokenization_utils_base.BatchEncoding"

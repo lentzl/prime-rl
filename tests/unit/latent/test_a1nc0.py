@@ -664,6 +664,7 @@ def _positive_receipt(tmp_path):
             "tokenizer_pad_token_id": 248046,
             "maximum_unpadded_feature_tokens": 200,
             "feature_sequences_truncated": 0,
+            "feature_token_budget": 256,
             "materialized_queries": 288,
             "tokenized_template_container": "transformers.tokenization_utils_base.BatchEncoding",
             "preflight_input_ids_extracted_from_batch_encoding": True,

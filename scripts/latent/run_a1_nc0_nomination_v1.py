@@ -1700,8 +1700,14 @@ def evaluate_split(
 
 
 def validate_rendering_preflight(
-    tokenizer, artifacts: dict[str, dict[str, object]], expected_eos: int
+    tokenizer,
+    artifacts: dict[str, dict[str, object]],
+    expected_eos: int,
+    *,
+    feature_token_budget: int = 256,
 ) -> dict[str, object]:
+    if feature_token_budget not in {256, 768}:
+        raise ValueError("A1-NC0 feature-token budget is not preregistered")
     extraction_counts: collections.Counter[str] = collections.Counter()
     if tokenizer.eos_token_id != expected_eos or tokenizer.pad_token_id != expected_eos:
         raise ValueError("A1-NC0 tokenizer EOS identity changed")
@@ -1737,8 +1743,8 @@ def validate_rendering_preflight(
                 extraction_counts=extraction_counts,
             )
             maximum_feature_tokens = max(maximum_feature_tokens, len(parent_ids))
-            if len(parent_ids) > 256:
-                raise ExperimentIncomplete("A1-NC0 parent fixture exceeds 256 tokens; truncation forbidden")
+            if len(parent_ids) > feature_token_budget:
+                raise ExperimentIncomplete("A1-NC0 parent fixture exceeds frozen budget; truncation forbidden")
             for query in record["queries"]:
                 messages = child_messages(query["child_query"])
                 full_messages = [*messages, {"role": "assistant", "reasoning_content": "", "content": query["answer"]}]
@@ -1794,7 +1800,7 @@ def validate_rendering_preflight(
                 )
                 maximum_feature_tokens = max(maximum_feature_tokens, len(self_ids))
                 if (
-                    len(self_ids) > 256
+                    len(self_ids) > feature_token_budget
                     or opening_text != plain_text + CHILD_OPENING_SUFFIX
                     or full_text != opening_text + query["answer"] + "<|im_end|>\n"
                     or opening_ids[: len(plain_ids)] != plain_ids
@@ -1851,6 +1857,7 @@ def validate_rendering_preflight(
         "tokenizer_eos_token_id": tokenizer.eos_token_id,
         "tokenizer_pad_token_id": tokenizer.pad_token_id,
         "maximum_unpadded_feature_tokens": maximum_feature_tokens,
+        "feature_token_budget": feature_token_budget,
         "feature_sequences_truncated": 0,
         "materialized_queries": materialized_queries,
         "tokenized_template_container": "transformers.tokenization_utils_base.BatchEncoding",
