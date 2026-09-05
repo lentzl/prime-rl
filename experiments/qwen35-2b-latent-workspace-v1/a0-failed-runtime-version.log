@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 779, in <module>
+    main()
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 757, in main
+    receipt = run(args, plan, bank, stage)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 607, in run
+    "torch": require_version("torch", "2.11.0"),
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/prime-rl-strand-a/scripts/latent/run_a0_mechanism_v1.py", line 136, in require_version
+    raise ValueError(f"{distribution} version {actual!r} differs from frozen {expected!r}")
+ValueError: torch version '2.11.0+cu128' differs from frozen '2.11.0'

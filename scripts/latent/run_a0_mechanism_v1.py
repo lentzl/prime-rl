@@ -21,9 +21,13 @@ import transformers.models.qwen3_5.modeling_qwen3_5
 from transformers import AutoModelForImageTextToText, AutoTokenizer
 
 from prime_rl.latent.a0 import canonical_json_hash, file_sha256, load_and_validate_a0_plan
+from prime_rl.latent.a0r import load_and_validate_a0r_plan
 from prime_rl.latent.policy_adapter import CapturedFeatures, compose_receiver_inputs
 
-A0_OUTPUT_ROOT = Path("/home/ubuntu/rlm/outputs/latent-a0-mechanism-v1")
+A0_OUTPUT_ROOTS = {
+    "a0": Path("/home/ubuntu/rlm/outputs/latent-a0-mechanism-v1"),
+    "a0r": Path("/home/ubuntu/rlm/outputs/latent-a0r-mechanism-v1"),
+}
 A0_SHARED_ENVIRONMENT = Path("/home/ubuntu/rlm/prime-rl/.venv")
 
 
@@ -37,7 +41,7 @@ class ArtifactWriter:
             raise ValueError("A0 output root must be an absolute existing non-symlink directory")
         if output_dir.parent.resolve(strict=True) != expected_root.resolve(strict=True):
             raise ValueError("A0 output directory must be a direct child of the frozen output root")
-        if not output_dir.name.startswith("a0-") or "/" in output_dir.name:
+        if not output_dir.name.startswith(("a0-", "a0r-")) or "/" in output_dir.name:
             raise ValueError("A0 output directory name is outside the frozen namespace")
         nofollow = getattr(os, "O_NOFOLLOW", 0)
         self.root_fd = os.open(expected_root, os.O_RDONLY | os.O_DIRECTORY | nofollow)
@@ -579,6 +583,29 @@ def run(
         raise ValueError("A0 launch requires --owner-approved after root freeze review")
     verify_execution_tree(args, plan)
     stage["name"] = "execution_tree_verified"
+    stage["name"] = "runtime_import_preflight_started"
+    if platform.python_version_tuple()[:2] != ("3", "12"):
+        raise ValueError("A0 requires Python 3.12")
+    if os.environ.get("UV_PROJECT_ENVIRONMENT") != str(A0_SHARED_ENVIRONMENT):
+        raise ValueError("A0 requires the frozen shared project environment")
+    if os.environ.get("PYTHONPATH") != str(args.repo / "src"):
+        raise ValueError("A0 requires the exact checked-out source path")
+    versions = {
+        "python": platform.python_version(),
+        "transformers": require_version("transformers", plan["runtime"]["transformers"]),
+    }
+    if args.campaign == "a0r":
+        versions["torch_distribution"] = require_version("torch", plan["runtime"]["torch_distribution"])
+        versions["torch_runtime"] = str(torch.__version__)
+        if versions["torch_runtime"] != plan["runtime"]["torch_runtime"]:
+            raise ValueError("Torch runtime string differs from the frozen A0R repair")
+    else:
+        versions["torch"] = require_version("torch", plan["runtime"]["torch"])
+    runtime_sources = transformers_source_hashes()
+    observed_source_hashes = {name: item["sha256"] for name, item in runtime_sources.items()}
+    if observed_source_hashes != plan["runtime"]["transformers_source_sha256"]:
+        raise ValueError("Transformers runtime sources differ from the frozen A0 plan")
+    stage["name"] = "runtime_import_preflight_verified"
     paths = plan["remote_paths"]
     if args.coordinator.resolve() != Path(paths["coordinator_e33"]):
         raise ValueError("coordinator path differs from frozen A0 plan")
@@ -595,21 +622,6 @@ def run(
     if metadata_before["coordinator_e33"] != plan["runtime"]["checkpoint_metadata_sha256"]:
         raise ValueError("e33 checkpoint metadata differs from the frozen A0 plan")
     stage["name"] = "protected_preflight_verified"
-    if platform.python_version_tuple()[:2] != ("3", "12"):
-        raise ValueError("A0 requires Python 3.12")
-    if os.environ.get("UV_PROJECT_ENVIRONMENT") != str(A0_SHARED_ENVIRONMENT):
-        raise ValueError("A0 requires the frozen shared project environment")
-    if os.environ.get("PYTHONPATH") != str(args.repo / "src"):
-        raise ValueError("A0 requires the exact checked-out source path")
-    versions = {
-        "python": platform.python_version(),
-        "transformers": require_version("transformers", "5.6.2"),
-        "torch": require_version("torch", "2.11.0"),
-    }
-    runtime_sources = transformers_source_hashes()
-    observed_source_hashes = {name: item["sha256"] for name, item in runtime_sources.items()}
-    if observed_source_hashes != plan["runtime"]["transformers_source_sha256"]:
-        raise ValueError("Transformers runtime sources differ from the frozen A0 plan")
     if not torch.cuda.is_available() or torch.cuda.get_device_name(0) != "NVIDIA RTX A6000":
         raise RuntimeError("A0 cuda:0 must be an NVIDIA RTX A6000")
     total_gib = torch.cuda.get_device_properties(0).total_memory / 2**30
@@ -658,7 +670,7 @@ def run(
         raise RuntimeError("protected checkpoint weights or metadata changed during A0")
     stage["name"] = "protected_postflight_verified"
     receipt: dict[str, object] = {
-        "schema_version": "prime-rl/latent-a0-mechanism-receipt/v1",
+        "schema_version": f"prime-rl/latent-{args.campaign}-mechanism-receipt/v1",
         "status": "rendered_transcript_carrier_mechanism_validated",
         "claim": "four-probe carrier/autograd/cache validation; not harness acceptance/timing or model admission",
         "plan_sha256": plan["plan_sha256"],
@@ -709,7 +721,7 @@ def failure_record(
         except (OSError, ValueError) as hash_error:
             protected[name] = {"hash_probe_error": f"{type(hash_error).__name__}: {hash_error}"}
     failure: dict[str, object] = {
-        "schema_version": "prime-rl/latent-a0-mechanism-failure/v1",
+        "schema_version": f"prime-rl/latent-{args.campaign}-mechanism-failure/v1",
         "status": "mechanism_rejected" if isinstance(error, MechanismRejected) else "infrastructure_invalid",
         "failure_category": (
             "mechanism_predicate_failure"
@@ -740,9 +752,10 @@ def main() -> None:
     parser.add_argument("--repo", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--execution-commit", required=True)
+    parser.add_argument("--campaign", choices=("a0", "a0r"), default="a0")
     parser.add_argument("--owner-approved", action="store_true")
     args = parser.parse_args()
-    writer = ArtifactWriter(args.output_dir, A0_OUTPUT_ROOT)
+    writer = ArtifactWriter(args.output_dir, A0_OUTPUT_ROOTS[args.campaign])
     stage = {"name": "artifact_namespace_created"}
     plan: dict[str, object] | None = None
 
@@ -752,7 +765,10 @@ def main() -> None:
     signal.signal(signal.SIGALRM, timeout_handler)
     signal.alarm((30 - 2) * 60)
     try:
-        plan, bank = load_and_validate_a0_plan(args.plan, args.bank)
+        if args.campaign == "a0r":
+            plan, bank = load_and_validate_a0r_plan(args.plan, args.bank)
+        else:
+            plan, bank = load_and_validate_a0_plan(args.plan, args.bank)
         stage["name"] = "plan_and_bank_validated"
         receipt = run(args, plan, bank, stage)
         encoded_size = len((json.dumps(receipt, indent=2, sort_keys=True) + "\n").encode())
