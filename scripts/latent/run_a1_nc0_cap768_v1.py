@@ -472,12 +472,9 @@ def run(args, plan, writer, stage):
     physical_before = _physical_gpu_audit()
     torch.cuda.set_per_process_memory_fraction(cap_bytes / properties.total_memory, 0)
     torch.cuda.reset_peak_memory_stats(0)
-    started = time.perf_counter()
-    signal.signal(
-        signal.SIGALRM,
-        lambda _s, _f: (_ for _ in ()).throw(ResourceFitRejected("CAP768 compute timeout")),
-    )
-    signal.alarm(RESOURCE_BOUNDS["compute_seconds"])
+    # One frozen compute allowance begins before plan/provenance validation in
+    # main. Protected hashing, tokenizer/model load, and probes share it.
+    started = float(stage["compute_started"])
     tokenizer_started = time.perf_counter()
     tokenizer = AutoTokenizer.from_pretrained(args.coordinator, local_files_only=True)
     try:
@@ -706,24 +703,28 @@ def main():
     writer = ArtifactWriter(args.output_dir)
     plan = None
     stage = {}
-    signal.signal(signal.SIGALRM, lambda _s, _f: (_ for _ in ()).throw(TimeoutError("CAP768 preflight timeout")))
-    signal.alarm(60)
+    signal.signal(
+        signal.SIGALRM,
+        lambda _s, _f: (_ for _ in ()).throw(ResourceFitRejected("CAP768 compute timeout")),
+    )
+    stage["compute_started"] = time.perf_counter()
+    signal.alarm(RESOURCE_BOUNDS["compute_seconds"])
     try:
         plan = load_plan(args.plan, args.repo)
         receipt = run(args, plan, writer, stage)
-        signal.alarm(60)
+        signal.alarm(RESOURCE_BOUNDS["terminal_seconds"])
         writer.write_terminal("receipt.json", receipt, RESOURCE_BOUNDS["maximum_receipt_bytes"])
     except torch.cuda.OutOfMemoryError as error:
-        signal.alarm(180)
+        signal.alarm(RESOURCE_BOUNDS["failure_audit_seconds"])
         wrapped = ResourceFitRejected(f"CAP768 CUDA OOM: {error}")
         failure = failure_record(args, wrapped, plan, stage)
-        signal.alarm(60)
+        signal.alarm(RESOURCE_BOUNDS["terminal_seconds"])
         writer.write_terminal("failure.json", failure, RESOURCE_BOUNDS["maximum_failure_bytes"])
         raise wrapped from error
     except BaseException as error:
-        signal.alarm(180)
+        signal.alarm(RESOURCE_BOUNDS["failure_audit_seconds"])
         failure = failure_record(args, error, plan, stage)
-        signal.alarm(60)
+        signal.alarm(RESOURCE_BOUNDS["terminal_seconds"])
         writer.write_terminal("failure.json", failure, RESOURCE_BOUNDS["maximum_failure_bytes"])
         raise
     finally:

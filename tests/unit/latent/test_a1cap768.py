@@ -42,6 +42,23 @@ def test_cap_launcher_freezes_fresh_namespace_and_full_resource_bounds():
     assert "3600s" in shell and "134217728" in shell
 
 
+def test_single_compute_alarm_covers_plan_through_probes():
+    runner = Path("scripts/latent/run_a1_nc0_cap768_v1.py").read_text()
+    main_start = runner.index("def main():")
+    stage_start = runner.index('stage["compute_started"] = time.perf_counter()', main_start)
+    plan_load = runner.index("plan = load_plan(args.plan, args.repo)", stage_start)
+    run_call = runner.index("receipt = run(args, plan, writer, stage)", plan_load)
+    assert stage_start < plan_load < run_call
+    run_body = runner[runner.index("def run(") : main_start]
+    assert 'started = float(stage["compute_started"])' in run_body
+    assert 'signal.alarm(RESOURCE_BOUNDS["audit_seconds"])' in run_body
+    assert "CAP768 preflight timeout" not in runner
+    assert runner.count('signal.alarm(RESOURCE_BOUNDS["compute_seconds"])') == 1
+    assert 'signal.alarm(RESOURCE_BOUNDS["failure_audit_seconds"])' in runner
+    assert 'signal.alarm(RESOURCE_BOUNDS["terminal_seconds"])' in runner
+    assert "signal.alarm(180)" not in runner and "signal.alarm(60)" not in runner
+
+
 def valid_receipt():
     schedule = cap.build_schedule()
     calls = []
