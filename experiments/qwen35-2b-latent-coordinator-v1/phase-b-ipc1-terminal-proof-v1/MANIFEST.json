@@ -106,6 +106,57 @@
     "cuda_initialized": false,
     "scientific_result": false
   },
+  "superseded_late_tamper_proof_failure": {
+    "classification": "model_free_maximal_success_and_four_ordinary_failures_published_then_post_model_pre_candidate_initial_module_tamper_unexpectedly_validated",
+    "proof_execution_commit": "640e1a49c43e4393492165c189a81ca6627c5ea1",
+    "runner_sha256": "27a5a80ac51a3c1fdaebb9f356fa5e257639cdda0c19f24fd3ec06625cf37284",
+    "proof_runner_sha256": "218938a189759899fac896f21ea3f4f39742dc739797e448c0b16e9d53f9620e",
+    "source_plan_file_sha256": "b2117e601efc374667466dd4674c868c6b4facf72b4c37b655f1cf650d92d45c",
+    "log_path": "proof-run5-tamper-failure.log",
+    "log_sha256": "1056a512e72f417f9f5ad9bc5166eb6d323f062426f372d676df71c0f1bf490c",
+    "exit_status_path": "proof-run5-tamper-failure.exit_status.txt",
+    "exit_status_sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "exit_status": 1,
+    "output_directory_created": true,
+    "proof_file_created": false,
+    "maximal_success_terminal_file_sha256": "0493315121cefc8b963f6611fb64cf8af43898030280a63f7e990336cd3735b2",
+    "maximal_success_candidate_files": [
+      {
+        "name": "STATIC.final.pt",
+        "sha256": "47444f3a86dc3c5af0893b80229eef293ec58e757f1a05db0d9da42fa06ecefd"
+      },
+      {
+        "name": "FFN.final.pt",
+        "sha256": "9effd83b238424a9cdf065d983d3a678c78aa900e735ce37028072eb2ebd0850"
+      },
+      {
+        "name": "RECURRENT.final.pt",
+        "sha256": "08d524970b489904623581bcf8602f361e8625ab2c186b7bbb94ab34dccc5302"
+      }
+    ],
+    "ordinary_failure_files": [
+      {
+        "status": "b_ipc1_mechanism_rejected",
+        "sha256": "17c6fee3c87acf4f356f4636919991af2099334d7c32b583651c8068c5a9aa24"
+      },
+      {
+        "status": "b_ipc1_nocache_rejected",
+        "sha256": "eb218474ab3f4e95b665cbbbf3986d10eefbe303d04d55a6fc3c71dc4decab09"
+      },
+      {
+        "status": "b_ipc1_incomplete",
+        "sha256": "57ec06fb02456e8861119b6e5452137b6b81f6398f9ad0e3cc34245a017e5949"
+      },
+      {
+        "status": "infrastructure_invalid",
+        "sha256": "71ab8e1ba9cb862293060c20c37ca2405ff24552052a2b1454358c4312582e67"
+      }
+    ],
+    "late_failure_terminal_count": 0,
+    "model_loaded": false,
+    "cuda_initialized": false,
+    "scientific_result": false
+  },
   "superseded_preexecution_command_failure": {
     "classification": "relative_plan_path_rejected_before_proof_output_or_fixture_validation",
     "log_path": "proof-run1-invocation-failure.log",

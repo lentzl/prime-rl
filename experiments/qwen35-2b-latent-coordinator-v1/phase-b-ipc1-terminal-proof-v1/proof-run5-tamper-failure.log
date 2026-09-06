@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py", line 1035, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py", line 935, in main
+    _expect_failure_rejected(
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py", line 718, in _expect_failure_rejected
+    raise AssertionError("B-IPC1 late FAILURE tamper unexpectedly validated")
+AssertionError: B-IPC1 late FAILURE tamper unexpectedly validated

@@ -5,11 +5,11 @@
   "claim_class": "nomination_only_inplace_carrier_matched_learning_screen",
   "mechanism_code_commit": "a07b614254245f9cddd6f4a1ec646795cc75bdba",
   "implementation_commit": "a07b614254245f9cddd6f4a1ec646795cc75bdba",
-  "plan_sha256": "6c970461e9d2537829cc6eeeef8d4b66166856ff1ea4019130c7e4be9a0e2bed",
+  "plan_sha256": "9f146789730f5ae54129d41953d72624d057c7be7d976458ef4882d8afb8f8fe",
   "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
   "terminal_proof": {
     "manifest_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-terminal-proof-v1/MANIFEST.json",
-    "manifest_sha256": "473b889154d11b17847640769ff9d3fb7cec1d9d315a03da56911d7a832e3956",
+    "manifest_sha256": "a40a37924befac7b4f0a9abcd58c44154dcff7ba926b4bcb82238777ab3033dc",
     "proof_execution_commit": "c1935fa923f68154eb41f8be931e4e0ede308f4f",
     "runner_sha256": "73476cb47efb578c3e6bdcc2010053164c33f596ae1b042af814f36e98cd7314",
     "decoded_proof_sha256": "e7ac7c4441473c9fb75f542c2d95656be2b81fc7c0d2c047b314447c5ba4aaa8",

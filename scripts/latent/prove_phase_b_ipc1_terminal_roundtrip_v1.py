@@ -519,7 +519,9 @@ def _failure(
         "candidate_files_valid": False,
         "candidate_file_audits": [],
         "candidate_module_state": [],
+        "candidate_module_state_sha256": runtime.canonical_bank_sha256([]),
         "candidate_initial_state": None,
+        "candidate_initial_state_sha256": None,
         "cache_guard": None,
         "cuda_memory": None,
         "execution_progress": {
@@ -597,7 +599,9 @@ def _late_failure(
             output, current_modules=current, torch=torch
         ),
         "candidate_module_state": current,
+        "candidate_module_state_sha256": runtime.canonical_bank_sha256(current),
         "candidate_initial_state": initial,
+        "candidate_initial_state_sha256": runtime.canonical_bank_sha256(initial),
         "cache_guard": {
             "complete": True,
             "labels": cache_labels,
@@ -700,7 +704,7 @@ def _expect_rejected(receipt: dict[str, Any], *, plan: dict[str, Any], execution
 
 
 def _expect_failure_rejected(
-    receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str, output: Path
+    receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str, output: Path, label: str
 ) -> None:
     try:
         roundtrip_validate_terminal(
@@ -715,7 +719,7 @@ def _expect_failure_rejected(
         )
     except PhaseBContractError:
         return
-    raise AssertionError("B-IPC1 late FAILURE tamper unexpectedly validated")
+    raise AssertionError(f"B-IPC1 late FAILURE tamper unexpectedly validated: {label}")
 
 
 def main() -> int:
@@ -937,6 +941,7 @@ def main() -> int:
                 plan=plan,
                 execution_commit=args.execution_commit,
                 output=directory,
+                label=f"{name}:{suffix}",
             )
             late_tampers.append(f"{name}:{suffix}")
         parsed_failure, failure_payload, failure_sha = roundtrip_validate_terminal(

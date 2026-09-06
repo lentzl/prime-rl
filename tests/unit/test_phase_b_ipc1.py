@@ -11,6 +11,7 @@ from prime_rl.phase_b_contract import PhaseBContractError
 from prime_rl.phase_b_ipc1 import (
     ACTIONS,
     EVALUATION_DEPTHS,
+    FAILURE_STATUS_CLASSES,
     SELECTIONS,
     build_cache_guard_labels,
     build_memory_checkpoint_labels,
@@ -332,3 +333,14 @@ def test_ipc1_exact_host_terminal_proof_closure_is_byte_bound() -> None:
     for prefix in ("log", "exit_status"):
         path = proof / validator_failure[f"{prefix}_path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == validator_failure[f"{prefix}_sha256"]
+    tamper_failure = manifest["superseded_late_tamper_proof_failure"]
+    assert tamper_failure["proof_file_created"] is False
+    assert tamper_failure["late_failure_terminal_count"] == 0
+    assert tamper_failure["model_loaded"] is False
+    assert tamper_failure["cuda_initialized"] is False
+    assert [record["status"] for record in tamper_failure["ordinary_failure_files"]] == [
+        pair[0] for pair in FAILURE_STATUS_CLASSES
+    ]
+    for prefix in ("log", "exit_status"):
+        path = proof / tamper_failure[f"{prefix}_path"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == tamper_failure[f"{prefix}_sha256"]

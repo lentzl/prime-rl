@@ -635,6 +635,59 @@ def _validate_terminal_proof_binding(plan: dict[str, Any]) -> None:
         [f"{arm}.final.pt" for arm in TRAINING_ARMS],
         label="superseded validator proof candidates",
     )
+    tamper_failure = manifest.get("superseded_late_tamper_proof_failure")
+    if not isinstance(tamper_failure, dict):
+        raise ProvenanceContractViolated("B-IPC1 superseded late-tamper proof record is absent")
+    _require_exact_keys(
+        tamper_failure,
+        {
+            "classification",
+            "proof_execution_commit",
+            "runner_sha256",
+            "proof_runner_sha256",
+            "source_plan_file_sha256",
+            "log_path",
+            "log_sha256",
+            "exit_status_path",
+            "exit_status_sha256",
+            "exit_status",
+            "output_directory_created",
+            "proof_file_created",
+            "maximal_success_terminal_file_sha256",
+            "maximal_success_candidate_files",
+            "ordinary_failure_files",
+            "late_failure_terminal_count",
+            "model_loaded",
+            "cuda_initialized",
+            "scientific_result",
+        },
+        label="superseded late-tamper proof",
+    )
+    if (
+        tamper_failure["classification"]
+        != "model_free_maximal_success_and_four_ordinary_failures_published_then_post_model_pre_candidate_initial_module_tamper_unexpectedly_validated"
+        or tamper_failure["exit_status"] != 1
+        or tamper_failure["output_directory_created"] is not True
+        or tamper_failure["proof_file_created"] is not False
+        or tamper_failure["late_failure_terminal_count"] != 0
+        or tamper_failure["model_loaded"] is not False
+        or tamper_failure["cuda_initialized"] is not False
+        or tamper_failure["scientific_result"] is not False
+        or file_sha256(directory / tamper_failure["log_path"]) != tamper_failure["log_sha256"]
+        or file_sha256(directory / tamper_failure["exit_status_path"])
+        != tamper_failure["exit_status_sha256"]
+    ):
+        raise ProvenanceContractViolated("B-IPC1 superseded late-tamper proof evidence differs")
+    validate_ordered_records(
+        tamper_failure["maximal_success_candidate_files"],
+        [f"{arm}.final.pt" for arm in TRAINING_ARMS],
+        label="superseded late-tamper proof candidates",
+    )
+    validate_ordered_records(
+        tamper_failure["ordinary_failure_files"],
+        [pair[0] for pair in FAILURE_STATUS_CLASSES],
+        label="superseded late-tamper proof failures",
+    )
 
 
 def _validate_antecedents(plan: dict[str, Any]) -> None:
@@ -3468,7 +3521,9 @@ def validate_failure_receipt(
             "candidate_files_valid",
             "candidate_file_audits",
             "candidate_module_state",
+            "candidate_module_state_sha256",
             "candidate_initial_state",
+            "candidate_initial_state_sha256",
             "cache_guard",
             "cuda_memory",
             "execution_progress",
@@ -3507,6 +3562,17 @@ def validate_failure_receipt(
     _validate_failure_module_records(
         audit["candidate_module_state"], allow_absent=modules_absent, label="current"
     )
+    expected_initial_sha256 = (
+        None
+        if audit["candidate_initial_state"] is None
+        else canonical_bank_sha256(audit["candidate_initial_state"])
+    )
+    if (
+        audit["candidate_initial_state_sha256"] != expected_initial_sha256
+        or audit["candidate_module_state_sha256"]
+        != canonical_bank_sha256(audit["candidate_module_state"])
+    ):
+        raise PhaseBContractError("B-IPC1 FAILURE module-state binding differs")
     if receipt["candidate_files_present"]:
         if torch is None:
             raise PhaseBContractError("B-IPC1 FAILURE cannot audit candidate files without torch")
@@ -3607,7 +3673,11 @@ def _post_failure_audit(plan: dict[str, Any], audit: dict[str, Any]) -> dict[str
         "candidate_files_valid": False,
         "candidate_file_audits": [],
         "candidate_module_state": [],
+        "candidate_module_state_sha256": canonical_bank_sha256([]),
         "candidate_initial_state": audit.get("module_pre"),
+        "candidate_initial_state_sha256": (
+            None if audit.get("module_pre") is None else canonical_bank_sha256(audit["module_pre"])
+        ),
         "cache_guard": None,
         "cuda_memory": None,
         "execution_progress": {
@@ -3657,6 +3727,9 @@ def _post_failure_audit(plan: dict[str, Any], audit: dict[str, Any]) -> dict[str
                 {"name": record["name"], "sha256": smoke._module_tensor_sha256(record["module"], audit["torch"])}
                 for record in modules
             ]
+            result["candidate_module_state_sha256"] = canonical_bank_sha256(
+                result["candidate_module_state"]
+            )
         if audit.get("torch") is not None:
             result["candidate_file_audits"] = _failure_candidate_audit(
                 output,
