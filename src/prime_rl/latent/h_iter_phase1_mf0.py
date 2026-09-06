@@ -424,22 +424,28 @@ def run_candidate_synthetic(torch: Any) -> dict[str, Any]:
         codec = [parameter.grad for name, parameter in candidate.named_parameters() if name.startswith("codec_")]
         cell = [parameter.grad for name, parameter in candidate.named_parameters() if name.startswith(("self_norm", "message_norm", "cell_", "post_norm"))]
         readout = [parameter.grad for name, parameter in candidate.named_parameters() if name.startswith("readout")]
-        def group_ok(group: list[Any]) -> bool:
-            return all(gradient is not None and torch.isfinite(gradient).all() for gradient in group) and sum(float(gradient.double().square().sum()) for gradient in group) > 1e-8
-        if not group_ok(codec) or not group_ok(readout):
+        def group_norm(group: list[Any]) -> float | None:
+            if not all(gradient is not None and torch.isfinite(gradient).all() for gradient in group):
+                return None
+            return math.sqrt(sum(float(gradient.double().square().sum()) for gradient in group))
+        codec_norm = group_norm(codec)
+        readout_norm = group_norm(readout)
+        if codec_norm is None or readout_norm is None or codec_norm <= 1e-8 or readout_norm <= 1e-8:
             raise MF0ContractError("MF0 codec/readout connectivity differs")
         if arm == "STATIC":
             if any(gradient is not None for gradient in cell):
                 raise MF0ContractError("MF0 STATIC cell received gradients")
             cell_connected = False
+            cell_norm = None
         else:
-            if not group_ok(cell):
+            cell_norm = group_norm(cell)
+            if cell_norm is None or cell_norm <= 1e-8:
                 raise MF0ContractError("MF0 cell connectivity differs")
             cell_connected = True
         unchanged = all(torch.equal(candidate.state_dict()[name], initial[name]) for name in names)
         if not unchanged:
             raise MF0ContractError("MF0 backward changed candidate state")
-        results.append({"arm": arm, "output_shape": [4], "codec_gradient_nonzero": True, "readout_gradient_nonzero": True, "cell_gradient_nonzero": cell_connected, "state_unchanged": unchanged, "initial_tree_sha256": initial_tree_sha256})
+        results.append({"arm": arm, "output_shape": [4], "codec_gradient_nonzero": True, "codec_gradient_l2": codec_norm, "readout_gradient_nonzero": True, "readout_gradient_l2": readout_norm, "cell_gradient_nonzero": cell_connected, "cell_gradient_l2": cell_norm, "state_unchanged": unchanged, "initial_tree_sha256": initial_tree_sha256})
         candidate.zero_grad(set_to_none=True)
     feature_sha256 = tensor_hash(features)
     if feature_sha256 != SYNTHETIC_FEATURE_SHA256:

@@ -4,10 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import copy
 import gc
 import json
+import math
 import os
 import platform
 import resource
@@ -646,6 +648,49 @@ def host_resources(repo: Path) -> tuple[int, int]:
     return ram, disk
 
 
+def static_guard(repo: Path) -> dict[str, Any]:
+    paths = ["src/prime_rl/latent/h_iter_phase1_mf0.py", "scripts/latent/run_h_iter_phase1_mf0_v1.py"]
+    forbidden: list[str] = []
+    allowed_backwards: list[str] = []
+    for relative in paths:
+        tree = ast.parse(read_regular(repo / relative), filename=relative)
+        parents: list[str] = []
+
+        class Visitor(ast.NodeVisitor):
+            def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+                parents.append(node.name)
+                self.generic_visit(node)
+                parents.pop()
+
+            def visit_Import(self, node: ast.Import) -> None:
+                for alias in node.names:
+                    if alias.name.split(".")[0] in {"transformers", "tokenizers", "accelerate", "safetensors"}:
+                        forbidden.append(f"{relative}:{node.lineno}:import:{alias.name}")
+                self.generic_visit(node)
+
+            def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+                if (node.module or "").split(".")[0] in {"transformers", "tokenizers", "accelerate", "safetensors"}:
+                    forbidden.append(f"{relative}:{node.lineno}:import:{node.module}")
+                self.generic_visit(node)
+
+            def visit_Call(self, node: ast.Call) -> None:
+                name = node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id if isinstance(node.func, ast.Name) else ""
+                if name in {"from_pretrained", "generate", "step"}:
+                    forbidden.append(f"{relative}:{node.lineno}:call:{name}")
+                if name == "backward":
+                    site = f"{relative}:{node.lineno}:call:backward"
+                    if relative == paths[0] and parents and parents[-1] == "run_candidate_synthetic":
+                        allowed_backwards.append(site)
+                    else:
+                        forbidden.append(site)
+                self.generic_visit(node)
+
+        Visitor().visit(tree)
+    if forbidden or len(allowed_backwards) != 1:
+        raise MF0ContractError("MF0 static exposure guard differs")
+    return {"paths": paths, "forbidden_sites": forbidden, "allowed_synthetic_backward_sites": allowed_backwards}
+
+
 def load_assets(repo: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     bank_path = repo / TRAIN_BANK_PATH
     if file_sha256(bank_path) != TRAIN_BANK_FILE_SHA256:
@@ -703,7 +748,7 @@ def mutate_asset(assets: dict[str, dict[str, Any]], name: str) -> dict[str, dict
 def validate_safety(safety: object) -> None:
     if not isinstance(safety, dict):
         raise MF0ContractError("MF0 safety schema differs")
-    safety_keys = {"cuda_visible_devices", "cuda_initialized_before", "cuda_initialized_after", "torch_cpu_only", "tokenizer_calls", "model_calls", "model_backwards", "optimizer_objects", "optimizer_steps", "validation_opens", "heldout_opens", "model_or_tokenizer_loaded", "candidate_created", "checkpoint_created", "model_updated", "object_inventory", "network_guard", "open_firewall"}
+    safety_keys = {"cuda_visible_devices", "cuda_initialized_before", "cuda_initialized_after", "torch_cpu_only", "tokenizer_calls", "model_calls", "model_backwards", "optimizer_objects", "optimizer_steps", "validation_opens", "heldout_opens", "model_or_tokenizer_loaded", "candidate_created", "checkpoint_created", "model_updated", "object_inventory", "network_guard", "open_firewall", "static_guard"}
     if set(safety) != safety_keys:
         raise MF0ContractError("MF0 safety keys differ")
     zero_fields = ("tokenizer_calls", "model_calls", "model_backwards", "optimizer_objects", "optimizer_steps", "validation_opens", "heldout_opens")
@@ -726,6 +771,9 @@ def validate_safety(safety: object) -> None:
     firewall = safety.get("open_firewall")
     if not isinstance(firewall, dict) or set(firewall) != {"denied_count", "validation_open_count", "heldout_open_count", "opened_paths"} or firewall.get("denied_count") != 0 or firewall.get("validation_open_count") != 0 or firewall.get("heldout_open_count") != 0 or firewall.get("opened_paths") != EXPERIMENT_PLAN_ASSET_PATHS:
         raise MF0ContractError("MF0 open firewall differs")
+    static = safety.get("static_guard")
+    if not isinstance(static, dict) or static.get("paths") != ["src/prime_rl/latent/h_iter_phase1_mf0.py", "scripts/latent/run_h_iter_phase1_mf0_v1.py"] or static.get("forbidden_sites") != [] or not isinstance(static.get("allowed_synthetic_backward_sites"), list) or len(static["allowed_synthetic_backward_sites"]) != 1:
+        raise MF0ContractError("MF0 static guard evidence differs")
 
 
 def validate_proof(proof: dict[str, Any], *, plan: dict[str, Any], assets: dict[str, dict[str, Any]], execution_commit: str, plan_file_sha256: str) -> None:
@@ -755,10 +803,13 @@ def validate_proof(proof: dict[str, Any], *, plan: dict[str, Any], assets: dict[
     if not isinstance(synthetic, dict) or set(synthetic) != synthetic_keys or synthetic.get("forwards") != 5 or synthetic.get("backwards") != 5 or synthetic.get("optimizer_objects") != 0 or synthetic.get("optimizer_steps") != 0 or synthetic.get("parameter_names") != EXPECTED_PARAMETER_NAMES or synthetic.get("parameter_count_per_arm") != EXPECTED_PARAMETER_COUNT or synthetic.get("all_initial_trees_equal") is not True or not isinstance(synthetic.get("initial_tree_sha256"), str) or len(synthetic["initial_tree_sha256"]) != 64 or synthetic.get("synthetic_feature_sha256") != SYNTHETIC_FEATURE_SHA256 or synthetic.get("synthetic_feature_shape") != [24, 2048] or [row.get("arm") for row in synthetic.get("arms", [])] != ["STATIC", "FFN", "FIXED_T4", "RESET_K", "REC_K"]:
         raise MF0ContractError("MF0 synthetic evidence differs")
     for row in synthetic["arms"]:
-        if set(row) != {"arm", "output_shape", "codec_gradient_nonzero", "readout_gradient_nonzero", "cell_gradient_nonzero", "state_unchanged", "initial_tree_sha256"}:
+        if set(row) != {"arm", "output_shape", "codec_gradient_nonzero", "codec_gradient_l2", "readout_gradient_nonzero", "readout_gradient_l2", "cell_gradient_nonzero", "cell_gradient_l2", "state_unchanged", "initial_tree_sha256"}:
             raise MF0ContractError("MF0 arm evidence keys differ")
         expected_cell = row["arm"] != "STATIC"
-        if row.get("codec_gradient_nonzero") is not True or row.get("readout_gradient_nonzero") is not True or row.get("state_unchanged") is not True or row.get("cell_gradient_nonzero") is not expected_cell or row.get("initial_tree_sha256") != synthetic["initial_tree_sha256"] or row.get("output_shape") != [4]:
+        numeric_norms = [row.get("codec_gradient_l2"), row.get("readout_gradient_l2")]
+        if expected_cell:
+            numeric_norms.append(row.get("cell_gradient_l2"))
+        if any(not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(value) or not value > 1e-8 for value in numeric_norms) or (not expected_cell and row.get("cell_gradient_l2") is not None) or row.get("codec_gradient_nonzero") is not True or row.get("readout_gradient_nonzero") is not True or row.get("state_unchanged") is not True or row.get("cell_gradient_nonzero") is not expected_cell or row.get("initial_tree_sha256") != synthetic["initial_tree_sha256"] or row.get("output_shape") != [4]:
             raise MF0ContractError("MF0 gradient evidence differs")
     if proof["safety_resource_contract"] != plan["safety_boundary"]:
         raise MF0ContractError("MF0 safety/resource contract differs")
@@ -953,6 +1004,7 @@ def main() -> None:
         before = {path: file_sha256(repo / path) for path in plan["asset_sha256"]}
         if before != plan["asset_sha256"]:
             raise InfrastructureInvalid("MF0 preflight asset closure differs")
+        static = static_guard(repo)
         with guard:
             import torch
 
@@ -1051,6 +1103,7 @@ def main() -> None:
             "object_inventory": inventory,
             "network_guard": guard.evidence(),
             "open_firewall": {"denied_count": firewall.denied_count, "validation_open_count": firewall.validation_open_count, "heldout_open_count": firewall.heldout_open_count, "opened_paths": sorted(set(firewall.opened))},
+            "static_guard": static,
         }
         tamper_rows = [*tamper_results, {"name": "proof_status_changed", "rejected": True, "error_type": "MF0ContractError"}, {"name": "proof_self_hash_changed", "rejected": True, "error_type": "MF0ContractError"}]
         proof: dict[str, Any] = {
