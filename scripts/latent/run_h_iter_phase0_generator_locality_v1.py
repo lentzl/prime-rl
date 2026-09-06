@@ -14,6 +14,7 @@ import platform
 import resource
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -27,6 +28,9 @@ from prime_rl.latent.h_iter_phase0 import (
     FAILURE_SCHEMA,
     MECHANISM,
     MECHANISM_TAMPERS,
+    NETWORK_GUARD_CONTRACT,
+    PHASE0_AUDITOR_EXPOSURE,
+    PHASE1_LEARNING_EXPOSURE,
     PROOF_SCHEMA,
     RECEIPT_TAMPERS,
     RESOURCE_BOUNDS,
@@ -55,6 +59,111 @@ from prime_rl.latent.h_iter_phase0 import (
 
 class InfrastructureInvalid(RuntimeError):
     pass
+
+
+class PhaseTracker:
+    def __init__(self) -> None:
+        self.started_ns = time.monotonic_ns()
+        self.active: tuple[str, int, int, int] | None = None
+        self.completed: list[dict[str, object]] = []
+
+    def enter(self, phase: str, seconds: int) -> int:
+        if self.active is not None:
+            raise InfrastructureInvalid("Phase-0 timing phase overlap")
+        entered = time.monotonic_ns() - self.started_ns
+        cap_ns = seconds * 1_000_000_000
+        alarm_after_ns = (seconds - 1) * 1_000_000_000
+        self.active = (phase, entered, cap_ns, alarm_after_ns)
+        signal.alarm(seconds - 1)
+        return entered
+
+    def exit(self, outcome: str, *, timeout_observed: bool = False) -> None:
+        if self.active is None or outcome not in {"completed", "error"}:
+            raise InfrastructureInvalid("Phase-0 timing phase exit differs")
+        phase, entered, cap_ns, alarm_after_ns = self.active
+        exited = time.monotonic_ns() - self.started_ns
+        duration = exited - entered
+        self.completed.append(
+            {
+                "phase": phase,
+                "entered_ns_since_start": entered,
+                "exited_ns_since_start": exited,
+                "duration_ns": duration,
+                "outcome": outcome,
+                "cap_ns": cap_ns,
+                "alarm_after_ns": alarm_after_ns,
+                "alarm_safety_margin_ns": 1_000_000_000,
+                "timeout_observed": timeout_observed,
+                "alarm_requested_after_ns": alarm_after_ns,
+                "timeout_observed_duration_ns": duration if timeout_observed else None,
+                "delivery_overrun_ns": max(0, duration - cap_ns) if timeout_observed else 0,
+                "timing_cap_exceeded": duration > cap_ns,
+            }
+        )
+        self.active = None
+        signal.alarm(0)
+
+    def terminal_boundary(self) -> tuple[dict[str, object], int]:
+        if self.active is None or self.active[0] != "terminal_publication":
+            raise InfrastructureInvalid("Phase-0 terminal phase is not active")
+        entered = self.active[1]
+        return {
+            "phase": "terminal_publication",
+            "entered_ns_since_start": entered,
+            "limit_ns": RESOURCE_BOUNDS["terminal_timeout_seconds"] * 1_000_000_000,
+            "completion_observable_inside_terminal": False,
+            "self_reference_boundary": "post_write_fsync_reopen_validation_and_process_exit_are_external_to_immutable_terminal_bytes",
+        }, entered
+
+
+class NetworkGuard:
+    def __init__(self) -> None:
+        self.attempt_count = 0
+        self.installed = False
+        self.wrappers_restored = False
+        self._originals: dict[str, object] = {}
+
+    def _reject(self, *args: object, **kwargs: object) -> object:
+        del args, kwargs
+        self.attempt_count += 1
+        raise InfrastructureInvalid("Phase-0 network attempt rejected")
+
+    def _audit(self, event: str, args: tuple[object, ...]) -> None:
+        del args
+        if event in NETWORK_GUARD_CONTRACT["audit_events"]:
+            self.attempt_count += 1
+            raise InfrastructureInvalid("Phase-0 audited network attempt rejected")
+
+    def __enter__(self) -> NetworkGuard:
+        self._originals = {
+            "connect": socket.socket.connect,
+            "connect_ex": socket.socket.connect_ex,
+            "create_connection": socket.create_connection,
+            "getaddrinfo": socket.getaddrinfo,
+        }
+        socket.socket.connect = self._reject  # type: ignore[method-assign]
+        socket.socket.connect_ex = self._reject  # type: ignore[method-assign]
+        socket.create_connection = self._reject  # type: ignore[assignment]
+        socket.getaddrinfo = self._reject  # type: ignore[assignment]
+        sys.addaudithook(self._audit)
+        self.installed = True
+        return self
+
+    def __exit__(self, _error_type: object, _error: object, _traceback: object) -> None:
+        socket.socket.connect = self._originals["connect"]  # type: ignore[method-assign,assignment]
+        socket.socket.connect_ex = self._originals["connect_ex"]  # type: ignore[method-assign,assignment]
+        socket.create_connection = self._originals["create_connection"]  # type: ignore[assignment]
+        socket.getaddrinfo = self._originals["getaddrinfo"]  # type: ignore[assignment]
+        self.wrappers_restored = True
+
+    def evidence(self) -> dict[str, object]:
+        return {
+            **NETWORK_GUARD_CONTRACT,
+            "installed": self.installed,
+            "wrappers_restored": self.wrappers_restored,
+            "audit_hook_persistent": self.installed,
+            "attempt_count": self.attempt_count,
+        }
 
 
 class ArtifactWriter:
@@ -152,6 +261,8 @@ def file_sha256(path: Path) -> str:
 
 
 def run_git(repo: Path, *args: str) -> str:
+    if not args or args[0] not in {"rev-parse", "status"}:
+        raise InfrastructureInvalid("Phase-0 subprocess is outside the frozen allowlist")
     return subprocess.run(
         ["git", *args], cwd=repo, check=True, stdout=subprocess.PIPE, text=True
     ).stdout.rstrip("\n")
@@ -195,6 +306,19 @@ def runtime_evidence() -> tuple[dict[str, object], object]:
         raise InfrastructureInvalid("Phase-0 must be offline")
     if platform.python_version() != EXPECTED_RUNTIME["python"]:
         raise InfrastructureInvalid("Python runtime differs")
+    if sys.executable != EXPECTED_RUNTIME["sys_executable"] or sys.prefix != EXPECTED_RUNTIME["sys_prefix"]:
+        raise InfrastructureInvalid("shared Python executable/prefix differs")
+    shared_project = Path("/home/ubuntu/rlm/prime-rl")
+    if any(
+        path.is_symlink() or not path.is_file()
+        for path in (shared_project / "pyproject.toml", shared_project / "uv.lock")
+    ):
+        raise InfrastructureInvalid("shared project provenance file is absent/symlinked")
+    if (
+        file_sha256(shared_project / "pyproject.toml") != EXPECTED_RUNTIME["shared_project_pyproject_sha256"]
+        or file_sha256(shared_project / "uv.lock") != EXPECTED_RUNTIME["shared_project_uv_lock_sha256"]
+    ):
+        raise InfrastructureInvalid("shared project bytes differ")
     versions = {
         "torch_distribution": importlib.metadata.version("torch"),
         "transformers_distribution": importlib.metadata.version("transformers"),
@@ -250,13 +374,21 @@ def static_forbidden_sites(repo: Path) -> list[str]:
                     forbidden.append(f"{path}:{node.lineno}:call:{name}")
                 if name == "backward" and (path, parents[-1] if parents else "") != allowed_backward:
                     forbidden.append(f"{path}:{node.lineno}:call:backward")
+                if (
+                    isinstance(node.func, ast.Attribute)
+                    and isinstance(node.func.value, ast.Name)
+                    and node.func.value.id == "subprocess"
+                    and node.func.attr == "run"
+                    and (parents[-1] if parents else "") not in {"run_git", "git_blob"}
+                ):
+                    forbidden.append(f"{path}:{node.lineno}:call:subprocess.run")
                 self.generic_visit(node)
 
         Visitor().visit(tree)
     return forbidden
 
 
-def object_inventory(torch: object, output_dir: Path) -> dict[str, object]:
+def object_inventory(torch: object | None, output_dir: Path) -> dict[str, object]:
     modeling = sorted(name for name in sys.modules if name.startswith("transformers.models") or ".modeling_" in name)
     optimizer_objects = 0
     pretrained_model_objects = 0
@@ -274,6 +406,12 @@ def object_inventory(torch: object, output_dir: Path) -> dict[str, object]:
     inventory = sorted(path.name for path in output_dir.iterdir())
     candidates = [name for name in inventory if "candidate" in name.lower()]
     checkpoints = [name for name in inventory if "checkpoint" in name.lower()]
+    relevant_absent = all(
+        name not in sys.modules
+        for name in ("torch", "transformers", "tokenizers")
+    )
+    if torch is None and not relevant_absent:
+        raise InfrastructureInvalid("pre-Torch safety inference lacks absent-module proof")
     return {
         "transformers_modeling_modules": modeling,
         "pretrained_model_objects": pretrained_model_objects,
@@ -282,11 +420,20 @@ def object_inventory(torch: object, output_dir: Path) -> dict[str, object]:
         "output_inventory": inventory,
         "candidate_files": candidates,
         "checkpoint_files": checkpoints,
-        "cuda_initialized": torch.cuda.is_initialized(),
+        "cuda_initialized": False if torch is None else torch.cuda.is_initialized(),
+        "object_census_method": "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes",
+        "cuda_observation_method": (
+            "torch_module_absence_proves_no_torch_cuda_runtime_contact"
+            if torch is None
+            else "torch.cuda.is_initialized"
+        ),
+        "relevant_modules_absent_for_preimport_inference": relevant_absent if torch is None else False,
     }
 
 
-def safety_evidence(torch: object, repo: Path, output_dir: Path) -> dict[str, object]:
+def safety_evidence(
+    torch: object, repo: Path, output_dir: Path, network_guard: NetworkGuard
+) -> dict[str, object]:
     observed = object_inventory(torch, output_dir)
     return {
         "coordinator_e33_loaded": observed["pretrained_model_objects"] != 0,
@@ -295,13 +442,20 @@ def safety_evidence(torch: object, repo: Path, output_dir: Path) -> dict[str, ob
         "candidate_created": bool(observed["candidate_files"]),
         "checkpoint_created": bool(observed["checkpoint_files"]),
         "model_updated": observed["pretrained_model_objects"] != 0,
-        "network_enabled": False,
-        "validation_scientific_opened": False,
-        "heldout_scientific_opened": False,
+        "phase0_auditor_opened": PHASE0_AUDITOR_EXPOSURE,
+        "phase1_learning_exposure": PHASE1_LEARNING_EXPOSURE,
+        "phase0_probe_selection_precommitted": True,
+        "phase1_thresholds_present": False,
+        "network_guard": network_guard.evidence(),
         "transformers_modeling_modules": observed["transformers_modeling_modules"],
         "pretrained_model_objects": observed["pretrained_model_objects"],
         "tokenizer_objects": observed["tokenizer_objects"],
         "optimizer_objects": observed["optimizer_objects"],
+        "object_census_method": observed["object_census_method"],
+        "cuda_observation_method": observed["cuda_observation_method"],
+        "relevant_modules_absent_for_preimport_inference": observed[
+            "relevant_modules_absent_for_preimport_inference"
+        ],
         "output_inventory_before_terminal": observed["output_inventory"],
         "static_forbidden_model_call_sites": static_forbidden_sites(repo),
         "tokenizer_calls": 0,
@@ -343,7 +497,15 @@ def regenerate_overlap(repo: Path, overlap: dict[str, object], banks: dict[str, 
 
 
 def receipt_tamper_audit(
-    proof: dict[str, object], *, plan: dict, banks: dict, selection: dict, schedule: dict, overlap: dict
+    proof: dict[str, object],
+    *,
+    plan: dict,
+    banks: dict,
+    selection: dict,
+    schedule: dict,
+    overlap: dict,
+    expected_execution_commit: str,
+    expected_plan_file_sha256: str,
 ) -> dict[str, object]:
     results = []
 
@@ -368,14 +530,14 @@ def receipt_tamper_audit(
             altered["runtime"]["cuda_initialized_after"] = True
         elif name == "optimizer_step_nonzero":
             altered["safety"]["optimizer_steps"] = 1
-        elif name == "validation_scientific_opened":
-            altered["safety"]["validation_scientific_opened"] = True
-        elif name == "heldout_scientific_opened":
-            altered["safety"]["heldout_scientific_opened"] = True
+        elif name == "validation_phase1_learning_exposure_nonzero":
+            altered["safety"]["phase1_learning_exposure"]["validation_model_or_tokenizer_calls"] = 1
+        elif name == "heldout_phase1_learning_exposure_nonzero":
+            altered["safety"]["phase1_learning_exposure"]["heldout_model_or_tokenizer_calls"] = 1
         elif name == "thresholds_present":
             altered["learning_thresholds"] = {}
         elif name == "receipt_sha_stale":
-            altered["resources"]["total_seconds"] += 1.0
+            altered["resources"]["prepublication_elapsed_ns"] += 1
         else:
             raise AssertionError(name)
         if name != "receipt_sha_stale":
@@ -388,7 +550,10 @@ def receipt_tamper_audit(
                 selection=selection,
                 schedule=schedule,
                 overlap=overlap,
+                expected_execution_commit=expected_execution_commit,
+                expected_plan_file_sha256=expected_plan_file_sha256,
                 require_receipt_tampers=False,
+                require_final_timing=False,
             )
         except (ContractError, KeyError, TypeError):
             results.append({"name": name, "rejected": True})
@@ -411,7 +576,11 @@ def _timeout(_signum: int, _frame: object) -> None:
     raise TimeoutError("Phase-0 frozen phase timeout")
 
 
-def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple[dict[str, object], dict[str, object]]:
+def run(
+    args: argparse.Namespace,
+    ledger: MemoryLedger,
+    network_guard: NetworkGuard,
+) -> tuple[dict[str, object], dict[str, object]]:
     repo = args.repo.resolve(strict=True)
     plan_path = args.plan.resolve(strict=True)
     plan = load_canonical_json(plan_path)
@@ -476,7 +645,7 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
     mechanism_tampers = run_mechanism_tamper_audit(banks, selection, locality_evidence)
     ledger.checkpoint("mechanism_tampers_validated")
 
-    safety = safety_evidence(torch, repo, args.output_dir)
+    safety = safety_evidence(torch, repo, args.output_dir, network_guard)
     runtime["cuda_initialized_after"] = torch.cuda.is_initialized()
     if safety["transformers_modeling_modules"] or safety["optimizer_objects"] or runtime["cuda_initialized_after"]:
         raise InfrastructureInvalid("Phase-0 safety postflight rejected")
@@ -490,7 +659,6 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
     ledger.checkpoint("full_freeze_postflight_validated")
     ledger.checkpoint("proof_prewrite_ready")
     _, free_disk_postflight = host_resources(repo)
-    compute_seconds = time.perf_counter() - started
     return {
         "schema_version": PROOF_SCHEMA,
         "status": "h_iter_phase0_generator_locality_validated",
@@ -550,9 +718,9 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
             "free_disk_bytes_preflight": free_disk_preflight,
             "free_disk_bytes_postflight": free_disk_postflight,
             "artifact_bytes_before_terminal": 0,
-            "compute_seconds": compute_seconds,
-            "audit_seconds": 0.0,
-            "total_seconds": 0.0,
+            "completed_phase_records": [],
+            "final_terminal_publication": {},
+            "prepublication_elapsed_ns": 0,
         },
         "memory": ledger.evidence(),
         "full_freeze": {
@@ -569,17 +737,35 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
         },
         "decision_boundary": DECISION_BOUNDARY,
         "proof_sha256": "",
-    }, {"plan": plan, "banks": banks, "selection": selection, "schedule": schedule, "overlap": overlap}
+    }, {
+        "plan": plan,
+        "banks": banks,
+        "selection": selection,
+        "schedule": schedule,
+        "overlap": overlap,
+        "expected_execution_commit": args.execution_commit,
+        "expected_plan_file_sha256": args.plan_file_sha256,
+    }
 
 
 def failure_payload(
     args: argparse.Namespace,
     error: BaseException,
     status: str,
-    started: float,
     ledger: MemoryLedger | None,
+    tracker: PhaseTracker,
+    network_guard: NetworkGuard,
 ) -> dict[str, object]:
-    audit: dict[str, object] = {"errors": []}
+    audit: dict[str, object] = {
+        "head": None,
+        "tree": None,
+        "status": None,
+        "plan_file_sha256": None,
+        "plan_sha256": None,
+        "plan_sidecar_sha256": None,
+        "plan_asset_hashes": None,
+        "errors": [],
+    }
     repo = args.repo.resolve()
     for name, git_args in (
         ("head", ("rev-parse", "HEAD")),
@@ -593,6 +779,8 @@ def failure_payload(
     try:
         plan = load_canonical_json(args.plan.resolve())
         audit["plan_file_sha256"] = file_sha256(args.plan.resolve())
+        audit["plan_sha256"] = plan["plan_sha256"]
+        audit["plan_sidecar_sha256"] = file_sha256(args.plan.resolve().with_name("phase0-plan.sha256"))
         audit["plan_asset_hashes"] = asset_hashes(repo, plan)
     except BaseException as audit_error:
         audit["errors"].append({"check": "plan_and_assets", "error": f"{type(audit_error).__name__}: {audit_error}"})
@@ -600,30 +788,15 @@ def failure_payload(
     if args.output_dir.is_dir() and not args.output_dir.is_symlink():
         output_inventory = sorted(path.name for path in args.output_dir.iterdir())
     torch = sys.modules.get("torch")
-    if torch is None:
-        observed_safety = {
-            "torch_imported": False,
-            "cuda_initialized": False,
-            "transformers_modeling_modules": sorted(
-                name for name in sys.modules if name.startswith("transformers.models") or ".modeling_" in name
-            ),
-            "pretrained_model_objects": 0,
-            "tokenizer_objects": 0,
-            "optimizer_objects": 0,
-            "output_inventory": output_inventory,
-            "candidate_files": [],
-            "checkpoint_files": [],
-            "static_forbidden_model_call_sites": static_forbidden_sites(repo),
-            "observation_complete": True,
-        }
-    else:
-        inventory = object_inventory(torch, args.output_dir)
-        observed_safety = {
-            "torch_imported": True,
-            **inventory,
-            "static_forbidden_model_call_sites": static_forbidden_sites(repo),
-            "observation_complete": True,
-        }
+    inventory = object_inventory(torch, args.output_dir)
+    observed_safety = {
+        "torch_imported": torch is not None,
+        **inventory,
+        "static_forbidden_model_call_sites": static_forbidden_sites(repo),
+        "network_guard": network_guard.evidence(),
+        "observation_complete": True,
+    }
+    plan_for_binding = plan if "plan" in locals() else {}
     result = {
         "schema_version": FAILURE_SCHEMA,
         "status": status,
@@ -633,8 +806,14 @@ def failure_payload(
         "error": str(error),
         "traceback": traceback.format_exc(),
         "execution_commit": args.execution_commit,
+        "mechanism_code_commit": plan_for_binding.get("mechanism_code_commit"),
+        "authorized_plan_file_sha256": args.plan_file_sha256,
+        "plan_file_sha256": audit["plan_file_sha256"],
+        "plan_sha256": audit["plan_sha256"],
         "actual_safety": {"cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), **observed_safety},
-        "elapsed_seconds": time.perf_counter() - started,
+        "completed_phase_records": copy.deepcopy(tracker.completed),
+        "final_terminal_publication": {},
+        "prepublication_elapsed_ns": 0,
         "partial_memory": {
             "expected_labels": memory_labels(),
             "rows": [] if ledger is None else ledger.rows,
@@ -655,57 +834,85 @@ def failure_payload(
         or observed_safety["candidate_files"]
         or observed_safety["checkpoint_files"]
         or observed_safety["static_forbidden_model_call_sites"]
+        or observed_safety["network_guard"]["attempt_count"]
+        or observed_safety["network_guard"]["installed"] is not True
+        or observed_safety["network_guard"]["wrappers_restored"] is not True
+        or audit["errors"]
     ):
         result["status"] = "infrastructure_invalid"
-    result["failure_sha256"] = canonical_sha256(result, omit="failure_sha256")
     return result
 
 
 def main() -> None:
     args = parse_args()
-    started = time.perf_counter()
     signal.signal(signal.SIGALRM, _timeout)
-    signal.alarm(RESOURCE_BOUNDS["compute_timeout_seconds"])
+    tracker = PhaseTracker()
+    network_guard = NetworkGuard()
     writer = None
     ledger = None
     try:
+        tracker.enter("compute", RESOURCE_BOUNDS["compute_timeout_seconds"])
         writer = ArtifactWriter(args.output_dir)
         ledger = MemoryLedger()
-        proof, context = run(args, ledger, started)
-        signal.alarm(RESOURCE_BOUNDS["audit_timeout_seconds"])
-        audit_started = time.perf_counter()
+        with network_guard:
+            proof, context = run(args, ledger, network_guard)
+        proof["safety"]["network_guard"] = network_guard.evidence()
+        tracker.exit("completed")
+        tracker.enter("audit", RESOURCE_BOUNDS["audit_timeout_seconds"])
         proof["proof_sha256"] = canonical_sha256(proof, omit="proof_sha256")
         receipt = receipt_tamper_audit(proof, **context)
         proof["tamper_audit"]["receipt"] = receipt
-        proof["resources"]["audit_seconds"] = time.perf_counter() - audit_started
-        proof["resources"]["total_seconds"] = time.perf_counter() - started
+        tracker.exit("completed")
+        tracker.enter("terminal_publication", RESOURCE_BOUNDS["terminal_timeout_seconds"])
+        terminal, prepublication_elapsed = tracker.terminal_boundary()
+        proof["resources"]["completed_phase_records"] = copy.deepcopy(tracker.completed)
+        proof["resources"]["final_terminal_publication"] = terminal
+        proof["resources"]["prepublication_elapsed_ns"] = prepublication_elapsed
         proof["proof_sha256"] = canonical_sha256(proof, omit="proof_sha256")
         encoded = canonical_json(proof)
         parsed = strict_json_loads(encoded)
         validate_proof(parsed, **context)
-        signal.alarm(RESOURCE_BOUNDS["terminal_timeout_seconds"])
         reopened = writer.write("PROOF.json", parsed, RESOURCE_BOUNDS["maximum_artifact_bytes"])
         reparsed = strict_json_loads(reopened[:-1])
         validate_proof(reparsed, **context)
         signal.alarm(0)
     except BaseException as error:
-        signal.alarm(RESOURCE_BOUNDS["failure_audit_timeout_seconds"])
         if writer is None or writer.terminal_written:
             raise
+        if tracker.active is not None:
+            tracker.exit("error", timeout_observed=isinstance(error, TimeoutError))
+        tracker.enter("failure_audit", RESOURCE_BOUNDS["failure_audit_timeout_seconds"])
         status = (
             "h_iter_phase0_generator_locality_incomplete"
             if isinstance(error, ContractError)
             else "infrastructure_invalid"
         )
-        failure = failure_payload(args, error, status, started, ledger)
+        failure = failure_payload(args, error, status, ledger, tracker, network_guard)
+        tracker.exit("completed")
+        tracker.enter("terminal_publication", RESOURCE_BOUNDS["terminal_timeout_seconds"])
+        terminal, prepublication_elapsed = tracker.terminal_boundary()
+        failure["completed_phase_records"] = copy.deepcopy(tracker.completed)
+        failure["final_terminal_publication"] = terminal
+        failure["prepublication_elapsed_ns"] = prepublication_elapsed
+        failure["failure_sha256"] = canonical_sha256(failure, omit="failure_sha256")
         parsed = strict_json_loads(canonical_json(failure))
-        validate_failure(parsed)
-        signal.alarm(RESOURCE_BOUNDS["terminal_timeout_seconds"])
+        failure_plan = load_canonical_json(args.plan.resolve())
+        validate_failure(
+            parsed,
+            plan=failure_plan,
+            expected_execution_commit=args.execution_commit,
+            expected_plan_file_sha256=args.plan_file_sha256,
+        )
         reopened = writer.write("FAILURE.json", parsed, 16 * 2**20)
         reparsed = strict_json_loads(reopened[:-1])
         if reparsed != parsed:
             raise InfrastructureInvalid("Phase-0 failure changed after publication") from error
-        validate_failure(reparsed)
+        validate_failure(
+            reparsed,
+            plan=failure_plan,
+            expected_execution_commit=args.execution_commit,
+            expected_plan_file_sha256=args.plan_file_sha256,
+        )
         signal.alarm(0)
         raise SystemExit(2) from error
 
