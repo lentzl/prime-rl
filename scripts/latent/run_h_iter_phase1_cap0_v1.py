@@ -174,7 +174,7 @@ def validate_plan(plan: dict[str, Any], external_sha256: str | None = None) -> N
         raise CAP0ContractError("CAP0 mechanism commit differs")
     if plan["execution_authorization"] != AUTHORIZATION or plan["output_root"] != OUTPUT_ROOT or plan["remote_paths"] != REMOTE_PATHS or plan["runtime"] != RUNTIME:
         raise CAP0ContractError("CAP0 plan authority differs")
-    if not isinstance(plan["asset_sha256"], dict) or list(plan["asset_sha256"]) != PLAN_ASSET_PATHS or any(not isinstance(value, str) or len(value) != 64 for value in plan["asset_sha256"].values()):
+    if not isinstance(plan["asset_sha256"], dict) or set(plan["asset_sha256"]) != set(PLAN_ASSET_PATHS) or any(not isinstance(value, str) or len(value) != 64 for value in plan["asset_sha256"].values()):
         raise CAP0ContractError("CAP0 plan asset map differs")
     expected = {
         "mf0_archive_binding": MF0_BINDING,

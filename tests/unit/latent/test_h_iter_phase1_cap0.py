@@ -143,6 +143,9 @@ def test_contract_tampers_1_through_40_rejected(frozen: tuple[dict, dict, dict])
 def test_plan_and_static_guard(frozen: tuple[dict, dict, dict]) -> None:
     plan = plan_fixture()
     assert list(plan["asset_sha256"]) == runner.PLAN_ASSET_PATHS
+    reparsed = contract.strict_loads(contract.canonical_json(plan))
+    runner.validate_plan(reparsed)
+    assert reparsed["asset_sha256"] == plan["asset_sha256"]
     assert runner.static_guard(ROOT)["forbidden_sites"] == []
     assert not any("validation-bank" in path or "heldout-bank" in path for path in runner.PLAN_ASSET_PATHS)
 
