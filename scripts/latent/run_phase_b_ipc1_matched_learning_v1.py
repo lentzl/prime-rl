@@ -30,6 +30,7 @@ from prime_rl.phase_b_ipc1 import (
     ARTIFACT_CAP_BYTES,
     CUDA_MEMORY_CAP_BYTES,
     EVALUATION_DEPTHS,
+    EXPECTED_LATE_FAILURE_TAMPERS,
     FAILURE_STATUS_CLASSES,
     INITIALIZATION_SEED,
     MINIMUM_FREE_DISK_BYTES,
@@ -571,6 +572,8 @@ def _validate_terminal_proof_binding(plan: dict[str, Any]) -> None:
         or len(decoded_receipt.get("late_failure_terminals", [])) != binding["late_failure_terminal_count"]
         or len(decoded_receipt.get("late_failure_tamper_cases_rejected", []))
         != binding["late_failure_tamper_cases_rejected"]
+        or decoded_receipt.get("late_failure_tamper_cases_rejected")
+        != list(EXPECTED_LATE_FAILURE_TAMPERS)
         or decoded_receipt.get("full_freeze_target_count") != binding["full_freeze_target_count"]
         or decoded_receipt.get("mapping_insertion_permutation_canonical_equal")
         is not binding["mapping_insertion_permutation_canonical_equal"]
@@ -1849,9 +1852,23 @@ def _save_candidates(
 ) -> list[dict[str, Any]]:
     records = []
     for arm in TRAINING_ARMS:
-        audit.update({"stage": "candidate_write", "task_key": None, "arm": arm})
         name = f"{arm}.final.pt"
-        _memory_checkpoint(torch, audit, f"candidate:{arm}:before_write")
+        before_write = f"candidate:{arm}:before_write"
+        try:
+            _memory_checkpoint(torch, audit, before_write)
+        finally:
+            # A cap exception is raised after the checkpoint is appended. Preserve
+            # the exact candidate-write stage for that bounded failure as well.
+            ledger = audit.get("memory_ledger", [])
+            if ledger and ledger[-1].get("checkpoint") == before_write:
+                audit.update(
+                    {
+                        "stage": "candidate_write",
+                        "task_key": None,
+                        "arm": arm,
+                        "call_index": audit["cache_guard"].calls,
+                    }
+                )
         codec_state = b1._cpu_state_dict(codecs[arm])
         sidecar_state = None if arm == "STATIC" else b1._cpu_state_dict(sidecars[arm])
         state_records = _candidate_state_records(codec_state, sidecar_state, torch=torch)
@@ -1862,9 +1879,17 @@ def _save_candidates(
             "sidecar": sidecar_state,
             "module_post_state": state_records,
         }
-        sha = _exclusive_candidate_save(output, name, payload, torch=torch)
-        _fsync_directory(output)
-        _memory_checkpoint(torch, audit, f"candidate:{arm}:after_write")
+        after_write = f"candidate:{arm}:after_write"
+        try:
+            sha = _exclusive_candidate_save(output, name, payload, torch=torch)
+            _fsync_directory(output)
+        finally:
+            final = output / name
+            ledger = audit.get("memory_ledger", [])
+            if final.is_file() and not final.is_symlink() and (
+                not ledger or ledger[-1].get("checkpoint") != after_write
+            ):
+                _memory_checkpoint(torch, audit, after_write)
         records.append(
             {
                 "name": name,
@@ -2098,6 +2123,14 @@ def execute(
     immutable_inputs = _immutable_input_records(plan)
     _memory_checkpoint(torch, audit, "after_final_audits")
     _memory_checkpoint(torch, audit, "before_candidate_writes")
+    audit.update(
+        {
+            "stage": "candidate_ready",
+            "task_key": None,
+            "arm": None,
+            "call_index": guard.calls,
+        }
+    )
     candidates = _save_candidates(output, codecs, sidecars, b1=b1, torch=torch, audit=audit)
     full_freeze = _full_freeze_audit(plan, execution_commit=execution_commit)
     _memory_checkpoint(torch, audit, "before_terminal")
@@ -3271,6 +3304,19 @@ def _legal_failure_cache_core(
     return legal
 
 
+def _validate_failure_dynamic_cache_trips(
+    *, labels: Sequence[str], trip_count: Any, cache_rejection: bool
+) -> None:
+    if isinstance(trip_count, bool) or not isinstance(trip_count, int) or trip_count < 0:
+        raise PhaseBContractError("B-IPC1 FAILURE DynamicCache trip evidence differs")
+    if not labels:
+        if trip_count not in (0, 1):
+            raise PhaseBContractError("B-IPC1 FAILURE pre-entry DynamicCache trip evidence differs")
+        return
+    if trip_count < 1 or (not cache_rejection and trip_count != 1):
+        raise PhaseBContractError("B-IPC1 FAILURE DynamicCache trip classification differs")
+
+
 def _validate_failure_cache_and_progress(
     audit: dict[str, Any], *, plan: dict[str, Any], cache_rejection: bool
 ) -> None:
@@ -3338,6 +3384,11 @@ def _validate_failure_cache_and_progress(
     expected_labels = build_cache_guard_labels(schedule)
     if not isinstance(labels, list) or any(not isinstance(label, str) for label in labels):
         raise PhaseBContractError("B-IPC1 FAILURE cache label schema differs")
+    _validate_failure_dynamic_cache_trips(
+        labels=labels,
+        trip_count=cache["dynamic_cache_trip_count"],
+        cache_rejection=cache_rejection,
+    )
     core = labels[:-1] if labels[-1:] == ["CACHE_GUARD_EXIT"] else labels
     legal_cores = _legal_failure_cache_core(expected_labels, calls=calls, schedule_length=len(schedule))
     if (
@@ -3348,12 +3399,6 @@ def _validate_failure_cache_and_progress(
         or (labels[-1:] == ["CACHE_GUARD_EXIT"] and (not core or core[0] != "CACHE_GUARD_ENTRY"))
         or cache["exact_prefix"] is not True
         or cache["model_calls"] != calls
-        or isinstance(cache["dynamic_cache_trip_count"], bool)
-        or not isinstance(cache["dynamic_cache_trip_count"], int)
-        or cache["dynamic_cache_trip_count"] < 0
-        or (labels != [] and cache["dynamic_cache_trip_count"] < 1)
-        or (not cache_rejection and cache["dynamic_cache_trip_count"] > 1)
-        or (cache_rejection and cache["dynamic_cache_trip_count"] > 2)
         or cache["closure_check_count"] != len(labels)
         or cache["closure_checked_at_every_label"] is not True
     ):
@@ -3528,6 +3573,109 @@ def _validate_failure_memory(
         raise PhaseBContractError("B-IPC1 non-infrastructure FAILURE exceeded memory cap")
 
 
+def _validate_failure_stage(
+    audit: dict[str, Any],
+    breadcrumbs: dict[str, Any],
+    *,
+    plan: dict[str, Any],
+    candidate_files_present: Sequence[str],
+) -> None:
+    cache = audit["cache_guard"]
+    if cache is None:
+        return
+    progress = audit["execution_progress"]
+    schedule = _failure_expected_schedules(plan)[progress["schedule_name"]]
+    _validate_failure_stage_evidence(
+        audit,
+        breadcrumbs,
+        schedule=schedule,
+        candidate_files_present=candidate_files_present,
+    )
+
+
+def _validate_failure_stage_evidence(
+    audit: dict[str, Any],
+    breadcrumbs: dict[str, Any],
+    *,
+    schedule: Sequence[dict[str, Any]],
+    candidate_files_present: Sequence[str],
+) -> None:
+    cache = audit["cache_guard"]
+    progress = audit["execution_progress"]
+    calls = progress["model_calls_completed"]
+    stage = breadcrumbs["stage"]
+    if stage == "candidate_ready":
+        if (
+            breadcrumbs
+            != {"stage": "candidate_ready", "task_key": None, "arm": None, "call_index": calls}
+            or calls != len(schedule)
+            or progress["backward_calls_completed"] != 147
+            or progress["optimizer_steps_completed"] != 12
+            or cache["labels"] != build_cache_guard_labels(schedule)
+            or list(candidate_files_present) != []
+        ):
+            raise PhaseBContractError("B-IPC1 FAILURE candidate-ready progress differs")
+        labels = [record["checkpoint"] for record in audit["cuda_memory"]["ledger"]]
+        expected = build_memory_checkpoint_labels(schedule)
+        stop = expected.index("before_candidate_writes") + 1
+        if labels != expected[:stop]:
+            raise PhaseBContractError("B-IPC1 FAILURE candidate-ready memory boundary differs")
+        return
+    if stage == "candidate_write":
+        arm = breadcrumbs["arm"]
+        if arm not in TRAINING_ARMS:
+            raise PhaseBContractError("B-IPC1 FAILURE candidate-write arm differs")
+        if (
+            breadcrumbs
+            != {"stage": "candidate_write", "task_key": None, "arm": arm, "call_index": calls}
+            or calls != len(schedule)
+            or progress["backward_calls_completed"] != 147
+            or progress["optimizer_steps_completed"] != 12
+            or cache["labels"] != build_cache_guard_labels(schedule)
+        ):
+            raise PhaseBContractError("B-IPC1 FAILURE candidate-write progress differs")
+        position = TRAINING_ARMS.index(arm)
+        allowed_without_current = [f"{name}.final.pt" for name in TRAINING_ARMS[:position]]
+        allowed_with_current = [f"{name}.final.pt" for name in TRAINING_ARMS[: position + 1]]
+        observed_files = list(candidate_files_present)
+        if observed_files not in (allowed_without_current, allowed_with_current):
+            raise PhaseBContractError("B-IPC1 FAILURE candidate-write file prefix differs")
+        labels = [record["checkpoint"] for record in audit["cuda_memory"]["ledger"]]
+        expected = build_memory_checkpoint_labels(schedule)
+        before = expected.index(f"candidate:{arm}:before_write")
+        current_exists = observed_files == allowed_with_current
+        stop = before + (2 if current_exists else 1)
+        legal = [expected[:stop]]
+        if current_exists and arm == TRAINING_ARMS[-1]:
+            legal.append(expected[: stop + 1])
+        if labels not in legal:
+            raise PhaseBContractError("B-IPC1 FAILURE candidate-write memory boundary differs")
+        return
+    candidates = []
+    if calls:
+        candidates.append(schedule[calls - 1])
+    if calls < len(schedule):
+        candidates.append(schedule[calls])
+    expected_breadcrumbs = [
+        {
+            "stage": record["phase"],
+            "task_key": record["task_key"],
+            "arm": record["arm"],
+            "call_index": record["call_index"],
+        }
+        for record in candidates
+    ]
+    if breadcrumbs not in expected_breadcrumbs:
+        if calls == 0 and breadcrumbs == {
+            "stage": "modules_initialized",
+            "task_key": None,
+            "arm": None,
+            "call_index": None,
+        }:
+            return
+        raise PhaseBContractError("B-IPC1 FAILURE breadcrumb differs from call progress")
+
+
 def validate_failure_receipt(
     receipt: dict[str, Any],
     *,
@@ -3644,7 +3792,10 @@ def validate_failure_receipt(
     observed_inventory = _output_inventory(output_dir)
     if audit["output_inventory"] != observed_inventory:
         raise PhaseBContractError("B-IPC1 FAILURE output inventory differs")
-    expected_present = [record["name"] for record in observed_inventory if record["name"].endswith(".pt")]
+    inventory_names = {record["name"] for record in observed_inventory}
+    expected_present = [
+        f"{arm}.final.pt" for arm in TRAINING_ARMS if f"{arm}.final.pt" in inventory_names
+    ]
     if receipt["candidate_files_present"] != expected_present:
         raise PhaseBContractError("B-IPC1 FAILURE candidate file rescan differs")
     expected_candidate_order = [f"{arm}.final.pt" for arm in TRAINING_ARMS]
@@ -3710,6 +3861,12 @@ def validate_failure_receipt(
         infrastructure=pair == FAILURE_STATUS_CLASSES[3],
         required=receipt.get("model_loaded") is True,
         modules_absent=modules_absent,
+        candidate_files_present=receipt["candidate_files_present"],
+    )
+    _validate_failure_stage(
+        audit,
+        receipt["execution_breadcrumbs"],
+        plan=plan,
         candidate_files_present=receipt["candidate_files_present"],
     )
     if receipt.get("model_loaded") is True and not all(
@@ -3819,8 +3976,9 @@ def _post_failure_audit(plan: dict[str, Any], audit: dict[str, Any]) -> dict[str
     try:
         output = Path(audit["output_dir"])
         result["output_inventory"] = _output_inventory(output)
+        inventory_names = {record["name"] for record in result["output_inventory"]}
         result["candidate_files_present"] = [
-            record["name"] for record in result["output_inventory"] if record["name"].endswith(".pt")
+            f"{arm}.final.pt" for arm in TRAINING_ARMS if f"{arm}.final.pt" in inventory_names
         ]
         modules = audit.get("modules") or []
         if modules and smoke is not None:

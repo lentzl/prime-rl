@@ -124,6 +124,115 @@ def test_ipc1_failure_progress_helpers_bind_calls_to_cache_and_update_boundaries
     assert runner._completed_training_updates(schedule, calls_before_learning + 13) == (1, False)
 
 
+def test_ipc1_failure_cache_trip_rules_are_exact_and_cache_rejection_is_unbounded() -> None:
+    runner = _runner_module()
+    for trip_count in (0, 1):
+        runner._validate_failure_dynamic_cache_trips(
+            labels=[], trip_count=trip_count, cache_rejection=False
+        )
+    runner._validate_failure_dynamic_cache_trips(
+        labels=["CACHE_GUARD_ENTRY"], trip_count=1, cache_rejection=False
+    )
+    runner._validate_failure_dynamic_cache_trips(
+        labels=["CACHE_GUARD_ENTRY"], trip_count=1_000_000, cache_rejection=True
+    )
+    for labels, trip_count, cache_rejection in (
+        ([], 2, True),
+        (["CACHE_GUARD_ENTRY"], 0, True),
+        (["CACHE_GUARD_ENTRY"], 2, False),
+    ):
+        with pytest.raises(PhaseBContractError, match="DynamicCache"):
+            runner._validate_failure_dynamic_cache_trips(
+                labels=labels, trip_count=trip_count, cache_rejection=cache_rejection
+            )
+
+
+def test_ipc1_candidate_ready_and_write_failure_boundaries_are_exact() -> None:
+    runner = _runner_module()
+    schedule = build_model_call_schedule(
+        train_keys=[f"train-{index}" for index in range(48)],
+        validation_keys=[f"validation-{index}" for index in range(24)],
+        heldout_keys=[f"heldout-{index}" for index in range(24)],
+        open_heldout=True,
+    )
+    cache_labels = build_cache_guard_labels(schedule)
+    memory_labels = build_memory_checkpoint_labels(schedule)
+    progress = {
+        "model_calls_completed": len(schedule),
+        "backward_calls_completed": 147,
+        "optimizer_steps_completed": 12,
+    }
+    partial = {
+        "cache_guard": {"labels": cache_labels[:3]},
+        "execution_progress": {
+            "model_calls_completed": 1,
+            "backward_calls_completed": 0,
+            "optimizer_steps_completed": 0,
+        },
+        "cuda_memory": {"ledger": []},
+    }
+    for record in (schedule[0], schedule[1]):
+        runner._validate_failure_stage_evidence(
+            partial,
+            {
+                "stage": record["phase"],
+                "task_key": record["task_key"],
+                "arm": record["arm"],
+                "call_index": record["call_index"],
+            },
+            schedule=schedule,
+            candidate_files_present=[],
+        )
+    with pytest.raises(PhaseBContractError, match="breadcrumb"):
+        runner._validate_failure_stage_evidence(
+            partial,
+            {"stage": "learning", "task_key": "wrong", "arm": "STATIC", "call_index": 3},
+            schedule=schedule,
+            candidate_files_present=[],
+        )
+    ready_stop = memory_labels.index("before_candidate_writes") + 1
+    ready = {
+        "cache_guard": {"labels": cache_labels},
+        "execution_progress": progress,
+        "cuda_memory": {"ledger": [{"checkpoint": label} for label in memory_labels[:ready_stop]]},
+    }
+    runner._validate_failure_stage_evidence(
+        ready,
+        {"stage": "candidate_ready", "task_key": None, "arm": None, "call_index": len(schedule)},
+        schedule=schedule,
+        candidate_files_present=[],
+    )
+    with pytest.raises(PhaseBContractError, match="candidate-ready"):
+        runner._validate_failure_stage_evidence(
+            ready,
+            {"stage": "candidate_ready", "task_key": None, "arm": None, "call_index": len(schedule)},
+            schedule=schedule,
+            candidate_files_present=["STATIC.final.pt"],
+        )
+
+    after_static = memory_labels.index("candidate:STATIC:after_write") + 1
+    writing = {
+        "cache_guard": {"labels": cache_labels},
+        "execution_progress": progress,
+        "cuda_memory": {"ledger": [{"checkpoint": label} for label in memory_labels[:after_static]]},
+    }
+    runner._validate_failure_stage_evidence(
+        writing,
+        {"stage": "candidate_write", "task_key": None, "arm": "STATIC", "call_index": len(schedule)},
+        schedule=schedule,
+        candidate_files_present=["STATIC.final.pt"],
+    )
+    missing_after_write = deepcopy(writing)
+    missing_after_write["cuda_memory"]["ledger"].pop()
+    with pytest.raises(PhaseBContractError, match="candidate-write memory"):
+        runner._validate_failure_stage_evidence(
+            missing_after_write,
+            {"stage": "candidate_write", "task_key": None, "arm": "STATIC", "call_index": len(schedule)},
+            schedule=schedule,
+            candidate_files_present=["STATIC.final.pt"],
+        )
+
+
 def test_ipc1_overlap_closure_rejects_key_or_row_hash_reuse() -> None:
     selected = {
         split: select_balanced_rows(_pool(split), split=split)[0] for split in ("train", "validation", "heldout")
@@ -310,6 +419,7 @@ def test_ipc1_plan_and_terminal_writers_reject_schema_or_global_terminal_tamper(
             repository / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-matched-learning-run2-plan.json"
         ).read_text()
     )
+    plan["terminal_proof"]["late_failure_tamper_cases_rejected"] = 21
     plan["plan_sha256"] = canonical_plan_sha256(plan)
     validate_ipc1_plan(plan)
     tampered = deepcopy(plan)

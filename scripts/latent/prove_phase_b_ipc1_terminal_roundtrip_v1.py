@@ -577,7 +577,10 @@ def _late_failure(
         _candidate, states = _candidate_fixture(output, "STATIC", 1.0)
         current[0]["sha256"] = states[0]["sha256"]
     inventory = runtime._output_inventory(output)
-    candidate_files = [record["name"] for record in inventory if record["name"].endswith(".pt")]
+    inventory_names = {record["name"] for record in inventory}
+    candidate_files = [
+        f"{arm}.final.pt" for arm in TRAINING_ARMS if f"{arm}.final.pt" in inventory_names
+    ]
     cache_labels = build_cache_guard_labels(schedule)
     memory_labels = build_memory_checkpoint_labels(schedule)
     memory_stop = "candidate:STATIC:after_write" if post_candidate else "before_candidate_writes"
@@ -673,7 +676,7 @@ def _late_failure(
         "candidate_files_valid": False,
         "candidate_files_present": candidate_files,
         "execution_breadcrumbs": {
-            "stage": "candidate_write" if post_candidate else "final_audit",
+            "stage": "candidate_write" if post_candidate else "candidate_ready",
             "task_key": None,
             "arm": "STATIC" if post_candidate else None,
             "call_index": len(schedule),
@@ -1026,6 +1029,8 @@ def main() -> int:
                 "candidate_files_present": parsed_failure["candidate_files_present"],
             }
         )
+    if late_tampers != list(runtime.EXPECTED_LATE_FAILURE_TAMPERS):
+        raise AssertionError("B-IPC1 late FAILURE tamper order differs")
 
     proof = {
         "schema_version": "q35-2b-phase-b-ipc1-terminal-proof/v1",

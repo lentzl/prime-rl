@@ -63,6 +63,29 @@ CUDA_MEMORY_CAP_BYTES = 32 * 1024**3
 MINIMUM_HOST_RAM_BYTES = 64 * 1024**3
 MINIMUM_FREE_DISK_BYTES = 60 * 1024**3
 ARTIFACT_CAP_BYTES = 512 * 1024**2
+EXPECTED_LATE_FAILURE_TAMPERS = (
+    "post-model-pre-candidate:full_freeze",
+    "post-model-pre-candidate:module_initial",
+    "post-model-pre-candidate:cache_prefix",
+    "post-model-pre-candidate:memory_prefix",
+    "post-model-pre-candidate:progress",
+    "post-model-pre-candidate:cache_truncated_against_progress",
+    "post-model-pre-candidate:memory_truncated_against_progress",
+    "post-model-pre-candidate:backward_progress",
+    "post-model-pre-candidate:optimizer_progress",
+    "late-post-candidate:full_freeze",
+    "late-post-candidate:module_initial",
+    "late-post-candidate:cache_prefix",
+    "late-post-candidate:memory_prefix",
+    "late-post-candidate:progress",
+    "late-post-candidate:cache_truncated_against_progress",
+    "late-post-candidate:memory_truncated_against_progress",
+    "late-post-candidate:backward_progress",
+    "late-post-candidate:optimizer_progress",
+    "late-post-candidate:candidate_inventory",
+    "late-post-candidate:candidate_safe_load",
+    "late-post-candidate:module_current",
+)
 
 
 def require_exact_mapping_keys(value: Any, expected: set[str], *, label: str) -> dict[str, Any]:
@@ -254,7 +277,7 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
         or proof["failure_terminal_count"] != 4
         or proof["tamper_cases_rejected"] != 15
         or proof["late_failure_terminal_count"] != 2
-        or proof["late_failure_tamper_cases_rejected"] != 13
+        or proof["late_failure_tamper_cases_rejected"] != 21
         or not isinstance(proof["full_freeze_target_count"], int)
         or proof["full_freeze_target_count"] < 1
         or proof["mapping_insertion_permutation_canonical_equal"] is not True
