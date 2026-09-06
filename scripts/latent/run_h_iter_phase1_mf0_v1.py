@@ -126,6 +126,25 @@ COUNTS = {
     "tampers": 34,
     "memory_rows": 17,
 }
+EXPECTED_PARAMETER_NAMES = [
+    "codec_ln.weight",
+    "codec_ln.bias",
+    "codec_projection.weight",
+    "codec_projection.bias",
+    "self_norm.weight",
+    "self_norm.bias",
+    "message_norm.weight",
+    "message_norm.bias",
+    "cell_in.weight",
+    "cell_in.bias",
+    "cell_out.weight",
+    "cell_out.bias",
+    "post_norm.weight",
+    "post_norm.bias",
+    "readout.weight",
+    "readout.bias",
+]
+EXPECTED_PARAMETER_COUNT = 366_340
 NETWORK_CONTRACT = {
     "os_network_namespace": False,
     "python_guard_operations": [
@@ -729,13 +748,13 @@ def validate_proof(proof: dict[str, Any], *, plan: dict[str, Any], assets: dict[
         raise MF0ContractError("MF0 candidate evidence schema differs")
     synthetic = candidate["synthetic_validation"]
     synthetic_keys = {"arms", "forwards", "backwards", "optimizer_objects", "optimizer_steps", "parameter_names", "parameter_count_per_arm", "initial_tree_sha256", "all_initial_trees_equal", "synthetic_feature_shape", "synthetic_feature_sha256"}
-    if not isinstance(synthetic, dict) or set(synthetic) != synthetic_keys or synthetic.get("forwards") != 5 or synthetic.get("backwards") != 5 or synthetic.get("optimizer_objects") != 0 or synthetic.get("optimizer_steps") != 0 or synthetic.get("all_initial_trees_equal") is not True or synthetic.get("synthetic_feature_sha256") != SYNTHETIC_FEATURE_SHA256 or synthetic.get("synthetic_feature_shape") != [24, 2048] or [row.get("arm") for row in synthetic.get("arms", [])] != ["STATIC", "FFN", "FIXED_T4", "RESET_K", "REC_K"]:
+    if not isinstance(synthetic, dict) or set(synthetic) != synthetic_keys or synthetic.get("forwards") != 5 or synthetic.get("backwards") != 5 or synthetic.get("optimizer_objects") != 0 or synthetic.get("optimizer_steps") != 0 or synthetic.get("parameter_names") != EXPECTED_PARAMETER_NAMES or synthetic.get("parameter_count_per_arm") != EXPECTED_PARAMETER_COUNT or synthetic.get("all_initial_trees_equal") is not True or not isinstance(synthetic.get("initial_tree_sha256"), str) or len(synthetic["initial_tree_sha256"]) != 64 or synthetic.get("synthetic_feature_sha256") != SYNTHETIC_FEATURE_SHA256 or synthetic.get("synthetic_feature_shape") != [24, 2048] or [row.get("arm") for row in synthetic.get("arms", [])] != ["STATIC", "FFN", "FIXED_T4", "RESET_K", "REC_K"]:
         raise MF0ContractError("MF0 synthetic evidence differs")
     for row in synthetic["arms"]:
         if set(row) != {"arm", "output_shape", "codec_gradient_nonzero", "readout_gradient_nonzero", "cell_gradient_nonzero", "state_unchanged", "initial_tree_sha256"}:
             raise MF0ContractError("MF0 arm evidence keys differ")
         expected_cell = row["arm"] != "STATIC"
-        if row.get("codec_gradient_nonzero") is not True or row.get("readout_gradient_nonzero") is not True or row.get("state_unchanged") is not True or row.get("cell_gradient_nonzero") is not expected_cell:
+        if row.get("codec_gradient_nonzero") is not True or row.get("readout_gradient_nonzero") is not True or row.get("state_unchanged") is not True or row.get("cell_gradient_nonzero") is not expected_cell or row.get("initial_tree_sha256") != synthetic["initial_tree_sha256"] or row.get("output_shape") != [4]:
             raise MF0ContractError("MF0 gradient evidence differs")
     if proof["safety_resource_contract"] != plan["safety_boundary"]:
         raise MF0ContractError("MF0 safety/resource contract differs")

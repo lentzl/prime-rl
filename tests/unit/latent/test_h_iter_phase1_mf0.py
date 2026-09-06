@@ -74,7 +74,7 @@ def proof_fixture(plan: dict, assets: dict[str, dict]) -> dict:
     execution = "3" * 40
     rows = [{"label": label, "rss_bytes": index + 1, "peak_rss_bytes": index + 1} for index, label in enumerate(contract.MEMORY_LABELS)]
     synthetic_rows = [{"arm": arm, "output_shape": [4], "codec_gradient_nonzero": True, "readout_gradient_nonzero": True, "cell_gradient_nonzero": arm != "STATIC", "state_unchanged": True, "initial_tree_sha256": "4" * 64} for arm in contract.ARMS]
-    synthetic = {"arms": synthetic_rows, "forwards": 5, "backwards": 5, "optimizer_objects": 0, "optimizer_steps": 0, "parameter_names": ["x"], "parameter_count_per_arm": 1, "initial_tree_sha256": "4" * 64, "all_initial_trees_equal": True, "synthetic_feature_shape": [24, 2048], "synthetic_feature_sha256": contract.SYNTHETIC_FEATURE_SHA256}
+    synthetic = {"arms": synthetic_rows, "forwards": 5, "backwards": 5, "optimizer_objects": 0, "optimizer_steps": 0, "parameter_names": runner.EXPECTED_PARAMETER_NAMES, "parameter_count_per_arm": runner.EXPECTED_PARAMETER_COUNT, "initial_tree_sha256": "4" * 64, "all_initial_trees_equal": True, "synthetic_feature_shape": [24, 2048], "synthetic_feature_sha256": contract.SYNTHETIC_FEATURE_SHA256}
     census = {"transformers_modeling_modules": [], "pretrained_model_objects": 0, "tokenizer_objects": 0, "optimizer_objects": 0, "candidate_module_objects": 0, "uninspectable_count": 0, "census_errors": [], "cuda_initialized": False, "output_inventory": [], "object_census_method": "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes"}
     network = {**runner.NETWORK_CONTRACT, "installed": True, "wrappers_restored": True, "audit_hook_persistent": True, "attempt_count": 0}
     safety = {"cuda_visible_devices": "", "cuda_initialized_before": False, "cuda_initialized_after": False, "torch_cpu_only": True, "tokenizer_calls": 0, "model_calls": 0, "model_backwards": 0, "optimizer_objects": 0, "optimizer_steps": 0, "validation_opens": 0, "heldout_opens": 0, "model_or_tokenizer_loaded": False, "candidate_created": False, "checkpoint_created": False, "model_updated": False, "object_inventory": census, "network_guard": network, "open_firewall": {"denied_count": 0, "validation_open_count": 0, "heldout_open_count": 0, "opened_paths": runner.EXPERIMENT_PLAN_ASSET_PATHS}}
@@ -166,6 +166,9 @@ def test_deep_proof_validator_and_tampers(assets: dict[str, dict]) -> None:
         changed = copy.deepcopy(proof); changed[path] = value
         if path != "proof_sha256": changed["proof_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in changed.items() if key != "proof_sha256"}))
         with pytest.raises(contract.MF0ContractError): runner.validate_proof(changed, plan=plan, assets=assets, execution_commit="3" * 40, plan_file_sha256="5" * 64)
+    changed = copy.deepcopy(proof); changed["candidate_contract"]["synthetic_validation"]["parameter_count_per_arm"] -= 1
+    changed["proof_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in changed.items() if key != "proof_sha256"}))
+    with pytest.raises(contract.MF0ContractError): runner.validate_proof(changed, plan=plan, assets=assets, execution_commit="3" * 40, plan_file_sha256="5" * 64)
 
 
 def test_deep_failure_validator_and_taxonomy() -> None:
