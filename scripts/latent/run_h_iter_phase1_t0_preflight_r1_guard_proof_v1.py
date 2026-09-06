@@ -225,7 +225,7 @@ def validate_failure(value:dict[str,Any],repo:Path|None=None)->None:
     required=(("runtime",2),("asset_audit",4),("failed_start_binding",5),("full_freeze",14))
     for field,milestone in required:
         if len(memory["rows"])>=milestone and value[field] is None: raise RuntimeError(f"T0 guard failure {field} missing")
-        early_allowed=(field=="asset_audit" and value["stage"]=="assets") or (field=="failed_start_binding" and value["stage"]=="failed_start")
+        early_allowed=(field=="asset_audit" and value["stage"]=="assets") or (field=="failed_start_binding" and value["stage"]=="failed_start") or (field=="full_freeze" and value["stage"]=="audit")
         if len(memory["rows"])<milestone and value[field] is not None and not early_allowed: raise RuntimeError(f"T0 guard failure {field} premature")
     cases_reached=stages.index(value["stage"])>=stages.index("cases")
     source_required=cases_reached
@@ -365,9 +365,12 @@ def run(repo:Path,execution_commit:str,plan_file_sha256:str,output:Path)->None:
     signal.alarm(0); signal.alarm(119)
     post=asset_entries(repo); post_sha=sha(canonical_json(post)); head_after=git(repo,"rev-parse","HEAD"); tree_after=git(repo,"rev-parse","HEAD^{tree}"); clean_after=not bool(git(repo,"status","--porcelain","--untracked-files=all"))
     if pre!=post or head_after!=head or tree_after!=tree or not clean_after: raise InfrastructureInvalid("T0 guard proof postflight differs")
+    asset_audit={"target_count":46,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True}
+    full_freeze={"head_before":head,"head_after":head_after,"tree_before":tree,"tree_after":tree_after,"clean_before":clean,"clean_after":clean_after,"assets_pre_sha256":pre_sha,"assets_post_sha256":post_sha,"complete":True}
+    STATE["evidence"].update({"asset_audit":asset_audit,"full_freeze":full_freeze})
     mark("TERMINAL_PREWRITE"); STATE["audit_exit_ns"]=time.monotonic_ns()-started; STATE["prior_terminal_enter_ns"]=STATE["audit_exit_ns"]; STATE["terminal_enter_ns"]=STATE["audit_exit_ns"]
-    proof={"schema_version":PROOF_SCHEMA,"status":PROOF_STATUS,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":head,"mechanism_code_commit":plan["mechanism_code_commit"],"tree_sha256":tree,"plan_file_sha256":plan_file_sha256,"plan_sha256":plan["plan_sha256"],"runtime":plan["runtime"],"asset_audit":{"target_count":46,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True},"failed_start_binding":FAILED_START_BINDING,"source_evidence":source_evidence,"case_results":rows,"safety":safety,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing_evidence(),"observed_rss_peak_bytes":rss(),"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":STATE["memory"],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":True},"full_freeze":{"head_before":head,"head_after":head_after,"tree_before":tree,"tree_after":tree_after,"clean_before":clean,"clean_after":clean_after,"assets_pre_sha256":pre_sha,"assets_post_sha256":post_sha,"complete":True},"decision_boundary":PROOF_DECISION,"proof_sha256":""}
-    STATE["evidence"].update({"asset_audit":proof["asset_audit"],"resources":proof["resources"],"full_freeze":proof["full_freeze"]})
+    proof={"schema_version":PROOF_SCHEMA,"status":PROOF_STATUS,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":head,"mechanism_code_commit":plan["mechanism_code_commit"],"tree_sha256":tree,"plan_file_sha256":plan_file_sha256,"plan_sha256":plan["plan_sha256"],"runtime":plan["runtime"],"asset_audit":asset_audit,"failed_start_binding":FAILED_START_BINDING,"source_evidence":source_evidence,"case_results":rows,"safety":safety,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing_evidence(),"observed_rss_peak_bytes":rss(),"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":STATE["memory"],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":True},"full_freeze":full_freeze,"decision_boundary":PROOF_DECISION,"proof_sha256":""}
+    STATE["evidence"]["resources"]=proof["resources"]
     STATE["stage"]="terminal_publication"; signal.alarm(0); signal.alarm(29); finalize_terminal(proof,"proof_sha256"); validate_proof(proof,repo); atomic_terminal(output,PROOF_NAME,proof,lambda value:validate_proof(value,repo)); STATE["terminal_validated"]=True; signal.alarm(0)
 
 def publish_failure(repo:Path,output:Path,execution_commit:str,plan_file_sha256:str,error:BaseException)->None:

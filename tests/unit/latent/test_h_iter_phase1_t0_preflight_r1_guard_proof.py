@@ -107,6 +107,10 @@ def test_truthful_repaired_cases_audit_and_terminal_failures_validate() -> None:
     cases=_late_failure("cases",7,with_source=True,with_cases=False,with_safety=False,with_freeze=False); validate_failure(cases)
     partial_cases=_late_failure("cases",9,with_source=True,with_cases=True,with_safety=False,with_freeze=False); partial_cases["case_results"]=partial_cases["case_results"][:2]; partial_cases=finalize_terminal(partial_cases,"failure_sha256"); validate_failure(partial_cases,ROOT)
     audit=_late_failure("audit",13,with_source=True,with_cases=True,with_safety=True,with_freeze=False); validate_failure(audit)
+    audit_prewrite_ready=_late_failure("audit",13,with_source=True,with_cases=True,with_safety=True,with_freeze=True); validate_failure(audit_prewrite_ready,ROOT)
+    audit_complete=_late_failure("audit",14,with_source=True,with_cases=True,with_safety=True,with_freeze=True); validate_failure(audit_complete,ROOT)
+    audit_missing_freeze=copy.deepcopy(audit_complete); audit_missing_freeze["full_freeze"]=None; audit_missing_freeze=finalize_terminal(audit_missing_freeze,"failure_sha256")
+    with pytest.raises(RuntimeError): validate_failure(audit_missing_freeze,ROOT)
     terminal=_late_failure("terminal_publication",14,with_source=True,with_cases=True,with_safety=True,with_freeze=True,prior_terminal=True); validate_failure(terminal)
     for field in ("prior_terminal_failure_ns","prior_terminal_duration_ns"):
         changed=copy.deepcopy(terminal); changed["resources"]["timing"][field]+=1; changed["failure_sha256"]=sha(canonical_json({key:item for key,item in changed.items() if key!="failure_sha256"}))
