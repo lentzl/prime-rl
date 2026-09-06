@@ -75,6 +75,10 @@ CACHE_CLASS_RECORDS = [
     {"distribution":"transformers==5.6.2","fqcn":name,"module_path":"/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py","module_sha256":"a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"}
     for name in ("transformers.cache_utils.Cache","transformers.cache_utils.DynamicCache","transformers.cache_utils.EncoderDecoderCache","transformers.cache_utils.QuantizedCache","transformers.cache_utils.StaticCache")
 ]
+CACHE_CONFIGURATION_RECORDS = [
+    {"source":"model.generation_config","value_before":True,"value_during":False,"value_after":True},
+    {"source":"module:model.language_model.config","value_before":False,"value_during":False,"value_after":False},
+]
 
 GATE_NAMES = ["rec_postcal_accuracy","rec_minus_reset_accuracy","rec_minus_max_static_ffn_accuracy","rec_each_depth","rec_each_action_recall","reset_nll_minus_rec","min_static_ffn_nll_minus_rec","rec_postcal_nll_factor","rec_postfit_accuracy"]
 PROOF_MEMORY_LABELS = ["ENTRY","RUNTIME_VERIFIED","FULL_FREEZE_PREFLIGHT_VERIFIED","ASSETS_PREFLIGHT_VERIFIED","ANTECEDENTS_VALIDATED","TRAIN_SCHEMA_VALIDATED","CONTRACTS_VALIDATED","CPU_MODULES_VALIDATED","CONNECTIVITY_VALIDATED","GO_REPLAY_VALIDATED","STOP_REPLAY_VALIDATED","FAILURE_REPLAYS_VALIDATED","TAMPERS_VALIDATED","CANDIDATE_SAFETY_VALIDATED","TERMINAL_ROUNDTRIP_VALIDATED","SAFETY_AUDIT_COMPLETE","FULL_FREEZE_POSTFLIGHT_VERIFIED","TERMINAL_PREWRITE"]
@@ -202,6 +206,20 @@ def module_state_sha256(torch:Any,state:dict[str,Any])->str:
         digest.update(canonical_json({"name":name,"dtype":str(tensor.dtype),"shape":list(tensor.shape),"sha256":tensor_raw_sha256(torch,tensor)})); digest.update(b"\n")
     return digest.hexdigest()
 
+def validate_candidate_artifact(path:Any,row:dict[str,Any])->dict[str,Any]:
+    from pathlib import Path
+    path=Path(path)
+    if not path.is_file() or path.is_symlink() or path.stat().st_size!=row.get("bytes") or sha256_bytes(path.read_bytes())!=row.get("file_sha256"): raise T0ContractError("T0 candidate file differs")
+    try:
+        import torch
+        from safetensors.torch import load_file
+        loaded=load_file(str(path),device="cpu")
+    except Exception as error:
+        raise T0ContractError("T0 candidate safe reload failed") from error
+    if set(loaded)!=set(PARAMETER_NAMES) or any(list(loaded[item["name"]].shape)!=item["shape"] or str(loaded[item["name"]].dtype)!="torch.float32" or not bool(torch.isfinite(loaded[item["name"]]).all()) for item in PARAMETER_SHAPES) or module_state_sha256(torch,loaded)!=row.get("module_state_sha256"):
+        raise T0ContractError("T0 candidate safe reload differs")
+    return loaded
+
 def validate_assets(bank:dict[str,Any],partition:dict[str,Any],schedule:dict[str,Any],capture:dict[str,Any],memory:dict[str,Any],tampers:dict[str,Any])->None:
     if bank.get("bank_sha256")!=TRAIN_BANK_INTERNAL_SHA256 or bank["bank_sha256"]!=sha256_bytes(canonical_json({k:v for k,v in bank.items() if k!="bank_sha256"})) or len(bank.get("rows",[]))!=96: raise T0ContractError("T0 train bank differs")
     for row in bank["rows"]:
@@ -287,7 +305,7 @@ def validate_model_free_proof(value:dict[str,Any],plan:dict[str,Any],capture:dic
     if len(synthetic["connectivity"])!=5 or not all(row.get("qualifies") is True for row in synthetic["connectivity"]): raise T0ContractError("T0 model-free connectivity differs")
     if synthetic["go_fixture"].get("gate_pass_count")!=9 or synthetic["go_fixture"].get("output_count")!=7 or synthetic["stop_fixture"].get("gate_pass_count")!=8 or synthetic["stop_fixture"].get("output_count")!=1: raise T0ContractError("T0 model-free terminal fixtures differ")
     if [r.get("fixture") for r in synthetic["failure_fixtures"]]!=["F0","F1","F2","F3","F4","F5"] or not all(r.get("validated") is True and r.get("tamper_rejected") is True for r in synthetic["failure_fixtures"]): raise T0ContractError("T0 model-free failure fixtures differ")
-    if not synthetic["candidate_roundtrip"].get("all_safe"): raise T0ContractError("T0 model-free candidate safety differs")
+    if not synthetic["candidate_roundtrip"].get("all_safe") or synthetic["candidate_roundtrip"].get("unsafe_rejections")!=["wrong_name","wrong_shape","wrong_dtype","nonfinite","unsafe_format","symlink"]: raise T0ContractError("T0 model-free candidate safety differs")
     replay=value["terminal_replay_evidence"]; _keys(replay,{"go_written_parsed_validated_reopened","stop_written_parsed_validated_reopened","failure_statuses_validated","late_failures_validated","mapping_insertion_order_invariant","dual_terminal_rejected","unsafe_outputs_rejected"},"T0 model-free replay")
     if not all(item is True for item in replay.values()): raise T0ContractError("T0 model-free terminal replay differs")
     ta=value["tamper_audit"]; _keys(ta,{"schedule_file_sha256","expected_count","results","rejected_count","all_rejected"},"T0 model-free tamper audit")
@@ -342,7 +360,8 @@ def validate_model_free_failure(value:dict[str,Any])->None:
 T0_PROOF_KEYS={"schema_version","status","mechanism","run_identity","execution_commit","mechanism_code_commit","plan_file_sha256","plan_sha256","runtime","asset_audit","antecedent_binding","data_binding","capture_evidence","candidate_initial_state","preconnect_evidence","metric_evidence","gate_evidence","derived_thresholds","candidate_disposition","protected_state","cache_guard","safety","counts","resources","memory","full_freeze","tamper_audit","decision_boundary","proof_sha256"}
 T0_COMPLETE_COUNTS={"capture_rows":96,"tokenizer_calls":96,"model_forwards":96,"sequences":2304,"cache_checks":194,"memory_rows":534,"candidate_objects":5,"optimizer_objects":5,"sidecar_forwards":385,"sidecar_backwards":325,"optimizer_steps":320,"cell_calls":773,"precal_presentations":160,"train_presentations":5120,"postcal_presentations":160,"postfit_presentations":320,"tamper_count":98,"validation_opens":0,"heldout_opens":0,"h176_loads":0,"generation_calls":0,"network_attempts":0,"e33_backwards":0,"e33_updates":0,"checkpoints":0,"live_trajectories":0}
 
-def validate_t0_proof(value:dict[str,Any], *, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
+def validate_t0_proof(value:dict[str,Any], *, partition:dict[str,Any]|None=None, capture_schedule:dict[str,Any]|None=None, training_schedule:dict[str,Any]|None=None, memory_schedule:dict[str,Any]|None=None, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
+    if partition is None or capture_schedule is None or training_schedule is None or memory_schedule is None: raise T0ContractError("T0 proof frozen validation sources missing")
     _keys(value,T0_PROOF_KEYS,"T0 proof")
     if value["schema_version"]!=PROOF_SCHEMA or value["mechanism"]!=MECHANISM or value["run_identity"]!=RUN_ID or value["status"] not in {"h_iter_phase1_t0_validation_contract_design_authorized","h_iter_phase1_train_calibration_stop"}: raise T0ContractError("T0 proof identity differs")
     if value["proof_sha256"]!=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="proof_sha256"})): raise T0ContractError("T0 proof self hash differs")
@@ -362,12 +381,12 @@ def validate_t0_proof(value:dict[str,Any], *, output_inventory:list[str]|None=No
     if antecedent["mf0_archive_exact"] is not True or antecedent["cap0_r1_archive_exact"] is not True: raise T0ContractError("T0 antecedent differs")
     data=value["data_binding"]; _keys(data,{"train_bank_path","train_bank_file_sha256","train_bank_internal_sha256","source_rows","fit_rows","calibration_rows","fit_row_ids","calibration_row_ids","fit_calibration_intersection","complete_train_union","validation_open_count","heldout_open_count"},"T0 data")
     fit_ids=data["fit_row_ids"]; cal_ids=data["calibration_row_ids"]
-    if data["train_bank_path"]!=TRAIN_BANK_PATH or data["train_bank_file_sha256"]!=TRAIN_BANK_FILE_SHA256 or data["train_bank_internal_sha256"]!=TRAIN_BANK_INTERNAL_SHA256 or (data["source_rows"],data["fit_rows"],data["calibration_rows"])!=(96,64,32) or not isinstance(fit_ids,list) or not isinstance(cal_ids,list) or len(fit_ids)!=64 or len(cal_ids)!=32 or len(set(fit_ids))!=64 or len(set(cal_ids))!=32 or data["fit_calibration_intersection"]!=sorted(set(fit_ids)&set(cal_ids)) or data["fit_calibration_intersection"]!=[] or len(set(fit_ids)|set(cal_ids))!=96 or data["complete_train_union"] is not True or data["validation_open_count"] or data["heldout_open_count"]: raise T0ContractError("T0 data differs")
+    if data["train_bank_path"]!=TRAIN_BANK_PATH or data["train_bank_file_sha256"]!=TRAIN_BANK_FILE_SHA256 or data["train_bank_internal_sha256"]!=TRAIN_BANK_INTERNAL_SHA256 or (data["source_rows"],data["fit_rows"],data["calibration_rows"])!=(96,64,32) or fit_ids!=[r["row_id"] for r in partition["fit_rows"]] or cal_ids!=[r["row_id"] for r in partition["calibration_rows"]] or data["fit_calibration_intersection"]!=[] or len(set(fit_ids)|set(cal_ids))!=96 or data["complete_train_union"] is not True or data["validation_open_count"] or data["heldout_open_count"]: raise T0ContractError("T0 data differs")
     capture=value["capture_evidence"]; _keys(capture,{"schedule_sha256","rows","counts","aggregate_sha256"},"T0 capture")
     row_keys={"capture_index","row_id","row_sha256","receiver_input_sha256","node_count","token_count_min","token_count_max","input_ids_sha256","attention_mask_sha256","hidden_shape","hidden_dtype","hidden_sha256","finite"}
-    if len(capture["rows"])!=96 or capture["counts"]!={"rows":96,"tokenizer_calls":96,"model_forwards":96,"sequences":2304} or capture["aggregate_sha256"]!=sha256_bytes(canonical_json(capture["rows"])): raise T0ContractError("T0 capture count differs")
-    for index,row in enumerate(capture["rows"]):
-        if set(row)!=row_keys or row["capture_index"]!=index or row["node_count"]!=24 or not 1<=row["token_count_min"]<=row["token_count_max"]<=128 or row["hidden_shape"]!=[24,2048] or row["hidden_dtype"]!="torch.bfloat16" or row["finite"] is not True or any(not digest_string(row[key]) for key in ("row_sha256","receiver_input_sha256","input_ids_sha256","attention_mask_sha256","hidden_sha256")): raise T0ContractError("T0 capture row differs")
+    if capture["schedule_sha256"]!=capture_schedule["schedule_sha256"] or len(capture["rows"])!=96 or capture["counts"]!={"rows":96,"tokenizer_calls":96,"model_forwards":96,"sequences":2304} or capture["aggregate_sha256"]!=sha256_bytes(canonical_json(capture["rows"])): raise T0ContractError("T0 capture count differs")
+    for index,(row,source_row) in enumerate(zip(capture["rows"],capture_schedule["rows"])):
+        if set(row)!=row_keys or {k:row[k] for k in ("capture_index","row_id","row_sha256","receiver_input_sha256","node_count")}!=source_row or row["capture_index"]!=index or not 1<=row["token_count_min"]<=row["token_count_max"]<=128 or row["hidden_shape"]!=[24,2048] or row["hidden_dtype"]!="torch.bfloat16" or row["finite"] is not True or any(not digest_string(row[key]) for key in ("input_ids_sha256","attention_mask_sha256","hidden_sha256")): raise T0ContractError("T0 capture row differs")
     initial=value["candidate_initial_state"]; _keys(initial,{"seed_payload","seed_payload_sha256","seed_u64_be","arm_order","action_order","rows","all_equal"},"T0 candidate initial")
     initial_row_keys={"arm","parameter_names","parameter_shapes","parameter_name_count","parameter_count","device","dtype","initial_state_sha256","finite"}
     if (initial["seed_payload"],initial["seed_payload_sha256"],initial["seed_u64_be"])!=(INIT_PAYLOAD,INIT_SHA256,INIT_SEED) or initial["arm_order"]!=ARMS or initial["action_order"]!=ACTIONS or initial["all_equal"] is not True or [r.get("arm") for r in initial["rows"]]!=ARMS: raise T0ContractError("T0 candidate initial differs")
@@ -391,8 +410,23 @@ def validate_t0_proof(value:dict[str,Any], *, output_inventory:list[str]|None=No
     metric=value["metric_evidence"]
     if set(metric)!={"row_records","aggregate_records","postcal_aggregate_sha256","counts"} or len(metric["row_records"])!=640 or len(metric["aggregate_records"])!=135 or metric["counts"]!={"row_records":640,"aggregate_records":135,"precal_presentations":160,"postcal_presentations":160,"postfit_presentations":320}: raise T0ContractError("T0 metric evidence differs")
     if metric["postcal_aggregate_sha256"]!=sha256_bytes(canonical_json([r for r in metric["aggregate_records"] if r["phase"]=="POSTCAL"])): raise T0ContractError("T0 POSTCAL aggregate hash differs")
-    metric_row_keys={"phase","operation_index","arm","depth","row_id","action_index","replicate","logits_sha256","prediction","nll"}; aggregate_row_keys={"phase","arm","scope","scope_value","count","correct","accuracy_numerator","accuracy_denominator","mean_nll"}
-    if any(set(r)!=metric_row_keys or r["phase"] not in {"PRECAL","POSTCAL","POSTFIT"} or r["arm"] not in ARMS or not finite_number(r["nll"]) for r in metric["row_records"]): raise T0ContractError("T0 metric row differs")
+    metric_row_keys={"phase","operation_index","arm","depth","row_id","action_index","replicate","logits","logits_sha256","prediction","nll"}; aggregate_row_keys={"phase","arm","scope","scope_value","count","correct","accuracy_numerator","accuracy_denominator","mean_nll"}
+    partition_by_id={r["row_id"]:r for r in [*partition["fit_rows"],*partition["calibration_rows"]]}
+    expected_metric_identity=[]
+    for phase_name,batch_name in (("PRECAL","precal"),("POSTCAL","postcal"),("POSTFIT","postfit")):
+        for operation in training_schedule["batches"][batch_name]:
+            for row_id in operation["row_ids"]:
+                source=partition_by_id[row_id]
+                expected_metric_identity.append({"phase":phase_name,"operation_index":operation["operation_index"],"arm":operation["arm"],"depth":operation["depth"],"row_id":row_id,"action_index":source["action_index"],"replicate":source["replicate"]})
+    if len(expected_metric_identity)!=640 or len(metric["row_records"])!=640: raise T0ContractError("T0 metric schedule differs")
+    try: import torch
+    except Exception as error: raise T0ContractError("T0 metric validator requires frozen CPU float64 runtime") from error
+    for record,identity in zip(metric["row_records"],expected_metric_identity):
+        if set(record)!=metric_row_keys or {k:record[k] for k in identity}!=identity or not isinstance(record["logits"],list) or len(record["logits"])!=4 or any(not finite_number(x) for x in record["logits"]): raise T0ContractError("T0 metric row differs")
+        vector=torch.tensor(record["logits"],dtype=torch.float64,device="cpu")
+        expected_hash=sha256_bytes(canonical_json({"dtype":"torch.float64","shape":[4]})+b"\n"+vector.contiguous().view(torch.uint8).numpy().tobytes())
+        expected_nll=float(-torch.log_softmax(vector,dim=-1)[record["action_index"]]); expected_prediction=int(torch.argmax(vector))
+        if record["logits_sha256"]!=expected_hash or record["nll"]!=expected_nll or record["prediction"]!=expected_prediction: raise T0ContractError("T0 metric logits differ")
     if any(set(r)!=aggregate_row_keys or r["accuracy_numerator"]!=r["correct"] or r["accuracy_denominator"]!=r["count"] or not finite_number(r["mean_nll"]) for r in metric["aggregate_records"]): raise T0ContractError("T0 aggregate row differs")
     recomputed=[]
     for phase in ("PRECAL","POSTCAL","POSTFIT"):
@@ -418,14 +452,7 @@ def validate_t0_proof(value:dict[str,Any], *, output_inventory:list[str]|None=No
         from pathlib import Path
         root=Path(output_dir)
         for row in disposition["rows"]:
-            path=root/row["path"]
-            if not path.is_file() or path.is_symlink() or path.stat().st_size!=row["bytes"] or sha256_bytes(path.read_bytes())!=row["file_sha256"]: raise T0ContractError("T0 candidate file differs")
-            try:
-                import torch
-                from safetensors.torch import load_file
-                loaded=load_file(str(path),device="cpu")
-            except Exception as error: raise T0ContractError("T0 candidate safe reload failed") from error
-            if set(loaded)!=set(PARAMETER_NAMES) or any(list(loaded[item["name"]].shape)!=item["shape"] or str(loaded[item["name"]].dtype)!="torch.float32" or not bool(torch.isfinite(loaded[item["name"]]).all()) for item in PARAMETER_SHAPES) or module_state_sha256(torch,loaded)!=row["module_state_sha256"]: raise T0ContractError("T0 candidate safe reload differs")
+            validate_candidate_artifact(root/row["path"],row)
     derived=value["derived_thresholds"]
     if not go:
         if derived is not None: raise T0ContractError("T0 STOP thresholds present")
@@ -445,11 +472,12 @@ def validate_t0_proof(value:dict[str,Any], *, output_inventory:list[str]|None=No
     if protected!={"e33_disk_tree_before":E33_TREE_SHA256,"e33_disk_tree_after":E33_TREE_SHA256,"e33_state_before":E33_STATE_SHA256,"e33_state_after":E33_STATE_SHA256,"e33_metadata_before":METADATA_SHA256,"e33_metadata_after":METADATA_SHA256,"e33_grads_none":True,"h176_tree_sha256":H176_TREE_SHA256,"h176_loaded":False,"e33_released":True}: raise T0ContractError("T0 protected state differs")
     cache=value["cache_guard"]; _keys(cache,{"class_records","configuration_records","label_rows","label_sha256","expected_checks","actual_checks","dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count","restored"},"T0 cache")
     cache_labels=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
-    if cache["class_records"]!=CACHE_CLASS_RECORDS or cache["expected_checks"]!=194 or cache["actual_checks"]!=194 or [r.get("index") for r in cache["label_rows"]]!=list(range(194)) or [r.get("label") for r in cache["label_rows"]]!=cache_labels or cache["label_sha256"]!=sha256_bytes(canonical_json(cache_labels)) or cache["dynamic_cache_negative_trips"]!=1 or cache["dynamic_cache_actual_trips"]!=0 or cache["returned_pkv_count"]!=0 or cache["configuration_drift_count"]!=0 or cache["restored"] is not True: raise T0ContractError("T0 cache evidence differs")
+    if cache["class_records"]!=CACHE_CLASS_RECORDS or cache["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache["expected_checks"]!=194 or cache["actual_checks"]!=194 or [r.get("index") for r in cache["label_rows"]]!=list(range(194)) or [r.get("label") for r in cache["label_rows"]]!=cache_labels or cache["label_sha256"]!=sha256_bytes(canonical_json(cache_labels)) or cache["dynamic_cache_negative_trips"]!=1 or cache["dynamic_cache_actual_trips"]!=0 or cache["returned_pkv_count"]!=0 or cache["configuration_drift_count"]!=0 or cache["restored"] is not True: raise T0ContractError("T0 cache evidence differs")
     memory=value["memory"]
-    if set(memory)!={"schedule_file_sha256","expected_count","rows","label_sha256","complete"} or memory["expected_count"]!=534 or len(memory["rows"])!=534 or not memory["complete"]: raise T0ContractError("T0 memory evidence differs")
+    expected_memory_labels=[r["label"] for r in memory_schedule["rows"]]
+    if set(memory)!={"schedule_file_sha256","expected_count","rows","label_sha256","complete"} or memory["schedule_file_sha256"]!=sha256_bytes(canonical_json(memory_schedule)+b"\n") or memory["expected_count"]!=534 or len(memory["rows"])!=534 or not memory["complete"]: raise T0ContractError("T0 memory evidence differs")
     memory_keys={"index","label","current_allocated_bytes","current_reserved_bytes","peak_allocated_bytes","peak_reserved_bytes"}
-    if [r.get("index") for r in memory["rows"]]!=list(range(534)) or memory["label_sha256"]!=sha256_bytes(canonical_json([r.get("label") for r in memory["rows"]])): raise T0ContractError("T0 memory order differs")
+    if [r.get("index") for r in memory["rows"]]!=list(range(534)) or [r.get("label") for r in memory["rows"]]!=expected_memory_labels or memory["label_sha256"]!=sha256_bytes(canonical_json(expected_memory_labels)): raise T0ContractError("T0 memory order differs")
     for row in memory["rows"]:
         values=[row.get(key) for key in ("current_allocated_bytes","current_reserved_bytes","peak_allocated_bytes","peak_reserved_bytes")]
         if set(row)!=memory_keys or any(not isinstance(item,int) or isinstance(item,bool) or not 0<=item<=40*(1<<30) for item in values) or values[0]>values[2] or values[1]>values[3]: raise T0ContractError("T0 memory row differs")
@@ -469,7 +497,8 @@ def validate_t0_proof(value:dict[str,Any], *, output_inventory:list[str]|None=No
         expected=["T0-PROOF.json"] if not go else sorted([*CANDIDATE_FILES,"derived-validation-thresholds.json","T0-PROOF.json"])
         if output_inventory!=expected: raise T0ContractError("T0 output inventory differs")
 
-def validate_t0_failure(value:dict[str,Any], *, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
+def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=None, capture_schedule:dict[str,Any]|None=None, training_schedule:dict[str,Any]|None=None, memory_schedule:dict[str,Any]|None=None, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
+    if partition is None or capture_schedule is None or training_schedule is None or memory_schedule is None: raise T0ContractError("T0 failure frozen validation sources missing")
     statuses={"h_iter_phase1_t0_incomplete":"T0ContractError","h_iter_phase1_t0_capture_mechanism_rejected":"T0CaptureMechanismRejected","h_iter_phase1_t0_exposure_boundary_rejected":"T0ExposureBoundaryRejected","infrastructure_invalid":"InfrastructureInvalid"}
     expected=(T0_PROOF_KEYS-{"proof_sha256"})|{"error_type","error_message","traceback","stage","execution_progress","audit_errors","failure_sha256"}
     _keys(value,expected,"T0 failure")
@@ -477,13 +506,84 @@ def validate_t0_failure(value:dict[str,Any], *, output_inventory:list[str]|None=
     if value.get("failure_sha256")!=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="failure_sha256"})): raise T0ContractError("T0 failure self hash differs")
     progress=value.get("execution_progress")
     progress_keys={"stage","capture_rows_completed","tokenizer_calls_completed","model_forwards_completed","sequences_completed","cache_checks_completed","candidates_initialized","preconnect_arms_completed","operations_completed","current_operation_index","current_phase","current_arm","current_epoch","current_depth","sidecar_forwards_completed","sidecar_backwards_completed","optimizer_steps_completed","cell_calls_completed","metric_row_records_completed","aggregate_records_completed","gates_evaluated","candidate_files_present","threshold_file_present"}
-    if not isinstance(progress,dict) or set(progress)!=progress_keys or progress.get("stage") not in {"startup_pre_model","model_load","capture","model_release","candidate_init","preconnect","precal","train","postcal","postfit","gate_evaluation","candidate_write","postflight_audit","terminal_publication"}: raise T0ContractError("T0 failure progress differs")
+    stages=["startup_pre_model","model_load","capture","model_release","candidate_init","preconnect","precal","train","postcal","postfit","gate_evaluation","candidate_write","postflight_audit","terminal_publication"]
+    stage_rank={name:index for index,name in enumerate(stages)}
+    if not isinstance(progress,dict) or set(progress)!=progress_keys or progress.get("stage") not in stages or value.get("stage")!=progress.get("stage"): raise T0ContractError("T0 failure progress differs")
     numeric=["capture_rows_completed","tokenizer_calls_completed","model_forwards_completed","sequences_completed","cache_checks_completed","candidates_initialized","preconnect_arms_completed","operations_completed","sidecar_forwards_completed","sidecar_backwards_completed","optimizer_steps_completed","cell_calls_completed","metric_row_records_completed","aggregate_records_completed","gates_evaluated"]
     if any(not isinstance(progress[k],int) or isinstance(progress[k],bool) or progress[k]<0 for k in numeric) or not isinstance(progress["candidate_files_present"],list) or not isinstance(progress["threshold_file_present"],bool): raise T0ContractError("T0 failure counter differs")
-    if not 0<=progress["capture_rows_completed"]<=96 or progress["tokenizer_calls_completed"]!=progress["capture_rows_completed"] or progress["model_forwards_completed"]!=progress["capture_rows_completed"] or progress["sequences_completed"]!=24*progress["capture_rows_completed"] or not 0<=progress["cache_checks_completed"]<=194: raise T0ContractError("T0 failure capture progress differs")
-    if not 0<=progress["candidates_initialized"]<=5 or not 0<=progress["preconnect_arms_completed"]<=5 or not 0<=progress["operations_completed"]<=385 or not 0<=progress["sidecar_forwards_completed"]<=385 or not 0<=progress["sidecar_backwards_completed"]<=325 or not 0<=progress["optimizer_steps_completed"]<=320 or not 0<=progress["cell_calls_completed"]<=773 or not 0<=progress["metric_row_records_completed"]<=640 or not 0<=progress["aggregate_records_completed"]<=135 or not 0<=progress["gates_evaluated"]<=9: raise T0ContractError("T0 failure sidecar progress differs")
+    captures=progress["capture_rows_completed"]; tokenizers=progress["tokenizer_calls_completed"]; model_forwards=progress["model_forwards_completed"]; cache_checks=progress["cache_checks_completed"]
+    if not 0<=captures<=model_forwards<=tokenizers<=96 or model_forwards>captures+1 or tokenizers>model_forwards+1 or progress["sequences_completed"]!=24*tokenizers or not 0<=cache_checks<=194: raise T0ContractError("T0 failure capture progress differs")
+    if cache_checks:
+        base_cache=1+2*captures
+        if cache_checks not in {base_cache,base_cache+1} or model_forwards==captures+1 and cache_checks!=base_cache+1 or tokenizers==model_forwards+1 and cache_checks!=base_cache: raise T0ContractError("T0 failure cache/capture crossing differs")
+    elif captures or model_forwards: raise T0ContractError("T0 failure capture lacks cache closure")
+    capture=value.get("capture_evidence")
+    if capture is not None:
+        _keys(capture,{"schedule_sha256","rows","counts","aggregate_sha256"},"T0 failure capture")
+        rows=capture["rows"]
+        failed_inflight=isinstance(rows,list) and len(rows)==captures+1 and rows[-1].get("finite") is False and stage=="capture"
+        if capture["schedule_sha256"]!=capture_schedule["schedule_sha256"] or not isinstance(rows,list) or len(rows)!=captures and not failed_inflight or capture["counts"]!={"rows":captures,"tokenizer_calls":tokenizers,"model_forwards":model_forwards,"sequences":24*tokenizers} or capture["aggregate_sha256"]!=sha256_bytes(canonical_json(rows)): raise T0ContractError("T0 failure capture evidence differs")
+        capture_keys={"capture_index","row_id","row_sha256","receiver_input_sha256","node_count","token_count_min","token_count_max","input_ids_sha256","attention_mask_sha256","hidden_shape","hidden_dtype","hidden_sha256","finite"}
+        for index,(row,source) in enumerate(zip(rows,capture_schedule["rows"])):
+            if set(row)!=capture_keys or {key:row[key] for key in ("capture_index","row_id","row_sha256","receiver_input_sha256","node_count")}!=source or row["capture_index"]!=index or not 1<=row["token_count_min"]<=row["token_count_max"]<=128 or row["hidden_shape"]!=[24,2048] or row["hidden_dtype"]!="torch.bfloat16" or not all(digest_string(row[key]) for key in ("input_ids_sha256","attention_mask_sha256","hidden_sha256")) or not isinstance(row["finite"],bool): raise T0ContractError("T0 failure capture row differs")
+    elif captures:
+        raise T0ContractError("T0 failure capture evidence missing")
+    operations=[*training_schedule["batches"]["preconnect"],*training_schedule["batches"]["precal"],*training_schedule["batches"]["train"],*training_schedule["batches"]["postcal"],*training_schedule["batches"]["postfit"]]
+    operations=sorted(operations,key=lambda row:row["operation_index"])
+    completed=progress["operations_completed"]
+    if not 0<=completed<=385 or [r["operation_index"] for r in operations]!=list(range(385)): raise T0ContractError("T0 failure operation prefix differs")
+    def cell_count(row:dict[str,Any])->int: return 0 if row["arm"]=="STATIC" else 1 if row["arm"]=="FFN" else 4 if row["arm"]=="FIXED_T4" else row["depth"]
+    done=operations[:completed]; base_forwards=len(done); base_backwards=sum(bool(r["gradient"]) for r in done); base_steps=sum(bool(r["optimizer_step"]) for r in done); base_cells=sum(cell_count(r) for r in done)
+    current_index=progress["current_operation_index"]; in_flight=current_index==completed and completed<385
+    if completed and not in_flight and current_index!=completed-1: raise T0ContractError("T0 failure current operation differs")
+    if not completed and not in_flight and current_index is not None: raise T0ContractError("T0 failure current operation differs")
+    delta_f=progress["sidecar_forwards_completed"]-base_forwards; delta_b=progress["sidecar_backwards_completed"]-base_backwards; delta_s=progress["optimizer_steps_completed"]-base_steps; delta_c=progress["cell_calls_completed"]-base_cells
+    if in_flight:
+        current=operations[completed]
+        if (progress["current_phase"],progress["current_arm"],progress["current_epoch"],progress["current_depth"])!=(current["phase"],current["arm"],current.get("epoch"),current["depth"]): raise T0ContractError("T0 failure current operation identity differs")
+        if delta_f not in {0,1} or delta_b not in ({0,1} if current["gradient"] else {0}) or delta_s not in ({0,1} if current["optimizer_step"] else {0}) or delta_b>delta_f or delta_s>delta_b or delta_c!=(cell_count(current) if delta_f else 0): raise T0ContractError("T0 failure in-flight operation differs")
+    elif any((delta_f,delta_b,delta_s,delta_c)): raise T0ContractError("T0 failure completed operation counters differ")
+    elif completed:
+        last=operations[completed-1]
+        if (progress["current_phase"],progress["current_arm"],progress["current_epoch"],progress["current_depth"])!=(last["phase"],last["arm"],last.get("epoch"),last["depth"]): raise T0ContractError("T0 failure completed operation identity differs")
+    elif any(progress[key] is not None for key in ("current_phase","current_arm","current_epoch","current_depth")):
+        raise T0ContractError("T0 failure empty operation identity differs")
+    if progress["preconnect_arms_completed"]!=min(completed,5) or not 0<=progress["candidates_initialized"]<=5 or completed and progress["candidates_initialized"]!=5: raise T0ContractError("T0 failure initialization progress differs")
+    stage=progress["stage"]
+    stage_operation_ranges={
+        "startup_pre_model":(0,0),"model_load":(0,0),"capture":(0,0),"model_release":(0,0),"candidate_init":(0,0),
+        "preconnect":(0,5),"precal":(5,25),"train":(25,345),"postcal":(345,365),"postfit":(365,385),
+        "gate_evaluation":(385,385),"candidate_write":(385,385),"postflight_audit":(385,385),"terminal_publication":(385,385),
+    }
+    low,high=stage_operation_ranges[stage]
+    if not low<=completed<=high or stage in {"startup_pre_model","model_load"} and any((captures,tokenizers,model_forwards,cache_checks,progress["candidates_initialized"])) or stage in {"model_release","candidate_init","preconnect","precal","train","postcal","postfit","gate_evaluation","candidate_write","postflight_audit","terminal_publication"} and (captures,tokenizers,model_forwards,cache_checks)!=(96,96,96,194) or stage in {"preconnect","precal","train","postcal","postfit","gate_evaluation","candidate_write","postflight_audit","terminal_publication"} and progress["candidates_initialized"]!=5:
+        raise T0ContractError("T0 failure stage crossing differs")
+    initial=value.get("candidate_initial_state")
+    if initial is not None:
+        _keys(initial,{"seed_payload","seed_payload_sha256","seed_u64_be","arm_order","action_order","rows","all_equal"},"T0 failure candidate initial")
+        initial_keys={"arm","parameter_names","parameter_shapes","parameter_name_count","parameter_count","device","dtype","initial_state_sha256","finite"}
+        if (initial["seed_payload"],initial["seed_payload_sha256"],initial["seed_u64_be"])!=(INIT_PAYLOAD,INIT_SHA256,INIT_SEED) or initial["arm_order"]!=ARMS or initial["action_order"]!=ACTIONS or initial["all_equal"] is not True or [row.get("arm") for row in initial["rows"]]!=ARMS or any(set(row)!=initial_keys or row["parameter_names"]!=PARAMETER_NAMES or row["parameter_shapes"]!=PARAMETER_SHAPES or row["parameter_name_count"]!=16 or row["parameter_count"]!=366340 or row["device"]!="cuda:0" or row["dtype"]!="torch.float32" or row["finite"] is not True or not digest_string(row["initial_state_sha256"]) for row in initial["rows"]) or len({row["initial_state_sha256"] for row in initial["rows"]})!=1: raise T0ContractError("T0 failure candidate initial differs")
+    elif stage_rank[stage]>stage_rank["candidate_init"]:
+        raise T0ContractError("T0 failure candidate initial missing")
+    preconnect=value.get("preconnect_evidence")
+    if preconnect is not None:
+        if preconnect.get("row_id")!="hi_be342227610f62e0" or preconnect.get("depth")!=4 or preconnect.get("action_index")!=0 or preconnect.get("counts")!={"forwards":5,"backwards":5,"optimizer_steps":0} or preconnect.get("all_qualify") is not True or [row.get("arm") for row in preconnect.get("rows",[])]!=ARMS: raise T0ContractError("T0 failure preconnect differs")
+    elif stage_rank[stage]>stage_rank["preconnect"]:
+        raise T0ContractError("T0 failure preconnect evidence missing")
+    expected_metric=[]
+    partition_by_id={r["row_id"]:r for r in [*partition["fit_rows"],*partition["calibration_rows"]]}
+    for phase_name,batch_name in (("PRECAL","precal"),("POSTCAL","postcal"),("POSTFIT","postfit")):
+        for operation in training_schedule["batches"][batch_name]:
+            for row_id in operation["row_ids"]:
+                source=partition_by_id[row_id]; expected_metric.append({"phase":phase_name,"operation_index":operation["operation_index"],"arm":operation["arm"],"depth":operation["depth"],"row_id":row_id,"action_index":source["action_index"],"replicate":source["replicate"]})
+    complete_metric_count=sum(len(row["row_ids"]) for row in done if row["phase"] in {"PRECAL","POSTCAL","POSTFIT"})
+    max_metric_count=complete_metric_count
+    if in_flight and operations[completed]["phase"] in {"PRECAL","POSTCAL","POSTFIT"} and delta_f: max_metric_count+=len(operations[completed]["row_ids"])
+    metric_count=progress["metric_row_records_completed"]
+    f3_incomplete=stage=="gate_evaluation" and completed==385 and metric_count==639 and progress["aggregate_records_completed"]==0 and progress["gates_evaluated"]==0
+    if not (complete_metric_count<=metric_count<=max_metric_count or f3_incomplete) or progress["aggregate_records_completed"] not in ({0,135} if completed==385 and metric_count==640 else {0}) or progress["gates_evaluated"] not in ({0,9} if progress["aggregate_records_completed"]==135 else {0}): raise T0ContractError("T0 failure metric progress differs")
     candidate_prefix=progress["candidate_files_present"]
-    if candidate_prefix!=CANDIDATE_FILES[:len(candidate_prefix)] or len(candidate_prefix)>5 or progress["threshold_file_present"] and len(candidate_prefix)!=5: raise T0ContractError("T0 failure candidate prefix differs")
+    if candidate_prefix!=CANDIDATE_FILES[:len(candidate_prefix)] or len(candidate_prefix)>5 or progress["threshold_file_present"] and (len(candidate_prefix)!=5 or progress["gates_evaluated"]!=9 or stage not in {"candidate_write","postflight_audit","terminal_publication"}): raise T0ContractError("T0 failure candidate prefix differs")
     derived=value.get("derived_thresholds")
     if not progress["threshold_file_present"]:
         if derived is not None: raise T0ContractError("T0 failure threshold evidence differs")
@@ -491,22 +591,106 @@ def validate_t0_failure(value:dict[str,Any], *, output_inventory:list[str]|None=
         if not isinstance(derived,dict) or set(derived)!={"path","file_sha256","bytes","payload"} or derived["path"]!="derived-validation-thresholds.json" or not digest_string(derived["file_sha256"]) or not isinstance(derived["bytes"],int) or derived["bytes"]<=0: raise T0ContractError("T0 failure threshold evidence differs")
         payload=derived["payload"]
         if not isinstance(payload,dict) or payload.get("threshold_sha256")!=sha256_bytes(canonical_json({k:v for k,v in payload.items() if k!="threshold_sha256"})): raise T0ContractError("T0 failure threshold payload differs")
+    gate=value.get("gate_evidence")
+    if progress["gates_evaluated"]:
+        if not isinstance(gate,dict) or set(gate)!={"ordered_rows","pass_count","all_pass"} or len(gate["ordered_rows"])!=9 or [row.get("name") for row in gate["ordered_rows"]]!=GATE_NAMES: raise T0ContractError("T0 failure gate evidence differs")
+    elif gate is not None:
+        raise T0ContractError("T0 failure future gate evidence differs")
     cache=value.get("cache_guard") if isinstance(value.get("cache_guard"),dict) else {}
     safety=value.get("safety") if isinstance(value.get("safety"),dict) else {}
     protected=value.get("protected_state") if isinstance(value.get("protected_state"),dict) else {}
+    if protected:
+        _keys(protected,{"e33_disk_tree_before","e33_disk_tree_after","e33_state_before","e33_state_after","e33_metadata_before","e33_metadata_after","e33_grads_none","h176_tree_sha256","h176_loaded","e33_released"},"T0 failure protected state")
+        if protected["e33_disk_tree_before"]!=E33_TREE_SHA256 or protected["e33_disk_tree_after"]!=E33_TREE_SHA256 or protected["e33_state_before"]!=E33_STATE_SHA256 or protected["e33_metadata_before"]!=METADATA_SHA256 or protected["e33_metadata_after"]!=METADATA_SHA256 or protected["h176_tree_sha256"]!=H176_TREE_SHA256 or not isinstance(protected["e33_state_after"],str) or not digest_string(protected["e33_state_after"]) or not isinstance(protected["e33_grads_none"],bool) or not isinstance(protected["h176_loaded"],bool) or not isinstance(protected["e33_released"],bool): raise T0ContractError("T0 failure protected state differs")
+        if stage=="startup_pre_model" or stage=="capture" and protected["e33_released"] is not False or stage in {"candidate_init","preconnect","precal","train","postcal","postfit","gate_evaluation","candidate_write","postflight_audit","terminal_publication"} and protected["e33_released"] is not True: raise T0ContractError("T0 failure model release evidence differs")
+        if protected["e33_released"] and protected["e33_state_after"]!=E33_STATE_SHA256: raise T0ContractError("T0 released model state differs")
+    elif stage not in {"startup_pre_model","model_load"}:
+        raise T0ContractError("T0 failure protected evidence missing")
+    if cache:
+        expected_cache_labels=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
+        if set(cache)!={"class_records","configuration_records","label_rows","label_sha256","expected_checks","actual_checks","dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count","restored"} or cache["class_records"]!=CACHE_CLASS_RECORDS or cache["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache["actual_checks"]!=cache_checks or [r.get("index") for r in cache["label_rows"]]!=list(range(cache_checks)) or [r.get("label") for r in cache["label_rows"]]!=expected_cache_labels[:cache_checks] or cache["label_sha256"]!=sha256_bytes(canonical_json(expected_cache_labels[:cache_checks])) or cache["dynamic_cache_negative_trips"]!=1 or cache["expected_checks"]!=194 or cache["restored"] is not True or any(not isinstance(cache[key],int) or isinstance(cache[key],bool) or cache[key]<0 for key in ("dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count")): raise T0ContractError("T0 failure cache evidence differs")
+    elif cache_checks: raise T0ContractError("T0 failure cache evidence missing")
+    if safety:
+        safety_keys={"network_attempts","validation_opens","heldout_opens","h176_loads","generation_calls","e33_backwards","e33_optimizer_steps","e33_updates","live_trajectory_count","object_census_errors","object_census_uninspectable","forbidden_inputs_detected"}
+        if set(safety)!=safety_keys or any(not isinstance(safety[key],int) or isinstance(safety[key],bool) or safety[key]<0 for key in safety_keys-{"forbidden_inputs_detected"}) or not isinstance(safety["forbidden_inputs_detected"],list) or any(not isinstance(item,str) or not item for item in safety["forbidden_inputs_detected"]): raise T0ContractError("T0 failure safety differs")
     mechanism_positive=bool(cache.get("dynamic_cache_actual_trips",0)>0 or cache.get("returned_pkv_count",0)>0 or cache.get("configuration_drift_count",0)>0 or any(row.get("finite") is False for row in (value.get("capture_evidence") or {}).get("rows",[]) if isinstance(row,dict)))
-    exposure_positive=bool(safety.get("validation_opens",0)>0 or safety.get("heldout_opens",0)>0 or safety.get("h176_loads",0)>0 or safety.get("generation_calls",0)>0 or safety.get("network_attempts",0)>0 or safety.get("e33_backwards",0)>0 or safety.get("e33_updates",0)>0 or safety.get("forbidden_inputs_detected") or protected.get("h176_loaded") is True or protected.get("e33_grads_none") is False or candidate_prefix and value["status"]=="h_iter_phase1_t0_exposure_boundary_rejected")
+    exposure_positive=bool(safety.get("validation_opens",0)>0 or safety.get("heldout_opens",0)>0 or safety.get("h176_loads",0)>0 or safety.get("generation_calls",0)>0 or safety.get("network_attempts",0)>0 or safety.get("e33_backwards",0)>0 or safety.get("e33_updates",0)>0 or safety.get("forbidden_inputs_detected") or protected.get("h176_loaded") is True or protected.get("e33_grads_none") is False)
     if exposure_positive:
         if value["status"]!="h_iter_phase1_t0_exposure_boundary_rejected": raise T0ContractError("T0 positive exposure masked")
     elif mechanism_positive:
         if value["status"]!="h_iter_phase1_t0_capture_mechanism_rejected": raise T0ContractError("T0 positive capture rejection masked")
     elif value["status"] in {"h_iter_phase1_t0_exposure_boundary_rejected","h_iter_phase1_t0_capture_mechanism_rejected"}: raise T0ContractError("T0 rejection lacks positive evidence")
-    if value["status"]=="infrastructure_invalid" and not value["audit_errors"]: raise T0ContractError("T0 infrastructure failure lacks audit evidence")
+    if value["status"]=="infrastructure_invalid" and (not isinstance(value["audit_errors"],list) or not value["audit_errors"]): raise T0ContractError("T0 infrastructure failure lacks audit evidence")
+    if value["status"]!="infrastructure_invalid" and value["audit_errors"]!=[]: raise T0ContractError("T0 non-infrastructure audit errors differ")
     metric=value.get("metric_evidence")
-    if isinstance(metric,dict) and isinstance(metric.get("row_records"),list) and len(metric["row_records"])!=progress["metric_row_records_completed"]: raise T0ContractError("T0 failure metric prefix differs")
+    if isinstance(metric,dict) and isinstance(metric.get("row_records"),list):
+        _keys(metric,{"row_records","aggregate_records","postcal_aggregate_sha256","counts"},"T0 failure metric")
+        rows=metric["row_records"]
+        if len(rows)!=progress["metric_row_records_completed"] or not isinstance(metric["aggregate_records"],list) or len(metric["aggregate_records"])!=progress["aggregate_records_completed"]: raise T0ContractError("T0 failure metric prefix differs")
+        for record,identity in zip(rows,expected_metric):
+            if set(record)!={"phase","operation_index","arm","depth","row_id","action_index","replicate","logits","logits_sha256","prediction","nll"} or any(record.get(k)!=v for k,v in identity.items()) or not isinstance(record.get("logits"),list) or len(record["logits"])!=4 or any(not finite_number(item) for item in record["logits"]): raise T0ContractError("T0 failure metric identity differs")
+            try: import torch
+            except Exception as error: raise T0ContractError("T0 failure metric validator requires CPU float64 runtime") from error
+            vector=torch.tensor(record["logits"],dtype=torch.float64,device="cpu"); raw=vector.contiguous().view(torch.uint8).numpy().tobytes()
+            if record.get("logits_sha256")!=sha256_bytes(canonical_json({"dtype":"torch.float64","shape":[4]})+b"\n"+raw) or record.get("prediction")!=int(torch.argmax(vector)) or record.get("nll")!=float(-torch.log_softmax(vector,dim=-1)[record["action_index"]]): raise T0ContractError("T0 failure metric logits differ")
+        presentations={phase:sum(record["phase"]==phase for record in rows) for phase in ("PRECAL","POSTCAL","POSTFIT")}
+        expected_counts={"row_records":len(rows),"aggregate_records":len(metric["aggregate_records"]),"precal_presentations":presentations["PRECAL"],"postcal_presentations":presentations["POSTCAL"],"postfit_presentations":presentations["POSTFIT"]}
+        if metric["counts"]!=expected_counts: raise T0ContractError("T0 failure metric counts differ")
+        if len(rows)==640:
+            recomputed=[]
+            for phase_name in ("PRECAL","POSTCAL","POSTFIT"):
+                for arm in ARMS:
+                    subset=[record for record in rows if record["phase"]==phase_name and record["arm"]==arm]
+                    scopes=[("overall",None,subset),*[("depth",depth,[record for record in subset if record["depth"]==depth]) for depth in range(1,5)],*[("action",action,[record for record in subset if record["action_index"]==action]) for action in range(4)]]
+                    for scope,scope_value,scope_rows in scopes:
+                        correct=sum(record["prediction"]==record["action_index"] for record in scope_rows)
+                        recomputed.append({"phase":phase_name,"arm":arm,"scope":scope,"scope_value":scope_value,"count":len(scope_rows),"correct":correct,"accuracy_numerator":correct,"accuracy_denominator":len(scope_rows),"mean_nll":math.fsum(record["nll"] for record in scope_rows)/len(scope_rows)})
+            if progress["aggregate_records_completed"]==135 and metric["aggregate_records"]!=recomputed or progress["aggregate_records_completed"]==0 and metric["aggregate_records"]!=[]: raise T0ContractError("T0 failure aggregates differ")
+            postcal=[record for record in recomputed if record["phase"]=="POSTCAL"]
+            if metric["postcal_aggregate_sha256"]!=sha256_bytes(canonical_json(postcal if progress["aggregate_records_completed"] else [])): raise T0ContractError("T0 failure aggregate hash differs")
+            if progress["threshold_file_present"]:
+                get=lambda arm,scope="overall",scope_value=None:next(record for record in recomputed if (record["phase"],record["arm"],record["scope"],record["scope_value"])==("POSTCAL",arm,scope,scope_value))
+                rec=get("REC_K"); reset=get("RESET_K"); ar=rec["correct"]/32; min_depth=min(get("REC_K","depth",depth)["correct"]/8 for depth in range(1,5)); a_reset=reset["correct"]/32; n_reset=reset["mean_nll"]; nr=rec["mean_nll"]
+                formulas={"fixed_rec_nll_min":".01","per_depth_min":"min(18/24,max(10/24,floor_24(min_depth_AR-1/8)))","rec_accuracy_min":"min(36/48,max(24/48,floor_48(AR-4/32)))","rec_fixed_accuracy_min":"2/48","rec_reset_accuracy_min":"min(8/48,max(2/48,floor_48(.5*(AR-A_RESET))))","reset_rec_nll_min":"min(.15,max(.02,floor_1e6(.5*(N_RESET-NR))))"}
+                thresholds={"rec_accuracy_min":[min(36,max(24,math.floor(48*(ar-4/32)))),48],"per_depth_min":[min(18,max(10,math.floor(24*(min_depth-1/8)))),24],"rec_reset_accuracy_min":[min(8,max(2,math.floor(48*.5*(ar-a_reset)))),48],"reset_rec_nll_min":min(.15,max(.02,math.floor(1_000_000*.5*(n_reset-nr))/1_000_000)),"rec_fixed_accuracy_min":[2,48],"fixed_rec_nll_min":.01}
+                threshold_payload=derived["payload"]
+                if threshold_payload.get("schema_version")!="prime-rl/latent-h-iter-phase1-t0-derived-validation-thresholds/v1" or threshold_payload.get("status")!="h_iter_phase1_t0_validation_thresholds_derived" or threshold_payload.get("mechanism")!=MECHANISM or threshold_payload.get("run_identity")!=RUN_ID or threshold_payload.get("postcal_aggregate_sha256")!=sha256_bytes(canonical_json(postcal)) or threshold_payload.get("inputs")!={"AR":ar,"min_depth_AR":min_depth,"A_RESET":a_reset,"N_RESET":n_reset,"NR":nr} or threshold_payload.get("formulas")!=formulas or threshold_payload.get("thresholds")!=thresholds: raise T0ContractError("T0 failure threshold formula differs")
+    elif progress["metric_row_records_completed"]:
+        raise T0ContractError("T0 failure metric evidence missing")
     memory=value.get("memory")
     if isinstance(memory,dict) and isinstance(memory.get("rows"),list):
-        if [r.get("index") for r in memory["rows"]]!=list(range(len(memory["rows"]))) or len(memory["rows"])>534: raise T0ContractError("T0 failure memory prefix differs")
+        labels=[r["label"] for r in memory_schedule["rows"]]; rows=memory["rows"]
+        if memory.get("schedule_file_sha256")!=sha256_bytes(canonical_json(memory_schedule)+b"\n") or memory.get("expected_count")!=534 or [r.get("index") for r in rows]!=list(range(len(rows))) or [r.get("label") for r in rows]!=labels[:len(rows)] or len(rows)>534 or memory.get("label_sha256")!=sha256_bytes(canonical_json(labels[:len(rows)])) or memory.get("complete") is not (len(rows)==534): raise T0ContractError("T0 failure memory prefix differs")
+        memory_keys={"index","label","current_allocated_bytes","current_reserved_bytes","peak_allocated_bytes","peak_reserved_bytes"}
+        for row in rows:
+            numbers=[row.get(key) for key in ("current_allocated_bytes","current_reserved_bytes","peak_allocated_bytes","peak_reserved_bytes")]
+            if set(row)!=memory_keys or any(not isinstance(item,int) or isinstance(item,bool) or not 0<=item<=40*(1<<30) for item in numbers) or numbers[0]>numbers[2] or numbers[1]>numbers[3]: raise T0ContractError("T0 failure memory row differs")
+        row_labels=[r["label"] for r in rows]
+        post_capture=sum(label.startswith("POST_CAPTURE_") for label in row_labels); pre_capture=sum(label.startswith("PRE_CAPTURE_") for label in row_labels)
+        if post_capture!=captures or pre_capture not in {tokenizers,tokenizers+1} or not captures<=tokenizers<=pre_capture: raise T0ContractError("T0 failure memory/capture crossing differs")
+        milestone_rules=(
+            ("CACHE_GUARD_EXITED",captures==96,stage_rank[stage]>stage_rank["capture"]),
+            ("PROTECTED_POSTCAPTURE_VERIFIED",stage_rank[stage]>=stage_rank["model_release"],stage_rank[stage]>stage_rank["model_release"]),
+            ("MODEL_RELEASED",stage_rank[stage]>=stage_rank["candidate_init"],stage_rank[stage]>stage_rank["candidate_init"]),
+            ("CANDIDATES_INITIALIZED",progress["candidates_initialized"]==5,stage_rank[stage]>stage_rank["candidate_init"]),
+            ("PRECONNECT_COMPLETE",completed>=5,stage_rank[stage]>stage_rank["preconnect"]),
+            ("PRECAL_COMPLETE",completed>=25,stage_rank[stage]>stage_rank["precal"]),
+            ("TRAINING_COMPLETE",completed>=345,stage_rank[stage]>stage_rank["train"]),
+            ("POSTCAL_COMPLETE",completed>=365,stage_rank[stage]>stage_rank["postcal"]),
+            ("POSTFIT_COMPLETE",completed>=385,stage_rank[stage]>stage_rank["postfit"]),
+            ("GATES_EVALUATED",progress["gates_evaluated"]==9,stage_rank[stage]>stage_rank["gate_evaluation"]),
+            ("CANDIDATE_DISPOSITION_COMPLETE",stage_rank[stage]>=stage_rank["postflight_audit"],stage_rank[stage]>stage_rank["postflight_audit"]),
+            ("PROTECTED_POSTFLIGHT_VERIFIED",stage_rank[stage]>=stage_rank["postflight_audit"],stage=="terminal_publication"),
+            ("FULL_FREEZE_POSTFLIGHT_VERIFIED",stage_rank[stage]>=stage_rank["postflight_audit"],stage=="terminal_publication"),
+            ("TERMINAL_PREWRITE",stage=="terminal_publication",stage=="terminal_publication"),
+        )
+        for label,allowed,required in milestone_rules:
+            present=label in row_labels
+            if present and not allowed or required and not present: raise T0ContractError("T0 failure memory milestone differs")
+        train_labels=sum(label.startswith("POST_TRAIN_UPDATE_") for label in row_labels)
+        expected_train_completed=max(0,min(completed,345)-25)
+        if train_labels!=expected_train_completed: raise T0ContractError("T0 failure training memory prefix differs")
+    elif captures or completed or progress["stage"] not in {"startup_pre_model","model_load"}: raise T0ContractError("T0 failure memory evidence missing")
     if output_inventory is not None:
         expected=sorted([*candidate_prefix,*( ["derived-validation-thresholds.json"] if progress["threshold_file_present"] else []),"T0-FAILURE.json"])
         if output_inventory!=expected: raise T0ContractError("T0 failure output inventory differs")
@@ -514,12 +698,17 @@ def validate_t0_failure(value:dict[str,Any], *, output_inventory:list[str]|None=
     if isinstance(disposition,dict):
         rows=disposition.get("rows")
         if disposition.get("arm_order")!=ARMS or disposition.get("files_present")!=candidate_prefix or disposition.get("threshold_file_present") is not progress["threshold_file_present"] or disposition.get("reusable") is not False or not isinstance(rows,list) or len(rows)!=len(candidate_prefix): raise T0ContractError("T0 failure candidate evidence differs")
+        row_keys={"arm","path","file_sha256","bytes","module_state_sha256","parameter_names","parameter_name_count","parameter_count","dtype","device","finite","safe_reload_passed"}
+        for arm,name,row in zip(ARMS,candidate_prefix,rows):
+            if set(row)!=row_keys or row["arm"]!=arm or row["path"]!=name or row["parameter_names"]!=PARAMETER_NAMES or row["parameter_name_count"]!=16 or row["parameter_count"]!=366340 or row["dtype"]!="torch.float32" or row["device"]!="cpu" or row["finite"] is not True or row["safe_reload_passed"] is not True or not digest_string(row["file_sha256"]) or not digest_string(row["module_state_sha256"]) or not isinstance(row["bytes"],int) or row["bytes"]<=0: raise T0ContractError("T0 failure candidate row differs")
         if output_dir is not None:
             from pathlib import Path
             root=Path(output_dir)
             for name,row in zip(candidate_prefix,rows):
-                path=root/name
-                if row.get("path")!=name or not path.is_file() or path.is_symlink() or path.stat().st_size!=row.get("bytes") or sha256_bytes(path.read_bytes())!=row.get("file_sha256"): raise T0ContractError("T0 failure candidate file differs")
+                if row.get("path")!=name: raise T0ContractError("T0 failure candidate path differs")
+                validate_candidate_artifact(root/name,row)
             if progress["threshold_file_present"]:
                 threshold_path=root/"derived-validation-thresholds.json"
                 if not threshold_path.is_file() or threshold_path.is_symlink() or threshold_path.stat().st_size!=derived["bytes"] or sha256_bytes(threshold_path.read_bytes())!=derived["file_sha256"] or strict_loads(threshold_path.read_bytes())!=derived["payload"]: raise T0ContractError("T0 failure threshold file differs")
+    else:
+        raise T0ContractError("T0 failure candidate evidence missing")

@@ -13,7 +13,6 @@ import resource
 import signal
 import shutil
 import socket
-import struct
 import subprocess
 import sys
 import tempfile
@@ -132,7 +131,27 @@ def candidate_roundtrip(torch:Any,state:dict[str,Any])->dict[str,Any]:
         for arm in ARMS:
             path=root/f"candidate-{arm}.safetensors"; save_file({n:t.detach().cpu().contiguous() for n,t in state.items()},str(path)); loaded=load_file(str(path),device="cpu")
             rows.append({"arm":arm,"file_sha256":file_sha(path),"bytes":path.stat().st_size,"state_sha256":module_state_sha256(torch,loaded),"safe":set(loaded)==set(state) and all(torch.equal(loaded[n],state[n]) for n in state)})
-        return {"rows":rows,"all_safe":all(r["safe"] for r in rows)}
+        variants={
+            "wrong_name":{**state,"unexpected":state[PARAMETER_NAMES[0]]},
+            "wrong_shape":{**state,PARAMETER_NAMES[0]:state[PARAMETER_NAMES[0]][:-1]},
+            "wrong_dtype":{**state,PARAMETER_NAMES[0]:state[PARAMETER_NAMES[0]].double()},
+            "nonfinite":{**state,PARAMETER_NAMES[0]:state[PARAMETER_NAMES[0]].clone()},
+        }
+        variants["wrong_name"].pop(PARAMETER_NAMES[0])
+        variants["nonfinite"][PARAMETER_NAMES[0]].reshape(-1)[0]=float("inf")
+        rejected=[]
+        for name,variant in variants.items():
+            path=root/f"unsafe-{name}.safetensors"; save_file({key:t.detach().cpu().contiguous() for key,t in variant.items()},str(path)); row={"file_sha256":file_sha(path),"bytes":path.stat().st_size,"module_state_sha256":module_state_sha256(torch,variant)}
+            try: validate_candidate_artifact(path,row)
+            except T0ContractError: rejected.append(name)
+        unsafe_path=root/"unsafe-pickle.safetensors"; torch.save(state,unsafe_path); unsafe_row={"file_sha256":file_sha(unsafe_path),"bytes":unsafe_path.stat().st_size,"module_state_sha256":"0"*64}
+        try: validate_candidate_artifact(unsafe_path,unsafe_row)
+        except T0ContractError: rejected.append("unsafe_format")
+        target=root/"symlink-target.safetensors"; save_file(state,str(target)); link=root/"unsafe-symlink.safetensors"; link.symlink_to(target); link_row={"file_sha256":file_sha(target),"bytes":target.stat().st_size,"module_state_sha256":module_state_sha256(torch,state)}
+        try: validate_candidate_artifact(link,link_row)
+        except T0ContractError: rejected.append("symlink")
+        expected_rejections=["wrong_name","wrong_shape","wrong_dtype","nonfinite","unsafe_format","symlink"]
+        return {"rows":rows,"unsafe_rejections":rejected,"all_safe":all(r["safe"] for r in rows) and rejected==expected_rejections}
 
 def set_pointer(value:Any,pointer:str,operator:str,operand:Any)->None:
     def parts(p:str)->list[str]: return [x.replace("~1","/").replace("~0","~") for x in p.split("/")[1:]]
@@ -161,9 +180,10 @@ def terminal_fixture(contract:dict[str,Any],capture:dict[str,Any],schedule:dict[
 def tamper_results(plan:dict[str,Any],contract:dict[str,Any],capture:dict[str,Any],schedule:dict[str,Any],tampers:dict[str,Any],partition:dict[str,Any]|None=None,memory_schedule:dict[str,Any]|None=None,repo:Path|None=None,*,plan_proof_input:bool=True)->list[dict[str,Any]]:
     if partition is None or memory_schedule is None:
         raise T0ModelFreeProofError("T0 tamper audit requires complete production fixtures")
-    stop_terminal=production_fixture(partition,schedule,memory_schedule,tampers,[],True)
+    validation={"partition":partition,"capture_schedule":capture,"training_schedule":schedule,"memory_schedule":memory_schedule}
+    stop_terminal=production_fixture(partition,capture,schedule,memory_schedule,tampers,[],True)
     fake_candidates=[{"arm":arm,"path":f"candidate-{arm}.safetensors","file_sha256":str(index+1)*64,"bytes":1,"module_state_sha256":str(index+2)*64,"parameter_names":PARAMETER_NAMES,"parameter_name_count":16,"parameter_count":366340,"dtype":"torch.float32","device":"cpu","finite":True,"safe_reload_passed":True} for index,arm in enumerate(ARMS)]
-    go_terminal=production_fixture(partition,schedule,memory_schedule,tampers,fake_candidates,False)
+    go_terminal=production_fixture(partition,capture,schedule,memory_schedule,tampers,fake_candidates,False)
     progress={"stage":"gate_evaluation","capture_rows_completed":96,"tokenizer_calls_completed":96,"model_forwards_completed":96,"sequences_completed":2304,"cache_checks_completed":194,"candidates_initialized":5,"preconnect_arms_completed":5,"operations_completed":385,"current_operation_index":384,"current_phase":"POSTFIT","current_arm":"REC_K","current_epoch":15,"current_depth":4,"sidecar_forwards_completed":385,"sidecar_backwards_completed":325,"optimizer_steps_completed":320,"cell_calls_completed":773,"metric_row_records_completed":640,"aggregate_records_completed":135,"gates_evaluated":9,"candidate_files_present":[],"threshold_file_present":False}
     failure={k:v for k,v in stop_terminal.items() if k!="proof_sha256"}; failure.update({"schema_version":FAILURE_SCHEMA,"status":"h_iter_phase1_t0_incomplete","error_type":"T0ContractError","error_message":"fixture","traceback":"fixture","stage":"gate_evaluation","execution_progress":progress,"audit_errors":[],"failure_sha256":""}); failure["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in failure.items() if k!="failure_sha256"}))
     results=[]
@@ -207,10 +227,10 @@ def tamper_results(plan:dict[str,Any],contract:dict[str,Any],capture:dict[str,An
                 mutated["schedule_sha256"]=sha256_bytes(canonical_json({k:v for k,v in mutated.items() if k!="schedule_sha256"}))
                 if mutated!=schedule: raise T0ContractError("T0 training schedule differs")
             elif fixture=="failure_copy":
-                mutated["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in mutated.items() if k!="failure_sha256"})); validate_t0_failure(mutated)
+                mutated["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in mutated.items() if k!="failure_sha256"})); validate_t0_failure(mutated,**validation)
             else:
                 if row["index"]!=96: mutated["proof_sha256"]=sha256_bytes(canonical_json({k:v for k,v in mutated.items() if k!="proof_sha256"}))
-                validate_t0_proof(mutated)
+                validate_t0_proof(mutated,**validation)
         except T0ContractError as error:
             rejected=True; observed=type(error).__name__
         if not rejected: raise T0ModelFreeProofError(f"tamper {row['name']} was accepted")
@@ -218,6 +238,7 @@ def tamper_results(plan:dict[str,Any],contract:dict[str,Any],capture:dict[str,An
     return results
 
 def metric_fixture(partition:dict[str,Any],schedule:dict[str,Any],stop:bool)->tuple[dict[str,Any],dict[str,Any]]:
+    import torch
     fit=sorted(partition["fit_rows"],key=lambda r:(r["depth"],r["action_index"],r["replicate"],r["row_id"])); cal=sorted(partition["calibration_rows"],key=lambda r:(r["depth"],r["action_index"],r["replicate"],r["row_id"]))
     by_id={r["row_id"]:r for r in [*fit,*cal]}; operations={r["operation_index"]:r for p in ("precal","postcal","postfit") for r in schedule["batches"][p]}
     records=[]
@@ -245,9 +266,9 @@ def metric_fixture(partition:dict[str,Any],schedule:dict[str,Any],stop:bool)->tu
                     elif arm=="RESET_K" and row["row_id"] in {next(x["row_id"] for x in fit if x["depth"]==d) for d in range(1,5)}: kind="wrong"
                     elif arm in {"STATIC","FFN"} and global_fit[row["row_id"]]<2: kind="wrong"
                     elif arm=="FIXED_T4" and global_fit[row["row_id"]]==0: kind="wrong"
-                vector=logits(kind,row["action_index"]); denominator=math.fsum(math.exp(x) for x in vector); nll=math.log(denominator)-vector[row["action_index"]]; pred=max(range(4),key=lambda i:vector[i])
-                logits_hash=sha256_bytes(canonical_json({"dtype":"torch.float64","shape":[4]})+b"\n"+struct.pack("=4d",*vector))
-                records.append({"phase":phase,"operation_index":actual_op["operation_index"],"arm":arm,"depth":row["depth"],"row_id":row["row_id"],"action_index":row["action_index"],"replicate":row["replicate"],"logits_sha256":logits_hash,"prediction":pred,"nll":nll})
+                vector=logits(kind,row["action_index"]); tensor=torch.tensor(vector,dtype=torch.float64,device="cpu"); nll=float(-torch.log_softmax(tensor,dim=-1)[row["action_index"]]); pred=int(torch.argmax(tensor))
+                logits_hash=sha256_bytes(canonical_json({"dtype":"torch.float64","shape":[4]})+b"\n"+tensor.contiguous().view(torch.uint8).numpy().tobytes())
+                records.append({"phase":phase,"operation_index":actual_op["operation_index"],"arm":arm,"depth":row["depth"],"row_id":row["row_id"],"action_index":row["action_index"],"replicate":row["replicate"],"logits":vector,"logits_sha256":logits_hash,"prediction":pred,"nll":nll})
     aggregates=[]
     for phase in ("PRECAL","POSTCAL","POSTFIT"):
         for arm in ARMS:
@@ -272,21 +293,21 @@ def derived_threshold_fixture(metric:dict[str,Any])->dict[str,Any]:
     thresholds={"rec_accuracy_min":[min(36,max(24,math.floor(48*(ar-4/32)))),48],"per_depth_min":[min(18,max(10,math.floor(24*(min_depth-1/8)))),24],"rec_reset_accuracy_min":[min(8,max(2,math.floor(48*.5*(ar-a_reset)))),48],"reset_rec_nll_min":min(.15,max(.02,math.floor(1_000_000*.5*(n_reset-nr))/1_000_000)),"rec_fixed_accuracy_min":[2,48],"fixed_rec_nll_min":.01}
     return finish({"schema_version":"prime-rl/latent-h-iter-phase1-t0-derived-validation-thresholds/v1","status":"h_iter_phase1_t0_validation_thresholds_derived","mechanism":MECHANISM,"run_identity":RUN_ID,"postcal_aggregate_sha256":metric["postcal_aggregate_sha256"],"inputs":{"AR":ar,"min_depth_AR":min_depth,"A_RESET":a_reset,"N_RESET":n_reset,"NR":nr},"formulas":formulas,"thresholds":thresholds,"threshold_sha256":""},"threshold_sha256")
 
-def production_fixture(partition:dict[str,Any],schedule:dict[str,Any],memory_schedule:dict[str,Any],tampers:dict[str,Any],candidate_rows:list[dict[str,Any]],stop:bool)->dict[str,Any]:
+def production_fixture(partition:dict[str,Any],capture_schedule:dict[str,Any],schedule:dict[str,Any],memory_schedule:dict[str,Any],tampers:dict[str,Any],candidate_rows:list[dict[str,Any]],stop:bool)->dict[str,Any]:
     metric,gates=metric_fixture(partition,schedule,stop); go=not stop; status="h_iter_phase1_t0_validation_contract_design_authorized" if go else "h_iter_phase1_train_calibration_stop"
     threshold_payload=derived_threshold_fixture(metric); threshold_bytes=canonical_json(threshold_payload)+b"\n"
     names=PARAMETER_NAMES
     disposition_rows=[] if stop else candidate_rows
     decision={"claim":"train_only_matched_sidecar_learning_screen_passed" if go else "train_only_matched_sidecar_learning_screen_stopped","candidate_modules_updated":True,"protected_models_updated":False,"validation_contract_design_authorized":go,"validation_execution_authorized":False,"validation_or_heldout_opened":False,"live_trajectory_count":0,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}
-    dummy_entries=[{"path":f"fixture-{i:02d}","sha256":"0"*64,"bytes":0} for i in range(38)]; capture_rows=[{"capture_index":i,"row_id":f"hi_{i:016x}","row_sha256":"1"*64,"receiver_input_sha256":"2"*64,"node_count":24,"token_count_min":1,"token_count_max":1,"input_ids_sha256":"3"*64,"attention_mask_sha256":"4"*64,"hidden_shape":[24,2048],"hidden_dtype":"torch.bfloat16","hidden_sha256":"5"*64,"finite":True} for i in range(96)]; cache_labels=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
+    dummy_entries=[{"path":f"fixture-{i:02d}","sha256":"0"*64,"bytes":0} for i in range(38)]; capture_rows=[{**source,"token_count_min":1,"token_count_max":1,"input_ids_sha256":"3"*64,"attention_mask_sha256":"4"*64,"hidden_shape":[24,2048],"hidden_dtype":"torch.bfloat16","hidden_sha256":"5"*64,"finite":True} for source in capture_schedule["rows"]]; cache_labels=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
     runtime={"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","transformers":"5.6.2","tokenizers":"0.22.2","torch_distribution":"2.11.0+cu128","torch_runtime":"2.11.0+cu128","flash_linear_attention":"0.5.2","gpu_name":"NVIDIA RTX A6000","physical_gpu":"0","visible_device":"cuda:0","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"}
-    proof={"schema_version":PROOF_SCHEMA,"status":status,"mechanism":MECHANISM,"run_identity":RUN_ID,"execution_commit":"0"*40,"mechanism_code_commit":"1"*40,"plan_file_sha256":"2"*64,"plan_sha256":"3"*64,"runtime":runtime,"asset_audit":{"target_count":38,"pre_entries":dummy_entries,"pre_sha256":"6"*64,"post_entries":dummy_entries,"post_sha256":"6"*64,"all_exact":True},"antecedent_binding":{"manifest_path":"t0-antecedent-evidence-manifest.json","manifest_file_sha256":"7"*64,"manifest_internal_sha256":"8"*64,"mf0_archive_exact":True,"cap0_r1_archive_exact":True},"data_binding":{"train_bank_path":TRAIN_BANK_PATH,"train_bank_file_sha256":TRAIN_BANK_FILE_SHA256,"train_bank_internal_sha256":TRAIN_BANK_INTERNAL_SHA256,"source_rows":96,"fit_rows":64,"calibration_rows":32,"fit_row_ids":[r["row_id"] for r in partition["fit_rows"]],"calibration_row_ids":[r["row_id"] for r in partition["calibration_rows"]],"fit_calibration_intersection":[],"complete_train_union":True,"validation_open_count":0,"heldout_open_count":0},"capture_evidence":{"schedule_sha256":"9"*64,"rows":capture_rows,"counts":{"rows":96,"tokenizer_calls":96,"model_forwards":96,"sequences":2304},"aggregate_sha256":sha256_bytes(canonical_json(capture_rows))},
+    proof={"schema_version":PROOF_SCHEMA,"status":status,"mechanism":MECHANISM,"run_identity":RUN_ID,"execution_commit":"0"*40,"mechanism_code_commit":"1"*40,"plan_file_sha256":"2"*64,"plan_sha256":"3"*64,"runtime":runtime,"asset_audit":{"target_count":38,"pre_entries":dummy_entries,"pre_sha256":"6"*64,"post_entries":dummy_entries,"post_sha256":"6"*64,"all_exact":True},"antecedent_binding":{"manifest_path":"t0-antecedent-evidence-manifest.json","manifest_file_sha256":"7"*64,"manifest_internal_sha256":"8"*64,"mf0_archive_exact":True,"cap0_r1_archive_exact":True},"data_binding":{"train_bank_path":TRAIN_BANK_PATH,"train_bank_file_sha256":TRAIN_BANK_FILE_SHA256,"train_bank_internal_sha256":TRAIN_BANK_INTERNAL_SHA256,"source_rows":96,"fit_rows":64,"calibration_rows":32,"fit_row_ids":[r["row_id"] for r in partition["fit_rows"]],"calibration_row_ids":[r["row_id"] for r in partition["calibration_rows"]],"fit_calibration_intersection":[],"complete_train_union":True,"validation_open_count":0,"heldout_open_count":0},"capture_evidence":{"schedule_sha256":capture_schedule["schedule_sha256"],"rows":capture_rows,"counts":{"rows":96,"tokenizer_calls":96,"model_forwards":96,"sequences":2304},"aggregate_sha256":sha256_bytes(canonical_json(capture_rows))},
       "candidate_initial_state":{"seed_payload":INIT_PAYLOAD,"seed_payload_sha256":INIT_SHA256,"seed_u64_be":INIT_SEED,"arm_order":ARMS,"action_order":ACTIONS,"rows":[{"arm":arm,"parameter_names":names,"parameter_shapes":PARAMETER_SHAPES,"parameter_name_count":16,"parameter_count":366340,"device":"cuda:0","dtype":"torch.float32","initial_state_sha256":"4"*64,"finite":True} for arm in ARMS],"all_equal":True},
       "preconnect_evidence":{"row_id":"hi_be342227610f62e0","depth":4,"action_index":0,"rows":[{"arm":a,"operation_index":i,"loss":1.0,"codec_grad_l2":1.0,"cell_grad_l2":None if a=="STATIC" else 1.0,"readout_grad_l2":1.0,"state_before_sha256":"4"*64,"state_after_sha256":"4"*64,"gradients_cleared":True,"finite":True,"qualifies":True} for i,a in enumerate(ARMS)],"counts":{"forwards":5,"backwards":5,"optimizer_steps":0},"all_qualify":True},
       "metric_evidence":metric,"gate_evidence":gates,"derived_thresholds":None if stop else {"path":"derived-validation-thresholds.json","file_sha256":sha256_bytes(threshold_bytes),"bytes":len(threshold_bytes),"payload":threshold_payload},
-      "candidate_disposition":{"arm_order":ARMS,"files_present":[] if stop else CANDIDATE_FILES,"threshold_file_present":go,"rows":disposition_rows,"reusable":go},"protected_state":{"e33_disk_tree_before":E33_TREE_SHA256,"e33_disk_tree_after":E33_TREE_SHA256,"e33_state_before":E33_STATE_SHA256,"e33_state_after":E33_STATE_SHA256,"e33_metadata_before":METADATA_SHA256,"e33_metadata_after":METADATA_SHA256,"e33_grads_none":True,"h176_tree_sha256":H176_TREE_SHA256,"h176_loaded":False,"e33_released":True},"cache_guard":{"class_records":[],"configuration_records":[],"label_rows":[{"index":i,"label":x} for i,x in enumerate(cache_labels)],"label_sha256":sha256_bytes(canonical_json(cache_labels)),"expected_checks":194,"actual_checks":194,"dynamic_cache_negative_trips":1,"dynamic_cache_actual_trips":0,"returned_pkv_count":0,"configuration_drift_count":0,"restored":True},
+      "candidate_disposition":{"arm_order":ARMS,"files_present":[] if stop else CANDIDATE_FILES,"threshold_file_present":go,"rows":disposition_rows,"reusable":go},"protected_state":{"e33_disk_tree_before":E33_TREE_SHA256,"e33_disk_tree_after":E33_TREE_SHA256,"e33_state_before":E33_STATE_SHA256,"e33_state_after":E33_STATE_SHA256,"e33_metadata_before":METADATA_SHA256,"e33_metadata_after":METADATA_SHA256,"e33_grads_none":True,"h176_tree_sha256":H176_TREE_SHA256,"h176_loaded":False,"e33_released":True},"cache_guard":{"class_records":[],"configuration_records":CACHE_CONFIGURATION_RECORDS,"label_rows":[{"index":i,"label":x} for i,x in enumerate(cache_labels)],"label_sha256":sha256_bytes(canonical_json(cache_labels)),"expected_checks":194,"actual_checks":194,"dynamic_cache_negative_trips":1,"dynamic_cache_actual_trips":0,"returned_pkv_count":0,"configuration_drift_count":0,"restored":True},
       "safety":{"network_attempts":0,"validation_opens":0,"heldout_opens":0,"h176_loads":0,"generation_calls":0,"e33_backwards":0,"e33_optimizer_steps":0,"e33_updates":0,"live_trajectory_count":0,"object_census_errors":0,"object_census_uninspectable":0,"forbidden_inputs_detected":[]},
-      "counts":{**T0_COMPLETE_COUNTS,"candidate_files":5 if go else 0,"threshold_files":1 if go else 0},"resources":{},"memory":{"schedule_file_sha256":"6"*64,"expected_count":534,"rows":[{"index":r["index"],"label":r["label"],"current_allocated_bytes":0,"current_reserved_bytes":0,"peak_allocated_bytes":0,"peak_reserved_bytes":0} for r in memory_schedule["rows"]],"label_sha256":sha256_bytes(canonical_json([r["label"] for r in memory_schedule["rows"]])),"complete":True},"full_freeze":{},"tamper_audit":{"schedule_file_sha256":"7"*64,"expected_count":98,"results":[{"index":r["index"],"name":r["name"],"rejected":True,"observed_error_type":"T0ContractError"} for r in tampers["rows"]],"rejected_count":98,"all_rejected":True},"decision_boundary":decision,"proof_sha256":""}
+      "counts":{**T0_COMPLETE_COUNTS,"candidate_files":5 if go else 0,"threshold_files":1 if go else 0},"resources":{},"memory":{"schedule_file_sha256":sha256_bytes(canonical_json(memory_schedule)+b"\n"),"expected_count":534,"rows":[{"index":r["index"],"label":r["label"],"current_allocated_bytes":0,"current_reserved_bytes":0,"peak_allocated_bytes":0,"peak_reserved_bytes":0} for r in memory_schedule["rows"]],"label_sha256":sha256_bytes(canonical_json([r["label"] for r in memory_schedule["rows"]])),"complete":True},"full_freeze":{},"tamper_audit":{"schedule_file_sha256":"7"*64,"expected_count":98,"results":[{"index":r["index"],"name":r["name"],"rejected":True,"observed_error_type":"T0ContractError"} for r in tampers["rows"]],"rejected_count":98,"all_rejected":True},"decision_boundary":decision,"proof_sha256":""}
     proof["resources"]={"gpu_name":"NVIDIA RTX A6000","physical_gpu":"0","visible_device":"cuda:0","free_gpu_bytes_pre":44*(1<<30),"available_ram_bytes_pre":64*(1<<30),"free_disk_bytes_pre":16*(1<<30),"max_allocated_bytes":0,"max_reserved_bytes":0,"artifact_bytes":0,"timing":{"outer_seconds":21600,"startup_seconds":600,"compute_seconds":18000,"audit_seconds":1200,"failure_seconds":1200,"terminal_seconds":300,"postexit_seconds":300,"alarm_safety_margin_seconds":1,"compute_enter_ns":0,"compute_exit_ns":1,"compute_duration_ns":1,"audit_enter_ns":1,"audit_exit_ns":2,"audit_duration_ns":1,"failure_enter_ns":None,"failure_exit_ns":None,"failure_duration_ns":None,"terminal_enter_ns":2,"prepublication_elapsed_ns":2}}
     proof["full_freeze"]={"target_count":38,"head_before":"0"*40,"head_after":"0"*40,"tree_before":"1"*40,"tree_after":"1"*40,"clean_before":True,"clean_after":True,"pre_entries":dummy_entries,"post_entries":dummy_entries,"pre_sha256":"6"*64,"post_sha256":"6"*64,"complete":True}
     dummy_entry_hash=sha256_bytes(canonical_json(dummy_entries))
@@ -295,8 +316,9 @@ def production_fixture(partition:dict[str,Any],schedule:dict[str,Any],memory_sch
     proof["cache_guard"]["class_records"]=CACHE_CLASS_RECORDS
     proof["proof_sha256"]=sha256_bytes(canonical_json({k:v for k,v in proof.items() if k!="proof_sha256"})); return proof
 
-def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str,Any],schedule:dict[str,Any],memory_schedule:dict[str,Any],tampers:dict[str,Any])->dict[str,Any]:
+def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str,Any],capture_schedule:dict[str,Any],schedule:dict[str,Any],memory_schedule:dict[str,Any],tampers:dict[str,Any])->dict[str,Any]:
     from safetensors.torch import save_file
+    validation={"partition":partition,"capture_schedule":capture_schedule,"training_schedule":schedule,"memory_schedule":memory_schedule}
     with tempfile.TemporaryDirectory() as td:
         root=Path(td); outcomes={}
         for stop in (False,True):
@@ -305,22 +327,22 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                 for arm in ARMS:
                     path=out/f"candidate-{arm}.safetensors"; save_file({n:t.detach().cpu().contiguous() for n,t in state.items()},str(path)); candidate_rows.append({"arm":arm,"path":path.name,"file_sha256":file_sha(path),"bytes":path.stat().st_size,"module_state_sha256":module_state_sha256(torch,state),"parameter_names":PARAMETER_NAMES,"parameter_name_count":16,"parameter_count":366340,"dtype":"torch.float32","device":"cpu","finite":True,"safe_reload_passed":True})
                 threshold=derived_threshold_fixture(metric_fixture(partition,schedule,False)[0]); (out/"derived-validation-thresholds.json").write_bytes(canonical_json(threshold)+b"\n")
-            proof=production_fixture(partition,schedule,memory_schedule,tampers,candidate_rows,stop); data=canonical_json(proof)+b"\n"; terminal=out/"T0-PROOF.json"; fd=os.open(terminal,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+            proof=production_fixture(partition,capture_schedule,schedule,memory_schedule,tampers,candidate_rows,stop); data=canonical_json(proof)+b"\n"; terminal=out/"T0-PROOF.json"; fd=os.open(terminal,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
             with os.fdopen(fd,"wb") as stream: stream.write(data); stream.flush(); os.fsync(stream.fileno())
             dfd=os.open(out,os.O_RDONLY|os.O_DIRECTORY)
             try: os.fsync(dfd)
             finally: os.close(dfd)
-            reopened=terminal.read_bytes(); parsed=strict_loads(reopened); validate_t0_proof(parsed,output_inventory=sorted(p.name for p in out.iterdir()),output_dir=out); outcomes["stop" if stop else "go"]=reopened==data
+            reopened=terminal.read_bytes(); parsed=strict_loads(reopened); validate_t0_proof(parsed,output_inventory=sorted(p.name for p in out.iterdir()),output_dir=out,**validation); outcomes["stop" if stop else "go"]=reopened==data
         failures=[]
         specs=[("F0","infrastructure_invalid","InfrastructureInvalid","startup_pre_model"),("F1","h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected","capture"),("F2","h_iter_phase1_t0_exposure_boundary_rejected","T0ExposureBoundaryRejected","capture"),("F3","h_iter_phase1_t0_incomplete","T0ContractError","gate_evaluation"),("F4","infrastructure_invalid","InfrastructureInvalid","candidate_write"),("F5","infrastructure_invalid","InfrastructureInvalid","postflight_audit")]
-        base=production_fixture(partition,schedule,memory_schedule,tampers,[],True)
         for name,status,error_type,stage in specs:
             out=root/name; out.mkdir(); written_rows=[]
+            base=production_fixture(partition,capture_schedule,schedule,memory_schedule,tampers,[],name not in {"F4","F5"})
             progress={"stage":stage,"capture_rows_completed":0,"tokenizer_calls_completed":0,"model_forwards_completed":0,"sequences_completed":0,"cache_checks_completed":0,"candidates_initialized":0,"preconnect_arms_completed":0,"operations_completed":0,"current_operation_index":None,"current_phase":None,"current_arm":None,"current_epoch":None,"current_depth":None,"sidecar_forwards_completed":0,"sidecar_backwards_completed":0,"optimizer_steps_completed":0,"cell_calls_completed":0,"metric_row_records_completed":0,"aggregate_records_completed":0,"gates_evaluated":0,"candidate_files_present":[],"threshold_file_present":False}
             if name=="F1": progress["cache_checks_completed"]=2
             if name=="F2": progress.update({"capture_rows_completed":1,"tokenizer_calls_completed":1,"model_forwards_completed":1,"sequences_completed":24,"cache_checks_completed":3})
             if name in {"F3","F4","F5"}:
-                progress.update({"capture_rows_completed":96,"tokenizer_calls_completed":96,"model_forwards_completed":96,"sequences_completed":2304,"cache_checks_completed":194,"candidates_initialized":5,"preconnect_arms_completed":5,"operations_completed":385,"current_operation_index":384,"current_phase":"POSTFIT","current_arm":"REC_K","current_epoch":15,"current_depth":4,"sidecar_forwards_completed":385,"sidecar_backwards_completed":325,"optimizer_steps_completed":320,"cell_calls_completed":773,"metric_row_records_completed":639 if name=="F3" else 640,"aggregate_records_completed":0 if name=="F3" else 135,"gates_evaluated":0 if name=="F3" else 9})
+                progress.update({"capture_rows_completed":96,"tokenizer_calls_completed":96,"model_forwards_completed":96,"sequences_completed":2304,"cache_checks_completed":194,"candidates_initialized":5,"preconnect_arms_completed":5,"operations_completed":385,"current_operation_index":384,"current_phase":"POSTFIT","current_arm":"REC_K","current_epoch":None,"current_depth":4,"sidecar_forwards_completed":385,"sidecar_backwards_completed":325,"optimizer_steps_completed":320,"cell_calls_completed":773,"metric_row_records_completed":639 if name=="F3" else 640,"aggregate_records_completed":0 if name=="F3" else 135,"gates_evaluated":0 if name=="F3" else 9})
             if name=="F4": progress["candidate_files_present"]=CANDIDATE_FILES[:2]
             if name=="F5": progress.update({"candidate_files_present":CANDIDATE_FILES,"threshold_file_present":True})
             value={k:v for k,v in base.items() if k!="proof_sha256"}; value["schema_version"]=FAILURE_SCHEMA; value["status"]=status
@@ -329,33 +351,48 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                     path=out/f"candidate-{arm}.safetensors"; save_file({n:t.detach().cpu().contiguous() for n,t in state.items()},str(path))
                     written_rows.append({"arm":arm,"path":path.name,"file_sha256":file_sha(path),"bytes":path.stat().st_size,"module_state_sha256":module_state_sha256(torch,state),"parameter_names":PARAMETER_NAMES,"parameter_name_count":16,"parameter_count":366340,"dtype":"torch.float32","device":"cpu","finite":True,"safe_reload_passed":True})
                 value["candidate_disposition"]={"arm_order":ARMS,"files_present":progress["candidate_files_present"],"threshold_file_present":progress["threshold_file_present"],"rows":written_rows,"reusable":False}
+                value["counts"]={**T0_COMPLETE_COUNTS,"candidate_files":len(progress["candidate_files_present"]),"threshold_files":int(progress["threshold_file_present"])}
+                if name=="F4": value["derived_thresholds"]=None
                 if name=="F5":
-                    threshold=production_fixture(partition,schedule,memory_schedule,tampers,[],False)["derived_thresholds"]["payload"]
+                    threshold=production_fixture(partition,capture_schedule,schedule,memory_schedule,tampers,[],False)["derived_thresholds"]["payload"]
                     (out/"derived-validation-thresholds.json").write_bytes(canonical_json(threshold)+b"\n"); encoded_threshold=canonical_json(threshold)+b"\n"
                     value["derived_thresholds"]={"path":"derived-validation-thresholds.json","file_sha256":sha256_bytes(encoded_threshold),"bytes":len(encoded_threshold),"payload":threshold}
             if name in {"F0","F1","F2"}:
                 completed=progress["capture_rows_completed"]; partial_rows=value["capture_evidence"]["rows"][:completed]
                 value["capture_evidence"]={"schedule_sha256":value["capture_evidence"]["schedule_sha256"],"rows":partial_rows,"counts":{"rows":completed,"tokenizer_calls":completed,"model_forwards":completed,"sequences":24*completed},"aggregate_sha256":sha256_bytes(canonical_json(partial_rows))}
-                value["metric_evidence"]=None; value["gate_evidence"]=None; value["memory"]=None; value["tamper_audit"]=None
+                value["candidate_initial_state"]=None; value["preconnect_evidence"]=None; value["metric_evidence"]=None; value["gate_evidence"]=None; value["tamper_audit"]=None
+                if name=="F0": value["capture_evidence"]=None; value["memory"]=None; value["cache_guard"]=None; value["protected_state"]=None
+                else:
+                    memory_count=9 if name=="F1" else 10; memory_rows=value["memory"]["rows"][:memory_count]; value["memory"]={"schedule_file_sha256":value["memory"]["schedule_file_sha256"],"expected_count":534,"rows":memory_rows,"label_sha256":sha256_bytes(canonical_json([r["label"] for r in memory_rows])),"complete":False}
+                    cache_count=progress["cache_checks_completed"]; cache_rows=value["cache_guard"]["label_rows"][:cache_count]; value["cache_guard"].update({"label_rows":cache_rows,"label_sha256":sha256_bytes(canonical_json([r["label"] for r in cache_rows])),"actual_checks":cache_count})
+                    value["protected_state"]["e33_released"]=False
+            else:
+                memory_count={"F3":529,"F4":530,"F5":531}[name]
+                memory_rows=value["memory"]["rows"][:memory_count]
+                value["memory"]={"schedule_file_sha256":value["memory"]["schedule_file_sha256"],"expected_count":534,"rows":memory_rows,"label_sha256":sha256_bytes(canonical_json([r["label"] for r in memory_rows])),"complete":False}
             if name=="F1": value["cache_guard"]["dynamic_cache_actual_trips"]=1
             if name=="F2": value["protected_state"]["e33_grads_none"]=False
             if name=="F3":
                 value["metric_evidence"]["row_records"]=value["metric_evidence"]["row_records"][:-1]
+                value["metric_evidence"]["aggregate_records"]=[]
+                value["metric_evidence"]["postcal_aggregate_sha256"]=sha256_bytes(canonical_json([]))
+                value["metric_evidence"]["counts"]={"row_records":639,"aggregate_records":0,"precal_presentations":160,"postcal_presentations":160,"postfit_presentations":319}
+                value["gate_evidence"]=None
             audit_errors=[name] if status=="infrastructure_invalid" else []
-            value.update({"error_type":error_type,"error_message":name,"traceback":"fixture","stage":stage,"execution_progress":progress,"audit_errors":audit_errors,"failure_sha256":""}); value["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="failure_sha256"})); validate_t0_failure(value)
+            value.update({"error_type":error_type,"error_message":name,"traceback":"fixture","stage":stage,"execution_progress":progress,"audit_errors":audit_errors,"failure_sha256":""}); value["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="failure_sha256"})); validate_t0_failure(value,**validation)
             terminal=out/"T0-FAILURE.json"; encoded=canonical_json(value)+b"\n"; fd=os.open(terminal,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
             with os.fdopen(fd,"wb") as stream: stream.write(encoded); stream.flush(); os.fsync(stream.fileno())
-            parsed=strict_loads(terminal.read_bytes()); validate_t0_failure(parsed,output_inventory=sorted(p.name for p in out.iterdir()),output_dir=out); mutated=copy.deepcopy(parsed); mutated["status"]="infrastructure_invalid" if status!="infrastructure_invalid" else "h_iter_phase1_t0_incomplete"; mutated["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in mutated.items() if k!="failure_sha256"}))
+            parsed=strict_loads(terminal.read_bytes()); validate_t0_failure(parsed,output_inventory=sorted(p.name for p in out.iterdir()),output_dir=out,**validation); mutated=copy.deepcopy(parsed); mutated["status"]="infrastructure_invalid" if status!="infrastructure_invalid" else "h_iter_phase1_t0_incomplete"; mutated["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in mutated.items() if k!="failure_sha256"}))
             rejected=False
-            try: validate_t0_failure(mutated)
+            try: validate_t0_failure(mutated,**validation)
             except T0ContractError: rejected=True
             failures.append({"fixture":name,"validated":terminal.read_bytes()==encoded,"tamper_rejected":rejected})
-        sample=production_fixture(partition,schedule,memory_schedule,tampers,[],True)
+        sample=production_fixture(partition,capture_schedule,schedule,memory_schedule,tampers,[],True)
         mapping=canonical_json(sample)==canonical_json(dict(reversed(list(sample.items()))))
         dual=unsafe=False
-        try: validate_t0_proof(sample,output_inventory=["T0-FAILURE.json","T0-PROOF.json"])
+        try: validate_t0_proof(sample,output_inventory=["T0-FAILURE.json","T0-PROOF.json"],**validation)
         except T0ContractError: dual=True
-        try: validate_t0_proof(sample,output_inventory=["T0-PROOF.json","extra.bin"])
+        try: validate_t0_proof(sample,output_inventory=["T0-PROOF.json","extra.bin"],**validation)
         except T0ContractError: unsafe=True
         return {"go":outcomes["go"],"stop":outcomes["stop"],"failures":failures,"mapping":mapping,"dual":dual,"unsafe":unsafe}
 
@@ -417,7 +454,7 @@ def main()->None:
     PROOF_FAILURE_STATE["runtime"]={"python":".".join(map(str,sys.version_info[:3])),"sys_executable":sys.executable,"sys_prefix":sys.prefix,"torch":torch.__version__,"shared_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5","cuda_visible_devices":"","cuda_initialized_before":cuda_before,"cuda_initialized_after":False}
     connectivity,module_evidence,objects=synthetic_gradient(torch); PROOF_FAILURE_STATE["module_evidence"]=module_evidence; checkpoint("CPU_MODULES_VALIDATED"); set_stage("connectivity"); checkpoint("CONNECTIVITY_VALIDATED")
     roundtrip=candidate_roundtrip(torch,objects["initial"])
-    set_stage("terminal_replay"); replay= replay_production_terminals(torch,objects["initial"],partition,schedule,memory_schedule,tampers)
+    set_stage("terminal_replay"); replay= replay_production_terminals(torch,objects["initial"],partition,capture,schedule,memory_schedule,tampers)
     signal.alarm(0); signal.alarm(239)
     checkpoint("GO_REPLAY_VALIDATED"); checkpoint("STOP_REPLAY_VALIDATED"); checkpoint("FAILURE_REPLAYS_VALIDATED")
     PROOF_FAILURE_STATE["synthetic_evidence"]={"seed_payload":SYNTHETIC_PAYLOAD,"seed_sha256":SYNTHETIC_SHA256,"seed_u64_be":SYNTHETIC_SEED,"connectivity":connectivity,"go_fixture":{"gate_pass_count":9,"status":"h_iter_phase1_t0_validation_contract_design_authorized","output_count":7,"validated":replay["go"]},"stop_fixture":{"gate_pass_count":8,"status":"h_iter_phase1_train_calibration_stop","output_count":1,"validated":replay["stop"]},"failure_fixtures":replay["failures"],"candidate_roundtrip":roundtrip}

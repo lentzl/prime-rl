@@ -25,11 +25,21 @@ from prime_rl.latent.h_iter_phase1_t0 import *
 PLAN_REL="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-t0-train-calibration-v1/t0-plan.json"
 SIDECAR_REL="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-t0-train-calibration-v1/t0-plan.sha256"
 PROGRESS={"stage":"startup_pre_model","capture_rows_completed":0,"tokenizer_calls_completed":0,"model_forwards_completed":0,"sequences_completed":0,"cache_checks_completed":0,"candidates_initialized":0,"preconnect_arms_completed":0,"operations_completed":0,"current_operation_index":None,"current_phase":None,"current_arm":None,"current_epoch":None,"current_depth":None,"sidecar_forwards_completed":0,"sidecar_backwards_completed":0,"optimizer_steps_completed":0,"cell_calls_completed":0,"metric_row_records_completed":0,"aggregate_records_completed":0,"gates_evaluated":0,"candidate_files_present":[],"threshold_file_present":False}
-FAILURE_EVIDENCE={"cache_guard":None,"protected_state":None,"capture_evidence":None,"memory":None,"safety":{"network_attempts":0,"validation_opens":0,"heldout_opens":0,"h176_loads":0,"generation_calls":0,"e33_backwards":0,"e33_optimizer_steps":0,"e33_updates":0,"live_trajectory_count":0,"object_census_errors":0,"object_census_uninspectable":0,"forbidden_inputs_detected":[]}}
+FAILURE_EVIDENCE={"cache_guard":None,"protected_state":None,"capture_evidence":None,"metric_evidence":None,"gate_evidence":None,"candidate_initial_state":None,"preconnect_evidence":None,"memory":None,"safety":{"network_attempts":0,"validation_opens":0,"heldout_opens":0,"h176_loads":0,"generation_calls":0,"e33_backwards":0,"e33_optimizer_steps":0,"e33_updates":0,"live_trajectory_count":0,"object_census_errors":0,"object_census_uninspectable":0,"forbidden_inputs_detected":[]}}
 
 def timeout_alarm(_signum:int,_frame:object)->None: raise TimeoutError("T0 phase timeout")
 def git(repo:Path,*args:str)->str: return subprocess.check_output(["git",*args],cwd=repo,text=True).strip()
 def file_sha(path:Path)->str: return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def frozen_validation_sources(repo:Path)->dict:
+    phase=repo/ARTIFACT_DIR
+    mf0=repo/MF0_DIR
+    return {
+        "partition":strict_loads((mf0/"train-partition.json").read_bytes()),
+        "capture_schedule":strict_loads((phase/"t0-capture-schedule.json").read_bytes()),
+        "training_schedule":strict_loads((mf0/"training-schedule.json").read_bytes()),
+        "memory_schedule":strict_loads((phase/"t0-memory-schedule.json").read_bytes()),
+    }
 
 def preflight(repo:Path,execution_commit:str,plan_file_sha256:str)->dict:
     plan_path=repo/PLAN_REL
@@ -64,13 +74,13 @@ def batch_graph(torch:object,features:dict[str,object],bank_rows:dict[str,dict],
     return torch.cat(chunks).to("cuda:0",dtype=torch.float32),torch.tensor(successors,device="cuda:0",dtype=torch.int64),torch.tensor(starts,device="cuda:0",dtype=torch.int64),torch.tensor(targets,device="cuda:0",dtype=torch.int64)
 
 class MemoryLedger:
-    def __init__(self,torch:object,labels:list[str])->None: self.torch=torch; self.labels=labels; self.rows=[]
+    def __init__(self,torch:object,labels:list[str],schedule_file_sha256:str)->None: self.torch=torch; self.labels=labels; self.schedule_file_sha256=schedule_file_sha256; self.rows=[]
     def add(self,label:str)->None:
         if label!=self.labels[len(self.rows)]: raise T0ContractError("T0 memory order differs")
         self.torch.cuda.synchronize(0); allocated=self.torch.cuda.memory_allocated(0); reserved=self.torch.cuda.memory_reserved(0); peak_a=self.torch.cuda.max_memory_allocated(0); peak_r=self.torch.cuda.max_memory_reserved(0)
         if max(allocated,reserved,peak_a,peak_r)>40*(1<<30): raise InfrastructureInvalid("T0 GPU memory cap exceeded")
         self.rows.append({"index":len(self.rows),"label":label,"current_allocated_bytes":allocated,"current_reserved_bytes":reserved,"peak_allocated_bytes":peak_a,"peak_reserved_bytes":peak_r})
-        FAILURE_EVIDENCE["memory"]={"schedule_file_sha256":None,"expected_count":534,"rows":list(self.rows),"label_sha256":sha256_bytes(canonical_json([r["label"] for r in self.rows])),"complete":len(self.rows)==534}
+        FAILURE_EVIDENCE["memory"]={"schedule_file_sha256":self.schedule_file_sha256,"expected_count":534,"rows":list(self.rows),"label_sha256":sha256_bytes(canonical_json([r["label"] for r in self.rows])),"complete":len(self.rows)==534}
 
 class CacheGuard:
     def __init__(self,model:object,cache_utils:object,expected:list[dict])->None:
@@ -96,6 +106,7 @@ class CacheGuard:
         try: self.cache_utils.DynamicCache()
         except T0CaptureMechanismRejected: pass
         if self.trips!=1: raise T0ContractError("T0 cache negative control differs")
+        PROGRESS["cache_checks_completed"]=len(self.labels)
         return self
     def __exit__(self,*args):
         try:
@@ -105,6 +116,7 @@ class CacheGuard:
             for _,config,before in self.configs: config.use_cache=before
             self.restored=all(getattr(c,"use_cache",None)==before for _,c,before in self.configs)
             FAILURE_EVIDENCE["cache_guard"]=self.evidence()
+            PROGRESS["cache_checks_completed"]=len(self.labels)
     def evidence(self)->dict:
         records=[]
         for cls in sorted(self.classes,key=lambda c:(c.__module__,c.__qualname__)):
@@ -163,7 +175,7 @@ def run_full(repo:Path,execution_commit:str,plan_file_sha256:str)->None:
     if free_gpu_pre<44*(1<<30) or available_ram_pre<64*(1<<30) or free_disk_pre<16*(1<<30): raise InfrastructureInvalid("T0 runtime resources differ")
     if torch.cuda.is_initialized() and torch.cuda.current_device()!=0: raise InfrastructureInvalid("T0 visible CUDA device differs")
     torch.backends.cuda.matmul.allow_tf32=False; torch.backends.cudnn.allow_tf32=False; torch.cuda.reset_peak_memory_stats(0)
-    ledger=MemoryLedger(torch,[r["label"] for r in memory_schedule["rows"]]); ledger.add("RUNTIME_VERIFIED"); ledger.add("FULL_FREEZE_PREFLIGHT_VERIFIED"); ledger.add("ANTECEDENTS_VALIDATED"); ledger.add("TRAIN_INPUTS_VALIDATED"); ledger.add("PROTECTED_PREFLIGHT_VERIFIED")
+    ledger=MemoryLedger(torch,[r["label"] for r in memory_schedule["rows"]],file_sha(phase/"t0-memory-schedule.json")); ledger.add("RUNTIME_VERIFIED"); ledger.add("FULL_FREEZE_PREFLIGHT_VERIFIED"); ledger.add("ANTECEDENTS_VALIDATED"); ledger.add("TRAIN_INPUTS_VALIDATED"); ledger.add("PROTECTED_PREFLIGHT_VERIFIED")
     e33=Path(E33_PATH); h176=Path(H176_PATH)
     if file_sha(e33/"model.safetensors")!=E33_TREE_SHA256 or file_sha(h176/"model.safetensors")!=H176_TREE_SHA256: raise InfrastructureInvalid("T0 protected disk differs")
     e33_meta={n:file_sha(e33/n) for n in METADATA_SHA256}; h176_meta={n:file_sha(h176/n) for n in METADATA_SHA256}
@@ -173,6 +185,7 @@ def run_full(repo:Path,execution_commit:str,plan_file_sha256:str)->None:
     for parameter in model.parameters(): parameter.requires_grad_(False)
     state_before=module_state_sha256(torch,dict(model.state_dict()))
     if state_before!=E33_STATE_SHA256: raise InfrastructureInvalid("T0 loaded model state differs")
+    FAILURE_EVIDENCE["protected_state"]={"e33_disk_tree_before":E33_TREE_SHA256,"e33_disk_tree_after":E33_TREE_SHA256,"e33_state_before":state_before,"e33_state_after":state_before,"e33_metadata_before":e33_meta,"e33_metadata_after":e33_meta,"e33_grads_none":True,"h176_tree_sha256":H176_TREE_SHA256,"h176_loaded":False,"e33_released":False}
     ledger.add("MODEL_LOADED_FROZEN")
     source_capture=load(mf0/"capture-contract.json"); expected_classes=source_capture["cache_guard"]["class_closure"]; features={}; capture_rows=[]
     PROGRESS["stage"]="capture"
@@ -183,26 +196,32 @@ def run_full(repo:Path,execution_commit:str,plan_file_sha256:str)->None:
             index=item["capture_index"]; row=bank_rows[item["row_id"]]; texts=[node["local_text"] for node in row["receiver_input"]["nodes"]]
             if len(texts)!=24 or any(len(x.encode())!=68 for x in texts): raise T0ContractError("T0 local text geometry differs")
             encoded=tokenizer(texts,add_special_tokens=True,padding="max_length",max_length=128,truncation=False,return_tensors="pt")
+            PROGRESS.update({"tokenizer_calls_completed":index+1,"sequences_completed":24*(index+1)})
             ids=encoded.input_ids; mask=encoded.attention_mask
             if ids.shape!=(24,128) or mask.shape!=(24,128) or ids.dtype!=torch.int64 or mask.dtype!=torch.int64: raise T0ContractError("T0 token tensor differs")
             lengths=mask.sum(1); 
             if int(lengths.min())<1 or int(lengths.max())>128: raise T0ContractError("T0 token length differs")
-            ledger.add(f"PRE_CAPTURE_{index:03d}_{item['row_id']}"); guard.check(f"CACHE_PRE_{index:03d}")
+            ledger.add(f"PRE_CAPTURE_{index:03d}_{item['row_id']}"); guard.check(f"CACHE_PRE_{index:03d}"); PROGRESS["cache_checks_completed"]=len(guard.labels)
             with torch.inference_mode(): result=model(input_ids=ids.to("cuda:0"),attention_mask=mask.to("cuda:0"),use_cache=False,output_hidden_states=True,return_dict=True,logits_to_keep=1)
+            PROGRESS["model_forwards_completed"]=index+1
             if result.past_key_values is not None: guard.returned+=1; FAILURE_EVIDENCE["cache_guard"]=guard.evidence(); raise T0CaptureMechanismRejected("T0 returned PKV")
             hidden=result.hidden_states[-1][:,-1,:].detach().cpu().contiguous()
-            if hidden.shape!=(24,2048) or hidden.dtype!=torch.bfloat16 or not torch.isfinite(hidden).all(): FAILURE_EVIDENCE["capture_evidence"]={"rows":[{"finite":False}]}; raise T0CaptureMechanismRejected("T0 hidden capture differs")
+            if hidden.shape!=(24,2048) or hidden.dtype!=torch.bfloat16 or not torch.isfinite(hidden).all():
+                failed_row={"capture_index":index,"row_id":item["row_id"],"row_sha256":item["row_sha256"],"receiver_input_sha256":item["receiver_input_sha256"],"node_count":24,"token_count_min":int(lengths.min()),"token_count_max":int(lengths.max()),"input_ids_sha256":tensor_sha(torch,ids),"attention_mask_sha256":tensor_sha(torch,mask),"hidden_shape":list(hidden.shape),"hidden_dtype":str(hidden.dtype),"hidden_sha256":tensor_sha(torch,hidden),"finite":False}
+                FAILURE_EVIDENCE["capture_evidence"]={"schedule_sha256":capture_schedule["schedule_sha256"],"rows":[*capture_rows,failed_row],"counts":{"rows":len(capture_rows),"tokenizer_calls":PROGRESS["tokenizer_calls_completed"],"model_forwards":PROGRESS["model_forwards_completed"],"sequences":PROGRESS["sequences_completed"]},"aggregate_sha256":sha256_bytes(canonical_json([*capture_rows,failed_row]))}
+                raise T0CaptureMechanismRejected("T0 hidden capture differs")
             features[item["row_id"]]=hidden; feature_bytes+=hidden.numel()*hidden.element_size()
             capture_rows.append({"capture_index":index,"row_id":item["row_id"],"row_sha256":item["row_sha256"],"receiver_input_sha256":item["receiver_input_sha256"],"node_count":24,"token_count_min":int(lengths.min()),"token_count_max":int(lengths.max()),"input_ids_sha256":tensor_sha(torch,ids),"attention_mask_sha256":tensor_sha(torch,mask),"hidden_shape":[24,2048],"hidden_dtype":"torch.bfloat16","hidden_sha256":tensor_sha(torch,hidden),"finite":True})
-            guard.check(f"CACHE_POST_{index:03d}"); ledger.add(f"POST_CAPTURE_{index:03d}_{item['row_id']}")
-            PROGRESS.update({"capture_rows_completed":index+1,"tokenizer_calls_completed":index+1,"model_forwards_completed":index+1,"sequences_completed":24*(index+1),"cache_checks_completed":len(guard.labels)})
+            FAILURE_EVIDENCE["capture_evidence"]={"schedule_sha256":capture_schedule["schedule_sha256"],"rows":list(capture_rows),"counts":{"rows":len(capture_rows),"tokenizer_calls":PROGRESS["tokenizer_calls_completed"],"model_forwards":PROGRESS["model_forwards_completed"],"sequences":PROGRESS["sequences_completed"]},"aggregate_sha256":sha256_bytes(canonical_json(capture_rows))}
+            guard.check(f"CACHE_POST_{index:03d}"); PROGRESS["cache_checks_completed"]=len(guard.labels); ledger.add(f"POST_CAPTURE_{index:03d}_{item['row_id']}")
+            PROGRESS.update({"capture_rows_completed":index+1,"cache_checks_completed":len(guard.labels)})
         ledger.add("CACHE_GUARD_EXITED")
     cache_evidence=guard.evidence()
     PROGRESS["cache_checks_completed"]=cache_evidence["actual_checks"]
-    if cache_evidence["class_records"]!=expected_classes or cache_evidence["actual_checks"]!=194 or cache_evidence["dynamic_cache_actual_trips"]!=0 or cache_evidence["returned_pkv_count"]!=0 or not cache_evidence["restored"]: raise T0CaptureMechanismRejected("T0 cache closure differs")
+    if cache_evidence["class_records"]!=expected_classes or cache_evidence["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache_evidence["actual_checks"]!=194 or cache_evidence["dynamic_cache_actual_trips"]!=0 or cache_evidence["returned_pkv_count"]!=0 or cache_evidence["configuration_drift_count"]!=0 or not cache_evidence["restored"]: raise T0CaptureMechanismRejected("T0 cache closure differs")
     PROGRESS["stage"]="model_release"; state_after=module_state_sha256(torch,dict(model.state_dict()))
     if state_after!=state_before or any(p.grad is not None for p in model.parameters()):
-        FAILURE_EVIDENCE["protected_state"]={"e33_state_before":state_before,"e33_state_after":state_after,"e33_grads_none":all(p.grad is None for p in model.parameters()),"h176_loaded":False}
+        FAILURE_EVIDENCE["protected_state"]={"e33_disk_tree_before":E33_TREE_SHA256,"e33_disk_tree_after":E33_TREE_SHA256,"e33_state_before":state_before,"e33_state_after":state_after,"e33_metadata_before":e33_meta,"e33_metadata_after":{n:file_sha(e33/n) for n in METADATA_SHA256},"e33_grads_none":all(p.grad is None for p in model.parameters()),"h176_tree_sha256":H176_TREE_SHA256,"h176_loaded":False,"e33_released":False}
         raise T0ExposureBoundaryRejected("T0 protected model changed")
     ledger.add("PROTECTED_POSTCAPTURE_VERIFIED"); del model,tokenizer,encoded,ids,mask,result,hidden,guard; gc.collect(); torch.cuda.empty_cache()
     remaining_models=0; census_errors=0
@@ -213,41 +232,47 @@ def run_full(repo:Path,execution_commit:str,plan_file_sha256:str)->None:
         except Exception: census_errors+=1
     if remaining_models or census_errors: raise InfrastructureInvalid("T0 model release census differs")
     ledger.add("MODEL_RELEASED")
+    FAILURE_EVIDENCE["protected_state"]={"e33_disk_tree_before":E33_TREE_SHA256,"e33_disk_tree_after":E33_TREE_SHA256,"e33_state_before":state_before,"e33_state_after":state_after,"e33_metadata_before":e33_meta,"e33_metadata_after":{n:file_sha(e33/n) for n in METADATA_SHA256},"e33_grads_none":True,"h176_tree_sha256":H176_TREE_SHA256,"h176_loaded":False,"e33_released":True}
     PROGRESS["stage"]="candidate_init"; Candidate=candidate_class(torch); torch.manual_seed(INIT_SEED); canonical=Candidate().float(); initial={n:t.detach().clone() for n,t in canonical.state_dict().items()}; candidates={}
     for arm in ARMS:
         candidate=Candidate().to("cuda:0",dtype=torch.float32); candidate.load_state_dict(initial,strict=True); candidates[arm]=candidate
+        PROGRESS["candidates_initialized"]=len(candidates)
     del canonical; ledger.add("CANDIDATES_INITIALIZED")
-    PROGRESS["candidates_initialized"]=5
     names=list(initial); shapes=[{"name":n,"shape":list(initial[n].shape),"dtype":str(initial[n].dtype)} for n in names]; initial_hash=module_state_sha256(torch,initial)
     initial_rows=[{"arm":a,"parameter_names":names,"parameter_shapes":shapes,"parameter_name_count":16,"parameter_count":366340,"device":"cuda:0","dtype":"torch.float32","initial_state_sha256":initial_hash,"finite":True} for a in ARMS]
+    FAILURE_EVIDENCE["candidate_initial_state"]={"seed_payload":INIT_PAYLOAD,"seed_payload_sha256":INIT_SHA256,"seed_u64_be":INIT_SEED,"arm_order":ARMS,"action_order":ACTIONS,"rows":initial_rows,"all_equal":True}
     pre_rows=[]
     preop=schedule["batches"]["preconnect"]
     PROGRESS["stage"]="preconnect"
     for op in preop:
-        arm=op["arm"]; item=candidates[arm]; f,s,starts,target=batch_graph(torch,features,bank_rows,op["row_ids"]); before=module_state_sha256(torch,dict(item.state_dict())); logits=item(f,s,arm,4,starts); loss=torch.nn.functional.cross_entropy(logits,target); loss.backward()
+        arm=op["arm"]; PROGRESS.update({"current_operation_index":op["operation_index"],"current_phase":"PRECONNECT","current_arm":arm,"current_epoch":None,"current_depth":4}); item=candidates[arm]; f,s,starts,target=batch_graph(torch,features,bank_rows,op["row_ids"]); before=module_state_sha256(torch,dict(item.state_dict())); logits=item(f,s,arm,4,starts)
+        PROGRESS["sidecar_forwards_completed"]+=1; PROGRESS["cell_calls_completed"]+=0 if arm=="STATIC" else 1 if arm=="FFN" else 4
+        loss=torch.nn.functional.cross_entropy(logits,target); loss.backward(); PROGRESS["sidecar_backwards_completed"]+=1
         def gradnorm(prefixes):
             values=[p.grad for n,p in item.named_parameters() if n.startswith(prefixes)]
             if any(x is None for x in values): return None
             return math.sqrt(sum(float(x.double().square().sum()) for x in values))
         codec,cell,readout=gradnorm(("codec_",)),gradnorm(("self_norm","message_norm","cell_","post_norm")),gradnorm(("readout",)); after=module_state_sha256(torch,dict(item.state_dict())); qualifies=codec is not None and codec>=1e-8 and readout is not None and readout>=1e-8 and ((arm=="STATIC" and cell is None) or (arm!="STATIC" and cell is not None and cell>=1e-8)) and before==after
         pre_rows.append({"arm":arm,"operation_index":op["operation_index"],"loss":float(loss.detach().cpu()),"codec_grad_l2":codec,"cell_grad_l2":cell,"readout_grad_l2":readout,"state_before_sha256":before,"state_after_sha256":after,"gradients_cleared":True,"finite":True,"qualifies":qualifies}); item.zero_grad(set_to_none=True)
-        PROGRESS["preconnect_arms_completed"]+=1
+        PROGRESS["preconnect_arms_completed"]+=1; PROGRESS["operations_completed"]=op["operation_index"]+1
     if not all(r["qualifies"] for r in pre_rows): raise T0ContractError("T0 preconnectivity differs")
     ledger.add("PRECONNECT_COMPLETE")
-    optimizers={a:torch.optim.AdamW(candidates[a].parameters(),lr=.001,betas=(.9,.95),eps=1e-8,weight_decay=.01) for a in ARMS}; metric_rows=[]; cell_calls=13; forwards=5; backwards=5; steps=0
+    FAILURE_EVIDENCE["preconnect_evidence"]={"row_id":"hi_be342227610f62e0","depth":4,"action_index":0,"rows":pre_rows,"counts":{"forwards":5,"backwards":5,"optimizer_steps":0},"all_qualify":True}
+    optimizers={a:torch.optim.AdamW(candidates[a].parameters(),lr=.001,betas=(.9,.95),eps=1e-8,weight_decay=.01) for a in ARMS}; metric_rows=[]; cell_calls=PROGRESS["cell_calls_completed"]; forwards=PROGRESS["sidecar_forwards_completed"]; backwards=PROGRESS["sidecar_backwards_completed"]; steps=0
     def operation(op:dict,training:bool,record:bool)->None:
         nonlocal cell_calls,forwards,backwards,steps
         arm=op["arm"]; depth=op["depth"]; item=candidates[arm]; f,s,starts,target=batch_graph(torch,features,bank_rows,op["row_ids"])
         PROGRESS.update({"stage":op["phase"].lower(),"current_operation_index":op["operation_index"],"current_phase":op["phase"],"current_arm":arm,"current_epoch":op.get("epoch"),"current_depth":depth})
         if training:
-            optimizers[arm].zero_grad(set_to_none=True); logits=item(f,s,arm,depth,starts); loss=torch.nn.functional.cross_entropy(logits,target); loss.backward(); torch.nn.utils.clip_grad_norm_(item.parameters(),1.0); optimizers[arm].step(); backwards+=1; steps+=1
+            optimizers[arm].zero_grad(set_to_none=True); logits=item(f,s,arm,depth,starts); forwards+=1; cell_calls+=0 if arm=="STATIC" else 1 if arm=="FFN" else 4 if arm=="FIXED_T4" else depth; PROGRESS.update({"sidecar_forwards_completed":forwards,"cell_calls_completed":cell_calls}); loss=torch.nn.functional.cross_entropy(logits,target); loss.backward(); backwards+=1; PROGRESS["sidecar_backwards_completed"]=backwards; torch.nn.utils.clip_grad_norm_(item.parameters(),1.0); optimizers[arm].step(); steps+=1; PROGRESS["optimizer_steps_completed"]=steps
         else:
             with torch.no_grad(): logits=item(f,s,arm,depth,starts)
-        forwards+=1; cell_calls+=0 if arm=="STATIC" else 1 if arm=="FFN" else 4 if arm=="FIXED_T4" else depth
+            forwards+=1; cell_calls+=0 if arm=="STATIC" else 1 if arm=="FFN" else 4 if arm=="FIXED_T4" else depth; PROGRESS.update({"sidecar_forwards_completed":forwards,"cell_calls_completed":cell_calls})
         if record:
             cpu=logits.detach().cpu().double()
             for row_id,vector in zip(op["row_ids"],cpu):
-                row=bank_rows[row_id]; nll=float(-torch.log_softmax(vector,dim=-1)[row["action_index"]]); pred=int(torch.argmax(vector)); metric_rows.append({"phase":op["phase"],"operation_index":op["operation_index"],"arm":arm,"depth":depth,"row_id":row_id,"action_index":row["action_index"],"replicate":row["replicate"],"logits_sha256":tensor_sha(torch,vector),"prediction":pred,"nll":nll})
+                row=bank_rows[row_id]; nll=float(-torch.log_softmax(vector,dim=-1)[row["action_index"]]); pred=int(torch.argmax(vector)); metric_rows.append({"phase":op["phase"],"operation_index":op["operation_index"],"arm":arm,"depth":depth,"row_id":row_id,"action_index":row["action_index"],"replicate":row["replicate"],"logits":[float(x) for x in vector.tolist()],"logits_sha256":tensor_sha(torch,vector),"prediction":pred,"nll":nll}); PROGRESS["metric_row_records_completed"]=len(metric_rows)
+                FAILURE_EVIDENCE["metric_evidence"]={"row_records":list(metric_rows),"aggregate_records":[],"postcal_aggregate_sha256":sha256_bytes(canonical_json([])),"counts":{"row_records":len(metric_rows),"aggregate_records":0,"precal_presentations":sum(r["phase"]=="PRECAL" for r in metric_rows),"postcal_presentations":sum(r["phase"]=="POSTCAL" for r in metric_rows),"postfit_presentations":sum(r["phase"]=="POSTFIT" for r in metric_rows)}}
         PROGRESS.update({"operations_completed":op["operation_index"]+1,"sidecar_forwards_completed":forwards,"sidecar_backwards_completed":backwards,"optimizer_steps_completed":steps,"cell_calls_completed":cell_calls,"metric_row_records_completed":len(metric_rows)})
     for op in schedule["batches"]["precal"]: operation(op,False,True)
     ledger.add("PRECAL_COMPLETE")
@@ -257,7 +282,7 @@ def run_full(repo:Path,execution_commit:str,plan_file_sha256:str)->None:
     ledger.add("POSTCAL_COMPLETE")
     for op in schedule["batches"]["postfit"]: operation(op,False,True)
     ledger.add("POSTFIT_COMPLETE")
-    PROGRESS["stage"]="gate_evaluation"; aggregates,gates=aggregate_metrics(metric_rows); PROGRESS.update({"aggregate_records_completed":len(aggregates),"gates_evaluated":9}); ledger.add("GATES_EVALUATED"); go=gates["all_pass"]
+    PROGRESS["stage"]="gate_evaluation"; aggregates,gates=aggregate_metrics(metric_rows); PROGRESS.update({"aggregate_records_completed":len(aggregates),"gates_evaluated":9}); FAILURE_EVIDENCE["metric_evidence"]={"row_records":metric_rows,"aggregate_records":aggregates,"postcal_aggregate_sha256":sha256_bytes(canonical_json([r for r in aggregates if r["phase"]=="POSTCAL"])),"counts":{"row_records":640,"aggregate_records":135,"precal_presentations":160,"postcal_presentations":160,"postfit_presentations":320}}; FAILURE_EVIDENCE["gate_evidence"]=gates; ledger.add("GATES_EVALUATED"); go=gates["all_pass"]
     output.mkdir(mode=0o700,parents=True); candidate_rows=[]
     if go:
         PROGRESS["stage"]="candidate_write"
@@ -286,6 +311,7 @@ def run_full(repo:Path,execution_commit:str,plan_file_sha256:str)->None:
         thresholds={"schema_version":"prime-rl/latent-h-iter-phase1-t0-derived-validation-thresholds/v1","status":"h_iter_phase1_t0_validation_thresholds_derived","mechanism":MECHANISM,"run_identity":RUN_ID,"postcal_aggregate_sha256":sha256_bytes(canonical_json([r for r in aggregates if r["phase"]=="POSTCAL"])),"inputs":{"AR":ar,"min_depth_AR":min_depth,"A_RESET":a_reset,"N_RESET":n_reset,"NR":nr},"formulas":formula,"thresholds":threshold_values,"threshold_sha256":""}; thresholds["threshold_sha256"]=sha256_bytes(canonical_json({k:v for k,v in thresholds.items() if k!="threshold_sha256"})); atomic_write(output/"derived-validation-thresholds.json",thresholds)
         PROGRESS["threshold_file_present"]=True
     ledger.add("CANDIDATE_DISPOSITION_COMPLETE")
+    PROGRESS["stage"]="postflight_audit"
     signal.alarm(0); compute_exit=time.monotonic_ns()-phase_start; audit_enter=compute_exit; signal.alarm(1199)
     status="h_iter_phase1_t0_validation_contract_design_authorized" if go else "h_iter_phase1_train_calibration_stop"; decision={"claim":"train_only_matched_sidecar_learning_screen_passed" if go else "train_only_matched_sidecar_learning_screen_stopped","candidate_modules_updated":True,"protected_models_updated":False,"validation_contract_design_authorized":go,"validation_execution_authorized":False,"validation_or_heldout_opened":False,"live_trajectory_count":0,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}
     asset_post=[{"path":p,"sha256":file_sha(repo/p),"bytes":(repo/p).stat().st_size} for p in sorted(plan["asset_sha256"])]; asset_hash=sha256_bytes(canonical_json(asset_pre)); runtime={"python":".".join(map(str,sys.version_info[:3])),"sys_executable":sys.executable,"sys_prefix":sys.prefix,"transformers":transformers.__version__,"tokenizers":importlib.metadata.version("tokenizers"),"torch_distribution":importlib.metadata.version("torch"),"torch_runtime":torch.__version__,"flash_linear_attention":importlib.metadata.version("flash-linear-attention"),"gpu_name":torch.cuda.get_device_name(0),"physical_gpu":"0","visible_device":"cuda:0","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"}
@@ -299,7 +325,7 @@ def run_full(repo:Path,execution_commit:str,plan_file_sha256:str)->None:
     proof["memory"]={"schedule_file_sha256":file_sha(phase/"t0-memory-schedule.json"),"expected_count":534,"rows":ledger.rows,"label_sha256":sha256_bytes(canonical_json([r["label"] for r in ledger.rows])),"complete":True}
     signal.alarm(0); audit_exit=time.monotonic_ns()-phase_start; terminal_enter=audit_exit; signal.alarm(299)
     proof["resources"]["timing"]={"outer_seconds":21600,"startup_seconds":600,"compute_seconds":18000,"audit_seconds":1200,"failure_seconds":1200,"terminal_seconds":300,"postexit_seconds":300,"alarm_safety_margin_seconds":1,"compute_enter_ns":compute_enter,"compute_exit_ns":compute_exit,"compute_duration_ns":compute_exit-compute_enter,"audit_enter_ns":audit_enter,"audit_exit_ns":audit_exit,"audit_duration_ns":audit_exit-audit_enter,"failure_enter_ns":None,"failure_exit_ns":None,"failure_duration_ns":None,"terminal_enter_ns":terminal_enter,"prepublication_elapsed_ns":terminal_enter}
-    PROGRESS["stage"]="terminal_publication"; proof["proof_sha256"]=sha256_bytes(canonical_json({k:v for k,v in proof.items() if k!="proof_sha256"})); validate_t0_proof(proof,output_dir=output); atomic_write(output/"T0-PROOF.json",proof); validate_t0_proof(strict_loads((output/"T0-PROOF.json").read_bytes()),output_inventory=sorted(p.name for p in output.iterdir()),output_dir=output); signal.alarm(0)
+    PROGRESS["stage"]="terminal_publication"; proof["proof_sha256"]=sha256_bytes(canonical_json({k:v for k,v in proof.items() if k!="proof_sha256"})); validation=frozen_validation_sources(repo); validate_t0_proof(proof,output_dir=output,**validation); atomic_write(output/"T0-PROOF.json",proof); validate_t0_proof(strict_loads((output/"T0-PROOF.json").read_bytes()),output_inventory=sorted(p.name for p in output.iterdir()),output_dir=output,**validation); signal.alarm(0)
 
 def publish_failure(repo:Path,execution_commit:str,plan_file_sha256:str,error:BaseException)->None:
     signal.alarm(0); signal.signal(signal.SIGALRM,timeout_alarm); signal.alarm(1199)
@@ -329,9 +355,14 @@ def publish_failure(repo:Path,execution_commit:str,plan_file_sha256:str,error:Ba
             derived_thresholds={"path":threshold_path.name,"file_sha256":file_sha(threshold_path),"bytes":threshold_path.stat().st_size,"payload":threshold_payload}
         except Exception as scan_error:
             status,error_type="infrastructure_invalid","InfrastructureInvalid"; error=scan_error
+    capture_evidence=FAILURE_EVIDENCE["capture_evidence"]
+    if isinstance(capture_evidence,dict):
+        capture_evidence=dict(capture_evidence)
+        capture_evidence["counts"]={"rows":PROGRESS["capture_rows_completed"],"tokenizer_calls":PROGRESS["tokenizer_calls_completed"],"model_forwards":PROGRESS["model_forwards_completed"],"sequences":PROGRESS["sequences_completed"]}
     failure={k:None for k in T0_PROOF_KEYS if k!="proof_sha256"}
-    failure.update({"schema_version":FAILURE_SCHEMA,"status":status,"mechanism":MECHANISM,"run_identity":RUN_ID,"execution_commit":execution_commit,"mechanism_code_commit":plan.get("mechanism_code_commit"),"plan_file_sha256":plan_file_sha256,"plan_sha256":plan.get("plan_sha256"),"capture_evidence":FAILURE_EVIDENCE["capture_evidence"],"cache_guard":FAILURE_EVIDENCE["cache_guard"],"protected_state":FAILURE_EVIDENCE["protected_state"],"safety":FAILURE_EVIDENCE["safety"],"memory":FAILURE_EVIDENCE["memory"],"derived_thresholds":derived_thresholds,"candidate_disposition":{"arm_order":ARMS,"files_present":PROGRESS["candidate_files_present"],"threshold_file_present":PROGRESS["threshold_file_present"],"rows":candidate_rows,"reusable":False},"error_type":error_type,"error_message":str(error),"traceback":"".join(traceback.format_exception(error)),"stage":PROGRESS["stage"],"execution_progress":dict(PROGRESS),"audit_errors":[str(error)] if status=="infrastructure_invalid" else [],"failure_sha256":""})
-    failure["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in failure.items() if k!="failure_sha256"})); validate_t0_failure(failure); signal.alarm(0); signal.alarm(299); atomic_write(output/"T0-FAILURE.json",failure); validate_t0_failure(strict_loads((output/"T0-FAILURE.json").read_bytes()),output_inventory=sorted(p.name for p in output.iterdir()),output_dir=output); signal.alarm(0)
+    failure.update({"schema_version":FAILURE_SCHEMA,"status":status,"mechanism":MECHANISM,"run_identity":RUN_ID,"execution_commit":execution_commit,"mechanism_code_commit":plan.get("mechanism_code_commit"),"plan_file_sha256":plan_file_sha256,"plan_sha256":plan.get("plan_sha256"),"capture_evidence":capture_evidence,"candidate_initial_state":FAILURE_EVIDENCE["candidate_initial_state"],"preconnect_evidence":FAILURE_EVIDENCE["preconnect_evidence"],"metric_evidence":FAILURE_EVIDENCE["metric_evidence"],"gate_evidence":FAILURE_EVIDENCE["gate_evidence"],"cache_guard":FAILURE_EVIDENCE["cache_guard"],"protected_state":FAILURE_EVIDENCE["protected_state"],"safety":FAILURE_EVIDENCE["safety"],"memory":FAILURE_EVIDENCE["memory"],"derived_thresholds":derived_thresholds,"candidate_disposition":{"arm_order":ARMS,"files_present":PROGRESS["candidate_files_present"],"threshold_file_present":PROGRESS["threshold_file_present"],"rows":candidate_rows,"reusable":False},"error_type":error_type,"error_message":str(error),"traceback":"".join(traceback.format_exception(error)),"stage":PROGRESS["stage"],"execution_progress":dict(PROGRESS),"audit_errors":[str(error)] if status=="infrastructure_invalid" else [],"failure_sha256":""})
+    validation=frozen_validation_sources(repo)
+    failure["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in failure.items() if k!="failure_sha256"})); validate_t0_failure(failure,**validation); signal.alarm(0); signal.alarm(299); atomic_write(output/"T0-FAILURE.json",failure); validate_t0_failure(strict_loads((output/"T0-FAILURE.json").read_bytes()),output_inventory=sorted(p.name for p in output.iterdir()),output_dir=output,**validation); signal.alarm(0)
 
 def main()->None:
     parser=argparse.ArgumentParser(); parser.add_argument("--repo",type=Path,required=True); parser.add_argument("--execution-commit",required=True); parser.add_argument("--plan-file-sha256",required=True); parser.add_argument("--run-id",required=True); parser.add_argument("--preflight-only",action="store_true"); parser.add_argument("--full",action="store_true"); parser.add_argument("--validate-terminal",action="store_true")
@@ -339,8 +370,9 @@ def main()->None:
     if args.run_id!=RUN_ID or sum((args.preflight_only,args.full,args.validate_terminal))!=1: raise RuntimeError("T0 invocation differs")
     if args.validate_terminal:
         output=Path(OUTPUT_ROOT); inventory=sorted(p.name for p in output.iterdir())
-        if "T0-PROOF.json" in inventory and "T0-FAILURE.json" not in inventory: validate_t0_proof(strict_loads((output/"T0-PROOF.json").read_bytes()),output_inventory=inventory,output_dir=output); return
-        if "T0-FAILURE.json" in inventory: validate_t0_failure(strict_loads((output/"T0-FAILURE.json").read_bytes()),output_inventory=inventory,output_dir=output); return
+        validation=frozen_validation_sources(repo)
+        if "T0-PROOF.json" in inventory and "T0-FAILURE.json" not in inventory: validate_t0_proof(strict_loads((output/"T0-PROOF.json").read_bytes()),output_inventory=inventory,output_dir=output,**validation); return
+        if "T0-FAILURE.json" in inventory: validate_t0_failure(strict_loads((output/"T0-FAILURE.json").read_bytes()),output_inventory=inventory,output_dir=output,**validation); return
         raise RuntimeError("T0 terminal inventory differs")
     receipt=preflight(repo,args.execution_commit,args.plan_file_sha256)
     if args.preflight_only: print(canonical_json(receipt).decode()); return
