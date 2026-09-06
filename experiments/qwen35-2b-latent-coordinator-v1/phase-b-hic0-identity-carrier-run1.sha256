@@ -1,0 +1,17 @@
+90b2356eb2ca681f22b8224184586ae2b4efb34b22e50aadc1a31a7f7e02f551  phase-b-hic0-identity-carrier-run1-plan.json
+d1ad96ab3c08e191adea2aff8e9927a1557d6c4bbe814a4ddfab4778aca808f4  ../../scripts/latent/run_phase_b_hic0_identity_carrier_run1.sh
+d576c89c52c7ddcdfe76b2303b60d69b5e7ff90cb7683a33bc6469fabdb4ff9b  ../../scripts/latent/run_phase_b_identity_carrier_v1.py
+e0b28b0c2d1d0f6001db02d71c34672371263658ba85c61e01000578740c7c36  ../../scripts/export_phase_b_hic0_bank_v1.py
+0a84ba0816dccd7688d148cdd0cf7e3e8943ea4d33907754691fdb3eba6ce88e  ../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py
+e0c7d07223e96202d73c7c2694c7c9a63487ec97c172aa265c480c81608c26dc  ../../scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py
+d6960012df48db2884d5c51f5196a7a78e36ad6b40ae8d9a6429abbd22ca154c  ../../src/prime_rl/phase_b_identity_carrier.py
+c351349dac78a90072f78321c9ce54aaf7ad0a83641df0940558b853e68f9d67  ../../src/prime_rl/phase_b_contract.py
+2c49b62bdf7b93f0dc6720894988d50611300db854ae9453d00bf50380c9f259  ../../src/prime_rl/phase_b_value_screen.py
+b0de959f8c33a978802bd2bcba743ed854ac96e68843e60e6cfe7d7c4eacd692  ../../src/prime_rl/latent/local_depth.py
+adb0ea5a3a1c8959c54a0b67de27beb05e9943f53519993ed8c481b796bd859a  ../../tests/unit/test_phase_b_identity_carrier.py
+839082fed228b9fd521fe2068ffbe32895f42e46c7814f73245bc555b38b587c  phase-b-b1r-negative-binding-v1.json
+9e0498d210bd87b29e0385a938ce1717f61e45d24c1dde32f49ad95307a051fb  phase-b-hic0-identity-carrier-bank-v1/MANIFEST.json
+278f5fff1ad16e9ae324b13994c99262600611a3127629098cfd193c1e8713cb  phase-b-hic0-identity-carrier-bank-v1/heldout.parquet
+b35b23978fe126b46ee536b9526c868fa02b898b244f06283154718d36fd27f0  phase-b-hic0-identity-carrier-bank-v1/runtime-source.json
+084dc6083a56a03f7fd4b51da350c8b5e916f37db5bb4a5baa1ef50945026618  phase-b-hic0-identity-carrier-bank-v1/selection.json
+15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499  phase-b-hic0-identity-carrier-bank-v1/taskset-5283a85.py
