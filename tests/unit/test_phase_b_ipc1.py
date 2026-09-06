@@ -19,7 +19,9 @@ from prime_rl.phase_b_ipc1 import (
     evaluate_recurrent_value,
     roundtrip_validate_terminal,
     select_balanced_rows,
+    strict_json_loads,
     validate_bank_disjointness,
+    validate_ipc1_plan,
     validate_ordered_records,
     verify_published_terminal,
     verify_seed_derivations,
@@ -93,8 +95,7 @@ def test_ipc1_call_cache_and_memory_schedules_cover_both_firewall_outcomes() -> 
 
 def test_ipc1_overlap_closure_rejects_key_or_row_hash_reuse() -> None:
     selected = {
-        split: select_balanced_rows(_pool(split), split=split)[0]
-        for split in ("train", "validation", "heldout")
+        split: select_balanced_rows(_pool(split), split=split)[0] for split in ("train", "validation", "heldout")
     }
     evidence = validate_bank_disjointness(
         selected,
@@ -127,13 +128,16 @@ def test_ipc1_common_arm_gates_preserve_frozen_thresholds() -> None:
     failed = deepcopy(post)
     for row in failed:
         row["margin"] = -0.60
-    assert evaluate_common_arm(
-        action_order=actions,
-        base=base,
-        pre=pre,
-        post=failed,
-        safety_and_noncollapse=True,
-    )["passed"] is False
+    assert (
+        evaluate_common_arm(
+            action_order=actions,
+            base=base,
+            pre=pre,
+            post=failed,
+            safety_and_noncollapse=True,
+        )["passed"]
+        is False
+    )
 
 
 def test_ipc1_recurrent_value_is_separate_from_common_learning() -> None:
@@ -181,12 +185,15 @@ def test_ipc1_terminal_roundtrip_validates_parsed_bytes_and_detects_tamper(tmp_p
     )
     path = tmp_path / "SUCCESS.json"
     path.write_bytes(payload)
-    assert verify_published_terminal(
-        path,
-        payload,
-        validator=validator,
-        validator_kwargs={"expected_names": ["STATIC", "FFN"]},
-    ) == file_hash
+    assert (
+        verify_published_terminal(
+            path,
+            payload,
+            validator=validator,
+            validator_kwargs={"expected_names": ["STATIC", "FFN"]},
+        )
+        == file_hash
+    )
     assert json.loads(payload) == parsed
     tampered = payload.replace(b'"STATIC"', b'"FFN___"', 1)
     path.write_bytes(tampered)
@@ -197,6 +204,12 @@ def test_ipc1_terminal_roundtrip_validates_parsed_bytes_and_detects_tamper(tmp_p
             validator=validator,
             validator_kwargs={"expected_names": ["STATIC", "FFN"]},
         )
+    with pytest.raises(PhaseBContractError, match="repeats JSON key"):
+        strict_json_loads(b'{"status":"x","status":"y"}')
+    with pytest.raises(PhaseBContractError, match="non-finite"):
+        strict_json_loads(b'{"value":NaN}')
+    with pytest.raises(PhaseBContractError, match="finite canonical JSON"):
+        canonical_terminal_bytes({"value": float("inf")})
 
 
 def test_ipc1_frozen_bank_closes_exact_artifacts_and_action_orders() -> None:
@@ -235,3 +248,32 @@ def test_ipc1_failure_taxonomy_does_not_misclassify_contract_errors_as_runtime()
         "infrastructure_invalid",
         "infrastructure",
     )
+    assert runner._failure_class(RuntimeError("ordinary model runtime defect")) == (
+        "b_ipc1_incomplete",
+        "contract_or_evidence_incomplete",
+    )
+
+
+def test_ipc1_plan_and_terminal_writers_reject_schema_or_global_terminal_tamper(tmp_path: Path) -> None:
+    repository = _repository()
+    plan = json.loads(
+        (
+            repository / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-matched-learning-run1-plan.json"
+        ).read_text()
+    )
+    validate_ipc1_plan(plan)
+    tampered = deepcopy(plan)
+    tampered["unexpected"] = True
+    with pytest.raises(PhaseBContractError, match="plan keyset differs"):
+        validate_ipc1_plan(tampered)
+
+    runner = _runner_module()
+    output = tmp_path / "terminal"
+    output.mkdir()
+    payload = canonical_terminal_bytes({"terminal": "SUCCESS"})
+    path = runner._atomic_publish_bytes(output, "SUCCESS.json", payload)
+    assert path.read_bytes() == payload
+    assert not list(output.glob(".*.tmp"))
+    with pytest.raises(FileExistsError, match="globally fresh"):
+        runner._atomic_publish_bytes(output, "FAILURE.json", canonical_terminal_bytes({"terminal": "FAILURE"}))
+    assert sorted(item.name for item in output.iterdir()) == ["SUCCESS.json"]

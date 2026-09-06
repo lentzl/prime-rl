@@ -24,6 +24,7 @@ from unittest import mock
 
 from prime_rl.phase_b_contract import PhaseBContractError, file_sha256, load_json_file
 from prime_rl.phase_b_ipc1 import (
+    ACTIONS,
     ARTIFACT_CAP_BYTES,
     CUDA_MEMORY_CAP_BYTES,
     EVALUATION_DEPTHS,
@@ -43,6 +44,7 @@ from prime_rl.phase_b_ipc1 import (
     evaluate_common_arm,
     evaluate_recurrent_value,
     roundtrip_validate_terminal,
+    strict_json_loads,
     validate_ipc1_plan,
     verify_published_terminal,
 )
@@ -60,6 +62,27 @@ EXPECTED_PYTHONPATH = (
 )
 COMPUTE_SECONDS = 14_040
 AUDIT_SECONDS = 300
+
+
+def _require_exact_keys(value: Any, expected: set[str], *, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != expected:
+        observed = sorted(value) if isinstance(value, dict) else type(value).__name__
+        raise PhaseBContractError(f"B-IPC1 {label} keyset differs: {observed}")
+    return value
+
+
+def _require_finite_number(value: Any, *, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(float(value)):
+        raise PhaseBContractError(f"B-IPC1 {label} is not a finite number")
+    return float(value)
+
+
+def _fsync_directory(path: Path) -> None:
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
 
 
 class MechanismRejected(PhaseBContractError):
@@ -163,9 +186,12 @@ def _cache_class_identity(cls: type, *, hic0: ModuleType) -> dict[str, str]:
         "distribution": f"{distribution}=={importlib.metadata.version(distribution)}",
     }
     expected = {item[0]: item for item in hic0.EXPECTED_CACHE_CLASSES}.get(identity["fqcn"])
-    if expected is None or not str(path).endswith(expected[1]) or identity["module_sha256"] != expected[2] or identity[
-        "distribution"
-    ] != expected[3]:
+    if (
+        expected is None
+        or not str(path).endswith(expected[1])
+        or identity["module_sha256"] != expected[2]
+        or identity["distribution"] != expected[3]
+    ):
         raise CacheContractViolated(f"B-IPC1 cache class identity differs: {identity['fqcn']}")
     return identity
 
@@ -294,8 +320,7 @@ class _CacheGuard:
             "model_calls": self.calls,
             "recursively_closed_config_count": len(self.configs),
             "classes": [
-                _cache_class_identity(cls, hic0=self.hic0)
-                for cls in self.hic0.ordered_subclass_closure(self.base)
+                _cache_class_identity(cls, hic0=self.hic0) for cls in self.hic0.ordered_subclass_closure(self.base)
             ],
         }
 
@@ -327,7 +352,13 @@ def _validate_host_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
         raise PhaseBContractError("B-IPC1 execution environment plan differs")
     if Path(sys.prefix).resolve() != EXPECTED_ENV.resolve(strict=True):
         raise ProvenanceContractViolated("B-IPC1 shared Python environment differs")
-    for name in ("UV_PROJECT_ENVIRONMENT", "PYTHONPATH", "CUDA_VISIBLE_DEVICES", "HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"):
+    for name in (
+        "UV_PROJECT_ENVIRONMENT",
+        "PYTHONPATH",
+        "CUDA_VISIBLE_DEVICES",
+        "HF_HUB_OFFLINE",
+        "TRANSFORMERS_OFFLINE",
+    ):
         if os.environ.get(name) != expected_environment[name]:
             raise ProvenanceContractViolated(f"B-IPC1 environment value differs: {name}")
     if args.output_dir != Path(plan["outputs"]["directory"]):
@@ -347,6 +378,35 @@ def _bank_record(plan: dict[str, Any], split: str) -> dict[str, Any]:
     return next(record for record in records if record["split"] == split)
 
 
+def _immutable_input_records(plan: dict[str, Any], *, require_match: bool = True) -> list[dict[str, str]]:
+    specifications = [
+        ("plan", plan["_path"], plan["_file_sha256"]),
+        ("bank_manifest", plan["bank_manifest"]["path"], plan["bank_manifest"]["sha256"]),
+        ("overlap_closure", plan["overlap_closure"]["path"], plan["overlap_closure"]["sha256"]),
+        ("runtime_source", plan["runtime_source"]["path"], plan["runtime_source"]["sha256"]),
+        ("generator_source", plan["generator_source"]["path"], plan["generator_source"]["sha256"]),
+        ("taskset_source", plan["taskset_source"]["path"], plan["taskset_source"]["sha256"]),
+    ]
+    specifications.extend(
+        (f"antecedent_{record['name']}", record["binding_path"], record["binding_sha256"])
+        for record in plan["antecedents"]
+    )
+    for bank in plan["banks"]:
+        specifications.extend(
+            (
+                (f"{bank['split']}_selection", bank["selection_path"], bank["selection_sha256"]),
+                (f"{bank['split']}_parquet", bank["parquet_path"], bank["parquet_sha256"]),
+            )
+        )
+    records = [
+        {"name": name, "path": path, "expected_sha256": expected, "observed_sha256": file_sha256(Path(path))}
+        for name, path, expected in specifications
+    ]
+    if require_match and any(record["expected_sha256"] != record["observed_sha256"] for record in records):
+        raise ProvenanceContractViolated("B-IPC1 immutable input postflight hash differs")
+    return records
+
+
 def _validate_antecedents(plan: dict[str, Any]) -> None:
     antecedents = plan.get("antecedents")
     if not isinstance(antecedents, list) or [item.get("name") for item in antecedents] != [
@@ -357,10 +417,8 @@ def _validate_antecedents(plan: dict[str, Any]) -> None:
     hic0, b1r = antecedents
     if (
         hic0.get("classification") != "descriptive_antecedent_only_terminal_contract_invalid"
-        or hic0.get("success_file_sha256")
-        != "26dfb2c8942b767c0ca8697cc66eea9c0e0931123aa4ffd9c7426440323245c8"
-        or hic0.get("internal_receipt_sha256")
-        != "108342e04a3255afedbbf60d6dc8ccf86c5f0d2736b549634edbdeb8febbafc3"
+        or hic0.get("success_file_sha256") != "26dfb2c8942b767c0ca8697cc66eea9c0e0931123aa4ffd9c7426440323245c8"
+        or hic0.get("internal_receipt_sha256") != "108342e04a3255afedbbf60d6dc8ccf86c5f0d2736b549634edbdeb8febbafc3"
         or hic0.get("validator_error") != "B-HIC0 SUCCESS row/count evidence differs"
         or hic0.get("candidate_reused") is not False
         or hic0.get("rows_reused") is not False
@@ -407,9 +465,10 @@ def preflight(args: argparse.Namespace) -> dict[str, Any]:
         raise ProvenanceContractViolated("B-IPC1 immutable bank artifact closure differs")
     manifest = load_json_file(paths["bank_manifest"])
     closure = load_json_file(paths["overlap_closure"])
-    if manifest.get("freshness", {}).get("all_zero") is not True or closure.get("overlap_evidence", {}).get(
-        "all_zero"
-    ) is not True:
+    if (
+        manifest.get("freshness", {}).get("all_zero") is not True
+        or closure.get("overlap_evidence", {}).get("all_zero") is not True
+    ):
         raise PhaseBContractError("B-IPC1 bank overlap proof is incomplete")
     if closure.get("overlap_evidence", {}).get("selected_rows_permanently_excluded_from_future_training") != 96:
         raise PhaseBContractError("B-IPC1 future-training exclusion count differs")
@@ -593,8 +652,10 @@ def _receiver_inputs(
     embeddings = base_embeddings if residual is None and not zero else base_embeddings.clone()
     if residual is not None or zero:
         target = slice(geometry["I"] - SLOTS, geometry["I"])
-        value = torch.zeros_like(residual) if zero and residual is not None else torch.zeros_like(
-            base_embeddings[:, target, :]
+        value = (
+            torch.zeros_like(residual)
+            if zero and residual is not None
+            else torch.zeros_like(base_embeddings[:, target, :])
         )
         if not zero:
             value = residual
@@ -615,7 +676,9 @@ def _receiver_inputs(
     }, predictor
 
 
-def _metric(output: Any, example: dict[str, Any], predictor: int, inputs: dict[str, Any], *, audit: dict[str, Any]) -> dict[str, Any]:
+def _metric(
+    output: Any, example: dict[str, Any], predictor: int, inputs: dict[str, Any], *, audit: dict[str, Any]
+) -> dict[str, Any]:
     metric = audit["hic0"]._metric(
         output,
         example,
@@ -703,17 +766,19 @@ def _candidate_forward(
     return output, metric, residual, anchor, visible
 
 
-def _initialize_modules(torch: Any, LocalDepthCodec: Any, OneShotFeedForwardSidecar: Any, TimestepFreeRecurrentSidecar: Any, smoke: ModuleType):
+def _initialize_modules(
+    torch: Any,
+    LocalDepthCodec: Any,
+    OneShotFeedForwardSidecar: Any,
+    TimestepFreeRecurrentSidecar: Any,
+    smoke: ModuleType,
+):
     torch.manual_seed(INITIALIZATION_SEED)
     torch.cuda.manual_seed_all(INITIALIZATION_SEED)
-    template = LocalDepthCodec(2048, 256, SLOTS, initial_receiver_gate=0.001).to(
-        device="cuda:0", dtype=torch.bfloat16
-    )
+    template = LocalDepthCodec(2048, 256, SLOTS, initial_receiver_gate=0.001).to(device="cuda:0", dtype=torch.bfloat16)
     template_state = {name: tensor.detach().clone() for name, tensor in template.state_dict().items()}
     codecs = {
-        arm: LocalDepthCodec(2048, 256, SLOTS, initial_receiver_gate=0.001).to(
-            device="cuda:0", dtype=torch.bfloat16
-        )
+        arm: LocalDepthCodec(2048, 256, SLOTS, initial_receiver_gate=0.001).to(device="cuda:0", dtype=torch.bfloat16)
         for arm in TRAINING_ARMS
     }
     for codec in codecs.values():
@@ -734,7 +799,11 @@ def _initialize_modules(torch: Any, LocalDepthCodec: Any, OneShotFeedForwardSide
     codec_hashes = [record["sha256"] for record in hashes if record["name"].endswith(".codec")]
     if len(set(codec_hashes)) != 1:
         raise PhaseBContractError("B-IPC1 initialized codec copies are not bitwise equal")
-    if any(float(torch.tanh(codec.receiver_gate.detach()).cpu()) != float(torch.tensor(0.001, dtype=codec.receiver_gate.dtype)) for codec in codecs.values()):
+    if any(
+        float(torch.tanh(codec.receiver_gate.detach()).cpu())
+        != float(torch.tensor(0.001, dtype=codec.receiver_gate.dtype))
+        for codec in codecs.values()
+    ):
         raise PhaseBContractError("B-IPC1 initial receiver gate differs from BF16 0.001")
     snapshots = {
         arm: {
@@ -782,7 +851,9 @@ def _run_training_bases(
 
 
 def _gradient_group(parameters: Sequence[tuple[str, Any]], prefixes: tuple[str, ...], *, torch: Any) -> dict[str, Any]:
-    values = [parameter.grad for name, parameter in parameters if name.startswith(prefixes) and parameter.grad is not None]
+    values = [
+        parameter.grad for name, parameter in parameters if name.startswith(prefixes) and parameter.grad is not None
+    ]
     return {
         "tensor_count": len(values),
         "finite": bool(values) and all(bool(torch.isfinite(value).all()) for value in values),
@@ -915,13 +986,21 @@ def _pre_update_gate(
                         "codec": codec_group,
                         "sidecar": sidecar_group,
                         "all_named_present_gradients_finite": all(
-                            parameter.grad is None or bool(torch.isfinite(parameter.grad).all()) for _name, parameter in named
+                            parameter.grad is None or bool(torch.isfinite(parameter.grad).all())
+                            for _name, parameter in named
                         ),
                         "e33_gradients_absent": all(parameter.grad is None for parameter in model.parameters()),
                     }
-                    if not all((gradient["residual"]["finite"], gradient["residual"]["nonzero"], codec_group["finite"], codec_group["nonzero"], gradient["all_named_present_gradients_finite"], gradient["e33_gradients_absent"])) or (
-                        sidecar_group is not None and not all((sidecar_group["finite"], sidecar_group["nonzero"]))
-                    ):
+                    if not all(
+                        (
+                            gradient["residual"]["finite"],
+                            gradient["residual"]["nonzero"],
+                            codec_group["finite"],
+                            codec_group["nonzero"],
+                            gradient["all_named_present_gradients_finite"],
+                            gradient["e33_gradients_absent"],
+                        )
+                    ) or (sidecar_group is not None and not all((sidecar_group["finite"], sidecar_group["nonzero"]))):
                         raise MechanismRejected(f"B-IPC1 {arm} EPS connectivity failed")
                     for _name, parameter in named:
                         parameter.grad = None
@@ -1037,7 +1116,10 @@ def _train_arm(
             (objective / 12).backward()
             if any(parameter.grad is not None for parameter in model.parameters()):
                 raise PhaseBContractError(f"B-IPC1 {arm} caused an e33 gradient")
-            if any(parameter.grad is not None and not bool(torch.isfinite(parameter.grad).all()) for parameter in parameters):
+            if any(
+                parameter.grad is not None and not bool(torch.isfinite(parameter.grad).all())
+                for parameter in parameters
+            ):
                 raise PhaseBContractError(f"B-IPC1 {arm} accumulated a nonfinite gradient")
             row_records.append(
                 {
@@ -1093,12 +1175,15 @@ def _train_arm(
 
 
 def _restore_pre_modules(
-    snapshots: dict[str, Any], *, torch: Any, LocalDepthCodec: Any, OneShotFeedForwardSidecar: Any, TimestepFreeRecurrentSidecar: Any
+    snapshots: dict[str, Any],
+    *,
+    torch: Any,
+    LocalDepthCodec: Any,
+    OneShotFeedForwardSidecar: Any,
+    TimestepFreeRecurrentSidecar: Any,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     codecs = {
-        arm: LocalDepthCodec(2048, 256, SLOTS, initial_receiver_gate=0.001).to(
-            device="cuda:0", dtype=torch.bfloat16
-        )
+        arm: LocalDepthCodec(2048, 256, SLOTS, initial_receiver_gate=0.001).to(device="cuda:0", dtype=torch.bfloat16)
         for arm in TRAINING_ARMS
     }
     sidecars = {
@@ -1163,7 +1248,9 @@ def _evaluate_split(
                 **{key: value for key, value in base_inputs.items() if key != "full_labels"},
             )
             base_metric = _metric(base_output, example, predictor, base_inputs, audit=audit)
-            metrics["BASE"].append({"task_key": example["task_key"], "action": example["action"], **_reporting_metric(base_metric)})
+            metrics["BASE"].append(
+                {"task_key": example["task_key"], "action": example["action"], **_reporting_metric(base_metric)}
+            )
             del base_output, base_metric, base_inputs, base_embeddings
             for arm in TRAINING_ARMS:
                 output, metric, residual, anchor, visible = _candidate_forward(
@@ -1244,7 +1331,8 @@ def _evaluate_split(
                     residual_checks["RECURRENT"].append(
                         {
                             "task_key": example["task_key"],
-                            "finite_nonzero": bool(torch.isfinite(residual).all()) and bool(torch.count_nonzero(residual)),
+                            "finite_nonzero": bool(torch.isfinite(residual).all())
+                            and bool(torch.count_nonzero(residual)),
                             "l2": float(torch.linalg.vector_norm(residual.detach().float()).cpu()),
                         }
                     )
@@ -1378,6 +1466,76 @@ def _status_for_evaluations(validation: dict[str, Any], heldout: dict[str, Any] 
     return "b_ipc1_inplace_learning_not_nominated", []
 
 
+def _state_dict_tensor_sha256(state: dict[str, Any], *, torch: Any) -> str:
+    digest = hashlib.sha256()
+    for name, tensor in sorted(state.items()):
+        if not isinstance(name, str) or not torch.is_tensor(tensor):
+            raise PhaseBContractError("B-IPC1 candidate state is not a tensor mapping")
+        contiguous = tensor.detach().cpu().contiguous()
+        if not bool(torch.isfinite(contiguous).all()):
+            raise PhaseBContractError(f"B-IPC1 candidate tensor is nonfinite: {name}")
+        digest.update(name.encode())
+        digest.update(str(contiguous.dtype).encode())
+        digest.update(json.dumps(list(contiguous.shape), separators=(",", ":")).encode())
+        digest.update(contiguous.reshape(-1).view(torch.uint8).numpy().tobytes())
+    return digest.hexdigest()
+
+
+def _state_dict_schema(state: dict[str, Any], *, torch: Any) -> list[dict[str, Any]]:
+    records = []
+    for name, tensor in sorted(state.items()):
+        if not isinstance(name, str) or not torch.is_tensor(tensor):
+            raise PhaseBContractError("B-IPC1 candidate state is not a tensor mapping")
+        if not bool(torch.isfinite(tensor).all()):
+            raise PhaseBContractError(f"B-IPC1 candidate tensor is nonfinite: {name}")
+        records.append({"name": name, "dtype": str(tensor.dtype), "shape": list(tensor.shape)})
+    if not records:
+        raise PhaseBContractError("B-IPC1 candidate state is empty")
+    return records
+
+
+def _candidate_state_records(
+    codec_state: dict[str, Any], sidecar_state: dict[str, Any] | None, *, torch: Any
+) -> list[dict[str, Any]]:
+    records = [
+        {
+            "name": "codec",
+            "tensor_sha256": _state_dict_tensor_sha256(codec_state, torch=torch),
+            "schema": _state_dict_schema(codec_state, torch=torch),
+        }
+    ]
+    if sidecar_state is not None:
+        records.append(
+            {
+                "name": "sidecar",
+                "tensor_sha256": _state_dict_tensor_sha256(sidecar_state, torch=torch),
+                "schema": _state_dict_schema(sidecar_state, torch=torch),
+            }
+        )
+    return records
+
+
+def _exclusive_candidate_save(output: Path, name: str, payload: dict[str, Any], *, torch: Any) -> str:
+    final = output / name
+    temporary = output / f".{name}.{os.getpid()}.tmp"
+    if Path(name).name != name or final.exists() or final.is_symlink() or temporary.exists() or temporary.is_symlink():
+        raise PhaseBContractError(f"B-IPC1 candidate target is not fresh and safe: {name}")
+    try:
+        torch.save(payload, temporary)
+        descriptor = os.open(temporary, os.O_RDONLY)
+        try:
+            os.fsync(descriptor)
+        finally:
+            os.close(descriptor)
+        os.link(temporary, final)
+        _fsync_directory(output)
+    finally:
+        if temporary.exists() and not temporary.is_symlink():
+            temporary.unlink()
+            _fsync_directory(output)
+    return file_sha256(final)
+
+
 def _save_candidates(
     output: Path,
     codecs: dict[str, Any],
@@ -1391,17 +1549,32 @@ def _save_candidates(
     for arm in TRAINING_ARMS:
         name = f"{arm}.final.pt"
         _memory_checkpoint(torch, audit, f"candidate:{arm}:before_write")
+        codec_state = b1._cpu_state_dict(codecs[arm])
+        sidecar_state = None if arm == "STATIC" else b1._cpu_state_dict(sidecars[arm])
+        state_records = _candidate_state_records(codec_state, sidecar_state, torch=torch)
         payload = {
             "schema_version": "q35-2b-phase-b-ipc1-candidate/v1",
             "arm": arm,
-            "codec": b1._cpu_state_dict(codecs[arm]),
-            "sidecar": None if arm == "STATIC" else b1._cpu_state_dict(sidecars[arm]),
+            "codec": codec_state,
+            "sidecar": sidecar_state,
+            "module_post_state": state_records,
         }
-        sha = b1._exclusive_torch_save(output, name, payload, torch=torch)
+        sha = _exclusive_candidate_save(output, name, payload, torch=torch)
+        _fsync_directory(output)
         _memory_checkpoint(torch, audit, f"candidate:{arm}:after_write")
-        records.append({"name": name, "arm": arm, "sha256": sha, "valid_only_with_terminal": "SUCCESS.json"})
+        records.append(
+            {
+                "name": name,
+                "arm": arm,
+                "sha256": sha,
+                "valid_only_with_terminal": "SUCCESS.json",
+                "module_post_state": state_records,
+            }
+        )
     if sum(path.stat().st_size for path in output.iterdir() if path.is_file()) > ARTIFACT_CAP_BYTES:
         raise ResourceContractExceeded("B-IPC1 artifacts exceed 512 MiB")
+    _fsync_directory(output)
+    _fsync_directory(output.parent)
     return records
 
 
@@ -1537,9 +1710,7 @@ def execute(
         restored_pre_hashes = {
             arm: {
                 "codec": smoke._module_tensor_sha256(pre_codecs[arm], torch),
-                "sidecar": None
-                if arm == "STATIC"
-                else smoke._module_tensor_sha256(pre_sidecars[arm], torch),
+                "sidecar": None if arm == "STATIC" else smoke._module_tensor_sha256(pre_sidecars[arm], torch),
             }
             for arm in TRAINING_ARMS
         }
@@ -1611,6 +1782,7 @@ def execute(
         raise PhaseBContractError("B-IPC1 protected e33 changed")
     if any(parameter.grad is not None for parameter in model.parameters()):
         raise PhaseBContractError("B-IPC1 e33 retained a gradient")
+    immutable_inputs = _immutable_input_records(plan)
     _memory_checkpoint(torch, audit, "after_final_audits")
     _memory_checkpoint(torch, audit, "before_candidate_writes")
     candidates = _save_candidates(output, codecs, sidecars, b1=b1, torch=torch, audit=audit)
@@ -1658,9 +1830,7 @@ def execute(
         },
         "module_hashes": {
             "pre": module_pre,
-            "restored_pre": [
-                {"name": arm, **restored_pre_hashes[arm]} for arm in TRAINING_ARMS
-            ],
+            "restored_pre": [{"name": arm, **restored_pre_hashes[arm]} for arm in TRAINING_ARMS],
             "post": module_post,
             "delta_groups": delta_groups,
             "receiver_gates": [
@@ -1685,9 +1855,14 @@ def execute(
             "metadata_post": metadata_post,
             "e33_gradients_absent": True,
         },
+        "immutable_inputs": immutable_inputs,
         "render_proofs": [{"name": split, "rows": proofs} for split, proofs in context["render_proofs"].items()],
         "bank_bindings": [
-            {"name": bank["split"], "selection_sha256": bank["selection_sha256"], "parquet_sha256": bank["parquet_sha256"]}
+            {
+                "name": bank["split"],
+                "selection_sha256": bank["selection_sha256"],
+                "parquet_sha256": bank["parquet_sha256"],
+            }
             for bank in plan["banks"]
         ],
         "schedule_binding": {
@@ -1766,9 +1941,572 @@ def _recompute_evaluation(evaluation: dict[str, Any], module_safety: dict[str, b
     return {"common": common, "recurrent": recurrent}
 
 
-def validate_success_receipt(
-    receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str, output_dir: Path
+def _validate_render_proofs(receipt: dict[str, Any], *, plan: dict[str, Any], heldout_open: bool) -> None:
+    records = receipt.get("render_proofs")
+    expected_splits = ["train", "validation"] + (["heldout"] if heldout_open else [])
+    if not isinstance(records, list) or [record.get("name") for record in records] != expected_splits:
+        raise PhaseBContractError("B-IPC1 SUCCESS render-proof split order differs")
+    proof_keys = {
+        "task_key",
+        "action",
+        "source_row_sha256",
+        "reasoning_content_sha256",
+        "modified_path",
+        "plain_ids_sha256",
+        "opening_ids_sha256",
+        "full_ids_sha256",
+        "plain_tokens",
+        "opening_tokens",
+        "full_tokens",
+        "counterfactual_target_sha256",
+        "action_trie_sha256",
+        "action_trie_branch_count",
+    }
+    for split_record in records:
+        _require_exact_keys(split_record, {"name", "rows"}, label="render-proof split")
+        split = split_record["name"]
+        selection = load_json_file(Path(_bank_record(plan, split)["selection_path"]))
+        expected = selection["selected"]
+        proofs = split_record["rows"]
+        if not isinstance(proofs, list) or len(proofs) != len(expected):
+            raise PhaseBContractError(f"B-IPC1 {split} render-proof count differs")
+        for proof, selected, row_hash in zip(proofs, expected, selection["row_canonical_sha256"], strict=True):
+            _require_exact_keys(proof, proof_keys, label=f"{split} render proof")
+            if (
+                proof["task_key"] != selected["task_key"]
+                or proof["action"] != selected["expected_action"]
+                or proof["source_row_sha256"] != row_hash
+                or proof["modified_path"] != "messages.2.tool_calls.0.function.arguments"
+                or set(proof["counterfactual_target_sha256"]) != set(ACTIONS)
+                or not (0 < proof["plain_tokens"] <= proof["opening_tokens"] < proof["full_tokens"])
+                or type(proof["action_trie_branch_count"]) is not int
+                or proof["action_trie_branch_count"] < 1
+            ):
+                raise PhaseBContractError(f"B-IPC1 {split} render proof differs")
+
+
+def _validate_objective_evidence(value: Any, *, action: str, label: str) -> None:
+    record = _require_exact_keys(
+        value,
+        {"action_weight", "retention_coefficient", "branch_count", "branches", "baseline_margins_detached"},
+        label=label,
+    )
+    expected_weight = 2.0 if action == "delegate_coordinator" else 1.0
+    if (
+        record["action_weight"] != expected_weight
+        or record["retention_coefficient"] != 0.1
+        or record["baseline_margins_detached"] is not True
+        or type(record["branch_count"]) is not int
+        or record["branch_count"] < 1
+        or not isinstance(record["branches"], list)
+        or len(record["branches"]) != record["branch_count"]
+    ):
+        raise PhaseBContractError(f"B-IPC1 {label} differs")
+    for branch in record["branches"]:
+        _require_exact_keys(
+            branch,
+            {"logit_offset", "correct_token_id", "other_token_ids"},
+            label=f"{label} branch",
+        )
+        if (
+            type(branch["logit_offset"]) is not int
+            or branch["logit_offset"] < 0
+            or type(branch["correct_token_id"]) is not int
+            or not isinstance(branch["other_token_ids"], list)
+            or not branch["other_token_ids"]
+            or any(type(token) is not int for token in branch["other_token_ids"])
+        ):
+            raise PhaseBContractError(f"B-IPC1 {label} branch differs")
+
+
+def _validate_training_receipt(receipt: dict[str, Any], *, plan: dict[str, Any]) -> None:
+    histories = receipt.get("training")
+    evidence = receipt.get("training_evidence")
+    if (
+        not isinstance(histories, list)
+        or [record.get("name") for record in histories] != list(TRAINING_ARMS)
+        or not isinstance(evidence, list)
+        or [record.get("name") for record in evidence] != list(TRAINING_ARMS)
+    ):
+        raise PhaseBContractError("B-IPC1 SUCCESS training arm order differs")
+    selection = load_json_file(Path(_bank_record(plan, "train")["selection_path"]))
+    expected_updates = selection["updates"]
+    expected_keys = [record["task_key"] for record in selection["selected"]]
+    trained_keys: dict[str, list[str]] = {}
+    expected_groups = {
+        "STATIC": ["codec"],
+        "FFN": ["codec", "ffn_internal"],
+        "RECURRENT": ["codec", "transition", "memory", "workspace"],
+    }
+    for arm_record, evidence_record in zip(histories, evidence, strict=True):
+        arm = arm_record["name"]
+        _require_exact_keys(arm_record, {"name", "updates"}, label=f"{arm} training")
+        updates = arm_record["updates"]
+        if not isinstance(updates, list) or len(updates) != 4:
+            raise PhaseBContractError(f"B-IPC1 {arm} update count differs")
+        flattened: list[str] = []
+        for update, expected_update in zip(updates, expected_updates, strict=True):
+            _require_exact_keys(
+                update,
+                {"update_index", "rows", "gradient_l2", "preclip_global_norm", "sidecar_output_scale"},
+                label=f"{arm} update",
+            )
+            if update["update_index"] != expected_update["update_index"] or len(update["rows"]) != 12:
+                raise PhaseBContractError(f"B-IPC1 {arm} update index/count differs")
+            expected_rows = expected_update["rows"]
+            for row, selected in zip(update["rows"], expected_rows, strict=True):
+                _require_exact_keys(
+                    row,
+                    {
+                        "task_key",
+                        "action",
+                        "aligned_suffix_ce",
+                        "total_objective",
+                        "objective_evidence",
+                        "reporting_nll",
+                        "reporting_margin",
+                    },
+                    label=f"{arm} training row",
+                )
+                if row["task_key"] != selected["task_key"] or row["action"] != selected["expected_action"]:
+                    raise PhaseBContractError(f"B-IPC1 {arm} update exposure differs")
+                for key in ("aligned_suffix_ce", "total_objective", "reporting_nll", "reporting_margin"):
+                    _require_finite_number(row[key], label=f"{arm} {key}")
+                _validate_objective_evidence(row["objective_evidence"], action=row["action"], label=f"{arm} objective")
+                flattened.append(row["task_key"])
+            gradients = update["gradient_l2"]
+            if not isinstance(gradients, list) or not gradients:
+                raise PhaseBContractError(f"B-IPC1 {arm} named gradients are absent")
+            seen_names: set[str] = set()
+            for gradient in gradients:
+                _require_exact_keys(gradient, {"name", "l2"}, label=f"{arm} named gradient")
+                if gradient["name"] in seen_names:
+                    raise PhaseBContractError(f"B-IPC1 {arm} repeats a named gradient")
+                seen_names.add(gradient["name"])
+                if gradient["l2"] is not None:
+                    _require_finite_number(gradient["l2"], label=f"{arm} gradient l2")
+            _require_finite_number(update["preclip_global_norm"], label=f"{arm} preclip norm")
+            scales = update["sidecar_output_scale"]
+            if (arm == "STATIC" and scales != []) or (
+                arm != "STATIC" and (not isinstance(scales, list) or len(scales) != 1)
+            ):
+                raise PhaseBContractError(f"B-IPC1 {arm} output-scale evidence differs")
+            for scale in scales:
+                _require_finite_number(scale, label=f"{arm} output scale")
+        if flattened != expected_keys or len(set(flattened)) != 48:
+            raise PhaseBContractError(f"B-IPC1 {arm} exact exposure order differs")
+        trained_keys[arm] = flattened
+        _require_exact_keys(evidence_record, {"name", "value"}, label=f"{arm} training evidence")
+        value = _require_exact_keys(
+            evidence_record["value"],
+            {"finite_nonzero_gradient_updates", "optimizer_destroyed"},
+            label=f"{arm} training evidence value",
+        )
+        group_updates = value["finite_nonzero_gradient_updates"]
+        if set(group_updates) != set(expected_groups[arm]) or value["optimizer_destroyed"] is not True:
+            raise PhaseBContractError(f"B-IPC1 {arm} gradient-group/destruction evidence differs")
+        for group, passing_updates in group_updates.items():
+            allowed = [1, 2, 3, 4] if group == "codec" else [2, 3, 4]
+            if (
+                not isinstance(passing_updates, list)
+                or not passing_updates
+                or any(index not in allowed for index in passing_updates)
+            ):
+                raise PhaseBContractError(f"B-IPC1 {arm}/{group} gradient update evidence differs")
+    if any(keys != expected_keys for keys in trained_keys.values()):
+        raise PhaseBContractError("B-IPC1 matched arm exposure differs")
+
+
+def _validate_mechanism_receipt(receipt: dict[str, Any], *, plan: dict[str, Any]) -> None:
+    mechanism = _require_exact_keys(
+        receipt.get("pre_update_mechanism_gate"),
+        {"probes", "pre_tensor_hashes", "post_tensor_hashes"},
+        label="pre-update mechanism",
+    )
+    probes = mechanism["probes"]
+    if not isinstance(probes, list) or [probe.get("selection_index") for probe in probes] != [0, 1, 2, 5]:
+        raise PhaseBContractError("B-IPC1 SUCCESS mechanism probes differ")
+    backward_for = {"STATIC": 0, "FFN": 1, "RECURRENT": 2}
+    selected = load_json_file(Path(_bank_record(plan, "train")["selection_path"]))["selected"]
+    for probe in probes:
+        _require_exact_keys(
+            probe,
+            {"selection_index", "task_key", "action", "base_equals_direct_zero", "arms"},
+            label="mechanism probe",
+        )
+        expected_probe = selected[probe["selection_index"]]
+        if (
+            probe["task_key"] != expected_probe["task_key"]
+            or probe["action"] != expected_probe["expected_action"]
+            or probe["base_equals_direct_zero"] is not True
+        ):
+            raise PhaseBContractError("B-IPC1 mechanism probe identity differs")
+        arms = probe["arms"]
+        if not isinstance(arms, list) or [record.get("name") for record in arms] != list(TRAINING_ARMS):
+            raise PhaseBContractError("B-IPC1 mechanism arm order differs")
+        for arm_record in arms:
+            _require_exact_keys(
+                arm_record,
+                {"name", "inplace_zero_identity", "inplace_eps", "backward"},
+                label="mechanism arm",
+            )
+            arm = arm_record["name"]
+            if arm_record["inplace_zero_identity"] is not True:
+                raise PhaseBContractError("B-IPC1 mechanism arm zero identity differs")
+            eps = arm_record["inplace_eps"]
+            _validate_reporting_metric(eps, label=f"{arm} probe")
+            expected_backward = backward_for[arm] == probe["selection_index"]
+            gradient = arm_record["backward"]
+            if not expected_backward:
+                if gradient is not None:
+                    raise PhaseBContractError("B-IPC1 unexpected preprobe backward evidence")
+                continue
+            gradient = _require_exact_keys(
+                gradient,
+                {
+                    "objective",
+                    "objective_evidence",
+                    "residual",
+                    "codec",
+                    "sidecar",
+                    "all_named_present_gradients_finite",
+                    "e33_gradients_absent",
+                },
+                label="preprobe backward",
+            )
+            _require_finite_number(gradient["objective"], label="preprobe objective")
+            _validate_objective_evidence(
+                gradient["objective_evidence"], action=probe["action"], label="preprobe objective"
+            )
+            for name in ("residual", "codec"):
+                group = _require_exact_keys(
+                    gradient[name],
+                    {"finite", "nonzero"} if name == "residual" else {"tensor_count", "finite", "nonzero"},
+                    label=f"preprobe {name}",
+                )
+                if group["finite"] is not True or group["nonzero"] is not True:
+                    raise PhaseBContractError(f"B-IPC1 preprobe {name} gradient differs")
+            sidecar = gradient["sidecar"]
+            if arm == "STATIC":
+                if sidecar is not None:
+                    raise PhaseBContractError("B-IPC1 STATIC preprobe has sidecar evidence")
+            else:
+                sidecar = _require_exact_keys(sidecar, {"tensor_count", "finite", "nonzero"}, label="preprobe sidecar")
+                if sidecar["finite"] is not True or sidecar["nonzero"] is not True:
+                    raise PhaseBContractError("B-IPC1 preprobe sidecar gradient differs")
+            if (
+                gradient["all_named_present_gradients_finite"] is not True
+                or gradient["e33_gradients_absent"] is not True
+            ):
+                raise PhaseBContractError("B-IPC1 preprobe gradient safety differs")
+    if mechanism["pre_tensor_hashes"] != mechanism["post_tensor_hashes"] or set(mechanism["pre_tensor_hashes"]) != set(
+        TRAINING_ARMS
+    ):
+        raise PhaseBContractError("B-IPC1 preprobe candidate state changed")
+    for arm, hashes in mechanism["pre_tensor_hashes"].items():
+        _require_exact_keys(hashes, {"codec", "sidecar"}, label=f"{arm} preprobe hashes")
+        if not isinstance(hashes["codec"], str) or (arm == "STATIC") is not (hashes["sidecar"] is None):
+            raise PhaseBContractError(f"B-IPC1 {arm} preprobe hash shape differs")
+
+
+def _validate_candidate_records(
+    candidates: Any,
+    *,
+    output_dir: Path,
+    module_post: list[dict[str, Any]],
+    torch: Any,
 ) -> None:
+    if not isinstance(candidates, list) or [record.get("arm") for record in candidates] != list(TRAINING_ARMS):
+        raise PhaseBContractError("B-IPC1 SUCCESS candidate records differ")
+    expected_files = [f"{arm}.final.pt" for arm in TRAINING_ARMS]
+    if sorted(path.name for path in output_dir.glob("*.pt")) != sorted(expected_files):
+        raise PhaseBContractError("B-IPC1 SUCCESS candidate file set differs")
+    post = {record["name"]: record["sha256"] for record in module_post}
+    for record, arm in zip(candidates, TRAINING_ARMS, strict=True):
+        _require_exact_keys(
+            record,
+            {"name", "arm", "sha256", "valid_only_with_terminal", "module_post_state"},
+            label=f"{arm} candidate record",
+        )
+        expected_name = f"{arm}.final.pt"
+        if record["name"] != expected_name or record["valid_only_with_terminal"] != "SUCCESS.json":
+            raise PhaseBContractError(f"B-IPC1 {arm} candidate filename/terminal binding differs")
+        path = output_dir / expected_name
+        if (
+            path.parent != output_dir
+            or path.is_symlink()
+            or not path.is_file()
+            or file_sha256(path) != record["sha256"]
+        ):
+            raise PhaseBContractError(f"B-IPC1 {arm} candidate path/hash differs")
+        payload = torch.load(path, map_location="cpu", weights_only=True)
+        _require_exact_keys(
+            payload,
+            {"schema_version", "arm", "codec", "sidecar", "module_post_state"},
+            label=f"{arm} candidate payload",
+        )
+        if payload["schema_version"] != "q35-2b-phase-b-ipc1-candidate/v1" or payload["arm"] != arm:
+            raise PhaseBContractError(f"B-IPC1 {arm} candidate schema differs")
+        if (arm == "STATIC") is not (payload["sidecar"] is None):
+            raise PhaseBContractError(f"B-IPC1 {arm} candidate sidecar shape differs")
+        observed = _candidate_state_records(payload["codec"], payload["sidecar"], torch=torch)
+        if observed != record["module_post_state"] or observed != payload["module_post_state"]:
+            raise PhaseBContractError(f"B-IPC1 {arm} candidate state schema/hash differs")
+        expected_states = [{"name": "codec", "sha256": post[f"{arm}.codec"]}]
+        if arm != "STATIC":
+            expected_states.append({"name": "sidecar", "sha256": post[f"{arm}.sidecar"]})
+        if [{"name": item["name"], "sha256": item["tensor_sha256"]} for item in observed] != expected_states:
+            raise PhaseBContractError(f"B-IPC1 {arm} candidate differs from exact post-module state")
+
+
+def _validate_reporting_metric(value: Any, *, label: str, with_identity_hashes: bool = True) -> None:
+    keys = {
+        "nll",
+        "native_output_loss_descriptive",
+        "native_minus_float64_nll_descriptive",
+        "margin",
+        "finite",
+        "branch_metrics",
+        "hashes",
+    }
+    metric = _require_exact_keys(value, keys, label=label)
+    for key in ("nll", "native_output_loss_descriptive", "native_minus_float64_nll_descriptive", "margin"):
+        _require_finite_number(metric[key], label=f"{label} {key}")
+    if metric["finite"] is not True or not isinstance(metric["branch_metrics"], list) or not metric["branch_metrics"]:
+        raise PhaseBContractError(f"B-IPC1 {label} finite/branch evidence differs")
+    branch_keys = {
+        "target_offset",
+        "logit_offset",
+        "correct_token_id",
+        "other_token_ids",
+        "live_actions",
+        "correct_logit",
+        "max_other_logit",
+        "margin",
+    }
+    for branch in metric["branch_metrics"]:
+        _require_exact_keys(branch, branch_keys, label=f"{label} branch metric")
+        for key in ("correct_logit", "max_other_logit", "margin"):
+            _require_finite_number(branch[key], label=f"{label} branch {key}")
+    hashes = _require_exact_keys(
+        metric["hashes"],
+        {"inputs_embeds", "attention_mask", "position_ids", "labels", "final_hidden", "first_suffix_logits"},
+        label=f"{label} hashes",
+    )
+    if with_identity_hashes and any(not isinstance(value, str) or len(value) != 64 for value in hashes.values()):
+        raise PhaseBContractError(f"B-IPC1 {label} tensor hash differs")
+
+
+def _validate_summary(value: Any, *, label: str, coordinator: bool = False) -> None:
+    if coordinator:
+        record = _require_exact_keys(value, {"values", "mean", "median", "strict_wins"}, label=label)
+        expected_count = 8
+    else:
+        record = _require_exact_keys(
+            value,
+            {"values", "mean", "median", "minimum", "maximum", "strict_wins", "per_action_means"},
+            label=label,
+        )
+        expected_count = 24
+        per_action = record["per_action_means"]
+        if not isinstance(per_action, list) or [item.get("action") for item in per_action] != list(ACTIONS):
+            raise PhaseBContractError(f"B-IPC1 {label} per-action order differs")
+        for item in per_action:
+            _require_exact_keys(item, {"action", "mean"}, label=f"{label} action mean")
+            _require_finite_number(item["mean"], label=f"{label} action mean")
+        for key in ("minimum", "maximum"):
+            _require_finite_number(record[key], label=f"{label} {key}")
+    if not isinstance(record["values"], list) or len(record["values"]) != expected_count:
+        raise PhaseBContractError(f"B-IPC1 {label} value count differs")
+    for value_item in record["values"]:
+        _require_finite_number(value_item, label=f"{label} value")
+    for key in ("mean", "median"):
+        _require_finite_number(record[key], label=f"{label} {key}")
+    if type(record["strict_wins"]) is not int:
+        raise PhaseBContractError(f"B-IPC1 {label} strict-win count differs")
+
+
+def _validate_gate_result(value: Any, *, recurrent: bool, label: str) -> None:
+    result = _require_exact_keys(value, {"passed", "gates", "summaries"}, label=label)
+    expected_gates = (
+        [
+            "positive_recurrence_over_ffn",
+            "nll_route",
+            "action_margin_route",
+            "depth_T4_over_T1",
+            "retention_and_stability",
+            "T8_nonregression",
+        ]
+        if recurrent
+        else [
+            "exact_complete_finite_safe_noncollapse",
+            "nll_learning",
+            "base_margin_retention",
+            "coordinator_margin_correction",
+        ]
+    )
+    if not isinstance(result["gates"], list) or [item.get("name") for item in result["gates"]] != expected_gates:
+        raise PhaseBContractError(f"B-IPC1 {label} gate order differs")
+    for gate in result["gates"]:
+        _require_exact_keys(gate, {"name", "passed"}, label=f"{label} gate")
+        if type(gate["passed"]) is not bool:
+            raise PhaseBContractError(f"B-IPC1 {label} gate value differs")
+    expected_summaries = (
+        ["A_N", "A_M", "R4_minus_R1_nll", "R4_minus_R1_margin", "R8_minus_R4_nll", "R8_minus_R4_margin"]
+        if recurrent
+        else ["delta_n_pre_minus_post", "delta_m_post_minus_base", "coordinator_delta_m_post_minus_pre"]
+    )
+    if (
+        not isinstance(result["summaries"], list)
+        or [item.get("name") for item in result["summaries"]] != expected_summaries
+    ):
+        raise PhaseBContractError(f"B-IPC1 {label} summary order differs")
+    for summary in result["summaries"]:
+        _require_exact_keys(summary, {"name", "value"}, label=f"{label} summary")
+        _validate_summary(
+            summary["value"],
+            label=f"{label} {summary['name']}",
+            coordinator=summary["name"] == "coordinator_delta_m_post_minus_pre",
+        )
+    if type(result["passed"]) is not bool:
+        raise PhaseBContractError(f"B-IPC1 {label} pass value differs")
+
+
+def _validate_evaluation_schema(evaluation: Any, *, split: str, plan: dict[str, Any]) -> None:
+    value = _require_exact_keys(
+        evaluation,
+        {"split", "rows", "metrics", "common_arm_gates", "recurrent_gates", "post_residual_checks"},
+        label=f"{split} evaluation",
+    )
+    if value["split"] != split or value["rows"] != 24:
+        raise PhaseBContractError(f"B-IPC1 {split} evaluation identity differs")
+    selection = load_json_file(Path(_bank_record(plan, split)["selection_path"]))
+    selected = selection["selected"]
+    expected_keys = [record["task_key"] for record in selected]
+    expected_actions = [record["expected_action"] for record in selected]
+    metrics = _metrics_mapping(value)
+    for name, rows in metrics.items():
+        if not isinstance(rows, list) or len(rows) != 24:
+            raise PhaseBContractError(f"B-IPC1 {split}/{name} metric count differs")
+        for row, key, action in zip(rows, expected_keys, expected_actions, strict=True):
+            extra = {"retention", "stability_T8"} if name == "POST_RECURRENT_T8" else set()
+            _require_exact_keys(
+                row,
+                {
+                    "task_key",
+                    "action",
+                    "nll",
+                    "native_output_loss_descriptive",
+                    "native_minus_float64_nll_descriptive",
+                    "margin",
+                    "finite",
+                    "branch_metrics",
+                    "hashes",
+                    *extra,
+                },
+                label=f"{split}/{name} row",
+            )
+            if row["task_key"] != key or row["action"] != action:
+                raise PhaseBContractError(f"B-IPC1 {split}/{name} row order differs")
+            _validate_reporting_metric(
+                {key: row[key] for key in row if key not in extra | {"task_key", "action"}}, label=f"{split}/{name}"
+            )
+            if extra:
+                retention = row["retention"]
+                if set(retention) != {f"T{depth}" for depth in EVALUATION_DEPTHS}:
+                    raise PhaseBContractError(f"B-IPC1 {split} retention depths differ")
+                for item in retention.values():
+                    _require_exact_keys(item, {"cosine", "norm_ratio", "relative_l2"}, label="retention")
+                    for metric_value in item.values():
+                        _require_finite_number(metric_value, label="retention value")
+                stability = _require_exact_keys(
+                    row["stability_T8"],
+                    {
+                        "memory_change_rms",
+                        "memory_contraction_steps_2_8",
+                        "median_memory_contraction_steps_2_8",
+                        "max_memory_contraction_steps_2_8",
+                        "memory_oscillation_rate",
+                        "finite",
+                    },
+                    label="stability",
+                )
+                if (
+                    len(stability["memory_change_rms"]) != 8
+                    or len(stability["memory_contraction_steps_2_8"]) != 7
+                    or stability["finite"] is not True
+                ):
+                    raise PhaseBContractError("B-IPC1 stability evidence differs")
+                for metric_value in (
+                    *stability["memory_change_rms"],
+                    *stability["memory_contraction_steps_2_8"],
+                    stability["median_memory_contraction_steps_2_8"],
+                    stability["max_memory_contraction_steps_2_8"],
+                    stability["memory_oscillation_rate"],
+                ):
+                    _require_finite_number(metric_value, label="stability value")
+    common = value["common_arm_gates"]
+    if not isinstance(common, list) or [record.get("name") for record in common] != list(TRAINING_ARMS):
+        raise PhaseBContractError(f"B-IPC1 {split} common gate order differs")
+    for record in common:
+        _require_exact_keys(record, {"name", "value"}, label=f"{split} common gate")
+        _validate_gate_result(record["value"], recurrent=False, label=f"{split}/{record['name']}")
+    _validate_gate_result(value["recurrent_gates"], recurrent=True, label=f"{split}/recurrent")
+    residuals = value["post_residual_checks"]
+    if not isinstance(residuals, list) or [record.get("name") for record in residuals] != list(TRAINING_ARMS):
+        raise PhaseBContractError(f"B-IPC1 {split} residual arm order differs")
+    for record in residuals:
+        _require_exact_keys(record, {"name", "rows"}, label=f"{split} residual arm")
+        if len(record["rows"]) != 24:
+            raise PhaseBContractError(f"B-IPC1 {split} residual count differs")
+        for row, key in zip(record["rows"], expected_keys, strict=True):
+            _require_exact_keys(row, {"task_key", "finite_nonzero", "l2"}, label=f"{split} residual row")
+            if row["task_key"] != key or row["finite_nonzero"] is not True:
+                raise PhaseBContractError(f"B-IPC1 {split} residual evidence differs")
+            _require_finite_number(row["l2"], label=f"{split} residual l2")
+
+
+def validate_success_receipt(
+    receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str, output_dir: Path, torch: Any
+) -> None:
+    _require_exact_keys(
+        receipt,
+        {
+            "schema_version",
+            "terminal",
+            "status",
+            "disposition",
+            "claim_class",
+            "execution_commit",
+            "plan_sha256",
+            "run_identity",
+            "optimizer_steps",
+            "backward_calls",
+            "model_forwards",
+            "source_forwards",
+            "receiver_forwards",
+            "heldout_opened",
+            "training",
+            "training_evidence",
+            "pre_update_mechanism_gate",
+            "evaluations",
+            "nomination",
+            "module_hashes",
+            "candidates",
+            "cache_guard",
+            "cuda_memory",
+            "protection",
+            "immutable_inputs",
+            "render_proofs",
+            "bank_bindings",
+            "schedule_binding",
+            "antecedent_bindings",
+            "boundaries",
+            "elapsed_seconds",
+            "receipt_sha256",
+        },
+        label="SUCCESS",
+    )
     unhashed = {key: value for key, value in receipt.items() if key != "receipt_sha256"}
     if receipt.get("receipt_sha256") != hashlib.sha256(canonical_terminal_bytes(unhashed)).hexdigest():
         raise PhaseBContractError("B-IPC1 SUCCESS internal hash differs")
@@ -1780,51 +2518,48 @@ def validate_success_receipt(
         or receipt.get("execution_commit") != execution_commit
         or receipt.get("plan_sha256") != plan["_file_sha256"]
         or receipt.get("run_identity") != plan["run_identity"]
+        or receipt.get("claim_class") != "nomination_only_inplace_carrier_matched_learning_screen"
         or receipt.get("optimizer_steps") != 12
         or receipt.get("backward_calls") != 147
     ):
         raise PhaseBContractError("B-IPC1 SUCCESS top-level contract differs")
+    _require_finite_number(receipt["elapsed_seconds"], label="SUCCESS elapsed_seconds")
     heldout_open = receipt.get("heldout_opened") is True
     expected_counts = (796, 96, 700) if heldout_open else (532, 72, 460)
-    if (receipt.get("model_forwards"), receipt.get("source_forwards"), receipt.get("receiver_forwards")) != expected_counts:
-        raise PhaseBContractError("B-IPC1 SUCCESS model-call counts differ")
-    training = receipt.get("training")
-    evidence = receipt.get("training_evidence")
     if (
-        not isinstance(training, list)
-        or [record.get("name") for record in training] != list(TRAINING_ARMS)
-        or any(len(record.get("updates", [])) != 4 for record in training)
-        or any(len(update.get("rows", [])) != 12 for record in training for update in record["updates"])
-        or not isinstance(evidence, list)
-        or [record.get("name") for record in evidence] != list(TRAINING_ARMS)
-        or any(record.get("value", {}).get("optimizer_destroyed") is not True for record in evidence)
-    ):
-        raise PhaseBContractError("B-IPC1 SUCCESS training evidence differs")
-    expected_train_keys = [record["task_key"] for record in load_json_file(Path(_bank_record(plan, "train")["selection_path"]))["selected"]]
+        receipt.get("model_forwards"),
+        receipt.get("source_forwards"),
+        receipt.get("receiver_forwards"),
+    ) != expected_counts:
+        raise PhaseBContractError("B-IPC1 SUCCESS model-call counts differ")
+    _validate_training_receipt(receipt, plan=plan)
+    training = receipt["training"]
+    expected_train_keys = [
+        record["task_key"] for record in load_json_file(Path(_bank_record(plan, "train")["selection_path"]))["selected"]
+    ]
     for arm in training:
         observed = [row["task_key"] for update in arm["updates"] for row in update["rows"]]
         if observed != expected_train_keys:
             raise PhaseBContractError(f"B-IPC1 SUCCESS {arm['name']} training order differs")
-    mechanism = receipt.get("pre_update_mechanism_gate")
-    if not isinstance(mechanism, dict) or [probe.get("selection_index") for probe in mechanism.get("probes", [])] != [
-        0,
-        1,
-        2,
-        5,
-    ]:
-        raise PhaseBContractError("B-IPC1 SUCCESS mechanism probes differ")
-    for probe in mechanism["probes"]:
-        if probe.get("base_equals_direct_zero") is not True or [record.get("name") for record in probe.get("arms", [])] != list(
-            TRAINING_ARMS
-        ):
-            raise PhaseBContractError("B-IPC1 SUCCESS zero-identity evidence differs")
-        if any(record.get("inplace_zero_identity") is not True for record in probe["arms"]):
-            raise PhaseBContractError("B-IPC1 SUCCESS arm zero-identity evidence differs")
-    if mechanism.get("pre_tensor_hashes") != mechanism.get("post_tensor_hashes"):
-        raise PhaseBContractError("B-IPC1 SUCCESS preprobe candidate state changed")
+    _validate_mechanism_receipt(receipt, plan=plan)
     module_hashes = receipt.get("module_hashes")
-    if not isinstance(module_hashes, dict):
-        raise PhaseBContractError("B-IPC1 SUCCESS module hashes are absent")
+    _require_exact_keys(
+        module_hashes,
+        {"pre", "restored_pre", "post", "delta_groups", "receiver_gates"},
+        label="module hashes",
+    )
+    expected_module_names = ["STATIC.codec", "FFN.codec", "FFN.sidecar", "RECURRENT.codec", "RECURRENT.sidecar"]
+    for field in ("pre", "post"):
+        records = module_hashes[field]
+        if not isinstance(records, list) or [record.get("name") for record in records] != expected_module_names:
+            raise PhaseBContractError(f"B-IPC1 module {field} order differs")
+        for record in records:
+            _require_exact_keys(record, {"name", "sha256"}, label=f"module {field}")
+    restored = module_hashes["restored_pre"]
+    if not isinstance(restored, list) or [record.get("name") for record in restored] != list(TRAINING_ARMS):
+        raise PhaseBContractError("B-IPC1 restored PRE order differs")
+    for record in restored:
+        _require_exact_keys(record, {"name", "codec", "sidecar"}, label="restored PRE")
     deltas = module_hashes.get("delta_groups")
     gates = module_hashes.get("receiver_gates")
     if (
@@ -1834,6 +2569,30 @@ def validate_success_receipt(
         or [record.get("name") for record in gates] != list(TRAINING_ARMS)
     ):
         raise PhaseBContractError("B-IPC1 SUCCESS module safety records differ")
+    for delta in deltas:
+        _require_exact_keys(delta, {"name", "groups"}, label="module delta")
+        if not isinstance(delta["groups"], list) or not delta["groups"]:
+            raise PhaseBContractError("B-IPC1 module delta groups are absent")
+        expected_delta_names = {
+            "STATIC": ["codec_encoder", "codec_receiver"],
+            "FFN": ["codec_encoder", "codec_receiver", "ffn_internal", "ffn_output_scale"],
+            "RECURRENT": [
+                "codec_encoder",
+                "codec_receiver",
+                "recurrent_transition",
+                "recurrent_memory",
+                "recurrent_workspace",
+                "recurrent_output_scale",
+            ],
+        }[delta["name"]]
+        if [group.get("name") for group in delta["groups"]] != expected_delta_names:
+            raise PhaseBContractError(f"B-IPC1 {delta['name']} module delta group order differs")
+        for group in delta["groups"]:
+            _require_exact_keys(group, {"name", "finite", "nonzero", "delta_l2"}, label="module delta group")
+            _require_finite_number(group["delta_l2"], label="module delta l2")
+    for gate in gates:
+        _require_exact_keys(gate, {"name", "value"}, label="receiver gate")
+        _require_finite_number(gate["value"], label="receiver gate")
     module_safety = {
         arm: all(group.get("finite") is True and group.get("nonzero") is True for group in delta["groups"])
         and math.isfinite(float(gate["value"]))
@@ -1847,6 +2606,11 @@ def validate_success_receipt(
     heldout = evaluations[1]["value"]
     if not isinstance(validation, dict) or (heldout is None) is heldout_open:
         raise PhaseBContractError("B-IPC1 SUCCESS heldout firewall evidence differs")
+    for record in evaluations:
+        _require_exact_keys(record, {"name", "value"}, label="evaluation record")
+    _validate_evaluation_schema(validation, split="validation", plan=plan)
+    if heldout is not None:
+        _validate_evaluation_schema(heldout, split="heldout", plan=plan)
     for evaluation in (validation,) if heldout is None else (validation, heldout):
         recomputed = _recompute_evaluation(evaluation, module_safety)
         if recomputed["common"] != evaluation.get("common_arm_gates") or recomputed["recurrent"] != evaluation.get(
@@ -1855,6 +2619,18 @@ def validate_success_receipt(
             raise PhaseBContractError("B-IPC1 SUCCESS evaluation aggregates do not recompute")
     status, nominated_arms = _status_for_evaluations(validation, heldout)
     nomination = receipt.get("nomination")
+    _require_exact_keys(
+        nomination,
+        {
+            "status",
+            "common_nominated_arms",
+            "recurrent_nominated",
+            "admitted",
+            "complete_live_trajectory_count",
+            "minimum_complete_live_trajectories_unchanged",
+        },
+        label="nomination",
+    )
     if (
         status != receipt["status"]
         or not isinstance(nomination, dict)
@@ -1870,6 +2646,26 @@ def validate_success_receipt(
     if receipt.get("schedule_binding") != {"name": schedule_name, **plan["schedules"][schedule_name]}:
         raise PhaseBContractError("B-IPC1 SUCCESS schedule binding differs")
     cache = receipt.get("cache_guard")
+    _require_exact_keys(
+        cache,
+        {
+            "complete",
+            "labels",
+            "label_count",
+            "canonical_label_sha256",
+            "expected_label_sha256",
+            "exact_prefix",
+            "exit_recorded",
+            "dynamic_cache_trip_count",
+            "closure_check_count",
+            "closure_checked_at_every_label",
+            "restored_in_finally",
+            "model_calls",
+            "recursively_closed_config_count",
+            "classes",
+        },
+        label="cache guard",
+    )
     expected_cache = plan["schedules"][schedule_name]["cache_label_sha256"]
     if (
         not isinstance(cache, dict)
@@ -1885,13 +2681,29 @@ def validate_success_receipt(
         or len(cache.get("classes", [])) != 8
     ):
         raise PhaseBContractError("B-IPC1 SUCCESS cache evidence differs")
+    if not isinstance(cache["labels"], list) or len(cache["labels"]) != cache["label_count"]:
+        raise PhaseBContractError("B-IPC1 SUCCESS cache labels differ")
+    for cls in cache["classes"]:
+        _require_exact_keys(cls, {"fqcn", "module_path", "module_sha256", "distribution"}, label="cache class")
     memory = receipt.get("cuda_memory")
+    _require_exact_keys(memory, {"cap_bytes", "allocator", "ledger", "ordered_label_sha256"}, label="CUDA memory")
+    _require_exact_keys(
+        memory["allocator"],
+        {"device_total_bytes", "cap_bytes", "requested_fraction", "observed_fraction"},
+        label="CUDA allocator",
+    )
     ledger = memory.get("ledger", []) if isinstance(memory, dict) else []
     expected_memory = build_memory_checkpoint_labels(
         build_model_call_schedule(
             expected_train_keys,
-            [record["task_key"] for record in load_json_file(Path(_bank_record(plan, "validation")["selection_path"]))["selected"]],
-            [record["task_key"] for record in load_json_file(Path(_bank_record(plan, "heldout")["selection_path"]))["selected"]],
+            [
+                record["task_key"]
+                for record in load_json_file(Path(_bank_record(plan, "validation")["selection_path"]))["selected"]
+            ],
+            [
+                record["task_key"]
+                for record in load_json_file(Path(_bank_record(plan, "heldout")["selection_path"]))["selected"]
+            ],
             open_heldout=heldout_open,
         )
     )
@@ -1914,7 +2726,32 @@ def validate_success_receipt(
         )
     ):
         raise PhaseBContractError("B-IPC1 SUCCESS memory evidence differs")
+    for record in ledger:
+        _require_exact_keys(
+            record,
+            {
+                "checkpoint",
+                "current_allocated_bytes",
+                "current_reserved_bytes",
+                "maximum_allocated_bytes",
+                "maximum_reserved_bytes",
+            },
+            label="memory checkpoint",
+        )
     protection = receipt.get("protection")
+    _require_exact_keys(
+        protection,
+        {
+            "e33_tensor_pre",
+            "e33_tensor_post",
+            "e33_file_pre",
+            "e33_file_post",
+            "metadata_pre",
+            "metadata_post",
+            "e33_gradients_absent",
+        },
+        label="protection",
+    )
     if (
         not isinstance(protection, dict)
         or protection.get("e33_tensor_pre") != protection.get("e33_tensor_post")
@@ -1925,12 +2762,16 @@ def validate_success_receipt(
         or protection.get("e33_gradients_absent") is not True
     ):
         raise PhaseBContractError("B-IPC1 SUCCESS e33 protection differs")
-    candidates = receipt.get("candidates")
-    if not isinstance(candidates, list) or [record.get("arm") for record in candidates] != list(TRAINING_ARMS):
-        raise PhaseBContractError("B-IPC1 SUCCESS candidate records differ")
-    for record in candidates:
-        if file_sha256(output_dir / record["name"]) != record["sha256"]:
-            raise PhaseBContractError(f"B-IPC1 candidate hash differs: {record['name']}")
+    immutable_inputs = receipt.get("immutable_inputs")
+    expected_immutable = _immutable_input_records(plan)
+    if immutable_inputs != expected_immutable:
+        raise PhaseBContractError("B-IPC1 SUCCESS immutable postflight hashes differ")
+    for record in immutable_inputs:
+        _require_exact_keys(record, {"name", "path", "expected_sha256", "observed_sha256"}, label="immutable input")
+    _validate_candidate_records(
+        receipt.get("candidates"), output_dir=output_dir, module_post=module_hashes["post"], torch=torch
+    )
+    _validate_render_proofs(receipt, plan=plan, heldout_open=heldout_open)
     expected_banks = [
         {"name": bank["split"], "selection_sha256": bank["selection_sha256"], "parquet_sha256": bank["parquet_sha256"]}
         for bank in plan["banks"]
@@ -1940,6 +2781,20 @@ def validate_success_receipt(
     ]
     if receipt.get("bank_bindings") != expected_banks or receipt.get("antecedent_bindings") != expected_antecedents:
         raise PhaseBContractError("B-IPC1 SUCCESS bank or antecedent binding differs")
+    for record in receipt["bank_bindings"]:
+        _require_exact_keys(record, {"name", "selection_sha256", "parquet_sha256"}, label="bank binding")
+    for record in receipt["antecedent_bindings"]:
+        _require_exact_keys(record, {"name", "binding_sha256"}, label="antecedent binding")
+    _require_exact_keys(
+        receipt["schedule_binding"],
+        {"name", *plan["schedules"][schedule_name]},
+        label="schedule binding",
+    )
+    _require_exact_keys(
+        receipt["boundaries"],
+        {"generation", "cache", "H176_loaded", "strand_a_combined", "live_trajectory_count", "admitted"},
+        label="claim boundaries",
+    )
     if receipt.get("boundaries") != {
         "generation": False,
         "cache": False,
@@ -1952,6 +2807,29 @@ def validate_success_receipt(
 
 
 def validate_failure_receipt(receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str) -> None:
+    _require_exact_keys(
+        receipt,
+        {
+            "schema_version",
+            "terminal",
+            "status",
+            "disposition",
+            "failure_class",
+            "error_type",
+            "error",
+            "execution_commit",
+            "plan_sha256",
+            "run_identity",
+            "model_loaded",
+            "candidate_files_valid",
+            "candidate_files_present",
+            "execution_breadcrumbs",
+            "post_failure_audit",
+            "elapsed_seconds",
+            "receipt_sha256",
+        },
+        label="FAILURE",
+    )
     unhashed = {key: value for key, value in receipt.items() if key != "receipt_sha256"}
     if receipt.get("receipt_sha256") != hashlib.sha256(canonical_terminal_bytes(unhashed)).hexdigest():
         raise PhaseBContractError("B-IPC1 FAILURE internal hash differs")
@@ -1963,53 +2841,141 @@ def validate_failure_receipt(receipt: dict[str, Any], *, plan: dict[str, Any], e
         or receipt.get("disposition") != receipt.get("status")
         or receipt.get("execution_commit") != execution_commit
         or receipt.get("plan_sha256") != plan.get("_file_sha256")
+        or receipt.get("run_identity") != plan.get("run_identity")
         or receipt.get("candidate_files_valid") is not False
     ):
         raise PhaseBContractError("B-IPC1 FAILURE top-level contract differs")
+    _require_finite_number(receipt["elapsed_seconds"], label="FAILURE elapsed_seconds")
+    _require_exact_keys(
+        receipt["execution_breadcrumbs"],
+        {"stage", "task_key", "arm", "call_index"},
+        label="FAILURE breadcrumbs",
+    )
+    expected_types = {
+        FAILURE_STATUS_CLASSES[0]: {"MechanismRejected"},
+        FAILURE_STATUS_CLASSES[1]: {"CacheContractViolated"},
+        FAILURE_STATUS_CLASSES[3]: {
+            "ResourceContractExceeded",
+            "ProvenanceContractViolated",
+            "TimeoutError",
+            "MemoryError",
+            "OutOfMemoryError",
+        },
+    }
+    classified_oom = (
+        pair == FAILURE_STATUS_CLASSES[3]
+        and receipt["error_type"] == "RuntimeError"
+        and "out of memory" in receipt["error"].lower()
+    )
+    if pair in expected_types and receipt["error_type"] not in expected_types[pair] and not classified_oom:
+        raise PhaseBContractError("B-IPC1 FAILURE error type/status classification differs")
     audit = receipt.get("post_failure_audit")
+    _require_exact_keys(
+        audit,
+        {
+            "audit_complete",
+            "audit_errors",
+            "immutable_inputs_preserved",
+            "immutable_inputs",
+            "e33_tensor_preserved",
+            "e33_disk_preserved",
+            "metadata_preserved",
+            "e33_gradients_absent",
+            "candidate_files_present",
+            "candidate_files_valid",
+            "candidate_module_state",
+            "candidate_initial_state",
+            "cache_guard",
+            "cuda_memory",
+        },
+        label="FAILURE postflight audit",
+    )
     if not isinstance(audit, dict) or audit.get("audit_complete") is not True:
         raise PhaseBContractError("B-IPC1 FAILURE post-failure audit is incomplete")
+    if audit["audit_errors"] != [] or audit["candidate_files_valid"] is not False:
+        raise PhaseBContractError("B-IPC1 FAILURE audit error/candidate validity differs")
+    expected_immutable_audit = _immutable_input_records(plan, require_match=False)
+    if audit["immutable_inputs"] != expected_immutable_audit:
+        raise PhaseBContractError("B-IPC1 FAILURE immutable input audit differs")
+    provenance_failure = pair == FAILURE_STATUS_CLASSES[3] and receipt["error_type"] == "ProvenanceContractViolated"
+    if audit["immutable_inputs_preserved"] is not True and not provenance_failure:
+        raise PhaseBContractError("B-IPC1 FAILURE immutable inputs were not preserved")
+    if audit["candidate_files_present"] != receipt["candidate_files_present"]:
+        raise PhaseBContractError("B-IPC1 FAILURE candidate file evidence differs")
+    if not isinstance(audit["candidate_module_state"], list) or not isinstance(
+        receipt["candidate_files_present"], list
+    ):
+        raise PhaseBContractError("B-IPC1 FAILURE candidate state evidence differs")
+    for record in audit["candidate_module_state"]:
+        _require_exact_keys(record, {"name", "sha256"}, label="FAILURE candidate module state")
     if receipt.get("model_loaded") is True and not all(
         audit.get(key) is True
-        for key in ("e33_tensor_preserved", "e33_disk_preserved", "metadata_preserved", "immutable_inputs_preserved")
+        for key in (
+            "e33_tensor_preserved",
+            "e33_disk_preserved",
+            "metadata_preserved",
+            "e33_gradients_absent",
+        )
     ):
         raise PhaseBContractError("B-IPC1 FAILURE protected post-model audit differs")
+    if receipt.get("model_loaded") is not True and any(
+        audit[key] is not None
+        for key in ("e33_tensor_preserved", "e33_disk_preserved", "metadata_preserved", "e33_gradients_absent")
+    ):
+        raise PhaseBContractError("B-IPC1 FAILURE claims model evidence before model load")
 
 
 def _atomic_publish_bytes(directory: Path, name: str, payload: bytes) -> Path:
+    if name not in {"SUCCESS.json", "FAILURE.json"}:
+        raise PhaseBContractError("B-IPC1 terminal filename differs")
+    if not directory.is_dir() or directory.is_symlink():
+        raise PhaseBContractError("B-IPC1 terminal output directory is invalid")
+    parsed = strict_json_loads(payload)
+    if canonical_terminal_bytes(parsed) != payload:
+        raise PhaseBContractError("B-IPC1 terminal payload is not canonical before publication")
     target = directory / name
     temporary = directory / f".{name}.{os.getpid()}.tmp"
-    if target.exists() or temporary.exists():
-        raise FileExistsError(f"B-IPC1 terminal path already exists: {target}")
-    with temporary.open("xb") as handle:
-        handle.write(payload)
-        handle.flush()
-        os.fsync(handle.fileno())
-    os.link(temporary, target)
-    temporary.unlink()
+    terminals = [directory / terminal for terminal in ("SUCCESS.json", "FAILURE.json")]
+    if any(path.exists() or path.is_symlink() for path in terminals) or temporary.exists() or temporary.is_symlink():
+        raise FileExistsError("B-IPC1 terminal namespace is not globally fresh")
+    try:
+        with temporary.open("xb") as handle:
+            handle.write(payload)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.link(temporary, target)
+        _fsync_directory(directory)
+        _fsync_directory(directory.parent)
+    finally:
+        if temporary.exists() and not temporary.is_symlink():
+            temporary.unlink()
+            _fsync_directory(directory)
+    if [path.name for path in terminals if path.is_file() and not path.is_symlink()] != [name]:
+        raise PhaseBContractError("B-IPC1 terminal exclusivity failed after publication")
     return target
 
 
 def _post_failure_audit(plan: dict[str, Any], audit: dict[str, Any]) -> dict[str, Any]:
     errors = []
-    result: dict[str, Any] = {}
+    result: dict[str, Any] = {
+        "immutable_inputs_preserved": False,
+        "immutable_inputs": [],
+        "e33_tensor_preserved": None,
+        "e33_disk_preserved": None,
+        "metadata_preserved": None,
+        "e33_gradients_absent": None,
+        "candidate_files_present": [],
+        "candidate_files_valid": False,
+        "candidate_module_state": [],
+        "candidate_initial_state": audit.get("module_pre"),
+        "cache_guard": None,
+        "cuda_memory": None,
+    }
     try:
-        expected_inputs = {
-            "plan": plan["_file_sha256"],
-            "bank_manifest": plan["bank_manifest"]["sha256"],
-            "overlap_closure": plan["overlap_closure"]["sha256"],
-            **{f"{bank['split']}_selection": bank["selection_sha256"] for bank in plan["banks"]},
-            **{f"{bank['split']}_parquet": bank["parquet_sha256"] for bank in plan["banks"]},
-        }
-        observed_inputs = {
-            "plan": file_sha256(Path(plan["_path"])),
-            "bank_manifest": file_sha256(Path(plan["bank_manifest"]["path"])),
-            "overlap_closure": file_sha256(Path(plan["overlap_closure"]["path"])),
-            **{f"{bank['split']}_selection": file_sha256(Path(bank["selection_path"])) for bank in plan["banks"]},
-            **{f"{bank['split']}_parquet": file_sha256(Path(bank["parquet_path"])) for bank in plan["banks"]},
-        }
-        result["immutable_inputs_preserved"] = observed_inputs == expected_inputs
-        result["immutable_input_hashes"] = observed_inputs
+        result["immutable_inputs"] = _immutable_input_records(plan, require_match=False)
+        result["immutable_inputs_preserved"] = all(
+            record["expected_sha256"] == record["observed_sha256"] for record in result["immutable_inputs"]
+        )
     except BaseException as error:
         errors.append(f"immutable:{type(error).__name__}:{error}")
     model = audit.get("model")
@@ -2019,12 +2985,24 @@ def _post_failure_audit(plan: dict[str, Any], audit: dict[str, Any]) -> dict[str
             current_tensor = smoke._module_tensor_sha256(model, audit["torch"])
             result["e33_tensor_preserved"] = current_tensor == audit.get("e33_tensor_pre")
             model_path = audit["model_path"]
-            result["e33_disk_preserved"] = file_sha256(smoke._model_file(model_path)) == plan["protected_model"][
-                "weight_sha256"
-            ]
+            result["e33_disk_preserved"] = (
+                file_sha256(smoke._model_file(model_path)) == plan["protected_model"]["weight_sha256"]
+            )
             result["metadata_preserved"] = smoke._metadata_hashes(model_path) == plan["model_metadata_sha256"]
+            result["e33_gradients_absent"] = all(parameter.grad is None for parameter in model.parameters())
         except BaseException as error:
             errors.append(f"e33:{type(error).__name__}:{error}")
+    try:
+        output = Path(audit["output_dir"])
+        result["candidate_files_present"] = sorted(path.name for path in output.glob("*.pt")) if output.is_dir() else []
+        modules = audit.get("modules") or []
+        if modules and smoke is not None:
+            result["candidate_module_state"] = [
+                {"name": record["name"], "sha256": smoke._module_tensor_sha256(record["module"], audit["torch"])}
+                for record in modules
+            ]
+    except BaseException as error:
+        errors.append(f"candidate:{type(error).__name__}:{error}")
     guard = audit.get("cache_guard")
     if guard is not None:
         try:
@@ -2047,7 +3025,7 @@ def _failure_class(error: BaseException) -> tuple[str, str]:
     if isinstance(error, PhaseBContractError):
         return FAILURE_STATUS_CLASSES[2]
     if isinstance(error, RuntimeError):
-        return FAILURE_STATUS_CLASSES[3]
+        return FAILURE_STATUS_CLASSES[2]
     return FAILURE_STATUS_CLASSES[2]
 
 
@@ -2056,7 +3034,7 @@ def main() -> int:
     started = time.time()
     signal.signal(signal.SIGALRM, _timeout_handler)
     signal.alarm(COMPUTE_SECONDS)
-    audit: dict[str, Any] = {}
+    audit: dict[str, Any] = {"output_dir": str(args.output_dir)}
     plan: dict[str, Any] | None = None
     try:
         context = preflight(args)
@@ -2112,7 +3090,12 @@ def main() -> int:
         receipt, payload, _file_hash = roundtrip_validate_terminal(
             receipt,
             validator=validate_success_receipt,
-            validator_kwargs={"plan": plan, "execution_commit": args.execution_commit, "output_dir": args.output_dir},
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": args.output_dir,
+                "torch": torch,
+            },
         )
         signal.alarm(0)
         target = _atomic_publish_bytes(args.output_dir, "SUCCESS.json", payload)
@@ -2120,7 +3103,12 @@ def main() -> int:
             target,
             payload,
             validator=validate_success_receipt,
-            validator_kwargs={"plan": plan, "execution_commit": args.execution_commit, "output_dir": args.output_dir},
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": args.output_dir,
+                "torch": torch,
+            },
         )
         return 0
     except BaseException as error:
@@ -2145,13 +3133,18 @@ def main() -> int:
             "model_loaded": audit.get("model") is not None,
             "candidate_files_valid": False,
             "candidate_files_present": sorted(path.name for path in args.output_dir.glob("*.pt")),
-            "execution_breadcrumbs": {
-                key: audit.get(key) for key in ("stage", "task_key", "arm", "call_index")
-            },
+            "execution_breadcrumbs": {key: audit.get(key) for key in ("stage", "task_key", "arm", "call_index")},
             "post_failure_audit": post,
             "elapsed_seconds": time.time() - started,
         }
         try:
+            if any(
+                (args.output_dir / name).exists() or (args.output_dir / name).is_symlink()
+                for name in ("SUCCESS.json", "FAILURE.json")
+            ):
+                print("B-IPC1 terminal already published; refusing a second terminal", file=sys.stderr)
+                print(f"B-IPC1 failed after terminal publication: {type(error).__name__}: {error}", file=sys.stderr)
+                return 1
             failure, payload, _file_hash = roundtrip_validate_terminal(
                 failure,
                 validator=validate_failure_receipt,

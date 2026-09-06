@@ -65,6 +65,13 @@ MINIMUM_FREE_DISK_BYTES = 60 * 1024**3
 ARTIFACT_CAP_BYTES = 512 * 1024**2
 
 
+def require_exact_mapping_keys(value: Any, expected: set[str], *, label: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != expected:
+        observed = sorted(value) if isinstance(value, dict) else type(value).__name__
+        raise PhaseBContractError(f"B-IPC1 {label} keyset differs: {observed}")
+    return value
+
+
 def canonical_plan_sha256(plan: dict[str, Any]) -> str:
     if "plan_sha256" not in plan:
         raise PhaseBContractError("B-IPC1 plan lacks its self hash")
@@ -74,6 +81,41 @@ def canonical_plan_sha256(plan: dict[str, Any]) -> str:
 
 
 def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True) -> None:
+    require_exact_mapping_keys(
+        plan,
+        {
+            "schema_version",
+            "status",
+            "run_identity",
+            "claim_class",
+            "mechanism_code_commit",
+            "implementation_commit",
+            "plan_sha256",
+            "execution_authorization",
+            "antecedents",
+            "protected_model",
+            "model_metadata_sha256",
+            "bank_manifest",
+            "overlap_closure",
+            "runtime_source",
+            "generator_source",
+            "taskset_source",
+            "banks",
+            "training",
+            "receiver",
+            "pre_update_mechanism_gate",
+            "evaluation_firewall",
+            "nomination_gates",
+            "schedules",
+            "terminal_statuses",
+            "boundaries",
+            "resources",
+            "software",
+            "execution_environment",
+            "outputs",
+        },
+        label="plan",
+    )
     if plan.get("schema_version") != "q35-2b-phase-b-ipc1-matched-learning/v1":
         raise PhaseBContractError("B-IPC1 plan schema differs")
     commit = plan.get("mechanism_code_commit")
@@ -99,7 +141,105 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
         "teacher_forced_rows_are_live_trajectories": False,
     }:
         raise PhaseBContractError("B-IPC1 claim boundary differs")
+    require_exact_mapping_keys(
+        plan["protected_model"],
+        {"name", "path", "weight_sha256", "architecture", "text_hidden_size", "trainable"},
+        label="protected model",
+    )
+    require_exact_mapping_keys(
+        plan["model_metadata_sha256"],
+        {
+            "config.json",
+            "tokenizer.json",
+            "tokenizer_config.json",
+            "chat_template.jinja",
+            "generation_config.json",
+            "processor_config.json",
+        },
+        label="model metadata",
+    )
+    for field in ("bank_manifest", "overlap_closure", "runtime_source", "generator_source"):
+        require_exact_mapping_keys(plan[field], {"path", "sha256"}, label=field)
+    require_exact_mapping_keys(plan["taskset_source"], {"commit", "path", "sha256"}, label="taskset source")
+    antecedents = plan["antecedents"]
+    if not isinstance(antecedents, list) or [record.get("name") for record in antecedents] != ["HIC0_R1", "B1R"]:
+        raise PhaseBContractError("B-IPC1 antecedent order differs")
+    require_exact_mapping_keys(
+        antecedents[0],
+        {
+            "name",
+            "binding_path",
+            "binding_sha256",
+            "classification",
+            "success_file_sha256",
+            "internal_receipt_sha256",
+            "execution_commit",
+            "plan_file_sha256",
+            "formal_terminal_valid",
+            "validator_error",
+            "invalidating_cause",
+            "descriptive_evidence_only",
+            "candidate_reused",
+            "rows_reused",
+            "seeds_reused",
+            "admission",
+            "threshold_source",
+        },
+        label="HIC0 antecedent",
+    )
+    require_exact_mapping_keys(
+        antecedents[0]["descriptive_evidence_only"],
+        {
+            "insert_eps_minus_base_mean_nll",
+            "inplace_eps_minus_base_mean_nll",
+            "penalty_removal_fraction",
+            "hidden_drift_ratio_mean",
+            "logit_drift_ratio_mean",
+            "inplace_margin_delta_mean",
+            "inplace_margin_delta_worst",
+            "formal_gate7_descriptive_value",
+        },
+        label="HIC0 descriptive evidence",
+    )
+    require_exact_mapping_keys(
+        antecedents[1],
+        {
+            "name",
+            "binding_path",
+            "binding_sha256",
+            "status",
+            "disposition",
+            "success_receipt_sha256",
+            "candidate_reused",
+            "rows_reused",
+            "seeds_reused",
+            "admission",
+            "threshold_source",
+        },
+        label="B1R antecedent",
+    )
     training = plan.get("training")
+    require_exact_mapping_keys(
+        training,
+        {
+            "arm_order",
+            "optimizer_updates_per_arm",
+            "rows_per_update",
+            "rows_per_action_per_update",
+            "unique_row_exposures_per_arm",
+            "same_schedule_every_arm",
+            "recurrent_depth",
+            "bptt_window",
+            "early_stop",
+            "initialization_seed_payload",
+            "initialization_derivation_sha256",
+            "initialization_seed",
+            "construction_order",
+            "optimizer",
+            "objective",
+        },
+        label="training",
+    )
     if not isinstance(training, dict) or (
         training.get("arm_order") != list(TRAINING_ARMS)
         or training.get("optimizer_updates_per_arm") != 4
@@ -147,6 +287,28 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
         raise PhaseBContractError("B-IPC1 bank bindings are not ordered records")
     for bank in banks:
         split = bank["split"]
+        expected_bank_keys = {
+            "split",
+            "taskset_split",
+            "variants",
+            "instance_start",
+            "instance_stop",
+            "seed_payload",
+            "derivation_sha256",
+            "seed",
+            "rows_per_action",
+            "rows",
+            "selection_path",
+            "selection_sha256",
+            "parquet_path",
+            "parquet_sha256",
+            "ordered_task_key_sha256",
+            "ordered_key_action_sha256",
+            "row_list_canonical_sha256",
+        }
+        if split == "train":
+            expected_bank_keys.add("ordered_update_schedule_sha256")
+        require_exact_mapping_keys(bank, expected_bank_keys, label=f"{split} bank")
         expected = SELECTIONS[split]
         if (
             bank.get("seed_payload") != expected["seed_payload"]
@@ -157,6 +319,137 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
             or bank.get("rows_per_action") != expected["rows_per_action"]
         ):
             raise PhaseBContractError(f"B-IPC1 {split} bank derivation differs")
+    require_exact_mapping_keys(
+        plan["receiver"],
+        {
+            "geometry",
+            "slots",
+            "target_span",
+            "token_shift",
+            "mask_shift",
+            "position_shift",
+            "label_shift",
+            "initial_receiver_gate",
+            "evaluation_depths",
+        },
+        label="receiver",
+    )
+    require_exact_mapping_keys(
+        plan["pre_update_mechanism_gate"],
+        {
+            "probe_selection_indices",
+            "probe_identity_sha256",
+            "eps_backward_assignments",
+            "index5_backward",
+            "zero_identity_fields",
+            "failure_disposition",
+        },
+        label="pre-update mechanism gate",
+    )
+    for assignment in plan["pre_update_mechanism_gate"]["eps_backward_assignments"]:
+        require_exact_mapping_keys(assignment, {"arm", "selection_index"}, label="EPS backward assignment")
+    require_exact_mapping_keys(
+        plan["evaluation_firewall"],
+        {
+            "all_arms_frozen_before_validation",
+            "validation_rows",
+            "heldout_rows_if_opened",
+            "open_heldout_iff_at_least_one_common_validation_pass",
+            "validation_cannot_select_checkpoint_threshold_or_hyperparameter",
+            "heldout_cannot_select_checkpoint_threshold_or_hyperparameter",
+            "reruns",
+            "row_exclusions",
+        },
+        label="evaluation firewall",
+    )
+    gates = require_exact_mapping_keys(
+        plan["nomination_gates"], {"common_each_split", "recurrent_each_split"}, label="nomination gates"
+    )
+    require_exact_mapping_keys(
+        gates["common_each_split"],
+        {"delta_n_pre_minus_post", "delta_m_post_minus_base", "coordinator_delta_m_post_minus_pre", "noncollapse"},
+        label="common nomination gates",
+    )
+    require_exact_mapping_keys(
+        gates["recurrent_each_split"],
+        {
+            "positive_nll_route",
+            "positive_margin_route",
+            "depth_T4_over_T1",
+            "retention",
+            "stability",
+            "T8_nonregression",
+        },
+        label="recurrent nomination gates",
+    )
+    require_exact_mapping_keys(plan["schedules"], {"validation_reject", "heldout_open"}, label="schedules")
+    schedule_keys = {
+        "model_forwards",
+        "source_forwards",
+        "receiver_forwards",
+        "backward_calls",
+        "optimizer_steps",
+        "model_call_schedule_sha256",
+        "cache_label_count",
+        "cache_label_sha256",
+        "memory_checkpoint_count",
+        "memory_label_sha256",
+    }
+    for name, schedule in plan["schedules"].items():
+        require_exact_mapping_keys(schedule, schedule_keys, label=f"{name} schedule")
+    require_exact_mapping_keys(
+        plan["terminal_statuses"],
+        {
+            "recurrent_nominated",
+            "inplace_learning_nominated",
+            "heldout_opened_not_nominated",
+            "validation_not_nominated",
+            "mechanism_rejected",
+            "nocache_rejected",
+            "incomplete",
+            "infrastructure",
+        },
+        label="terminal statuses",
+    )
+    require_exact_mapping_keys(
+        plan["execution_environment"],
+        {
+            "uv",
+            "uv_project",
+            "UV_PROJECT_ENVIRONMENT",
+            "PYTHONPATH",
+            "CUDA_VISIBLE_DEVICES",
+            "HF_HUB_OFFLINE",
+            "TRANSFORMERS_OFFLINE",
+        },
+        label="execution environment",
+    )
+    require_exact_mapping_keys(
+        plan["outputs"],
+        {
+            "directory",
+            "artifact_cap_bytes",
+            "candidate_files",
+            "terminal",
+            "candidate_valid_only_with_roundtrip_valid_success",
+        },
+        label="outputs",
+    )
+    software = require_exact_mapping_keys(
+        plan["software"],
+        {"transformers", "torch", "torch_distribution", "transformers_source_sha256"},
+        label="software",
+    )
+    require_exact_mapping_keys(
+        software["transformers_source_sha256"],
+        {
+            "transformers.cache_utils",
+            "transformers.generation.utils",
+            "transformers.loss.loss_utils",
+            "transformers.models.qwen3_5.modeling_qwen3_5",
+        },
+        label="Transformers source hashes",
+    )
     resources = plan.get("resources")
     if not isinstance(resources, dict) or resources != {
         "visible_gpus": 1,
@@ -196,9 +489,7 @@ def verify_seed_derivations() -> None:
             raise PhaseBContractError(f"B-IPC1 seed derivation differs for {payload}")
 
 
-def select_balanced_rows(
-    rows: Sequence[dict[str, Any]], *, split: str
-) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+def select_balanced_rows(rows: Sequence[dict[str, Any]], *, split: str) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Select an action-balanced bank without depending on input ordering."""
 
     verify_seed_derivations()
@@ -224,9 +515,7 @@ def select_balanced_rows(
             raise PhaseBContractError(f"B-IPC1 {split} pool is insufficient for {action}")
         selected_by_action[action] = candidates[:count]
     selected_keys = [
-        selected_by_action[action][index]
-        for index in range(specification["rows_per_action"])
-        for action in ACTIONS
+        selected_by_action[action][index] for index in range(specification["rows_per_action"]) for action in ACTIONS
     ]
     selected = [by_key[key] for key in selected_keys]
     expected_rows = specification["rows_per_action"] * len(ACTIONS)
@@ -285,12 +574,8 @@ def validate_bank_disjointness(
 ) -> dict[str, Any]:
     if tuple(selected_by_split) != ("train", "validation", "heldout"):
         raise PhaseBContractError("B-IPC1 split order differs")
-    split_keys = {
-        split: {str(row["task_key"]) for row in rows} for split, rows in selected_by_split.items()
-    }
-    split_hashes = {
-        split: {canonical_bank_sha256(row) for row in rows} for split, rows in selected_by_split.items()
-    }
+    split_keys = {split: {str(row["task_key"]) for row in rows} for split, rows in selected_by_split.items()}
+    split_hashes = {split: {canonical_bank_sha256(row) for row in rows} for split, rows in selected_by_split.items()}
     records: list[dict[str, Any]] = []
     splits = tuple(selected_by_split)
     for left_index, left in enumerate(splits):
@@ -506,9 +791,7 @@ def summarize24(values: Sequence[float], actions: Sequence[str]) -> dict[str, An
         "per_action_means": [
             {
                 "action": action,
-                "mean": math.fsum(
-                    value for value, observed in zip(finite, actions, strict=True) if observed == action
-                )
+                "mean": math.fsum(value for value, observed in zip(finite, actions, strict=True) if observed == action)
                 / 8,
             }
             for action in ACTIONS
@@ -549,9 +832,7 @@ def evaluate_common_arm(
         [float(a["margin"]) - float(b["margin"]) for a, b in zip(post, pre, strict=True)], actions
     )
     coordinator_values = [
-        value
-        for value, action in zip(correction_m["values"], actions, strict=True)
-        if action == "delegate_coordinator"
+        value for value, action in zip(correction_m["values"], actions, strict=True) if action == "delegate_coordinator"
     ]
     gates = [
         {"name": "exact_complete_finite_safe_noncollapse", "passed": bool(safety_and_noncollapse)},
@@ -589,12 +870,15 @@ def evaluate_common_arm(
         "summaries": [
             {"name": "delta_n_pre_minus_post", "value": delta_n},
             {"name": "delta_m_post_minus_base", "value": retention_m},
-            {"name": "coordinator_delta_m_post_minus_pre", "value": {
-                "values": coordinator_values,
-                "mean": math.fsum(coordinator_values) / 8,
-                "median": midpoint_median(coordinator_values),
-                "strict_wins": sum(value > STRICT_WIN_EPSILON for value in coordinator_values),
-            }},
+            {
+                "name": "coordinator_delta_m_post_minus_pre",
+                "value": {
+                    "values": coordinator_values,
+                    "mean": math.fsum(coordinator_values) / 8,
+                    "median": midpoint_median(coordinator_values),
+                    "strict_wins": sum(value > STRICT_WIN_EPSILON for value in coordinator_values),
+                },
+            },
         ],
     }
 
@@ -633,9 +917,12 @@ def evaluate_recurrent_value(
     }
     nll = contrasts["A_N"]
     margin = contrasts["A_M"]
-    nll_route = nll["mean"] >= 0.001 and nll["median"] >= 0 and nll["strict_wins"] >= 13 and sum(
-        _per_action(nll, action) >= 0 for action in ACTIONS
-    ) >= 2
+    nll_route = (
+        nll["mean"] >= 0.001
+        and nll["median"] >= 0
+        and nll["strict_wins"] >= 13
+        and sum(_per_action(nll, action) >= 0 for action in ACTIONS) >= 2
+    )
     margin_route = (
         margin["mean"] >= 0.020
         and margin["median"] >= 0
@@ -668,14 +955,51 @@ def evaluate_recurrent_value(
         {"name": "T8_nonregression", "passed": r8_gate},
     ]
     return {
-        "passed": all(record["passed"] for record in gates if record["name"] not in {"nll_route", "action_margin_route"}),
+        "passed": all(
+            record["passed"] for record in gates if record["name"] not in {"nll_route", "action_margin_route"}
+        ),
         "gates": gates,
         "summaries": [{"name": name, "value": value} for name, value in contrasts.items()],
     }
 
 
 def canonical_terminal_bytes(receipt: dict[str, Any]) -> bytes:
-    return json.dumps(receipt, sort_keys=True, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
+    try:
+        return json.dumps(
+            receipt,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=True,
+            allow_nan=False,
+        ).encode("utf-8")
+    except (TypeError, ValueError) as error:
+        raise PhaseBContractError("B-IPC1 terminal is not finite canonical JSON") from error
+
+
+def strict_json_loads(payload: bytes | str) -> Any:
+    """Parse terminal JSON while rejecting duplicate keys and non-finite constants."""
+
+    def object_without_duplicates(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+        result: dict[str, Any] = {}
+        for key, value in pairs:
+            if key in result:
+                raise PhaseBContractError(f"B-IPC1 terminal repeats JSON key {key!r}")
+            result[key] = value
+        return result
+
+    def reject_constant(value: str) -> None:
+        raise PhaseBContractError(f"B-IPC1 terminal contains non-finite JSON constant {value}")
+
+    try:
+        return json.loads(
+            payload,
+            object_pairs_hook=object_without_duplicates,
+            parse_constant=reject_constant,
+        )
+    except PhaseBContractError:
+        raise
+    except (UnicodeDecodeError, json.JSONDecodeError) as error:
+        raise PhaseBContractError("B-IPC1 terminal is not strict UTF-8 JSON") from error
 
 
 def validate_ordered_records(records: Any, expected_names: Sequence[str], *, label: str) -> None:
@@ -692,9 +1016,9 @@ def roundtrip_validate_terminal(
     candidate.pop("receipt_sha256", None)
     candidate["receipt_sha256"] = hashlib.sha256(canonical_terminal_bytes(candidate)).hexdigest()
     payload = canonical_terminal_bytes(candidate)
-    parsed = json.loads(payload)
+    parsed = strict_json_loads(payload)
     validator(parsed, **validator_kwargs)
-    reparsed = json.loads(payload)
+    reparsed = strict_json_loads(payload)
     if canonical_terminal_bytes(reparsed) != payload:
         raise PhaseBContractError("B-IPC1 canonical terminal bytes do not round-trip exactly")
     validator(reparsed, **validator_kwargs)
@@ -705,6 +1029,6 @@ def verify_published_terminal(path: Path, payload: bytes, *, validator: Any, val
     observed = path.read_bytes()
     if observed != payload:
         raise PhaseBContractError("B-IPC1 published terminal bytes differ from validated bytes")
-    parsed = json.loads(observed)
+    parsed = strict_json_loads(observed)
     validator(parsed, **validator_kwargs)
     return hashlib.sha256(observed).hexdigest()
