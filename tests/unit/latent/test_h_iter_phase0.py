@@ -192,6 +192,13 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
         "transformers_modeling_imports": 0,
         "network_guard": hiter.NETWORK_GUARD_CONTRACT,
     }
+    plan["full_freeze"].update(
+        {
+            "failure_authority_uses_execution_commit_git_blob": True,
+            "launcher_bounds_full_surface": True,
+            "terminal_self_reference_boundary_is_external": True,
+        }
+    )
     plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
     execution = "1" * 40
     external_plan = "2" * 64
@@ -272,6 +279,7 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
             "plan_sha256": plan["plan_sha256"],
             "plan_sidecar_sha256": hiter.sha256_bytes(f"{external_plan}\n".encode()),
             "plan_asset_hashes": plan["asset_sha256"],
+            "provenance_exact": True,
             "errors": [],
         },
         "output_inventory_before_failure": [],
@@ -284,6 +292,7 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     validation_args = {
         "plan": plan,
         "expected_execution_commit": execution,
+        "expected_execution_tree": "3" * 40,
         "expected_plan_file_sha256": external_plan,
     }
     hiter.validate_failure(failure, **validation_args)
@@ -329,6 +338,7 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     observed_dirty["full_freeze_failure_audit"]["errors"] = [
         {"check": "status_clean", "error": "worktree is not clean"}
     ]
+    observed_dirty["full_freeze_failure_audit"]["provenance_exact"] = False
     observed_dirty["failure_sha256"] = hiter.canonical_sha256(
         observed_dirty, omit="failure_sha256"
     )
@@ -342,6 +352,61 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     )
     with pytest.raises(hiter.ContractError, match="mismatch/error"):
         hiter.validate_failure(missing_dirty_error, **validation_args)
+    relabeled = json_roundtrip(failure)
+    relabeled["status"] = "infrastructure_invalid"
+    relabeled["failure_sha256"] = hiter.canonical_sha256(relabeled, omit="failure_sha256")
+    with pytest.raises(hiter.ContractError, match="taxonomy"):
+        hiter.validate_failure(relabeled, **validation_args)
+    infrastructure_error = json_roundtrip(failure)
+    infrastructure_error["status"] = "infrastructure_invalid"
+    infrastructure_error["error_type"] = "InfrastructureInvalid"
+    infrastructure_error["failure_sha256"] = hiter.canonical_sha256(
+        infrastructure_error, omit="failure_sha256"
+    )
+    hiter.validate_failure(infrastructure_error, **validation_args)
+    unobserved_timeout = json_roundtrip(infrastructure_error)
+    unobserved_timeout["error_type"] = "TimeoutError"
+    unobserved_timeout["failure_sha256"] = hiter.canonical_sha256(
+        unobserved_timeout, omit="failure_sha256"
+    )
+    with pytest.raises(hiter.ContractError, match="timeout error/evidence"):
+        hiter.validate_failure(unobserved_timeout, **validation_args)
+
+    provenance_races = [
+        ("head", "4" * 40, [{"check": "head_exact", "error": "execution HEAD differs"}]),
+        ("tree", "4" * 40, [{"check": "tree_exact", "error": "execution tree differs"}]),
+        (
+            "plan_file_sha256",
+            "5" * 64,
+            [{"check": "plan_file_exact", "error": "external plan file hash differs"}],
+        ),
+        (
+            "plan_sidecar_sha256",
+            "5" * 64,
+            [{"check": "plan_sidecar_exact", "error": "external plan sidecar differs"}],
+        ),
+        (
+            "plan_asset_hashes",
+            None,
+            [{"check": "plan_and_assets", "error": "OSError: synthetic asset read failure"}],
+        ),
+        (
+            "head",
+            None,
+            [
+                {"check": "head", "error": "OSError: synthetic HEAD read failure"},
+                {"check": "head_exact", "error": "execution HEAD differs"},
+            ],
+        ),
+    ]
+    for field, value, errors in provenance_races:
+        raced = json_roundtrip(failure)
+        raced["status"] = "infrastructure_invalid"
+        raced["full_freeze_failure_audit"][field] = value
+        raced["full_freeze_failure_audit"]["errors"] = errors
+        raced["full_freeze_failure_audit"]["provenance_exact"] = False
+        raced["failure_sha256"] = hiter.canonical_sha256(raced, omit="failure_sha256")
+        hiter.validate_failure(raced, **validation_args)
 
 
 def json_roundtrip(value: object):
@@ -377,7 +442,8 @@ def test_launcher_and_runtime_bind_shared_environment_and_outer_budget() -> None
     runner = (ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py").read_text()
     assert hiter.EXPECTED_RUNTIME["shared_project_pyproject_sha256"] in launcher
     assert hiter.EXPECTED_RUNTIME["shared_project_uv_lock_sha256"] in launcher
-    assert "timeout --signal=TERM --kill-after=60s 1200s" in launcher
+    assert 'exec timeout --signal=TERM --kill-after=60s 1260s "$0" --inner "$@"' in launcher
+    assert 'if [[ ${1-} != --inner ]]' in launcher
     assert 'sys.executable != EXPECTED_RUNTIME["sys_executable"]' in runner
     assert 'sys.prefix != EXPECTED_RUNTIME["sys_prefix"]' in runner
     assert "class NetworkGuard" in runner and "sys.addaudithook" in runner
@@ -442,6 +508,13 @@ def test_proof_validator_binds_launch_authority_before_payload_details() -> None
         "transformers_modeling_imports": 0,
         "network_guard": hiter.NETWORK_GUARD_CONTRACT,
     }
+    plan["full_freeze"].update(
+        {
+            "failure_authority_uses_execution_commit_git_blob": True,
+            "launcher_bounds_full_surface": True,
+            "terminal_self_reference_boundary_is_external": True,
+        }
+    )
     plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
     proof = {
         key: None

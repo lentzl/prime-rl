@@ -1,6 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+if [[ ${1-} != --inner ]]; then
+  if [[ $# -ne 3 ]]; then
+    echo "usage: $0 <exact-execution-commit> <external-plan-sha256> <fresh-run-id>" >&2
+    exit 64
+  fi
+  exec timeout --signal=TERM --kill-after=60s 1260s "$0" --inner "$@"
+fi
+shift
+
 if [[ $# -ne 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ || $3 != h-iter-phase0-generator-locality-run1 ]]; then
   echo "usage: $0 <exact-execution-commit> <external-plan-sha256> <fresh-run-id>" >&2
   exit 64
@@ -47,7 +56,7 @@ export WANDB_MODE=offline
 export UV_PROJECT_ENVIRONMENT="$shared_venv"
 export PYTHONPATH="$repo/src"
 set +e
-timeout --signal=TERM --kill-after=60s 1200s "$uv_bin" run --project "$shared_project" --no-sync python \
+"$uv_bin" run --project "$shared_project" --no-sync python \
   "$repo/scripts/latent/run_h_iter_phase0_generator_locality_v1.py" \
   --repo "$repo" --plan "$plan" --plan-file-sha256 "$plan_sha256" \
   --execution-commit "$execution_commit" --output-dir "$output_dir"

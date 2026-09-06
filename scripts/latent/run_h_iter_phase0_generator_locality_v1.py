@@ -286,6 +286,24 @@ def load_canonical_json(path: Path) -> dict[str, object]:
     return parsed
 
 
+def load_authorized_plan(repo: Path, args: argparse.Namespace) -> dict[str, object]:
+    try:
+        relative = args.plan.resolve().relative_to(repo).as_posix()
+    except ValueError as error:
+        raise InfrastructureInvalid("Phase-0 plan is outside the execution tree") from error
+    data = git_blob(repo, args.execution_commit, relative)
+    if sha256_bytes(data) != args.plan_file_sha256 or not data.endswith(b"\n") or data.endswith(b"\n\n"):
+        raise InfrastructureInvalid("authorized Phase-0 plan git blob differs")
+    plan = strict_json_loads(data[:-1])
+    if not isinstance(plan, dict) or data != canonical_json(plan) + b"\n":
+        raise InfrastructureInvalid("authorized Phase-0 plan git blob is not canonical")
+    validate_plan(plan)
+    sidecar = git_blob(repo, args.execution_commit, str(Path(relative).with_name("phase0-plan.sha256")))
+    if sidecar != f"{args.plan_file_sha256}\n".encode():
+        raise InfrastructureInvalid("authorized Phase-0 plan sidecar git blob differs")
+    return plan
+
+
 def asset_hashes(repo: Path, plan: dict[str, object]) -> dict[str, str]:
     result = {}
     for relative, expected in plan["asset_sha256"].items():
@@ -764,9 +782,12 @@ def failure_payload(
         "plan_sha256": None,
         "plan_sidecar_sha256": None,
         "plan_asset_hashes": None,
+        "provenance_exact": False,
         "errors": [],
     }
     repo = args.repo.resolve()
+    authorized_plan = load_authorized_plan(repo, args)
+    authorized_tree = run_git(repo, "rev-parse", f"{args.execution_commit}^{{tree}}")
     for name, git_args in (
         ("head", ("rev-parse", "HEAD")),
         ("tree", ("rev-parse", "HEAD^{tree}")),
@@ -777,17 +798,24 @@ def failure_payload(
         except BaseException as audit_error:
             audit["errors"].append({"check": name, "error": f"{type(audit_error).__name__}: {audit_error}"})
     try:
+        audit["plan_file_sha256"] = file_sha256(args.plan.resolve())
+    except BaseException as audit_error:
+        audit["errors"].append({"check": "plan_file", "error": f"{type(audit_error).__name__}: {audit_error}"})
+    try:
+        audit["plan_sidecar_sha256"] = file_sha256(args.plan.resolve().with_name("phase0-plan.sha256"))
+    except BaseException as audit_error:
+        audit["errors"].append({"check": "plan_sidecar", "error": f"{type(audit_error).__name__}: {audit_error}"})
+    try:
         plan = load_canonical_json(args.plan.resolve())
         validate_plan(plan)
-        audit["plan_file_sha256"] = file_sha256(args.plan.resolve())
         audit["plan_sha256"] = plan["plan_sha256"]
-        audit["plan_sidecar_sha256"] = file_sha256(args.plan.resolve().with_name("phase0-plan.sha256"))
         audit["plan_asset_hashes"] = asset_hashes(repo, plan)
     except BaseException as audit_error:
         audit["errors"].append({"check": "plan_and_assets", "error": f"{type(audit_error).__name__}: {audit_error}"})
     expected_sidecar = sha256_bytes(f"{args.plan_file_sha256}\n".encode())
     mismatch_checks = (
         ("head_exact", audit["head"] == args.execution_commit, "execution HEAD differs"),
+        ("tree_exact", audit["tree"] == authorized_tree, "execution tree differs"),
         ("status_clean", audit["status"] == "", "worktree is not clean"),
         (
             "plan_file_exact",
@@ -803,6 +831,7 @@ def failure_payload(
     for check, exact, detail in mismatch_checks:
         if not exact:
             audit["errors"].append({"check": check, "error": detail})
+    audit["provenance_exact"] = not audit["errors"]
     output_inventory = []
     if args.output_dir.is_dir() and not args.output_dir.is_symlink():
         output_inventory = sorted(path.name for path in args.output_dir.iterdir())
@@ -815,7 +844,6 @@ def failure_payload(
         "network_guard": network_guard.evidence(),
         "observation_complete": True,
     }
-    plan_for_binding = plan if "plan" in locals() else {}
     result = {
         "schema_version": FAILURE_SCHEMA,
         "status": status,
@@ -825,10 +853,10 @@ def failure_payload(
         "error": str(error),
         "traceback": traceback.format_exc(),
         "execution_commit": args.execution_commit,
-        "mechanism_code_commit": plan_for_binding.get("mechanism_code_commit"),
+        "mechanism_code_commit": authorized_plan["mechanism_code_commit"],
         "authorized_plan_file_sha256": args.plan_file_sha256,
-        "plan_file_sha256": audit["plan_file_sha256"],
-        "plan_sha256": audit["plan_sha256"],
+        "plan_file_sha256": args.plan_file_sha256,
+        "plan_sha256": authorized_plan["plan_sha256"],
         "actual_safety": {"cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), **observed_safety},
         "completed_phase_records": copy.deepcopy(tracker.completed),
         "final_terminal_publication": {},
@@ -916,11 +944,13 @@ def main() -> None:
         failure["prepublication_elapsed_ns"] = prepublication_elapsed
         failure["failure_sha256"] = canonical_sha256(failure, omit="failure_sha256")
         parsed = strict_json_loads(canonical_json(failure))
-        failure_plan = load_canonical_json(args.plan.resolve())
+        authorized_plan = load_authorized_plan(args.repo.resolve(), args)
+        authorized_tree = run_git(args.repo.resolve(), "rev-parse", f"{args.execution_commit}^{{tree}}")
         validate_failure(
             parsed,
-            plan=failure_plan,
+            plan=authorized_plan,
             expected_execution_commit=args.execution_commit,
+            expected_execution_tree=authorized_tree,
             expected_plan_file_sha256=args.plan_file_sha256,
         )
         reopened = writer.write("FAILURE.json", parsed, 16 * 2**20)
@@ -929,8 +959,9 @@ def main() -> None:
             raise InfrastructureInvalid("Phase-0 failure changed after publication") from error
         validate_failure(
             reparsed,
-            plan=failure_plan,
+            plan=authorized_plan,
             expected_execution_commit=args.execution_commit,
+            expected_execution_tree=authorized_tree,
             expected_plan_file_sha256=args.plan_file_sha256,
         )
         signal.alarm(0)

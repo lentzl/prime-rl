@@ -1323,7 +1323,7 @@ RESOURCE_BOUNDS = {
     "minimum_host_ram_gib": 8,
     "minimum_free_disk_gib": 8,
     "maximum_artifact_bytes": 32 * 2**20,
-    "outer_timeout_seconds": 1200,
+    "outer_timeout_seconds": 1260,
     "compute_timeout_seconds": 600,
     "audit_timeout_seconds": 180,
     "failure_audit_timeout_seconds": 180,
@@ -1333,6 +1333,8 @@ RESOURCE_BOUNDS = {
     "audit_failure_maximum_seconds": 1020,
     "prepublication_terminal_failure_maximum_seconds": 1080,
     "startup_external_headroom_seconds": 120,
+    "external_postpublication_exit_reserve_seconds": 60,
+    "kill_after_enforcement_grace_seconds": 60,
     "network": False,
     "output_root": "/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1",
 }
@@ -1493,6 +1495,13 @@ def validate_plan(plan: dict[str, Any]) -> None:
         raise ContractError("Phase-0 runtime/output root differs")
     if plan["resource_bounds"] != RESOURCE_BOUNDS:
         raise ContractError("Phase-0 resource bounds differ")
+    if (
+        RESOURCE_BOUNDS["prepublication_terminal_failure_maximum_seconds"]
+        + RESOURCE_BOUNDS["startup_external_headroom_seconds"]
+        + RESOURCE_BOUNDS["external_postpublication_exit_reserve_seconds"]
+        != RESOURCE_BOUNDS["outer_timeout_seconds"]
+    ):
+        raise ContractError("Phase-0 outer timeout arithmetic differs")
     assets = plan["asset_sha256"]
     if not isinstance(assets, dict) or not assets or any(
         not isinstance(path, str) or not isinstance(digest, str) or not re.fullmatch(r"[0-9a-f]{64}", digest)
@@ -1573,6 +1582,9 @@ def validate_plan(plan: dict[str, Any]) -> None:
         "phase0_plan_external_file_hash_required": True,
         "phase0_plan_sidecar_required": True,
         "historical_sources_reopened_from_exact_git_commits": True,
+        "failure_authority_uses_execution_commit_git_blob": True,
+        "launcher_bounds_full_surface": True,
+        "terminal_self_reference_boundary_is_external": True,
     }:
         raise ContractError("Phase-0 full-freeze contract differs")
     if plan["plan_sha256"] != canonical_sha256(plan, omit="plan_sha256"):
@@ -1872,6 +1884,7 @@ def validate_failure(
     *,
     plan: dict[str, Any],
     expected_execution_commit: str,
+    expected_execution_tree: str,
     expected_plan_file_sha256: str,
 ) -> None:
     validate_plan(plan)
@@ -1913,6 +1926,8 @@ def validate_failure(
         r"[0-9a-f]{40}", expected_execution_commit
     ):
         raise ContractError("Phase-0 failure execution commit differs from launch authority")
+    if not re.fullmatch(r"[0-9a-f]{40}", expected_execution_tree):
+        raise ContractError("Phase-0 authorized execution tree is malformed")
     if failure["authorized_plan_file_sha256"] != expected_plan_file_sha256 or not re.fullmatch(
         r"[0-9a-f]{64}", expected_plan_file_sha256
     ):
@@ -1941,6 +1956,9 @@ def validate_failure(
     if not isinstance(records, list) or [(row.get("phase"), row.get("outcome")) for row in records] not in allowed_sequences:
         raise ContractError("Phase-0 failure phase sequence differs")
     prior_exit = validate_phase_records(records, failure_status=failure["status"])
+    timeout_rows = [row for row in records if row["timeout_observed"] is True]
+    if (failure["error_type"] == "TimeoutError") is not (len(timeout_rows) == 1):
+        raise ContractError("Phase-0 timeout error/evidence binding differs")
     terminal = failure["final_terminal_publication"]
     if terminal != {
         "phase": "terminal_publication",
@@ -2034,12 +2052,13 @@ def validate_failure(
         for key in ("installed", "wrappers_restored", "audit_hook_persistent")
     ) or not isinstance(network["attempt_count"], int) or isinstance(network["attempt_count"], bool) or network["attempt_count"] < 0:
         raise ContractError("Phase-0 failure network guard values differ")
-    if (
+    network_unsafe = (
         network["installed"] is not True
         or network["wrappers_restored"] is not True
         or network["audit_hook_persistent"] is not True
         or network["attempt_count"] != 0
-    ):
+    )
+    if network_unsafe:
         if failure["status"] != "infrastructure_invalid":
             raise ContractError("Phase-0 network guard failure is not infrastructure-invalid")
     if failure["candidate_created"] != bool(safety["candidate_files"]):
@@ -2076,6 +2095,7 @@ def validate_failure(
         "plan_sha256",
         "plan_sidecar_sha256",
         "plan_asset_hashes",
+        "provenance_exact",
         "errors",
     } or not isinstance(audit["errors"], list):
         raise ContractError("Phase-0 failure freeze audit differs")
@@ -2090,6 +2110,7 @@ def validate_failure(
         error_checks = {error["check"] for error in audit["errors"]}
         expected_mismatch_errors = {
             "head_exact": "execution HEAD differs",
+            "tree_exact": "execution tree differs",
             "status_clean": "worktree is not clean",
             "plan_file_exact": "external plan file hash differs",
             "plan_sidecar_exact": "external plan sidecar differs",
@@ -2102,6 +2123,7 @@ def validate_failure(
             raise ContractError("Phase-0 failure mismatch error evidence differs")
         mismatch_truth = {
             "head_exact": audit["head"] != expected_execution_commit,
+            "tree_exact": audit["tree"] != expected_execution_tree,
             "status_clean": audit["status"] != "",
             "plan_file_exact": audit["plan_file_sha256"] != expected_plan_file_sha256,
             "plan_sidecar_exact": audit["plan_sidecar_sha256"]
@@ -2140,8 +2162,7 @@ def validate_failure(
     else:
         if (
             audit["head"] != expected_execution_commit
-            or not isinstance(audit["tree"], str)
-            or not re.fullmatch(r"[0-9a-f]{40}", audit["tree"])
+            or audit["tree"] != expected_execution_tree
             or audit["status"] != ""
             or audit["plan_file_sha256"] != expected_plan_file_sha256
             or audit["plan_sha256"] != failure["plan_sha256"]
@@ -2151,5 +2172,20 @@ def validate_failure(
             or failure["mechanism_code_commit"] != plan["mechanism_code_commit"]
         ):
             raise ContractError("Phase-0 exact failure freeze binding differs")
+    if audit["provenance_exact"] is not (not audit["errors"]):
+        raise ContractError("Phase-0 failure provenance summary differs")
+    infrastructure_override = (
+        unsafe
+        or network_unsafe
+        or bool(audit["errors"])
+        or any(row["timing_cap_exceeded"] for row in records)
+    )
+    expected_status = (
+        "h_iter_phase0_generator_locality_incomplete"
+        if failure["error_type"] == "ContractError" and not infrastructure_override
+        else "infrastructure_invalid"
+    )
+    if failure["status"] != expected_status:
+        raise ContractError("Phase-0 failure error type/status taxonomy differs")
     if failure["failure_sha256"] != canonical_sha256(failure, omit="failure_sha256"):
         raise ContractError("Phase-0 failure self hash differs")
