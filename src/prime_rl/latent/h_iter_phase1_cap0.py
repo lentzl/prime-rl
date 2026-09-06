@@ -116,7 +116,7 @@ TAMPERS = [
     "proof_self_hash_changed",
 ]
 MECHANISM_CAUSES = {
-    "cache_allocation_detected", "returned_pkv_non_none", "nonfinite_output",
+    "cache_allocation_detected", "cache_configuration_drift", "returned_pkv_non_none", "nonfinite_output",
     "repeat_parity_failed", "node_diversity_failed",
 }
 COUNTS = {

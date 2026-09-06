@@ -493,6 +493,7 @@ class CacheGuard:
         self.negative = False
         self.actual_allocations = 0
         self.pkv_non_none_count = 0
+        self.config_drift_count = 0
         self.restored = False
         sources: list[tuple[str, Any]] = [("model.config", model.config)]
         if getattr(model, "generation_config", None) is not None:
@@ -517,7 +518,8 @@ class CacheGuard:
         if class_closure(self.cache_utils.Cache) - self.patched:
             raise CAP0ContractError("CAP0 unpatched cache subclass appeared")
         if any(getattr(config, "use_cache", None) is not False for _, config, _ in self.configs):
-            raise CacheAllocationDetected("CAP0 use_cache configuration changed")
+            self.config_drift_count += 1
+            raise CAP0MechanismRejected("CAP0 use_cache configuration changed", "cache_configuration_drift")
         self.labels.append(label)
 
     def __enter__(self) -> CacheGuard:
@@ -549,7 +551,7 @@ class CacheGuard:
     def evidence(self) -> dict[str, Any]:
         classes = [class_identity(cls) for cls in sorted(self.initial, key=lambda value: (value.__module__, value.__qualname__))]
         configs = [{"source": source, "value_before": before, "value_during": False, "value_after": getattr(config, "use_cache", None)} for source, config, before in self.configs]
-        return {"classes": classes, "check_labels": self.labels, "check_count": len(self.labels), "trip_count": self.trip_count, "mandatory_negative_control": self.negative, "actual_allocation_trips": max(0, self.trip_count - 1), "pkv_non_none_count": self.pkv_non_none_count, "configuration_evidence": configs, "classes_restored": self.restored, "configs_restored": self.restored, "complete": classes == self.expected and self.labels == CACHE_LABELS and self.trip_count == 1 and self.pkv_non_none_count == 0 and self.restored}
+        return {"classes": classes, "check_labels": self.labels, "check_count": len(self.labels), "trip_count": self.trip_count, "mandatory_negative_control": self.negative, "actual_allocation_trips": max(0, self.trip_count - 1), "pkv_non_none_count": self.pkv_non_none_count, "config_drift_count": self.config_drift_count, "configuration_evidence": configs, "classes_restored": self.restored, "configs_restored": self.restored, "complete": classes == self.expected and self.labels == CACHE_LABELS and self.trip_count == 1 and self.pkv_non_none_count == 0 and self.config_drift_count == 0 and self.restored}
 
 
 def validate_probe(probe: dict[str, Any], expected: dict[str, Any], *, require_qualifies: bool = True) -> None:
@@ -585,12 +587,12 @@ def validate_probe(probe: dict[str, Any], expected: dict[str, Any], *, require_q
 
 
 def validate_cache(value: dict[str, Any], contract: dict[str, Any], complete: bool) -> None:
-    keys = {"classes", "check_labels", "check_count", "trip_count", "mandatory_negative_control", "actual_allocation_trips", "pkv_non_none_count", "configuration_evidence", "classes_restored", "configs_restored", "complete"}
+    keys = {"classes", "check_labels", "check_count", "trip_count", "mandatory_negative_control", "actual_allocation_trips", "pkv_non_none_count", "config_drift_count", "configuration_evidence", "classes_restored", "configs_restored", "complete"}
     if not isinstance(value, dict) or set(value) != keys or value["classes"] != contract["cache_contract"]["class_closure"] or value["check_count"] != len(value["check_labels"]) or value["check_labels"] != CACHE_LABELS[: len(value["check_labels"])]:
         raise CAP0ContractError("CAP0 cache evidence differs")
     if not isinstance(value["trip_count"], int) or isinstance(value["trip_count"], bool) or value["trip_count"] < 0 or value["actual_allocation_trips"] != max(0, value["trip_count"] - 1):
         raise CAP0ContractError("CAP0 cache trip evidence differs")
-    if not isinstance(value["pkv_non_none_count"], int) or isinstance(value["pkv_non_none_count"], bool) or value["pkv_non_none_count"] < 0 or any(not isinstance(value[key], bool) for key in ("mandatory_negative_control", "classes_restored", "configs_restored", "complete")):
+    if any(not isinstance(value[key], int) or isinstance(value[key], bool) or value[key] < 0 for key in ("pkv_non_none_count", "config_drift_count")) or any(not isinstance(value[key], bool) for key in ("mandatory_negative_control", "classes_restored", "configs_restored", "complete")):
         raise CAP0ContractError("CAP0 cache scalar types differ")
     configurations = value["configuration_evidence"]
     if not isinstance(configurations, list) or any(not isinstance(row, dict) or not isinstance(row.get("source"), str) for row in configurations):
@@ -603,7 +605,7 @@ def validate_cache(value: dict[str, Any], contract: dict[str, Any], complete: bo
             raise CAP0ContractError("CAP0 cache configuration evidence differs")
         if value["configs_restored"] and row["value_after"] is not row["value_before"]:
             raise CAP0ContractError("CAP0 cache configuration restoration differs")
-    if complete and (value["check_labels"] != CACHE_LABELS or value["trip_count"] != 1 or value["mandatory_negative_control"] is not True or value["pkv_non_none_count"] != 0 or value["classes_restored"] is not True or value["configs_restored"] is not True or value["complete"] is not True):
+    if complete and (value["check_labels"] != CACHE_LABELS or value["trip_count"] != 1 or value["mandatory_negative_control"] is not True or value["pkv_non_none_count"] != 0 or value["config_drift_count"] != 0 or value["classes_restored"] is not True or value["configs_restored"] is not True or value["complete"] is not True):
         raise CAP0ContractError("CAP0 cache closure incomplete")
 
 
@@ -714,7 +716,7 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
         if failure["error_type"] != "ExposureBoundaryRejected" or not failure["actual_safety"].get("positive_exposure"):
             raise CAP0ContractError("CAP0 exposure taxonomy differs")
     elif failure["status"] == "infrastructure_invalid":
-        if failure["error_type"] not in {"InfrastructureInvalid", "TimeoutError", "MemoryError", "CUDAOutOfMemoryError", "OSError", "PermissionError", "FileNotFoundError", "CalledProcessError", "ImportError", "ModuleNotFoundError"}:
+        if failure["error_type"] not in {"InfrastructureInvalid", "TimeoutError", "MemoryError", "OutOfMemoryError", "CUDAOutOfMemoryError", "OSError", "PermissionError", "FileNotFoundError", "CalledProcessError", "ImportError", "ModuleNotFoundError"}:
             raise CAP0ContractError("CAP0 infrastructure taxonomy differs")
     else:
         raise CAP0ContractError("CAP0 failure status differs")
@@ -760,6 +762,9 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
             legal_cache_lengths.add(2 + 2 * n)
         elif n == 8:
             legal_cache_lengths.add(18)
+        pre_post_cause = failure["aggregate_partial"].get("cause")
+        if n >= 1 and (pre_post_cause == "returned_pkv_non_none" and cache["pkv_non_none_count"] >= 1 or pre_post_cause == "cache_configuration_drift" and cache["config_drift_count"] >= 1):
+            legal_cache_lengths.add(2 * n)
         if len(cache["check_labels"]) not in legal_cache_lengths or progress["cache_checks_completed"] != len(cache["check_labels"]) or cache["mandatory_negative_control"] is not True or cache["trip_count"] < 1:
             raise CAP0ContractError("CAP0 failure cache prefix differs")
         if failure["status"] != REJECT_STATUS and cache["trip_count"] > 1:
@@ -773,6 +778,7 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
     if failure["status"] == REJECT_STATUS:
         positive = {
             "cache_allocation_detected": cache is not None and cache["trip_count"] >= 2,
+            "cache_configuration_drift": cache is not None and cache["config_drift_count"] >= 1,
             "returned_pkv_non_none": cache is not None and cache["pkv_non_none_count"] >= 1,
             "nonfinite_output": aggregate_partial["nonfinite_observed"],
             "repeat_parity_failed": len(partial) == 4 and any(not row["repeat_full_hidden_bitwise"] or not row["repeat_capture_bitwise"] for row in partial),
@@ -812,6 +818,35 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
     protected_keys = {"disk_before", "disk_after", "e33_state_before", "e33_state_after", "grads_present", "restoration_attempted"}
     if not isinstance(protected, dict) or set(protected) != protected_keys or not isinstance(protected["grads_present"], bool) or not isinstance(protected["restoration_attempted"], bool):
         raise CAP0ContractError("CAP0 failure protected schema differs")
+    expected_disk = {"e33_tree_sha256": E33_TREE_SHA256, "h176_tree_sha256": H176_TREE_SHA256, "e33_metadata_sha256": METADATA_SHA256, "h176_metadata_sha256": METADATA_SHA256}
+
+    def disk_observation_valid(value: Any) -> bool:
+        if value is None:
+            return True
+        if not isinstance(value, dict) or set(value) != set(expected_disk):
+            return False
+        if any(not isinstance(value[key], str) or len(value[key]) != 64 for key in ("e33_tree_sha256", "h176_tree_sha256")):
+            return False
+        for key in ("e33_metadata_sha256", "h176_metadata_sha256"):
+            if not isinstance(value[key], dict) or set(value[key]) != set(METADATA_SHA256) or any(not isinstance(item, str) or len(item) != 64 for item in value[key].values()):
+                return False
+        return True
+
+    if not disk_observation_valid(protected["disk_before"]) or not disk_observation_valid(protected["disk_after"]) or protected["e33_state_before"] is not None and (not isinstance(protected["e33_state_before"], str) or len(protected["e33_state_before"]) != 64) or protected["e33_state_after"] is not None and (not isinstance(protected["e33_state_after"], str) or len(protected["e33_state_after"]) != 64):
+        raise CAP0ContractError("CAP0 failure protected identity differs")
+    protected_complete = protected["disk_before"] == expected_disk and protected["disk_after"] == expected_disk and protected["e33_state_before"] == E33_STATE_SHA256 and isinstance(protected["e33_state_after"], str) and len(protected["e33_state_after"]) == 64 and protected["restoration_attempted"] is True
+    if progress["model_loaded"] and failure["status"] != "infrastructure_invalid" and not protected_complete:
+        raise CAP0ContractError("CAP0 failure protected audit incomplete")
+    if progress["model_loaded"] and protected_complete:
+        state_changed = protected["e33_state_after"] != E33_STATE_SHA256
+        if actual["e33_state_changed"] is not state_changed or actual["e33_grads_present"] is not protected["grads_present"]:
+            raise CAP0ContractError("CAP0 failure protected truth closure differs")
+        if failure["status"] != EXPOSURE_STATUS and (state_changed or protected["grads_present"]):
+            raise CAP0ContractError("CAP0 protected exposure masked")
+    elif progress["model_loaded"] and failure["status"] == "infrastructure_invalid" and actual["e33_state_changed"]:
+        raise CAP0ContractError("CAP0 positive protected exposure masked")
+    if progress["model_loaded"] and (protected["disk_before"] != expected_disk or protected["e33_state_before"] != E33_STATE_SHA256 or protected["disk_after"] != expected_disk) and failure["status"] != "infrastructure_invalid":
+        raise CAP0ContractError("CAP0 protected infrastructure masked")
     resources = failure["resources"]
     if not isinstance(resources, dict) or set(resources) != {"bounds", "completed_phase_records", "final_terminal_publication", "prepublication_elapsed_ns"} or resources["bounds"] != RESOURCE_BOUNDS:
         raise CAP0ContractError("CAP0 failure resource schema differs")
@@ -1171,7 +1206,10 @@ def run_full(args: argparse.Namespace) -> None:
     probes: list[dict[str, Any]] = []
     progress = {"stage": "startup_pre_model", "current_probe": None, "current_repeat": None, "tokenizer_calls_completed": 0, "model_forwards_completed": 0, "sequences_completed": 0, "probes_completed": 0, "cache_checks_completed": 0, "memory_rows_completed": 0, "model_loaded": False, "model_released": False}
     protected_before: dict[str, Any] | None = None
+    protected_after: dict[str, Any] | None = None
     state_before: str | None = None
+    state_after: str | None = None
+    grads_none_after: bool | None = None
     freeze_before: dict[str, Any] | None = None
     asset_before: dict[str, str] | None = None
     free_disk_preflight = shutil.disk_usage(Path(OUTPUT_ROOT).parent).free
@@ -1237,6 +1275,7 @@ def run_full(args: argparse.Namespace) -> None:
             state_after = module_tree_sha256(torch, model)
             protected_after = protected_disk()
             grads_none = all(parameter.grad is None for parameter in model.parameters())
+            grads_none_after = grads_none
             if state_after != state_before or protected_after != protected_before or not grads_none:
                 raise ExposureBoundaryRejected("CAP0 protected e33 state changed")
             ledger.checkpoint("protected_postflight_complete")
@@ -1307,7 +1346,7 @@ def run_full(args: argparse.Namespace) -> None:
             cause = original_error.cause
         elif isinstance(original_error, ExposureBoundaryRejected):
             status_value, error, cause = EXPOSURE_STATUS, original_error, None
-        elif isinstance(original_error, (InfrastructureInvalid, TimeoutError, MemoryError, OSError, subprocess.CalledProcessError, ImportError)):
+        elif isinstance(original_error, (InfrastructureInvalid, TimeoutError, MemoryError, OSError, subprocess.CalledProcessError, ImportError)) or torch is not None and isinstance(original_error, torch.OutOfMemoryError):
             status_value, error, cause = "infrastructure_invalid", original_error, None
         elif isinstance(original_error, CAP0ContractError):
             status_value, error, cause = INCOMPLETE_STATUS, original_error, None
@@ -1324,8 +1363,8 @@ def run_full(args: argparse.Namespace) -> None:
         disk_now = None
         with contextlib.suppress(BaseException):
             disk_now = protected_disk()
-        state_now = None
-        grads_present = False
+        state_now = state_after
+        grads_present = grads_none_after is False
         if model is not None and torch is not None:
             with contextlib.suppress(BaseException):
                 state_now = module_tree_sha256(torch, model)
@@ -1336,6 +1375,10 @@ def run_full(args: argparse.Namespace) -> None:
             status_value, error = EXPOSURE_STATUS, ExposureBoundaryRejected("CAP0 positive forbidden exposure observed")
         elif status_value == EXPOSURE_STATUS and not actual["positive_exposure"]:
             status_value, error = "infrastructure_invalid", InfrastructureInvalid("CAP0 exposure rejection lacked observable evidence")
+        protected_expected = {"e33_tree_sha256": E33_TREE_SHA256, "h176_tree_sha256": H176_TREE_SHA256, "e33_metadata_sha256": METADATA_SHA256, "h176_metadata_sha256": METADATA_SHA256}
+        protected_observation_incomplete = progress["model_loaded"] and (protected_before != protected_expected or disk_now != protected_expected or state_before != E33_STATE_SHA256 or state_now is None or guard is not None and not guard.restored)
+        if protected_observation_incomplete and not actual["positive_exposure"]:
+            status_value, error = "infrastructure_invalid", InfrastructureInvalid("CAP0 protected failure audit incomplete")
         audit = failure_freeze_state(repo, plan, args.execution_commit)
         if not audit["exact"] and status_value != "infrastructure_invalid":
             status_value, error = "infrastructure_invalid", InfrastructureInvalid("CAP0 failure provenance differs")

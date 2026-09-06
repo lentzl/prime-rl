@@ -77,7 +77,7 @@ def memory_rows() -> list[dict]:
 
 def cache_fixture(value: dict, complete: bool = True) -> dict:
     labels = contract.CACHE_LABELS if complete else ["CACHE_ENTRY"]
-    return {"classes": value["cache_contract"]["class_closure"], "check_labels": labels, "check_count": len(labels), "trip_count": 1, "mandatory_negative_control": True, "actual_allocation_trips": 0, "pkv_non_none_count": 0, "configuration_evidence": [], "classes_restored": complete, "configs_restored": complete, "complete": complete}
+    return {"classes": value["cache_contract"]["class_closure"], "check_labels": labels, "check_count": len(labels), "trip_count": 1, "mandatory_negative_control": True, "actual_allocation_trips": 0, "pkv_non_none_count": 0, "config_drift_count": 0, "configuration_evidence": [], "classes_restored": complete, "configs_restored": complete, "complete": complete}
 
 
 def probe_fixture(expected: dict) -> dict:
@@ -113,16 +113,25 @@ def failure_fixture(plan: dict, value: dict, *, status: str, error_type: str, ca
     actual = {"validation_opens": 1 if exposure else 0, "heldout_opens": 0, "h176_loaded": False, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "candidate_objects": 0, "network_attempts": 0, "e33_grads_present": False, "e33_state_changed": False, "positive_exposure": exposure, "network_guard": {"installed": True, "wrappers_restored": True, "audit_hook_persistent": True, "attempt_count": 0, "operations": ["socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection", "socket.getaddrinfo"], "audit_events": ["socket.connect", "socket.getaddrinfo"]}, "experiment_open_firewall": {"denied_count": 1 if exposure else 0, "validation_open_count": 1 if exposure else 0, "heldout_open_count": 0, "opened_paths": []}}
     progress = {"stage": "startup_pre_model", "current_probe": None, "current_repeat": None, "tokenizer_calls_completed": 0, "model_forwards_completed": 0, "sequences_completed": 0, "probes_completed": 0, "cache_checks_completed": 0, "memory_rows_completed": 0, "model_loaded": False, "model_released": False}
     cache = None
-    if cause in {"cache_allocation_detected", "returned_pkv_non_none"}:
+    if cause in {"cache_allocation_detected", "cache_configuration_drift", "returned_pkv_non_none"}:
         cache = cache_fixture(value, complete=False)
         progress["cache_checks_completed"] = 1
+        progress.update({"stage": "capture", "model_loaded": True})
         if cause == "cache_allocation_detected":
             cache["trip_count"] = 2
             cache["actual_allocation_trips"] = 1
+        elif cause == "cache_configuration_drift":
+            cache["config_drift_count"] = 1
         else:
             cache["pkv_non_none_count"] = 1
+            cache["check_labels"] = contract.CACHE_LABELS[:2]
+            cache["check_count"] = 2
+            progress.update({"stage": "capture", "current_probe": 1, "current_repeat": 1, "tokenizer_calls_completed": 1, "model_forwards_completed": 1, "sequences_completed": 24, "cache_checks_completed": 2, "model_loaded": True})
     audit = {"head": "7" * 40, "parent": plan["mechanism_code_commit"], "tree": "9" * 40, "status": "", "asset_hashes": plan["asset_sha256"], "execution_commit": "7" * 40, "errors": [], "exact": True}
     protected = {"disk_before": None, "disk_after": None, "e33_state_before": None, "e33_state_after": None, "grads_present": False, "restoration_attempted": True}
+    if progress["model_loaded"]:
+        disk = {"e33_tree_sha256": contract.E33_TREE_SHA256, "h176_tree_sha256": contract.H176_TREE_SHA256, "e33_metadata_sha256": contract.METADATA_SHA256, "h176_metadata_sha256": contract.METADATA_SHA256}
+        protected.update({"disk_before": disk, "disk_after": disk, "e33_state_before": contract.E33_STATE_SHA256, "e33_state_after": contract.E33_STATE_SHA256})
     failure = {"schema_version": contract.FAILURE_SCHEMA, "status": status, "mechanism": contract.MECHANISM, "run_identity": contract.RUN_ID, "error_type": error_type, "error": "fixture", "traceback": "fixture", "execution_commit": "7" * 40, "mechanism_code_commit": plan["mechanism_code_commit"], "plan_file_sha256": "8" * 64, "plan_sha256": plan["plan_sha256"], "progress": progress, "partial_probes": [], "aggregate_partial": {"cause": cause, "probes_completed": 0, "nonfinite_observed": cause == "nonfinite_output"}, "cache_guard_partial": cache, "protected_state": protected, "actual_safety": actual, "resources": {"bounds": contract.RESOURCE_BOUNDS, "completed_phase_records": records, "final_terminal_publication": terminal(2), "prepublication_elapsed_ns": 2}, "partial_memory": {"labels": contract.MEMORY_LABELS, "rows": []}, "full_freeze_failure_audit": audit, "output_inventory_before_failure": [], "candidate_files": [], "checkpoint_files": [], "model_updated": False, "failure_sha256": ""}
     failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))
     return failure
@@ -200,7 +209,7 @@ def test_every_failure_status(frozen: tuple[dict, dict, dict], status: str, erro
     runner.validate_failure(failure, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
 
 
-@pytest.mark.parametrize("cause", ["returned_pkv_non_none", "nonfinite_output", "repeat_parity_failed", "node_diversity_failed"])
+@pytest.mark.parametrize("cause", ["cache_configuration_drift", "returned_pkv_non_none", "nonfinite_output", "repeat_parity_failed", "node_diversity_failed"])
 def test_genuine_mechanism_rejection_evidence(frozen: tuple[dict, dict, dict], cause: str) -> None:
     value, selection, _ = frozen; plan = plan_fixture()
     failure = failure_fixture(plan, value, status=contract.REJECT_STATUS, error_type="CAP0MechanismRejected", cause=cause)
@@ -209,6 +218,8 @@ def test_genuine_mechanism_rejection_evidence(frozen: tuple[dict, dict, dict], c
         failure["progress"].update({"stage": "postflight_audit", "tokenizer_calls_completed": 4, "model_forwards_completed": 8, "sequences_completed": 96, "probes_completed": 4, "cache_checks_completed": 18, "model_loaded": True})
         failure["aggregate_partial"]["probes_completed"] = 4
         failure["cache_guard_partial"] = cache_fixture(value)
+        disk = {"e33_tree_sha256": contract.E33_TREE_SHA256, "h176_tree_sha256": contract.H176_TREE_SHA256, "e33_metadata_sha256": contract.METADATA_SHA256, "h176_metadata_sha256": contract.METADATA_SHA256}
+        failure["protected_state"].update({"disk_before": disk, "disk_after": disk, "e33_state_before": contract.E33_STATE_SHA256, "e33_state_after": contract.E33_STATE_SHA256})
         if cause == "repeat_parity_failed":
             probe = failure["partial_probes"][0]
             probe["repeats"][1]["full_hidden_sha256"] = "a" * 64
@@ -239,6 +250,35 @@ def test_failure_cache_exit_and_probe_underreport_rejected(frozen: tuple[dict, d
     failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))
     with pytest.raises(contract.CAP0ContractError):
         runner.validate_failure(failure, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
+
+def test_returned_pkv_first_and_last_forward_prefixes(frozen: tuple[dict, dict, dict]) -> None:
+    value, selection, _ = frozen
+    plan = plan_fixture()
+    first = failure_fixture(plan, value, status=contract.REJECT_STATUS, error_type="CAP0MechanismRejected", cause="returned_pkv_non_none")
+    runner.validate_failure(first, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
+    last = failure_fixture(plan, value, status=contract.REJECT_STATUS, error_type="CAP0MechanismRejected", cause="returned_pkv_non_none")
+    last["partial_probes"] = [probe_fixture(row) for row in selection["ordered_probes"][:3]]
+    last["aggregate_partial"]["probes_completed"] = 3
+    last["progress"].update({"current_probe": 4, "current_repeat": 2, "tokenizer_calls_completed": 4, "model_forwards_completed": 8, "sequences_completed": 96, "probes_completed": 3, "cache_checks_completed": 16})
+    last["cache_guard_partial"]["check_labels"] = contract.CACHE_LABELS[:16]
+    last["cache_guard_partial"]["check_count"] = 16
+    last["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in last.items() if key != "failure_sha256"}))
+    runner.validate_failure(last, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
+
+def test_oom_and_protected_failure_closure(frozen: tuple[dict, dict, dict]) -> None:
+    value, selection, _ = frozen
+    plan = plan_fixture()
+    oom = failure_fixture(plan, value, status=contract.INFRASTRUCTURE_STATUS, error_type="OutOfMemoryError")
+    runner.validate_failure(oom, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
+    protected = failure_fixture(plan, value, status=contract.REJECT_STATUS, error_type="CAP0MechanismRejected", cause="returned_pkv_non_none")
+    protected["protected_state"]["disk_after"] = None
+    protected["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in protected.items() if key != "failure_sha256"}))
+    with pytest.raises(contract.CAP0ContractError):
+        runner.validate_failure(protected, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
 
     failure = failure_fixture(plan, value, status=contract.INCOMPLETE_STATUS, error_type="CAP0ContractError")
     failure["progress"].update({"stage": "capture", "tokenizer_calls_completed": 4, "model_forwards_completed": 8, "sequences_completed": 96, "cache_checks_completed": 17, "model_loaded": True})
