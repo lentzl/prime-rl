@@ -280,6 +280,29 @@ def test_oom_and_protected_failure_closure(frozen: tuple[dict, dict, dict]) -> N
     with pytest.raises(contract.CAP0ContractError):
         runner.validate_failure(protected, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
 
+
+@pytest.mark.parametrize("cause", ["cache_allocation_detected", "cache_configuration_drift", "returned_pkv_non_none"])
+def test_positive_cache_cause_cannot_be_masked_or_relabeled(frozen: tuple[dict, dict, dict], cause: str) -> None:
+    value, selection, _ = frozen
+    plan = plan_fixture()
+    failure = failure_fixture(plan, value, status=contract.REJECT_STATUS, error_type="CAP0MechanismRejected", cause=cause)
+    failure["status"] = contract.INFRASTRUCTURE_STATUS
+    failure["error_type"] = "InfrastructureInvalid"
+    failure["aggregate_partial"]["cause"] = None
+    failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))
+    with pytest.raises(contract.CAP0ContractError):
+        runner.validate_failure(failure, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
+
+def test_infrastructure_precedence_preserves_secondary_mechanism_evidence(frozen: tuple[dict, dict, dict]) -> None:
+    value, selection, _ = frozen
+    plan = plan_fixture()
+    failure = failure_fixture(plan, value, status=contract.REJECT_STATUS, error_type="CAP0MechanismRejected", cause="cache_allocation_detected")
+    failure["status"] = contract.INFRASTRUCTURE_STATUS
+    failure["error_type"] = "InfrastructureInvalid"
+    failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))
+    runner.validate_failure(failure, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
     failure = failure_fixture(plan, value, status=contract.INCOMPLETE_STATUS, error_type="CAP0ContractError")
     failure["progress"].update({"stage": "capture", "tokenizer_calls_completed": 4, "model_forwards_completed": 8, "sequences_completed": 96, "cache_checks_completed": 17, "model_loaded": True})
     failure["cache_guard_partial"] = cache_fixture(value)

@@ -767,27 +767,28 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
             legal_cache_lengths.add(2 * n)
         if len(cache["check_labels"]) not in legal_cache_lengths or progress["cache_checks_completed"] != len(cache["check_labels"]) or cache["mandatory_negative_control"] is not True or cache["trip_count"] < 1:
             raise CAP0ContractError("CAP0 failure cache prefix differs")
-        if failure["status"] != REJECT_STATUS and cache["trip_count"] > 1:
-            raise CAP0ContractError("CAP0 cache trip masked")
     elif progress["cache_checks_completed"] != 0:
         raise CAP0ContractError("CAP0 missing failure cache evidence")
     aggregate_partial = failure["aggregate_partial"]
     if not isinstance(aggregate_partial, dict) or set(aggregate_partial) != {"cause", "probes_completed", "nonfinite_observed"} or aggregate_partial["probes_completed"] != len(partial) or not isinstance(aggregate_partial["nonfinite_observed"], bool):
         raise CAP0ContractError("CAP0 failure aggregate schema differs")
     cause = aggregate_partial["cause"]
+    positive = {
+        "cache_allocation_detected": cache is not None and cache["trip_count"] >= 2,
+        "cache_configuration_drift": cache is not None and cache["config_drift_count"] >= 1,
+        "returned_pkv_non_none": cache is not None and cache["pkv_non_none_count"] >= 1,
+        "nonfinite_output": aggregate_partial["nonfinite_observed"],
+        "repeat_parity_failed": len(partial) == 4 and any(not row["repeat_full_hidden_bitwise"] or not row["repeat_capture_bitwise"] for row in partial),
+        "node_diversity_failed": len(partial) == 4 and any(not row["not_all_node_identical"] for row in partial),
+    }
+    expected_cause = next((name for name in ("cache_allocation_detected", "cache_configuration_drift", "returned_pkv_non_none", "nonfinite_output", "node_diversity_failed", "repeat_parity_failed") if positive[name]), None)
     if failure["status"] == REJECT_STATUS:
-        positive = {
-            "cache_allocation_detected": cache is not None and cache["trip_count"] >= 2,
-            "cache_configuration_drift": cache is not None and cache["config_drift_count"] >= 1,
-            "returned_pkv_non_none": cache is not None and cache["pkv_non_none_count"] >= 1,
-            "nonfinite_output": aggregate_partial["nonfinite_observed"],
-            "repeat_parity_failed": len(partial) == 4 and any(not row["repeat_full_hidden_bitwise"] or not row["repeat_capture_bitwise"] for row in partial),
-            "node_diversity_failed": len(partial) == 4 and any(not row["not_all_node_identical"] for row in partial),
-        }
-        if cause not in positive or positive[cause] is not True:
-            raise CAP0ContractError("CAP0 rejection lacks positive cause evidence")
-    elif cause is not None or aggregate_partial["nonfinite_observed"]:
+        if cause != expected_cause:
+            raise CAP0ContractError("CAP0 rejection lacks exact positive cause evidence")
+    elif failure["status"] == INCOMPLETE_STATUS and (cause is not None or expected_cause is not None):
         raise CAP0ContractError("CAP0 mechanism cause masked by another status")
+    elif failure["status"] in {EXPOSURE_STATUS, "infrastructure_invalid"} and cause != expected_cause:
+        raise CAP0ContractError("CAP0 secondary mechanism evidence differs")
     if not isinstance(failure["partial_memory"], dict) or set(failure["partial_memory"]) != {"labels", "rows"}:
         raise CAP0ContractError("CAP0 failure memory schema differs")
     validate_memory(failure["partial_memory"].get("rows"), complete=False)
