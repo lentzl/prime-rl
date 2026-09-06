@@ -25,7 +25,7 @@ fi
 
 cd "$WORKTREE"
 [[ $(git rev-parse HEAD) == "$EXECUTION_COMMIT" ]]
-[[ $(git rev-parse "$EXECUTION_COMMIT^") == 85fa2200a0d048581925175d11a8c9239942f7ff ]]
+[[ $(git rev-parse "$EXECUTION_COMMIT^") == d09c8617e7e345ab952a2d3744d0eb667a81512c ]]
 [[ -z $(git status --porcelain --untracked-files=all) ]]
 [[ ! -e "$OUTPUT_DIR" && ! -L "$OUTPUT_DIR" ]]
 [[ -z $(nvidia-smi --query-compute-apps=pid --format=csv,noheader | tr -d '[:space:]') ]]
