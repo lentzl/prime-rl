@@ -1,4 +1,4 @@
-75a26dc493a668b59968d9acb5e1e8146cfddac749031b625430fef7b30064d3  phase-b-ipc1-matched-learning-run2-plan.json
+5b8d1874a007ed96c8e3f3dc8bf78459c300a199e255b4cc12549c718c37353c  phase-b-ipc1-matched-learning-run2-plan.json
 05f8255a2681f3090580975e6dad182d56439c08a403d9c13be139e3ad2eefbe  phase-b-hic0-r1-invalid-descriptive-binding-v1.json
 839082fed228b9fd521fe2068ffbe32895f42e46c7814f73245bc555b38b587c  phase-b-b1r-negative-binding-v1.json
 6c8661c851cdee29701a4feb58c40c841898a9f94dbc50b7e63e94602c48dde8  phase-b-ipc1-bank-v1/MANIFEST.json
@@ -28,15 +28,15 @@ aaa470cd3fdd73f07f200ee3e2be05568cdb37ebf3c945f4db753a4d8e98f745  phase-b-ipc1-b
 5aacafe7a7f1067c6da4e71e8d543ac2c0abd31e401fed6ce9ecfd7e8e24f1d6  phase-b-ipc1-terminal-proof-v1/proof-run6.log
 9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  phase-b-ipc1-terminal-proof-v1/proof-run6.exit_status.txt
 c351349dac78a90072f78321c9ce54aaf7ad0a83641df0940558b853e68f9d67  ../../src/prime_rl/phase_b_contract.py
-fdbf5c9b45e5502e752dbab7af617b627c61e13e7e84ce95c9a14476c5e17354  ../../src/prime_rl/phase_b_ipc1.py
+61268893d03f7edaaa0c76257c9b6b82bc177aabb1a58e845f5ecaaae983ac92  ../../src/prime_rl/phase_b_ipc1.py
 9072806eea4ebb005a3ce648059b5122b502585548ba290472e32475c26f313c  ../../src/prime_rl/phase_b_identity_carrier.py
 2c49b62bdf7b93f0dc6720894988d50611300db854ae9453d00bf50380c9f259  ../../src/prime_rl/phase_b_value_screen.py
 3e7b6aec0168450e790bf1eb994e9b249dde413ccd78e848a755dda22773714d  ../../src/prime_rl/latent/recurrent.py
 0a84ba0816dccd7688d148cdd0cf7e3e8943ea4d33907754691fdb3eba6ce88e  ../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py
 e0c7d07223e96202d73c7c2694c7c9a63487ec97c172aa265c480c81608c26dc  ../../scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py
 164c665031aaa48283195d87d817780c06ebb2e5f31ccca77aaf2316b180db09  ../../scripts/latent/run_phase_b_identity_carrier_v1.py
-7727eae51d190c296a9751887a0ed59e3661b56780cabcaeee256bae0df883b1  ../../scripts/latent/run_phase_b_ipc1_matched_learning_v1.py
-babc5bfade57aaff523e985a20b1efd0f9e18f5c8cdcf851f7e6565dea39a833  ../../scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py
+4db24076bd2fad8cee86e608f814cdfaabdebf4f1f860f9bf273104aa89f0089  ../../scripts/latent/run_phase_b_ipc1_matched_learning_v1.py
+a4cd45618aa2de4198da9f66a7103974c41859751e961e4b5da71d1f83a0ca21  ../../scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py
 54deb4ab33630dfa7b0a9b825d048645a4890da650fe179d13e044a11bae911f  ../../scripts/export_phase_b_ipc1_bank_v1.py
 a07274b1cc5c8304e148310129755dfac1bd8cedd2f188605366bc30b792cf5e  ../../scripts/latent/run_phase_b_ipc1_matched_learning_run2.sh
-81c2fa1b61cca79ecae7788ae941a21bea349122cc00861759f0a43852235e72  ../../tests/unit/test_phase_b_ipc1.py
+47e793866fe2101bb2d51ced630509345d9f06b693f6f5b95475a8691abf3c35  ../../tests/unit/test_phase_b_ipc1.py
