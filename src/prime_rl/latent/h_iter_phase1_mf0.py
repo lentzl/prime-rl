@@ -194,7 +194,17 @@ def build_candidate_contract() -> dict[str, Any]:
         "arm_order": ARMS,
         "arm_semantics": {"STATIC": "z", "FFN": "C(z,zeros) once without adjacency", "FIXED_T4": "persistent C exactly 4 times", "RESET_K": "K calls each on original z and z[successor], discard prior", "REC_K": "persistent C exactly K times"},
         "initialization": {"payload": INIT_PAYLOAD, "payload_sha256": INIT_SHA256, "seed_u64_be": INIT_SEED, "one_global_cpu_seed": True, "identical_initial_state_all_arms": True},
-        "precision": {"parameters": "torch.float32_cpu", "dropout": False, "tf32": False},
+        "precision": {
+            "cap0": {"candidate_device": None, "candidate_dtype": None, "candidate_instantiated": False},
+            "dropout": False,
+            "mf0_synthetic": {"device": "cpu", "dtype": "torch.float32"},
+            "t0_training": {
+                "captured_feature_transfer": "detached_cpu_bfloat16_to_cuda0_float32_before_sidecar_forward",
+                "device": "cuda:0",
+                "dtype": "torch.float32",
+            },
+            "tf32": False,
+        },
         "determinism": {
             "shuffle": False,
             "sampling": False,

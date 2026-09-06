@@ -105,6 +105,15 @@ def failure_fixture(plan: dict) -> dict:
     return failure
 
 
+def failure_inventory() -> dict:
+    return {"transformers_modeling_modules": [], "pretrained_model_objects": 0, "tokenizer_objects": 0, "optimizer_objects": 0, "candidate_module_objects": 0, "uninspectable_count": 0, "census_errors": [], "cuda_initialized": False, "output_inventory": [], "object_census_method": "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes"}
+
+
+def finish_failure(failure: dict) -> dict:
+    failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: value for key, value in failure.items() if key != "failure_sha256"}))
+    return failure
+
+
 def test_assets_regenerate_and_partition_exact(bank: dict, assets: dict[str, dict]) -> None:
     assert assets == contract.build_assets(bank)
     partition = assets["train-partition.json"]
@@ -177,6 +186,75 @@ def test_deep_failure_validator_and_taxonomy() -> None:
     changed = copy.deepcopy(failure); changed["status"] = runner.INFRASTRUCTURE_STATUS
     changed["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: value for key, value in changed.items() if key != "failure_sha256"}))
     with pytest.raises(contract.MF0ContractError): runner.validate_failure(changed, plan=plan, execution_commit="3" * 40, plan_file_sha256="5" * 64)
+
+
+def test_failure_accepts_genuine_cuda_model_and_forbidden_open_exposure() -> None:
+    plan = plan_fixture()
+    for kind in ("cuda", "model", "forbidden_open"):
+        failure = failure_fixture(plan)
+        failure["status"] = runner.EXPOSURE_STATUS
+        failure["error_type"] = "ExposureBoundaryRejected"
+        failure["actual_safety"]["torch_imported"] = True
+        failure["actual_safety"]["object_inventory"] = failure_inventory()
+        if kind == "cuda":
+            failure["actual_safety"]["object_inventory"]["cuda_initialized"] = True
+        elif kind == "model":
+            failure["actual_safety"]["object_inventory"]["pretrained_model_objects"] = 1
+            failure["model_or_tokenizer_loaded"] = True
+        else:
+            failure["actual_safety"]["open_firewall"] = {"denied_count": 2, "validation_open_count": 1, "heldout_open_count": 1}
+            failure["actual_safety"]["validation_opens"] = 1
+            failure["actual_safety"]["heldout_opens"] = 1
+        finish_failure(failure)
+        runner.validate_failure(failure, plan=plan, execution_commit="3" * 40, plan_file_sha256="5" * 64)
+
+
+def test_failure_exposure_cross_field_mismatches_rejected() -> None:
+    plan = plan_fixture()
+    no_evidence = failure_fixture(plan)
+    no_evidence["status"] = runner.EXPOSURE_STATUS
+    no_evidence["error_type"] = "ExposureBoundaryRejected"
+    finish_failure(no_evidence)
+    cuda_wrong_status = failure_fixture(plan)
+    cuda_wrong_status["actual_safety"]["torch_imported"] = True
+    cuda_wrong_status["actual_safety"]["object_inventory"] = failure_inventory()
+    cuda_wrong_status["actual_safety"]["object_inventory"]["cuda_initialized"] = True
+    finish_failure(cuda_wrong_status)
+    model_mismatch = copy.deepcopy(cuda_wrong_status)
+    model_mismatch["status"] = runner.EXPOSURE_STATUS
+    model_mismatch["error_type"] = "ExposureBoundaryRejected"
+    model_mismatch["actual_safety"]["object_inventory"]["cuda_initialized"] = False
+    model_mismatch["actual_safety"]["object_inventory"]["tokenizer_objects"] = 1
+    finish_failure(model_mismatch)
+    count_mismatch = copy.deepcopy(model_mismatch)
+    count_mismatch["actual_safety"]["object_inventory"]["tokenizer_objects"] = 0
+    count_mismatch["actual_safety"]["open_firewall"] = {"denied_count": 1, "validation_open_count": 1, "heldout_open_count": 0}
+    finish_failure(count_mismatch)
+    firewall_mismatch = copy.deepcopy(count_mismatch)
+    firewall_mismatch["actual_safety"]["validation_opens"] = 1
+    firewall_mismatch["actual_safety"]["open_firewall"]["unexpected"] = 0
+    finish_failure(firewall_mismatch)
+    for failure in (no_evidence, cuda_wrong_status, model_mismatch, count_mismatch, firewall_mismatch):
+        with pytest.raises(contract.MF0ContractError):
+            runner.validate_failure(failure, plan=plan, execution_commit="3" * 40, plan_file_sha256="5" * 64)
+
+
+def test_failure_census_errors_force_infrastructure_invalid() -> None:
+    plan = plan_fixture()
+    failure = failure_fixture(plan)
+    failure["status"] = runner.INFRASTRUCTURE_STATUS
+    failure["error_type"] = "InfrastructureInvalid"
+    failure["actual_safety"]["torch_imported"] = True
+    failure["actual_safety"]["object_inventory"] = failure_inventory()
+    failure["actual_safety"]["object_inventory"]["uninspectable_count"] = 1
+    failure["actual_safety"]["object_inventory"]["census_errors"] = [{"object_index": 1, "error_type": "RuntimeError", "error": "fixture"}]
+    finish_failure(failure)
+    runner.validate_failure(failure, plan=plan, execution_commit="3" * 40, plan_file_sha256="5" * 64)
+    failure["status"] = runner.INCOMPLETE_STATUS
+    failure["error_type"] = "MF0ContractError"
+    finish_failure(failure)
+    with pytest.raises(contract.MF0ContractError):
+        runner.validate_failure(failure, plan=plan, execution_commit="3" * 40, plan_file_sha256="5" * 64)
 
 
 def test_atomic_writer_exclusive_and_canonical(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

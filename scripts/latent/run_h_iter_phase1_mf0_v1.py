@@ -856,16 +856,49 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], execution
     if not isinstance(memory, dict) or memory.get("labels") != MEMORY_LABELS:
         raise MF0ContractError("MF0 partial memory differs")
     validate_memory(memory.get("rows"), complete=False)
-    if failure["output_inventory_before_failure"] != [] or failure["candidate_created"] is not False or failure["checkpoint_created"] is not False or failure["model_or_tokenizer_loaded"] is not False or failure["model_updated"] is not False:
+    if failure["output_inventory_before_failure"] != [] or failure["candidate_created"] is not False or failure["checkpoint_created"] is not False or failure["model_updated"] is not False:
         raise MF0ContractError("MF0 failure safety differs")
     safety = failure["actual_safety"]
     safety_keys = {"cuda_visible_devices", "torch_imported", "object_inventory", "network_guard", "open_firewall", "validation_opens", "heldout_opens"}
-    if not isinstance(safety, dict) or set(safety) != safety_keys or safety.get("cuda_visible_devices") != "" or any(not isinstance(safety.get(key), int) or isinstance(safety.get(key), bool) or safety.get(key) < 0 for key in ("validation_opens", "heldout_opens")):
+    if not isinstance(safety, dict) or set(safety) != safety_keys or safety.get("cuda_visible_devices") != "" or not isinstance(safety.get("torch_imported"), bool) or any(not isinstance(safety.get(key), int) or isinstance(safety.get(key), bool) or safety.get(key) < 0 for key in ("validation_opens", "heldout_opens")):
         raise MF0ContractError("MF0 failure safety schema differs")
+    firewall = safety.get("open_firewall")
+    if firewall is None:
+        if safety["validation_opens"] != 0 or safety["heldout_opens"] != 0:
+            raise MF0ContractError("MF0 failure firewall count closure differs")
+    else:
+        firewall_keys = {"denied_count", "validation_open_count", "heldout_open_count"}
+        if not isinstance(firewall, dict) or set(firewall) != firewall_keys or any(not isinstance(firewall.get(key), int) or isinstance(firewall.get(key), bool) or firewall[key] < 0 for key in firewall_keys):
+            raise MF0ContractError("MF0 failure firewall evidence differs")
+        if safety["validation_opens"] != firewall["validation_open_count"] or safety["heldout_opens"] != firewall["heldout_open_count"]:
+            raise MF0ContractError("MF0 failure firewall count closure differs")
     inventory = safety.get("object_inventory")
+    if safety["torch_imported"] is not (inventory is not None):
+        raise MF0ContractError("MF0 failure Torch/inventory closure differs")
+    inventory_model_or_tokenizer = False
+    census_infrastructure_evidence = False
     if inventory is not None:
-        if not isinstance(inventory, dict) or inventory.get("pretrained_model_objects") != 0 or inventory.get("tokenizer_objects") != 0 or inventory.get("optimizer_objects") != 0 or inventory.get("transformers_modeling_modules") != [] or inventory.get("uninspectable_count") != 0 or inventory.get("census_errors") != [] or inventory.get("cuda_initialized") is not False:
-            raise MF0ContractError("MF0 failure observed forbidden state")
+        inventory_keys = {"transformers_modeling_modules", "pretrained_model_objects", "tokenizer_objects", "optimizer_objects", "candidate_module_objects", "uninspectable_count", "census_errors", "cuda_initialized", "output_inventory", "object_census_method"}
+        count_keys = ("pretrained_model_objects", "tokenizer_objects", "optimizer_objects", "candidate_module_objects", "uninspectable_count")
+        if not isinstance(inventory, dict) or set(inventory) != inventory_keys or any(not isinstance(inventory.get(key), int) or isinstance(inventory.get(key), bool) or inventory[key] < 0 for key in count_keys) or not isinstance(inventory.get("transformers_modeling_modules"), list) or not all(isinstance(value, str) for value in inventory["transformers_modeling_modules"]) or not isinstance(inventory.get("census_errors"), list) or not isinstance(inventory.get("cuda_initialized"), bool) or inventory.get("output_inventory") != [] or inventory.get("object_census_method") != "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes":
+            raise MF0ContractError("MF0 failure object inventory schema differs")
+        if inventory["optimizer_objects"] != 0:
+            raise MF0ContractError("MF0 failure observed forbidden optimizer")
+        inventory_model_or_tokenizer = bool(inventory["pretrained_model_objects"] or inventory["tokenizer_objects"] or inventory["transformers_modeling_modules"])
+        census_infrastructure_evidence = bool(inventory["uninspectable_count"] or inventory["census_errors"])
+    if failure["model_or_tokenizer_loaded"] is not inventory_model_or_tokenizer:
+        raise MF0ContractError("MF0 failure model/tokenizer cross-field closure differs")
+    actual_forbidden_exposure = bool(
+        inventory is not None and (inventory["cuda_initialized"] is True or inventory_model_or_tokenizer)
+        or firewall is not None and (firewall["denied_count"] > 0 or firewall["validation_open_count"] > 0 or firewall["heldout_open_count"] > 0)
+    )
+    if failure["status"] == EXPOSURE_STATUS:
+        if failure["error_type"] != "ExposureBoundaryRejected" or not actual_forbidden_exposure:
+            raise MF0ContractError("MF0 failure exposure taxonomy differs")
+    elif actual_forbidden_exposure:
+        raise MF0ContractError("MF0 forbidden exposure has non-exposure status")
+    if census_infrastructure_evidence and failure["status"] != INFRASTRUCTURE_STATUS:
+        raise MF0ContractError("MF0 census error is not infrastructure-invalid")
     audit = failure["full_freeze_failure_audit"]
     audit_keys = {"head", "head_exact", "parent", "parent_exact", "status", "status_clean", "plan_file_sha256", "plan_file_exact", "plan_sha256", "plan_internal_exact", "asset_hashes", "assets_exact", "errors", "provenance_exact"}
     if not isinstance(audit, dict) or set(audit) != audit_keys:
@@ -1189,6 +1222,21 @@ def main() -> None:
         failure_torch = sys.modules.get("torch")
         failure_inventory = None if failure_torch is None else object_inventory(failure_torch, writer.output_dir)
         model_or_tokenizer_loaded = False if failure_inventory is None else bool(failure_inventory["pretrained_model_objects"] or failure_inventory["tokenizer_objects"] or failure_inventory["transformers_modeling_modules"])
+        firewall_evidence = None if firewall is None else {"denied_count": firewall.denied_count, "validation_open_count": firewall.validation_open_count, "heldout_open_count": firewall.heldout_open_count}
+        actual_forbidden_exposure = bool(
+            failure_inventory is not None and (failure_inventory["cuda_initialized"] is True or model_or_tokenizer_loaded)
+            or firewall_evidence is not None and (firewall_evidence["denied_count"] > 0 or firewall_evidence["validation_open_count"] > 0 or firewall_evidence["heldout_open_count"] > 0)
+        )
+        census_infrastructure_evidence = bool(failure_inventory is not None and (failure_inventory["uninspectable_count"] or failure_inventory["census_errors"]))
+        if census_infrastructure_evidence:
+            status = INFRASTRUCTURE_STATUS
+            error = InfrastructureInvalid("MF0 failure object census was incomplete")
+        elif actual_forbidden_exposure and status != EXPOSURE_STATUS:
+            status = EXPOSURE_STATUS
+            error = ExposureBoundaryRejected("MF0 forbidden exposure was observed during failure audit")
+        elif status == EXPOSURE_STATUS and not actual_forbidden_exposure:
+            status = INFRASTRUCTURE_STATUS
+            error = InfrastructureInvalid("MF0 exposure rejection lacked observable exposure evidence")
         failure: dict[str, Any] = {
             "schema_version": FAILURE_SCHEMA,
             "status": status,
@@ -1205,7 +1253,7 @@ def main() -> None:
             "final_terminal_publication": terminal,
             "prepublication_elapsed_ns": elapsed,
             "progress": {"memory_rows": 0 if ledger is None else len(ledger.rows), "last_memory_label": None if ledger is None or not ledger.rows else ledger.rows[-1]["label"]},
-            "actual_safety": {"cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), "torch_imported": failure_torch is not None, "object_inventory": failure_inventory, "network_guard": guard.evidence(), "open_firewall": None if firewall is None else {"denied_count": firewall.denied_count, "validation_open_count": firewall.validation_open_count, "heldout_open_count": firewall.heldout_open_count}, "validation_opens": 0 if firewall is None else firewall.validation_open_count, "heldout_opens": 0 if firewall is None else firewall.heldout_open_count},
+            "actual_safety": {"cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), "torch_imported": failure_torch is not None, "object_inventory": failure_inventory, "network_guard": guard.evidence(), "open_firewall": firewall_evidence, "validation_opens": 0 if firewall is None else firewall.validation_open_count, "heldout_opens": 0 if firewall is None else firewall.heldout_open_count},
             "partial_memory": {"labels": MEMORY_LABELS, "rows": [] if ledger is None else ledger.rows},
             "full_freeze_failure_audit": audit,
             "output_inventory_before_failure": sorted(path.name for path in writer.output_dir.iterdir()),
