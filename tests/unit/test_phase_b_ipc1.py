@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import importlib.util
 import json
@@ -277,3 +278,29 @@ def test_ipc1_plan_and_terminal_writers_reject_schema_or_global_terminal_tamper(
     with pytest.raises(FileExistsError, match="globally fresh"):
         runner._atomic_publish_bytes(output, "FAILURE.json", canonical_terminal_bytes({"terminal": "FAILURE"}))
     assert sorted(item.name for item in output.iterdir()) == ["SUCCESS.json"]
+
+
+def test_ipc1_exact_host_terminal_proof_closure_is_byte_bound() -> None:
+    proof = _repository() / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-terminal-proof-v1"
+    manifest = json.loads((proof / "MANIFEST.json").read_text())
+    success = manifest["successful_exact_host_proof"]
+    encoded = proof / success["proof_base64_path"]
+    assert hashlib.sha256(encoded.read_bytes()).hexdigest() == success["proof_base64_file_sha256"]
+    encoded_bytes = encoded.read_bytes()
+    assert encoded_bytes.endswith(b"\n") and not any(byte in b" \t\r\n" for byte in encoded_bytes[:-1])
+    decoded = base64.b64decode(encoded_bytes[:-1], validate=True)
+    assert hashlib.sha256(decoded).hexdigest() == success["decoded_proof_sha256"]
+    receipt = strict_json_loads(decoded)
+    assert receipt["execution_commit"] == manifest["proof_execution_commit"]
+    assert receipt["runner_sha256"] == manifest["runner_sha256"]
+    assert receipt["model_loaded"] is False
+    assert receipt["cuda_initialized"] is False
+    assert receipt["exact_host_repository"] is True
+    assert len(receipt["tamper_cases_rejected"]) == success["tamper_cases_rejected"]
+    for prefix in ("log", "exit_status"):
+        path = proof / success[f"{prefix}_path"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == success[f"{prefix}_sha256"]
+    failed = manifest["superseded_preexecution_command_failure"]
+    for prefix in ("log", "exit_status"):
+        path = proof / failed[f"{prefix}_path"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == failed[f"{prefix}_sha256"]
