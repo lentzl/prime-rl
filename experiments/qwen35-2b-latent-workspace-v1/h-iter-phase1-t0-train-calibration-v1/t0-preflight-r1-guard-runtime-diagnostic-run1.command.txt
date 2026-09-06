@@ -1,0 +1,9 @@
+ssh -i /Users/ilkkalehto/.ssh/primeintellect_ed25519 -o IdentitiesOnly=yes -o BatchMode=yes ubuntu@216.81.200.39 'cd /home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1 && env CUDA_VISIBLE_DEVICES="" PYTHONDONTWRITEBYTECODE=1 /home/ubuntu/rlm/prime-rl/.venv/bin/python3 - <<"PY"
+import hashlib,importlib.metadata,json,pathlib,sys
+plan=json.loads(pathlib.Path("experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-t0-train-calibration-v1/t0-preflight-r1-guard-proof-plan.json").read_text())
+runtime=plan["runtime"]
+def fsha(p): return hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest()
+shared=pathlib.Path(plan["remote_paths"]["shared_project"])
+observed={"python":".".join(map(str,sys.version_info[:3])),"sys_executable":str(pathlib.Path(sys.executable).resolve()),"sys_prefix":str(pathlib.Path(sys.prefix).resolve()),"torch":importlib.metadata.version("torch"),"transformers":importlib.metadata.version("transformers"),"tokenizers":importlib.metadata.version("tokenizers"),"flash_linear_attention":importlib.metadata.version("flash-linear-attention"),"shared_project_pyproject_sha256":fsha(shared/"pyproject.toml"),"shared_project_uv_lock_sha256":fsha(shared/"uv.lock"),"cuda_visible_devices":__import__("os").environ.get("CUDA_VISIBLE_DEVICES")}
+print(json.dumps({"expected":runtime,"observed":observed,"per_key_equal":{k:observed.get(k)==runtime.get(k) for k in sorted(set(runtime)|set(observed))},"sys_executable_lexical":sys.executable,"sys_executable_resolved":str(pathlib.Path(sys.executable).resolve()),"torch_in_sys_modules":"torch" in sys.modules,"transformers_in_sys_modules":"transformers" in sys.modules},sort_keys=True,separators=(",",":")))
+PY'
