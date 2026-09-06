@@ -44,6 +44,15 @@ def _runner_module():
     return module
 
 
+def _hygiene_module():
+    path = _repository() / "scripts/latent/prove_phase_b_ipc1_render_hygiene_v1.py"
+    spec = importlib.util.spec_from_file_location("phase_b_ipc1_hygiene_test_runtime", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
 def _pool(split: str) -> list[dict[str, str]]:
     rows_per_action = 24 if split == "train" else 12
     return [
@@ -230,6 +239,57 @@ def test_ipc1_render_proof_rebinds_nonascii_source_to_bank_canonical_hash_only()
     terminal_proof["source_row_sha256"] = inherited_hash
     with pytest.raises(PhaseBContractError, match="render proof differs"):
         runner._validate_render_proof_split("train", [terminal_proof], selection)
+
+
+def test_ipc1_render_hygiene_safety_and_phase_evidence_fail_closed() -> None:
+    hygiene = _hygiene_module()
+    safe = {
+        "observation_complete": True,
+        "observation_errors": [],
+        "CUDA_VISIBLE_DEVICES": "",
+        "cuda_initialized": False,
+        "model_modules_loaded": [],
+        "model_object_count": 0,
+        "optimizer_object_count": 0,
+        "model_forward_count": 0,
+        "backward_count": 0,
+        "optimizer_steps": 0,
+        "candidate_files": [],
+        "model_loaded": False,
+        "update": False,
+        "safe": True,
+    }
+    assert hygiene._validate_safety_observation(safe, require_safe=True) == safe
+    detected = deepcopy(safe)
+    detected.update({"model_object_count": 1, "model_loaded": True, "safe": False})
+    assert hygiene._validate_safety_observation(detected, require_safe=False) == detected
+    with pytest.raises(PhaseBContractError, match="not established"):
+        hygiene._validate_safety_observation(detected, require_safe=True)
+    unobservable = {key: None for key in safe}
+    unobservable.update(
+        {
+            "observation_complete": False,
+            "observation_errors": ["RuntimeError:observation failed"],
+            "safe": False,
+        }
+    )
+    assert hygiene._validate_safety_observation(unobservable, require_safe=False) == unobservable
+    unobservable["observation_errors"] = []
+    with pytest.raises(PhaseBContractError, match="fail-closed"):
+        hygiene._validate_safety_observation(unobservable, require_safe=False)
+
+    success = [
+        {"name": name, "limit_seconds": limit, "entered_elapsed_seconds": float(position)}
+        for position, (name, limit) in enumerate(
+            (("compute", 480), ("audit", 90), ("terminal_publication", 30))
+        )
+    ]
+    hygiene._validate_phase_breadcrumbs(success, success=True)
+    failure = [success[0], {"name": "failure_audit", "limit_seconds": 90, "entered_elapsed_seconds": 1.0}, success[2]]
+    hygiene._validate_phase_breadcrumbs(failure, success=False)
+    failure[-1]["limit_seconds"] = 31
+    with pytest.raises(PhaseBContractError, match="phase"):
+        hygiene._validate_phase_breadcrumbs(failure, success=False)
 
 
 def test_ipc1_candidate_ready_and_write_failure_boundaries_are_exact() -> None:

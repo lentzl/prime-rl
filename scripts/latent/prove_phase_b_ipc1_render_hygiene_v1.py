@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import gc
 import hashlib
+import importlib.metadata
 import math
 import os
+import platform
 import shutil
 import signal
 import subprocess
@@ -26,14 +29,23 @@ from prime_rl.phase_b_ipc1 import canonical_bank_sha256, canonical_terminal_byte
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-DEFAULT_PLAN = EXPERIMENT / "phase-b-ipc1-render-proof-hygiene-v1-plan.json"
-DEFAULT_FREEZE = EXPERIMENT / "phase-b-ipc1-render-proof-hygiene-v1.sha256"
+DEFAULT_PLAN = EXPERIMENT / "phase-b-ipc1-render-proof-hygiene-run2-plan.json"
+DEFAULT_FREEZE = EXPERIMENT / "phase-b-ipc1-render-proof-hygiene-run2.sha256"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
+EXPECTED_PROJECT = Path("/home/ubuntu/rlm/prime-rl")
 EXPECTED_PYTHONPATH = f"{WORKTREE}/src:{WORKTREE}/packages/prime-rl-configs/src"
 SUCCESS_STATUS = "ipc1_render_proof_hygiene_validated"
 INCOMPLETE_STATUS = "ipc1_render_proof_hygiene_incomplete"
 INFRASTRUCTURE_STATUS = "infrastructure_invalid"
 EXPECTED_FREEZE_TARGET_COUNT = 27
+PHASE_LIMITS = {"compute": 480, "audit": 90, "failure_audit": 90, "terminal_publication": 30}
+EXPECTED_RUNTIME = {
+    "python": "3.12.14",
+    "transformers": "5.6.2",
+    "tokenizers": "0.22.2",
+    "pyarrow": "24.0.0",
+    "torch": "2.11.0+cu128",
+}
 SPLITS = (("train", 48), ("validation", 24), ("heldout", 24))
 TAMPERS = (
     "unpatched_utf8_source_hash_train",
@@ -53,6 +65,10 @@ TAMPERS = (
 
 class HygieneInfrastructureError(RuntimeError):
     """Raised for a provenance, resource, or execution-environment failure."""
+
+
+class HygienePhaseTimeout(HygieneInfrastructureError):
+    """Raised when an internal proof phase exhausts its prospective budget."""
 
 
 def _args() -> argparse.Namespace:
@@ -102,6 +118,7 @@ def _load_plan(args: argparse.Namespace) -> dict[str, Any]:
             "expected_evidence",
             "resources",
             "execution_environment",
+            "runtime_provenance",
             "outputs",
             "boundaries",
         },
@@ -214,6 +231,24 @@ def _load_plan(args: argparse.Namespace) -> dict[str, Any]:
         {"UV_PROJECT_ENVIRONMENT", "PYTHONPATH", "CUDA_VISIBLE_DEVICES", "HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"},
         label="execution environment",
     )
+    runtime_provenance = _require_keys(
+        plan["runtime_provenance"],
+        {
+            "versions",
+            "python_executable",
+            "project_path",
+            "pyproject_path",
+            "pyproject_sha256",
+            "uv_lock_path",
+            "uv_lock_sha256",
+        },
+        label="runtime provenance",
+    )
+    _require_keys(
+        runtime_provenance["versions"],
+        {"python", "transformers", "tokenizers", "pyarrow", "torch"},
+        label="runtime versions",
+    )
     _require_keys(plan["outputs"], {"directory", "terminal", "candidate_files"}, label="outputs")
     _require_keys(
         plan["boundaries"],
@@ -293,9 +328,19 @@ def _load_plan(args: argparse.Namespace) -> dict[str, Any]:
         or not all(isinstance(value, str) and len(value) == 64 for value in metadata.values())
         or plan["outputs"]
         != {
-            "directory": "/home/ubuntu/rlm/outputs/q35-2b-ipc1-render-proof-hygiene-v1-run1",
+            "directory": "/home/ubuntu/rlm/outputs/q35-2b-ipc1-render-proof-hygiene-v1-run2",
             "terminal": "exclusive atomic canonical PROOF.json or FAILURE.json",
             "candidate_files": [],
+        }
+        or runtime_provenance
+        != {
+            "versions": EXPECTED_RUNTIME,
+            "python_executable": str(EXPECTED_ENV / "bin/python"),
+            "project_path": str(EXPECTED_PROJECT),
+            "pyproject_path": str(EXPECTED_PROJECT / "pyproject.toml"),
+            "pyproject_sha256": "504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656",
+            "uv_lock_path": str(EXPECTED_PROJECT / "uv.lock"),
+            "uv_lock_sha256": "fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5",
         }
         or args.output_dir != Path(plan["outputs"]["directory"])
     ):
@@ -486,6 +531,159 @@ def _resource_preflight(plan: dict[str, Any], output_dir: Path) -> dict[str, int
     return {"available_ram_bytes": available_ram, "free_disk_bytes": free_disk}
 
 
+def _observe_runtime_provenance(plan: dict[str, Any]) -> dict[str, Any]:
+    import pyarrow
+    import tokenizers
+    import torch
+    import transformers
+
+    frozen = plan["runtime_provenance"]
+    observed = {
+        "versions": {
+            "python": platform.python_version(),
+            "transformers": transformers.__version__,
+            "tokenizers": tokenizers.__version__,
+            "pyarrow": pyarrow.__version__,
+            "torch": torch.__version__,
+        },
+        "python_executable": str(Path(sys.executable).resolve()),
+        "project_path": str(EXPECTED_PROJECT),
+        "pyproject_path": frozen["pyproject_path"],
+        "pyproject_sha256": file_sha256(Path(frozen["pyproject_path"])),
+        "uv_lock_path": frozen["uv_lock_path"],
+        "uv_lock_sha256": file_sha256(Path(frozen["uv_lock_path"])),
+    }
+    distributions = {
+        "transformers": importlib.metadata.version("transformers"),
+        "tokenizers": importlib.metadata.version("tokenizers"),
+        "pyarrow": importlib.metadata.version("pyarrow"),
+        "torch": importlib.metadata.version("torch"),
+    }
+    return {**observed, "distribution_versions": distributions}
+
+
+def _runtime_provenance(plan: dict[str, Any]) -> dict[str, Any]:
+    observed = _observe_runtime_provenance(plan)
+    expected = {
+        **plan["runtime_provenance"],
+        "distribution_versions": {name: value for name, value in EXPECTED_RUNTIME.items() if name != "python"},
+    }
+    if observed != expected:
+        raise HygieneInfrastructureError("IPC render hygiene runtime provenance differs")
+    return observed
+
+
+def _phase_record(name: str, limit_seconds: int, *, started: float) -> dict[str, Any]:
+    return {
+        "name": name,
+        "limit_seconds": limit_seconds,
+        "entered_elapsed_seconds": time.time() - started,
+    }
+
+
+def _enter_phase(state: dict[str, Any], name: str, *, started: float) -> None:
+    limit = PHASE_LIMITS[name]
+    state["phase"] = name
+    state["breadcrumbs"].append(_phase_record(name, limit, started=started))
+    signal.alarm(limit)
+
+
+def _phase_timeout(state: dict[str, Any]) -> None:
+    raise HygienePhaseTimeout(f"IPC render hygiene {state['phase']} timeout")
+
+
+def _candidate_inventory(output_dir: Path) -> list[str]:
+    if not output_dir.exists():
+        return []
+    return sorted(
+        path.name
+        for path in output_dir.iterdir()
+        if path.name not in {"PROOF.json", "FAILURE.json"} and not path.name.startswith(".")
+    )
+
+
+def _observe_safety(output_dir: Path, counters: dict[str, int]) -> dict[str, Any]:
+    observation: dict[str, Any] = {
+        "observation_complete": False,
+        "observation_errors": [],
+        "CUDA_VISIBLE_DEVICES": os.environ.get("CUDA_VISIBLE_DEVICES"),
+        "cuda_initialized": None,
+        "model_modules_loaded": None,
+        "model_object_count": None,
+        "optimizer_object_count": None,
+        "model_forward_count": counters.get("model_forward_count"),
+        "backward_count": counters.get("backward_count"),
+        "optimizer_steps": counters.get("optimizer_steps"),
+        "candidate_files": None,
+        "model_loaded": None,
+        "update": None,
+        "safe": False,
+    }
+    try:
+        import torch
+        import transformers
+
+        model_modules = sorted(
+            name
+            for name in sys.modules
+            if name.startswith("transformers.models.qwen3_5.modeling")
+        )
+        model_objects = sum(
+            isinstance(value, transformers.PreTrainedModel) for value in gc.get_objects()
+        )
+        optimizer_objects = sum(isinstance(value, torch.optim.Optimizer) for value in gc.get_objects())
+        candidates = _candidate_inventory(output_dir)
+        observation.update(
+            {
+                "observation_complete": True,
+                "cuda_initialized": torch.cuda.is_initialized(),
+                "model_modules_loaded": model_modules,
+                "model_object_count": model_objects,
+                "optimizer_object_count": optimizer_objects,
+                "candidate_files": candidates,
+                "model_loaded": bool(model_modules or model_objects),
+                "update": bool(optimizer_objects or counters.get("optimizer_steps") or candidates),
+            }
+        )
+    except BaseException as error:
+        observation["observation_errors"] = [f"{type(error).__name__}:{error}"]
+    observation["safe"] = bool(
+        observation["observation_complete"]
+        and observation["CUDA_VISIBLE_DEVICES"] == ""
+        and observation["cuda_initialized"] is False
+        and observation["model_modules_loaded"] == []
+        and observation["model_object_count"] == 0
+        and observation["optimizer_object_count"] == 0
+        and observation["model_forward_count"] == 0
+        and observation["backward_count"] == 0
+        and observation["optimizer_steps"] == 0
+        and observation["candidate_files"] == []
+        and observation["model_loaded"] is False
+        and observation["update"] is False
+    )
+    return observation
+
+
+def _best_effort_post_freeze(
+    plan: dict[str, Any] | None, *, execution_commit: str
+) -> dict[str, Any]:
+    if plan is None:
+        return {"observed": None, "error": "plan_unavailable"}
+    try:
+        return {"observed": _full_freeze(plan, execution_commit=execution_commit), "error": None}
+    except BaseException as error:
+        return {"observed": None, "error": f"{type(error).__name__}:{error}"}
+
+
+def _best_effort_runtime_provenance(plan: dict[str, Any] | None) -> dict[str, Any]:
+    if plan is None:
+        return {"observed": None, "error": "plan_unavailable"}
+    try:
+        return {"observed": _observe_runtime_provenance(plan), "error": None}
+    except BaseException as error:
+        return {"observed": None, "error": f"{type(error).__name__}:{error}"}
+
+
 def _expect_rejected(runtime: Any, candidate: dict[str, Any], source_plan: dict[str, Any]) -> None:
     try:
         runtime._validate_render_proofs(candidate, plan=source_plan, heldout_open=True)
@@ -609,6 +807,82 @@ def _produce_evidence(plan: dict[str, Any]) -> tuple[dict[str, Any], dict[str, A
     )
 
 
+def _validate_safety_observation(value: Any, *, require_safe: bool) -> dict[str, Any]:
+    safety = _require_keys(
+        value,
+        {
+            "observation_complete",
+            "observation_errors",
+            "CUDA_VISIBLE_DEVICES",
+            "cuda_initialized",
+            "model_modules_loaded",
+            "model_object_count",
+            "optimizer_object_count",
+            "model_forward_count",
+            "backward_count",
+            "optimizer_steps",
+            "candidate_files",
+            "model_loaded",
+            "update",
+            "safe",
+        },
+        label="safety observation",
+    )
+    if safety["observation_complete"] is True:
+        derived_safe = bool(
+            safety["observation_errors"] == []
+            and safety["CUDA_VISIBLE_DEVICES"] == ""
+            and safety["cuda_initialized"] is False
+            and safety["model_modules_loaded"] == []
+            and safety["model_object_count"] == 0
+            and safety["optimizer_object_count"] == 0
+            and safety["model_forward_count"] == 0
+            and safety["backward_count"] == 0
+            and safety["optimizer_steps"] == 0
+            and safety["candidate_files"] == []
+            and safety["model_loaded"] is False
+            and safety["update"] is False
+        )
+        if safety["safe"] is not derived_safe:
+            raise PhaseBContractError("IPC render hygiene derived safety differs")
+    elif (
+        safety["observation_complete"] is not False
+        or not isinstance(safety["observation_errors"], list)
+        or not safety["observation_errors"]
+        or safety["safe"] is not False
+    ):
+        raise PhaseBContractError("IPC render hygiene incomplete safety is not fail-closed")
+    if require_safe and safety["safe"] is not True:
+        raise PhaseBContractError("IPC render hygiene safety is not established")
+    return safety
+
+
+def _validate_phase_breadcrumbs(value: Any, *, success: bool) -> list[dict[str, Any]]:
+    if not isinstance(value, list) or len(value) < 3:
+        raise PhaseBContractError("IPC render hygiene phase breadcrumbs differ")
+    names = [record.get("name") for record in value]
+    limits = [record.get("limit_seconds") for record in value]
+    if success:
+        if names != ["compute", "audit", "terminal_publication"] or limits != [480, 90, 30]:
+            raise PhaseBContractError("IPC render hygiene success phase order differs")
+    elif names[0] != "compute" or names[-2:] != ["failure_audit", "terminal_publication"] or limits[-2:] != [90, 30]:
+        raise PhaseBContractError("IPC render hygiene failure phase order differs")
+    for record in value:
+        _require_keys(record, {"name", "limit_seconds", "entered_elapsed_seconds"}, label="phase breadcrumb")
+        if (
+            record["name"] not in PHASE_LIMITS
+            or record["limit_seconds"] != PHASE_LIMITS[record["name"]]
+            or not isinstance(record["entered_elapsed_seconds"], (int, float))
+            or not math.isfinite(record["entered_elapsed_seconds"])
+            or record["entered_elapsed_seconds"] < 0
+        ):
+            raise PhaseBContractError("IPC render hygiene phase breadcrumb differs")
+    elapsed = [record["entered_elapsed_seconds"] for record in value]
+    if elapsed != sorted(elapsed):
+        raise PhaseBContractError("IPC render hygiene phase times are not monotonic")
+    return value
+
+
 def _validate_proof(receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str) -> None:
     _require_keys(
         receipt,
@@ -620,11 +894,13 @@ def _validate_proof(receipt: dict[str, Any], *, plan: dict[str, Any], execution_
             "execution_commit",
             "plan_sha256",
             "prior_failure",
+            "runtime_provenance",
             "evidence",
             "safety",
             "resources",
             "full_freeze_pre",
             "full_freeze_post",
+            "phase_breadcrumbs",
             "boundaries",
             "elapsed_seconds",
             "receipt_sha256",
@@ -682,20 +958,7 @@ def _validate_proof(receipt: dict[str, Any], *, plan: dict[str, Any], execution_
         },
         label="PROOF prior failure",
     )
-    _require_keys(
-        receipt["safety"],
-        {
-            "CUDA_VISIBLE_DEVICES",
-            "model_loaded",
-            "cuda_initialized",
-            "model_forward_count",
-            "backward_count",
-            "optimizer_steps",
-            "candidate_files",
-            "update",
-        },
-        label="PROOF safety",
-    )
+    _validate_safety_observation(receipt["safety"], require_safe=True)
     _require_keys(receipt["resources"], {"available_ram_bytes", "free_disk_bytes"}, label="PROOF resources")
     freeze_keys = {
         "execution_commit",
@@ -769,16 +1032,29 @@ def _validate_proof(receipt: dict[str, Any], *, plan: dict[str, Any], execution_
             "candidate_reuse": False,
             "rerun_authorized": False,
         }
+        or receipt["runtime_provenance"]
+        != {
+            **plan["runtime_provenance"],
+            "distribution_versions": {
+                name: value for name, value in EXPECTED_RUNTIME.items() if name != "python"
+            },
+        }
         or receipt["safety"]
         != {
+            "observation_complete": True,
+            "observation_errors": [],
             "CUDA_VISIBLE_DEVICES": "",
-            "model_loaded": False,
             "cuda_initialized": False,
+            "model_modules_loaded": [],
+            "model_object_count": 0,
+            "optimizer_object_count": 0,
             "model_forward_count": 0,
             "backward_count": 0,
             "optimizer_steps": 0,
             "candidate_files": [],
+            "model_loaded": False,
             "update": False,
+            "safe": True,
         }
         or receipt["full_freeze_pre"] != receipt["full_freeze_post"]
         or receipt["resources"]["available_ram_bytes"] < plan["resources"]["minimum_available_ram_bytes"]
@@ -803,9 +1079,73 @@ def _validate_proof(receipt: dict[str, Any], *, plan: dict[str, Any], execution_
             raise PhaseBContractError("IPC render hygiene heldout boundary differs")
     if receipt["boundaries"] != plan["boundaries"]:
         raise PhaseBContractError("IPC render hygiene boundaries differ")
+    _validate_phase_breadcrumbs(receipt["phase_breadcrumbs"], success=True)
 
 
-def _validate_failure(receipt: dict[str, Any], *, execution_commit: str, plan_sha256: str) -> None:
+def _validate_best_effort_freeze(value: Any, *, execution_commit: str, freeze_sha256: str) -> bool:
+    audit = _require_keys(value, {"observed", "error"}, label="post-failure freeze")
+    if audit["observed"] is None:
+        if not isinstance(audit["error"], str) or not audit["error"]:
+            raise PhaseBContractError("IPC render hygiene unobserved freeze is not fail-closed")
+        return False
+    if audit["error"] is not None:
+        raise PhaseBContractError("IPC render hygiene observed freeze has an error")
+    freeze = _require_keys(
+        audit["observed"],
+        {
+            "execution_commit",
+            "clean",
+            "target_count",
+            "targets",
+            "targets_canonical_sha256",
+            "sidecar_sha256",
+        },
+        label="post-failure freeze evidence",
+    )
+    if (
+        freeze["execution_commit"] != execution_commit
+        or freeze["clean"] is not True
+        or freeze["target_count"] != EXPECTED_FREEZE_TARGET_COUNT
+        or not isinstance(freeze["targets"], list)
+        or len(freeze["targets"]) != EXPECTED_FREEZE_TARGET_COUNT
+        or freeze["targets_canonical_sha256"] != canonical_bank_sha256(freeze["targets"])
+        or freeze["sidecar_sha256"] != freeze_sha256
+    ):
+        raise PhaseBContractError("IPC render hygiene post-failure freeze differs")
+    for position, target in enumerate(freeze["targets"]):
+        _require_keys(
+            target,
+            {"position", "path", "expected_sha256", "observed_sha256"},
+            label="post-failure freeze target",
+        )
+        if target["position"] != position or target["expected_sha256"] != target["observed_sha256"]:
+            raise PhaseBContractError("IPC render hygiene post-failure freeze target differs")
+    return True
+
+
+def _validate_runtime_audit(value: Any, *, plan: dict[str, Any] | None) -> bool:
+    audit = _require_keys(value, {"observed", "error"}, label="runtime provenance audit")
+    if audit["observed"] is None:
+        if not isinstance(audit["error"], str) or not audit["error"]:
+            raise PhaseBContractError("IPC render hygiene unobserved runtime is not fail-closed")
+        return False
+    if audit["error"] is not None or plan is None:
+        raise PhaseBContractError("IPC render hygiene runtime audit is inconsistent")
+    expected = {
+        **plan["runtime_provenance"],
+        "distribution_versions": {name: value for name, value in EXPECTED_RUNTIME.items() if name != "python"},
+    }
+    return audit["observed"] == expected
+
+
+def _validate_failure(
+    receipt: dict[str, Any],
+    *,
+    execution_commit: str,
+    plan_sha256: str,
+    freeze_sha256: str,
+    plan: dict[str, Any] | None,
+) -> None:
     _require_keys(
         receipt,
         {
@@ -817,10 +1157,11 @@ def _validate_failure(receipt: dict[str, Any], *, execution_commit: str, plan_sh
             "error",
             "execution_commit",
             "plan_sha256",
-            "candidate_files",
-            "model_loaded",
-            "cuda_initialized",
-            "update",
+            "failure_phase",
+            "phase_breadcrumbs",
+            "runtime_provenance_audit",
+            "safety",
+            "post_failure_freeze",
             "elapsed_seconds",
             "receipt_sha256",
         },
@@ -830,6 +1171,14 @@ def _validate_failure(receipt: dict[str, Any], *, execution_commit: str, plan_sh
     expected_class = (
         "infrastructure" if receipt["status"] == INFRASTRUCTURE_STATUS else "diagnostic_or_schema_incomplete"
     )
+    safety = _validate_safety_observation(receipt["safety"], require_safe=False)
+    freeze_observed = _validate_best_effort_freeze(
+        receipt["post_failure_freeze"],
+        execution_commit=execution_commit,
+        freeze_sha256=freeze_sha256,
+    )
+    runtime_observed = _validate_runtime_audit(receipt["runtime_provenance_audit"], plan=plan)
+    _validate_phase_breadcrumbs(receipt["phase_breadcrumbs"], success=False)
     if (
         receipt["schema_version"] != "q35-2b-ipc1-render-proof-hygiene-failure/v1"
         or receipt["terminal"] != "FAILURE"
@@ -837,10 +1186,15 @@ def _validate_failure(receipt: dict[str, Any], *, execution_commit: str, plan_sh
         or receipt["failure_class"] != expected_class
         or receipt["execution_commit"] != execution_commit
         or receipt["plan_sha256"] != plan_sha256
-        or receipt["candidate_files"] != []
-        or receipt["model_loaded"] is not False
-        or receipt["cuda_initialized"] is not False
-        or receipt["update"] is not False
+        or receipt["failure_phase"] not in PHASE_LIMITS
+        or (
+            receipt["status"] == INCOMPLETE_STATUS
+            and (safety["safe"] is not True or not freeze_observed or not runtime_observed)
+        )
+        or (
+            (safety["safe"] is not True or not freeze_observed or not runtime_observed)
+            and receipt["status"] != INFRASTRUCTURE_STATUS
+        )
         or receipt["receipt_sha256"] != hashlib.sha256(canonical_terminal_bytes(unhashed)).hexdigest()
         or not isinstance(receipt["elapsed_seconds"], (int, float))
         or not math.isfinite(receipt["elapsed_seconds"])
@@ -878,19 +1232,28 @@ def main() -> int:
     args = _args()
     started = time.time()
     plan: dict[str, Any] | None = None
+    state: dict[str, Any] = {"phase": "compute", "breadcrumbs": []}
+    counters = {"model_forward_count": 0, "backward_count": 0, "optimizer_steps": 0}
+    signal.signal(signal.SIGALRM, lambda _signum, _frame: _phase_timeout(state))
+    _enter_phase(state, "compute", started=started)
     try:
-        signal.signal(signal.SIGALRM, lambda _signum, _frame: (_ for _ in ()).throw(TimeoutError("compute timeout")))
-        signal.alarm(480)
         if os.environ.get("CUDA_VISIBLE_DEVICES") != "" or os.environ.get("HF_HUB_OFFLINE") != "1" or os.environ.get("TRANSFORMERS_OFFLINE") != "1":
             raise HygieneInfrastructureError("IPC render hygiene offline/CUDA environment differs")
         if Path(sys.prefix).resolve() != EXPECTED_ENV.resolve() or os.environ.get("PYTHONPATH") != EXPECTED_PYTHONPATH:
             raise HygieneInfrastructureError("IPC render hygiene Python environment differs")
         plan = _load_plan(args)
         resources = _resource_preflight(plan, args.output_dir)
+        runtime_provenance = _runtime_provenance(plan)
         prior = _validate_prior_failure(plan)
         pre = _full_freeze(plan, execution_commit=args.execution_commit)
         evidence, _model_state = _produce_evidence(plan)
         post = _full_freeze(plan, execution_commit=args.execution_commit)
+        safety = _observe_safety(args.output_dir, counters)
+        _validate_safety_observation(safety, require_safe=True)
+        _enter_phase(state, "audit", started=started)
+        if pre != post:
+            raise PhaseBContractError("IPC render hygiene pre/post freeze differs")
+        _enter_phase(state, "terminal_publication", started=started)
         receipt = {
             "schema_version": "q35-2b-ipc1-render-proof-hygiene-proof/v1",
             "terminal": "PROOF",
@@ -899,20 +1262,13 @@ def main() -> int:
             "execution_commit": args.execution_commit,
             "plan_sha256": plan["_file_sha256"],
             "prior_failure": prior,
+            "runtime_provenance": runtime_provenance,
             "evidence": evidence,
-            "safety": {
-                "CUDA_VISIBLE_DEVICES": "",
-                "model_loaded": False,
-                "cuda_initialized": False,
-                "model_forward_count": 0,
-                "backward_count": 0,
-                "optimizer_steps": 0,
-                "candidate_files": [],
-                "update": False,
-            },
+            "safety": safety,
             "resources": resources,
             "full_freeze_pre": pre,
             "full_freeze_post": post,
+            "phase_breadcrumbs": deepcopy(state["breadcrumbs"]),
             "boundaries": plan["boundaries"],
             "elapsed_seconds": time.time() - started,
         }
@@ -922,18 +1278,30 @@ def main() -> int:
             raise HygieneInfrastructureError("IPC render hygiene artifact cap exceeded")
         parsed = strict_json_loads(payload)
         _validate_proof(parsed, plan=plan, execution_commit=args.execution_commit)
-        signal.alarm(0)
         terminal = _publish(args.output_dir, "PROOF.json", payload)
         if terminal.read_bytes() != payload:
             raise RuntimeError("IPC render hygiene published bytes differ")
         _validate_proof(strict_json_loads(terminal.read_bytes()), plan=plan, execution_commit=args.execution_commit)
+        signal.alarm(0)
         return 0
     except BaseException as error:
-        signal.alarm(0)
+        failure_phase = state["phase"]
         if args.output_dir.exists() and any(args.output_dir.iterdir()):
+            signal.alarm(0)
             print(f"IPC render hygiene failed after terminal publication: {type(error).__name__}: {error}", file=sys.stderr)
             return 1
+        _enter_phase(state, "failure_audit", started=started)
+        runtime_audit = _best_effort_runtime_provenance(plan)
+        safety = _observe_safety(args.output_dir, counters)
+        post_failure_freeze = _best_effort_post_freeze(plan, execution_commit=args.execution_commit)
         status, failure_class = _failure_status(error)
+        if (
+            safety["safe"] is not True
+            or runtime_audit["observed"] is None
+            or post_failure_freeze["observed"] is None
+        ):
+            status, failure_class = INFRASTRUCTURE_STATUS, "infrastructure"
+        _enter_phase(state, "terminal_publication", started=started)
         failure = {
             "schema_version": "q35-2b-ipc1-render-proof-hygiene-failure/v1",
             "terminal": "FAILURE",
@@ -943,10 +1311,11 @@ def main() -> int:
             "error": str(error),
             "execution_commit": args.execution_commit,
             "plan_sha256": args.authorized_plan_sha256,
-            "candidate_files": [],
-            "model_loaded": False,
-            "cuda_initialized": False,
-            "update": False,
+            "failure_phase": failure_phase,
+            "phase_breadcrumbs": deepcopy(state["breadcrumbs"]),
+            "runtime_provenance_audit": runtime_audit,
+            "safety": safety,
+            "post_failure_freeze": post_failure_freeze,
             "elapsed_seconds": time.time() - started,
         }
         failure["receipt_sha256"] = hashlib.sha256(canonical_terminal_bytes(failure)).hexdigest()
@@ -954,7 +1323,11 @@ def main() -> int:
             payload = canonical_terminal_bytes(failure)
             parsed = strict_json_loads(payload)
             _validate_failure(
-                parsed, execution_commit=args.execution_commit, plan_sha256=args.authorized_plan_sha256
+                parsed,
+                execution_commit=args.execution_commit,
+                plan_sha256=args.authorized_plan_sha256,
+                freeze_sha256=args.authorized_freeze_sha256,
+                plan=plan,
             )
             terminal = _publish(args.output_dir, "FAILURE.json", payload)
             if terminal.read_bytes() != payload:
@@ -963,8 +1336,12 @@ def main() -> int:
                 strict_json_loads(terminal.read_bytes()),
                 execution_commit=args.execution_commit,
                 plan_sha256=args.authorized_plan_sha256,
+                freeze_sha256=args.authorized_freeze_sha256,
+                plan=plan,
             )
+            signal.alarm(0)
         except BaseException as publication_error:
+            signal.alarm(0)
             print(f"IPC render hygiene failure publication failed: {publication_error}", file=sys.stderr)
         print(f"IPC render hygiene failed: {type(error).__name__}: {error}", file=sys.stderr)
         return 1
