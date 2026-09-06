@@ -41,6 +41,18 @@ def frozen_validation_sources(repo:Path)->dict:
         "memory_schedule":strict_loads((phase/"t0-memory-schedule.json").read_bytes()),
     }
 
+def validate_static_exposure_source(source:str)->None:
+    tree=ast.parse(source)
+    forbidden_filenames={
+        "-".join(("validation","bank.json")),
+        "-".join(("heldout","bank.json")),
+    }
+    for node in ast.walk(tree):
+        if isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and node.func.attr in {"generate","save_pretrained"}:
+            raise RuntimeError("T0 static exposure guard differs")
+        if isinstance(node,ast.Constant) and isinstance(node.value,str) and any(name in node.value for name in forbidden_filenames):
+            raise RuntimeError("T0 static exposure guard differs")
+
 def preflight(repo:Path,execution_commit:str,plan_file_sha256:str)->dict:
     plan_path=repo/PLAN_REL
     if not plan_path.is_file() or plan_path.is_symlink() or file_sha(plan_path)!=plan_file_sha256: raise RuntimeError("T0 final plan unavailable or differs")
@@ -54,8 +66,8 @@ def preflight(repo:Path,execution_commit:str,plan_file_sha256:str)->dict:
     validate_archive_bytes(repo,MF0_BINDING,kind="MF0"); validate_archive_bytes(repo,CAP0_BINDING,kind="CAP0-R1")
     antecedent=strict_loads((repo/ARTIFACT_DIR/"t0-antecedent-evidence-manifest.json").read_bytes())
     if antecedent!=build_antecedent_manifest(): raise RuntimeError("T0 antecedent manifest differs")
-    source=(repo/"scripts/latent/run_h_iter_phase1_t0_v1.py").read_text(encoding="utf-8"); tree=ast.parse(source)
-    if any(isinstance(node,ast.Call) and isinstance(node.func,ast.Attribute) and node.func.attr in {"generate","save_pretrained"} for node in ast.walk(tree)) or "validation-bank.json" in source or "heldout-bank.json" in source: raise RuntimeError("T0 static exposure guard differs")
+    source=(repo/"scripts/latent/run_h_iter_phase1_t0_v1.py").read_text(encoding="utf-8")
+    validate_static_exposure_source(source)
     if Path(plan["remote_paths"]["t0_output"]).exists() or Path(plan["remote_paths"]["t0_output"]).is_symlink(): raise RuntimeError("T0 output namespace exists")
     if any(name in sys.modules for name in ("torch","transformers")): raise RuntimeError("T0 preflight imported modeling runtime")
     value={"schema_version":PREFLIGHT_SCHEMA,"status":"h_iter_phase1_t0_preflight_validated","mechanism":MECHANISM,"run_identity":RUN_ID,"execution_commit":execution_commit,"mechanism_code_commit":plan["mechanism_code_commit"],"tree_sha256":git(repo,"rev-parse","HEAD^{tree}"),"plan_file_sha256":plan_file_sha256,"plan_sha256":plan["plan_sha256"],"runtime":plan["runtime"],"asset_count":37,"assets_exact":True,"antecedents_exact":True,"static_contract_checks":True,"output_namespace_absent":not Path(plan["remote_paths"]["t0_output"]).exists(),"torch_imported":False,"tokenizer_loaded":False,"model_loaded":False,"scientific_exposure":False,"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES"),"preflight_sha256":""}

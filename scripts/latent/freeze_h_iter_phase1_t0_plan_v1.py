@@ -38,6 +38,48 @@ FINAL_ASSETS=[*PROOF_ASSETS,
 ]
 if len(FINAL_ASSETS)!=37 or len(set(FINAL_ASSETS))!=37: raise RuntimeError("T0 final asset set differs")
 
+GUARD_MECHANISM="q35-2b-h-iter-phase1-t0-preflight-r1-guard-v1"
+GUARD_RUN_ID="h-iter-phase1-t0-preflight-r1-guard-proof-run1"
+GUARD_PLAN_SCHEMA="prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-plan/v1"
+GUARD_DIR=T0_DIR
+FAILED_MANIFEST=f"{T0_DIR}/t0-preflight-run1-failed-evidence-manifest.json"
+FAILED_ASSETS=[
+ f"{T0_DIR}/t0-preflight-run1-failed.plan.json",
+ f"{T0_DIR}/t0-preflight-run1-failed.plan.sha256",
+ f"{T0_DIR}/t0-preflight-run1-failed.stdout",
+ f"{T0_DIR}/t0-preflight-run1-failed.stderr",
+ f"{T0_DIR}/t0-preflight-run1-failed.exit.txt",
+ FAILED_MANIFEST,
+]
+GUARD_CODE_ASSETS=[
+ "scripts/latent/run_h_iter_phase1_t0_preflight_r1_guard_proof_v1.py",
+ "scripts/latent/run_h_iter_phase1_t0_preflight_r1_guard_proof_v1.sh",
+ "tests/unit/latent/test_h_iter_phase1_t0_preflight_r1_guard_proof.py",
+]
+GUARD_PROOF_ASSETS=[*FINAL_ASSETS,*FAILED_ASSETS,*GUARD_CODE_ASSETS]
+if len(GUARD_PROOF_ASSETS)!=46 or len(set(GUARD_PROOF_ASSETS))!=46: raise RuntimeError("T0 guard proof asset set differs")
+
+FAILED_START_BINDING={
+ "failed_execution_commit":"67b21d2ccd7cc3189154f67a80fe8db6abd3ec7b",
+ "failed_mechanism_code_commit":"6d43c0175256f00c61bb08e26e61ff6112489911",
+ "failed_tree_sha256":"7670bd01e51c16f27d5eaea6fbd37826d862eecd",
+ "failed_plan_path":f"{T0_DIR}/t0-preflight-run1-failed.plan.json",
+ "failed_plan_file_sha256":"3a872893adc44e770fcf8dd7784ac348107cc36b6b52f560dfe8ea467920ff85",
+ "failed_plan_sha256":"8be654db553fc986cec36b6b6ca73516d18a6104fe9f86eb3e626a242352cf6a",
+ "failed_plan_sidecar_path":f"{T0_DIR}/t0-preflight-run1-failed.plan.sha256",
+ "failed_plan_sidecar_file_sha256":"024021a84f3f0caa15f31ea22668ab180eedcd86ed18c53b68c0c27f9cc0c87f",
+ "evidence_commit":"e9193e94e58a1297ab1fa31fbe465848459b1470", "archive_freeze_commit":"cc46d9b0ac21dc0121480a49d77da1e466f400d5",
+ "evidence_manifest_path":FAILED_MANIFEST,
+ "evidence_manifest_file_sha256":"4a8cf5d418a67c05e4b999beed417dd087846fbd01fbfee5e8410410b60a92b5",
+ "evidence_manifest_internal_sha256":"311d19834014c44f807777e9488a2cd9842a2cdc7b99c5456b7191c7ed6065e1",
+ "stdout_path":f"{T0_DIR}/t0-preflight-run1-failed.stdout","stdout_file_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","stdout_bytes":0,
+ "stderr_path":f"{T0_DIR}/t0-preflight-run1-failed.stderr","stderr_file_sha256":"a73f3021da405f37db6bc0c4c2aed0d0f365515fbd20364f10360d1f2104ee08","stderr_bytes":1244,
+ "exit_path":f"{T0_DIR}/t0-preflight-run1-failed.exit.txt","exit_file_sha256":"4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865","exit_bytes":2,
+ "classification":"infrastructure_invalid",
+}
+GUARD_CASE_NAMES=["production_source_pass","generate_call_rejected","save_pretrained_call_rejected","validation_bank_literal_rejected","heldout_bank_literal_rejected"]
+GUARD_DECISION_DESIGN={"claim":"preflight_guard_robustness_proof_design_only","independent_scientific_replicate":False,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_or_gpu_authorized":False,"scientific_exposure_authorized":False,"validation_or_heldout_opened":False,"training_authorized":False,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}
+
 def read_json(path:Path)->dict:
     return strict_loads(path.read_bytes())
 
@@ -104,8 +146,53 @@ def plan_value(repo:Path,commit:str,proof_input:bool=True)->dict:
     value["plan_sha256"]=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="plan_sha256"})); validate_plan(value,proof_input=proof_input,repo=None if proof_input else repo)
     return value
 
+def guard_plan_value(repo:Path,commit:str)->dict:
+    file_sha=lambda relative:hashlib.sha256((repo/relative).read_bytes()).hexdigest()
+    assets={path:file_sha(path) for path in sorted(GUARD_PROOF_ASSETS)}
+    value={
+      "schema_version":GUARD_PLAN_SCHEMA,"status":"h_iter_phase1_t0_preflight_r1_guard_proof_preregistered","mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,
+      "implementation_commit":commit,"mechanism_code_commit":commit,"plan_sha256":"","asset_sha256":assets,
+      "remote_paths":{"repo":"/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1","shared_project":"/home/ubuntu/rlm/prime-rl","shared_python":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","proof_output":"/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase1-t0-preflight-r1-guard-proof-run1","t0_output":OUTPUT_ROOT},
+      "runtime":{"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","torch":"2.11.0+cu128","transformers":"5.6.2","tokenizers":"0.22.2","flash_linear_attention":"0.5.2","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5","cuda_visible_devices":""},
+      "failed_start_binding":FAILED_START_BINDING,
+      "source_contract":{"baseline_execution_commit":"67b21d2ccd7cc3189154f67a80fe8db6abd3ec7b","baseline_mechanism_code_commit":"6d43c0175256f00c61bb08e26e61ff6112489911","baseline_runner_path":"scripts/latent/run_h_iter_phase1_t0_v1.py","baseline_runner_file_sha256":"d6f8fcfb153e81c6aaf5faa42caf1700abba25a0594108ea8db4837034ca6bee","repaired_runner_path":"scripts/latent/run_h_iter_phase1_t0_v1.py","repaired_runner_file_sha256":file_sha("scripts/latent/run_h_iter_phase1_t0_v1.py"),"allowed_change":"add top-level validate_static_exposure_source and replace old guard-if with helper call","ast_canonicalizer":{"dump":"ast.dump","annotate_fields":True,"include_attributes":False},"normalization_rule":"remove helper and normalize old guard-if or repaired helper call to Expr(Constant STATIC_EXPOSURE_GUARD)","forbidden_call_attributes":["generate","save_pretrained"],"forbidden_filenames":["validation-bank.json","heldout-bank.json"],"ordered_case_names":GUARD_CASE_NAMES},
+      "case_contract":{"ordered_case_names":GUARD_CASE_NAMES,"case_count":5,"production_pass_count":1,"mutation_reject_count":4,"required_qualifying_count":5},
+      "terminal_contract":{"proof_schema":"prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-proof/v1","failure_schema":"prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-failure/v1","success_status":"h_iter_phase1_t0_preflight_r1_guard_mechanism_validated","proof_filename":"T0-PREFLIGHT-R1-GUARD-PROOF.json","failure_filename":"T0-PREFLIGHT-R1-GUARD-FAILURE.json","atomic_exclusive":True,"reopen_validate":True,"dual_terminal_forbidden":True},
+      "resource_bounds":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":{"outer":720,"startup":60,"compute":300,"compute_alarm":299,"audit":120,"audit_alarm":119,"failure":90,"failure_alarm":89,"terminal":30,"terminal_alarm":29,"postexit":30,"reserve":90,"success_entry":480,"compute_failure_entry":450,"audit_failure_entry":570,"prior_terminal_failure_entry":600}},
+      "full_freeze":{"head_exact":True,"tree_exact":True,"clean_before_after":True,"assets_pre_post_exact":True,"failed_start_exact":True,"output_excluded":True},
+      "execution_authorization":{"guard_proof_eligible_after_independent_review":True,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_authorized":False,"gpu_authorized":False,"training_authorized":False},
+      "decision_boundary":GUARD_DECISION_DESIGN,
+    }
+    value["plan_sha256"]=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="plan_sha256"}))
+    validate_guard_plan(value,repo=repo)
+    return value
+
+def validate_guard_plan(value:dict,repo:Path|None=None)->None:
+    expected_keys={"schema_version","status","mechanism","run_identity","implementation_commit","mechanism_code_commit","plan_sha256","asset_sha256","remote_paths","runtime","failed_start_binding","source_contract","case_contract","terminal_contract","resource_bounds","full_freeze","execution_authorization","decision_boundary"}
+    if set(value)!=expected_keys or value["schema_version"]!=GUARD_PLAN_SCHEMA or value["status"]!="h_iter_phase1_t0_preflight_r1_guard_proof_preregistered" or value["mechanism"]!=GUARD_MECHANISM or value["run_identity"]!=GUARD_RUN_ID: raise RuntimeError("T0 guard plan identity differs")
+    if value["implementation_commit"]!=value["mechanism_code_commit"] or len(value["implementation_commit"])!=40: raise RuntimeError("T0 guard plan commit differs")
+    if value["plan_sha256"]!=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="plan_sha256"})): raise RuntimeError("T0 guard plan self hash differs")
+    if value["failed_start_binding"]!=FAILED_START_BINDING or value["case_contract"]!={"ordered_case_names":GUARD_CASE_NAMES,"case_count":5,"production_pass_count":1,"mutation_reject_count":4,"required_qualifying_count":5}: raise RuntimeError("T0 guard plan frozen contract differs")
+    if list(sorted(value["asset_sha256"]))!=sorted(GUARD_PROOF_ASSETS) or len(value["asset_sha256"])!=46: raise RuntimeError("T0 guard plan assets differ")
+    if value["execution_authorization"]!={"guard_proof_eligible_after_independent_review":True,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_authorized":False,"gpu_authorized":False,"training_authorized":False} or value["decision_boundary"]!=GUARD_DECISION_DESIGN: raise RuntimeError("T0 guard plan boundary differs")
+    remote={"repo":"/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1","shared_project":"/home/ubuntu/rlm/prime-rl","shared_python":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","proof_output":"/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase1-t0-preflight-r1-guard-proof-run1","t0_output":OUTPUT_ROOT}
+    runtime={"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","torch":"2.11.0+cu128","transformers":"5.6.2","tokenizers":"0.22.2","flash_linear_attention":"0.5.2","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5","cuda_visible_devices":""}
+    terminal={"proof_schema":"prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-proof/v1","failure_schema":"prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-failure/v1","success_status":"h_iter_phase1_t0_preflight_r1_guard_mechanism_validated","proof_filename":"T0-PREFLIGHT-R1-GUARD-PROOF.json","failure_filename":"T0-PREFLIGHT-R1-GUARD-FAILURE.json","atomic_exclusive":True,"reopen_validate":True,"dual_terminal_forbidden":True}
+    resources={"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":{"outer":720,"startup":60,"compute":300,"compute_alarm":299,"audit":120,"audit_alarm":119,"failure":90,"failure_alarm":89,"terminal":30,"terminal_alarm":29,"postexit":30,"reserve":90,"success_entry":480,"compute_failure_entry":450,"audit_failure_entry":570,"prior_terminal_failure_entry":600}}
+    freeze={"head_exact":True,"tree_exact":True,"clean_before_after":True,"assets_pre_post_exact":True,"failed_start_exact":True,"output_excluded":True}
+    source=value["source_contract"]
+    source_keys={"baseline_execution_commit","baseline_mechanism_code_commit","baseline_runner_path","baseline_runner_file_sha256","repaired_runner_path","repaired_runner_file_sha256","allowed_change","ast_canonicalizer","normalization_rule","forbidden_call_attributes","forbidden_filenames","ordered_case_names"}
+    if value["remote_paths"]!=remote or value["runtime"]!=runtime or value["terminal_contract"]!=terminal or value["resource_bounds"]!=resources or value["full_freeze"]!=freeze: raise RuntimeError("T0 guard plan nested contract differs")
+    if set(source)!=source_keys or source["baseline_execution_commit"]!="67b21d2ccd7cc3189154f67a80fe8db6abd3ec7b" or source["baseline_mechanism_code_commit"]!="6d43c0175256f00c61bb08e26e61ff6112489911" or source["baseline_runner_path"]!="scripts/latent/run_h_iter_phase1_t0_v1.py" or source["baseline_runner_file_sha256"]!="d6f8fcfb153e81c6aaf5faa42caf1700abba25a0594108ea8db4837034ca6bee" or source["repaired_runner_path"]!="scripts/latent/run_h_iter_phase1_t0_v1.py" or source["forbidden_call_attributes"]!=["generate","save_pretrained"] or source["forbidden_filenames"]!=["validation-bank.json","heldout-bank.json"] or source["ordered_case_names"]!=GUARD_CASE_NAMES: raise RuntimeError("T0 guard plan source contract differs")
+    if repo is not None:
+        actual={path:hashlib.sha256((repo/path).read_bytes()).hexdigest() for path in sorted(GUARD_PROOF_ASSETS)}
+        if actual!=value["asset_sha256"]: raise RuntimeError("T0 guard plan asset hashes differ")
+        if source["repaired_runner_file_sha256"]!=actual["scripts/latent/run_h_iter_phase1_t0_v1.py"]: raise RuntimeError("T0 guard repaired runner hash differs")
+        manifest=read_json(repo/FAILED_MANIFEST)
+        if manifest.get("manifest_sha256")!=FAILED_START_BINDING["evidence_manifest_internal_sha256"] or hashlib.sha256((repo/FAILED_MANIFEST).read_bytes()).hexdigest()!=FAILED_START_BINDING["evidence_manifest_file_sha256"]: raise RuntimeError("T0 guard failed start manifest differs")
+
 def main()->None:
-    parser=argparse.ArgumentParser(); parser.add_argument("--repo",type=Path,required=True); parser.add_argument("--materialize-only",action="store_true"); parser.add_argument("--final",action="store_true"); parser.add_argument("--mechanism-commit")
+    parser=argparse.ArgumentParser(); parser.add_argument("--repo",type=Path,required=True); parser.add_argument("--materialize-only",action="store_true"); parser.add_argument("--final",action="store_true"); parser.add_argument("--guard-proof",action="store_true"); parser.add_argument("--mechanism-commit")
     args=parser.parse_args(); repo=args.repo.resolve(strict=True)
     if args.materialize_only:
         materialize(repo); return
@@ -113,8 +200,9 @@ def main()->None:
     head=subprocess.check_output(["git","rev-parse","HEAD"],cwd=repo,text=True).strip()
     dirty=subprocess.check_output(["git","status","--porcelain","--untracked-files=all"],cwd=repo,text=True).strip()
     if head!=args.mechanism_commit or dirty: raise RuntimeError("T0 mechanism tree is not exact and clean")
-    value=plan_value(repo,args.mechanism_commit,proof_input=not args.final); encoded=canonical_json(value)+b"\n"
-    plan=repo/T0_DIR/("t0-plan.json" if args.final else "t0-model-free-proof-plan.json"); sidecar=repo/T0_DIR/("t0-plan.sha256" if args.final else "t0-model-free-proof-plan.sha256")
+    value=guard_plan_value(repo,args.mechanism_commit) if args.guard_proof else plan_value(repo,args.mechanism_commit,proof_input=not args.final); encoded=canonical_json(value)+b"\n"
+    if args.guard_proof: plan=repo/T0_DIR/"t0-preflight-r1-guard-proof-plan.json"; sidecar=repo/T0_DIR/"t0-preflight-r1-guard-proof-plan.sha256"
+    else: plan=repo/T0_DIR/("t0-plan.json" if args.final else "t0-model-free-proof-plan.json"); sidecar=repo/T0_DIR/("t0-plan.sha256" if args.final else "t0-model-free-proof-plan.sha256")
     write_atomic(plan,value); write_bytes_atomic(sidecar,(hashlib.sha256(encoded).hexdigest()+"\n").encode())
     print(hashlib.sha256(encoded).hexdigest()); print(value["plan_sha256"])
 
