@@ -201,7 +201,7 @@ def test_cache_entry_configuration_drift_is_honest_and_stage_bound() -> None:
     def rehash(item:dict)->None: item["failure_sha256"]=sha256_bytes(canonical_json({key:field for key,field in item.items() if key!="failure_sha256"}))
     rehash(value); validate_t0_failure(value,**validation)
     masked=copy.deepcopy(value); masked.update({"status":"h_iter_phase1_t0_incomplete","error_type":"T0ContractError"}); rehash(masked)
-    with pytest.raises(T0ContractError,match="positive capture rejection masked"): validate_t0_failure(masked,**validation)
+    with pytest.raises(T0ContractError,match="cause exclusivity"): validate_t0_failure(masked,**validation)
     spurious=copy.deepcopy(value); spurious["cache_guard"]["configuration_records"][0]["value_during"]=False; rehash(spurious)
     with pytest.raises(T0ContractError,match="cache entry drift evidence"): validate_t0_failure(spurious,**validation)
     premature_label=copy.deepcopy(value); drift_rows=base["memory"]["rows"][:7]; premature_label["memory"].update({"rows":drift_rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in drift_rows]))}); premature_label["counts"]["memory_rows"]=7; rehash(premature_label)
@@ -264,16 +264,26 @@ def test_mid_prefix_exit_drift_and_negative_control_no_trip() -> None:
     ]
     for returned in returned_variants:
         returned["cache_guard"]["returned_pkv_count"]=1; returned["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in returned.items() if key!="failure_sha256"})); validate_t0_failure(returned,**validation)
+    allocation=cache_failure("CACHE_ALLOCATION",0,1,0,2,9,0,False,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"); allocation["cache_guard"]["dynamic_cache_actual_trips"]=1; allocation["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in allocation.items() if key!="failure_sha256"})); validate_t0_failure(allocation,**validation)
     nonfinite=cache_failure("NONFINITE",1,2,2,4,11,2,False,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"); nonfinite["capture_evidence"]["rows"][-1]["finite"]=False; nonfinite["capture_evidence"]["counts"]["rows"]=1; nonfinite["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(nonfinite["capture_evidence"]["rows"])); nonfinite["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in nonfinite.items() if key!="failure_sha256"})); validate_t0_failure(nonfinite,**validation)
     pre_post_finite=cache_failure("PRE_POST_FINITE",1,2,2,4,11,2,False,"infrastructure_invalid","InfrastructureInvalid"); validate_t0_failure(pre_post_finite,**validation)
     post_ledger=cache_failure("POST_LEDGER_PRE_COUNTER",1,2,2,5,12,2,False,"infrastructure_invalid","InfrastructureInvalid"); validate_t0_failure(post_ledger,**validation)
+    causal_rejections=[]
+    actual_overcount=copy.deepcopy(allocation); actual_overcount["cache_guard"]["dynamic_cache_actual_trips"]=2; causal_rejections.append(actual_overcount)
+    returned_overcount=copy.deepcopy(returned_variants[0]); returned_overcount["cache_guard"]["returned_pkv_count"]=2; causal_rejections.append(returned_overcount)
+    combined=copy.deepcopy(nonfinite); combined["cache_guard"]["returned_pkv_count"]=1; causal_rejections.append(combined)
+    completed_false=copy.deepcopy(returned_variants[1]); completed_false["capture_evidence"]["rows"][0]["finite"]=False; completed_false["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(completed_false["capture_evidence"]["rows"])); causal_rejections.append(completed_false)
+    nonmechanism_cause=copy.deepcopy(pre_post_finite); nonmechanism_cause["cache_guard"]["returned_pkv_count"]=1; causal_rejections.append(nonmechanism_cause)
+    for malformed in causal_rejections:
+        malformed["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in malformed.items() if key!="failure_sha256"}))
+        with pytest.raises(T0ContractError): validate_t0_failure(malformed,**validation)
     for variant in variants[:3]:
         masked=copy.deepcopy(variant); masked.update({"status":"h_iter_phase1_t0_incomplete","error_type":"T0ContractError"}); masked["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in masked.items() if key!="failure_sha256"}))
-        with pytest.raises(T0ContractError,match="positive capture rejection masked"): validate_t0_failure(masked,**validation)
+        with pytest.raises(T0ContractError,match="cause exclusivity"): validate_t0_failure(masked,**validation)
         spurious=copy.deepcopy(variant); spurious["cache_guard"]["configuration_records"][0]["value_during"]=False; spurious["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in spurious.items() if key!="failure_sha256"}))
         with pytest.raises(T0ContractError,match="cache entry drift evidence"): validate_t0_failure(spurious,**validation)
     false_reject=copy.deepcopy(variants[3]); false_reject.update({"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"}); false_reject["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in false_reject.items() if key!="failure_sha256"}))
-    with pytest.raises(T0ContractError,match="rejection lacks positive evidence"): validate_t0_failure(false_reject,**validation)
+    with pytest.raises(T0ContractError,match="cause exclusivity"): validate_t0_failure(false_reject,**validation)
 
 def test_capture_failure_microstate_transition_table() -> None:
     legal=[(0,0,0,0,6),(0,0,0,1,6),(0,0,0,1,7),(0,0,0,1,8),(0,1,0,1,8),(0,1,0,1,9),(0,1,0,2,9),(0,1,1,2,9),(0,1,1,3,9),(0,1,1,3,10),(1,1,1,3,10),(95,96,95,191,198),(95,96,95,191,199),(95,96,95,192,199),(95,96,96,192,199),(95,96,96,193,199),(95,96,96,193,200),(96,96,96,193,200),(96,96,96,193,201),(96,96,96,194,201)]

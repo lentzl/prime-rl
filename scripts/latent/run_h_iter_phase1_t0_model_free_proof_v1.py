@@ -420,6 +420,11 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                 for bad in (masked,spurious,premature):
                     try: validate_t0_failure(bad,**validation); entry_drift_tampers=False
                     except T0ContractError: pass
+                allocation_overcount=copy.deepcopy(parsed); allocation_overcount["cache_guard"]["dynamic_cache_actual_trips"]=2; allocation_overcount["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in allocation_overcount.items() if k!="failure_sha256"}))
+                allocation_combined=copy.deepcopy(parsed); allocation_combined["cache_guard"]["returned_pkv_count"]=1; allocation_combined["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in allocation_combined.items() if k!="failure_sha256"}))
+                for bad in (allocation_overcount,allocation_combined):
+                    try: validate_t0_failure(bad,**validation); entry_drift_tampers=False
+                    except T0ContractError: pass
                 cache_variants=[
                     {"name":"PRE_DRIFT","captures":1,"tokenizers":2,"forwards":1,"checks":3,"memory":11,"evidence":1,"drift":True,"returned":0,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
                     {"name":"POST_DRIFT","captures":1,"tokenizers":2,"forwards":2,"checks":4,"memory":11,"evidence":2,"drift":True,"returned":0,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
@@ -453,6 +458,15 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                     else: variant_bad.update({"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected","audit_errors":[]})
                     variant_bad["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in variant_bad.items() if k!="failure_sha256"}))
                     try: validate_t0_failure(variant_bad,**validation); entry_drift_tampers=False
+                    except T0ContractError: pass
+                    causal_bad=copy.deepcopy(variant)
+                    if spec["status"]=="h_iter_phase1_t0_capture_mechanism_rejected":
+                        if drift: causal_bad["cache_guard"]["returned_pkv_count"]=1
+                        elif spec["returned"]: causal_bad["cache_guard"]["returned_pkv_count"]=2
+                        else: causal_bad["cache_guard"]["returned_pkv_count"]=1
+                    else: causal_bad["cache_guard"]["returned_pkv_count"]=1
+                    causal_bad["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in causal_bad.items() if k!="failure_sha256"}))
+                    try: validate_t0_failure(causal_bad,**validation); entry_drift_tampers=False
                     except T0ContractError: pass
                     if drift:
                         no_observation=copy.deepcopy(variant); no_observation["cache_guard"]["configuration_records"][0]["value_during"]=False; no_observation["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in no_observation.items() if k!="failure_sha256"}))

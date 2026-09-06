@@ -582,6 +582,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         capture_keys={"capture_index","row_id","row_sha256","receiver_input_sha256","node_count","token_count_min","token_count_max","input_ids_sha256","attention_mask_sha256","hidden_shape","hidden_dtype","hidden_sha256","finite"}
         for index,(row,source) in enumerate(zip(rows,capture_schedule["rows"])):
             if set(row)!=capture_keys or {key:row[key] for key in ("capture_index","row_id","row_sha256","receiver_input_sha256","node_count")}!=source or row["capture_index"]!=index or not 1<=row["token_count_min"]<=row["token_count_max"]<=128 or row["hidden_shape"]!=[24,2048] or row["hidden_dtype"]!="torch.bfloat16" or not all(digest_string(row[key]) for key in ("input_ids_sha256","attention_mask_sha256","hidden_sha256")) or not isinstance(row["finite"],bool): raise T0ContractError("T0 failure capture row differs")
+        if any(row["finite"] is not True for row in rows[:captures]): raise T0ContractError("T0 completed capture row is nonfinite")
     elif captures:
         raise T0ContractError("T0 failure capture evidence missing")
     operations=[*training_schedule["batches"]["preconnect"],*training_schedule["batches"]["precal"],*training_schedule["batches"]["train"],*training_schedule["batches"]["postcal"],*training_schedule["batches"]["postfit"]]
@@ -738,7 +739,15 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     elif cache_checks: raise T0ContractError("T0 failure cache evidence missing")
     safety_keys={"network_attempts","validation_opens","heldout_opens","h176_loads","generation_calls","e33_backwards","e33_optimizer_steps","e33_updates","live_trajectory_count","object_census_errors","object_census_uninspectable","forbidden_inputs_detected"}
     if not safety or set(safety)!=safety_keys or any(not isinstance(safety[key],int) or isinstance(safety[key],bool) or safety[key]<0 for key in safety_keys-{"forbidden_inputs_detected"}) or not isinstance(safety["forbidden_inputs_detected"],list) or any(not isinstance(item,str) or not item for item in safety["forbidden_inputs_detected"]): raise T0ContractError("T0 failure safety differs")
-    mechanism_positive=bool(cache.get("dynamic_cache_actual_trips",0)>0 or cache.get("returned_pkv_count",0)>0 or cache.get("configuration_drift_count",0)>0 or any(row.get("finite") is False for row in (value.get("capture_evidence") or {}).get("rows",[]) if isinstance(row,dict)))
+    capture_rows=(value.get("capture_evidence") or {}).get("rows",[])
+    nonfinite_causes=sum(row.get("finite") is False for row in capture_rows if isinstance(row,dict))
+    cause_values=(cache.get("dynamic_cache_actual_trips",0),cache.get("returned_pkv_count",0),cache.get("configuration_drift_count",0),nonfinite_causes)
+    if any(cause not in {0,1} for cause in cause_values): raise T0ContractError("T0 capture mechanism cause count differs")
+    if nonfinite_causes and not (len(capture_rows)==captures+1 and capture_rows[-1].get("finite") is False): raise T0ContractError("T0 nonfinite cause position differs")
+    mechanism_cause_count=sum(cause_values)
+    mechanism_status=value["status"]=="h_iter_phase1_t0_capture_mechanism_rejected"
+    if (mechanism_status and mechanism_cause_count!=1) or (not mechanism_status and mechanism_cause_count!=0): raise T0ContractError("T0 capture mechanism cause exclusivity differs")
+    mechanism_positive=mechanism_cause_count==1
     exposure_positive=bool(safety.get("validation_opens",0)>0 or safety.get("heldout_opens",0)>0 or safety.get("h176_loads",0)>0 or safety.get("generation_calls",0)>0 or safety.get("network_attempts",0)>0 or safety.get("e33_backwards",0)>0 or safety.get("e33_optimizer_steps",0)>0 or safety.get("e33_updates",0)>0 or safety.get("forbidden_inputs_detected") or protected.get("h176_loaded") is True or protected.get("e33_grads_none") is False or protected and protected.get("e33_state_after")!=protected.get("e33_state_before"))
     census_degraded=bool(safety.get("object_census_errors",0) or safety.get("object_census_uninspectable",0))
     if exposure_positive:
