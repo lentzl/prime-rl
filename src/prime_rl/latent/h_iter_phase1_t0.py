@@ -409,6 +409,10 @@ def validate_capture_failure_microstate(stage:str,captures:int,tokenizers:int,fo
     })
     if state not in legal_states: raise T0ContractError("T0 failure capture microstate differs")
 
+def capture_failure_evidence_row_count(rows:list[dict[str,Any]],captures:int,forwards:int)->int:
+    if len(rows)==captures+1 and forwards==captures+1 and rows[-1].get("finite") is True: return len(rows)
+    return captures
+
 def validate_t0_proof(value:dict[str,Any], *, partition:dict[str,Any]|None=None, capture_schedule:dict[str,Any]|None=None, training_schedule:dict[str,Any]|None=None, memory_schedule:dict[str,Any]|None=None, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
     if partition is None or capture_schedule is None or training_schedule is None or memory_schedule is None: raise T0ContractError("T0 proof frozen validation sources missing")
     _keys(value,T0_PROOF_KEYS,"T0 proof")
@@ -573,7 +577,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         _keys(capture,{"schedule_sha256","rows","counts","aggregate_sha256"},"T0 failure capture")
         rows=capture["rows"]
         inflight_row=isinstance(rows,list) and len(rows)==captures+1 and stage=="capture" and model_forwards==captures+1
-        evidence_row_count=len(rows) if inflight_row and rows[-1].get("finite") is True else captures
+        evidence_row_count=capture_failure_evidence_row_count(rows,captures,model_forwards)
         if stage_rank[stage]<stage_rank["capture"] or not isinstance(rows,list) or not rows or capture["schedule_sha256"]!=capture_schedule["schedule_sha256"] or len(rows)!=captures and not inflight_row or capture["counts"]!={"rows":evidence_row_count,"tokenizer_calls":tokenizers,"model_forwards":model_forwards,"sequences":24*tokenizers} or capture["aggregate_sha256"]!=sha256_bytes(canonical_json(rows)): raise T0ContractError("T0 failure capture evidence differs")
         capture_keys={"capture_index","row_id","row_sha256","receiver_input_sha256","node_count","token_count_min","token_count_max","input_ids_sha256","attention_mask_sha256","hidden_shape","hidden_dtype","hidden_sha256","finite"}
         for index,(row,source) in enumerate(zip(rows,capture_schedule["rows"])):

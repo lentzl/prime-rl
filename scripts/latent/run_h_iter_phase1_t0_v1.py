@@ -399,7 +399,9 @@ def publish_failure(repo:Path,execution_commit:str,plan_file_sha256:str,error:Ba
     capture_evidence=FAILURE_EVIDENCE["capture_evidence"]
     if isinstance(capture_evidence,dict):
         capture_evidence=dict(capture_evidence)
-        capture_evidence["counts"]={"rows":PROGRESS["capture_rows_completed"],"tokenizer_calls":PROGRESS["tokenizer_calls_completed"],"model_forwards":PROGRESS["model_forwards_completed"],"sequences":PROGRESS["sequences_completed"]}
+        evidence_rows=capture_evidence.get("rows",[]); completed_rows=PROGRESS["capture_rows_completed"]
+        persisted_rows=capture_failure_evidence_row_count(evidence_rows,completed_rows,PROGRESS["model_forwards_completed"])
+        capture_evidence["counts"]={"rows":persisted_rows,"tokenizer_calls":PROGRESS["tokenizer_calls_completed"],"model_forwards":PROGRESS["model_forwards_completed"],"sequences":PROGRESS["sequences_completed"]}
     memory=FAILURE_EVIDENCE["memory"]; metric=FAILURE_EVIDENCE["metric_evidence"]; tamper=FAILURE_EVIDENCE["tamper_audit"]; safety=FAILURE_EVIDENCE["safety"]
     metric_rows=metric.get("row_records",[]) if isinstance(metric,dict) else []
     stage_rank={name:index for index,name in enumerate(["startup_pre_model","model_load","capture","model_release","candidate_init","preconnect","precal","train","postcal","postfit","gate_evaluation","candidate_write","postflight_audit","terminal_publication"])}

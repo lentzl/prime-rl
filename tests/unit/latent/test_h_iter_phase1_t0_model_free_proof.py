@@ -11,7 +11,7 @@ from prime_rl.latent.h_iter_phase1_t0 import (
     MODEL_FREE_PROOF_KEYS, PROOF_MEMORY_LABELS, PROOF_RUN_ID,
     SYNTHETIC_SEED, SYNTHETIC_SHA256, T0ContractError,
     T0_COMPLETE_COUNTS, T0_FAILURE_MEMORY_BOUNDS,
-    build_tamper_schedule, canonical_json, sha256_bytes,
+    build_tamper_schedule, canonical_json, capture_failure_evidence_row_count, sha256_bytes,
     validate_capture_failure_microstate, validate_failure_memory_stage, validate_model_free_failure, validate_t0_failure, validate_t0_proof,
     FAILURE_SCHEMA,
 )
@@ -281,6 +281,9 @@ def test_capture_failure_microstate_transition_table() -> None:
     illegal=[(0,0,0,2,9),(0,1,0,3,9),(0,1,0,2,8),(0,1,1,1,9),(0,1,1,2,10),(0,1,1,3,11),(1,1,1,3,9),(96,96,96,194,200)]
     for state in illegal:
         with pytest.raises(T0ContractError,match="capture microstate"): validate_capture_failure_microstate("capture",*state)
+    assert capture_failure_evidence_row_count([{"finite":True}],0,1)==1
+    assert capture_failure_evidence_row_count([{"finite":False}],0,1)==0
+    assert capture_failure_evidence_row_count([{"finite":True}],1,2)==1
 
 def test_postflight_failure_requires_freeze_tamper_and_decision_evidence() -> None:
     pytest.importorskip("torch")
