@@ -1583,7 +1583,10 @@ def validate_proof(
         "heldout_scientific_opened",
         "transformers_modeling_modules",
         "pretrained_model_objects",
+        "tokenizer_objects",
         "optimizer_objects",
+        "output_inventory_before_terminal",
+        "static_forbidden_model_call_sites",
         "tokenizer_calls",
         "model_forwards",
         "model_backwards",
@@ -1604,7 +1607,14 @@ def validate_proof(
     )
     if any(safety.get(key) is not False for key in expected_false):
         raise ContractError("Phase-0 safety boundary changed")
-    if safety.get("transformers_modeling_modules") != [] or safety.get("pretrained_model_objects") != 0 or safety.get("optimizer_objects") != 0:
+    if (
+        safety.get("transformers_modeling_modules") != []
+        or safety.get("pretrained_model_objects") != 0
+        or safety.get("tokenizer_objects") != 0
+        or safety.get("optimizer_objects") != 0
+        or safety.get("output_inventory_before_terminal") != []
+        or safety.get("static_forbidden_model_call_sites") != []
+    ):
         raise ContractError("model/optimizer object appeared in Phase-0")
     if {
         key: safety.get(key)
@@ -1638,7 +1648,8 @@ def validate_proof(
     if set(resources) != {
         "bounds",
         "host_ram_bytes",
-        "free_disk_bytes",
+        "free_disk_bytes_preflight",
+        "free_disk_bytes_postflight",
         "artifact_bytes_before_terminal",
         "compute_seconds",
         "audit_seconds",
@@ -1649,8 +1660,9 @@ def validate_proof(
         raise ContractError("Phase-0 resource evidence bounds differ")
     if not isinstance(resources.get("host_ram_bytes"), int) or resources["host_ram_bytes"] < 8 * 2**30:
         raise ContractError("Phase-0 host RAM evidence differs")
-    if not isinstance(resources.get("free_disk_bytes"), int) or resources["free_disk_bytes"] < 8 * 2**30:
-        raise ContractError("Phase-0 free-disk evidence differs")
+    for key in ("free_disk_bytes_preflight", "free_disk_bytes_postflight"):
+        if not isinstance(resources.get(key), int) or resources[key] < 8 * 2**30:
+            raise ContractError("Phase-0 free-disk evidence differs")
     for name in ("compute_seconds", "audit_seconds", "total_seconds"):
         if not finite_float(resources.get(name)) or resources[name] < 0:
             raise ContractError("Phase-0 timing evidence differs")
@@ -1678,3 +1690,90 @@ def validate_proof(
         raise ContractError("Phase-0 full-freeze evidence is incomplete")
     if proof["proof_sha256"] != canonical_sha256(proof, omit="proof_sha256"):
         raise ContractError("Phase-0 proof self hash differs")
+
+
+def validate_failure(failure: dict[str, Any]) -> None:
+    if set(failure) != {
+        "schema_version",
+        "status",
+        "mechanism",
+        "run_identity",
+        "error_type",
+        "error",
+        "traceback",
+        "execution_commit",
+        "actual_safety",
+        "elapsed_seconds",
+        "partial_memory",
+        "full_freeze_failure_audit",
+        "output_inventory_before_failure",
+        "candidate_created",
+        "checkpoint_created",
+        "model_updated",
+        "failure_sha256",
+    }:
+        raise ContractError("Phase-0 failure fields differ")
+    validate_no_threshold_fields(failure)
+    if failure["schema_version"] != FAILURE_SCHEMA or failure["status"] not in {
+        "h_iter_phase0_generator_locality_incomplete",
+        "infrastructure_invalid",
+    }:
+        raise ContractError("Phase-0 failure schema/status differs")
+    if failure["mechanism"] != MECHANISM or failure["run_identity"] != RUN_IDENTITY:
+        raise ContractError("Phase-0 failure identity differs")
+    if not re.fullmatch(r"[0-9a-f]{40}", failure["execution_commit"]):
+        raise ContractError("Phase-0 failure execution commit is malformed")
+    if not isinstance(failure["error_type"], str) or not failure["error_type"]:
+        raise ContractError("Phase-0 failure error type is absent")
+    if not isinstance(failure["error"], str) or not isinstance(failure["traceback"], str):
+        raise ContractError("Phase-0 failure error/traceback differs")
+    if not finite_float(failure["elapsed_seconds"]) or failure["elapsed_seconds"] < 0:
+        raise ContractError("Phase-0 failure elapsed time differs")
+    safety = failure["actual_safety"]
+    required_safety = {
+        "cuda_visible_devices",
+        "torch_imported",
+        "cuda_initialized",
+        "transformers_modeling_modules",
+        "pretrained_model_objects",
+        "tokenizer_objects",
+        "optimizer_objects",
+        "output_inventory",
+        "candidate_files",
+        "checkpoint_files",
+        "static_forbidden_model_call_sites",
+        "observation_complete",
+    }
+    if set(safety) != required_safety or safety["observation_complete"] is not True:
+        raise ContractError("Phase-0 failure safety observation is incomplete")
+    unsafe = (
+        safety["cuda_visible_devices"] != ""
+        or safety["cuda_initialized"] is not False
+        or safety["transformers_modeling_modules"] != []
+        or safety["pretrained_model_objects"] != 0
+        or safety["tokenizer_objects"] != 0
+        or safety["optimizer_objects"] != 0
+        or safety["candidate_files"] != []
+        or safety["checkpoint_files"] != []
+        or safety["static_forbidden_model_call_sites"] != []
+    )
+    if unsafe and failure["status"] != "infrastructure_invalid":
+        raise ContractError("unsafe Phase-0 failure is not infrastructure-invalid")
+    if failure["candidate_created"] != bool(safety["candidate_files"]):
+        raise ContractError("Phase-0 failure candidate observation differs")
+    if failure["checkpoint_created"] != bool(safety["checkpoint_files"]):
+        raise ContractError("Phase-0 failure checkpoint observation differs")
+    if failure["model_updated"] != (safety["pretrained_model_objects"] != 0):
+        raise ContractError("Phase-0 failure model-update observation differs")
+    if failure["output_inventory_before_failure"] != safety["output_inventory"]:
+        raise ContractError("Phase-0 failure output inventory differs")
+    partial = failure["partial_memory"]
+    if set(partial) != {"expected_labels", "rows"} or partial["expected_labels"] != memory_labels():
+        raise ContractError("Phase-0 failure memory schema differs")
+    if [row.get("label") for row in partial["rows"]] != memory_labels()[: len(partial["rows"])]:
+        raise ContractError("Phase-0 failure memory prefix differs")
+    audit = failure["full_freeze_failure_audit"]
+    if not isinstance(audit, dict) or not isinstance(audit.get("errors"), list):
+        raise ContractError("Phase-0 failure freeze audit differs")
+    if failure["failure_sha256"] != canonical_sha256(failure, omit="failure_sha256"):
+        raise ContractError("Phase-0 failure self hash differs")

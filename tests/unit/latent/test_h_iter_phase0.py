@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import importlib.util
 import subprocess
 from pathlib import Path
 
@@ -168,3 +169,77 @@ def test_tamper_schedule_and_memory_labels_are_stable() -> None:
     assert [row["name"] for row in tamper["receipt_tampers"]] == hiter.RECEIPT_TAMPERS
     labels = hiter.memory_labels()
     assert len(labels) == len(set(labels)) == 26
+
+
+def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
+    failure = {
+        "schema_version": hiter.FAILURE_SCHEMA,
+        "status": "h_iter_phase0_generator_locality_incomplete",
+        "mechanism": hiter.MECHANISM,
+        "run_identity": hiter.RUN_IDENTITY,
+        "error_type": "ContractError",
+        "error": "synthetic",
+        "traceback": "synthetic traceback",
+        "execution_commit": "1" * 40,
+        "actual_safety": {
+            "cuda_visible_devices": "",
+            "torch_imported": True,
+            "cuda_initialized": False,
+            "transformers_modeling_modules": [],
+            "pretrained_model_objects": 0,
+            "tokenizer_objects": 0,
+            "optimizer_objects": 0,
+            "output_inventory": [],
+            "candidate_files": [],
+            "checkpoint_files": [],
+            "static_forbidden_model_call_sites": [],
+            "observation_complete": True,
+        },
+        "elapsed_seconds": 0.25,
+        "partial_memory": {"expected_labels": hiter.memory_labels(), "rows": []},
+        "full_freeze_failure_audit": {"errors": []},
+        "output_inventory_before_failure": [],
+        "candidate_created": False,
+        "checkpoint_created": False,
+        "model_updated": False,
+        "failure_sha256": "",
+    }
+    failure["failure_sha256"] = hiter.canonical_sha256(failure, omit="failure_sha256")
+    hiter.validate_failure(failure)
+    stale = json_roundtrip(failure)
+    stale["error"] = "tampered"
+    with pytest.raises(hiter.ContractError, match="self hash"):
+        hiter.validate_failure(stale)
+    unsafe = json_roundtrip(failure)
+    unsafe["actual_safety"]["cuda_initialized"] = True
+    unsafe["failure_sha256"] = hiter.canonical_sha256(unsafe, omit="failure_sha256")
+    with pytest.raises(hiter.ContractError, match="infrastructure"):
+        hiter.validate_failure(unsafe)
+
+
+def json_roundtrip(value: object):
+    return hiter.strict_json_loads(hiter.canonical_json(value))
+
+
+def test_atomic_writer_refuses_nonempty_or_second_terminal(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner_path = ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py"
+    spec = importlib.util.spec_from_file_location("hiter_phase0_runner_test", runner_path)
+    assert spec is not None and spec.loader is not None
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+    output = tmp_path / hiter.RUN_IDENTITY
+    monkeypatch.setitem(runner.RESOURCE_BOUNDS, "output_root", str(output))
+    writer = runner.ArtifactWriter(output)
+    reopened = writer.write("PROOF.json", {"x": 1}, 1024)
+    assert reopened == b'{"x":1}\n'
+    with pytest.raises(runner.InfrastructureInvalid, match="exclusive"):
+        writer.write("FAILURE.json", {"x": 2}, 1024)
+
+    second = tmp_path / "second"
+    monkeypatch.setitem(runner.RESOURCE_BOUNDS, "output_root", str(second))
+    second_writer = runner.ArtifactWriter(second)
+    (second / "intruder").write_text("x")
+    with pytest.raises(runner.InfrastructureInvalid, match="not empty"):
+        second_writer.write("FAILURE.json", {"x": 2}, 1024)

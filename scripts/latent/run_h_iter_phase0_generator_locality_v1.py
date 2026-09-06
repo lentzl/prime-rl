@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import ast
 import contextlib
 import copy
 import gc
@@ -43,6 +44,7 @@ from prime_rl.latent.h_iter_phase0 import (
     sha256_bytes,
     strict_json_loads,
     validate_banks,
+    validate_failure,
     validate_locality_evidence,
     validate_plan,
     validate_probe_selection,
@@ -70,6 +72,8 @@ class ArtifactWriter:
     def write(self, name: str, payload: dict[str, object], maximum_bytes: int) -> bytes:
         if self.terminal_written or name not in {"PROOF.json", "FAILURE.json"}:
             raise InfrastructureInvalid("Phase-0 terminal is not exclusive")
+        if list(self.output_dir.iterdir()):
+            raise InfrastructureInvalid("Phase-0 output namespace is not empty before terminal publication")
         encoded = canonical_json(payload) + b"\n"
         if len(encoded) > maximum_bytes:
             raise InfrastructureInvalid("Phase-0 terminal exceeds artifact bound")
@@ -95,12 +99,12 @@ class ArtifactWriter:
         finally:
             os.close(descriptor)
         os.replace(temporary, target)
+        self.terminal_written = True
         descriptor = os.open(self.output_dir, os.O_RDONLY | os.O_DIRECTORY)
         try:
             os.fsync(descriptor)
         finally:
             os.close(descriptor)
-        self.terminal_written = True
         reopened = target.read_bytes()
         if reopened != encoded:
             raise InfrastructureInvalid("Phase-0 terminal changed after atomic publication")
@@ -214,27 +218,92 @@ def runtime_evidence() -> tuple[dict[str, object], object]:
     return evidence, torch
 
 
-def safety_evidence(torch: object) -> dict[str, object]:
+def static_forbidden_sites(repo: Path) -> list[str]:
+    forbidden = []
+    allowed_backward = (repo / "src/prime_rl/latent/h_iter_phase0.py", "run_locality_probe")
+    for path in (
+        repo / "src/prime_rl/latent/h_iter_phase0.py",
+        repo / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py",
+    ):
+        tree = ast.parse(path.read_text())
+        parents: list[str] = []
+
+        class Visitor(ast.NodeVisitor):
+            def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+                parents.append(node.name)
+                self.generic_visit(node)
+                parents.pop()
+
+            def visit_Import(self, node: ast.Import) -> None:
+                for alias in node.names:
+                    if alias.name.startswith("transformers.models") or ".modeling_" in alias.name:
+                        forbidden.append(f"{path}:{node.lineno}:import:{alias.name}")
+
+            def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+                module = node.module or ""
+                if module.startswith("transformers.models") or ".modeling_" in module:
+                    forbidden.append(f"{path}:{node.lineno}:import:{module}")
+
+            def visit_Call(self, node: ast.Call) -> None:
+                name = node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id if isinstance(node.func, ast.Name) else ""
+                if name in {"generate", "from_pretrained", "step"}:
+                    forbidden.append(f"{path}:{node.lineno}:call:{name}")
+                if name == "backward" and (path, parents[-1] if parents else "") != allowed_backward:
+                    forbidden.append(f"{path}:{node.lineno}:call:backward")
+                self.generic_visit(node)
+
+        Visitor().visit(tree)
+    return forbidden
+
+
+def object_inventory(torch: object, output_dir: Path) -> dict[str, object]:
     modeling = sorted(name for name in sys.modules if name.startswith("transformers.models") or ".modeling_" in name)
-    optimizer_type = torch.optim.Optimizer
     optimizer_objects = 0
+    pretrained_model_objects = 0
+    tokenizer_objects = 0
     for value in gc.get_objects():
         with contextlib.suppress(ReferenceError):
-            if isinstance(value, optimizer_type):
+            value_type = type(value)
+            mro = value_type.__mro__
+            if any(base.__name__ == "Optimizer" and base.__module__.startswith("torch.optim") for base in mro):
                 optimizer_objects += 1
+            if any(base.__name__ == "PreTrainedModel" and base.__module__.startswith("transformers") for base in mro):
+                pretrained_model_objects += 1
+            if value_type.__module__.startswith("transformers.tokenization"):
+                tokenizer_objects += 1
+    inventory = sorted(path.name for path in output_dir.iterdir())
+    candidates = [name for name in inventory if "candidate" in name.lower()]
+    checkpoints = [name for name in inventory if "checkpoint" in name.lower()]
     return {
-        "coordinator_e33_loaded": False,
-        "worker_h176_loaded": False,
-        "tokenizer_loaded": False,
-        "candidate_created": False,
-        "checkpoint_created": False,
-        "model_updated": False,
+        "transformers_modeling_modules": modeling,
+        "pretrained_model_objects": pretrained_model_objects,
+        "tokenizer_objects": tokenizer_objects,
+        "optimizer_objects": optimizer_objects,
+        "output_inventory": inventory,
+        "candidate_files": candidates,
+        "checkpoint_files": checkpoints,
+        "cuda_initialized": torch.cuda.is_initialized(),
+    }
+
+
+def safety_evidence(torch: object, repo: Path, output_dir: Path) -> dict[str, object]:
+    observed = object_inventory(torch, output_dir)
+    return {
+        "coordinator_e33_loaded": observed["pretrained_model_objects"] != 0,
+        "worker_h176_loaded": observed["pretrained_model_objects"] != 0,
+        "tokenizer_loaded": observed["tokenizer_objects"] != 0,
+        "candidate_created": bool(observed["candidate_files"]),
+        "checkpoint_created": bool(observed["checkpoint_files"]),
+        "model_updated": observed["pretrained_model_objects"] != 0,
         "network_enabled": False,
         "validation_scientific_opened": False,
         "heldout_scientific_opened": False,
-        "transformers_modeling_modules": modeling,
-        "pretrained_model_objects": 0,
-        "optimizer_objects": optimizer_objects,
+        "transformers_modeling_modules": observed["transformers_modeling_modules"],
+        "pretrained_model_objects": observed["pretrained_model_objects"],
+        "tokenizer_objects": observed["tokenizer_objects"],
+        "optimizer_objects": observed["optimizer_objects"],
+        "output_inventory_before_terminal": observed["output_inventory"],
+        "static_forbidden_model_call_sites": static_forbidden_sites(repo),
         "tokenizer_calls": 0,
         "model_forwards": 0,
         "model_backwards": 0,
@@ -353,6 +422,7 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
     if sidecar.read_text() != f"{args.plan_file_sha256}\n":
         raise InfrastructureInvalid("Phase-0 plan sidecar differs")
     runtime, torch = runtime_evidence()
+    host_ram, free_disk_preflight = host_resources(repo)
     ledger.checkpoint("runtime_verified")
 
     head_before = run_git(repo, "rev-parse", "HEAD")
@@ -406,7 +476,7 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
     mechanism_tampers = run_mechanism_tamper_audit(banks, selection, locality_evidence)
     ledger.checkpoint("mechanism_tampers_validated")
 
-    safety = safety_evidence(torch)
+    safety = safety_evidence(torch, repo, args.output_dir)
     runtime["cuda_initialized_after"] = torch.cuda.is_initialized()
     if safety["transformers_modeling_modules"] or safety["optimizer_objects"] or runtime["cuda_initialized_after"]:
         raise InfrastructureInvalid("Phase-0 safety postflight rejected")
@@ -419,7 +489,7 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
         raise InfrastructureInvalid("Phase-0 full freeze changed during proof")
     ledger.checkpoint("full_freeze_postflight_validated")
     ledger.checkpoint("proof_prewrite_ready")
-    host_ram, free_disk = host_resources(repo)
+    _, free_disk_postflight = host_resources(repo)
     compute_seconds = time.perf_counter() - started
     return {
         "schema_version": PROOF_SCHEMA,
@@ -477,7 +547,8 @@ def run(args: argparse.Namespace, ledger: MemoryLedger, started: float) -> tuple
         "resources": {
             "bounds": RESOURCE_BOUNDS,
             "host_ram_bytes": host_ram,
-            "free_disk_bytes": free_disk,
+            "free_disk_bytes_preflight": free_disk_preflight,
+            "free_disk_bytes_postflight": free_disk_postflight,
             "artifact_bytes_before_terminal": 0,
             "compute_seconds": compute_seconds,
             "audit_seconds": 0.0,
@@ -528,6 +599,31 @@ def failure_payload(
     output_inventory = []
     if args.output_dir.is_dir() and not args.output_dir.is_symlink():
         output_inventory = sorted(path.name for path in args.output_dir.iterdir())
+    torch = sys.modules.get("torch")
+    if torch is None:
+        observed_safety = {
+            "torch_imported": False,
+            "cuda_initialized": False,
+            "transformers_modeling_modules": sorted(
+                name for name in sys.modules if name.startswith("transformers.models") or ".modeling_" in name
+            ),
+            "pretrained_model_objects": 0,
+            "tokenizer_objects": 0,
+            "optimizer_objects": 0,
+            "output_inventory": output_inventory,
+            "candidate_files": [],
+            "checkpoint_files": [],
+            "static_forbidden_model_call_sites": static_forbidden_sites(repo),
+            "observation_complete": True,
+        }
+    else:
+        inventory = object_inventory(torch, args.output_dir)
+        observed_safety = {
+            "torch_imported": True,
+            **inventory,
+            "static_forbidden_model_call_sites": static_forbidden_sites(repo),
+            "observation_complete": True,
+        }
     result = {
         "schema_version": FAILURE_SCHEMA,
         "status": status,
@@ -537,12 +633,7 @@ def failure_payload(
         "error": str(error),
         "traceback": traceback.format_exc(),
         "execution_commit": args.execution_commit,
-        "actual_safety": {
-            "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
-            "transformers_modeling_modules": sorted(
-                name for name in sys.modules if name.startswith("transformers.models") or ".modeling_" in name
-            ),
-        },
+        "actual_safety": {"cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), **observed_safety},
         "elapsed_seconds": time.perf_counter() - started,
         "partial_memory": {
             "expected_labels": memory_labels(),
@@ -550,11 +641,22 @@ def failure_payload(
         },
         "full_freeze_failure_audit": audit,
         "output_inventory_before_failure": output_inventory,
-        "candidate_created": False,
-        "checkpoint_created": False,
-        "model_updated": False,
+        "candidate_created": bool(observed_safety["candidate_files"]),
+        "checkpoint_created": bool(observed_safety["checkpoint_files"]),
+        "model_updated": observed_safety["pretrained_model_objects"] != 0,
         "failure_sha256": "",
     }
+    if (
+        observed_safety["cuda_initialized"]
+        or observed_safety["transformers_modeling_modules"]
+        or observed_safety["pretrained_model_objects"]
+        or observed_safety["tokenizer_objects"]
+        or observed_safety["optimizer_objects"]
+        or observed_safety["candidate_files"]
+        or observed_safety["checkpoint_files"]
+        or observed_safety["static_forbidden_model_call_sites"]
+    ):
+        result["status"] = "infrastructure_invalid"
     result["failure_sha256"] = canonical_sha256(result, omit="failure_sha256")
     return result
 
@@ -597,13 +699,13 @@ def main() -> None:
         )
         failure = failure_payload(args, error, status, started, ledger)
         parsed = strict_json_loads(canonical_json(failure))
-        if parsed["failure_sha256"] != canonical_sha256(parsed, omit="failure_sha256"):
-            raise InfrastructureInvalid("Phase-0 failure self hash differs") from error
+        validate_failure(parsed)
         signal.alarm(RESOURCE_BOUNDS["terminal_timeout_seconds"])
         reopened = writer.write("FAILURE.json", parsed, 16 * 2**20)
         reparsed = strict_json_loads(reopened[:-1])
         if reparsed != parsed:
             raise InfrastructureInvalid("Phase-0 failure changed after publication") from error
+        validate_failure(reparsed)
         signal.alarm(0)
         raise SystemExit(2) from error
 
