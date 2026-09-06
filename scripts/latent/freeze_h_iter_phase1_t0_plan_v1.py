@@ -1,0 +1,111 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+import subprocess
+from pathlib import Path
+
+from prime_rl.latent.h_iter_phase1_t0 import (
+    ACTIONS, ARMS, ARTIFACT_DIR, CAP0_BINDING, CANDIDATE_FILES,
+    E33_PATH, E33_STATE_SHA256, E33_TREE_SHA256, H176_PATH,
+    H176_TREE_SHA256, MECHANISM, METADATA_SHA256, MF0_BINDING,
+    OUTPUT_ROOT, PLAN_SCHEMA, PROOF_OUTPUT_ROOT, PROOF_RUN_ID, RUN_ID,
+    TRAIN_BANK_FILE_SHA256, TRAIN_BANK_INTERNAL_SHA256, TRAIN_BANK_PATH,
+    build_antecedent_manifest, build_capture_schedule, build_contract,
+    build_memory_schedule, build_tamper_schedule, canonical_json,
+    sha256_bytes, strict_loads,
+    validate_plan,
+)
+
+MF0_DIR="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-train-calibration-v1"
+CAP0_DIR="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-cap0-r1-v1"
+T0_DIR=ARTIFACT_DIR
+PROOF_ASSETS=[
+ TRAIN_BANK_PATH,
+ f"{MF0_DIR}/candidate-module-contract.json",f"{MF0_DIR}/capture-contract.json",f"{MF0_DIR}/metric-gate-contract.json",f"{MF0_DIR}/threshold-builder-contract.json",f"{MF0_DIR}/train-partition.json",f"{MF0_DIR}/training-schedule.json",f"{MF0_DIR}/phase0-evidence-binding.json",f"{MF0_DIR}/mf0-prereg-run1-evidence-manifest.json",f"{MF0_DIR}/mf0-prereg-run1.MF0-PROOF.json",f"{MF0_DIR}/mf0-prereg-run1.launcher.log",f"{MF0_DIR}/mf0-prereg-run1.exit.txt",
+ f"{CAP0_DIR}/cap0-r1-run1-evidence-manifest.json",f"{CAP0_DIR}/cap0-r1-run1.CAP0-R1-PROOF.json",f"{CAP0_DIR}/cap0-r1-run1.launcher.log",f"{CAP0_DIR}/cap0-r1-run1.exit.txt",
+ f"{T0_DIR}/t0-contract.json",f"{T0_DIR}/t0-capture-schedule.json",f"{T0_DIR}/t0-memory-schedule.json",f"{T0_DIR}/t0-tamper-schedule.json",f"{T0_DIR}/t0-antecedent-evidence-manifest.json",
+ "pyproject.toml","uv.lock","src/prime_rl/latent/h_iter_phase1_t0.py","scripts/latent/run_h_iter_phase1_t0_v1.py","scripts/latent/run_h_iter_phase1_t0_v1.sh","scripts/latent/freeze_h_iter_phase1_t0_plan_v1.py","tests/unit/latent/test_h_iter_phase1_t0.py","scripts/latent/run_h_iter_phase1_t0_model_free_proof_v1.py","scripts/latent/run_h_iter_phase1_t0_model_free_proof_v1.sh","tests/unit/latent/test_h_iter_phase1_t0_model_free_proof.py",
+]
+if len(PROOF_ASSETS)!=31 or len(set(PROOF_ASSETS))!=31: raise RuntimeError("T0 proof asset set differs")
+
+def read_json(path:Path)->dict:
+    return strict_loads(path.read_bytes())
+
+def write_atomic(path:Path,payload:dict)->None:
+    data=canonical_json(payload)+b"\n"; path.parent.mkdir(parents=True,exist_ok=True)
+    tmp=path.with_name(path.name+".tmp")
+    fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    try:
+        with os.fdopen(fd,"wb") as stream: stream.write(data); stream.flush(); os.fsync(stream.fileno())
+        os.replace(tmp,path)
+        dfd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+        try: os.fsync(dfd)
+        finally: os.close(dfd)
+    except BaseException:
+        try: tmp.unlink()
+        except FileNotFoundError: pass
+        raise
+
+def materialize(repo:Path)->None:
+    bank=read_json(repo/TRAIN_BANK_PATH)
+    base=repo/MF0_DIR
+    candidate=read_json(base/"candidate-module-contract.json")
+    capture_source=read_json(base/"capture-contract.json")
+    metric=read_json(base/"metric-gate-contract.json")
+    schedule=read_json(base/"training-schedule.json")
+    outputs={
+      "t0-antecedent-evidence-manifest.json":build_antecedent_manifest(),
+      "t0-capture-schedule.json":build_capture_schedule(bank),
+      "t0-tamper-schedule.json":build_tamper_schedule(),
+      "t0-contract.json":build_contract(candidate,capture_source,metric,schedule),
+    }
+    outputs["t0-memory-schedule.json"]=build_memory_schedule(outputs["t0-capture-schedule.json"],schedule)
+    for name,value in outputs.items(): write_atomic(repo/T0_DIR/name,value)
+
+def plan_value(repo:Path,commit:str)->dict:
+    def file_sha(path:str)->str: return hashlib.sha256((repo/path).read_bytes()).hexdigest()
+    candidate=file_sha(f"{MF0_DIR}/candidate-module-contract.json")
+    capture=file_sha(f"{MF0_DIR}/capture-contract.json")
+    metric=file_sha(f"{MF0_DIR}/metric-gate-contract.json")
+    threshold=file_sha(f"{MF0_DIR}/threshold-builder-contract.json")
+    partition=file_sha(f"{MF0_DIR}/train-partition.json")
+    schedule=file_sha(f"{MF0_DIR}/training-schedule.json")
+    antecedent_path=f"{T0_DIR}/t0-antecedent-evidence-manifest.json"
+    antecedent=read_json(repo/antecedent_path)
+    assets={path:file_sha(path) for path in sorted(PROOF_ASSETS)}
+    resource={"minimum_gpu_free_gib":44,"maximum_allocated_or_reserved_gib":40,"minimum_ram_gib":64,"minimum_disk_gib":16,"maximum_output_bytes":33554432,"timing":{"outer":21600,"startup":600,"compute":18000,"audit":1200,"failure":1200,"terminal":300,"postexit":300,"alarm_safety_margin":1,"success_terminal_entry_max":19200,"compute_failure_terminal_entry_max":19200,"audit_failure_terminal_entry_max":20400,"prior_terminal_failure_entry_max":20700}}
+    value={"schema_version":PLAN_SCHEMA,"status":"h_iter_phase1_t0_model_free_proof_preregistered","mechanism":MECHANISM,"run_identity":PROOF_RUN_ID,"implementation_commit":commit,"mechanism_code_commit":commit,"plan_sha256":"","asset_sha256":assets,
+      "archive_bindings":{"mf0":MF0_BINDING,"cap0_r1":CAP0_BINDING,"antecedent_manifest_path":antecedent_path,"antecedent_manifest_file_sha256":file_sha(antecedent_path),"antecedent_manifest_internal_sha256":antecedent["manifest_sha256"]},
+      "remote_paths":{"repo":"/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1","shared_project":"/home/ubuntu/rlm/prime-rl","shared_python":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","e33":E33_PATH,"h176":H176_PATH,"physical_gpu":"0","visible_device":"cuda:0","proof_output":PROOF_OUTPUT_ROOT,"t0_output":OUTPUT_ROOT},
+      "runtime":{"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","transformers":"5.6.2","tokenizers":"0.22.2","torch_distribution":"2.11.0+cu128","torch_runtime":"2.11.0+cu128","flash_linear_attention":"0.5.2","gpu_model":"NVIDIA RTX A6000","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"},
+      "model_contract":{"e33_path":E33_PATH,"e33_tree_sha256":E33_TREE_SHA256,"e33_state_sha256":E33_STATE_SHA256,"metadata_sha256":METADATA_SHA256,"dtype":"torch.bfloat16","attention":"eager","eval":True,"frozen":True,"h176_path":H176_PATH,"h176_tree_sha256":H176_TREE_SHA256,"h176_loaded":False},
+      "data_contract":{"train_bank_path":TRAIN_BANK_PATH,"train_bank_file_sha256":TRAIN_BANK_FILE_SHA256,"train_bank_internal_sha256":TRAIN_BANK_INTERNAL_SHA256,"partition_path":f"{MF0_DIR}/train-partition.json","partition_file_sha256":partition,"schedule_path":f"{MF0_DIR}/training-schedule.json","schedule_file_sha256":schedule,"validation_open_allowed":False,"heldout_open_allowed":False},
+      "capture_contract":{"source_contract_path":f"{MF0_DIR}/capture-contract.json","source_contract_file_sha256":capture,"capture_schedule_path":f"{T0_DIR}/t0-capture-schedule.json","capture_schedule_file_sha256":file_sha(f"{T0_DIR}/t0-capture-schedule.json"),"tokenizer_calls":96,"model_forwards":96,"sequences":2304,"cache_checks":194,"memory_only":True},
+      "training_contract":{"candidate_contract_path":f"{MF0_DIR}/candidate-module-contract.json","candidate_contract_file_sha256":candidate,"arm_order":ARMS,"action_order":ACTIONS,"operation_count":385,"sidecar_forwards":385,"sidecar_backwards":325,"optimizer_steps":320,"cell_calls":773,"updates_per_arm":64},
+      "metric_gate_contract":{"metric_contract_path":f"{MF0_DIR}/metric-gate-contract.json","metric_contract_file_sha256":metric,"threshold_contract_path":f"{MF0_DIR}/threshold-builder-contract.json","threshold_contract_file_sha256":threshold,"gate_count":9,"all_required":True},
+      "terminal_contract":{"proof_schema":"prime-rl/latent-h-iter-phase1-t0-proof/v1","failure_schema":"prime-rl/latent-h-iter-phase1-t0-failure/v1","complete_statuses":["h_iter_phase1_t0_validation_contract_design_authorized","h_iter_phase1_train_calibration_stop"],"failure_statuses":["h_iter_phase1_t0_incomplete","h_iter_phase1_t0_capture_mechanism_rejected","h_iter_phase1_t0_exposure_boundary_rejected","infrastructure_invalid"],"proof_filename":"T0-PROOF.json","failure_filename":"T0-FAILURE.json","candidate_filenames":CANDIDATE_FILES,"derived_threshold_filename":"derived-validation-thresholds.json","atomic_publish":True,"reopen_validate":True,"dual_terminal_forbidden":True},
+      "resource_bounds":resource,"full_freeze":{"execution_parent_is_evidence_closure":True,"mechanism_is_ancestor":True,"head_exact":True,"tree_exact":True,"clean_before_after":True,"assets_pre_post_exact":True,"protected_pre_post_exact":True,"output_excluded":True},
+      "execution_authorization":{"model_free_proof_eligible_after_independent_review":True,"t0_preflight_eligible":False,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False},
+      "decision_boundary":{"claim":"model_free_proof_design_only","train_bank_schema_open_allowed":True,"train_scientific_model_exposure_allowed":False,"validation_or_heldout_opened":False,"model_or_gpu_authorized":False,"t0_training_authorized":False,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True},"model_free_proof_binding":None}
+    value["plan_sha256"]=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="plan_sha256"})); validate_plan(value,proof_input=True)
+    return value
+
+def main()->None:
+    parser=argparse.ArgumentParser(); parser.add_argument("--repo",type=Path,required=True); parser.add_argument("--materialize-only",action="store_true"); parser.add_argument("--mechanism-commit")
+    args=parser.parse_args(); repo=args.repo.resolve(strict=True)
+    if args.materialize_only:
+        materialize(repo); return
+    if not args.mechanism_commit: raise RuntimeError("--mechanism-commit required")
+    head=subprocess.check_output(["git","rev-parse","HEAD"],cwd=repo,text=True).strip()
+    dirty=subprocess.check_output(["git","status","--porcelain","--untracked-files=all"],cwd=repo,text=True).strip()
+    if head!=args.mechanism_commit or dirty: raise RuntimeError("T0 mechanism tree is not exact and clean")
+    value=plan_value(repo,args.mechanism_commit); encoded=canonical_json(value)+b"\n"
+    plan=repo/T0_DIR/"t0-model-free-proof-plan.json"; sidecar=repo/T0_DIR/"t0-model-free-proof-plan.sha256"
+    write_atomic(plan,value); sidecar.write_text(hashlib.sha256(encoded).hexdigest()+"\n",encoding="utf-8")
+    print(hashlib.sha256(encoded).hexdigest()); print(value["plan_sha256"])
+
+if __name__=="__main__": main()
