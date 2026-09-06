@@ -581,8 +581,8 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         if stage_rank[stage]<stage_rank["capture"] or not isinstance(rows,list) or not rows or capture["schedule_sha256"]!=capture_schedule["schedule_sha256"] or len(rows)!=captures and not inflight_row or capture["counts"]!={"rows":evidence_row_count,"tokenizer_calls":tokenizers,"model_forwards":model_forwards,"sequences":24*tokenizers} or capture["aggregate_sha256"]!=sha256_bytes(canonical_json(rows)): raise T0ContractError("T0 failure capture evidence differs")
         capture_keys={"capture_index","row_id","row_sha256","receiver_input_sha256","node_count","token_count_min","token_count_max","input_ids_sha256","attention_mask_sha256","hidden_shape","hidden_dtype","hidden_sha256","finite"}
         for index,(row,source) in enumerate(zip(rows,capture_schedule["rows"])):
-            if set(row)!=capture_keys or {key:row[key] for key in ("capture_index","row_id","row_sha256","receiver_input_sha256","node_count")}!=source or row["capture_index"]!=index or not 1<=row["token_count_min"]<=row["token_count_max"]<=128 or row["hidden_shape"]!=[24,2048] or row["hidden_dtype"]!="torch.bfloat16" or not all(digest_string(row[key]) for key in ("input_ids_sha256","attention_mask_sha256","hidden_sha256")) or not isinstance(row["finite"],bool): raise T0ContractError("T0 failure capture row differs")
-        if any(row["finite"] is not True for row in rows[:captures]): raise T0ContractError("T0 completed capture row is nonfinite")
+            if set(row)!=capture_keys or {key:row[key] for key in ("capture_index","row_id","row_sha256","receiver_input_sha256","node_count")}!=source or row["capture_index"]!=index or not 1<=row["token_count_min"]<=row["token_count_max"]<=128 or not isinstance(row["hidden_shape"],list) or any(not isinstance(item,int) or isinstance(item,bool) or item<0 for item in row["hidden_shape"]) or not isinstance(row["hidden_dtype"],str) or not row["hidden_dtype"] or not all(digest_string(row[key]) for key in ("input_ids_sha256","attention_mask_sha256","hidden_sha256")) or not isinstance(row["finite"],bool): raise T0ContractError("T0 failure capture row differs")
+        if any(row["hidden_shape"]!=[24,2048] or row["hidden_dtype"]!="torch.bfloat16" or row["finite"] is not True for row in rows[:captures]): raise T0ContractError("T0 completed capture row differs")
     elif captures:
         raise T0ContractError("T0 failure capture evidence missing")
     operations=[*training_schedule["batches"]["preconnect"],*training_schedule["batches"]["precal"],*training_schedule["batches"]["train"],*training_schedule["batches"]["postcal"],*training_schedule["batches"]["postfit"]]
@@ -713,6 +713,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     if raw_cache is not None and (not isinstance(raw_cache,dict) or not raw_cache or stage_rank[stage]<stage_rank["capture"]): raise T0ContractError("T0 failure future cache evidence")
     cache=raw_cache if isinstance(raw_cache,dict) else {}
     entry_drift=negative_control_missing=config_drift=False
+    cache_class_closure_cause=cache_check_closure_cause=cache_config_closure_cause=cache_restoration_cause=False
     safety=value.get("safety") if isinstance(value.get("safety"),dict) else {}
     protected=value.get("protected_state") if isinstance(value.get("protected_state"),dict) else {}
     if protected:
@@ -725,23 +726,42 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     if cache:
         expected_cache_labels=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
         cache_keys={"class_records","configuration_records","label_rows","label_sha256","expected_checks","actual_checks","dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count","restored"}
-        if set(cache)!=cache_keys or cache["class_records"]!=CACHE_CLASS_RECORDS or cache["actual_checks"]!=cache_checks or [r.get("index") for r in cache["label_rows"]]!=list(range(cache_checks)) or [r.get("label") for r in cache["label_rows"]]!=expected_cache_labels[:cache_checks] or cache["label_sha256"]!=sha256_bytes(canonical_json(expected_cache_labels[:cache_checks])) or cache["expected_checks"]!=194 or not isinstance(cache["restored"],bool) or any(not isinstance(cache[key],int) or isinstance(cache[key],bool) or cache[key]<0 for key in ("dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count")): raise T0ContractError("T0 failure cache evidence differs")
+        class_keys={"distribution","fqcn","module_path","module_sha256"}; config_keys={"source","value_before","value_during","value_after"}
+        class_records=cache.get("class_records"); config_records=cache.get("configuration_records")
+        if set(cache)!=cache_keys or not isinstance(class_records,list) or any(set(row)!=class_keys or any(not isinstance(row[key],str) or not row[key] for key in ("distribution","fqcn","module_path")) or not digest_string(row["module_sha256"]) for row in class_records) or len({row["fqcn"] for row in class_records})!=len(class_records) or class_records!=sorted(class_records,key=lambda row:row["fqcn"]) or not isinstance(config_records,list) or any(set(row)!=config_keys or not isinstance(row["source"],str) or not row["source"] or any(not isinstance(row[key],bool) for key in ("value_before","value_during","value_after")) for row in config_records) or len({row["source"] for row in config_records})!=len(config_records) or cache["actual_checks"]!=cache_checks or [r.get("index") for r in cache["label_rows"]]!=list(range(cache_checks)) or [r.get("label") for r in cache["label_rows"]]!=expected_cache_labels[:cache_checks] or cache["label_sha256"]!=sha256_bytes(canonical_json(expected_cache_labels[:cache_checks])) or cache["expected_checks"]!=194 or not isinstance(cache["restored"],bool) or cache["restored"] is not all(row["value_after"]==row["value_before"] for row in config_records) or any(not isinstance(cache[key],int) or isinstance(cache[key],bool) or cache[key]<0 for key in ("dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count")): raise T0ContractError("T0 failure cache evidence differs")
+        class_exact=class_records==CACHE_CLASS_RECORDS; config_exact=config_records==CACHE_CONFIGURATION_RECORDS; check_exact=cache_checks==194
         config_drift=stage=="capture" and cache_checks<194 and cache["configuration_drift_count"]==1 and cache["dynamic_cache_actual_trips"]==0 and cache["returned_pkv_count"]==0 and cache["dynamic_cache_negative_trips"]==(0 if cache_checks==0 else 1)
         entry_drift=config_drift and stage=="capture" and cache_checks==0
         negative_control_missing=stage=="capture" and cache_checks==1 and not any((captures,tokenizers,model_forwards)) and cache["dynamic_cache_negative_trips"]==0 and cache["dynamic_cache_actual_trips"]==0 and cache["returned_pkv_count"]==0 and cache["configuration_drift_count"]==0
+        completed_capture_boundary=stage=="capture" and (captures,tokenizers,model_forwards)==(96,96,96)
+        final_closure=completed_capture_boundary and cache["dynamic_cache_negative_trips"]==1 and cache["dynamic_cache_actual_trips"]==0 and cache["returned_pkv_count"]==0 and cache["configuration_drift_count"]==0
+        expected_sources=[row["source"] for row in CACHE_CONFIGURATION_RECORDS]
+        restoration_profile=[row.get("source") for row in config_records]==expected_sources and all(row["value_before"]==expected["value_before"] and row["value_during"]==expected["value_during"] for row,expected in zip(config_records,CACHE_CONFIGURATION_RECORDS)) and any(row["value_after"]!=row["value_before"] for row in config_records)
+        cache_restoration_cause=final_closure and class_exact and check_exact and cache["restored"] is False and restoration_profile
+        cache_config_closure_cause=final_closure and class_exact and check_exact and cache["restored"] is True and not config_exact
+        cache_check_closure_cause=final_closure and class_exact and config_exact and cache["restored"] is True and not check_exact
+        cache_class_closure_cause=final_closure and check_exact and config_exact and cache["restored"] is True and not class_exact
+        closure_cause_count=sum((cache_class_closure_cause,cache_check_closure_cause,cache_config_closure_cause,cache_restoration_cause))
         if config_drift:
             expected_by_source={row["source"]:row for row in CACHE_CONFIGURATION_RECORDS}; records=cache["configuration_records"]
             if not isinstance(records,list) or [row.get("source") for row in records]!=[row["source"] for row in CACHE_CONFIGURATION_RECORDS] or any(set(row)!={"source","value_before","value_during","value_after"} or row["value_before"]!=expected_by_source[row["source"]]["value_before"] or not isinstance(row["value_during"],bool) or not isinstance(row["value_after"],bool) for row in records) or not any(row["value_during"] is not False for row in records) or cache["restored"] is not all(row["value_after"]==row["value_before"] for row in records): raise T0ContractError("T0 failure cache entry drift evidence differs")
         elif negative_control_missing:
-            if cache["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache["restored"] is not True: raise T0ContractError("T0 failure cache negative control evidence differs")
-        elif cache["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache["dynamic_cache_negative_trips"]!=1 or cache["configuration_drift_count"]!=0 or cache["restored"] is not True:
+            if not class_exact or not config_exact or cache["restored"] is not True: raise T0ContractError("T0 failure cache negative control evidence differs")
+        elif closure_cause_count==1:
+            pass
+        elif completed_capture_boundary and (not class_exact or not config_exact or not check_exact or cache["restored"] is not True):
+            raise T0ContractError("T0 failure cache closure has combined causes")
+        elif not class_exact or not config_exact or cache["dynamic_cache_negative_trips"]!=1 or cache["configuration_drift_count"]!=0 or cache["restored"] is not True:
             raise T0ContractError("T0 failure cache evidence differs")
     elif cache_checks: raise T0ContractError("T0 failure cache evidence missing")
     safety_keys={"network_attempts","validation_opens","heldout_opens","h176_loads","generation_calls","e33_backwards","e33_optimizer_steps","e33_updates","live_trajectory_count","object_census_errors","object_census_uninspectable","forbidden_inputs_detected"}
     if not safety or set(safety)!=safety_keys or any(not isinstance(safety[key],int) or isinstance(safety[key],bool) or safety[key]<0 for key in safety_keys-{"forbidden_inputs_detected"}) or not isinstance(safety["forbidden_inputs_detected"],list) or any(not isinstance(item,str) or not item for item in safety["forbidden_inputs_detected"]): raise T0ContractError("T0 failure safety differs")
     capture_rows=(value.get("capture_evidence") or {}).get("rows",[])
+    inflight_capture_row=len(capture_rows)==captures+1 and model_forwards==captures+1
+    geometry_causes=int(inflight_capture_row and capture_rows[-1].get("hidden_shape")!=[24,2048])
+    dtype_causes=int(inflight_capture_row and capture_rows[-1].get("hidden_dtype")!="torch.bfloat16")
     nonfinite_causes=sum(row.get("finite") is False for row in capture_rows if isinstance(row,dict))
-    cause_values=(cache.get("dynamic_cache_actual_trips",0),cache.get("returned_pkv_count",0),cache.get("configuration_drift_count",0),nonfinite_causes)
+    cause_values=(cache.get("dynamic_cache_actual_trips",0),cache.get("returned_pkv_count",0),cache.get("configuration_drift_count",0),geometry_causes,dtype_causes,nonfinite_causes,int(cache_class_closure_cause),int(cache_check_closure_cause),int(cache_config_closure_cause),int(cache_restoration_cause))
     if any(cause not in {0,1} for cause in cause_values): raise T0ContractError("T0 capture mechanism cause count differs")
     if nonfinite_causes and not (len(capture_rows)==captures+1 and capture_rows[-1].get("finite") is False): raise T0ContractError("T0 nonfinite cause position differs")
     mechanism_cause_count=sum(cause_values)

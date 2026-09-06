@@ -433,7 +433,13 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                     {"name":"RETURNED_PKV_FIRST","captures":0,"tokenizers":1,"forwards":1,"checks":2,"memory":9,"evidence":0,"drift":False,"returned":1,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
                     {"name":"RETURNED_PKV_MIDDLE","captures":1,"tokenizers":2,"forwards":2,"checks":4,"memory":11,"evidence":1,"drift":False,"returned":1,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
                     {"name":"RETURNED_PKV_LAST","captures":95,"tokenizers":96,"forwards":96,"checks":192,"memory":199,"evidence":95,"drift":False,"returned":1,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
+                    {"name":"CAPTURE_GEOMETRY","captures":1,"tokenizers":2,"forwards":2,"checks":4,"memory":11,"evidence":2,"drift":False,"returned":0,"geometry":True,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
+                    {"name":"CAPTURE_DTYPE","captures":1,"tokenizers":2,"forwards":2,"checks":4,"memory":11,"evidence":2,"drift":False,"returned":0,"dtype":True,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
                     {"name":"NONFINITE","captures":1,"tokenizers":2,"forwards":2,"checks":4,"memory":11,"evidence":2,"drift":False,"returned":0,"nonfinite":True,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
+                    {"name":"CACHE_CLASS_CLOSURE","captures":96,"tokenizers":96,"forwards":96,"checks":194,"memory":201,"evidence":96,"drift":False,"returned":0,"closure":"class","status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
+                    {"name":"CACHE_CHECK_CLOSURE","captures":96,"tokenizers":96,"forwards":96,"checks":193,"memory":201,"evidence":96,"drift":False,"returned":0,"closure":"check","status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
+                    {"name":"CACHE_CONFIG_CLOSURE","captures":96,"tokenizers":96,"forwards":96,"checks":194,"memory":201,"evidence":96,"drift":False,"returned":0,"closure":"config","status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
+                    {"name":"CACHE_RESTORATION","captures":96,"tokenizers":96,"forwards":96,"checks":194,"memory":201,"evidence":96,"drift":False,"returned":0,"closure":"restoration","status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"},
                     {"name":"PRE_POST_FINITE","captures":1,"tokenizers":2,"forwards":2,"checks":4,"memory":11,"evidence":2,"drift":False,"returned":0,"status":"infrastructure_invalid","error_type":"InfrastructureInvalid"},
                     {"name":"POST_LEDGER_PRE_COUNTER","captures":1,"tokenizers":2,"forwards":2,"checks":5,"memory":12,"evidence":2,"drift":False,"returned":0,"status":"infrastructure_invalid","error_type":"InfrastructureInvalid"},
                 ]
@@ -442,12 +448,20 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                     variant_name=spec["name"]; captures=spec["captures"]; tokenizers=spec["tokenizers"]; forwards=spec["forwards"]; checks=spec["checks"]; memory_count=spec["memory"]; evidence_count=spec["evidence"]; drift=spec["drift"]
                     variant=copy.deepcopy(parsed); variant_progress=variant["execution_progress"]; variant_progress.update({"capture_rows_completed":captures,"tokenizer_calls_completed":tokenizers,"model_forwards_completed":forwards,"sequences_completed":24*tokenizers,"cache_checks_completed":checks})
                     evidence_rows=copy.deepcopy(variant_source["capture_evidence"]["rows"][:evidence_count]); variant["capture_evidence"]=None if not evidence_rows else {"schedule_sha256":variant_source["capture_evidence"]["schedule_sha256"],"rows":evidence_rows,"counts":{"rows":evidence_count,"tokenizer_calls":tokenizers,"model_forwards":forwards,"sequences":24*tokenizers},"aggregate_sha256":sha256_bytes(canonical_json(evidence_rows))}
+                    if spec.get("geometry"):
+                        variant["capture_evidence"]["rows"][-1]["hidden_shape"]=[24,2047]; variant["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(variant["capture_evidence"]["rows"]))
+                    if spec.get("dtype"):
+                        variant["capture_evidence"]["rows"][-1]["hidden_dtype"]="torch.float32"; variant["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(variant["capture_evidence"]["rows"]))
                     if spec.get("nonfinite"):
                         variant["capture_evidence"]["rows"][-1]["finite"]=False; variant["capture_evidence"]["counts"]["rows"]=captures; variant["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(variant["capture_evidence"]["rows"]))
                     variant_memory=variant_source["memory"]["rows"][:memory_count]; variant["memory"].update({"rows":variant_memory,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in variant_memory]))})
                     variant_config=copy.deepcopy(variant_source["cache_guard"]["configuration_records"])
                     if drift: variant_config[0]["value_during"]=True
+                    if spec.get("closure")=="config": variant_config[0]["source"]="model.generation_config.changed"
+                    if spec.get("closure")=="restoration": variant_config[0]["value_after"]=False
                     variant_labels=variant_source["cache_guard"]["label_rows"][:checks]; variant["cache_guard"].update({"configuration_records":variant_config,"label_rows":variant_labels,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in variant_labels])),"actual_checks":checks,"dynamic_cache_negative_trips":0 if variant_name=="NO_TRIP" else 1,"dynamic_cache_actual_trips":0,"returned_pkv_count":spec["returned"],"configuration_drift_count":int(drift),"restored":True})
+                    if spec.get("closure")=="class": variant["cache_guard"]["class_records"]=variant["cache_guard"]["class_records"][:-1]
+                    if spec.get("closure")=="restoration": variant["cache_guard"]["restored"]=False
                     variant["counts"].update({"capture_rows":captures,"tokenizer_calls":tokenizers,"model_forwards":forwards,"sequences":24*tokenizers,"cache_checks":checks,"memory_rows":memory_count}); variant.update({"status":spec["status"],"error_type":spec["error_type"],"error_message":variant_name,"audit_errors":[variant_name] if spec["status"]=="infrastructure_invalid" else []}); variant["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in variant.items() if k!="failure_sha256"}))
                     variant_out=root/f"F1_{variant_name}"; variant_out.mkdir(); variant_terminal=variant_out/"T0-FAILURE.json"; variant_bytes=canonical_json(variant)+b"\n"; variant_fd=os.open(variant_terminal,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
                     with os.fdopen(variant_fd,"wb") as stream: stream.write(variant_bytes); stream.flush(); os.fsync(stream.fileno())
@@ -478,6 +492,17 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                         except T0ContractError: pass
                     elif variant_name=="NONFINITE":
                         no_observation=copy.deepcopy(variant); no_observation["capture_evidence"]["rows"][-1]["finite"]=True; no_observation["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(no_observation["capture_evidence"]["rows"])); no_observation["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in no_observation.items() if k!="failure_sha256"}))
+                        try: validate_t0_failure(no_observation,**validation); entry_drift_tampers=False
+                        except T0ContractError: pass
+                    elif spec.get("geometry") or spec.get("dtype"):
+                        no_observation=copy.deepcopy(variant); no_observation["capture_evidence"]["rows"][-1].update({"hidden_shape":[24,2048],"hidden_dtype":"torch.bfloat16"}); no_observation["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(no_observation["capture_evidence"]["rows"])); no_observation["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in no_observation.items() if k!="failure_sha256"}))
+                        try: validate_t0_failure(no_observation,**validation); entry_drift_tampers=False
+                        except T0ContractError: pass
+                    elif spec.get("closure"):
+                        no_observation=copy.deepcopy(variant); no_observation["cache_guard"].update({"class_records":copy.deepcopy(CACHE_CLASS_RECORDS),"configuration_records":copy.deepcopy(CACHE_CONFIGURATION_RECORDS),"restored":True})
+                        if spec["closure"]=="check":
+                            no_observation["execution_progress"]["cache_checks_completed"]=194; no_observation["counts"]["cache_checks"]=194; exact_labels=variant_source["cache_guard"]["label_rows"][:194]; no_observation["cache_guard"].update({"actual_checks":194,"label_rows":exact_labels,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in exact_labels]))})
+                        no_observation["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in no_observation.items() if k!="failure_sha256"}))
                         try: validate_t0_failure(no_observation,**validation); entry_drift_tampers=False
                         except T0ContractError: pass
                     elif variant_name in {"PRE_POST_FINITE","POST_LEDGER_PRE_COUNTER"}:

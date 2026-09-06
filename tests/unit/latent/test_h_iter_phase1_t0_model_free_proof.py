@@ -295,6 +295,18 @@ def test_capture_failure_microstate_transition_table() -> None:
     assert capture_failure_evidence_row_count([{"finite":False}],0,1)==0
     assert capture_failure_evidence_row_count([{"finite":True}],1,2)==1
 
+def test_production_terminal_replay_covers_capture_rejection_taxonomy() -> None:
+    torch=pytest.importorskip("torch")
+    import sys
+    sys.path.insert(0,str(ROOT/"scripts/latent"))
+    from run_h_iter_phase1_t0_model_free_proof_v1 import replay_production_terminals
+    from prime_rl.latent.h_iter_phase1_t0 import INIT_SEED,candidate_class
+    _,partition,capture,schedule,memory,tampers,_=_production_sources()
+    torch.manual_seed(INIT_SEED); state={name:tensor.detach().clone() for name,tensor in candidate_class(torch)().state_dict().items()}
+    replay=replay_production_terminals(torch,state,partition,capture,schedule,memory,tampers)
+    assert replay["go"] and replay["stop"] and replay["mapping"] and replay["dual"] and replay["unsafe"]
+    assert all(row["validated"] and row["tamper_rejected"] for row in replay["failures"])
+
 def test_postflight_failure_requires_freeze_tamper_and_decision_evidence() -> None:
     pytest.importorskip("torch")
     fixture,partition,capture,schedule,memory,tampers,validation=_production_sources()
