@@ -1,0 +1,12 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py", line 704, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py", line 552, in main
+    plan = load_json_file(args.plan)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src/prime_rl/phase_b_contract.py", line 266, in load_json_file
+    file_sha256(path)
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src/prime_rl/phase_b_contract.py", line 224, in file_sha256
+    raise PhaseBContractError(f"expected an absolute, direct regular file: {path}")
+prime_rl.phase_b_contract.PhaseBContractError: expected an absolute, direct regular file: experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-matched-learning-run1-plan.json
