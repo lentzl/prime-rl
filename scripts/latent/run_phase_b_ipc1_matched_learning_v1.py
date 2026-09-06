@@ -18,6 +18,7 @@ import signal
 import subprocess
 import sys
 import time
+from copy import deepcopy
 from pathlib import Path
 from types import ModuleType
 from typing import Any, Sequence
@@ -968,9 +969,53 @@ def _render_split(
     selection = context["selections"][split]
     rows = _ordered_rows(parquet, context["paths"][f"{split}_parquet"], selection)
     rendered, proofs = b1._render_rows(rows, tokenizer=tokenizer, smoke=smoke)
+    proofs = _bind_render_proof_source_rows(rows, proofs, selection=selection, split=split)
     if [row["task_key"] for row in rendered] != [record["task_key"] for record in selection["selected"]]:
         raise PhaseBContractError(f"B-IPC1 {split} tokenizer row order differs")
     return rendered, proofs
+
+
+def _bind_render_proof_source_rows(
+    rows: list[dict[str, Any]],
+    proofs: list[dict[str, Any]],
+    *,
+    selection: dict[str, Any],
+    split: str,
+) -> list[dict[str, Any]]:
+    """Bind inherited B1 render proofs to IPC1's ASCII-stable bank hash dialect."""
+
+    selected = selection.get("selected")
+    expected_hashes = selection.get("row_canonical_sha256")
+    if (
+        not isinstance(selected, list)
+        or not isinstance(expected_hashes, list)
+        or len(rows) != len(proofs)
+        or len(rows) != len(selected)
+        or len(rows) != len(expected_hashes)
+    ):
+        raise PhaseBContractError(f"B-IPC1 {split} render-proof source binding count differs")
+    rebound: list[dict[str, Any]] = []
+    for position, (source, inherited, selected_row, expected_hash) in enumerate(
+        zip(rows, proofs, selected, expected_hashes, strict=True)
+    ):
+        if not isinstance(inherited, dict):
+            raise PhaseBContractError(f"B-IPC1 {split} render proof {position} is not a mapping")
+        observed_hash = canonical_bank_sha256(source)
+        if (
+            source.get("task_key") != selected_row.get("task_key")
+            or inherited.get("task_key") != selected_row.get("task_key")
+            or observed_hash != expected_hash
+        ):
+            raise PhaseBContractError(f"B-IPC1 {split} render-proof source binding differs")
+        original = deepcopy(inherited)
+        bound = deepcopy(inherited)
+        bound["source_row_sha256"] = observed_hash
+        restored = deepcopy(bound)
+        restored["source_row_sha256"] = original.get("source_row_sha256")
+        if restored != original:
+            raise PhaseBContractError(f"B-IPC1 {split} render-proof binding escaped source hash")
+        rebound.append(bound)
+    return rebound
 
 
 def tokenizer_preflight(context: dict[str, Any], *, parquet: Any, AutoTokenizer: Any) -> dict[str, Any]:
@@ -986,6 +1031,16 @@ def tokenizer_preflight(context: dict[str, Any], *, parquet: Any, AutoTokenizer:
     train, train_proofs = _render_split("train", context, tokenizer=tokenizer, parquet=parquet, b1=b1, smoke=smoke)
     validation, validation_proofs = _render_split(
         "validation", context, tokenizer=tokenizer, parquet=parquet, b1=b1, smoke=smoke
+    )
+    _validate_render_proofs(
+        {
+            "render_proofs": [
+                {"name": "train", "rows": train_proofs},
+                {"name": "validation", "rows": validation_proofs},
+            ]
+        },
+        plan=plan,
+        heldout_open=False,
     )
     probes = [
         {"selection_index": index, "task_key": train[index]["task_key"], "action": train[index]["action"]}

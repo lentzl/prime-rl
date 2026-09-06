@@ -8,6 +8,7 @@ import hashlib
 import json
 import os
 import subprocess
+import sys
 from copy import deepcopy
 from pathlib import Path
 from typing import Any
@@ -749,6 +750,69 @@ def _expect_failure_rejected(
     raise AssertionError(f"B-IPC1 late FAILURE tamper unexpectedly validated: {label}")
 
 
+def _real_render_producer_validator_roundtrip(plan: dict[str, Any]) -> dict[str, Any]:
+    """Exercise all real IPC1 banks through tokenizer production and the terminal validator."""
+
+    import pyarrow.parquet as parquet
+    from transformers import AutoTokenizer
+
+    if torch.cuda.is_initialized():
+        raise AssertionError("CUDA initialized before B-IPC1 real render proof")
+    if any(name.endswith("modeling_qwen3_5") for name in sys.modules):
+        raise AssertionError("Qwen model module loaded before B-IPC1 real render proof")
+    smoke = runtime._load_module(runtime.BR5_RUNNER, "b_ipc1_proof_smoke_runtime")
+    b1 = runtime._load_module(runtime.B1_RUNNER, "b_ipc1_proof_b1_runtime")
+    tokenizer = AutoTokenizer.from_pretrained(plan["protected_model"]["path"], local_files_only=True)
+    context = {
+        "selections": {},
+        "paths": {},
+    }
+    for split in ("train", "validation", "heldout"):
+        bank = runtime._bank_record(plan, split)
+        context["selections"][split] = load_json_file(Path(bank["selection_path"]))
+        context["paths"][f"{split}_parquet"] = Path(bank["parquet_path"])
+    records: list[dict[str, Any]] = []
+    summaries: list[dict[str, Any]] = []
+    for split, expected_count in (("train", 48), ("validation", 24), ("heldout", 24)):
+        rendered, proofs = runtime._render_split(
+            split,
+            context,
+            tokenizer=tokenizer,
+            parquet=parquet,
+            b1=b1,
+            smoke=smoke,
+        )
+        if len(rendered) != expected_count or len(proofs) != expected_count:
+            raise AssertionError(f"B-IPC1 real {split} render count differs")
+        records.append({"name": split, "rows": proofs})
+        summaries.append(
+            {
+                "name": split,
+                "row_count": expected_count,
+                "proofs_canonical_sha256": runtime.canonical_bank_sha256(proofs),
+            }
+        )
+    receipt = {"render_proofs": records}
+    runtime._validate_render_proofs(receipt, plan=plan, heldout_open=True)
+    payload = canonical_terminal_bytes(receipt)
+    parsed = runtime.strict_json_loads(payload)
+    runtime._validate_render_proofs(parsed, plan=plan, heldout_open=True)
+    if canonical_terminal_bytes(parsed) != payload:
+        raise AssertionError("B-IPC1 real render proof canonical roundtrip differs")
+    if torch.cuda.is_initialized():
+        raise AssertionError("CUDA initialized during B-IPC1 real render proof")
+    if any(name.endswith("modeling_qwen3_5") for name in sys.modules):
+        raise AssertionError("Qwen model module loaded during B-IPC1 real render proof")
+    return {
+        "splits": summaries,
+        "total_rows": 96,
+        "canonical_terminal_payload_sha256": hashlib.sha256(payload).hexdigest(),
+        "terminal_validator_passed_before_and_after_roundtrip": True,
+        "model_loaded": False,
+        "cuda_initialized": False,
+    }
+
+
 def main() -> int:
     args = _args()
     if args.output_dir.exists() or args.output_dir.is_symlink():
@@ -765,6 +829,7 @@ def main() -> int:
     freeze_manifest = args.repository_root.resolve() / runtime.FREEZE_MANIFEST.relative_to(runtime.WORKTREE)
     plan["_freeze_manifest_path"] = str(freeze_manifest)
     plan["_freeze_manifest_sha256"] = file_sha256(freeze_manifest)
+    real_render_proof = _real_render_producer_validator_roundtrip(plan)
     args.output_dir.mkdir(mode=0o700)
     runtime._fsync_directory(args.output_dir.parent)
 
@@ -1066,6 +1131,7 @@ def main() -> int:
         "late_failure_terminals": late_failure_records,
         "tamper_cases_rejected": tampers,
         "late_failure_tamper_cases_rejected": late_tampers,
+        "real_render_producer_validator_roundtrip": real_render_proof,
         "full_freeze_target_count": success["full_freeze"]["target_count"],
         "mapping_insertion_permutation_canonical_equal": True,
         "failure_mapping_insertion_permutation_canonical_equal": (

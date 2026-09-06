@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from prime_rl.phase_b_contract import PhaseBContractError
+from prime_rl.phase_b_contract import PhaseBContractError, canonical_json_sha256
 from prime_rl.phase_b_ipc1 import (
     ACTIONS,
     EVALUATION_DEPTHS,
@@ -162,6 +162,39 @@ def test_ipc1_output_scale_evidence_is_full_finite_and_opens_after_step1() -> No
             runner._validate_sidecar_output_scale(nonfinite, arm=arm, update_index=1)
         with pytest.raises(PhaseBContractError, match="did not open"):
             runner._validate_sidecar_output_scale([0.0] * 256, arm=arm, update_index=1)
+
+
+def test_ipc1_render_proof_rebinds_nonascii_source_to_bank_canonical_hash_only() -> None:
+    runner = _runner_module()
+    row = {
+        "task_key": "document_adaptive_d0-v0-i99999:solve-anchor-1",
+        "action": "solve_owned",
+        "messages": [{"role": "user", "content": "identity carrier — exact"}],
+    }
+    bank_hash = runner.canonical_bank_sha256(row)
+    inherited_hash = canonical_json_sha256(row)
+    assert inherited_hash != bank_hash
+    proof = {
+        "task_key": row["task_key"],
+        "action": row["action"],
+        "source_row_sha256": inherited_hash,
+        "sentinel": {"preserved": [1, 2, 3]},
+    }
+    selection = {
+        "selected": [{"task_key": row["task_key"], "expected_action": row["action"]}],
+        "row_canonical_sha256": [bank_hash],
+    }
+    rebound = runner._bind_render_proof_source_rows(
+        [row], [proof], selection=selection, split="train"
+    )
+    assert proof["source_row_sha256"] == inherited_hash
+    assert rebound == [{**proof, "source_row_sha256": bank_hash}]
+    tampered = deepcopy(selection)
+    tampered["row_canonical_sha256"][0] = "0" * 64
+    with pytest.raises(PhaseBContractError, match="source binding differs"):
+        runner._bind_render_proof_source_rows(
+            [row], [proof], selection=tampered, split="train"
+        )
 
 
 def test_ipc1_candidate_ready_and_write_failure_boundaries_are_exact() -> None:
