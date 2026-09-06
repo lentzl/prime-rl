@@ -12,8 +12,10 @@ ROOT=Path(__file__).resolve().parents[3]
 sys.path.insert(0,str(ROOT/"scripts/latent"))
 
 from freeze_h_iter_phase1_t0_plan_v1 import (
-    FAILED_START_BINDING, GUARD_CASE_NAMES, GUARD_PROOF_ASSETS,
-    guard_plan_value, validate_guard_plan,
+    DIAGNOSTIC_ARCHIVE_BINDING, FAILED_RUN1_ARCHIVE_BINDING,
+    FAILED_START_BINDING, GUARD_CASE_NAMES, GUARD_MECHANISM,
+    GUARD_PROOF_ASSETS, GUARD_RUN_ID, guard_plan_value,
+    validate_guard_archives, validate_guard_plan,
 )
 from run_h_iter_phase1_t0_preflight_r1_guard_proof_v1 import (
     FAILURE_SCHEMA, FAILURE_NAME, MEMORY_LABELS, PROOF_DECISION, PROOF_KEYS,
@@ -55,17 +57,30 @@ def test_direct_guard_rejects_semantic_mutations() -> None:
         with pytest.raises(RuntimeError,match="T0 static exposure guard differs"):
             guard(RUNNER.read_text()+mutation)
 
-def test_guard_proof_plan_has_exact_46_assets() -> None:
-    assert len(GUARD_PROOF_ASSETS)==len(set(GUARD_PROOF_ASSETS))==46
+def test_guard_proof_plan_has_exact_57_assets_and_archives() -> None:
+    assert len(GUARD_PROOF_ASSETS)==len(set(GUARD_PROOF_ASSETS))==57
+    validate_guard_archives(ROOT)
     value=guard_plan_value(ROOT,"0"*40)
     validate_guard_plan(value,repo=ROOT)
-    assert len(value["asset_sha256"])==46
+    assert len(value["asset_sha256"])==57
+    assert value["failed_run1_archive_binding"]==FAILED_RUN1_ARCHIVE_BINDING
+    assert value["diagnostic_archive_binding"]==DIAGNOSTIC_ARCHIVE_BINDING
     assert value["execution_authorization"]=={"guard_proof_eligible_after_independent_review":True,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False}
+
+def test_run2_runtime_observer_is_lexical_and_archive_bindings_are_strict() -> None:
+    proof_source=(ROOT/"scripts/latent/run_h_iter_phase1_t0_preflight_r1_guard_proof_v1.py").read_text()
+    assert '"sys_executable":str(sys.executable)' in proof_source
+    assert '"sys_executable":str(Path(sys.executable).resolve())' not in proof_source
+    value=guard_plan_value(ROOT,"0"*40)
+    for field in ("failed_run1_archive_binding","diagnostic_archive_binding"):
+        changed=copy.deepcopy(value); changed[field]=dict(changed[field]); changed[field][next(iter(changed[field]))]="0"*40
+        changed["plan_sha256"]=sha(canonical_json({key:item for key,item in changed.items() if key!="plan_sha256"}))
+        with pytest.raises(RuntimeError): validate_guard_plan(changed)
 
 def _runtime_failure() -> dict:
     value={key:None for key in PROOF_KEYS if key!="proof_sha256"}
     timing={"outer_seconds":720,"startup_seconds":60,"compute_seconds":300,"compute_alarm_seconds":299,"audit_seconds":120,"audit_alarm_seconds":119,"failure_seconds":90,"failure_alarm_seconds":89,"terminal_seconds":30,"terminal_alarm_seconds":29,"postexit_seconds":30,"reserve_seconds":90,"success_terminal_entry_max_seconds":480,"compute_failure_terminal_entry_max_seconds":450,"audit_failure_terminal_entry_max_seconds":570,"prior_terminal_failure_entry_max_seconds":600,"compute_enter_ns":0,"compute_exit_ns":1,"compute_duration_ns":1,"audit_enter_ns":None,"audit_exit_ns":None,"audit_duration_ns":None,"prior_terminal_enter_ns":None,"prior_terminal_failure_ns":None,"prior_terminal_duration_ns":None,"failure_enter_ns":1,"failure_exit_ns":2,"failure_duration_ns":1,"terminal_enter_ns":2,"prepublication_elapsed_ns":2}
-    value.update({"schema_version":FAILURE_SCHEMA,"status":"infrastructure_invalid","mechanism":"q35-2b-h-iter-phase1-t0-preflight-r1-guard-v1","run_identity":"h-iter-phase1-t0-preflight-r1-guard-proof-run1","execution_commit":"0"*40,"plan_file_sha256":"1"*64,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing,"observed_rss_peak_bytes":1,"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":[{"index":0,"label":"ENTRY","rss_bytes":1}],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":False},"decision_boundary":PROOF_DECISION,"error_type":"InfrastructureInvalid","error_message":"fixture","traceback":"fixture","stage":"runtime","execution_progress":{"stage":"runtime","memory_rows_completed":1},"audit_errors":["fixture"],"failure_sha256":""})
+    value.update({"schema_version":FAILURE_SCHEMA,"status":"infrastructure_invalid","mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":"0"*40,"plan_file_sha256":"1"*64,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing,"observed_rss_peak_bytes":1,"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":[{"index":0,"label":"ENTRY","rss_bytes":1}],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":False},"decision_boundary":PROOF_DECISION,"error_type":"InfrastructureInvalid","error_message":"fixture","traceback":"fixture","stage":"runtime","execution_progress":{"stage":"runtime","memory_rows_completed":1},"audit_errors":["fixture"],"failure_sha256":""})
     return finalize_terminal(value,"failure_sha256")
 
 def test_failure_stage_authority_and_artifact_tampers_rejected() -> None:
@@ -96,10 +111,10 @@ def _late_failure(stage:str,memory_count:int,*,with_source:bool,with_cases:bool,
     safety={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"train_opens":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh_before":True,"object_census_errors":0,"object_census_uninspectable":0}
     timing={"outer_seconds":720,"startup_seconds":60,"compute_seconds":300,"compute_alarm_seconds":299,"audit_seconds":120,"audit_alarm_seconds":119,"failure_seconds":90,"failure_alarm_seconds":89,"terminal_seconds":30,"terminal_alarm_seconds":29,"postexit_seconds":30,"reserve_seconds":90,"success_terminal_entry_max_seconds":480,"compute_failure_terminal_entry_max_seconds":450,"audit_failure_terminal_entry_max_seconds":570,"prior_terminal_failure_entry_max_seconds":600,"compute_enter_ns":0,"compute_exit_ns":1,"compute_duration_ns":1,"audit_enter_ns":1 if stage in {"audit","terminal_publication"} else None,"audit_exit_ns":2 if stage in {"audit","terminal_publication"} else None,"audit_duration_ns":1 if stage in {"audit","terminal_publication"} else None,"prior_terminal_enter_ns":2 if prior_terminal else None,"prior_terminal_failure_ns":3 if prior_terminal else None,"prior_terminal_duration_ns":1 if prior_terminal else None,"failure_enter_ns":3 if prior_terminal else (2 if stage=="audit" else 1),"failure_exit_ns":4 if prior_terminal else (3 if stage=="audit" else 2),"failure_duration_ns":1,"terminal_enter_ns":4 if prior_terminal else (3 if stage=="audit" else 2),"prepublication_elapsed_ns":4 if prior_terminal else (3 if stage=="audit" else 2)}
     rows=[{"index":i,"label":MEMORY_LABELS[i],"rss_bytes":1} for i in range(memory_count)]
-    audit={"target_count":46,"pre_entries":entries,"pre_sha256":entry_hash,"post_entries":entries if with_freeze else None,"post_sha256":entry_hash if with_freeze else None,"all_exact":True if with_freeze else None}
+    audit={"target_count":57,"pre_entries":entries,"pre_sha256":entry_hash,"post_entries":entries if with_freeze else None,"post_sha256":entry_hash if with_freeze else None,"all_exact":True if with_freeze else None}
     freeze={"head_before":"0"*40,"head_after":"0"*40,"tree_before":"2"*40,"tree_after":"2"*40,"clean_before":True,"clean_after":True,"assets_pre_sha256":entry_hash,"assets_post_sha256":entry_hash,"complete":True} if with_freeze else None
-    status="infrastructure_invalid" if stage=="terminal_publication" else "h_iter_phase1_t0_preflight_r1_guard_proof_incomplete"; error_type="InfrastructureInvalid" if status=="infrastructure_invalid" else "T0PreflightR1GuardProofError"
-    value.update({"schema_version":FAILURE_SCHEMA,"status":status,"mechanism":"q35-2b-h-iter-phase1-t0-preflight-r1-guard-v1","run_identity":"h-iter-phase1-t0-preflight-r1-guard-proof-run1","execution_commit":"0"*40,"mechanism_code_commit":"1"*40,"tree_sha256":"2"*40,"plan_file_sha256":"3"*64,"plan_sha256":"4"*64,"runtime":runtime,"asset_audit":audit,"failed_start_binding":FAILED_START_BINDING,"source_evidence":source if with_source else None,"case_results":cases if with_cases else None,"safety":safety if with_safety else None,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing,"observed_rss_peak_bytes":1,"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":rows,"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":memory_count==14},"full_freeze":freeze,"decision_boundary":PROOF_DECISION,"error_type":error_type,"error_message":"fixture","traceback":"fixture","stage":stage,"execution_progress":{"stage":stage,"memory_rows_completed":memory_count},"audit_errors":["fixture"] if status=="infrastructure_invalid" else [],"failure_sha256":""})
+    status="infrastructure_invalid" if stage=="terminal_publication" else "guard_proof_incomplete"; error_type="InfrastructureInvalid" if status=="infrastructure_invalid" else "T0PreflightR1GuardProofError"
+    value.update({"schema_version":FAILURE_SCHEMA,"status":status,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":"0"*40,"mechanism_code_commit":"1"*40,"tree_sha256":"2"*40,"plan_file_sha256":"3"*64,"plan_sha256":"4"*64,"runtime":runtime,"asset_audit":audit,"failed_start_binding":FAILED_START_BINDING,"source_evidence":source if with_source else None,"case_results":cases if with_cases else None,"safety":safety if with_safety else None,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing,"observed_rss_peak_bytes":1,"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":rows,"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":memory_count==14},"full_freeze":freeze,"decision_boundary":PROOF_DECISION,"error_type":error_type,"error_message":"fixture","traceback":"fixture","stage":stage,"execution_progress":{"stage":stage,"memory_rows_completed":memory_count},"audit_errors":["fixture"] if status=="infrastructure_invalid" else [],"failure_sha256":""})
     return finalize_terminal(value,"failure_sha256")
 
 def test_truthful_repaired_cases_audit_and_terminal_failures_validate() -> None:

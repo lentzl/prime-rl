@@ -24,11 +24,11 @@ from freeze_h_iter_phase1_t0_plan_v1 import (
     validate_guard_plan,
 )
 
-PLAN_REL="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-t0-train-calibration-v1/t0-preflight-r1-guard-proof-plan.json"
-SIDECAR_REL="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-t0-train-calibration-v1/t0-preflight-r1-guard-proof-plan.sha256"
+PLAN_REL="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-t0-train-calibration-v1/t0-preflight-r1-guard-proof-run2-plan.json"
+SIDECAR_REL="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-t0-train-calibration-v1/t0-preflight-r1-guard-proof-run2-plan.sha256"
 RUNNER_REL="scripts/latent/run_h_iter_phase1_t0_v1.py"
-PROOF_SCHEMA="prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-proof/v1"
-FAILURE_SCHEMA="prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-failure/v1"
+PROOF_SCHEMA="prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-proof/v2"
+FAILURE_SCHEMA="prime-rl/latent-h-iter-phase1-t0-preflight-r1-guard-failure/v2"
 PROOF_STATUS="h_iter_phase1_t0_preflight_r1_guard_mechanism_validated"
 PROOF_NAME="T0-PREFLIGHT-R1-GUARD-PROOF.json"
 FAILURE_NAME="T0-PREFLIGHT-R1-GUARD-FAILURE.json"
@@ -82,7 +82,7 @@ def asset_entries(repo:Path)->list[dict[str,Any]]:
 
 def verify_runtime(repo:Path,plan:dict[str,Any],output:Path)->None:
     runtime=plan["runtime"]
-    observed={"python":".".join(map(str,sys.version_info[:3])),"sys_executable":str(Path(sys.executable).resolve()),"sys_prefix":str(Path(sys.prefix).resolve()),"torch":importlib.metadata.version("torch"),"transformers":importlib.metadata.version("transformers"),"tokenizers":importlib.metadata.version("tokenizers"),"flash_linear_attention":importlib.metadata.version("flash-linear-attention"),"shared_project_pyproject_sha256":file_sha(Path(plan["remote_paths"]["shared_project"])/"pyproject.toml"),"shared_project_uv_lock_sha256":file_sha(Path(plan["remote_paths"]["shared_project"])/"uv.lock"),"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES")}
+    observed={"python":".".join(map(str,sys.version_info[:3])),"sys_executable":str(sys.executable),"sys_prefix":str(Path(sys.prefix).resolve()),"torch":importlib.metadata.version("torch"),"transformers":importlib.metadata.version("transformers"),"tokenizers":importlib.metadata.version("tokenizers"),"flash_linear_attention":importlib.metadata.version("flash-linear-attention"),"shared_project_pyproject_sha256":file_sha(Path(plan["remote_paths"]["shared_project"])/"pyproject.toml"),"shared_project_uv_lock_sha256":file_sha(Path(plan["remote_paths"]["shared_project"])/"uv.lock"),"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES")}
     if observed!=runtime or file_sha(repo/"pyproject.toml")!=runtime["shared_project_pyproject_sha256"] or file_sha(repo/"uv.lock")!=runtime["shared_project_uv_lock_sha256"]: raise InfrastructureInvalid("T0 guard proof runtime differs")
     available=int(os.sysconf("SC_AVPHYS_PAGES"))*int(os.sysconf("SC_PAGE_SIZE")); free_disk=os.statvfs(output.parent).f_bavail*os.statvfs(output.parent).f_frsize
     if available<8*(1<<30) or free_disk<8*(1<<30): raise InfrastructureInvalid("T0 guard proof resources unavailable")
@@ -195,7 +195,7 @@ def validate_proof(value:dict[str,Any],repo:Path|None=None)->None:
     source=value["source_evidence"]; source_keys={"baseline_runner_file_sha256","repaired_runner_file_sha256","baseline_normalized_ast_sha256","repaired_normalized_ast_sha256","normalized_ast_equal","guard_function_ast_sha256","added_top_level_functions","full_forbidden_literals_absent_from_repaired_source","only_allowed_surface_changed"}
     audit=value["asset_audit"]; audit_keys={"target_count","pre_entries","pre_sha256","post_entries","post_sha256","all_exact"}; entry_keys={"path","sha256","bytes"}
     if set(source)!=source_keys or source["baseline_runner_file_sha256"]!="d6f8fcfb153e81c6aaf5faa42caf1700abba25a0594108ea8db4837034ca6bee" or source["repaired_runner_file_sha256"]!="29a7cb25cd3ec5c909716bbf30b35254423f1a9e159ec48134b8ec31fae0ab34" or source["baseline_normalized_ast_sha256"]!=source["repaired_normalized_ast_sha256"] or source["normalized_ast_equal"] is not True or source["added_top_level_functions"]!=["validate_static_exposure_source"] or source["full_forbidden_literals_absent_from_repaired_source"] is not True or source["only_allowed_surface_changed"] is not True: raise RuntimeError("T0 guard proof source closure differs")
-    if set(audit)!=audit_keys or audit["target_count"]!=46 or audit["pre_entries"]!=audit["post_entries"] or len(audit["pre_entries"])!=46 or any(set(row)!=entry_keys for row in audit["pre_entries"]) or audit["pre_sha256"]!=sha(canonical_json(audit["pre_entries"])) or audit["post_sha256"]!=sha(canonical_json(audit["post_entries"])) or audit["all_exact"] is not True: raise RuntimeError("T0 guard proof asset closure differs")
+    if set(audit)!=audit_keys or audit["target_count"]!=57 or audit["pre_entries"]!=audit["post_entries"] or len(audit["pre_entries"])!=57 or any(set(row)!=entry_keys for row in audit["pre_entries"]) or audit["pre_sha256"]!=sha(canonical_json(audit["pre_entries"])) or audit["post_sha256"]!=sha(canonical_json(audit["post_entries"])) or audit["all_exact"] is not True: raise RuntimeError("T0 guard proof asset closure differs")
     resources=value["resources"]
     if set(resources)!={"minimum_ram_gib","minimum_disk_gib","maximum_artifact_bytes","timing","observed_rss_peak_bytes","artifact_bytes"} or resources["minimum_ram_gib"]!=8 or resources["minimum_disk_gib"]!=8 or resources["maximum_artifact_bytes"]!=1048576 or not isinstance(resources["observed_rss_peak_bytes"],int) or resources["observed_rss_peak_bytes"]<0 or not isinstance(resources["artifact_bytes"],int) or not 0<=resources["artifact_bytes"]<=1048576: raise RuntimeError("T0 guard proof resources differ")
     validate_timing(resources["timing"],success=True)
@@ -212,7 +212,7 @@ def validate_proof(value:dict[str,Any],repo:Path|None=None)->None:
 def validate_failure(value:dict[str,Any],repo:Path|None=None)->None:
     expected=(PROOF_KEYS-{"proof_sha256"})|{"error_type","error_message","traceback","stage","execution_progress","audit_errors","failure_sha256"}
     if set(value)!=expected or value["schema_version"]!=FAILURE_SCHEMA or value["mechanism"]!=GUARD_MECHANISM or value["run_identity"]!=GUARD_RUN_ID: raise RuntimeError("T0 guard failure identity differs")
-    taxonomy={"h_iter_phase1_t0_preflight_r1_guard_proof_incomplete":"T0PreflightR1GuardProofError","h_iter_phase1_t0_preflight_r1_guard_proof_boundary_rejected":"T0PreflightR1GuardProofBoundaryRejected","infrastructure_invalid":"InfrastructureInvalid"}
+    taxonomy={"guard_proof_incomplete":"T0PreflightR1GuardProofError","guard_mechanism_rejected":"T0PreflightR1GuardProofBoundaryRejected","infrastructure_invalid":"InfrastructureInvalid"}
     if taxonomy.get(value["status"])!=value["error_type"]: raise RuntimeError("T0 guard failure taxonomy differs")
     stages=["startup","runtime","assets","failed_start","baseline_source","repaired_source","cases","safety","audit","terminal_publication"]
     if value["stage"] not in stages or value["execution_progress"]!={"stage":value["stage"],"memory_rows_completed":len(value["memory"]["rows"])}: raise RuntimeError("T0 guard failure progress differs")
@@ -239,8 +239,8 @@ def validate_failure(value:dict[str,Any],repo:Path|None=None)->None:
     if len(memory["rows"])>=3 and (not isinstance(value["tree_sha256"],str) or len(value["tree_sha256"])!=40): raise RuntimeError("T0 guard failure provenance differs")
     audit=value["asset_audit"]
     if audit is not None:
-        if set(audit)!={"target_count","pre_entries","pre_sha256","post_entries","post_sha256","all_exact"} or audit["target_count"]!=46 or audit["pre_sha256"]!=sha(canonical_json(audit["pre_entries"])): raise RuntimeError("T0 guard failure asset evidence differs")
-        if len(audit["pre_entries"])!=46 or [row.get("path") for row in audit["pre_entries"]]!=sorted(GUARD_PROOF_ASSETS) or any(set(row)!={"path","sha256","bytes"} or not isinstance(row["bytes"],int) or row["bytes"]<0 or not isinstance(row["sha256"],str) or len(row["sha256"])!=64 for row in audit["pre_entries"]): raise RuntimeError("T0 guard failure asset rows differ")
+        if set(audit)!={"target_count","pre_entries","pre_sha256","post_entries","post_sha256","all_exact"} or audit["target_count"]!=57 or audit["pre_sha256"]!=sha(canonical_json(audit["pre_entries"])): raise RuntimeError("T0 guard failure asset evidence differs")
+        if len(audit["pre_entries"])!=57 or [row.get("path") for row in audit["pre_entries"]]!=sorted(GUARD_PROOF_ASSETS) or any(set(row)!={"path","sha256","bytes"} or not isinstance(row["bytes"],int) or row["bytes"]<0 or not isinstance(row["sha256"],str) or len(row["sha256"])!=64 for row in audit["pre_entries"]): raise RuntimeError("T0 guard failure asset rows differ")
         if audit["post_entries"] is None:
             if audit["post_sha256"] is not None or audit["all_exact"] is not None: raise RuntimeError("T0 guard failure asset null relation differs")
         elif audit["post_sha256"]!=sha(canonical_json(audit["post_entries"])) or audit["all_exact"] is not (audit["pre_entries"]==audit["post_entries"]): raise RuntimeError("T0 guard failure asset postflight differs")
@@ -271,7 +271,7 @@ def validate_failure(value:dict[str,Any],repo:Path|None=None)->None:
         if census and value["status"]!="infrastructure_invalid": raise RuntimeError("T0 guard census degradation masked")
     if len(memory["rows"])>=13 and safety is None: raise RuntimeError("T0 guard failure safety missing")
     if len(memory["rows"])<13 and safety is not None and value["stage"]!="safety" and not positive: raise RuntimeError("T0 guard failure safety premature")
-    if positive is not (value["status"]=="h_iter_phase1_t0_preflight_r1_guard_proof_boundary_rejected"): raise RuntimeError("T0 guard boundary evidence/status differs")
+    if positive is not (value["status"]=="guard_mechanism_rejected"): raise RuntimeError("T0 guard boundary evidence/status differs")
     resources=value["resources"]
     if set(resources)!={"minimum_ram_gib","minimum_disk_gib","maximum_artifact_bytes","timing","observed_rss_peak_bytes","artifact_bytes"} or resources["minimum_ram_gib"]!=8 or resources["minimum_disk_gib"]!=8 or resources["maximum_artifact_bytes"]!=1048576: raise RuntimeError("T0 guard failure resources differ")
     validate_timing(resources["timing"],success=False)
@@ -365,7 +365,7 @@ def run(repo:Path,execution_commit:str,plan_file_sha256:str,output:Path)->None:
     signal.alarm(0); signal.alarm(119); STATE.update({"stage":"audit","compute_exit_ns":compute_audit_boundary,"audit_enter_ns":compute_audit_boundary})
     post=asset_entries(repo); post_sha=sha(canonical_json(post)); head_after=git(repo,"rev-parse","HEAD"); tree_after=git(repo,"rev-parse","HEAD^{tree}"); clean_after=not bool(git(repo,"status","--porcelain","--untracked-files=all"))
     if pre!=post or head_after!=head or tree_after!=tree or not clean_after: raise InfrastructureInvalid("T0 guard proof postflight differs")
-    asset_audit={"target_count":46,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True}
+    asset_audit={"target_count":57,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True}
     full_freeze={"head_before":head,"head_after":head_after,"tree_before":tree,"tree_after":tree_after,"clean_before":clean,"clean_after":clean_after,"assets_pre_sha256":pre_sha,"assets_post_sha256":post_sha,"complete":True}
     STATE["evidence"].update({"asset_audit":asset_audit,"full_freeze":full_freeze})
     mark("TERMINAL_PREWRITE"); audit_terminal_boundary=time.monotonic_ns()-started
@@ -384,9 +384,9 @@ def publish_failure(repo:Path,output:Path,execution_commit:str,plan_file_sha256:
             if STATE["terminal_validated"]: raise InfrastructureInvalid("T0 guard valid proof already exists")
             if proof.is_symlink() or not proof.is_file(): raise InfrastructureInvalid("T0 guard invalid proof path differs")
             proof.unlink()
-    if isinstance(error,T0PreflightR1GuardProofBoundaryRejected): status="h_iter_phase1_t0_preflight_r1_guard_proof_boundary_rejected"; error_type="T0PreflightR1GuardProofBoundaryRejected"; audit=[]
+    if isinstance(error,T0PreflightR1GuardProofBoundaryRejected): status="guard_mechanism_rejected"; error_type="T0PreflightR1GuardProofBoundaryRejected"; audit=[]
     elif isinstance(error,(TimeoutError,OSError,MemoryError,InfrastructureInvalid)): status="infrastructure_invalid"; error_type="InfrastructureInvalid"; audit=[f"{type(error).__name__}: {error}"]
-    else: status="h_iter_phase1_t0_preflight_r1_guard_proof_incomplete"; error_type="T0PreflightR1GuardProofError"; audit=[]
+    else: status="guard_proof_incomplete"; error_type="T0PreflightR1GuardProofError"; audit=[]
     started=STATE["phase_start_ns"]
     now=0 if started is None else time.monotonic_ns()-started
     if STATE["compute_enter_ns"] is not None and STATE["compute_exit_ns"] is None: STATE["compute_exit_ns"]=now
@@ -395,7 +395,7 @@ def publish_failure(repo:Path,output:Path,execution_commit:str,plan_file_sha256:
     failure_enter=now
     memory={"expected_labels":MEMORY_LABELS,"rows":list(STATE["memory"]),"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":len(STATE["memory"])==14}
     evidence=STATE["evidence"]; plan=evidence.get("plan") or {}; pre=evidence.get("asset_pre")
-    asset_audit=None if pre is None else {"target_count":46,"pre_entries":pre,"pre_sha256":evidence["asset_pre_sha"],"post_entries":None,"post_sha256":None,"all_exact":None}
+    asset_audit=None if pre is None else {"target_count":57,"pre_entries":pre,"pre_sha256":evidence["asset_pre_sha"],"post_entries":None,"post_sha256":None,"all_exact":None}
     if evidence.get("asset_audit") is not None: asset_audit=evidence["asset_audit"]
     resources={"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":None,"observed_rss_peak_bytes":rss(),"artifact_bytes":0}
     value={key:None for key in PROOF_KEYS if key!="proof_sha256"}
