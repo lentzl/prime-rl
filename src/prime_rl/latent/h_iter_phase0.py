@@ -2087,20 +2087,52 @@ def validate_failure(
             for error in audit["errors"]
         ):
             raise ContractError("Phase-0 incomplete failure audit is not fail-closed")
-        if audit["head"] is not None and audit["head"] != expected_execution_commit:
+        error_checks = {error["check"] for error in audit["errors"]}
+        expected_mismatch_errors = {
+            "head_exact": "execution HEAD differs",
+            "status_clean": "worktree is not clean",
+            "plan_file_exact": "external plan file hash differs",
+            "plan_sidecar_exact": "external plan sidecar differs",
+        }
+        if any(
+            error["check"] in expected_mismatch_errors
+            and error["error"] != expected_mismatch_errors[error["check"]]
+            for error in audit["errors"]
+        ):
+            raise ContractError("Phase-0 failure mismatch error evidence differs")
+        mismatch_truth = {
+            "head_exact": audit["head"] != expected_execution_commit,
+            "status_clean": audit["status"] != "",
+            "plan_file_exact": audit["plan_file_sha256"] != expected_plan_file_sha256,
+            "plan_sidecar_exact": audit["plan_sidecar_sha256"]
+            != sha256_bytes(f"{expected_plan_file_sha256}\n".encode()),
+        }
+        if any((name in error_checks) is not mismatch for name, mismatch in mismatch_truth.items()):
+            raise ContractError("Phase-0 failure mismatch/error closure differs")
+        if (
+            audit["head"] is not None
+            and audit["head"] != expected_execution_commit
+            and "head_exact" not in error_checks
+        ):
             raise ContractError("Phase-0 observed failure HEAD differs")
         if audit["tree"] is not None and (
             not isinstance(audit["tree"], str) or not re.fullmatch(r"[0-9a-f]{40}", audit["tree"])
         ):
             raise ContractError("Phase-0 observed failure tree differs")
-        if audit["status"] is not None and audit["status"] != "":
+        if audit["status"] is not None and audit["status"] != "" and "status_clean" not in error_checks:
             raise ContractError("Phase-0 observed failure worktree differs")
-        if audit["plan_file_sha256"] is not None and audit["plan_file_sha256"] != expected_plan_file_sha256:
+        if (
+            audit["plan_file_sha256"] is not None
+            and audit["plan_file_sha256"] != expected_plan_file_sha256
+            and "plan_file_exact" not in error_checks
+        ):
             raise ContractError("Phase-0 observed failure plan file differs")
         if audit["plan_sha256"] is not None and audit["plan_sha256"] != plan["plan_sha256"]:
             raise ContractError("Phase-0 observed failure internal plan differs")
-        if audit["plan_sidecar_sha256"] is not None and audit["plan_sidecar_sha256"] != sha256_bytes(
-            f"{expected_plan_file_sha256}\n".encode()
+        if (
+            audit["plan_sidecar_sha256"] is not None
+            and audit["plan_sidecar_sha256"] != sha256_bytes(f"{expected_plan_file_sha256}\n".encode())
+            and "plan_sidecar_exact" not in error_checks
         ):
             raise ContractError("Phase-0 observed failure plan sidecar differs")
         if audit["plan_asset_hashes"] is not None and audit["plan_asset_hashes"] != plan["asset_sha256"]:

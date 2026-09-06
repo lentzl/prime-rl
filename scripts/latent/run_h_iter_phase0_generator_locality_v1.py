@@ -778,12 +778,31 @@ def failure_payload(
             audit["errors"].append({"check": name, "error": f"{type(audit_error).__name__}: {audit_error}"})
     try:
         plan = load_canonical_json(args.plan.resolve())
+        validate_plan(plan)
         audit["plan_file_sha256"] = file_sha256(args.plan.resolve())
         audit["plan_sha256"] = plan["plan_sha256"]
         audit["plan_sidecar_sha256"] = file_sha256(args.plan.resolve().with_name("phase0-plan.sha256"))
         audit["plan_asset_hashes"] = asset_hashes(repo, plan)
     except BaseException as audit_error:
         audit["errors"].append({"check": "plan_and_assets", "error": f"{type(audit_error).__name__}: {audit_error}"})
+    expected_sidecar = sha256_bytes(f"{args.plan_file_sha256}\n".encode())
+    mismatch_checks = (
+        ("head_exact", audit["head"] == args.execution_commit, "execution HEAD differs"),
+        ("status_clean", audit["status"] == "", "worktree is not clean"),
+        (
+            "plan_file_exact",
+            audit["plan_file_sha256"] == args.plan_file_sha256,
+            "external plan file hash differs",
+        ),
+        (
+            "plan_sidecar_exact",
+            audit["plan_sidecar_sha256"] == expected_sidecar,
+            "external plan sidecar differs",
+        ),
+    )
+    for check, exact, detail in mismatch_checks:
+        if not exact:
+            audit["errors"].append({"check": check, "error": detail})
     output_inventory = []
     if args.output_dir.is_dir() and not args.output_dir.is_symlink():
         output_inventory = sorted(path.name for path in args.output_dir.iterdir())

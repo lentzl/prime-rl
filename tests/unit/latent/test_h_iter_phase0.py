@@ -323,6 +323,25 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     malformed_memory["failure_sha256"] = hiter.canonical_sha256(malformed_memory, omit="failure_sha256")
     with pytest.raises(hiter.ContractError, match="memory value"):
         hiter.validate_failure(malformed_memory, **validation_args)
+    observed_dirty = json_roundtrip(failure)
+    observed_dirty["status"] = "infrastructure_invalid"
+    observed_dirty["full_freeze_failure_audit"]["status"] = " M tracked-file"
+    observed_dirty["full_freeze_failure_audit"]["errors"] = [
+        {"check": "status_clean", "error": "worktree is not clean"}
+    ]
+    observed_dirty["failure_sha256"] = hiter.canonical_sha256(
+        observed_dirty, omit="failure_sha256"
+    )
+    hiter.validate_failure(observed_dirty, **validation_args)
+    missing_dirty_error = json_roundtrip(observed_dirty)
+    missing_dirty_error["full_freeze_failure_audit"]["errors"] = [
+        {"check": "unrelated", "error": "not the observed mismatch"}
+    ]
+    missing_dirty_error["failure_sha256"] = hiter.canonical_sha256(
+        missing_dirty_error, omit="failure_sha256"
+    )
+    with pytest.raises(hiter.ContractError, match="mismatch/error"):
+        hiter.validate_failure(missing_dirty_error, **validation_args)
 
 
 def json_roundtrip(value: object):
