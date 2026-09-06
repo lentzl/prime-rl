@@ -2,8 +2,8 @@
   "schema_version": "q35-2b-phase-b-hic0-identity-carrier/v1",
   "status": "frozen_pending_independent_review",
   "claim_class": "zero_update_identity_carrier_causal_diagnostic_nomination_only",
-  "plan_sha256": "9fe3e96eb055784af9e84a03f440bcc3a6afdd8df37adae56548fb8b3f68d9e6",
-  "mechanism_code_commit": "4b58336ec0c9295d2edf176431750027e2827c6d",
+  "plan_sha256": "f379830948828c693d3d165aabbaec68ad5d4142c858e93e38c737eca7dad4e5",
+  "mechanism_code_commit": "70cf7788ba35719beee0ea6212fa038ee7d0dfaa",
   "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
   "protected_model": {
     "name": "e33",
@@ -123,13 +123,13 @@
       "first_suffix_logits": "logits[:,0:1,:]",
       "invariants": "0<I<=S<T; inserted masks one, labels -100, position IDs shifted; trie offsets identical"
     },
-    "loss": "exact CPU-float64 suffix CE over L=logits[0,0:K-1,:], y=labels[0,1:K], per-token logsumexp(L[j])-L[j,y[j]], math.fsum/N; native output.loss finite descriptive and used only for designated backward",
+    "loss": "exact CPU-float64 suffix CE over L=logits[0,0:K-1,:], y=labels[0,1:K] with every 0<=y<V, per-token logsumexp(L[j])-L[j,y[j]], math.fsum/N; native output.loss finite descriptive and used only for designated backward",
     "generation": false,
     "cache": false,
     "attention_implementation": "eager",
     "cache_guard_label_count": 147,
     "cache_guard_label_sha256": "8230eae3b60a7fd00d7bfb557563a9d9ca32764ace262447275bd40538818471",
-    "cache_guard": "recursive loaded Cache subclass closure patches every __new__; exact pinned eight classes with fqcn/path/SHA/distribution; DynamicCache constructor trip; closure checked at every one of 147 labels; ENTRY; PRE/POST every source/receiver call after rope_deltas reset; FINAL after 72; EXIT before restore in finally",
+    "cache_guard": "explicit pinned Qwen and FLA imports precede census; recursive loaded Cache subclass closure patches every __new__; exact pinned eight classes with fqcn/path/SHA/distribution; DynamicCache constructor trip; deduplicated model/module/generation config closure has use_cache=false checked at every one of 147 labels; ENTRY; PRE/POST every source/receiver call after rope_deltas reset; FINAL after 72; EXIT while patched, then exact original config values and constructors restored and verified in finally",
     "cache_classes": [
       "fla.models.utils.Cache",
       "fla.models.utils.FLACache",
@@ -190,7 +190,8 @@
     "complete_threshold_miss": "b_hic0_inplace_carrier_not_nominated",
     "cache_or_pkv_failure": "b_hic0_nocache_rejected",
     "nonfinite_schema_render_alignment_gradient_missing": "b_hic0_incomplete",
-    "oom_cap_timeout_runtime_provenance": "infrastructure_invalid"
+    "oom_cap_timeout_runtime_provenance": "infrastructure_invalid",
+    "prospective_terminal_validator": "deeply validates status-class coupling, rows/counts/gates/cache/protection/provenance/resources/no-promotion/plan/commit on SUCCESS and failure-class/status plus bounded postfailure immutable/e33 audits on FAILURE"
   },
   "boundaries": {
     "optimizer_updates": 0,
