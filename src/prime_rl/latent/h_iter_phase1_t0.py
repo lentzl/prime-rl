@@ -377,6 +377,38 @@ def validate_failure_memory_stage(stage:str,row_count:int)->None:
     low,high=T0_FAILURE_MEMORY_BOUNDS[stage]
     if not low<=row_count<=high: raise T0ContractError("T0 failure memory stage boundary differs")
 
+def validate_capture_failure_microstate(stage:str,captures:int,tokenizers:int,forwards:int,cache_checks:int,memory_rows:int)->None:
+    state=(captures,tokenizers,forwards,cache_checks,memory_rows)
+    if stage in {"startup_pre_model","model_load"}:
+        if any(state[:4]): raise T0ContractError("T0 failure pre-capture microstate differs")
+        return
+    if stage!="capture":
+        if state[:4]!=(96,96,96,194): raise T0ContractError("T0 failure completed capture microstate differs")
+        return
+    # This is the literal observable state machine in run_h_iter_phase1_t0_v1.py:
+    # tokenizer counter -> PRE ledger -> CACHE_PRE -> model/forward counter ->
+    # CACHE_POST -> POST ledger -> capture counter.  Enumerating every boundary
+    # prevents neighboring, mutually impossible counter combinations from being
+    # accepted by independent terminal replay.
+    legal_states={(0,0,0,0,6),(0,0,0,1,6),(0,0,0,1,7),(0,0,0,1,8)}
+    for completed in range(96):
+        checks=1+2*completed; memory=8+2*completed
+        if completed: legal_states.add((completed,completed,completed,checks,memory))
+        legal_states.update({
+            (completed,completed+1,completed,checks,memory),
+            (completed,completed+1,completed,checks,memory+1),
+            (completed,completed+1,completed,checks+1,memory+1),
+            (completed,completed+1,completed+1,checks+1,memory+1),
+            (completed,completed+1,completed+1,checks+2,memory+1),
+            (completed,completed+1,completed+1,checks+2,memory+2),
+        })
+    legal_states.update({
+        (96,96,96,193,200),             # final capture counter advanced
+        (96,96,96,193,201),             # CACHE_GUARD_EXITED ledger, before EXIT
+        (96,96,96,194,201),             # CACHE_EXIT completed
+    })
+    if state not in legal_states: raise T0ContractError("T0 failure capture microstate differs")
+
 def validate_t0_proof(value:dict[str,Any], *, partition:dict[str,Any]|None=None, capture_schedule:dict[str,Any]|None=None, training_schedule:dict[str,Any]|None=None, memory_schedule:dict[str,Any]|None=None, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
     if partition is None or capture_schedule is None or training_schedule is None or memory_schedule is None: raise T0ContractError("T0 proof frozen validation sources missing")
     _keys(value,T0_PROOF_KEYS,"T0 proof")
@@ -532,10 +564,6 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     if any(not isinstance(progress[k],int) or isinstance(progress[k],bool) or progress[k]<0 for k in numeric) or not isinstance(progress["candidate_files_present"],list) or not isinstance(progress["threshold_file_present"],bool): raise T0ContractError("T0 failure counter differs")
     captures=progress["capture_rows_completed"]; tokenizers=progress["tokenizer_calls_completed"]; model_forwards=progress["model_forwards_completed"]; cache_checks=progress["cache_checks_completed"]
     if not 0<=captures<=model_forwards<=tokenizers<=96 or model_forwards>captures+1 or tokenizers>model_forwards+1 or progress["sequences_completed"]!=24*tokenizers or not 0<=cache_checks<=194: raise T0ContractError("T0 failure capture progress differs")
-    if cache_checks:
-        base_cache=1+2*captures
-        if cache_checks not in {base_cache,base_cache+1} or model_forwards==captures+1 and cache_checks!=base_cache+1 or tokenizers==model_forwards+1 and cache_checks!=base_cache: raise T0ContractError("T0 failure cache/capture crossing differs")
-    elif captures or model_forwards: raise T0ContractError("T0 failure capture lacks cache closure")
     counts=value.get("counts")
     if not isinstance(counts,dict) or set(counts)!=T0_COUNT_KEYS or any(not isinstance(item,int) or isinstance(item,bool) or item<0 for item in counts.values()): raise T0ContractError("T0 failure counts schema differs")
     direct_counts={"capture_rows":captures,"tokenizer_calls":tokenizers,"model_forwards":model_forwards,"sequences":progress["sequences_completed"],"cache_checks":cache_checks,"candidate_objects":progress["candidates_initialized"],"sidecar_forwards":progress["sidecar_forwards_completed"],"sidecar_backwards":progress["sidecar_backwards_completed"],"optimizer_steps":progress["optimizer_steps_completed"],"cell_calls":progress["cell_calls_completed"],"candidate_files":len(progress["candidate_files_present"]),"threshold_files":int(progress["threshold_file_present"])}
@@ -679,7 +707,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     raw_cache=value.get("cache_guard")
     if raw_cache is not None and (not isinstance(raw_cache,dict) or not raw_cache or stage_rank[stage]<stage_rank["capture"]): raise T0ContractError("T0 failure future cache evidence")
     cache=raw_cache if isinstance(raw_cache,dict) else {}
-    entry_drift=negative_control_missing=False
+    entry_drift=negative_control_missing=config_drift=False
     safety=value.get("safety") if isinstance(value.get("safety"),dict) else {}
     protected=value.get("protected_state") if isinstance(value.get("protected_state"),dict) else {}
     if protected:
@@ -770,8 +798,6 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
             if set(row)!=memory_keys or any(not isinstance(item,int) or isinstance(item,bool) or not 0<=item<=40*(1<<30) for item in numbers) or numbers[0]>numbers[2] or numbers[1]>numbers[3]: raise T0ContractError("T0 failure memory row differs")
         validate_failure_memory_stage(stage,len(rows))
         row_labels=[r["label"] for r in rows]
-        post_capture=sum(label.startswith("POST_CAPTURE_") for label in row_labels); pre_capture=sum(label.startswith("PRE_CAPTURE_") for label in row_labels)
-        if post_capture!=captures or pre_capture not in {tokenizers,tokenizers+1} or not captures<=tokenizers<=pre_capture: raise T0ContractError("T0 failure memory/capture crossing differs")
         milestone_rules=(
             ("CACHE_GUARD_EXITED",captures==96,stage_rank[stage]>stage_rank["capture"]),
             ("PROTECTED_POSTCAPTURE_VERIFIED",stage_rank[stage]>=stage_rank["model_release"],stage_rank[stage]>stage_rank["model_release"]),
@@ -796,7 +822,11 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         if train_labels!=expected_train_completed: raise T0ContractError("T0 failure training memory prefix differs")
     elif captures or completed or progress["stage"] not in {"startup_pre_model","model_load"}: raise T0ContractError("T0 failure memory evidence missing")
     memory_count=len(memory["rows"]) if isinstance(memory,dict) and isinstance(memory.get("rows"),list) else 0
-    if (entry_drift or negative_control_missing) and memory_count!=6: raise T0ContractError("T0 failure cache entry memory differs")
+    validate_capture_failure_microstate(stage,captures,tokenizers,model_forwards,cache_checks,memory_count)
+    if config_drift:
+        drift_memory=(cache_checks==0 and memory_count==6) or (tokenizers==captures+1 and model_forwards==captures and cache_checks==1+2*captures and memory_count==9+2*captures) or (tokenizers==model_forwards==captures+1 and cache_checks==2+2*captures and memory_count==9+2*captures) or (captures==tokenizers==model_forwards==96 and cache_checks==193 and memory_count==201)
+        if not drift_memory: raise T0ContractError("T0 failure cache drift transition differs")
+    if negative_control_missing and memory_count!=6: raise T0ContractError("T0 failure cache entry memory differs")
     if memory_count and any(item is None for item in (runtime,asset_audit,antecedent,data,resources)): raise T0ContractError("T0 failure memory lacks foundational evidence")
     metric_rows=metric.get("row_records",[]) if isinstance(metric,dict) else []
     presentations={phase:sum(row.get("phase")==phase for row in metric_rows if isinstance(row,dict)) for phase in ("PRECAL","POSTCAL","POSTFIT")}

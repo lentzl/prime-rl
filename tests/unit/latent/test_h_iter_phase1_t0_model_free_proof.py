@@ -12,7 +12,7 @@ from prime_rl.latent.h_iter_phase1_t0 import (
     SYNTHETIC_SEED, SYNTHETIC_SHA256, T0ContractError,
     T0_COMPLETE_COUNTS, T0_FAILURE_MEMORY_BOUNDS,
     build_tamper_schedule, canonical_json, sha256_bytes,
-    validate_failure_memory_stage, validate_model_free_failure, validate_t0_failure, validate_t0_proof,
+    validate_capture_failure_microstate, validate_failure_memory_stage, validate_model_free_failure, validate_t0_failure, validate_t0_proof,
     FAILURE_SCHEMA,
 )
 
@@ -205,7 +205,7 @@ def test_cache_entry_configuration_drift_is_honest_and_stage_bound() -> None:
     spurious=copy.deepcopy(value); spurious["cache_guard"]["configuration_records"][0]["value_during"]=False; rehash(spurious)
     with pytest.raises(T0ContractError,match="cache entry drift evidence"): validate_t0_failure(spurious,**validation)
     premature_label=copy.deepcopy(value); drift_rows=base["memory"]["rows"][:7]; premature_label["memory"].update({"rows":drift_rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in drift_rows]))}); premature_label["counts"]["memory_rows"]=7; rehash(premature_label)
-    with pytest.raises(T0ContractError,match="cache entry memory"): validate_t0_failure(premature_label,**validation)
+    with pytest.raises(T0ContractError,match="capture microstate"): validate_t0_failure(premature_label,**validation)
 
 def test_cache_guard_entry_drift_restores_before_reraising(monkeypatch:pytest.MonkeyPatch) -> None:
     import sys
@@ -249,14 +249,24 @@ def test_mid_prefix_exit_drift_and_negative_control_no_trip() -> None:
         value["cache_guard"].update({"configuration_records":config,"label_rows":labels,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in labels])),"actual_checks":checks,"dynamic_cache_negative_trips":0 if name=="NO_TRIP" else 1,"dynamic_cache_actual_trips":0,"returned_pkv_count":0,"configuration_drift_count":int(drift),"restored":True})
         memory_rows=value["memory"]["rows"][:memory_count]; value["memory"].update({"rows":memory_rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in memory_rows])),"complete":False})
         value["candidate_disposition"]={"arm_order":["STATIC","FFN","FIXED_T4","RESET_K","REC_K"],"files_present":[],"threshold_file_present":False,"rows":[],"reusable":False}; value["counts"]={key:0 for key in base["counts"]}; value["counts"].update({"capture_rows":captures,"tokenizer_calls":tokenizers,"model_forwards":forwards,"sequences":24*tokenizers,"cache_checks":checks,"memory_rows":memory_count})
-        value.update({"schema_version":FAILURE_SCHEMA,"status":status,"error_type":error_type,"error_message":name,"traceback":"fixture","stage":"capture","execution_progress":progress,"audit_errors":[],"failure_sha256":""}); value["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in value.items() if key!="failure_sha256"})); return value
+        value.update({"schema_version":FAILURE_SCHEMA,"status":status,"error_type":error_type,"error_message":name,"traceback":"fixture","stage":"capture","execution_progress":progress,"audit_errors":[name] if status=="infrastructure_invalid" else [],"failure_sha256":""}); value["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in value.items() if key!="failure_sha256"})); return value
     variants=[
         cache_failure("PRE_DRIFT",1,2,1,3,11,1,True,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"),
         cache_failure("POST_DRIFT",1,2,2,4,11,2,True,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"),
-        cache_failure("EXIT_DRIFT",96,96,96,193,200,96,True,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"),
+        cache_failure("EXIT_DRIFT",96,96,96,193,201,96,True,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"),
         cache_failure("NO_TRIP",0,0,0,1,6,0,False,"h_iter_phase1_t0_incomplete","T0ContractError"),
     ]
     for variant in variants: validate_t0_failure(variant,**validation)
+    returned_variants=[
+        cache_failure("RETURNED_PKV_FIRST",0,1,1,2,9,0,False,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"),
+        cache_failure("RETURNED_PKV_MIDDLE",1,2,2,4,11,1,False,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"),
+        cache_failure("RETURNED_PKV_LAST",95,96,96,192,199,95,False,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"),
+    ]
+    for returned in returned_variants:
+        returned["cache_guard"]["returned_pkv_count"]=1; returned["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in returned.items() if key!="failure_sha256"})); validate_t0_failure(returned,**validation)
+    nonfinite=cache_failure("NONFINITE",1,2,2,4,11,2,False,"h_iter_phase1_t0_capture_mechanism_rejected","T0CaptureMechanismRejected"); nonfinite["capture_evidence"]["rows"][-1]["finite"]=False; nonfinite["capture_evidence"]["counts"]["rows"]=1; nonfinite["capture_evidence"]["aggregate_sha256"]=sha256_bytes(canonical_json(nonfinite["capture_evidence"]["rows"])); nonfinite["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in nonfinite.items() if key!="failure_sha256"})); validate_t0_failure(nonfinite,**validation)
+    pre_post_finite=cache_failure("PRE_POST_FINITE",1,2,2,4,11,2,False,"infrastructure_invalid","InfrastructureInvalid"); validate_t0_failure(pre_post_finite,**validation)
+    post_ledger=cache_failure("POST_LEDGER_PRE_COUNTER",1,2,2,5,12,2,False,"infrastructure_invalid","InfrastructureInvalid"); validate_t0_failure(post_ledger,**validation)
     for variant in variants[:3]:
         masked=copy.deepcopy(variant); masked.update({"status":"h_iter_phase1_t0_incomplete","error_type":"T0ContractError"}); masked["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in masked.items() if key!="failure_sha256"}))
         with pytest.raises(T0ContractError,match="positive capture rejection masked"): validate_t0_failure(masked,**validation)
@@ -264,6 +274,13 @@ def test_mid_prefix_exit_drift_and_negative_control_no_trip() -> None:
         with pytest.raises(T0ContractError,match="cache entry drift evidence"): validate_t0_failure(spurious,**validation)
     false_reject=copy.deepcopy(variants[3]); false_reject.update({"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"}); false_reject["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in false_reject.items() if key!="failure_sha256"}))
     with pytest.raises(T0ContractError,match="rejection lacks positive evidence"): validate_t0_failure(false_reject,**validation)
+
+def test_capture_failure_microstate_transition_table() -> None:
+    legal=[(0,0,0,0,6),(0,0,0,1,6),(0,0,0,1,7),(0,0,0,1,8),(0,1,0,1,8),(0,1,0,1,9),(0,1,0,2,9),(0,1,1,2,9),(0,1,1,3,9),(0,1,1,3,10),(1,1,1,3,10),(95,96,95,191,198),(95,96,95,191,199),(95,96,95,192,199),(95,96,96,192,199),(95,96,96,193,199),(95,96,96,193,200),(96,96,96,193,200),(96,96,96,193,201),(96,96,96,194,201)]
+    for state in legal: validate_capture_failure_microstate("capture",*state)
+    illegal=[(0,0,0,2,9),(0,1,0,3,9),(0,1,0,2,8),(0,1,1,1,9),(0,1,1,2,10),(0,1,1,3,11),(1,1,1,3,9),(96,96,96,194,200)]
+    for state in illegal:
+        with pytest.raises(T0ContractError,match="capture microstate"): validate_capture_failure_microstate("capture",*state)
 
 def test_postflight_failure_requires_freeze_tamper_and_decision_evidence() -> None:
     pytest.importorskip("torch")
