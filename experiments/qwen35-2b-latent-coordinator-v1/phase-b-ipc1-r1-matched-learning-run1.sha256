@@ -1,4 +1,4 @@
-c55fcbaf3b135ab2774c02b2859c77c3371c93b765ecb069af768b98f4fa7815  phase-b-ipc1-r1-matched-learning-run1-plan.json
+a86c7db1bf37a9c6b0aef8f50c6ebfc92ec2653a82c64833d9a039ab7c6db346  phase-b-ipc1-r1-matched-learning-run1-plan.json
 39b65a3a7b1ba3eb6dfe1dfa899a66d48a4447b12edfa730cc560168b28c24bd  phase-b-ipc1-run2-incomplete-binding-v1.json
 7a5aef7085a53280d18caad6c2d354248d26d153525f90aa21442db707d72f78  phase-b-ipc1-run2-incomplete-v1/FAILURE.json
 0b4f98163c8d418dab62a153906d2a4127ce671cbf4b00545b9f563a6d3afdbd  phase-b-ipc1-run2-incomplete-v1/run.log
@@ -16,7 +16,7 @@ b2462d36e83b58ca5df349f698ce27555fff075427f971c2d60cf5b4aa2b7c9e  phase-b-ipc1-b
 aaa470cd3fdd73f07f200ee3e2be05568cdb37ebf3c945f4db753a4d8e98f745  phase-b-ipc1-bank-v1/prior-overlap-closure-v1.json
 9a01146f4644089c5d2d625e930b7b39e2b3c735d16689ebf1385afa68b90abb  phase-b-ipc1-bank-v1/runtime-source.json
 15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499  phase-b-ipc1-bank-v1/taskset-5283a85.py
-1ae41624b6c69fa837f13787a59fac9225d12fe2c6b0803a72db6566eb9f70ac  phase-b-ipc1-terminal-proof-v1/MANIFEST.json
+2393b6ad314a95ab4c2521a35bfae1200814236c6561817f6d769d7d42963c1b  phase-b-ipc1-terminal-proof-v1/MANIFEST.json
 2380920c2ffe04234bf39ec4eff92aae5b70beb9acaea8395496e889ced12c50  phase-b-ipc1-terminal-proof-v1/PROOF-run3.json.base64
 40f6f3dd66f18626105c613f90537d3e5a6c3d323f652c60fe37b283a7e71df8  phase-b-ipc1-terminal-proof-v1/proof-run3.log
 9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  phase-b-ipc1-terminal-proof-v1/proof-run3.exit_status.txt
@@ -35,6 +35,9 @@ aaa470cd3fdd73f07f200ee3e2be05568cdb37ebf3c945f4db753a4d8e98f745  phase-b-ipc1-b
 3f6f01d8957c360da442dfaefe3f816e032e94d2066f38c6b00b44940fd26922  phase-b-ipc1-terminal-proof-v1/PROOF-run7.json.base64
 d89931c313edd353843ba5b5c601368cbdc86631cc4438ba6b207fac1963b5aa  phase-b-ipc1-terminal-proof-v1/proof-run7.log
 9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  phase-b-ipc1-terminal-proof-v1/proof-run7.exit_status.txt
+697030719bad588adae166aefa36bbb4deff540817e657e1689b378d149e7485  phase-b-ipc1-terminal-proof-v1/PROOF-run8.json.base64
+55b088e3f80b166551f1103e0e7e75f2f3afa8f99147593cadf62cfa669755ba  phase-b-ipc1-terminal-proof-v1/proof-run8.log
+9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  phase-b-ipc1-terminal-proof-v1/proof-run8.exit_status.txt
 c351349dac78a90072f78321c9ce54aaf7ad0a83641df0940558b853e68f9d67  ../../src/prime_rl/phase_b_contract.py
 4223bab89be230c71442282251b1ec0208c2764fa0b27d0737484154b4fad415  ../../src/prime_rl/phase_b_ipc1.py
 9072806eea4ebb005a3ce648059b5122b502585548ba290472e32475c26f313c  ../../src/prime_rl/phase_b_identity_carrier.py
@@ -46,5 +49,5 @@ e0c7d07223e96202d73c7c2694c7c9a63487ec97c172aa265c480c81608c26dc  ../../scripts/
 ed68443b70a5bafbdc12d6e585b9192da92a59a981bc36b55a76179c49027993  ../../scripts/latent/run_phase_b_ipc1_matched_learning_v1.py
 dda07137d7b5d842f076f8bde08fc394f49fd465b068e615f3ee95847dc199dc  ../../scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py
 54deb4ab33630dfa7b0a9b825d048645a4890da650fe179d13e044a11bae911f  ../../scripts/export_phase_b_ipc1_bank_v1.py
-a2cd254f9e2377f1ef1e4646d970327219ac31fb48ff7ab74c33f1ae4be95d9c  ../../scripts/latent/run_phase_b_ipc1_r1_matched_learning_run1.sh
+e657d46ecf438a67cd9025b20f3fa334688d5daee3eae2bca1aeb36add02e311  ../../scripts/latent/run_phase_b_ipc1_r1_matched_learning_run1.sh
 d41f2e5ed2ffc88390a01107e0b5fb9d5794f6e19fc8cc6cfdbf276a1545eef7  ../../tests/unit/test_phase_b_ipc1.py
