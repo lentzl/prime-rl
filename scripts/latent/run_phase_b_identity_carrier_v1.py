@@ -658,6 +658,8 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
         raise PhaseBContractError("B-HIC0 e33 hidden size differs")
     for parameter in model.parameters():
         parameter.requires_grad_(False)
+    importlib.import_module("transformers.models.qwen3_5.modeling_qwen3_5")
+    importlib.import_module("fla.models.utils")
     audit.update({"model": model, "stage": "model_loaded"})
     _memory_checkpoint(torch, audit, "after_model_load")
     e33_pre = smoke._module_tensor_sha256(model, torch)
