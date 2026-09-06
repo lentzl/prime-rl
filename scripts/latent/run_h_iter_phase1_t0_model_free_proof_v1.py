@@ -405,7 +405,22 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
             rejected=False
             try: validate_t0_failure(mutated,**validation)
             except T0ContractError: rejected=True
-            failures.append({"fixture":name,"validated":terminal.read_bytes()==encoded,"tamper_rejected":rejected})
+            entry_drift_validated=entry_drift_tampers=True
+            if name=="F1":
+                entry_out=root/"F1_ENTRY_DRIFT"; entry_out.mkdir(); entry=copy.deepcopy(parsed); entry["error_message"]="CACHE_ENTRY configuration drift"; entry["execution_progress"]["cache_checks_completed"]=0
+                entry_rows=entry["memory"]["rows"][:6]; entry["memory"].update({"rows":entry_rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in entry_rows]))}); entry["counts"].update({"cache_checks":0,"memory_rows":6})
+                config_records=copy.deepcopy(entry["cache_guard"]["configuration_records"]); config_records[0]["value_during"]=True
+                entry["cache_guard"].update({"configuration_records":config_records,"label_rows":[],"label_sha256":sha256_bytes(canonical_json([])),"actual_checks":0,"dynamic_cache_negative_trips":0,"dynamic_cache_actual_trips":0,"returned_pkv_count":0,"configuration_drift_count":1,"restored":True})
+                entry["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in entry.items() if k!="failure_sha256"})); entry_bytes=canonical_json(entry)+b"\n"; entry_terminal=entry_out/"T0-FAILURE.json"; entry_fd=os.open(entry_terminal,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                with os.fdopen(entry_fd,"wb") as stream: stream.write(entry_bytes); stream.flush(); os.fsync(stream.fileno())
+                entry_parsed=strict_loads(entry_terminal.read_bytes()); validate_t0_failure(entry_parsed,output_inventory=["T0-FAILURE.json"],output_dir=entry_out,**validation); entry_drift_validated=entry_terminal.read_bytes()==entry_bytes
+                masked=copy.deepcopy(entry); masked.update({"status":"h_iter_phase1_t0_incomplete","error_type":"T0ContractError"}); masked["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in masked.items() if k!="failure_sha256"}))
+                spurious=copy.deepcopy(entry); spurious["cache_guard"]["configuration_records"][0]["value_during"]=False; spurious["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in spurious.items() if k!="failure_sha256"}))
+                premature=copy.deepcopy(entry); premature_rows=parsed["memory"]["rows"][:7]; premature["memory"].update({"rows":premature_rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in premature_rows]))}); premature["counts"]["memory_rows"]=7; premature["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in premature.items() if k!="failure_sha256"}))
+                for bad in (masked,spurious,premature):
+                    try: validate_t0_failure(bad,**validation); entry_drift_tampers=False
+                    except T0ContractError: pass
+            failures.append({"fixture":name,"validated":terminal.read_bytes()==encoded and entry_drift_validated,"tamper_rejected":rejected and entry_drift_tampers})
         sample=production_fixture(partition,capture_schedule,schedule,memory_schedule,tampers,[],True)
         mapping=canonical_json(sample)==canonical_json(dict(reversed(list(sample.items()))))
         dual=unsafe=False

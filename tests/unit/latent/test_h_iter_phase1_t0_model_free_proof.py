@@ -185,6 +185,54 @@ def test_failure_memory_stage_boundaries_and_future_evidence() -> None:
     empty_capture=copy.deepcopy(zero); empty_capture["capture_evidence"]={"schedule_sha256":capture["schedule_sha256"],"rows":[],"counts":{"rows":0,"tokenizer_calls":0,"model_forwards":0,"sequences":0},"aggregate_sha256":sha256_bytes(canonical_json([]))}; rejected(empty_capture,"capture evidence")
     empty_cache=copy.deepcopy(zero); empty_cache["cache_guard"]={}; rejected(empty_cache,"cache evidence")
 
+def test_cache_entry_configuration_drift_is_honest_and_stage_bound() -> None:
+    pytest.importorskip("torch")
+    fixture,partition,capture,schedule,memory,tampers,validation=_production_sources()
+    base=fixture(partition,capture,schedule,memory,tampers,[],True)
+    value=copy.deepcopy({key:item for key,item in base.items() if key!="proof_sha256"})
+    progress={"stage":"capture","capture_rows_completed":0,"tokenizer_calls_completed":0,"model_forwards_completed":0,"sequences_completed":0,"cache_checks_completed":0,"candidates_initialized":0,"preconnect_arms_completed":0,"operations_completed":0,"current_operation_index":None,"current_phase":None,"current_arm":None,"current_epoch":None,"current_depth":None,"sidecar_forwards_completed":0,"sidecar_backwards_completed":0,"optimizer_steps_completed":0,"cell_calls_completed":0,"metric_row_records_completed":0,"aggregate_records_completed":0,"gates_evaluated":0,"candidate_files_present":[],"threshold_file_present":False}
+    for field in ("capture_evidence","candidate_initial_state","preconnect_evidence","metric_evidence","gate_evidence","derived_thresholds","full_freeze","tamper_audit","decision_boundary"): value[field]=None
+    value["asset_audit"].update({"post_entries":None,"post_sha256":None,"all_exact":None}); value["resources"]["timing"]=None; value["protected_state"]["e33_released"]=False
+    records=copy.deepcopy(base["cache_guard"]["configuration_records"]); records[0]["value_during"]=True
+    value["cache_guard"].update({"configuration_records":records,"label_rows":[],"label_sha256":sha256_bytes(canonical_json([])),"actual_checks":0,"dynamic_cache_negative_trips":0,"dynamic_cache_actual_trips":0,"returned_pkv_count":0,"configuration_drift_count":1,"restored":True})
+    rows=base["memory"]["rows"][:6]; value["memory"]={**base["memory"],"rows":rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in rows])),"complete":False}
+    value["candidate_disposition"]={"arm_order":["STATIC","FFN","FIXED_T4","RESET_K","REC_K"],"files_present":[],"threshold_file_present":False,"rows":[],"reusable":False}; value["counts"]={key:0 for key in base["counts"]}; value["counts"]["memory_rows"]=6
+    value.update({"schema_version":FAILURE_SCHEMA,"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected","error_message":"CACHE_ENTRY configuration drift","traceback":"fixture","stage":"capture","execution_progress":progress,"audit_errors":[],"failure_sha256":""})
+    def rehash(item:dict)->None: item["failure_sha256"]=sha256_bytes(canonical_json({key:field for key,field in item.items() if key!="failure_sha256"}))
+    rehash(value); validate_t0_failure(value,**validation)
+    masked=copy.deepcopy(value); masked.update({"status":"h_iter_phase1_t0_incomplete","error_type":"T0ContractError"}); rehash(masked)
+    with pytest.raises(T0ContractError,match="positive capture rejection masked"): validate_t0_failure(masked,**validation)
+    spurious=copy.deepcopy(value); spurious["cache_guard"]["configuration_records"][0]["value_during"]=False; rehash(spurious)
+    with pytest.raises(T0ContractError,match="cache entry drift evidence"): validate_t0_failure(spurious,**validation)
+    premature_label=copy.deepcopy(value); drift_rows=base["memory"]["rows"][:7]; premature_label["memory"].update({"rows":drift_rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in drift_rows]))}); premature_label["counts"]["memory_rows"]=7; rehash(premature_label)
+    with pytest.raises(T0ContractError,match="entry drift memory"): validate_t0_failure(premature_label,**validation)
+
+def test_cache_guard_entry_drift_restores_before_reraising(monkeypatch:pytest.MonkeyPatch) -> None:
+    import sys
+    sys.path.insert(0,str(ROOT/"scripts/latent"))
+    import run_h_iter_phase1_t0_v1 as runner
+    class StickyConfig:
+        def __init__(self)->None: self.value=True
+        @property
+        def use_cache(self)->bool: return self.value
+        @use_cache.setter
+        def use_cache(self,value:bool)->None:
+            if value: self.value=True
+    class Cache: pass
+    class DynamicCache(Cache): pass
+    class CacheUtils: pass
+    CacheUtils.Cache=Cache; CacheUtils.DynamicCache=DynamicCache
+    class Model:
+        config=StickyConfig(); generation_config=None
+        def named_modules(self): return []
+    runner.FAILURE_EVIDENCE["cache_guard"]=None; runner.PROGRESS["cache_checks_completed"]=0
+    guard=runner.CacheGuard(Model(),CacheUtils,[])
+    monkeypatch.setattr(guard,"evidence",lambda:{"configuration_drift_count":guard.drift,"dynamic_cache_negative_trips":guard.negative_trips,"restored":guard.restored})
+    with pytest.raises(runner.T0CaptureMechanismRejected,match="configuration drift"): guard.__enter__()
+    assert guard.labels==[] and guard.drift==1 and guard.negative_trips==0 and guard.trips==0 and guard.restored is True
+    assert runner.PROGRESS["cache_checks_completed"]==0
+    assert runner.FAILURE_EVIDENCE["cache_guard"]=={"configuration_drift_count":1,"dynamic_cache_negative_trips":0,"restored":True}
+
 def test_postflight_failure_requires_freeze_tamper_and_decision_evidence() -> None:
     pytest.importorskip("torch")
     fixture,partition,capture,schedule,memory,tampers,validation=_production_sources()

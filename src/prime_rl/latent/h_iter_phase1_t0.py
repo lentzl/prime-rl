@@ -676,8 +676,9 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     elif gate is not None:
         raise T0ContractError("T0 failure future gate evidence differs")
     raw_cache=value.get("cache_guard")
-    if raw_cache is not None and (not isinstance(raw_cache,dict) or not raw_cache or stage_rank[stage]<stage_rank["capture"] or cache_checks==0): raise T0ContractError("T0 failure future cache evidence")
+    if raw_cache is not None and (not isinstance(raw_cache,dict) or not raw_cache or stage_rank[stage]<stage_rank["capture"]): raise T0ContractError("T0 failure future cache evidence")
     cache=raw_cache if isinstance(raw_cache,dict) else {}
+    entry_drift=False
     safety=value.get("safety") if isinstance(value.get("safety"),dict) else {}
     protected=value.get("protected_state") if isinstance(value.get("protected_state"),dict) else {}
     if protected:
@@ -689,7 +690,14 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         raise T0ContractError("T0 failure protected evidence missing")
     if cache:
         expected_cache_labels=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
-        if set(cache)!={"class_records","configuration_records","label_rows","label_sha256","expected_checks","actual_checks","dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count","restored"} or cache["class_records"]!=CACHE_CLASS_RECORDS or cache["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache["actual_checks"]!=cache_checks or [r.get("index") for r in cache["label_rows"]]!=list(range(cache_checks)) or [r.get("label") for r in cache["label_rows"]]!=expected_cache_labels[:cache_checks] or cache["label_sha256"]!=sha256_bytes(canonical_json(expected_cache_labels[:cache_checks])) or cache["dynamic_cache_negative_trips"]!=1 or cache["expected_checks"]!=194 or cache["restored"] is not True or any(not isinstance(cache[key],int) or isinstance(cache[key],bool) or cache[key]<0 for key in ("dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count")): raise T0ContractError("T0 failure cache evidence differs")
+        cache_keys={"class_records","configuration_records","label_rows","label_sha256","expected_checks","actual_checks","dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count","restored"}
+        if set(cache)!=cache_keys or cache["class_records"]!=CACHE_CLASS_RECORDS or cache["actual_checks"]!=cache_checks or [r.get("index") for r in cache["label_rows"]]!=list(range(cache_checks)) or [r.get("label") for r in cache["label_rows"]]!=expected_cache_labels[:cache_checks] or cache["label_sha256"]!=sha256_bytes(canonical_json(expected_cache_labels[:cache_checks])) or cache["expected_checks"]!=194 or not isinstance(cache["restored"],bool) or any(not isinstance(cache[key],int) or isinstance(cache[key],bool) or cache[key]<0 for key in ("dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count")): raise T0ContractError("T0 failure cache evidence differs")
+        entry_drift=stage=="capture" and cache_checks==0 and cache["dynamic_cache_negative_trips"]==0 and cache["dynamic_cache_actual_trips"]==0 and cache["returned_pkv_count"]==0 and cache["configuration_drift_count"]==1
+        if entry_drift:
+            expected_by_source={row["source"]:row for row in CACHE_CONFIGURATION_RECORDS}; records=cache["configuration_records"]
+            if not isinstance(records,list) or [row.get("source") for row in records]!=[row["source"] for row in CACHE_CONFIGURATION_RECORDS] or any(set(row)!={"source","value_before","value_during","value_after"} or row["value_before"]!=expected_by_source[row["source"]]["value_before"] or not isinstance(row["value_during"],bool) or not isinstance(row["value_after"],bool) for row in records) or not any(row["value_during"] is not False for row in records) or cache["restored"] is not all(row["value_after"]==row["value_before"] for row in records): raise T0ContractError("T0 failure cache entry drift evidence differs")
+        elif cache["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache["dynamic_cache_negative_trips"]!=1 or cache["restored"] is not True:
+            raise T0ContractError("T0 failure cache evidence differs")
     elif cache_checks: raise T0ContractError("T0 failure cache evidence missing")
     safety_keys={"network_attempts","validation_opens","heldout_opens","h176_loads","generation_calls","e33_backwards","e33_optimizer_steps","e33_updates","live_trajectory_count","object_census_errors","object_census_uninspectable","forbidden_inputs_detected"}
     if not safety or set(safety)!=safety_keys or any(not isinstance(safety[key],int) or isinstance(safety[key],bool) or safety[key]<0 for key in safety_keys-{"forbidden_inputs_detected"}) or not isinstance(safety["forbidden_inputs_detected"],list) or any(not isinstance(item,str) or not item for item in safety["forbidden_inputs_detected"]): raise T0ContractError("T0 failure safety differs")
@@ -783,6 +791,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         if train_labels!=expected_train_completed: raise T0ContractError("T0 failure training memory prefix differs")
     elif captures or completed or progress["stage"] not in {"startup_pre_model","model_load"}: raise T0ContractError("T0 failure memory evidence missing")
     memory_count=len(memory["rows"]) if isinstance(memory,dict) and isinstance(memory.get("rows"),list) else 0
+    if entry_drift and memory_count!=6: raise T0ContractError("T0 failure cache entry drift memory differs")
     if memory_count and any(item is None for item in (runtime,asset_audit,antecedent,data,resources)): raise T0ContractError("T0 failure memory lacks foundational evidence")
     metric_rows=metric.get("row_records",[]) if isinstance(metric,dict) else []
     presentations={phase:sum(row.get("phase")==phase for row in metric_rows if isinstance(row,dict)) for phase in ("PRECAL","POSTCAL","POSTFIT")}

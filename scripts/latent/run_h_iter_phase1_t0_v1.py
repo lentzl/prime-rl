@@ -84,7 +84,7 @@ class MemoryLedger:
 
 class CacheGuard:
     def __init__(self,model:object,cache_utils:object,expected:list[dict])->None:
-        self.model=model; self.cache_utils=cache_utils; self.expected=expected; self.stack=contextlib.ExitStack(); self.classes=set(); self.labels=[]; self.trips=0; self.returned=0; self.drift=0; self.configs=[]; self.restored=False
+        self.model=model; self.cache_utils=cache_utils; self.expected=expected; self.stack=contextlib.ExitStack(); self.classes=set(); self.labels=[]; self.trips=0; self.negative_trips=0; self.in_negative_control=False; self.returned=0; self.drift=0; self.configs=[]; self.during={}; self.restored=False
         stack=[cache_utils.Cache]
         while stack:
             cls=stack.pop()
@@ -93,21 +93,34 @@ class CacheGuard:
         seen=set()
         for source,obj in [("model.config",model.config),("model.generation_config",getattr(model,"generation_config",None)),*((f"module:{n}.config",getattr(m,"config",None)) for n,m in model.named_modules())]:
             if obj is not None and id(obj) not in seen and hasattr(obj,"use_cache"): seen.add(id(obj)); self.configs.append((source,obj,getattr(obj,"use_cache")))
-    def reject(self,cls:object,*args:object,**kwargs:object)->object: self.trips+=1; FAILURE_EVIDENCE["cache_guard"]=self.evidence(); raise T0CaptureMechanismRejected(f"cache allocation {cls}")
+    def reject(self,cls:object,*args:object,**kwargs:object)->object:
+        self.trips+=1
+        if self.in_negative_control: self.negative_trips+=1
+        FAILURE_EVIDENCE["cache_guard"]=self.evidence(); raise T0CaptureMechanismRejected(f"cache allocation {cls}")
     def check(self,label:str)->None:
         expected=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
         if label!=expected[len(self.labels)]: raise T0ContractError("T0 cache label differs")
-        if any(getattr(c,"use_cache",None) is not False for _,c,_ in self.configs): self.drift+=1; FAILURE_EVIDENCE["cache_guard"]=self.evidence(); raise T0CaptureMechanismRejected("cache configuration drift")
+        self.during={id(config):getattr(config,"use_cache",None) for _,config,_ in self.configs}
+        if any(value is not False for value in self.during.values()): self.drift+=1; FAILURE_EVIDENCE["cache_guard"]=self.evidence(); raise T0CaptureMechanismRejected("cache configuration drift")
         self.labels.append(label)
     def __enter__(self):
-        for cls in sorted(self.classes,key=lambda c:(c.__module__,c.__qualname__)): self.stack.enter_context(mock.patch.object(cls,"__new__",lambda target,*a,_cls=cls,**k:self.reject(_cls,*a,**k)))
-        for _,config,_ in self.configs: config.use_cache=False
-        self.check("CACHE_ENTRY")
-        try: self.cache_utils.DynamicCache()
-        except T0CaptureMechanismRejected: pass
-        if self.trips!=1: raise T0ContractError("T0 cache negative control differs")
-        PROGRESS["cache_checks_completed"]=len(self.labels)
-        return self
+        try:
+            for cls in sorted(self.classes,key=lambda c:(c.__module__,c.__qualname__)): self.stack.enter_context(mock.patch.object(cls,"__new__",lambda target,*a,_cls=cls,**k:self.reject(_cls,*a,**k)))
+            for _,config,_ in self.configs: config.use_cache=False
+            self.check("CACHE_ENTRY")
+            self.in_negative_control=True
+            try: self.cache_utils.DynamicCache()
+            except T0CaptureMechanismRejected: pass
+            finally: self.in_negative_control=False
+            if self.negative_trips!=1 or self.trips!=1: raise T0ContractError("T0 cache negative control differs")
+            PROGRESS["cache_checks_completed"]=len(self.labels)
+            return self
+        except BaseException:
+            self.in_negative_control=False; self.stack.close()
+            for _,config,before in self.configs: config.use_cache=before
+            self.restored=all(getattr(config,"use_cache",None)==before for _,config,before in self.configs)
+            FAILURE_EVIDENCE["cache_guard"]=self.evidence() if self.drift or self.trips or self.labels else None; PROGRESS["cache_checks_completed"]=len(self.labels)
+            raise
     def __exit__(self,*args):
         try:
             if len(self.labels)==193: self.check("CACHE_EXIT")
@@ -121,7 +134,7 @@ class CacheGuard:
         records=[]
         for cls in sorted(self.classes,key=lambda c:(c.__module__,c.__qualname__)):
             module=sys.modules[cls.__module__]; path=Path(module.__file__).resolve(); dist="flash-linear-attention" if cls.__module__.startswith("fla") else "transformers"; records.append({"fqcn":f"{cls.__module__}.{cls.__qualname__}","module_path":str(path),"module_sha256":file_sha(path),"distribution":f"{dist}=={importlib.metadata.version(dist)}"})
-        return {"class_records":records,"configuration_records":[{"source":s,"value_before":b,"value_during":False,"value_after":getattr(c,"use_cache",None)} for s,c,b in self.configs],"label_rows":[{"index":i,"label":x} for i,x in enumerate(self.labels)],"label_sha256":sha256_bytes(canonical_json(self.labels)),"expected_checks":194,"actual_checks":len(self.labels),"dynamic_cache_negative_trips":1,"dynamic_cache_actual_trips":max(0,self.trips-1),"returned_pkv_count":self.returned,"configuration_drift_count":self.drift,"restored":self.restored}
+        return {"class_records":records,"configuration_records":[{"source":source,"value_before":before,"value_during":self.during.get(id(config),False),"value_after":getattr(config,"use_cache",None)} for source,config,before in self.configs],"label_rows":[{"index":i,"label":x} for i,x in enumerate(self.labels)],"label_sha256":sha256_bytes(canonical_json(self.labels)),"expected_checks":194,"actual_checks":len(self.labels),"dynamic_cache_negative_trips":self.negative_trips,"dynamic_cache_actual_trips":max(0,self.trips-self.negative_trips),"returned_pkv_count":self.returned,"configuration_drift_count":self.drift,"restored":self.restored}
 
 def aggregate_metrics(records:list[dict])->tuple[list[dict],dict]:
     aggregates=[]
