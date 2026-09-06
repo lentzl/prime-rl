@@ -1,0 +1,141 @@
+{
+  "schema_version": "q35-2b-ipc1-render-proof-hygiene-plan/v1",
+  "mechanism": "b-ipc1-render-proof-hygiene-v1",
+  "status": "frozen_pending_independent_review",
+  "mechanism_commit": "72a3e77fc3a904a0af2c3d72195671b8dcaff11a",
+  "plan_sha256": "1a2592d023f8f6438737c2a5684006d9bf3576cc7d8eb16a8f2c9ba596e439d8",
+  "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
+  "source_ipc1": {
+    "execution_commit": "e304dd6f5b73a86398f5cf7cb11715d7c0197b3b",
+    "plan_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-matched-learning-run1-plan.json",
+    "plan_sha256": "a86c7db1bf37a9c6b0aef8f50c6ebfc92ec2653a82c64833d9a039ab7c6db346",
+    "plan_internal_sha256": "ade9d54e941e26f3dfdbd5962d975147aebecb210061a6a1aab0ee1ef167d47e",
+    "freeze_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-matched-learning-run1.sha256",
+    "freeze_sha256": "97622026529031be417aea8e816f1757837c73767bae32b057a38433867321c7"
+  },
+  "prior_failure": {
+    "binding_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-late-incomplete-binding-v1.json",
+    "binding_sha256": "52dc517f609f5cc90ad73b39e161ddef72f5bc20e31246f708a69cb5d68ea489",
+    "failure_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-late-incomplete-v1/FAILURE.json",
+    "failure_file_sha256": "5712e662256b623369c9cf05d6b830be7d8a8b6ca02d5dc9f4fc25162e68d2a2",
+    "failure_internal_sha256": "b58357f73efeda6a314cb8c644612ba2c9f97ab87905d096330e9d8727bd1bcc",
+    "run_log_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-late-incomplete-v1/run.log",
+    "run_log_sha256": "658b8388c2f9fbb35714b4467d86efb9da91481c1d711767c0510610563559e2",
+    "archive_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-late-incomplete-v1/ARCHIVE.json",
+    "archive_sha256": "492e8716da197c9772b4e814bb045681f61a70db4af79a3ead3f470aebf739f6",
+    "snapshot_manifest_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-late-incomplete-v1/MANIFEST.sha256",
+    "snapshot_manifest_sha256": "7bbdff1ede3a0c114ca144b7de5f985df2ffa97cb24e665e6ef0a7d5c94f4e81"
+  },
+  "protected_model": {
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "metadata_sha256": {
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f",
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1"
+    },
+    "model_loaded": false
+  },
+  "banks": [
+    {
+      "name": "train",
+      "rows": 48,
+      "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/train-selection.json",
+      "selection_sha256": "ad5e3c7f7e49cc8cc194700f5cd1067a36ac5c5d47a1972980eaeffad2dc2c6b",
+      "parquet_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/train.parquet",
+      "parquet_sha256": "704d2d34c16672e20674b09d3cb56984881acaf44a3c6ca697a19c0504123591"
+    },
+    {
+      "name": "validation",
+      "rows": 24,
+      "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/validation-selection.json",
+      "selection_sha256": "8174f5cce1a572ef7639ae2a5aed0b56065bce4c7dff4dad9068ae1a1d10801b",
+      "parquet_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/validation.parquet",
+      "parquet_sha256": "697f0ae744691bde7bcaa99d45bd7c7d221b6cbdca7b6382d6682159dfde6da5"
+    },
+    {
+      "name": "heldout",
+      "rows": 24,
+      "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/heldout-selection.json",
+      "selection_sha256": "b2462d36e83b58ca5df349f698ce27555fff075427f971c2d60cf5b4aa2b7c9e",
+      "parquet_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/heldout.parquet",
+      "parquet_sha256": "6884c33a39ad67b7a1579f831825a4e77bb28218b35032a2b424122d1d7e4e35"
+    }
+  ],
+  "expected_evidence": {
+    "split_order": ["train", "validation", "heldout"],
+    "row_counts": [48, 24, 24],
+    "total_rows": 96,
+    "authoritative_bank_hash_matches": 96,
+    "inherited_utf8_hash_matches": 96,
+    "inherited_vs_bank_mismatches": 96,
+    "u2014_source_rows": 96,
+    "overwrite_only_matches": 96,
+    "post_repair_validator_matches": 96,
+    "tamper_cases": [
+      "unpatched_utf8_source_hash_train",
+      "unpatched_utf8_source_hash_validation",
+      "unpatched_utf8_source_hash_heldout",
+      "wrong_source_hash",
+      "missing_proof_key",
+      "extra_proof_key",
+      "mutation_non_source_field",
+      "row_reorder",
+      "row_deletion",
+      "row_duplication",
+      "split_name_change",
+      "split_order_change"
+    ]
+  },
+  "resources": {
+    "outer_wall_clock_seconds": 600,
+    "compute_limit_seconds": 480,
+    "failure_audit_limit_seconds": 90,
+    "terminal_publication_headroom_seconds": 30,
+    "minimum_available_ram_bytes": 8589934592,
+    "minimum_free_disk_bytes": 8589934592,
+    "artifact_cap_bytes": 67108864
+  },
+  "execution_environment": {
+    "UV_PROJECT_ENVIRONMENT": "/home/ubuntu/rlm/prime-rl/.venv",
+    "PYTHONPATH": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src:/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/packages/prime-rl-configs/src",
+    "CUDA_VISIBLE_DEVICES": "",
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1"
+  },
+  "runtime_provenance": {
+    "versions": {
+      "python": "3.12.14",
+      "transformers": "5.6.2",
+      "tokenizers": "0.22.2",
+      "pyarrow": "24.0.0",
+      "torch": "2.11.0+cu128"
+    },
+    "python_executable": "/home/ubuntu/rlm/prime-rl/.venv/bin/python3",
+    "project_path": "/home/ubuntu/rlm/prime-rl",
+    "pyproject_path": "/home/ubuntu/rlm/prime-rl/pyproject.toml",
+    "pyproject_sha256": "504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656",
+    "uv_lock_path": "/home/ubuntu/rlm/prime-rl/uv.lock",
+    "uv_lock_sha256": "fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"
+  },
+  "outputs": {
+    "directory": "/home/ubuntu/rlm/outputs/q35-2b-ipc1-render-proof-hygiene-v1-run2",
+    "terminal": "exclusive atomic canonical PROOF.json or FAILURE.json",
+    "candidate_files": []
+  },
+  "boundaries": {
+    "evidence_only": true,
+    "candidate_reuse": false,
+    "ipc1_rerun": false,
+    "nomination": false,
+    "admission": false,
+    "promotion": false,
+    "revalidation": false,
+    "model_calls": 0,
+    "backward_calls": 0,
+    "optimizer_steps": 0,
+    "updates": false
+  }
+}
