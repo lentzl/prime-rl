@@ -691,6 +691,30 @@ def _reverse_mappings(value: Any) -> Any:
     return value
 
 
+def _truncate_cache_evidence(receipt: dict[str, Any]) -> None:
+    cache = receipt["post_failure_audit"]["cache_guard"]
+    labels = ["CACHE_GUARD_ENTRY", "CACHE_GUARD_EXIT"]
+    cache.update(
+        {
+            "complete": False,
+            "labels": labels,
+            "label_count": len(labels),
+            "canonical_label_sha256": runtime.canonical_bank_sha256(labels),
+            "exact_prefix": True,
+            "exit_recorded": True,
+            "closure_check_count": len(labels),
+            "closure_checked_at_every_label": True,
+            "restored_in_finally": True,
+        }
+    )
+
+
+def _truncate_memory_evidence(receipt: dict[str, Any]) -> None:
+    receipt["post_failure_audit"]["cuda_memory"]["ledger"] = receipt["post_failure_audit"][
+        "cuda_memory"
+    ]["ledger"][:2]
+
+
 def _expect_rejected(receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str, output: Path) -> None:
     try:
         roundtrip_validate_terminal(
@@ -907,6 +931,20 @@ def main() -> int:
                 "progress",
                 lambda item: item["post_failure_audit"]["execution_progress"].__setitem__(
                     "model_calls_completed", 795
+                ),
+            ),
+            ("cache_truncated_against_progress", _truncate_cache_evidence),
+            ("memory_truncated_against_progress", _truncate_memory_evidence),
+            (
+                "backward_progress",
+                lambda item: item["post_failure_audit"]["execution_progress"].__setitem__(
+                    "backward_calls_completed", 0
+                ),
+            ),
+            (
+                "optimizer_progress",
+                lambda item: item["post_failure_audit"]["execution_progress"].__setitem__(
+                    "optimizer_steps_completed", 0
                 ),
             ),
         ]

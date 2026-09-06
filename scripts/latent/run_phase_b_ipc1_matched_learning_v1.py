@@ -3242,7 +3242,38 @@ def _failure_expected_schedules(plan: dict[str, Any]) -> dict[str, list[dict[str
     }
 
 
-def _validate_failure_cache_and_progress(audit: dict[str, Any], *, plan: dict[str, Any]) -> None:
+def _completed_training_updates(schedule: Sequence[dict[str, Any]], calls: int) -> tuple[int, bool]:
+    counts = {arm: 0 for arm in TRAINING_ARMS}
+    for record in schedule[:calls]:
+        if record["phase"] == "learning":
+            counts[record["arm"]] += 1
+    completed = sum(count // 12 for count in counts.values())
+    last_is_update_boundary = bool(
+        calls
+        and schedule[calls - 1]["phase"] == "learning"
+        and counts[schedule[calls - 1]["arm"]] % 12 == 0
+    )
+    return completed, last_is_update_boundary
+
+
+def _legal_failure_cache_core(
+    expected_labels: Sequence[str], *, calls: int, schedule_length: int
+) -> list[list[str]]:
+    legal = [list(expected_labels[: 1 + 2 * calls])]
+    if calls == 0:
+        legal.append([])
+    if calls > 0:
+        legal.append(list(expected_labels[: 2 * calls]))
+    if calls < schedule_length:
+        legal.append(list(expected_labels[: 2 + 2 * calls]))
+    elif calls == schedule_length:
+        legal.append(list(expected_labels[:-1]))
+    return legal
+
+
+def _validate_failure_cache_and_progress(
+    audit: dict[str, Any], *, plan: dict[str, Any], cache_rejection: bool
+) -> None:
     progress = _require_exact_keys(
         audit["execution_progress"],
         {
@@ -3273,8 +3304,15 @@ def _validate_failure_cache_and_progress(audit: dict[str, Any], *, plan: dict[st
     schedule = schedules[schedule_name]
     if calls > len(schedule) or progress["completed_call_prefix_sha256"] != canonical_bank_sha256(schedule[:calls]):
         raise PhaseBContractError("B-IPC1 FAILURE completed call prefix differs")
-    if backwards > sum(bool(record["backward"]) for record in schedule[:calls]) or steps > 12:
-        raise PhaseBContractError("B-IPC1 FAILURE backward/update progress exceeds schedule")
+    scheduled_backwards = sum(bool(record["backward"]) for record in schedule[:calls])
+    pending_backward = bool(calls and schedule[calls - 1]["backward"])
+    if backwards not in {scheduled_backwards, scheduled_backwards - int(pending_backward)}:
+        raise PhaseBContractError("B-IPC1 FAILURE backward progress differs from completed calls")
+    completed_updates, pending_update = _completed_training_updates(schedule, calls)
+    if steps not in {completed_updates, completed_updates - int(pending_update)}:
+        raise PhaseBContractError("B-IPC1 FAILURE optimizer progress differs from completed calls")
+    if steps == completed_updates and backwards != scheduled_backwards:
+        raise PhaseBContractError("B-IPC1 FAILURE optimizer progress precedes its final backward")
     _require_exact_keys(
         cache,
         {
@@ -3298,17 +3336,24 @@ def _validate_failure_cache_and_progress(audit: dict[str, Any], *, plan: dict[st
     )
     labels = cache["labels"]
     expected_labels = build_cache_guard_labels(schedule)
-    prefix = labels[:-1] if labels[-1:] == ["CACHE_GUARD_EXIT"] else labels
+    if not isinstance(labels, list) or any(not isinstance(label, str) for label in labels):
+        raise PhaseBContractError("B-IPC1 FAILURE cache label schema differs")
+    core = labels[:-1] if labels[-1:] == ["CACHE_GUARD_EXIT"] else labels
+    legal_cores = _legal_failure_cache_core(expected_labels, calls=calls, schedule_length=len(schedule))
     if (
-        not isinstance(labels, list)
-        or cache["label_count"] != len(labels)
+        cache["label_count"] != len(labels)
         or cache["canonical_label_sha256"] != canonical_bank_sha256(labels)
         or cache["expected_label_sha256"] != canonical_bank_sha256(expected_labels)
-        or expected_labels[: len(prefix)] != prefix
+        or core not in legal_cores
+        or (labels[-1:] == ["CACHE_GUARD_EXIT"] and (not core or core[0] != "CACHE_GUARD_ENTRY"))
         or cache["exact_prefix"] is not True
         or cache["model_calls"] != calls
-        or cache["dynamic_cache_trip_count"] not in (0, 1)
-        or (labels != [] and cache["dynamic_cache_trip_count"] != 1)
+        or isinstance(cache["dynamic_cache_trip_count"], bool)
+        or not isinstance(cache["dynamic_cache_trip_count"], int)
+        or cache["dynamic_cache_trip_count"] < 0
+        or (labels != [] and cache["dynamic_cache_trip_count"] < 1)
+        or (not cache_rejection and cache["dynamic_cache_trip_count"] > 1)
+        or (cache_rejection and cache["dynamic_cache_trip_count"] > 2)
         or cache["closure_check_count"] != len(labels)
         or cache["closure_checked_at_every_label"] is not True
     ):
@@ -3341,7 +3386,13 @@ def _validate_failure_cache_and_progress(audit: dict[str, Any], *, plan: dict[st
 
 
 def _validate_failure_memory(
-    audit: dict[str, Any], *, plan: dict[str, Any], infrastructure: bool, required: bool
+    audit: dict[str, Any],
+    *,
+    plan: dict[str, Any],
+    infrastructure: bool,
+    required: bool,
+    modules_absent: bool,
+    candidate_files_present: Sequence[str],
 ) -> None:
     memory = audit["cuda_memory"]
     if memory is None:
@@ -3359,9 +3410,16 @@ def _validate_failure_memory(
         if allocator["cap_bytes"] != CUDA_MEMORY_CAP_BYTES:
             raise PhaseBContractError("B-IPC1 FAILURE CUDA allocator cap differs")
     schedules = _failure_expected_schedules(plan)
-    allowed_labels = [build_memory_checkpoint_labels(schedule) for schedule in schedules.values()]
+    progress = audit["execution_progress"]
+    schedule = (
+        schedules["heldout_open"]
+        if progress["schedule_name"] is None
+        else schedules[progress["schedule_name"]]
+    )
+    expected_labels = build_memory_checkpoint_labels(schedule)
     ledger = memory["ledger"]
-    if not isinstance(ledger, list) or not any(labels[: len(ledger)] == [item.get("checkpoint") for item in ledger] for labels in allowed_labels):
+    observed_labels = [item.get("checkpoint") for item in ledger] if isinstance(ledger, list) else []
+    if not isinstance(ledger, list) or expected_labels[: len(ledger)] != observed_labels:
         raise PhaseBContractError("B-IPC1 FAILURE CUDA memory prefix differs")
     values = []
     previous_maximum_allocated = 0
@@ -3429,6 +3487,43 @@ def _validate_failure_memory(
     ):
         raise PhaseBContractError("B-IPC1 FAILURE current memory monotonicity differs")
     values.extend(current_values)
+    calls = progress["model_calls_completed"]
+    backwards = progress["backward_calls_completed"]
+    steps = progress["optimizer_steps_completed"]
+    checkpointed_calls = sum(label.startswith("call:") and label.endswith(":complete") for label in observed_labels)
+    checkpointed_backwards = sum(label.startswith("call:") and label.endswith(":post_backward") for label in observed_labels)
+    checkpointed_steps = sum(label.startswith("optimizer:") and label.endswith(":post_step") for label in observed_labels)
+    deltas = (
+        calls - checkpointed_calls,
+        backwards - checkpointed_backwards,
+        steps - checkpointed_steps,
+    )
+    if any(delta not in (0, 1) for delta in deltas) or sum(deltas) > 1:
+        raise PhaseBContractError("B-IPC1 FAILURE memory prefix differs from execution progress")
+    if sum(deltas) == 1:
+        if len(observed_labels) >= len(expected_labels):
+            raise PhaseBContractError("B-IPC1 FAILURE memory progress exceeds complete ledger")
+        next_label = expected_labels[len(observed_labels)]
+        if deltas[0] and next_label != f"call:{calls:04d}:complete":
+            raise PhaseBContractError("B-IPC1 FAILURE call progress differs from memory prefix")
+        if deltas[1]:
+            last_backward_call = max(
+                record["call_index"] for record in schedule[:calls] if record["backward"]
+            )
+            if next_label != f"call:{last_backward_call:04d}:post_backward":
+                raise PhaseBContractError("B-IPC1 FAILURE backward progress differs from memory prefix")
+        if deltas[2]:
+            post_step_labels = [label for label in expected_labels if label.endswith(":post_step")]
+            if next_label != post_step_labels[steps - 1]:
+                raise PhaseBContractError("B-IPC1 FAILURE optimizer progress differs from memory prefix")
+    if not modules_absent and "after_model_load" not in observed_labels:
+        raise PhaseBContractError("B-IPC1 FAILURE module evidence precedes model-load memory checkpoint")
+    if calls > 0 and observed_labels[:2] != ["after_model_load", "after_module_construction"]:
+        raise PhaseBContractError("B-IPC1 FAILURE call progress precedes module memory checkpoint")
+    for name in candidate_files_present:
+        arm = name.removesuffix(".final.pt")
+        if f"candidate:{arm}:before_write" not in observed_labels:
+            raise PhaseBContractError("B-IPC1 FAILURE candidate file precedes write memory checkpoint")
     if not infrastructure and any(value > CUDA_MEMORY_CAP_BYTES for value in values):
         raise PhaseBContractError("B-IPC1 non-infrastructure FAILURE exceeded memory cap")
 
@@ -3604,12 +3699,18 @@ def validate_failure_receipt(
         )
         if record["scientific_valid"] is not False:
             raise PhaseBContractError("B-IPC1 FAILURE candidate was marked scientifically valid")
-    _validate_failure_cache_and_progress(audit, plan=plan)
+    _validate_failure_cache_and_progress(
+        audit,
+        plan=plan,
+        cache_rejection=pair == FAILURE_STATUS_CLASSES[1],
+    )
     _validate_failure_memory(
         audit,
         plan=plan,
         infrastructure=pair == FAILURE_STATUS_CLASSES[3],
         required=receipt.get("model_loaded") is True,
+        modules_absent=modules_absent,
+        candidate_files_present=receipt["candidate_files_present"],
     )
     if receipt.get("model_loaded") is True and not all(
         audit.get(key) is True

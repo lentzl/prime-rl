@@ -96,6 +96,34 @@ def test_ipc1_call_cache_and_memory_schedules_cover_both_firewall_outcomes() -> 
     assert len(build_memory_checkpoint_labels(rejected)) == len(set(build_memory_checkpoint_labels(rejected)))
 
 
+def test_ipc1_failure_progress_helpers_bind_calls_to_cache_and_update_boundaries() -> None:
+    runner = _runner_module()
+    keys = {
+        "train": [f"train-{index}" for index in range(48)],
+        "validation": [f"validation-{index}" for index in range(24)],
+        "heldout": [f"heldout-{index}" for index in range(24)],
+    }
+    schedule = build_model_call_schedule(
+        **{f"{name}_keys": value for name, value in keys.items()}, open_heldout=True
+    )
+    expected = build_cache_guard_labels(schedule)
+    assert runner._legal_failure_cache_core(expected, calls=0, schedule_length=len(schedule)) == [
+        ["CACHE_GUARD_ENTRY"],
+        [],
+        ["CACHE_GUARD_ENTRY", "CACHE_GUARD_PRE_IPC1_C0001"],
+    ]
+    assert runner._legal_failure_cache_core(expected, calls=1, schedule_length=len(schedule)) == [
+        expected[:3],
+        expected[:2],
+        expected[:4],
+    ]
+    calls_before_learning = next(
+        index for index, record in enumerate(schedule) if record["phase"] == "learning"
+    )
+    assert runner._completed_training_updates(schedule, calls_before_learning + 12) == (1, True)
+    assert runner._completed_training_updates(schedule, calls_before_learning + 13) == (1, False)
+
+
 def test_ipc1_overlap_closure_rejects_key_or_row_hash_reuse() -> None:
     selected = {
         split: select_balanced_rows(_pool(split), split=split)[0] for split in ("train", "validation", "heldout")
