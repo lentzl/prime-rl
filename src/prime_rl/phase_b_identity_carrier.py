@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import math
-from collections import Counter
+from collections import Counter, deque
 from typing import Any, Sequence
 
 from prime_rl.phase_b_contract import PhaseBContractError, canonical_json_sha256
@@ -25,6 +25,11 @@ IDENTITY_FIELDS = (
     "margin",
 )
 SAFETY_FIELDS = ("backward", "provenance", "cache", "protection", "resource")
+SUCCESS_STATUSES = (
+    "b_hic0_inplace_carrier_nominated",
+    "b_hic0_inplace_carrier_not_nominated",
+)
+FAILURE_STATUSES = ("b_hic0_nocache_rejected", "b_hic0_incomplete", "infrastructure_invalid")
 
 
 def mean64(values: Sequence[float]) -> float:
@@ -38,11 +43,25 @@ def mean64(values: Sequence[float]) -> float:
 def normalized_rms_difference(candidate: Any, reference: Any, *, torch: Any, epsilon: float = 1e-12) -> float:
     if candidate.shape != reference.shape or candidate.numel() == 0:
         raise PhaseBContractError("B-HIC0 drift tensors must have one nonempty shared shape")
-    difference = (candidate.detach().float() - reference.detach().float()).square().mean().sqrt()
-    denominator = reference.detach().float().square().mean().sqrt()
+    candidate_cpu = candidate.detach().cpu().double()
+    reference_cpu = reference.detach().cpu().double()
+    difference = (candidate_cpu - reference_cpu).square().mean().sqrt()
+    denominator = reference_cpu.square().mean().sqrt()
     if not bool(torch.isfinite(difference)) or not bool(torch.isfinite(denominator)):
         raise PhaseBContractError("B-HIC0 drift is non-finite")
     return float(difference / denominator.clamp_min(epsilon))
+
+
+def recursive_subclass_closure(base: type) -> set[type]:
+    closure: set[type] = {base}
+    pending = deque([base])
+    while pending:
+        parent = pending.popleft()
+        for child in parent.__subclasses__():
+            if child not in closure:
+                closure.add(child)
+                pending.append(child)
+    return closure
 
 
 def build_cache_guard_labels() -> list[str]:
@@ -77,6 +96,22 @@ def aligned_suffix_geometry(*, total: int, supervised_start: int, insertion_inde
         "SQ": supervised_start + slots,
         "BQ": predictor + slots,
     }
+
+
+def validate_hic0_terminal_receipt(receipt: dict[str, Any], *, success_file: bool) -> None:
+    statuses = SUCCESS_STATUSES if success_file else FAILURE_STATUSES
+    if receipt.get("status") not in statuses or receipt.get("terminal") != ("SUCCESS" if success_file else "FAILURE"):
+        raise PhaseBContractError("B-HIC0 terminal status literal differs")
+    if receipt.get("disposition") != receipt.get("status"):
+        raise PhaseBContractError("B-HIC0 disposition and top-level status differ")
+    if receipt.get("receipt_sha256") != canonical_json_sha256(receipt, omitted_fields=("receipt_sha256",)):
+        raise PhaseBContractError("B-HIC0 internal receipt hash differs")
+    if receipt.get("optimizer") is not None or receipt.get("optimizer_updates") != 0:
+        raise PhaseBContractError("B-HIC0 receipt crossed the zero-update boundary")
+    if any(receipt.get(key) is not False for key in ("generation", "cache", "worker_loaded")):
+        raise PhaseBContractError("B-HIC0 receipt crossed the no-generation/cache/worker boundary")
+    if receipt.get("H176_loaded") is not False or receipt.get("strand_a_combined") is not False:
+        raise PhaseBContractError("B-HIC0 receipt crossed the model/strand boundary")
 
 
 def validate_hic0_selection(selection: dict[str, Any]) -> list[dict[str, str]]:
@@ -118,6 +153,10 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
     row_amplification_ratio: list[float] = []
     hidden_drift_ratio: list[float] = []
     logit_drift_ratio: list[float] = []
+    hidden_insert_drift: list[float] = []
+    hidden_inplace_drift: list[float] = []
+    logit_insert_drift: list[float] = []
+    logit_inplace_drift: list[float] = []
     zero_drift_denominators: list[dict[str, str]] = []
     for row in rows:
         arms = row.get("arms")
@@ -128,6 +167,7 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
             finite_complete = finite_complete and metric.get("finite") is True and all(
                 math.isfinite(float(metric[key])) for key in ("nll", "margin")
             )
+        finite_complete = finite_complete and row.get("same_residual_bytes_insert_and_inplace") is True
         identity = row.get("inplace_zero_identity")
         identity_zero = (
             identity_zero
@@ -153,6 +193,16 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
             raise PhaseBContractError("B-HIC0 requires 8 RMSNorm ratios per arm and row")
         a_insert.extend(insert_slots)
         a_inplace.extend(inplace_slots)
+        cosine_values = [
+            float(value)
+            for key in ("insert_norm_residual_cosine", "inplace_norm_cosine")
+            for value in amplification.get(key, [])
+        ]
+        if len(cosine_values) != 2 * SLOTS:
+            raise PhaseBContractError("B-HIC0 requires 16 descriptive cosines per row")
+        finite_complete = finite_complete and all(
+            math.isfinite(value) for value in (*insert_slots, *inplace_slots, *cosine_values)
+        )
         row_inplace = mean64(inplace_slots)
         row_amplification_ratio.append(float("inf") if row_inplace == 0.0 else mean64(insert_slots) / row_inplace)
         drift = row.get("drift")
@@ -161,6 +211,13 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
         for kind, destination in (("hidden", hidden_drift_ratio), ("logit", logit_drift_ratio)):
             denominator = float(drift[f"{kind}_insert_eps_nrms"])
             numerator = float(drift[f"{kind}_inplace_eps_nrms"])
+            finite_complete = finite_complete and math.isfinite(denominator) and math.isfinite(numerator)
+            if kind == "hidden":
+                hidden_insert_drift.append(denominator)
+                hidden_inplace_drift.append(numerator)
+            else:
+                logit_insert_drift.append(denominator)
+                logit_inplace_drift.append(numerator)
             if denominator == 0.0:
                 zero_drift_denominators.append({"task_key": row["task_key"], "kind": kind})
             else:
@@ -169,7 +226,11 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
     p_inplace_mean = mean64(p_inplace)
     removal = (p_insert_mean - p_inplace_mean) / p_insert_mean if p_insert_mean > 0.0 else float("-inf")
     summaries = {
-        "P_insert": {"values": p_insert, "mean": p_insert_mean, "positive_rows": sum(v > 0.0 for v in p_insert)},
+        "P_insert": {
+            "values": p_insert,
+            "mean": p_insert_mean,
+            "positive_rows_gt_1e_6": sum(v > STRICT_WIN_EPSILON for v in p_insert),
+        },
         "P_inplace": {"values": p_inplace, "mean": p_inplace_mean, "worst": max(p_inplace)},
         "structural_INSERT_ZERO_minus_BASE_descriptive": {
             "values": structural_insert_zero,
@@ -187,8 +248,12 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
         "row_amplification_ratio_gt_5": sum(value > 5.0 for value in row_amplification_ratio),
         "hidden_drift_ratio": hidden_drift_ratio,
         "hidden_drift_ratio_mean": None if not hidden_drift_ratio else mean64(hidden_drift_ratio),
+        "hidden_insert_drift_mean": mean64(hidden_insert_drift),
+        "hidden_inplace_drift_mean": mean64(hidden_inplace_drift),
         "logit_drift_ratio": logit_drift_ratio,
         "logit_drift_ratio_mean": None if not logit_drift_ratio else mean64(logit_drift_ratio),
+        "logit_insert_drift_mean": mean64(logit_insert_drift),
+        "logit_inplace_drift_mean": mean64(logit_inplace_drift),
         "zero_drift_denominators": zero_drift_denominators,
         "inplace_margin_delta": {
             "values": margin_delta,
@@ -199,7 +264,8 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
     gates = {
         "1_complete_finite_safe": finite_complete and safety_passed,
         "2_inplace_zero_bitwise_identity": identity_zero,
-        "3_insert_penalty_replicates": p_insert_mean >= 0.05 and sum(value > 0.0 for value in p_insert) >= 9,
+        "3_insert_penalty_replicates": p_insert_mean >= 0.05
+        and sum(value > STRICT_WIN_EPSILON for value in p_insert) >= 9,
         "4_rmsnorm_amplification": mean64(a_insert) >= 5.0 * mean64(a_inplace)
         and sum(value > 5.0 for value in row_amplification_ratio) >= 10,
         "5_inplace_penalty_removed": p_inplace_mean <= 0.01
@@ -209,8 +275,8 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
         "6_hidden_and_logit_drift_removed": not zero_drift_denominators
         and len(hidden_drift_ratio) == EXPECTED_ROWS
         and len(logit_drift_ratio) == EXPECTED_ROWS
-        and mean64(hidden_drift_ratio) <= 0.20
-        and mean64(logit_drift_ratio) <= 0.20,
+        and mean64(hidden_inplace_drift) <= 0.20 * mean64(hidden_insert_drift)
+        and mean64(logit_inplace_drift) <= 0.20 * mean64(logit_insert_drift),
         "7_inplace_margin_noninferior": mean64(margin_delta) >= -0.05 and min(margin_delta) >= -0.50,
         "8_backward_and_provenance": safety_passed,
     }

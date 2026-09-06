@@ -4,9 +4,12 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import gc
+import importlib.metadata
 import importlib.util
 import json
+import math
 import os
 import shutil
 import signal
@@ -17,6 +20,7 @@ from copy import deepcopy
 from pathlib import Path
 from types import ModuleType
 from typing import Any
+from unittest import mock
 
 from prime_rl.phase_b_contract import (
     PhaseBContractError,
@@ -34,7 +38,9 @@ from prime_rl.phase_b_identity_carrier import (
     build_cache_guard_labels,
     evaluate_hic0,
     normalized_rms_difference,
+    recursive_subclass_closure,
     validate_hic0_selection,
+    validate_hic0_terminal_receipt,
 )
 from prime_rl.phase_b_value_screen import action_margin_from_logits
 
@@ -56,6 +62,17 @@ COMPUTE_SECONDS = 14_040
 AUDIT_SECONDS = 300
 TERMINAL_SECONDS = 60
 CODEC_SEED = 262_502_387
+MINIMUM_RAM_BYTES = 64 * 1024**3
+EXPECTED_CACHE_CLASSES = (
+    ("fla.models.utils.Cache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
+    ("fla.models.utils.FLACache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
+    ("fla.models.utils.LegacyFLACache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
+    ("transformers.cache_utils.Cache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.DynamicCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.EncoderDecoderCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.QuantizedCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.StaticCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+)
 
 
 class CacheContractViolated(PhaseBContractError):
@@ -112,6 +129,20 @@ def _git_parent(commit: str) -> str:
     ).stdout.strip()
 
 
+def _available_ram_bytes() -> int:
+    meminfo = Path("/proc/meminfo")
+    if not meminfo.is_file():
+        raise ResourceContractExceeded("B-HIC0 requires Linux /proc/meminfo RAM evidence")
+    fields = {}
+    for line in meminfo.read_text(encoding="ascii").splitlines():
+        name, value = line.split(":", 1)
+        fields[name] = value.strip()
+    available = fields.get("MemAvailable")
+    if available is None or not available.endswith(" kB"):
+        raise ResourceContractExceeded("B-HIC0 MemAvailable evidence is malformed")
+    return int(available.removesuffix(" kB")) * 1024
+
+
 def _validate_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
     if plan.get("schema_version") != "q35-2b-phase-b-hic0-identity-carrier/v1":
         raise PhaseBContractError("B-HIC0 plan schema differs")
@@ -141,6 +172,9 @@ def _validate_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
         raise PhaseBContractError("B-HIC0 PYTHONPATH differs")
     if os.environ.get("CUDA_VISIBLE_DEVICES") != "0":
         raise PhaseBContractError("B-HIC0 requires exactly physical GPU 0")
+    for name in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE"):
+        if os.environ.get(name) != plan["execution_environment"][name] or os.environ.get(name) != "1":
+            raise PhaseBContractError(f"B-HIC0 offline environment differs: {name}")
     if args.output_dir != Path(plan["outputs"]["directory"]):
         raise PhaseBContractError("B-HIC0 output namespace differs")
     if args.output_dir.exists():
@@ -156,9 +190,28 @@ def _validate_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
         resources.get("failure_audit_limit_seconds"),
         resources.get("terminal_publication_headroom_seconds"),
         resources.get("cuda_memory_cap_bytes"),
+        resources.get("minimum_host_ram_bytes"),
+        resources.get("minimum_free_disk_bytes"),
         resources.get("artifact_cap_bytes"),
-    ) != (OUTER_SECONDS, COMPUTE_SECONDS, AUDIT_SECONDS, TERMINAL_SECONDS, CUDA_MEMORY_CAP_BYTES, ARTIFACT_CAP):
+        resources.get("gpus"),
+        resources.get("gpu"),
+        resources.get("network"),
+    ) != (
+        OUTER_SECONDS,
+        COMPUTE_SECONDS,
+        AUDIT_SECONDS,
+        TERMINAL_SECONDS,
+        CUDA_MEMORY_CAP_BYTES,
+        MINIMUM_RAM_BYTES,
+        MINIMUM_FREE_BYTES,
+        ARTIFACT_CAP,
+        1,
+        "NVIDIA RTX A6000 physical GPU 0",
+        False,
+    ):
         raise PhaseBContractError("B-HIC0 resource contract differs")
+    if _available_ram_bytes() < MINIMUM_RAM_BYTES:
+        raise ResourceContractExceeded("B-HIC0 has less than 64 GiB available RAM")
     mechanism = plan.get("mechanism", {})
     if (
         mechanism.get("arms"),
@@ -170,6 +223,21 @@ def _validate_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
         mechanism.get("receiver_forwards"),
     ) != (list(ARMS), 8, 0.001, CODEC_SEED, CACHE_LABEL_SHA256, 12, 60):
         raise PhaseBContractError("B-HIC0 mechanism constants differ")
+    if mechanism.get("cache_classes") != [item[0] for item in EXPECTED_CACHE_CLASSES]:
+        raise PhaseBContractError("B-HIC0 pinned cache class list differs")
+    if mechanism.get("cache_class_sources") != {
+        "fla.models.utils": {
+            "relative_path": EXPECTED_CACHE_CLASSES[0][1],
+            "sha256": EXPECTED_CACHE_CLASSES[0][2],
+            "distribution": EXPECTED_CACHE_CLASSES[0][3],
+        },
+        "transformers.cache_utils": {
+            "relative_path": EXPECTED_CACHE_CLASSES[3][1],
+            "sha256": EXPECTED_CACHE_CLASSES[3][2],
+            "distribution": EXPECTED_CACHE_CLASSES[3][3],
+        },
+    }:
+        raise PhaseBContractError("B-HIC0 pinned cache source provenance differs")
     forbidden = plan.get("boundaries", {})
     if (
         forbidden.get("optimizer_updates"),
@@ -181,6 +249,25 @@ def _validate_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
         forbidden.get("live_promotion_floor"),
     ) != (0, False, False, False, False, 0, 4):
         raise PhaseBContractError("B-HIC0 boundary contract differs")
+    statuses = plan.get("terminal_statuses", {})
+    if (
+        statuses.get("top_level_status_is_literal"),
+        statuses.get("internal_receipt_sha256_omits_only_itself"),
+        statuses.get("pass"),
+        statuses.get("complete_threshold_miss"),
+        statuses.get("cache_or_pkv_failure"),
+        statuses.get("nonfinite_schema_render_alignment_gradient_missing"),
+        statuses.get("oom_cap_timeout_runtime_provenance"),
+    ) != (
+        True,
+        True,
+        "b_hic0_inplace_carrier_nominated",
+        "b_hic0_inplace_carrier_not_nominated",
+        "b_hic0_nocache_rejected",
+        "b_hic0_incomplete",
+        "infrastructure_invalid",
+    ):
+        raise PhaseBContractError("B-HIC0 terminal status contract differs")
 
 
 def preflight(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -188,9 +275,20 @@ def preflight(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]
         raise PhaseBContractError("B-HIC0 plan or selection is absent")
     plan = load_json_file(args.plan)
     _validate_plan(plan, args)
+    plan["_preflight_resources"] = {
+        "available_host_ram_bytes": _available_ram_bytes(),
+        "free_disk_bytes": shutil.disk_usage(args.output_dir.parent).free,
+        "minimum_host_ram_bytes": MINIMUM_RAM_BYTES,
+        "minimum_free_disk_bytes": MINIMUM_FREE_BYTES,
+        "offline_environment": {
+            name: os.environ[name] for name in ("HF_HUB_OFFLINE", "TRANSFORMERS_OFFLINE")
+        },
+    }
     selection = load_json_file(args.selection)
     validate_hic0_selection(selection)
     bank = plan["diagnostic_bank"]
+    if args.selection != Path(bank["selection_path"]):
+        raise PhaseBContractError("B-HIC0 selection path differs")
     immutable = {
         "selection": args.selection,
         "parquet": Path(bank["parquet_path"]),
@@ -283,71 +381,123 @@ def _memory_checkpoint(torch: Any, audit: dict[str, Any], label: str) -> None:
         raise ResourceContractExceeded(f"B-HIC0 CUDA memory cap exceeded at {label}")
 
 
+def _cache_class_identity(cls: type) -> dict[str, str]:
+    module = __import__(cls.__module__, fromlist=["__name__"])
+    path = Path(module.__file__).resolve(strict=True)
+    if not path.is_relative_to(EXPECTED_ENV.resolve(strict=True)):
+        raise CacheContractViolated(f"B-HIC0 cache class outside frozen environment: {cls}")
+    distribution = "flash-linear-attention" if cls.__module__.split(".", 1)[0] == "fla" else "transformers"
+    return {
+        "fqcn": f"{cls.__module__}.{cls.__qualname__}",
+        "module_path": str(path),
+        "module_sha256": file_sha256(path),
+        "distribution": f"{distribution}=={importlib.metadata.version(distribution)}",
+    }
+
+
 class _CacheGuard:
     def __init__(self, model: Any, *, transformers: Any) -> None:
         self.model = model
         self.transformers = transformers
         self.expected = build_cache_guard_labels()
         self.labels: list[str] = []
-        self.originals: list[tuple[Any, str, Any]] = []
-        self.configs: list[tuple[Any, Any]] = []
+        self.base = transformers.cache_utils.Cache
+        self.initial_classes = recursive_subclass_closure(self.base)
+        self.patched_classes: set[type] = set()
+        self.stack = contextlib.ExitStack()
+        self.configs: list[tuple[Any, bool]] = []
         self.calls = 0
         self.trips = 0
+        self.closure_checks = 0
+        self.restored = False
 
-    def _forbidden(self, *_args: Any, **_kwargs: Any) -> None:
+    @staticmethod
+    def _forbidden(cls: type, *_args: Any, **_kwargs: Any) -> None:
+        del cls
+        raise CacheContractViolated("B-HIC0 Cache subclass construction attempted")
+
+    def _trip(self, cls: type, *_args: Any, **_kwargs: Any) -> None:
         self.trips += 1
-        raise CacheContractViolated("B-HIC0 DynamicCache construction attempted")
+        raise CacheContractViolated(f"B-HIC0 cache allocation attempted: {cls.__module__}.{cls.__qualname__}")
+
+    def _verify_closure(self) -> None:
+        new_classes = recursive_subclass_closure(self.base) - self.patched_classes
+        if new_classes:
+            names = sorted(f"{cls.__module__}.{cls.__qualname__}" for cls in new_classes)
+            raise CacheContractViolated(f"B-HIC0 new unpatched cache subclasses loaded: {names}")
+        self.closure_checks += 1
+
+    def _append(self, label: str) -> None:
+        self._verify_closure()
+        self.labels.append(label)
 
     def __enter__(self) -> "_CacheGuard":
-        cache_utils = self.transformers.cache_utils
-        qwen_module = sys.modules[type(self.model).__module__]
-        for owner in (cache_utils, qwen_module):
-            if hasattr(owner, "DynamicCache"):
-                self.originals.append((owner, "DynamicCache", owner.DynamicCache))
-                owner.DynamicCache = self._forbidden
-        for module in self.model.modules():
-            config = getattr(module, "config", None)
-            if config is not None and hasattr(config, "use_cache"):
-                self.configs.append((config, config.use_cache))
-                config.use_cache = False
-        generation_config = getattr(self.model, "generation_config", None)
-        if generation_config is not None and hasattr(generation_config, "use_cache"):
-            self.configs.append((generation_config, generation_config.use_cache))
-            generation_config.use_cache = False
         try:
-            qwen_module.DynamicCache()
-        except CacheContractViolated:
-            pass
-        else:
-            raise CacheContractViolated("B-HIC0 DynamicCache guard did not trip")
-        if self.trips != 1:
-            raise CacheContractViolated("B-HIC0 DynamicCache trip count differs")
-        self.labels.append("CACHE_GUARD_ENTRY")
+            for module in self.model.modules():
+                config = getattr(module, "config", None)
+                if config is not None and hasattr(config, "use_cache"):
+                    self.configs.append((config, bool(config.use_cache)))
+                    config.use_cache = False
+            classes = sorted(self.initial_classes, key=lambda cls: (cls.__module__, cls.__qualname__))
+            identities = tuple(
+                (
+                    item["fqcn"],
+                    str(Path(item["module_path"]).relative_to(EXPECTED_ENV)),
+                    item["module_sha256"],
+                    item["distribution"],
+                )
+                for item in map(_cache_class_identity, classes)
+            )
+            if identities != EXPECTED_CACHE_CLASSES:
+                raise CacheContractViolated("B-HIC0 pinned eight-class cache closure differs")
+            for cls in classes:
+                replacement = self._trip if cls is self.transformers.cache_utils.DynamicCache else self._forbidden
+                self.stack.enter_context(mock.patch.object(cls, "__new__", replacement))
+                self.patched_classes.add(cls)
+            try:
+                self.transformers.cache_utils.DynamicCache()
+            except CacheContractViolated:
+                pass
+            else:
+                raise CacheContractViolated("B-HIC0 DynamicCache negative control did not trip")
+            if self.trips != 1:
+                raise CacheContractViolated("B-HIC0 DynamicCache trip count differs")
+            self._append("CACHE_GUARD_ENTRY")
+        except BaseException:
+            self.stack.close()
+            for config, value in reversed(self.configs):
+                config.use_cache = value
+            self.restored = True
+            raise
         return self
 
     def call(self, *, row_index: int, operation: str, **kwargs: Any) -> Any:
         expected_pre = f"CACHE_GUARD_PRE_HIC0_R{row_index:02d}_{operation}"
         expected_post = f"CACHE_GUARD_POST_HIC0_R{row_index:02d}_{operation}"
         self.model.model.rope_deltas = None
-        self.labels.append(expected_pre)
+        if self.model.config.use_cache is not False:
+            raise CacheContractViolated("B-HIC0 model use_cache default reopened")
+        self._append(expected_pre)
         output = self.model(past_key_values=None, use_cache=False, return_dict=True, **kwargs)
         if getattr(output, "past_key_values", None) is not None or self.model.model.rope_deltas is not None:
             raise CacheContractViolated(f"B-HIC0 cache/rope closure failed at {row_index}:{operation}")
         self.calls += 1
-        self.labels.append(expected_post)
+        self._append(expected_post)
         return output
 
     def final(self) -> None:
         if self.calls != 72 or self.trips != 1:
             raise CacheContractViolated("B-HIC0 cache guard call/trip count differs")
-        self.labels.append("CACHE_GUARD_FINAL")
+        self._append("CACHE_GUARD_FINAL")
 
     def __exit__(self, _type: Any, _value: Any, _traceback: Any) -> None:
-        self.labels.append("CACHE_GUARD_EXIT")
-        for config, value in reversed(self.configs):
-            config.use_cache = value
-        for owner, name, value in reversed(self.originals):
-            setattr(owner, name, value)
+        try:
+            self._append("CACHE_GUARD_EXIT")
+        finally:
+            self.stack.close()
+            for config, value in reversed(self.configs):
+                config.use_cache = value
+            self.restored = True
 
     def evidence(self) -> dict[str, Any]:
         complete = self.labels == self.expected
@@ -361,7 +511,14 @@ class _CacheGuard:
             "exact_prefix_before_exit": self.expected[: len(prefix_without_exit)] == prefix_without_exit,
             "exit_recorded": bool(self.labels and self.labels[-1] == "CACHE_GUARD_EXIT"),
             "dynamic_cache_trip_count": self.trips,
+            "closure_check_count": self.closure_checks,
+            "closure_checked_at_every_recorded_label": self.closure_checks == len(self.labels),
+            "classes": [
+                _cache_class_identity(cls)
+                for cls in sorted(self.initial_classes, key=lambda item: (item.__module__, item.__qualname__))
+            ],
             "recursively_closed_config_count": len(self.configs),
+            "restored_in_finally": self.restored,
             "model_calls": self.calls,
         }
 
@@ -370,18 +527,39 @@ def _tensor_hash(tensor: Any, *, smoke: ModuleType, torch: Any) -> str:
     return smoke._tensor_bytes_sha256(tensor, torch)
 
 
+def _suffix_nll_float64(logits: Any, labels: Any, *, torch: Any) -> float:
+    if logits.ndim != 3 or labels.ndim != 2 or logits.shape[:2] != labels.shape:
+        raise PhaseBContractError("B-HIC0 suffix logits/labels shapes differ")
+    if int(labels[0, 0]) != -100 or logits.shape[1] < 2:
+        raise PhaseBContractError("B-HIC0 suffix labels lack their causal masked predictor")
+    targets = labels.detach()[0, 1:].to(device="cpu", dtype=torch.long)
+    if bool(torch.any(targets < 0)) or targets.numel() != logits.shape[1] - 1:
+        raise PhaseBContractError("B-HIC0 suffix target labels are not contiguous and valid")
+    values = logits.detach()[0, : targets.numel(), :].to(device="cpu", dtype=torch.float64)
+    per_token = torch.logsumexp(values, dim=-1) - values.gather(1, targets[:, None]).squeeze(1)
+    as_list = [float(value) for value in per_token.tolist()]
+    if not as_list or not all(math.isfinite(value) for value in as_list):
+        raise PhaseBContractError("B-HIC0 float64 suffix NLL is non-finite")
+    return math.fsum(as_list) / len(as_list)
+
+
 def _metric(output: Any, row: dict[str, Any], predictor: int, inputs: dict[str, Any], *, smoke: ModuleType, torch: Any) -> dict[str, Any]:
     if output.loss is None or not bool(torch.isfinite(output.loss)):
         raise PhaseBContractError("B-HIC0 NLL is absent or non-finite")
     if output.logits.shape[1] != row["geometry"]["K"]:
         raise PhaseBContractError("B-HIC0 aligned suffix logit length differs")
+    logits_cpu64 = output.logits.detach().to(device="cpu", dtype=torch.float64)
+    loss_labels = inputs["labels"]
+    nll = _suffix_nll_float64(output.logits, loss_labels, torch=torch)
     margin, branches = action_margin_from_logits(
-        row["action_trie"], lambda offset, token: float(output.logits[0, offset, token])
+        row["action_trie"], lambda offset, token: float(logits_cpu64[0, offset, token])
     )
     hidden = output.hidden_states[-1][:, predictor : predictor + 1, :]
     first_logits = output.logits[:, 0:1, :]
     return {
-        "nll": float(output.loss),
+        "nll": nll,
+        "native_output_loss_descriptive": float(output.loss),
+        "native_minus_float64_nll_descriptive": float(output.loss) - nll,
         "margin": margin,
         "finite": bool(torch.isfinite(hidden).all() and torch.isfinite(first_logits).all()),
         "branch_metrics": branches,
@@ -391,7 +569,7 @@ def _metric(output: Any, row: dict[str, Any], predictor: int, inputs: dict[str, 
             "inputs_embeds": _tensor_hash(inputs["inputs_embeds"], smoke=smoke, torch=torch),
             "attention_mask": _tensor_hash(inputs["attention_mask"], smoke=smoke, torch=torch),
             "position_ids": _tensor_hash(inputs["position_ids"], smoke=smoke, torch=torch),
-            "labels": _tensor_hash(inputs["labels"], smoke=smoke, torch=torch),
+            "labels": _tensor_hash(inputs["full_labels"], smoke=smoke, torch=torch),
             "final_hidden": _tensor_hash(hidden, smoke=smoke, torch=torch),
             "first_suffix_logits": _tensor_hash(first_logits, smoke=smoke, torch=torch),
         },
@@ -416,12 +594,16 @@ def _receiver_inputs(row: dict[str, Any], arm: str, base_embeddings: Any, residu
         positions = torch.cat((base_positions[:, prefix], torch.arange(g["I"], g["I"] + SLOTS, device="cuda:0")[None], base_positions[:, suffix] + SLOTS), dim=1)
         labels = torch.cat((base_labels[:, prefix], torch.full((1, SLOTS), -100, dtype=base_labels.dtype, device="cuda:0"), base_labels[:, suffix]), dim=1)
     else:
-        delta = torch.zeros_like(base_embeddings)
+        embeddings = base_embeddings.clone()
+        target = slice(g["I"] - SLOTS, g["I"])
         if arm == "INPLACE_EPS":
-            delta[:, g["I"] - SLOTS : g["I"], :] = residual
-        elif arm not in ("BASE", "INPLACE_ZERO"):
+            embeddings[:, target, :] = base_embeddings[:, target, :] + residual
+        elif arm == "INPLACE_ZERO":
+            embeddings[:, target, :] = base_embeddings[:, target, :] + torch.zeros_like(residual)
+        elif arm == "BASE":
+            embeddings = base_embeddings
+        else:
             raise PhaseBContractError(f"unknown B-HIC0 arm {arm}")
-        embeddings = base_embeddings if arm == "BASE" else base_embeddings + delta
         mask, positions, labels = base_mask, base_positions, base_labels
     if embeddings.shape[1] != total or labels.shape[1] != total:
         raise PhaseBContractError("B-HIC0 arm geometry differs")
@@ -433,14 +615,15 @@ def _receiver_inputs(row: dict[str, Any], arm: str, base_embeddings: Any, residu
         "attention_mask": mask,
         "position_ids": positions,
         "labels": loss_labels,
+        "full_labels": labels,
         "logits_to_keep": g["K"],
         "output_hidden_states": True,
     }, predictor
 
 
 def _cosine(left: Any, right: Any, *, torch: Any) -> float:
-    left = left.float().reshape(-1)
-    right = right.float().reshape(-1)
+    left = left.detach().cpu().double().reshape(-1)
+    right = right.detach().cpu().double().reshape(-1)
     if float(torch.linalg.vector_norm(left)) == 0.0 or float(torch.linalg.vector_norm(right)) == 0.0:
         return 0.0
     return float(torch.nn.functional.cosine_similarity(left, right, dim=0))
@@ -454,6 +637,8 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
     if not torch.cuda.is_available() or torch.cuda.device_count() != 1:
         raise ResourceContractExceeded("B-HIC0 requires exactly one visible CUDA GPU")
     torch.cuda.set_device(0)
+    if torch.cuda.get_device_name(0) != "NVIDIA RTX A6000":
+        raise ResourceContractExceeded("B-HIC0 requires one NVIDIA RTX A6000")
     total_device_bytes = int(torch.cuda.get_device_properties(0).total_memory)
     fraction = CUDA_MEMORY_CAP_BYTES / total_device_bytes
     torch.cuda.set_per_process_memory_fraction(fraction, 0)
@@ -478,6 +663,7 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
     e33_pre = smoke._module_tensor_sha256(model, torch)
     file_pre = file_sha256(smoke._model_file(model_path))
     metadata_pre = smoke._metadata_hashes(model_path)
+    audit.update({"e33_pre": e33_pre, "file_pre": file_pre, "metadata_pre": metadata_pre})
     torch.manual_seed(CODEC_SEED)
     torch.cuda.manual_seed_all(CODEC_SEED)
     codec = LocalDepthCodec(2048, 256, 8, initial_receiver_gate=0.001).to(device="cuda:0", dtype=torch.bfloat16)
@@ -519,6 +705,7 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
                 residual = codec.decode(anchor, shell)
             if residual.shape != (1, SLOTS, 2048) or not bool(torch.isfinite(residual).all()):
                 raise PhaseBContractError("B-HIC0 residual differs")
+            residual_hash = _tensor_hash(residual, smoke=smoke, torch=torch)
             base_embeddings = model.get_input_embeddings()(full).detach()
             g = aligned_suffix_geometry(total=full.shape[1], supervised_start=len(rendered["open_ids"]), insertion_index=plain.shape[1])
             if g != rendered["geometry"]:
@@ -527,30 +714,43 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
             norm_r = first_norm(residual)
             norm_x = first_norm(base_embeddings[:, g["I"] - SLOTS : g["I"], :])
             norm_xr = first_norm(base_embeddings[:, g["I"] - SLOTS : g["I"], :] + residual)
-            residual_norms = torch.linalg.vector_norm(residual.float(), dim=-1)
+            residual_cpu64 = residual.detach().cpu().double()
+            norm_r_cpu64 = norm_r.detach().cpu().double()
+            norm_x_cpu64 = norm_x.detach().cpu().double()
+            norm_xr_cpu64 = norm_xr.detach().cpu().double()
+            residual_norms = torch.linalg.vector_norm(residual_cpu64, dim=-1)
             if bool(torch.any(residual_norms == 0)):
                 raise PhaseBContractError("B-HIC0 residual has a zero-norm slot")
-            a_insert = torch.linalg.vector_norm(norm_r.float(), dim=-1) / residual_norms
-            inplace_delta = norm_xr.float() - norm_x.float()
+            a_insert = torch.linalg.vector_norm(norm_r_cpu64, dim=-1) / residual_norms
+            inplace_delta = norm_xr_cpu64 - norm_x_cpu64
             a_inplace = torch.linalg.vector_norm(inplace_delta, dim=-1) / residual_norms
             amplification = {
                 "A_insert": [float(value) for value in a_insert.reshape(-1)],
                 "A_inplace": [float(value) for value in a_inplace.reshape(-1)],
-                "insert_cosine_with_residual": [_cosine(norm_r[:, slot], residual[:, slot], torch=torch) for slot in range(SLOTS)],
-                "inplace_delta_cosine_with_residual": [_cosine(inplace_delta[:, slot], residual[:, slot], torch=torch) for slot in range(SLOTS)],
+                "insert_norm_residual_cosine": [
+                    _cosine(norm_r_cpu64[:, slot], residual_cpu64[:, slot], torch=torch)
+                    for slot in range(SLOTS)
+                ],
+                "inplace_norm_cosine": [
+                    _cosine(norm_x_cpu64[:, slot], norm_xr_cpu64[:, slot], torch=torch)
+                    for slot in range(SLOTS)
+                ],
                 "rmsnorm_module": "model.model.language_model.layers[0].input_layernorm",
             }
             arm_runtime: dict[str, dict[str, Any]] = {}
             for arm in ARMS:
                 audit.update({"stage": "receiver", "task_key": rendered["task_key"], "arm": arm})
                 inputs, predictor = _receiver_inputs(row, arm, base_embeddings, residual, torch=torch)
+                model_inputs = {key: value for key, value in inputs.items() if key != "full_labels"}
                 if gradient_row and arm == "INPLACE_EPS":
                     residual.retain_grad()
-                    output = guard.call(row_index=row_index, operation=arm, **inputs)
+                    output = guard.call(row_index=row_index, operation=arm, **model_inputs)
                 else:
                     with torch.no_grad():
-                        output = guard.call(row_index=row_index, operation=arm, **inputs)
+                        output = guard.call(row_index=row_index, operation=arm, **model_inputs)
                 metric = _metric(output, row, predictor, inputs, smoke=smoke, torch=torch)
+                if arm in ("INSERT_EPS", "INPLACE_EPS"):
+                    metric["residual_bfloat16_sha256"] = residual_hash
                 arm_runtime[arm] = metric
                 metric["final_hidden"] = metric["final_hidden"].detach().cpu()
                 metric["first_suffix_logits"] = metric["first_suffix_logits"].detach().cpu()
@@ -574,7 +774,11 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
                 "task_key": rendered["task_key"],
                 "action": rendered["action"],
                 "geometry": g,
-                "residual_bfloat16_sha256": _tensor_hash(residual, smoke=smoke, torch=torch),
+                "residual_bfloat16_sha256": residual_hash,
+                "same_residual_bytes_insert_and_inplace": arm_runtime["INSERT_EPS"]
+                ["residual_bfloat16_sha256"]
+                == arm_runtime["INPLACE_EPS"]["residual_bfloat16_sha256"]
+                == residual_hash,
                 "arms": {arm: {key: value for key, value in arm_runtime[arm].items() if key not in ("final_hidden", "first_suffix_logits")} for arm in ARMS},
                 "inplace_zero_identity": identity,
                 "rmsnorm_amplification": amplification,
@@ -632,7 +836,8 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
             for metric in arm_runtime.values():
                 metric.pop("final_hidden", None)
                 metric.pop("first_suffix_logits", None)
-            del plain, full, captured, anchor, base_embeddings, norm_r, norm_x, norm_xr, inplace_delta, a_insert, a_inplace
+            del plain, full, captured, anchor, base_embeddings, norm_r, norm_x, norm_xr
+            del residual_cpu64, norm_r_cpu64, norm_x_cpu64, norm_xr_cpu64, inplace_delta, a_insert, a_inplace
             del residual
             gc.collect()
             torch.cuda.empty_cache()
@@ -662,7 +867,11 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
     safety = {
         "backward": all((backward["residual_gradient"]["finite"], backward["residual_gradient"]["nonzero"], backward["encoder_group"]["finite"], backward["encoder_group"]["nonzero"], backward["receiver_group"]["finite"], backward["receiver_group"]["nonzero"], backward["all_named_gradients_finite"], backward["e33_gradients_absent"])),
         "provenance": provenance,
-        "cache": cache_evidence["complete"],
+        "cache": cache_evidence["complete"]
+        and cache_evidence["restored_in_finally"]
+        and cache_evidence["closure_check_count"] == 147
+        and cache_evidence["closure_checked_at_every_recorded_label"]
+        and len(cache_evidence["classes"]) == 8,
         "protection": protected and codec_pre == codec_post,
         "resource": resource,
     }
@@ -680,7 +889,8 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
     _memory_checkpoint(torch, audit, "before_success")
     return {
         "schema_version": "q35-2b-phase-b-hic0-identity-carrier-success/v1",
-        "status": "SUCCESS",
+        "status": nomination["disposition"],
+        "terminal": "SUCCESS",
         "disposition": nomination["disposition"],
         "claim_class": "zero_update_identity_carrier_causal_diagnostic_nomination_only",
         "execution_commit": execution_commit,
@@ -701,6 +911,7 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
         "protection": {"e33_tensor_pre": e33_pre, "e33_tensor_post": e33_post, "e33_file_pre": file_pre, "e33_file_post": file_post, "metadata_pre": metadata_pre, "metadata_post": metadata_post, "codec_pre": codec_pre, "codec_post": codec_post},
         "immutable_input_hashes": immutable_post,
         "allocator": audit["allocator"],
+        "preflight_resources": plan["_preflight_resources"],
         "cuda_memory": _memory(torch),
         "cuda_memory_ledger": audit["memory_ledger"],
         "promotion": {"admitted": False, "diagnostic_rows_count_as_live_trajectories": False, "complete_live_trajectory_count": 0, "minimum_complete_live_trajectories_unchanged": 4},
@@ -723,9 +934,28 @@ def _failure_audit(plan: dict[str, Any], args: argparse.Namespace, audit: dict[s
         model = audit.get("model")
         if model is not None:
             evidence["e33_tensor_post"] = smoke._module_tensor_sha256(model, audit["torch"])
+            evidence["e33_tensor_pre"] = audit.get("e33_pre")
+            evidence["e33_tensor_preserved"] = evidence["e33_tensor_post"] == audit.get("e33_pre")
+        codec = audit.get("codec")
+        if codec is not None:
+            evidence["codec_tensor_post"] = smoke._module_tensor_sha256(codec, audit["torch"])
+            evidence["codec_tensor_pre"] = audit.get("codec_pre")
+            evidence["codec_tensor_preserved"] = evidence["codec_tensor_post"] == audit.get("codec_pre")
         model_path = Path(plan["protected_model"]["path"])
         evidence["e33_file_post"] = file_sha256(smoke._model_file(model_path))
         evidence["metadata_post"] = smoke._metadata_hashes(model_path)
+        evidence["e33_file_pre"] = audit.get("file_pre")
+        evidence["metadata_pre"] = audit.get("metadata_pre")
+        evidence["e33_disk_and_metadata_preserved"] = (
+            evidence["e33_file_post"],
+            evidence["metadata_post"],
+        ) == (audit.get("file_pre"), audit.get("metadata_pre"))
+        if model is not None and not evidence["e33_tensor_preserved"]:
+            errors.append("e33_tensor_preserved: false")
+        if codec is not None and not evidence["codec_tensor_preserved"]:
+            errors.append("codec_tensor_preserved: false")
+        if audit.get("file_pre") is not None and not evidence["e33_disk_and_metadata_preserved"]:
+            errors.append("e33_disk_and_metadata_preserved: false")
     except BaseException as error:
         errors.append(f"protected_hash: {type(error).__name__}: {error}")
     try:
@@ -739,6 +969,12 @@ def _failure_audit(plan: dict[str, Any], args: argparse.Namespace, audit: dict[s
             "taskset": file_sha256(Path(plan["diagnostic_bank"]["taskset_source_path"])),
             "b1r_binding": file_sha256(Path(plan["b1r_dependency"]["binding_path"])),
         }
+        evidence["immutable_input_hashes_match"] = evidence["immutable_input_hashes"] == {
+            "plan": plan["_file_sha256"],
+            **plan["immutable_input_hashes"],
+        }
+        if not evidence["immutable_input_hashes_match"]:
+            errors.append("immutable_input_hashes_match: false")
     except BaseException as error:
         errors.append(f"immutable_hash: {type(error).__name__}: {error}")
     guard = audit.get("cache_guard_object")
@@ -782,6 +1018,8 @@ def main() -> int:
         audit["torch"] = torch
         receipt = execute(plan, context, execution_commit=args.execution_commit, torch=torch, transformers=transformers, AutoModelForImageTextToText=AutoModelForImageTextToText, LocalDepthCodec=LocalDepthCodec, audit=audit)
         receipt.update({"elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "selection_sha256": file_sha256(args.selection), "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}})
+        receipt["receipt_sha256"] = canonical_json_sha256(receipt, omitted_fields=("receipt_sha256",))
+        validate_hic0_terminal_receipt(receipt, success_file=True)
         signal.alarm(0)
         atomic_exclusive_json(args.output_dir, "SUCCESS.json", receipt, maximum_directory_bytes=ARTIFACT_CAP)
         return 0
@@ -790,7 +1028,11 @@ def main() -> int:
         if args.output_dir.is_dir():
             signal.alarm(AUDIT_SECONDS)
             post = _failure_audit(plan, args, audit)
-            failure = {"schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1", "status": "FAILURE", "disposition": disposition, "failure_class": failure_class, "error_type": type(error).__name__, "error": str(error), "elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "optimizer": None, "optimizer_updates": 0, "generation": False, "cache": False, "worker_loaded": False, "post_failure_hash_audit": post, "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}}
+            failure = {"schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1", "status": disposition, "terminal": "FAILURE", "disposition": disposition, "failure_class": failure_class, "error_type": type(error).__name__, "error": str(error), "elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "optimizer": None, "optimizer_updates": 0, "generation": False, "cache": False, "worker_loaded": False, "H176_loaded": False, "strand_a_combined": False, "preflight_resources": plan["_preflight_resources"], "post_failure_hash_audit": post, "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}}
+            failure["receipt_sha256"] = canonical_json_sha256(
+                failure, omitted_fields=("receipt_sha256",)
+            )
+            validate_hic0_terminal_receipt(failure, success_file=False)
             signal.alarm(0)
             atomic_exclusive_json(args.output_dir, "FAILURE.json", failure, maximum_directory_bytes=ARTIFACT_CAP)
         print(f"B-HIC0 failed: {type(error).__name__}: {error}", file=sys.stderr)

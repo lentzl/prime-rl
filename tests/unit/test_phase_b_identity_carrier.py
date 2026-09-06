@@ -11,7 +11,9 @@ from prime_rl.phase_b_identity_carrier import (
     aligned_suffix_geometry,
     build_cache_guard_labels,
     evaluate_hic0,
+    recursive_subclass_closure,
     validate_hic0_selection,
+    validate_hic0_terminal_receipt,
 )
 
 
@@ -30,10 +32,13 @@ def _rows() -> list[dict[str, object]]:
             {
                 "task_key": f"row-{index}",
                 "arms": arms,
+                "same_residual_bytes_insert_and_inplace": True,
                 "inplace_zero_identity": dict.fromkeys(IDENTITY_FIELDS, True),
                 "rmsnorm_amplification": {
                     "A_insert": [12.0] * 8,
                     "A_inplace": [1.0] * 8,
+                    "insert_norm_residual_cosine": [0.5] * 8,
+                    "inplace_norm_cosine": [0.99] * 8,
                 },
                 "drift": {
                     "hidden_insert_eps_nrms": 1.0,
@@ -135,3 +140,69 @@ def test_hic0_cache_schedule_and_alignment_are_exact() -> None:
         "SQ": 88,
         "BQ": 87,
     }
+
+
+def test_hic0_drift_gate_uses_ratio_of_means() -> None:
+    rows = _rows()
+    rows[0]["drift"].update(
+        hidden_insert_eps_nrms=100.0,
+        hidden_inplace_eps_nrms=19.0,
+        logit_insert_eps_nrms=100.0,
+        logit_inplace_eps_nrms=19.0,
+    )
+    for row in rows[1:]:
+        row["drift"].update(
+            hidden_insert_eps_nrms=0.001,
+            hidden_inplace_eps_nrms=0.001,
+            logit_insert_eps_nrms=0.001,
+            logit_inplace_eps_nrms=0.001,
+        )
+
+    result = evaluate_hic0(rows, safety=dict.fromkeys(SAFETY_FIELDS, True))
+
+    assert result["summaries"]["hidden_drift_ratio_mean"] > 0.9
+    assert result["gates"]["6_hidden_and_logit_drift_removed"] is True
+
+
+def test_hic0_positive_row_gate_uses_strict_one_e_minus_six() -> None:
+    rows = _rows()
+    for row in rows[:4]:
+        row["arms"]["INSERT_EPS"]["nll"] = 1.0000005
+
+    result = evaluate_hic0(rows, safety=dict.fromkeys(SAFETY_FIELDS, True))
+
+    assert result["summaries"]["P_insert"]["positive_rows_gt_1e_6"] == 8
+    assert result["gates"]["3_insert_penalty_replicates"] is False
+
+
+def test_hic0_terminal_receipt_requires_literal_and_internal_hash() -> None:
+    receipt = {
+        "status": "b_hic0_inplace_carrier_not_nominated",
+        "terminal": "SUCCESS",
+        "disposition": "b_hic0_inplace_carrier_not_nominated",
+        "optimizer": None,
+        "optimizer_updates": 0,
+        "generation": False,
+        "cache": False,
+        "worker_loaded": False,
+        "H176_loaded": False,
+        "strand_a_combined": False,
+    }
+    receipt["receipt_sha256"] = canonical_json_sha256(receipt, omitted_fields=("receipt_sha256",))
+    validate_hic0_terminal_receipt(receipt, success_file=True)
+    receipt["status"] = "SUCCESS"
+    with pytest.raises(PhaseBContractError, match="status literal"):
+        validate_hic0_terminal_receipt(receipt, success_file=True)
+
+
+def test_recursive_subclass_closure_is_transitive() -> None:
+    class Base:
+        pass
+
+    class Child(Base):
+        pass
+
+    class Grandchild(Child):
+        pass
+
+    assert recursive_subclass_closure(Base) == {Base, Child, Grandchild}
