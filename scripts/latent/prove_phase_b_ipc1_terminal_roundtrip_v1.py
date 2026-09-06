@@ -822,6 +822,7 @@ def main() -> int:
         raise AssertionError("global terminal exclusivity did not reject a second terminal")
 
     failure_records = []
+    failure_mapping_permutations_equal = []
     error_types = ["MechanismRejected", "CacheContractViolated", "PhaseBContractError", "ResourceContractExceeded"]
     for pair, error_type in zip(FAILURE_STATUS_CLASSES, error_types, strict=True):
         directory = args.output_dir / pair[0]
@@ -837,6 +838,19 @@ def main() -> int:
                 "torch": torch,
             },
         )
+        _parsed_reversed_failure, reversed_failure_payload, _ = roundtrip_validate_terminal(
+            _reverse_mappings(failure),
+            validator=runtime.validate_failure_receipt,
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": directory,
+                "torch": torch,
+            },
+        )
+        if reversed_failure_payload != failure_payload:
+            raise AssertionError("FAILURE mapping insertion permutation changed canonical terminal bytes")
+        failure_mapping_permutations_equal.append(pair[0])
         path = runtime._atomic_publish_bytes(directory, "FAILURE.json", failure_payload)
         verify_published_terminal(
             path,
@@ -935,6 +949,19 @@ def main() -> int:
                 "torch": torch,
             },
         )
+        _parsed_reversed_failure, reversed_failure_payload, _ = roundtrip_validate_terminal(
+            _reverse_mappings(failure),
+            validator=runtime.validate_failure_receipt,
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": directory,
+                "torch": torch,
+            },
+        )
+        if reversed_failure_payload != failure_payload:
+            raise AssertionError("late FAILURE mapping insertion permutation changed canonical terminal bytes")
+        failure_mapping_permutations_equal.append(name)
         path = runtime._atomic_publish_bytes(directory, "FAILURE.json", failure_payload)
         verify_published_terminal(
             path,
@@ -973,6 +1000,17 @@ def main() -> int:
         "late_failure_tamper_cases_rejected": late_tampers,
         "full_freeze_target_count": success["full_freeze"]["target_count"],
         "mapping_insertion_permutation_canonical_equal": True,
+        "failure_mapping_insertion_permutation_canonical_equal": (
+            failure_mapping_permutations_equal
+            == [
+                "b_ipc1_mechanism_rejected",
+                "b_ipc1_nocache_rejected",
+                "b_ipc1_incomplete",
+                "infrastructure_invalid",
+                "post-model-pre-candidate",
+                "late-post-candidate",
+            ]
+        ),
         "prepublish_validation": True,
         "postpublish_reopen_byte_compare_hash_parse_validation": True,
         "global_exactly_one_terminal": True,

@@ -73,6 +73,39 @@
     "cuda_initialized": false,
     "scientific_result": false
   },
+  "superseded_validator_proof_failure": {
+    "classification": "model_free_maximal_success_published_then_first_pre_model_failure_rejected_stagewise_absent_current_module_array",
+    "proof_execution_commit": "3be8dec12e30a0ef1b913d0cd83d6969988f960e",
+    "runner_sha256": "bcb92f72e1e21fa0db63523587c1a36937a00b4d77836a07be874b1da858d93f",
+    "proof_runner_sha256": "75e542cebf370e0ebdb42ae469e206c1f6b6c1d2a4a6f9779d89575de2c23050",
+    "source_plan_file_sha256": "93cab3cb9007b74fdeafca4e06d64b208903759e2d081a7a71085371a164a7d8",
+    "log_path": "proof-run4-validator-failure.log",
+    "log_sha256": "85c494cbc0746e448d52319c79147de9fe68f764b18f05f134e8ab7b7624fc6e",
+    "exit_status_path": "proof-run4-validator-failure.exit_status.txt",
+    "exit_status_sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+    "exit_status": 1,
+    "output_directory_created": true,
+    "proof_file_created": false,
+    "maximal_success_terminal_file_sha256": "194140726e08a829b03fd196334b5654c305dde9bcf5a47218af82326327f0e1",
+    "maximal_success_candidate_files": [
+      {
+        "name": "STATIC.final.pt",
+        "sha256": "3ad9270c704c05042134a17d9c053a57bb19bd47de1d425bec30bad67e7ed883"
+      },
+      {
+        "name": "FFN.final.pt",
+        "sha256": "28c36e341d11ad730f3c1b461285a27c47d35c39cee664df0c8cad7a5b327f3a"
+      },
+      {
+        "name": "RECURRENT.final.pt",
+        "sha256": "2a4e62993d99269ef27aa02080498b9506ab55fe4d9b656802b9c3b568166fbd"
+      }
+    ],
+    "failure_terminal_count": 0,
+    "model_loaded": false,
+    "cuda_initialized": false,
+    "scientific_result": false
+  },
   "superseded_preexecution_command_failure": {
     "classification": "relative_plan_path_rejected_before_proof_output_or_fixture_validation",
     "log_path": "proof-run1-invocation-failure.log",

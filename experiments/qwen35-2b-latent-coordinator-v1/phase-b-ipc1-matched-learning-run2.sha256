@@ -1,4 +1,4 @@
-93cab3cb9007b74fdeafca4e06d64b208903759e2d081a7a71085371a164a7d8  phase-b-ipc1-matched-learning-run2-plan.json
+b2117e601efc374667466dd4674c868c6b4facf72b4c37b655f1cf650d92d45c  phase-b-ipc1-matched-learning-run2-plan.json
 05f8255a2681f3090580975e6dad182d56439c08a403d9c13be139e3ad2eefbe  phase-b-hic0-r1-invalid-descriptive-binding-v1.json
 839082fed228b9fd521fe2068ffbe32895f42e46c7814f73245bc555b38b587c  phase-b-b1r-negative-binding-v1.json
 6c8661c851cdee29701a4feb58c40c841898a9f94dbc50b7e63e94602c48dde8  phase-b-ipc1-bank-v1/MANIFEST.json
@@ -11,7 +11,7 @@ b2462d36e83b58ca5df349f698ce27555fff075427f971c2d60cf5b4aa2b7c9e  phase-b-ipc1-b
 aaa470cd3fdd73f07f200ee3e2be05568cdb37ebf3c945f4db753a4d8e98f745  phase-b-ipc1-bank-v1/prior-overlap-closure-v1.json
 9a01146f4644089c5d2d625e930b7b39e2b3c735d16689ebf1385afa68b90abb  phase-b-ipc1-bank-v1/runtime-source.json
 15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499  phase-b-ipc1-bank-v1/taskset-5283a85.py
-6bad6e33d2af23a6f71e76b939e166e4c2f6b32bcf83fef406dd00cf5e3d7248  phase-b-ipc1-terminal-proof-v1/MANIFEST.json
+473b889154d11b17847640769ff9d3fb7cec1d9d315a03da56911d7a832e3956  phase-b-ipc1-terminal-proof-v1/MANIFEST.json
 2380920c2ffe04234bf39ec4eff92aae5b70beb9acaea8395496e889ced12c50  phase-b-ipc1-terminal-proof-v1/PROOF-run3.json.base64
 40f6f3dd66f18626105c613f90537d3e5a6c3d323f652c60fe37b283a7e71df8  phase-b-ipc1-terminal-proof-v1/proof-run3.log
 9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  phase-b-ipc1-terminal-proof-v1/proof-run3.exit_status.txt
@@ -20,6 +20,8 @@ aaa470cd3fdd73f07f200ee3e2be05568cdb37ebf3c945f4db753a4d8e98f745  phase-b-ipc1-b
 9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa  phase-b-ipc1-terminal-proof-v1/proof-run2.exit_status.txt
 01fb786d146854845fdc5d02e48e210fcab616bd947916936f56fcf7211f9970  phase-b-ipc1-terminal-proof-v1/proof-run1-invocation-failure.log
 4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  phase-b-ipc1-terminal-proof-v1/proof-run1-invocation-failure.exit_status.txt
+85c494cbc0746e448d52319c79147de9fe68f764b18f05f134e8ab7b7624fc6e  phase-b-ipc1-terminal-proof-v1/proof-run4-validator-failure.log
+4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865  phase-b-ipc1-terminal-proof-v1/proof-run4-validator-failure.exit_status.txt
 c351349dac78a90072f78321c9ce54aaf7ad0a83641df0940558b853e68f9d67  ../../src/prime_rl/phase_b_contract.py
 fdbf5c9b45e5502e752dbab7af617b627c61e13e7e84ce95c9a14476c5e17354  ../../src/prime_rl/phase_b_ipc1.py
 9072806eea4ebb005a3ce648059b5122b502585548ba290472e32475c26f313c  ../../src/prime_rl/phase_b_identity_carrier.py
@@ -28,8 +30,8 @@ fdbf5c9b45e5502e752dbab7af617b627c61e13e7e84ce95c9a14476c5e17354  ../../src/prim
 0a84ba0816dccd7688d148cdd0cf7e3e8943ea4d33907754691fdb3eba6ce88e  ../../scripts/latent/run_phase_b_fixed_depth_smoke_v1.py
 e0c7d07223e96202d73c7c2694c7c9a63487ec97c172aa265c480c81608c26dc  ../../scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py
 164c665031aaa48283195d87d817780c06ebb2e5f31ccca77aaf2316b180db09  ../../scripts/latent/run_phase_b_identity_carrier_v1.py
-bcb92f72e1e21fa0db63523587c1a36937a00b4d77836a07be874b1da858d93f  ../../scripts/latent/run_phase_b_ipc1_matched_learning_v1.py
-75e542cebf370e0ebdb42ae469e206c1f6b6c1d2a4a6f9779d89575de2c23050  ../../scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py
+27a5a80ac51a3c1fdaebb9f356fa5e257639cdda0c19f24fd3ec06625cf37284  ../../scripts/latent/run_phase_b_ipc1_matched_learning_v1.py
+218938a189759899fac896f21ea3f4f39742dc739797e448c0b16e9d53f9620e  ../../scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py
 54deb4ab33630dfa7b0a9b825d048645a4890da650fe179d13e044a11bae911f  ../../scripts/export_phase_b_ipc1_bank_v1.py
 784b620934fe8f403bdd6c35451eb569dd4b15dca7be1cf629c6f843f020586c  ../../scripts/latent/run_phase_b_ipc1_matched_learning_run2.sh
-02ff59e0770be612770bc2f1b7c0f1dcffb993d5049314c70081182f4f4441cf  ../../tests/unit/test_phase_b_ipc1.py
+cd412534565aed56c9a637accbab4aeac22346ff0b76c4d224e924145d21cc8a  ../../tests/unit/test_phase_b_ipc1.py

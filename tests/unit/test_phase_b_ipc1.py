@@ -256,6 +256,24 @@ def test_ipc1_failure_taxonomy_does_not_misclassify_contract_errors_as_runtime()
     )
 
 
+def test_ipc1_failure_module_records_preserve_stagewise_absence_and_list_order() -> None:
+    runner = _runner_module()
+    runner._validate_failure_module_records(None, allow_absent=True, label="initial")
+    runner._validate_failure_module_records([], allow_absent=True, label="current")
+    records = [
+        {"name": name, "sha256": hashlib.sha256(name.encode()).hexdigest()}
+        for name in runner.MODULE_NAMES
+    ]
+    runner._validate_failure_module_records(records, allow_absent=False, label="current")
+    mapping_reordered = [dict(reversed(list(record.items()))) for record in records]
+    parsed = strict_json_loads(canonical_terminal_bytes({"records": mapping_reordered}))
+    runner._validate_failure_module_records(parsed["records"], allow_absent=False, label="current")
+    with pytest.raises(PhaseBContractError, match="module order differs"):
+        runner._validate_failure_module_records(list(reversed(records)), allow_absent=False, label="current")
+    with pytest.raises(PhaseBContractError, match="module order differs"):
+        runner._validate_failure_module_records([], allow_absent=False, label="current")
+
+
 def test_ipc1_plan_and_terminal_writers_reject_schema_or_global_terminal_tamper(tmp_path: Path) -> None:
     repository = _repository()
     plan = json.loads(
@@ -306,3 +324,11 @@ def test_ipc1_exact_host_terminal_proof_closure_is_byte_bound() -> None:
     for prefix in ("log", "exit_status"):
         path = proof / failed[f"{prefix}_path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == failed[f"{prefix}_sha256"]
+    validator_failure = manifest["superseded_validator_proof_failure"]
+    assert validator_failure["proof_file_created"] is False
+    assert validator_failure["failure_terminal_count"] == 0
+    assert validator_failure["model_loaded"] is False
+    assert validator_failure["cuda_initialized"] is False
+    for prefix in ("log", "exit_status"):
+        path = proof / validator_failure[f"{prefix}_path"]
+        assert hashlib.sha256(path.read_bytes()).hexdigest() == validator_failure[f"{prefix}_sha256"]

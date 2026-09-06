@@ -48,6 +48,7 @@ from prime_rl.phase_b_ipc1 import (
     roundtrip_validate_terminal,
     strict_json_loads,
     validate_ipc1_plan,
+    validate_ordered_records,
     verify_published_terminal,
 )
 
@@ -587,6 +588,53 @@ def _validate_terminal_proof_binding(plan: dict[str, Any]) -> None:
         or file_sha256(directory / failed["exit_status_path"]) != binding["superseded_invocation_exit_sha256"]
     ):
         raise ProvenanceContractViolated("B-IPC1 superseded proof invocation bytes differ")
+    validator_failure = manifest.get("superseded_validator_proof_failure")
+    if not isinstance(validator_failure, dict):
+        raise ProvenanceContractViolated("B-IPC1 superseded validator proof record is absent")
+    _require_exact_keys(
+        validator_failure,
+        {
+            "classification",
+            "proof_execution_commit",
+            "runner_sha256",
+            "proof_runner_sha256",
+            "source_plan_file_sha256",
+            "log_path",
+            "log_sha256",
+            "exit_status_path",
+            "exit_status_sha256",
+            "exit_status",
+            "output_directory_created",
+            "proof_file_created",
+            "maximal_success_terminal_file_sha256",
+            "maximal_success_candidate_files",
+            "failure_terminal_count",
+            "model_loaded",
+            "cuda_initialized",
+            "scientific_result",
+        },
+        label="superseded validator proof",
+    )
+    if (
+        validator_failure["classification"]
+        != "model_free_maximal_success_published_then_first_pre_model_failure_rejected_stagewise_absent_current_module_array"
+        or validator_failure["exit_status"] != 1
+        or validator_failure["output_directory_created"] is not True
+        or validator_failure["proof_file_created"] is not False
+        or validator_failure["failure_terminal_count"] != 0
+        or validator_failure["model_loaded"] is not False
+        or validator_failure["cuda_initialized"] is not False
+        or validator_failure["scientific_result"] is not False
+        or file_sha256(directory / validator_failure["log_path"]) != validator_failure["log_sha256"]
+        or file_sha256(directory / validator_failure["exit_status_path"])
+        != validator_failure["exit_status_sha256"]
+    ):
+        raise ProvenanceContractViolated("B-IPC1 superseded validator proof evidence differs")
+    validate_ordered_records(
+        validator_failure["maximal_success_candidate_files"],
+        [f"{arm}.final.pt" for arm in TRAINING_ARMS],
+        label="superseded validator proof candidates",
+    )
 
 
 def _validate_antecedents(plan: dict[str, Any]) -> None:
@@ -3105,7 +3153,11 @@ def validate_success_receipt(
 
 
 def _validate_failure_module_records(records: Any, *, allow_absent: bool, label: str) -> None:
-    if records is None and allow_absent:
+    # The stage-wise pre-module representation is deliberately asymmetric:
+    # no initial snapshot exists yet, while the current module inventory is an
+    # empty ordered array.  Once modules exist, both values must retain the
+    # exact MODULE_NAMES list order across canonical JSON round-trips.
+    if allow_absent and records in (None, []):
         return
     if not isinstance(records, list) or [record.get("name") for record in records] != list(MODULE_NAMES):
         raise PhaseBContractError(f"B-IPC1 FAILURE {label} module order differs")
@@ -3273,7 +3325,15 @@ def _validate_failure_memory(
             },
             label="FAILURE memory checkpoint",
         )
-        numeric = [record[key] for key in record if key.endswith("_bytes")]
+        numeric = [
+            record[key]
+            for key in (
+                "current_allocated_bytes",
+                "current_reserved_bytes",
+                "maximum_allocated_bytes",
+                "maximum_reserved_bytes",
+            )
+        ]
         if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in numeric):
             raise PhaseBContractError("B-IPC1 FAILURE memory value differs")
         if (
@@ -3297,7 +3357,15 @@ def _validate_failure_memory(
         },
         label="FAILURE current memory",
     )
-    current_values = list(current.values())
+    current_values = [
+        current[key]
+        for key in (
+            "current_allocated_bytes",
+            "current_reserved_bytes",
+            "maximum_allocated_bytes",
+            "maximum_reserved_bytes",
+        )
+    ]
     if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in current_values):
         raise PhaseBContractError("B-IPC1 FAILURE current memory value differs")
     if (

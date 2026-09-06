@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py", line 997, in <module>
+    raise SystemExit(main())
+                     ^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/prove_phase_b_ipc1_terminal_roundtrip_v1.py", line 830, in main
+    parsed_failure, failure_payload, failure_sha = roundtrip_validate_terminal(
+                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src/prime_rl/phase_b_ipc1.py", line 1063, in roundtrip_validate_terminal
+    validator(parsed, **validator_kwargs)
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/run_phase_b_ipc1_matched_learning_v1.py", line 3439, in validate_failure_receipt
+    _validate_failure_module_records(
+  File "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/latent/run_phase_b_ipc1_matched_learning_v1.py", line 3111, in _validate_failure_module_records
+    raise PhaseBContractError(f"B-IPC1 FAILURE {label} module order differs")
+prime_rl.phase_b_contract.PhaseBContractError: B-IPC1 FAILURE current module order differs
