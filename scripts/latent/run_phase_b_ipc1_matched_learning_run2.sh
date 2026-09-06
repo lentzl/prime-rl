@@ -6,9 +6,9 @@ readonly UV=/home/ubuntu/.local/bin/uv
 readonly UV_PROJECT=/home/ubuntu/rlm/prime-rl
 readonly SHARED_ENV=/home/ubuntu/rlm/prime-rl/.venv
 readonly EXPERIMENT_DIR="$WORKTREE/experiments/qwen35-2b-latent-coordinator-v1"
-readonly PLAN="$EXPERIMENT_DIR/phase-b-ipc1-matched-learning-run1-plan.json"
-readonly FREEZE_MANIFEST="$EXPERIMENT_DIR/phase-b-ipc1-matched-learning-run1.sha256"
-readonly OUTPUT_DIR=/home/ubuntu/rlm/results/q35-2b-b-ipc1-matched-learning-run1
+readonly PLAN="$EXPERIMENT_DIR/phase-b-ipc1-matched-learning-run2-plan.json"
+readonly FREEZE_MANIFEST="$EXPERIMENT_DIR/phase-b-ipc1-matched-learning-run2.sha256"
+readonly OUTPUT_DIR=/home/ubuntu/rlm/results/q35-2b-b-ipc1-matched-learning-run2
 
 if [[ $# -lt 2 || $# -gt 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ ]]; then
   echo "usage: $0 <exact-clean-execution-commit> <root-authorized-plan-sha256> [--preflight-only]" >&2
@@ -24,7 +24,7 @@ fi
 
 cd "$WORKTREE"
 [[ $(git rev-parse HEAD) == "$EXECUTION_COMMIT" ]]
-[[ $(git rev-parse "$EXECUTION_COMMIT^") == 69517c54c283017d1e8b76e1afda7e36adf2552f ]]
+[[ $(git rev-parse "$EXECUTION_COMMIT^") == 74251a9d72e4354cf54c347c726fd72369d9ab26 ]]
 [[ -z $(git status --porcelain --untracked-files=all) ]]
 [[ ! -e "$OUTPUT_DIR" && ! -L "$OUTPUT_DIR" ]]
 [[ -z $(nvidia-smi --query-compute-apps=pid --format=csv,noheader | tr -d '[:space:]') ]]

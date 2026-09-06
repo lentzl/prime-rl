@@ -1,12 +1,32 @@
 {
   "schema_version": "q35-2b-phase-b-ipc1-matched-learning/v1",
   "status": "frozen_pending_independent_review",
-  "run_identity": "b-ipc1-matched-learning-run1",
+  "run_identity": "b-ipc1-matched-learning-run2",
   "claim_class": "nomination_only_inplace_carrier_matched_learning_screen",
-  "mechanism_code_commit": "69517c54c283017d1e8b76e1afda7e36adf2552f",
-  "implementation_commit": "69517c54c283017d1e8b76e1afda7e36adf2552f",
-  "plan_sha256": "32b6cb2dbc6a49afa1cd0cc43c32299eb42e41c512197f92974ddb1b6b168fe3",
+  "mechanism_code_commit": "74251a9d72e4354cf54c347c726fd72369d9ab26",
+  "implementation_commit": "74251a9d72e4354cf54c347c726fd72369d9ab26",
+  "plan_sha256": "d0c1404ccc9129192929e3dbc42341ea0ca81c2525a5330dd43962932b067239",
   "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
+  "terminal_proof": {
+    "manifest_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-terminal-proof-v1/MANIFEST.json",
+    "manifest_sha256": "b5f1975b906d1d41e3f9134c82328923f0b5613f2fd31a8d0a57fe2f4daff86a",
+    "proof_execution_commit": "2e9fdef9e774b5b24636f7632da44f64f21fe680",
+    "runner_sha256": "143b6f8581e60b98b9b10ad436618113f78c9ea20a7fef4bf2bcc66952410e1d",
+    "decoded_proof_sha256": "c306b93e7c5bf644ac013e6ac79a06c6775e432b660b54a9c86d88c7a6fa6170",
+    "log_sha256": "259e0726b158f3bab1d622b24b2d778f142727294e64082a291d0adff72c2bcc",
+    "exit_status_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "exit_status": 0,
+    "model_loaded": false,
+    "cuda_initialized": false,
+    "exact_host_repository": true,
+    "maximal_success_file_sha256": "a1021cceba1a9f9decff82b007a809437c01c65a4b88b7b13bbfa3a9ab3dcf6d",
+    "failure_terminal_count": 4,
+    "tamper_cases_rejected": 15,
+    "mapping_insertion_permutation_canonical_equal": true,
+    "global_exactly_one_terminal": true,
+    "superseded_invocation_log_sha256": "01fb786d146854845fdc5d02e48e210fcab616bd947916936f56fcf7211f9970",
+    "superseded_invocation_exit_sha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865"
+  },
   "antecedents": [
     {
       "name": "HIC0_R1",
@@ -313,7 +333,7 @@
     "TRANSFORMERS_OFFLINE": "1"
   },
   "outputs": {
-    "directory": "/home/ubuntu/rlm/results/q35-2b-b-ipc1-matched-learning-run1",
+    "directory": "/home/ubuntu/rlm/results/q35-2b-b-ipc1-matched-learning-run2",
     "artifact_cap_bytes": 536870912,
     "candidate_files": ["STATIC.final.pt", "FFN.final.pt", "RECURRENT.final.pt"],
     "terminal": "exclusive atomic canonical SUCCESS.json or FAILURE.json",

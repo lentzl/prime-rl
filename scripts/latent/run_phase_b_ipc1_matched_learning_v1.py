@@ -52,7 +52,7 @@ from prime_rl.phase_b_ipc1 import (
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-DEFAULT_PLAN = EXPERIMENT / "phase-b-ipc1-matched-learning-run1-plan.json"
+DEFAULT_PLAN = EXPERIMENT / "phase-b-ipc1-matched-learning-run2-plan.json"
 BR5_RUNNER = WORKTREE / "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py"
 B1_RUNNER = WORKTREE / "scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py"
 HIC0_RUNNER = WORKTREE / "scripts/latent/run_phase_b_identity_carrier_v1.py"
