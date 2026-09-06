@@ -359,6 +359,12 @@ def validate_model_free_failure(value:dict[str,Any])->None:
 
 T0_PROOF_KEYS={"schema_version","status","mechanism","run_identity","execution_commit","mechanism_code_commit","plan_file_sha256","plan_sha256","runtime","asset_audit","antecedent_binding","data_binding","capture_evidence","candidate_initial_state","preconnect_evidence","metric_evidence","gate_evidence","derived_thresholds","candidate_disposition","protected_state","cache_guard","safety","counts","resources","memory","full_freeze","tamper_audit","decision_boundary","proof_sha256"}
 T0_COMPLETE_COUNTS={"capture_rows":96,"tokenizer_calls":96,"model_forwards":96,"sequences":2304,"cache_checks":194,"memory_rows":534,"candidate_objects":5,"optimizer_objects":5,"sidecar_forwards":385,"sidecar_backwards":325,"optimizer_steps":320,"cell_calls":773,"precal_presentations":160,"train_presentations":5120,"postcal_presentations":160,"postfit_presentations":320,"tamper_count":98,"validation_opens":0,"heldout_opens":0,"h176_loads":0,"generation_calls":0,"network_attempts":0,"e33_backwards":0,"e33_updates":0,"checkpoints":0,"live_trajectories":0}
+T0_COUNT_KEYS=set(T0_COMPLETE_COUNTS)|{"candidate_files","threshold_files"}
+T0_RUNTIME={"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","transformers":"5.6.2","tokenizers":"0.22.2","torch_distribution":"2.11.0+cu128","torch_runtime":"2.11.0+cu128","flash_linear_attention":"0.5.2","gpu_name":"NVIDIA RTX A6000","physical_gpu":"0","visible_device":"cuda:0","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"}
+T0_ASSET_ROW_KEYS={"path","sha256","bytes"}
+T0_RESOURCE_KEYS={"gpu_name","physical_gpu","visible_device","free_gpu_bytes_pre","available_ram_bytes_pre","free_disk_bytes_pre","max_allocated_bytes","max_reserved_bytes","artifact_bytes","timing"}
+T0_TIMING_KEYS={"outer_seconds","startup_seconds","compute_seconds","audit_seconds","failure_seconds","terminal_seconds","postexit_seconds","alarm_safety_margin_seconds","compute_enter_ns","compute_exit_ns","compute_duration_ns","audit_enter_ns","audit_exit_ns","audit_duration_ns","failure_enter_ns","failure_exit_ns","failure_duration_ns","terminal_enter_ns","prepublication_elapsed_ns"}
+T0_DECISION_BASE={"candidate_modules_updated":True,"protected_models_updated":False,"validation_execution_authorized":False,"validation_or_heldout_opened":False,"live_trajectory_count":0,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}
 
 def validate_t0_proof(value:dict[str,Any], *, partition:dict[str,Any]|None=None, capture_schedule:dict[str,Any]|None=None, training_schedule:dict[str,Any]|None=None, memory_schedule:dict[str,Any]|None=None, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
     if partition is None or capture_schedule is None or training_schedule is None or memory_schedule is None: raise T0ContractError("T0 proof frozen validation sources missing")
@@ -503,12 +509,14 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     expected=(T0_PROOF_KEYS-{"proof_sha256"})|{"error_type","error_message","traceback","stage","execution_progress","audit_errors","failure_sha256"}
     _keys(value,expected,"T0 failure")
     if value.get("schema_version")!=FAILURE_SCHEMA or value.get("mechanism")!=MECHANISM or value.get("run_identity")!=RUN_ID or statuses.get(value.get("status"))!=value.get("error_type"): raise T0ContractError("T0 failure taxonomy differs")
+    if not all(isinstance(value.get(field),str) and digest_string(value[field]) for field in ("plan_file_sha256","plan_sha256")) or not all(isinstance(value.get(field),str) and len(value[field])==40 and all(character in "0123456789abcdef" for character in value[field]) for field in ("execution_commit","mechanism_code_commit")) or not isinstance(value.get("error_message"),str) or not value["error_message"] or not isinstance(value.get("traceback"),str): raise T0ContractError("T0 failure authority or error schema differs")
     if value.get("failure_sha256")!=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="failure_sha256"})): raise T0ContractError("T0 failure self hash differs")
     progress=value.get("execution_progress")
     progress_keys={"stage","capture_rows_completed","tokenizer_calls_completed","model_forwards_completed","sequences_completed","cache_checks_completed","candidates_initialized","preconnect_arms_completed","operations_completed","current_operation_index","current_phase","current_arm","current_epoch","current_depth","sidecar_forwards_completed","sidecar_backwards_completed","optimizer_steps_completed","cell_calls_completed","metric_row_records_completed","aggregate_records_completed","gates_evaluated","candidate_files_present","threshold_file_present"}
     stages=["startup_pre_model","model_load","capture","model_release","candidate_init","preconnect","precal","train","postcal","postfit","gate_evaluation","candidate_write","postflight_audit","terminal_publication"]
     stage_rank={name:index for index,name in enumerate(stages)}
     if not isinstance(progress,dict) or set(progress)!=progress_keys or progress.get("stage") not in stages or value.get("stage")!=progress.get("stage"): raise T0ContractError("T0 failure progress differs")
+    stage=progress["stage"]
     numeric=["capture_rows_completed","tokenizer_calls_completed","model_forwards_completed","sequences_completed","cache_checks_completed","candidates_initialized","preconnect_arms_completed","operations_completed","sidecar_forwards_completed","sidecar_backwards_completed","optimizer_steps_completed","cell_calls_completed","metric_row_records_completed","aggregate_records_completed","gates_evaluated"]
     if any(not isinstance(progress[k],int) or isinstance(progress[k],bool) or progress[k]<0 for k in numeric) or not isinstance(progress["candidate_files_present"],list) or not isinstance(progress["threshold_file_present"],bool): raise T0ContractError("T0 failure counter differs")
     captures=progress["capture_rows_completed"]; tokenizers=progress["tokenizer_calls_completed"]; model_forwards=progress["model_forwards_completed"]; cache_checks=progress["cache_checks_completed"]
@@ -517,6 +525,10 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         base_cache=1+2*captures
         if cache_checks not in {base_cache,base_cache+1} or model_forwards==captures+1 and cache_checks!=base_cache+1 or tokenizers==model_forwards+1 and cache_checks!=base_cache: raise T0ContractError("T0 failure cache/capture crossing differs")
     elif captures or model_forwards: raise T0ContractError("T0 failure capture lacks cache closure")
+    counts=value.get("counts")
+    if not isinstance(counts,dict) or set(counts)!=T0_COUNT_KEYS or any(not isinstance(item,int) or isinstance(item,bool) or item<0 for item in counts.values()): raise T0ContractError("T0 failure counts schema differs")
+    direct_counts={"capture_rows":captures,"tokenizer_calls":tokenizers,"model_forwards":model_forwards,"sequences":progress["sequences_completed"],"cache_checks":cache_checks,"candidate_objects":progress["candidates_initialized"],"sidecar_forwards":progress["sidecar_forwards_completed"],"sidecar_backwards":progress["sidecar_backwards_completed"],"optimizer_steps":progress["optimizer_steps_completed"],"cell_calls":progress["cell_calls_completed"],"candidate_files":len(progress["candidate_files_present"]),"threshold_files":int(progress["threshold_file_present"])}
+    if any(counts[key]!=expected_value for key,expected_value in direct_counts.items()): raise T0ContractError("T0 failure counts/progress differ")
     capture=value.get("capture_evidence")
     if capture is not None:
         _keys(capture,{"schedule_sha256","rows","counts","aggregate_sha256"},"T0 failure capture")
@@ -549,7 +561,55 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     elif any(progress[key] is not None for key in ("current_phase","current_arm","current_epoch","current_depth")):
         raise T0ContractError("T0 failure empty operation identity differs")
     if progress["preconnect_arms_completed"]!=min(completed,5) or not 0<=progress["candidates_initialized"]<=5 or completed and progress["candidates_initialized"]!=5: raise T0ContractError("T0 failure initialization progress differs")
-    stage=progress["stage"]
+    runtime=value.get("runtime"); runtime_exact=True
+    if runtime is not None:
+        _keys(runtime,set(T0_RUNTIME),"T0 failure runtime")
+        if any(not isinstance(runtime[key],str) for key in runtime): raise T0ContractError("T0 failure runtime type differs")
+        runtime_exact=runtime==T0_RUNTIME
+    asset_audit=value.get("asset_audit"); assets_exact=True
+    if asset_audit is not None:
+        _keys(asset_audit,{"target_count","pre_entries","pre_sha256","post_entries","post_sha256","all_exact"},"T0 failure asset audit")
+        pre_entries=asset_audit["pre_entries"]
+        if asset_audit["target_count"]!=38 or not isinstance(pre_entries,list) or len(pre_entries)!=38 or any(set(row)!=T0_ASSET_ROW_KEYS or not isinstance(row["path"],str) or not row["path"] or not digest_string(row["sha256"]) or not isinstance(row["bytes"],int) or isinstance(row["bytes"],bool) or row["bytes"]<0 for row in pre_entries) or asset_audit["pre_sha256"]!=sha256_bytes(canonical_json(pre_entries)): raise T0ContractError("T0 failure asset preflight differs")
+        post_entries=asset_audit["post_entries"]
+        if post_entries is None:
+            if asset_audit["post_sha256"] is not None or asset_audit["all_exact"] is not None: raise T0ContractError("T0 failure asset postflight null relation differs")
+        elif not isinstance(post_entries,list) or any(set(row)!=T0_ASSET_ROW_KEYS or not isinstance(row["path"],str) or not row["path"] or not digest_string(row["sha256"]) or not isinstance(row["bytes"],int) or isinstance(row["bytes"],bool) or row["bytes"]<0 for row in post_entries) or asset_audit["post_sha256"]!=sha256_bytes(canonical_json(post_entries)) or asset_audit["all_exact"] is not (post_entries==pre_entries): raise T0ContractError("T0 failure asset postflight differs")
+        assets_exact=post_entries is None or post_entries==pre_entries
+    antecedent=value.get("antecedent_binding"); antecedent_exact=True
+    if antecedent is not None:
+        _keys(antecedent,{"manifest_path","manifest_file_sha256","manifest_internal_sha256","mf0_archive_exact","cap0_r1_archive_exact"},"T0 failure antecedent")
+        if not digest_string(antecedent["manifest_file_sha256"]) or not digest_string(antecedent["manifest_internal_sha256"]) or not isinstance(antecedent["mf0_archive_exact"],bool) or not isinstance(antecedent["cap0_r1_archive_exact"],bool): raise T0ContractError("T0 failure antecedent schema differs")
+        antecedent_exact=antecedent["manifest_path"]==f"{ARTIFACT_DIR}/t0-antecedent-evidence-manifest.json" and antecedent["mf0_archive_exact"] is True and antecedent["cap0_r1_archive_exact"] is True
+    data=value.get("data_binding")
+    if data is not None:
+        _keys(data,{"train_bank_path","train_bank_file_sha256","train_bank_internal_sha256","source_rows","fit_rows","calibration_rows","fit_row_ids","calibration_row_ids","fit_calibration_intersection","complete_train_union","validation_open_count","heldout_open_count"},"T0 failure data")
+        expected_fit=[row["row_id"] for row in partition["fit_rows"]]; expected_cal=[row["row_id"] for row in partition["calibration_rows"]]
+        if data!={"train_bank_path":TRAIN_BANK_PATH,"train_bank_file_sha256":TRAIN_BANK_FILE_SHA256,"train_bank_internal_sha256":TRAIN_BANK_INTERNAL_SHA256,"source_rows":96,"fit_rows":64,"calibration_rows":32,"fit_row_ids":expected_fit,"calibration_row_ids":expected_cal,"fit_calibration_intersection":[],"complete_train_union":True,"validation_open_count":0,"heldout_open_count":0}: raise T0ContractError("T0 failure data differs")
+    resources=value.get("resources"); resources_exact=True
+    if resources is not None:
+        _keys(resources,T0_RESOURCE_KEYS,"T0 failure resources")
+        integer_fields=("free_gpu_bytes_pre","available_ram_bytes_pre","free_disk_bytes_pre","max_allocated_bytes","max_reserved_bytes","artifact_bytes")
+        if not all(isinstance(resources[key],str) for key in ("gpu_name","physical_gpu","visible_device")) or any(not isinstance(resources[key],int) or isinstance(resources[key],bool) or resources[key]<0 for key in integer_fields): raise T0ContractError("T0 failure resources schema differs")
+        resources_exact=resources["gpu_name"]=="NVIDIA RTX A6000" and resources["physical_gpu"]=="0" and resources["visible_device"]=="cuda:0" and resources["free_gpu_bytes_pre"]>=44*(1<<30) and resources["available_ram_bytes_pre"]>=64*(1<<30) and resources["free_disk_bytes_pre"]>=16*(1<<30) and max(resources["max_allocated_bytes"],resources["max_reserved_bytes"])<=40*(1<<30) and resources["artifact_bytes"]<=33554432
+        timing=resources["timing"]
+        if timing is not None:
+            _keys(timing,T0_TIMING_KEYS,"T0 failure timing")
+            if [timing[key] for key in ("outer_seconds","startup_seconds","compute_seconds","audit_seconds","failure_seconds","terminal_seconds","postexit_seconds","alarm_safety_margin_seconds")]!=[21600,600,18000,1200,1200,300,300,1]: raise T0ContractError("T0 failure timing constants differ")
+            nullable=("compute_enter_ns","compute_exit_ns","compute_duration_ns","audit_enter_ns","audit_exit_ns","audit_duration_ns","failure_enter_ns","failure_exit_ns","failure_duration_ns","terminal_enter_ns","prepublication_elapsed_ns")
+            if any(item is not None and (not isinstance(item,int) or isinstance(item,bool) or item<0) for item in (timing[key] for key in nullable)): raise T0ContractError("T0 failure timing value differs")
+            for enter,exit_,duration in (("compute_enter_ns","compute_exit_ns","compute_duration_ns"),("audit_enter_ns","audit_exit_ns","audit_duration_ns"),("failure_enter_ns","failure_exit_ns","failure_duration_ns")):
+                values=(timing[enter],timing[exit_],timing[duration])
+                if all(item is None for item in values): continue
+                if any(item is None for item in values) or values[2]!=values[1]-values[0]: raise T0ContractError("T0 failure timing interval differs")
+            if timing["terminal_enter_ns"] is None:
+                if timing["prepublication_elapsed_ns"] is not None: raise T0ContractError("T0 failure terminal timing null relation differs")
+            elif timing["prepublication_elapsed_ns"]!=timing["terminal_enter_ns"] or timing["terminal_enter_ns"]>20700*10**9: raise T0ContractError("T0 failure terminal timing differs")
+            if timing["compute_duration_ns"] is not None and timing["compute_duration_ns"]>18000*10**9 or timing["audit_duration_ns"] is not None and timing["audit_duration_ns"]>1200*10**9 or timing["failure_duration_ns"] is not None and timing["failure_duration_ns"]>1200*10**9: raise T0ContractError("T0 failure timing cap differs")
+    required_foundations=stage_rank[stage]>=stage_rank["model_load"]
+    if required_foundations and any(item is None for item in (runtime,asset_audit,antecedent,data,resources)): raise T0ContractError("T0 failure foundational evidence missing")
+    infrastructure_observed=not runtime_exact or not assets_exact or not antecedent_exact or not resources_exact
+    if infrastructure_observed and value["status"]!="infrastructure_invalid": raise T0ContractError("T0 infrastructure evidence masked")
     stage_operation_ranges={
         "startup_pre_model":(0,0),"model_load":(0,0),"capture":(0,0),"model_release":(0,0),"candidate_init":(0,0),
         "preconnect":(0,5),"precal":(5,25),"train":(25,345),"postcal":(345,365),"postfit":(365,385),
@@ -567,7 +627,12 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         raise T0ContractError("T0 failure candidate initial missing")
     preconnect=value.get("preconnect_evidence")
     if preconnect is not None:
-        if preconnect.get("row_id")!="hi_be342227610f62e0" or preconnect.get("depth")!=4 or preconnect.get("action_index")!=0 or preconnect.get("counts")!={"forwards":5,"backwards":5,"optimizer_steps":0} or preconnect.get("all_qualify") is not True or [row.get("arm") for row in preconnect.get("rows",[])]!=ARMS: raise T0ContractError("T0 failure preconnect differs")
+        _keys(preconnect,{"row_id","depth","action_index","rows","counts","all_qualify"},"T0 failure preconnect")
+        if preconnect["row_id"]!="hi_be342227610f62e0" or preconnect["depth"]!=4 or preconnect["action_index"]!=0 or preconnect["counts"]!={"forwards":5,"backwards":5,"optimizer_steps":0} or preconnect["all_qualify"] is not True or [row.get("arm") for row in preconnect["rows"]]!=ARMS: raise T0ContractError("T0 failure preconnect differs")
+        preconnect_keys={"arm","operation_index","loss","codec_grad_l2","cell_grad_l2","readout_grad_l2","state_before_sha256","state_after_sha256","gradients_cleared","finite","qualifies"}
+        for index,row in enumerate(preconnect["rows"]):
+            cell=row.get("cell_grad_l2")
+            if set(row)!=preconnect_keys or row["operation_index"]!=index or not finite_number(row["loss"]) or not finite_number(row["codec_grad_l2"]) or row["codec_grad_l2"]<1e-8 or not finite_number(row["readout_grad_l2"]) or row["readout_grad_l2"]<1e-8 or (cell is not None if index==0 else not finite_number(cell) or cell<1e-8) or row["state_before_sha256"]!=row["state_after_sha256"] or not digest_string(row["state_before_sha256"]) or row["gradients_cleared"] is not True or row["finite"] is not True or row["qualifies"] is not True: raise T0ContractError("T0 failure preconnect row differs")
     elif stage_rank[stage]>stage_rank["preconnect"]:
         raise T0ContractError("T0 failure preconnect evidence missing")
     expected_metric=[]
@@ -610,9 +675,8 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         expected_cache_labels=["CACHE_ENTRY",*[x for i in range(96) for x in (f"CACHE_PRE_{i:03d}",f"CACHE_POST_{i:03d}")],"CACHE_EXIT"]
         if set(cache)!={"class_records","configuration_records","label_rows","label_sha256","expected_checks","actual_checks","dynamic_cache_negative_trips","dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count","restored"} or cache["class_records"]!=CACHE_CLASS_RECORDS or cache["configuration_records"]!=CACHE_CONFIGURATION_RECORDS or cache["actual_checks"]!=cache_checks or [r.get("index") for r in cache["label_rows"]]!=list(range(cache_checks)) or [r.get("label") for r in cache["label_rows"]]!=expected_cache_labels[:cache_checks] or cache["label_sha256"]!=sha256_bytes(canonical_json(expected_cache_labels[:cache_checks])) or cache["dynamic_cache_negative_trips"]!=1 or cache["expected_checks"]!=194 or cache["restored"] is not True or any(not isinstance(cache[key],int) or isinstance(cache[key],bool) or cache[key]<0 for key in ("dynamic_cache_actual_trips","returned_pkv_count","configuration_drift_count")): raise T0ContractError("T0 failure cache evidence differs")
     elif cache_checks: raise T0ContractError("T0 failure cache evidence missing")
-    if safety:
-        safety_keys={"network_attempts","validation_opens","heldout_opens","h176_loads","generation_calls","e33_backwards","e33_optimizer_steps","e33_updates","live_trajectory_count","object_census_errors","object_census_uninspectable","forbidden_inputs_detected"}
-        if set(safety)!=safety_keys or any(not isinstance(safety[key],int) or isinstance(safety[key],bool) or safety[key]<0 for key in safety_keys-{"forbidden_inputs_detected"}) or not isinstance(safety["forbidden_inputs_detected"],list) or any(not isinstance(item,str) or not item for item in safety["forbidden_inputs_detected"]): raise T0ContractError("T0 failure safety differs")
+    safety_keys={"network_attempts","validation_opens","heldout_opens","h176_loads","generation_calls","e33_backwards","e33_optimizer_steps","e33_updates","live_trajectory_count","object_census_errors","object_census_uninspectable","forbidden_inputs_detected"}
+    if not safety or set(safety)!=safety_keys or any(not isinstance(safety[key],int) or isinstance(safety[key],bool) or safety[key]<0 for key in safety_keys-{"forbidden_inputs_detected"}) or not isinstance(safety["forbidden_inputs_detected"],list) or any(not isinstance(item,str) or not item for item in safety["forbidden_inputs_detected"]): raise T0ContractError("T0 failure safety differs")
     mechanism_positive=bool(cache.get("dynamic_cache_actual_trips",0)>0 or cache.get("returned_pkv_count",0)>0 or cache.get("configuration_drift_count",0)>0 or any(row.get("finite") is False for row in (value.get("capture_evidence") or {}).get("rows",[]) if isinstance(row,dict)))
     exposure_positive=bool(safety.get("validation_opens",0)>0 or safety.get("heldout_opens",0)>0 or safety.get("h176_loads",0)>0 or safety.get("generation_calls",0)>0 or safety.get("network_attempts",0)>0 or safety.get("e33_backwards",0)>0 or safety.get("e33_updates",0)>0 or safety.get("forbidden_inputs_detected") or protected.get("h176_loaded") is True or protected.get("e33_grads_none") is False)
     if exposure_positive:
@@ -620,7 +684,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     elif mechanism_positive:
         if value["status"]!="h_iter_phase1_t0_capture_mechanism_rejected": raise T0ContractError("T0 positive capture rejection masked")
     elif value["status"] in {"h_iter_phase1_t0_exposure_boundary_rejected","h_iter_phase1_t0_capture_mechanism_rejected"}: raise T0ContractError("T0 rejection lacks positive evidence")
-    if value["status"]=="infrastructure_invalid" and (not isinstance(value["audit_errors"],list) or not value["audit_errors"]): raise T0ContractError("T0 infrastructure failure lacks audit evidence")
+    if value["status"]=="infrastructure_invalid" and (not isinstance(value["audit_errors"],list) or not value["audit_errors"] or any(not isinstance(item,str) or not item for item in value["audit_errors"])): raise T0ContractError("T0 infrastructure failure lacks audit evidence")
     if value["status"]!="infrastructure_invalid" and value["audit_errors"]!=[]: raise T0ContractError("T0 non-infrastructure audit errors differ")
     metric=value.get("metric_evidence")
     if isinstance(metric,dict) and isinstance(metric.get("row_records"),list):
@@ -648,6 +712,14 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
             if progress["aggregate_records_completed"]==135 and metric["aggregate_records"]!=recomputed or progress["aggregate_records_completed"]==0 and metric["aggregate_records"]!=[]: raise T0ContractError("T0 failure aggregates differ")
             postcal=[record for record in recomputed if record["phase"]=="POSTCAL"]
             if metric["postcal_aggregate_sha256"]!=sha256_bytes(canonical_json(postcal if progress["aggregate_records_completed"] else [])): raise T0ContractError("T0 failure aggregate hash differs")
+            if progress["gates_evaluated"]==9:
+                get_gate=lambda phase,arm,scope="overall",scope_value=None:next(record for record in recomputed if (record["phase"],record["arm"],record["scope"],record["scope_value"])==(phase,arm,scope,scope_value))
+                rec_gate=get_gate("POSTCAL","REC_K"); reset_gate=get_gate("POSTCAL","RESET_K"); static_gate=get_gate("POSTCAL","STATIC"); ffn_gate=get_gate("POSTCAL","FFN"); pre_gate=get_gate("PRECAL","REC_K"); fit_gate=get_gate("POSTFIT","REC_K")
+                lhs=[[rec_gate["correct"],32],[rec_gate["correct"]-reset_gate["correct"],32],[rec_gate["correct"]-max(static_gate["correct"],ffn_gate["correct"]),32],[[get_gate("POSTCAL","REC_K","depth",depth)["correct"],8] for depth in range(1,5)],[[get_gate("POSTCAL","REC_K","action",action)["correct"],8] for action in range(4)],reset_gate["mean_nll"]-rec_gate["mean_nll"],min(static_gate["mean_nll"],ffn_gate["mean_nll"])-rec_gate["mean_nll"],rec_gate["mean_nll"]/pre_gate["mean_nll"],[fit_gate["correct"],64]]
+                rhs=[[20,32],[4,32],[2,32],[4,8],[3,8],.05,.02,.75,[48,64]]; operators=[">=",">=",">=","all>=","all>=",">=",">=","<=",">="]
+                passed=[lhs[0][0]>=20,lhs[1][0]>=4,lhs[2][0]>=2,all(item[0]>=4 for item in lhs[3]),all(item[0]>=3 for item in lhs[4]),lhs[5]>=.05,lhs[6]>=.02,lhs[7]<=.75,lhs[8][0]>=48]
+                expected_gates={"ordered_rows":[{"index":index,"name":GATE_NAMES[index],"lhs":lhs[index],"operator":operators[index],"rhs":rhs[index],"passed":passed[index]} for index in range(9)],"pass_count":sum(passed),"all_pass":all(passed)}
+                if gate!=expected_gates: raise T0ContractError("T0 failure gates do not recompute")
             if progress["threshold_file_present"]:
                 get=lambda arm,scope="overall",scope_value=None:next(record for record in recomputed if (record["phase"],record["arm"],record["scope"],record["scope_value"])==("POSTCAL",arm,scope,scope_value))
                 rec=get("REC_K"); reset=get("RESET_K"); ar=rec["correct"]/32; min_depth=min(get("REC_K","depth",depth)["correct"]/8 for depth in range(1,5)); a_reset=reset["correct"]/32; n_reset=reset["mean_nll"]; nr=rec["mean_nll"]
@@ -691,6 +763,61 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         expected_train_completed=max(0,min(completed,345)-25)
         if train_labels!=expected_train_completed: raise T0ContractError("T0 failure training memory prefix differs")
     elif captures or completed or progress["stage"] not in {"startup_pre_model","model_load"}: raise T0ContractError("T0 failure memory evidence missing")
+    memory_count=len(memory["rows"]) if isinstance(memory,dict) and isinstance(memory.get("rows"),list) else 0
+    metric_rows=metric.get("row_records",[]) if isinstance(metric,dict) else []
+    presentations={phase:sum(row.get("phase")==phase for row in metric_rows if isinstance(row,dict)) for phase in ("PRECAL","POSTCAL","POSTFIT")}
+    tamper=value.get("tamper_audit")
+    if tamper is not None:
+        _keys(tamper,{"schedule_file_sha256","expected_count","results","rejected_count","all_rejected"},"T0 failure tamper")
+        results=tamper["results"]
+        if not digest_string(tamper["schedule_file_sha256"]) or tamper["expected_count"]!=98 or not isinstance(results,list) or len(results)>98 or any(set(row)!={"index","name","rejected","observed_error_type"} or row["index"]!=index or row["name"]!=_TAMPER_NAMES[index] or row["rejected"] is not True or not isinstance(row["observed_error_type"],str) or not row["observed_error_type"] for index,row in enumerate(results)) or tamper["rejected_count"]!=len(results) or tamper["all_rejected"] is not (len(results)==98): raise T0ContractError("T0 failure tamper evidence differs")
+    full_freeze=value.get("full_freeze")
+    freeze_exact=None
+    if full_freeze is not None:
+        _keys(full_freeze,{"target_count","head_before","head_after","tree_before","tree_after","clean_before","clean_after","pre_entries","post_entries","pre_sha256","post_sha256","complete"},"T0 failure full freeze")
+        freeze_pre=full_freeze["pre_entries"]; freeze_post=full_freeze["post_entries"]
+        if full_freeze["target_count"]!=38 or not isinstance(freeze_pre,list) or len(freeze_pre)!=38 or any(set(row)!=T0_ASSET_ROW_KEYS for row in freeze_pre) or full_freeze["pre_sha256"]!=sha256_bytes(canonical_json(freeze_pre)) or not isinstance(full_freeze["clean_before"],bool): raise T0ContractError("T0 failure freeze preflight differs")
+        if freeze_post is not None and (not isinstance(freeze_post,list) or any(set(row)!=T0_ASSET_ROW_KEYS for row in freeze_post) or full_freeze["post_sha256"]!=sha256_bytes(canonical_json(freeze_post))): raise T0ContractError("T0 failure freeze postflight differs")
+        if freeze_post is None and full_freeze["post_sha256"] is not None: raise T0ContractError("T0 failure freeze postflight null relation differs")
+        if any(item is not None and (not isinstance(item,str) or len(item)!=40 or any(character not in "0123456789abcdef" for character in item)) for item in (full_freeze["head_before"],full_freeze["head_after"],full_freeze["tree_before"],full_freeze["tree_after"])) or not isinstance(full_freeze["clean_after"],(bool,type(None))): raise T0ContractError("T0 failure freeze identity differs")
+        freeze_exact=bool(full_freeze["head_before"]==value["execution_commit"]==full_freeze["head_after"] and full_freeze["tree_before"]==full_freeze["tree_after"] and full_freeze["clean_before"] is True and full_freeze["clean_after"] is True and freeze_post==freeze_pre)
+        if full_freeze["complete"] is not freeze_exact: raise T0ContractError("T0 failure freeze truth differs")
+        if asset_audit is None or asset_audit["pre_entries"]!=freeze_pre or asset_audit["pre_sha256"]!=full_freeze["pre_sha256"] or asset_audit["post_entries"]!=freeze_post or asset_audit["post_sha256"]!=full_freeze["post_sha256"] or asset_audit["all_exact"] is not (freeze_post==freeze_pre): raise T0ContractError("T0 failure freeze/asset audit differs")
+    decision=value.get("decision_boundary")
+    if progress["gates_evaluated"]==9:
+        if not isinstance(gate,dict): raise T0ContractError("T0 failure decision lacks gates")
+        go=gate.get("all_pass") is True
+        expected_decision={**T0_DECISION_BASE,"claim":"train_only_matched_sidecar_learning_screen_passed" if go else "train_only_matched_sidecar_learning_screen_stopped","validation_contract_design_authorized":go}
+        if decision!=expected_decision: raise T0ContractError("T0 failure decision differs")
+    elif decision is not None:
+        raise T0ContractError("T0 failure future decision evidence differs")
+    if stage_rank[stage]>=stage_rank["postflight_audit"] and any(item is None for item in (tamper,full_freeze)):
+        raise T0ContractError("T0 failure postflight evidence missing")
+    if stage_rank[stage]>=stage_rank["postflight_audit"] and resources["timing"] is None:
+        raise T0ContractError("T0 failure postflight timing missing")
+    if stage_rank[stage]<stage_rank["postflight_audit"] and (tamper is not None or full_freeze is not None or isinstance(asset_audit,dict) and asset_audit["post_entries"] is not None):
+        raise T0ContractError("T0 failure future postflight evidence present")
+    if stage=="terminal_publication" and (len(tamper["results"])!=98 or freeze_post is None): raise T0ContractError("T0 failure terminal audit incomplete")
+    if freeze_exact is False and value["status"]!="infrastructure_invalid": raise T0ContractError("T0 failure freeze mismatch masked")
+    expected_remaining={
+        "memory_rows":memory_count,
+        "optimizer_objects":5 if stage_rank[stage]>=stage_rank["precal"] else 0,
+        "precal_presentations":presentations["PRECAL"],
+        "train_presentations":16*(sum(row["phase"]=="TRAIN" for row in done)+(1 if in_flight and operations[completed]["phase"]=="TRAIN" and delta_f else 0)),
+        "postcal_presentations":presentations["POSTCAL"],
+        "postfit_presentations":presentations["POSTFIT"],
+        "tamper_count":len(tamper["results"]) if isinstance(tamper,dict) else 0,
+        "validation_opens":safety.get("validation_opens",0),
+        "heldout_opens":safety.get("heldout_opens",0),
+        "h176_loads":safety.get("h176_loads",0),
+        "generation_calls":safety.get("generation_calls",0),
+        "network_attempts":safety.get("network_attempts",0),
+        "e33_backwards":safety.get("e33_backwards",0),
+        "e33_updates":safety.get("e33_updates",0),
+        "checkpoints":0,
+        "live_trajectories":safety.get("live_trajectory_count",0),
+    }
+    if any(counts[key]!=expected_value for key,expected_value in expected_remaining.items()): raise T0ContractError("T0 failure derived counts differ")
     if output_inventory is not None:
         expected=sorted([*candidate_prefix,*( ["derived-validation-thresholds.json"] if progress["threshold_file_present"] else []),"T0-FAILURE.json"])
         if output_inventory!=expected: raise T0ContractError("T0 failure output inventory differs")
