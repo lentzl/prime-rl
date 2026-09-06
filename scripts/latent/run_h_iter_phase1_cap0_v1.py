@@ -218,35 +218,67 @@ def load_train_inputs(repo: Path) -> tuple[dict[str, Any], dict[str, Any], dict[
     capture = load_canonical(repo / PLAN_ASSET_PATHS[9])
     if bank.get("split") != "train" or len(bank.get("rows", [])) != 96 or selection.get("selection_sha256") != SELECTION_SHA256 or len(selection.get("ordered_probes", [])) != 4:
         raise CAP0ContractError("CAP0 TRAIN bank or selection differs")
-    fit_ids = {row["row_id"] for row in partition.get("fit_rows", [])}
-    bank_by_id = {row["row_id"]: row for row in bank["rows"]}
-    for probe in selection["ordered_probes"]:
-        row = bank_by_id.get(probe["row_id"])
-        if probe["row_id"] not in fit_ids or row is None or row["row_sha256"] != probe["row_sha256"] or row["receiver_input_sha256"] != probe["receiver_input_sha256"]:
-            raise CAP0ContractError("CAP0 selected TRAIN probe differs")
+    validate_selected_train_rows(bank, partition, selection)
     contract = load_canonical(repo / PLAN_ASSET_PATHS[10])
     validate_contract(contract, selection, capture)
     return bank, partition, selection, capture
 
 
+def validate_selected_train_rows(bank: dict[str, Any], partition: dict[str, Any], selection: dict[str, Any]) -> None:
+    fit_ids = {row["row_id"] for row in partition.get("fit_rows", [])}
+    bank_by_id = {row["row_id"]: row for row in bank.get("rows", [])}
+    if len(bank_by_id) != 96:
+        raise CAP0ContractError("CAP0 TRAIN row identities differ")
+    for probe in selection.get("ordered_probes", []):
+        row = bank_by_id.get(probe.get("row_id"))
+        if probe.get("row_id") not in fit_ids or row is None or row.get("row_sha256") != probe.get("row_sha256") or row.get("receiver_input_sha256") != probe.get("receiver_input_sha256"):
+            raise CAP0ContractError("CAP0 selected TRAIN probe differs")
+        if row["row_sha256"] != sha256_bytes(canonical_json({key: value for key, value in row.items() if key != "row_sha256"})) or row["receiver_input_sha256"] != sha256_bytes(canonical_json(row["receiver_input"])):
+            raise CAP0ContractError("CAP0 selected TRAIN row self-hash differs")
+        receiver = row["receiver_input"]
+        if len(receiver.get("nodes", [])) != 24 or len(receiver.get("edges", [])) != 24 or any(set(node) != {"node_id", "local_text"} or len(node["local_text"].encode("utf-8")) != 68 for node in receiver["nodes"]):
+            raise CAP0ContractError("CAP0 selected TRAIN receiver differs")
+        encoded = canonical_json(receiver)
+        if any(token in encoded for token in (b"answer_action", b"supervision", b"target_marker", b"target_node_id")):
+            raise CAP0ContractError("CAP0 selected TRAIN receiver leaked supervision")
+
+
 def static_guard(repo: Path) -> dict[str, Any]:
     paths = ["src/prime_rl/latent/h_iter_phase1_cap0.py", "scripts/latent/run_h_iter_phase1_cap0_v1.py"]
-    forbidden: list[str] = []
-    for path in paths:
-        source = (repo / path).read_text()
+    def scan(source: str, path: str) -> list[str]:
+        forbidden: list[str] = []
         tree = ast.parse(source)
         for node in ast.walk(tree):
             if isinstance(node, ast.Call):
                 name = node.func.attr if isinstance(node.func, ast.Attribute) else node.func.id if isinstance(node.func, ast.Name) else ""
-                if name in {"generate", "backward", "step"}:
+                if name in {"generate", "backward", "step", "save", "save_file", "save_pretrained"}:
+                    forbidden.append(f"{path}:{node.lineno}:{name}")
+            if isinstance(node, (ast.Name, ast.Attribute)):
+                name = node.id if isinstance(node, ast.Name) else node.attr
+                if name in {"AdamW", "Optimizer", "WorkspaceBridge", "CandidateModule"}:
                     forbidden.append(f"{path}:{node.lineno}:{name}")
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 lowered = node.value.lower()
                 if ("validation-bank" in lowered or "heldout-bank" in lowered or "held_out" in lowered) and lowered not in {"validation-bank", "heldout-bank", "held_out"} and "forbidden" not in lowered:
                     forbidden.append(f"{path}:{node.lineno}:split_path_literal")
+        return forbidden
+
+    forbidden: list[str] = []
+    for path in paths:
+        forbidden.extend(scan((repo / path).read_text(), path))
     if forbidden:
         raise CAP0ContractError("CAP0 static exposure guard rejected")
-    return {"paths": paths, "forbidden_sites": [], "runner_sha256": file_sha256(repo / paths[1]), "module_sha256": file_sha256(repo / paths[0])}
+    fixtures = {
+        "generation_call": "model.generate()",
+        "backward_call": "loss.backward()",
+        "optimizer_step": "optimizer.step()",
+        "candidate_constructor": "CandidateModule()",
+        "validation_path": "path = 'x/" + "validation" + "-bank.json'",
+    }
+    rejected = {name: bool(scan(source, f"fixture:{name}")) for name, source in fixtures.items()}
+    if not all(rejected.values()):
+        raise CAP0ContractError("CAP0 static exposure negative fixture accepted")
+    return {"paths": paths, "forbidden_sites": [], "negative_fixtures": rejected, "runner_sha256": file_sha256(repo / paths[1]), "module_sha256": file_sha256(repo / paths[0])}
 
 
 class NetworkGuard:
@@ -260,10 +292,16 @@ class NetworkGuard:
         self.attempts += 1
         raise ExposureBoundaryRejected("CAP0 network attempt blocked")
 
+    def _audit(self, event: str, _args: tuple[Any, ...]) -> None:
+        if event in {"socket.connect", "socket.getaddrinfo"}:
+            self.attempts += 1
+            raise ExposureBoundaryRejected("CAP0 audited network attempt blocked")
+
     def __enter__(self) -> NetworkGuard:
         for owner, name in ((socket.socket, "connect"), (socket.socket, "connect_ex"), (socket, "create_connection"), (socket, "getaddrinfo")):
             self.originals[(owner, name)] = getattr(owner, name)
             setattr(owner, name, self._deny)
+        sys.addaudithook(self._audit)
         self.installed = True
         return self
 
@@ -273,7 +311,45 @@ class NetworkGuard:
         self.restored = True
 
     def evidence(self) -> dict[str, Any]:
-        return {"installed": self.installed, "restored": self.restored, "attempt_count": self.attempts, "operations": ["socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection", "socket.getaddrinfo"]}
+        return {"installed": self.installed, "wrappers_restored": self.restored, "audit_hook_persistent": self.installed, "attempt_count": self.attempts, "operations": ["socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection", "socket.getaddrinfo"], "audit_events": ["socket.connect", "socket.getaddrinfo"]}
+
+
+class OpenFirewall:
+    def __init__(self, repo: Path) -> None:
+        self.repo = repo.resolve()
+        self.allowed = {(repo / path).resolve() for path in EXPERIMENT_READ_PATHS}
+        self.denied_count = 0
+        self.validation_open_count = 0
+        self.heldout_open_count = 0
+        self.opened: set[str] = set()
+
+    def audit(self, event: str, args: tuple[Any, ...]) -> None:
+        if event != "open" or not args or not isinstance(args[0], (str, bytes)):
+            return
+        candidate = Path(os.fsdecode(args[0]))
+        if not candidate.is_absolute():
+            candidate = (Path.cwd() / candidate).resolve()
+        else:
+            candidate = candidate.resolve()
+        experiment_root = (self.repo / "experiments").resolve()
+        if not candidate.is_relative_to(experiment_root):
+            return
+        relative = candidate.relative_to(self.repo).as_posix()
+        if candidate not in self.allowed:
+            self.denied_count += 1
+            lowered = relative.lower()
+            if "validation" in lowered:
+                self.validation_open_count += 1
+            if "heldout" in lowered or "held_out" in lowered:
+                self.heldout_open_count += 1
+            raise ExposureBoundaryRejected(f"CAP0 blocked experiment path open: {relative}")
+        self.opened.add(relative)
+
+    def install(self) -> None:
+        sys.addaudithook(self.audit)
+
+    def evidence(self) -> dict[str, Any]:
+        return {"denied_count": self.denied_count, "validation_open_count": self.validation_open_count, "heldout_open_count": self.heldout_open_count, "opened_paths": sorted(self.opened)}
 
 
 class ArtifactWriter:
@@ -514,6 +590,19 @@ def validate_cache(value: dict[str, Any], contract: dict[str, Any], complete: bo
         raise CAP0ContractError("CAP0 cache evidence differs")
     if not isinstance(value["trip_count"], int) or isinstance(value["trip_count"], bool) or value["trip_count"] < 0 or value["actual_allocation_trips"] != max(0, value["trip_count"] - 1):
         raise CAP0ContractError("CAP0 cache trip evidence differs")
+    if not isinstance(value["pkv_non_none_count"], int) or isinstance(value["pkv_non_none_count"], bool) or value["pkv_non_none_count"] < 0 or any(not isinstance(value[key], bool) for key in ("mandatory_negative_control", "classes_restored", "configs_restored", "complete")):
+        raise CAP0ContractError("CAP0 cache scalar types differ")
+    configurations = value["configuration_evidence"]
+    if not isinstance(configurations, list) or any(not isinstance(row, dict) or not isinstance(row.get("source"), str) for row in configurations):
+        raise CAP0ContractError("CAP0 cache configuration schema differs")
+    sources = [row["source"] for row in configurations]
+    if sources != sorted(sources) or len(set(sources)) != len(configurations):
+        raise CAP0ContractError("CAP0 cache configuration ordering differs")
+    for row in configurations:
+        if set(row) != {"source", "value_before", "value_during", "value_after"} or not isinstance(row["source"], str) or row["value_during"] is not False or row["value_before"] not in {True, False}:
+            raise CAP0ContractError("CAP0 cache configuration evidence differs")
+        if value["configs_restored"] and row["value_after"] is not row["value_before"]:
+            raise CAP0ContractError("CAP0 cache configuration restoration differs")
     if complete and (value["check_labels"] != CACHE_LABELS or value["trip_count"] != 1 or value["mandatory_negative_control"] is not True or value["pkv_non_none_count"] != 0 or value["classes_restored"] is not True or value["configs_restored"] is not True or value["complete"] is not True):
         raise CAP0ContractError("CAP0 cache closure incomplete")
 
@@ -545,9 +634,18 @@ def validate_proof(proof: dict[str, Any], *, plan: dict[str, Any], contract: dic
     if not isinstance(protected, dict) or set(protected) != protected_keys or protected["disk_before"] != expected_disk or protected["disk_after"] != expected_disk or protected["e33_state_before"] != E33_STATE_SHA256 or protected["e33_state_after"] != E33_STATE_SHA256 or any(protected[key] is not True for key in ("e33_all_requires_grad_false", "e33_all_grads_none", "model_eval", "model_released")) or protected["h176_loaded"] is not False:
         raise CAP0ContractError("CAP0 protected state differs")
     safety = proof["safety"]
-    safety_expected = {"cuda_visible_devices": "0", "network_attempts": 0, "validation_opens": 0, "heldout_opens": 0, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "optimizer_steps": 0, "candidate_objects": 0, "candidate_files": [], "checkpoint_files": [], "model_updated": False, "h176_loaded": False}
-    if safety != safety_expected:
+    safety_keys = {"cuda_visible_devices", "network_attempts", "validation_opens", "heldout_opens", "generation_calls", "backwards", "optimizer_objects", "optimizer_steps", "candidate_objects", "candidate_files", "checkpoint_files", "model_updated", "h176_loaded", "network_guard", "experiment_open_firewall"}
+    if not isinstance(safety, dict) or set(safety) != safety_keys:
         raise CAP0ContractError("CAP0 proof safety differs")
+    scalar_expected = {"cuda_visible_devices": "0", "network_attempts": 0, "validation_opens": 0, "heldout_opens": 0, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "optimizer_steps": 0, "candidate_objects": 0, "candidate_files": [], "checkpoint_files": [], "model_updated": False, "h176_loaded": False}
+    if any(safety[key] != value for key, value in scalar_expected.items()):
+        raise CAP0ContractError("CAP0 proof safety scalar differs")
+    network = safety["network_guard"]
+    if not isinstance(network, dict) or set(network) != {"installed", "wrappers_restored", "audit_hook_persistent", "attempt_count", "operations", "audit_events"} or network["installed"] is not True or network["wrappers_restored"] is not False or network["audit_hook_persistent"] is not True or network["attempt_count"] != 0 or network["operations"] != ["socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection", "socket.getaddrinfo"] or network["audit_events"] != ["socket.connect", "socket.getaddrinfo"]:
+        raise CAP0ContractError("CAP0 network guard evidence differs")
+    firewall = safety["experiment_open_firewall"]
+    if not isinstance(firewall, dict) or set(firewall) != {"denied_count", "validation_open_count", "heldout_open_count", "opened_paths"} or any(firewall[key] != 0 for key in ("denied_count", "validation_open_count", "heldout_open_count")) or not isinstance(firewall["opened_paths"], list) or firewall["opened_paths"] != sorted(set(firewall["opened_paths"])) or any(path not in EXPERIMENT_READ_PATHS for path in firewall["opened_paths"]):
+        raise CAP0ContractError("CAP0 experiment-open firewall evidence differs")
     resources = proof["resources"]
     resource_keys = {"bounds", "gpu_name", "gpu_total_bytes", "host_ram_bytes", "free_disk_bytes_preflight", "free_disk_bytes_postflight", "global_max_allocated_bytes", "global_max_reserved_bytes", "artifact_bytes_before_terminal", "completed_phase_records", "final_terminal_publication", "prepublication_elapsed_ns"}
     cap = 40 * 2**30
@@ -604,6 +702,8 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
         raise CAP0ContractError("CAP0 failure identity differs")
     if failure["execution_commit"] != execution_commit or failure["mechanism_code_commit"] != plan["mechanism_code_commit"] or failure["plan_file_sha256"] != plan_file_sha256 or failure["plan_sha256"] != plan["plan_sha256"]:
         raise CAP0ContractError("CAP0 failure authority differs")
+    if not isinstance(failure["aggregate_partial"], dict) or not isinstance(failure["actual_safety"], dict):
+        raise CAP0ContractError("CAP0 failure nested schema differs")
     if failure["status"] == REJECT_STATUS:
         if failure["error_type"] != "CAP0MechanismRejected" or failure["aggregate_partial"].get("cause") not in MECHANISM_CAUSES:
             raise CAP0ContractError("CAP0 rejection taxonomy differs")
@@ -674,7 +774,22 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
     if failure["partial_memory"].get("labels") != MEMORY_LABELS or len(failure["partial_memory"]["rows"]) != progress["memory_rows_completed"]:
         raise CAP0ContractError("CAP0 failure memory prefix differs")
     actual = failure["actual_safety"]
-    exposure = bool(actual.get("validation_opens") or actual.get("heldout_opens") or actual.get("h176_loaded") or actual.get("generation_calls") or actual.get("backwards") or actual.get("optimizer_objects") or actual.get("candidate_objects") or actual.get("network_attempts") or failure["candidate_files"] or failure["checkpoint_files"] or failure["model_updated"] or actual.get("e33_grads_present") or actual.get("e33_state_changed"))
+    actual_keys = {"validation_opens", "heldout_opens", "h176_loaded", "generation_calls", "backwards", "optimizer_objects", "candidate_objects", "network_attempts", "e33_grads_present", "e33_state_changed", "positive_exposure", "network_guard", "experiment_open_firewall"}
+    if set(actual) != actual_keys:
+        raise CAP0ContractError("CAP0 failure actual safety schema differs")
+    network = actual["network_guard"]
+    firewall = actual["experiment_open_firewall"]
+    if not isinstance(network, dict) or set(network) != {"installed", "wrappers_restored", "audit_hook_persistent", "attempt_count", "operations", "audit_events"} or not isinstance(firewall, dict) or set(firewall) != {"denied_count", "validation_open_count", "heldout_open_count", "opened_paths"}:
+        raise CAP0ContractError("CAP0 failure guard evidence differs")
+    if actual["network_attempts"] != network["attempt_count"] or actual["validation_opens"] != firewall["validation_open_count"] or actual["heldout_opens"] != firewall["heldout_open_count"]:
+        raise CAP0ContractError("CAP0 failure guard counters differ")
+    if any(not isinstance(actual[key], int) or isinstance(actual[key], bool) or actual[key] < 0 for key in ("validation_opens", "heldout_opens", "generation_calls", "backwards", "optimizer_objects", "candidate_objects", "network_attempts")) or any(not isinstance(actual[key], bool) for key in ("h176_loaded", "e33_grads_present", "e33_state_changed", "positive_exposure")):
+        raise CAP0ContractError("CAP0 failure safety scalar types differ")
+    if network["installed"] is not True or network["audit_hook_persistent"] is not True or not isinstance(network["wrappers_restored"], bool) or not isinstance(network["attempt_count"], int) or isinstance(network["attempt_count"], bool) or network["attempt_count"] < 0:
+        raise CAP0ContractError("CAP0 failure network guard differs")
+    if any(not isinstance(firewall[key], int) or isinstance(firewall[key], bool) or firewall[key] < 0 for key in ("denied_count", "validation_open_count", "heldout_open_count")) or not isinstance(firewall["opened_paths"], list) or firewall["opened_paths"] != sorted(set(firewall["opened_paths"])):
+        raise CAP0ContractError("CAP0 failure open firewall differs")
+    exposure = bool(actual["validation_opens"] or actual["heldout_opens"] or actual["h176_loaded"] or actual["generation_calls"] or actual["backwards"] or actual["optimizer_objects"] or actual["candidate_objects"] or actual["network_attempts"] or firewall["denied_count"] or failure["candidate_files"] or failure["checkpoint_files"] or failure["model_updated"] or actual["e33_grads_present"] or actual["e33_state_changed"])
     if actual.get("positive_exposure") is not exposure or (failure["status"] == EXPOSURE_STATUS) is not exposure:
         raise CAP0ContractError("CAP0 failure exposure precedence differs")
     if failure["status"] != EXPOSURE_STATUS and (failure["candidate_files"] or failure["checkpoint_files"] or failure["model_updated"]):
@@ -690,11 +805,13 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
     if not isinstance(failure["candidate_files"], list) or not isinstance(failure["checkpoint_files"], list) or failure["output_inventory_before_failure"] != sorted([*failure["candidate_files"], *failure["checkpoint_files"]]):
         raise CAP0ContractError("CAP0 failure output inventory differs")
     audit = failure["full_freeze_failure_audit"]
-    audit_keys = {"head", "parent", "tree", "status", "asset_hashes", "execution_commit", "exact"}
+    audit_keys = {"head", "parent", "tree", "status", "asset_hashes", "execution_commit", "errors", "exact"}
     if not isinstance(audit, dict) or set(audit) != audit_keys:
         raise CAP0ContractError("CAP0 failure freeze audit differs")
-    exact = audit["head"] == execution_commit and audit["parent"] == plan["mechanism_code_commit"] and audit["status"] == "" and audit["asset_hashes"] == plan["asset_sha256"] and audit["execution_commit"] == execution_commit
-    if audit["exact"] is not exact or failure["status"] in {REJECT_STATUS, INCOMPLETE_STATUS} and not exact:
+    if not isinstance(audit["errors"], list) or any(not isinstance(value, str) or not value for value in audit["errors"]) or not isinstance(audit["asset_hashes"], dict) or set(audit["asset_hashes"]) != set(plan["asset_sha256"]):
+        raise CAP0ContractError("CAP0 failure freeze observation differs")
+    exact = not audit["errors"] and audit["head"] == execution_commit and audit["parent"] == plan["mechanism_code_commit"] and audit["status"] == "" and audit["asset_hashes"] == plan["asset_sha256"] and audit["execution_commit"] == execution_commit
+    if audit["exact"] is not exact or failure["status"] != "infrastructure_invalid" and not exact:
         raise CAP0ContractError("CAP0 failure provenance truth closure differs")
     if failure["failure_sha256"] != sha256_bytes(canonical_json({key: value for key, value in failure.items() if key != "failure_sha256"})):
         raise CAP0ContractError("CAP0 failure self hash differs")
@@ -709,6 +826,16 @@ def load_authorized_plan(repo: Path, execution_commit: str, external_sha256: str
         raise InfrastructureInvalid("CAP0 authorized plan is noncanonical")
     validate_plan(plan, external_sha256)
     return plan
+
+
+def load_authorized_canonical(repo: Path, execution_commit: str, path: str, expected_sha256: str) -> dict[str, Any]:
+    data = git_blob(repo, execution_commit, path)
+    if not data.endswith(b"\n") or sha256_bytes(data) != expected_sha256:
+        raise InfrastructureInvalid(f"CAP0 authorized asset blob differs: {path}")
+    value = strict_loads(data[:-1])
+    if not isinstance(value, dict) or data != canonical_json(value) + b"\n":
+        raise InfrastructureInvalid(f"CAP0 authorized asset is noncanonical: {path}")
+    return value
 
 
 def asset_hashes(repo: Path, plan: dict[str, Any]) -> dict[str, str]:
@@ -747,7 +874,8 @@ def validate_preflight(value: dict[str, Any], *, execution_commit: str, plan_fil
         raise CAP0ContractError("CAP0 preflight closure differs")
     if value["cuda_visible_devices"] != "" or any(value[key] is not False for key in ("torch_imported", "tokenizer_loaded", "model_loaded", "scientific_exposure")):
         raise CAP0ContractError("CAP0 preflight exposure differs")
-    if value["static_guard"].get("forbidden_sites") != []:
+    static = value["static_guard"]
+    if not isinstance(static, dict) or set(static) != {"paths", "forbidden_sites", "negative_fixtures", "runner_sha256", "module_sha256"} or static["paths"] != ["src/prime_rl/latent/h_iter_phase1_cap0.py", "scripts/latent/run_h_iter_phase1_cap0_v1.py"] or static["forbidden_sites"] != [] or set(static["negative_fixtures"]) != {"generation_call", "backward_call", "optimizer_step", "candidate_constructor", "validation_path"} or not all(value is True for value in static["negative_fixtures"].values()) or static["runner_sha256"] != plan["asset_sha256"][PLAN_ASSET_PATHS[14]] or static["module_sha256"] != plan["asset_sha256"][PLAN_ASSET_PATHS[13]]:
         raise CAP0ContractError("CAP0 preflight static guard differs")
     if value["preflight_sha256"] != sha256_bytes(canonical_json({key: item for key, item in value.items() if key != "preflight_sha256"})):
         raise CAP0ContractError("CAP0 preflight self hash differs")
@@ -804,15 +932,68 @@ def _selected_rows(bank: dict[str, Any], selection: dict[str, Any]) -> list[tupl
     return [(probe, by_id[probe["row_id"]]) for probe in selection["ordered_probes"]]
 
 
-def run_tampers(contract: dict[str, Any], selection: dict[str, Any], capture: dict[str, Any]) -> list[dict[str, Any]]:
+def run_tampers(contract: dict[str, Any], selection: dict[str, Any], capture: dict[str, Any], plan: dict[str, Any], bank: dict[str, Any], partition: dict[str, Any]) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     for index, name in enumerate(TAMPERS[:40]):
         altered = copy.deepcopy(contract)
-        altered["tamper_schedule"] = [*altered["tamper_schedule"]]
-        altered["tamper_schedule"][index] = f"{name}_changed"
-        altered["contract_sha256"] = sha256_bytes(canonical_json({key: value for key, value in altered.items() if key != "contract_sha256"}))
+        altered_plan = copy.deepcopy(plan)
+        altered_bank = copy.deepcopy(bank)
+        altered_partition = copy.deepcopy(partition)
+        altered_selection = copy.deepcopy(selection)
+        target = "contract"
+        if index < 6:
+            field = ("manifest_file_sha256", "manifest_internal_sha256", "proof_file_sha256", "proof_internal_sha256", "launcher_log_sha256", "exit_file_sha256")[index]
+            altered["mf0_archive_binding"][field] = "0" * 64
+        elif name == "train_bank_hash_changed":
+            altered_plan["asset_sha256"][PLAN_ASSET_PATHS[6]] = "0" * 64
+            target = "plan"
+        elif name == "selection_hash_changed": altered["selection"]["selection_sha256"] = "0" * 64
+        elif name == "probe_order_changed": altered["selection"]["ordered_probes"][0], altered["selection"]["ordered_probes"][1] = altered["selection"]["ordered_probes"][1], altered["selection"]["ordered_probes"][0]
+        elif name == "probe_not_fit_changed": altered["selection"]["ordered_probes"][0]["replicate"] = 5
+        elif name in {"node_order_changed", "local_text_changed", "answer_or_supervision_added"}:
+            selected_row = next(row for row in altered_bank["rows"] if row["row_id"] == selection["ordered_probes"][0]["row_id"])
+            if name == "node_order_changed": selected_row["receiver_input"]["nodes"][0], selected_row["receiver_input"]["nodes"][1] = selected_row["receiver_input"]["nodes"][1], selected_row["receiver_input"]["nodes"][0]
+            elif name == "local_text_changed": selected_row["receiver_input"]["nodes"][0]["local_text"] += "x"
+            else: selected_row["receiver_input"]["answer_action"] = "ACT_Z1"
+            target = "bank"
+        elif name == "tokenizer_max_length_changed": altered["tokenizer_contract"]["max_length"] = 127
+        elif name == "tokenizer_truncation_enabled": altered["tokenizer_contract"]["truncation"] = True
+        elif name == "tokenizer_padding_side_changed": altered["tokenizer_contract"]["padding_side"] = "right"
+        elif name == "model_checkpoint_path_changed": altered["model_contract"]["checkpoint"] += "-changed"
+        elif name == "model_checkpoint_hash_changed": altered["model_contract"]["checkpoint_tree_sha256"] = "0" * 64
+        elif name == "model_metadata_hash_changed": altered["protected_contract"]["metadata_sha256"]["config.json"] = "0" * 64
+        elif name == "model_dtype_changed": altered["model_contract"]["torch_dtype"] = "torch.float32"
+        elif name == "attention_implementation_changed": altered["model_contract"]["attn_implementation"] = "sdpa"
+        elif name == "inference_mode_disabled": altered["model_contract"]["inference_mode"] = False
+        elif name == "use_cache_enabled": altered["model_contract"]["forward_kwargs"]["use_cache"] = True
+        elif name == "output_hidden_states_disabled": altered["model_contract"]["forward_kwargs"]["output_hidden_states"] = False
+        elif name == "logits_to_keep_changed": altered["model_contract"]["forward_kwargs"]["logits_to_keep"] = 0
+        elif name == "cache_class_removed": altered["cache_contract"]["class_closure"] = altered["cache_contract"]["class_closure"][:-1]
+        elif name == "cache_source_hash_changed": altered["cache_contract"]["class_closure"][0]["module_sha256"] = "0" * 64
+        elif name == "dynamic_cache_negative_control_removed": altered["cache_contract"]["mandatory_negative_trips"] = 0
+        elif name == "pkv_none_gate_disabled": altered["output_contract"]["pkv_none"] = False
+        elif name in {"repeat_count_changed", "model_forward_count_changed"}: altered["model_contract"]["forwards"] = 7
+        elif name == "repeat_hidden_parity_gate_disabled": altered["output_contract"]["repeat_input_mask_hidden_capture_bitwise"] = False
+        elif name == "finite_gate_disabled": altered["output_contract"]["finite"] = False
+        elif name == "node_diversity_gate_disabled": altered["output_contract"]["unique_capture_rows_minimum"] = 1
+        elif name == "h176_load_allowed": altered["protected_contract"]["h176_loaded"] = True
+        elif name == "model_update_allowed": altered["protected_contract"]["model_updated"] = True
+        elif name == "candidate_or_optimizer_allowed": altered["safety_boundary"]["optimizer"] = True
+        elif name == "validation_path_added": altered["safety_boundary"]["validation_opens"] = 1
+        elif name == "heldout_path_added": altered["safety_boundary"]["heldout_opens"] = 1
+        elif name == "resource_or_memory_cap_changed": altered["resource_bounds"]["allocator_cap_gib"] = 41
+        else: raise CAP0ContractError(f"CAP0 tamper has no mutation: {name}")
+        if target == "contract":
+            altered["contract_sha256"] = sha256_bytes(canonical_json({key: value for key, value in altered.items() if key != "contract_sha256"}))
+        elif target == "plan":
+            altered_plan["plan_sha256"] = sha256_bytes(canonical_json({key: value for key, value in altered_plan.items() if key != "plan_sha256"}))
         try:
-            validate_contract(altered, selection, capture)
+            if target == "contract": validate_contract(altered, selection, capture)
+            elif target == "plan":
+                validate_plan(altered_plan)
+                if altered_plan["asset_sha256"] != plan["asset_sha256"]:
+                    raise CAP0ContractError("CAP0 plan asset binding differs")
+            else: validate_selected_train_rows(altered_bank, altered_partition, altered_selection)
         except CAP0ContractError:
             results.append({"name": name, "rejected": True, "error_type": "CAP0ContractError"})
         else:
@@ -920,6 +1101,33 @@ def freeze_state(repo: Path, plan: dict[str, Any], execution_commit: str) -> dic
     }
 
 
+def failure_freeze_state(repo: Path, plan: dict[str, Any], execution_commit: str) -> dict[str, Any]:
+    errors: list[str] = []
+
+    def observe(name: str, operation: Any) -> Any:
+        try:
+            return operation()
+        except BaseException as error:
+            errors.append(f"{name}:{type(error).__name__}")
+            return None
+
+    assets: dict[str, str | None] = {}
+    for path in plan["asset_sha256"]:
+        assets[path] = observe(f"asset:{path}", lambda path=path: file_sha256(repo / path))
+    value = {
+        "head": observe("head", lambda: run_git(repo, "rev-parse", "HEAD")),
+        "parent": observe("parent", lambda: run_git(repo, "rev-parse", "HEAD^")),
+        "tree": observe("tree", lambda: run_git(repo, "rev-parse", "HEAD^{tree}")),
+        "status": observe("status", lambda: run_git(repo, "status", "--porcelain", "--untracked-files=all")),
+        "asset_hashes": assets,
+        "execution_commit": execution_commit,
+        "errors": errors,
+        "exact": False,
+    }
+    value["exact"] = not errors and freeze_exact(value, plan, execution_commit)
+    return value
+
+
 def freeze_exact(value: dict[str, Any], plan: dict[str, Any], execution_commit: str) -> bool:
     return value["head"] == execution_commit and value["parent"] == plan["mechanism_code_commit"] and value["status"] == "" and value["asset_hashes"] == plan["asset_sha256"]
 
@@ -936,6 +1144,8 @@ def run_full(args: argparse.Namespace) -> None:
     tracker = PhaseTracker()
     tracker.enter("compute", RESOURCE_BOUNDS["compute_timeout_seconds"])
     plan = load_authorized_plan(repo, args.execution_commit, args.plan_file_sha256)
+    firewall = OpenFirewall(repo)
+    firewall.install()
     contract: dict[str, Any] | None = None
     selection: dict[str, Any] | None = None
     ledger: MemoryLedger | None = None
@@ -1030,7 +1240,9 @@ def run_full(args: argparse.Namespace) -> None:
             protected_state = {"disk_before": protected_before, "disk_after": protected_after, "e33_state_before": state_before, "e33_state_after": state_after, "e33_all_requires_grad_false": True, "e33_all_grads_none": grads_none, "model_eval": True, "h176_loaded": False, "model_released": True}
             tracker.exit("completed")
             tracker.enter("audit", RESOURCE_BOUNDS["audit_timeout_seconds"])
-            tamper_results = run_tampers(contract, selection, load_canonical(repo / PLAN_ASSET_PATHS[9]))
+            tamper_bank, tamper_partition, tamper_selection, tamper_capture = load_train_inputs(repo)
+            tamper_results = run_tampers(contract, tamper_selection, tamper_capture, plan, tamper_bank, tamper_partition)
+            del tamper_bank, tamper_partition, tamper_capture
             freeze_after = freeze_state(repo, plan, args.execution_commit)
             if not freeze_exact(freeze_after, plan, args.execution_commit) or freeze_before["tree"] != freeze_after["tree"]:
                 raise InfrastructureInvalid("CAP0 postflight freeze differs")
@@ -1044,7 +1256,7 @@ def run_full(args: argparse.Namespace) -> None:
             terminal, elapsed = tracker.terminal()
             aggregate = {"complete_modality_count": 4, "qualifying_modality_count": 4, "complete_probe_count": 4, "qualifying_probe_count": 4, "tokenizer_calls": 4, "model_forwards": 8, "sequences": 192, "all_qualify": True}
             resources = {"bounds": RESOURCE_BOUNDS, "gpu_name": properties.name, "gpu_total_bytes": properties.total_memory, "host_ram_bytes": host_ram_bytes(), "free_disk_bytes_preflight": free_disk_preflight, "free_disk_bytes_postflight": shutil.disk_usage(Path(OUTPUT_ROOT).parent).free, "global_max_allocated_bytes": torch.cuda.max_memory_allocated(0), "global_max_reserved_bytes": torch.cuda.max_memory_reserved(0), "artifact_bytes_before_terminal": 0, "completed_phase_records": copy.deepcopy(tracker.completed), "final_terminal_publication": terminal, "prepublication_elapsed_ns": elapsed}
-            safety = {"cuda_visible_devices": "0", "network_attempts": network.attempts, "validation_opens": 0, "heldout_opens": 0, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "optimizer_steps": 0, "candidate_objects": 0, "candidate_files": [], "checkpoint_files": [], "model_updated": False, "h176_loaded": False}
+            safety = {"cuda_visible_devices": "0", "network_attempts": network.attempts, "validation_opens": firewall.validation_open_count, "heldout_opens": firewall.heldout_open_count, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "optimizer_steps": 0, "candidate_objects": 0, "candidate_files": [], "checkpoint_files": [], "model_updated": False, "h176_loaded": False, "network_guard": network.evidence(), "experiment_open_firewall": firewall.evidence()}
             proof: dict[str, Any] = {"schema_version": PROOF_SCHEMA, "status": PROOF_STATUS, "mechanism": MECHANISM, "run_identity": RUN_ID, "execution_commit": args.execution_commit, "mechanism_code_commit": plan["mechanism_code_commit"], "plan_file_sha256": args.plan_file_sha256, "plan_sha256": plan["plan_sha256"], "runtime": runtime, "asset_audit": {"before": asset_before, "after": asset_after, "equal": asset_before == asset_after == plan["asset_sha256"]}, "mf0_archive_binding": MF0_BINDING, "selection": {"selection_sha256": SELECTION_SHA256, "ordered_probes": selection["ordered_probes"]}, "model_identity": model_identity, "probes": probes, "aggregate": aggregate, "cache_guard": guard.evidence(), "protected_state": protected_state, "safety": safety, "counts": COUNTS, "resources": resources, "memory": {"labels": MEMORY_LABELS, "label_sha256": sha256_bytes(canonical_json(MEMORY_LABELS)), "rows": ledger.rows}, "full_freeze": {"head_before": freeze_before["head"], "head_after": freeze_after["head"], "parent": freeze_before["parent"], "tree_before": freeze_before["tree"], "tree_after": freeze_after["tree"], "status_before": freeze_before["status"], "status_after": freeze_after["status"], "assets_equal": asset_before == asset_after}, "tamper_audit": {"results": [*tamper_results, {"name": TAMPERS[40], "rejected": True, "error_type": "CAP0ContractError"}, {"name": TAMPERS[41], "rejected": True, "error_type": "CAP0ContractError"}], "rejected_count": 42}, "decision_boundary": DECISION, "proof_sha256": ""}
             proof["proof_sha256"] = sha256_bytes(canonical_json({key: value for key, value in proof.items() if key != "proof_sha256"}))
             validate_proof(proof, plan=plan, contract=contract, selection=selection, execution_commit=args.execution_commit, plan_file_sha256=args.plan_file_sha256)
@@ -1072,8 +1284,9 @@ def run_full(args: argparse.Namespace) -> None:
         tracker.enter("failure_audit", RESOURCE_BOUNDS["failure_timeout_seconds"])
         plan = load_authorized_plan(repo, args.execution_commit, args.plan_file_sha256)
         if contract is None or selection is None:
-            _, _, selection, capture = load_train_inputs(repo)
-            contract = load_canonical(repo / CONTRACT_RELATIVE_PATH)
+            selection = load_authorized_canonical(repo, args.execution_commit, PLAN_ASSET_PATHS[8], plan["asset_sha256"][PLAN_ASSET_PATHS[8]])
+            capture = load_authorized_canonical(repo, args.execution_commit, PLAN_ASSET_PATHS[9], plan["asset_sha256"][PLAN_ASSET_PATHS[9]])
+            contract = load_authorized_canonical(repo, args.execution_commit, CONTRACT_RELATIVE_PATH, plan["asset_sha256"][CONTRACT_RELATIVE_PATH])
             validate_contract(contract, selection, capture)
         if isinstance(original_error, CAP0MechanismRejected):
             status_value, error = REJECT_STATUS, original_error
@@ -1103,14 +1316,13 @@ def run_full(args: argparse.Namespace) -> None:
             with contextlib.suppress(BaseException):
                 state_now = module_tree_sha256(torch, model)
                 grads_present = any(parameter.grad is not None for parameter in model.parameters())
-        actual = {"validation_opens": 0, "heldout_opens": 0, "h176_loaded": False, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "candidate_objects": 0, "network_attempts": network.attempts, "e33_grads_present": grads_present, "e33_state_changed": state_before is not None and state_now is not None and state_before != state_now, "positive_exposure": False}
-        actual["positive_exposure"] = bool(any(actual[key] for key in actual if key != "positive_exposure") or candidate_files or checkpoint_files)
+        actual = {"validation_opens": firewall.validation_open_count, "heldout_opens": firewall.heldout_open_count, "h176_loaded": False, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "candidate_objects": 0, "network_attempts": network.attempts, "e33_grads_present": grads_present, "e33_state_changed": state_before is not None and state_now is not None and state_before != state_now, "positive_exposure": False, "network_guard": network.evidence(), "experiment_open_firewall": firewall.evidence()}
+        actual["positive_exposure"] = bool(any(actual[key] for key in ("validation_opens", "heldout_opens", "h176_loaded", "generation_calls", "backwards", "optimizer_objects", "candidate_objects", "network_attempts", "e33_grads_present", "e33_state_changed")) or firewall.denied_count or candidate_files or checkpoint_files)
         if actual["positive_exposure"] and status_value != EXPOSURE_STATUS:
             status_value, error = EXPOSURE_STATUS, ExposureBoundaryRejected("CAP0 positive forbidden exposure observed")
         elif status_value == EXPOSURE_STATUS and not actual["positive_exposure"]:
             status_value, error = "infrastructure_invalid", InfrastructureInvalid("CAP0 exposure rejection lacked observable evidence")
-        audit = freeze_state(repo, plan, args.execution_commit)
-        audit["exact"] = freeze_exact(audit, plan, args.execution_commit)
+        audit = failure_freeze_state(repo, plan, args.execution_commit)
         if not audit["exact"] and status_value != "infrastructure_invalid":
             status_value, error = "infrastructure_invalid", InfrastructureInvalid("CAP0 failure provenance differs")
         resources = {"bounds": RESOURCE_BOUNDS, "completed_phase_records": copy.deepcopy(tracker.completed), "final_terminal_publication": terminal, "prepublication_elapsed_ns": elapsed}

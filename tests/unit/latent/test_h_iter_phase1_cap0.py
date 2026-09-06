@@ -98,7 +98,7 @@ def proof_fixture(plan: dict, value: dict, selection: dict) -> dict:
         "model_identity": {"class": contract.RUNTIME["model_class"], "hidden_size": 2048, "vocab_size": 248320, "dtype": "torch.bfloat16", "device": "cuda:0", "checkpoint": contract.E33_PATH, "checkpoint_tree_sha256": contract.E33_TREE_SHA256},
         "probes": probes, "aggregate": {"complete_modality_count": 4, "qualifying_modality_count": 4, "complete_probe_count": 4, "qualifying_probe_count": 4, "tokenizer_calls": 4, "model_forwards": 8, "sequences": 192, "all_qualify": True},
         "cache_guard": cache_fixture(value), "protected_state": {"disk_before": {"e33_tree_sha256": contract.E33_TREE_SHA256, "h176_tree_sha256": contract.H176_TREE_SHA256, "e33_metadata_sha256": contract.METADATA_SHA256, "h176_metadata_sha256": contract.METADATA_SHA256}, "disk_after": {"e33_tree_sha256": contract.E33_TREE_SHA256, "h176_tree_sha256": contract.H176_TREE_SHA256, "e33_metadata_sha256": contract.METADATA_SHA256, "h176_metadata_sha256": contract.METADATA_SHA256}, "e33_state_before": contract.E33_STATE_SHA256, "e33_state_after": contract.E33_STATE_SHA256, "e33_all_requires_grad_false": True, "e33_all_grads_none": True, "model_eval": True, "h176_loaded": False, "model_released": True},
-        "safety": {"cuda_visible_devices": "0", "network_attempts": 0, "validation_opens": 0, "heldout_opens": 0, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "optimizer_steps": 0, "candidate_objects": 0, "candidate_files": [], "checkpoint_files": [], "model_updated": False, "h176_loaded": False},
+        "safety": {"cuda_visible_devices": "0", "network_attempts": 0, "validation_opens": 0, "heldout_opens": 0, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "optimizer_steps": 0, "candidate_objects": 0, "candidate_files": [], "checkpoint_files": [], "model_updated": False, "h176_loaded": False, "network_guard": {"installed": True, "wrappers_restored": False, "audit_hook_persistent": True, "attempt_count": 0, "operations": ["socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection", "socket.getaddrinfo"], "audit_events": ["socket.connect", "socket.getaddrinfo"]}, "experiment_open_firewall": {"denied_count": 0, "validation_open_count": 0, "heldout_open_count": 0, "opened_paths": []}},
         "counts": contract.COUNTS, "resources": {"bounds": contract.RESOURCE_BOUNDS, "gpu_name": contract.RUNTIME["gpu_model"], "gpu_total_bytes": 48 * 2**30, "host_ram_bytes": 64 * 2**30, "free_disk_bytes_preflight": 16 * 2**30, "free_disk_bytes_postflight": 16 * 2**30, "global_max_allocated_bytes": 0, "global_max_reserved_bytes": 0, "artifact_bytes_before_terminal": 0, "completed_phase_records": records, "final_terminal_publication": terminal(2), "prepublication_elapsed_ns": 2},
         "memory": {"labels": contract.MEMORY_LABELS, "label_sha256": contract.sha256_bytes(contract.canonical_json(contract.MEMORY_LABELS)), "rows": memory_rows()},
         "full_freeze": {"head_before": "7" * 40, "head_after": "7" * 40, "parent": plan["mechanism_code_commit"], "tree_before": "9" * 40, "tree_after": "9" * 40, "status_before": "", "status_after": "", "assets_equal": True},
@@ -110,7 +110,7 @@ def proof_fixture(plan: dict, value: dict, selection: dict) -> dict:
 
 def failure_fixture(plan: dict, value: dict, *, status: str, error_type: str, cause: str | None = None, exposure: bool = False) -> dict:
     records = [phase("compute", 0, 1, "error"), phase("failure_audit", 1, 2, "completed")]
-    actual = {"validation_opens": 1 if exposure else 0, "heldout_opens": 0, "h176_loaded": False, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "candidate_objects": 0, "network_attempts": 0, "e33_grads_present": False, "e33_state_changed": False, "positive_exposure": exposure}
+    actual = {"validation_opens": 1 if exposure else 0, "heldout_opens": 0, "h176_loaded": False, "generation_calls": 0, "backwards": 0, "optimizer_objects": 0, "candidate_objects": 0, "network_attempts": 0, "e33_grads_present": False, "e33_state_changed": False, "positive_exposure": exposure, "network_guard": {"installed": True, "wrappers_restored": True, "audit_hook_persistent": True, "attempt_count": 0, "operations": ["socket.socket.connect", "socket.socket.connect_ex", "socket.create_connection", "socket.getaddrinfo"], "audit_events": ["socket.connect", "socket.getaddrinfo"]}, "experiment_open_firewall": {"denied_count": 1 if exposure else 0, "validation_open_count": 1 if exposure else 0, "heldout_open_count": 0, "opened_paths": []}}
     progress = {"stage": "startup_pre_model", "current_probe": None, "current_repeat": None, "tokenizer_calls_completed": 0, "model_forwards_completed": 0, "sequences_completed": 0, "probes_completed": 0, "cache_checks_completed": 0, "memory_rows_completed": 0, "model_loaded": False, "model_released": False}
     cache = None
     if cause in {"cache_allocation_detected", "returned_pkv_non_none"}:
@@ -121,7 +121,7 @@ def failure_fixture(plan: dict, value: dict, *, status: str, error_type: str, ca
             cache["actual_allocation_trips"] = 1
         else:
             cache["pkv_non_none_count"] = 1
-    audit = {"head": "7" * 40, "parent": plan["mechanism_code_commit"], "tree": "9" * 40, "status": "", "asset_hashes": plan["asset_sha256"], "execution_commit": "7" * 40, "exact": True}
+    audit = {"head": "7" * 40, "parent": plan["mechanism_code_commit"], "tree": "9" * 40, "status": "", "asset_hashes": plan["asset_sha256"], "execution_commit": "7" * 40, "errors": [], "exact": True}
     protected = {"disk_before": None, "disk_after": None, "e33_state_before": None, "e33_state_after": None, "grads_present": False, "restoration_attempted": True}
     failure = {"schema_version": contract.FAILURE_SCHEMA, "status": status, "mechanism": contract.MECHANISM, "run_identity": contract.RUN_ID, "error_type": error_type, "error": "fixture", "traceback": "fixture", "execution_commit": "7" * 40, "mechanism_code_commit": plan["mechanism_code_commit"], "plan_file_sha256": "8" * 64, "plan_sha256": plan["plan_sha256"], "progress": progress, "partial_probes": [], "aggregate_partial": {"cause": cause, "probes_completed": 0, "nonfinite_observed": cause == "nonfinite_output"}, "cache_guard_partial": cache, "protected_state": protected, "actual_safety": actual, "resources": {"bounds": contract.RESOURCE_BOUNDS, "completed_phase_records": records, "final_terminal_publication": terminal(2), "prepublication_elapsed_ns": 2}, "partial_memory": {"labels": contract.MEMORY_LABELS, "rows": []}, "full_freeze_failure_audit": audit, "output_inventory_before_failure": [], "candidate_files": [], "checkpoint_files": [], "model_updated": False, "failure_sha256": ""}
     failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))
@@ -136,7 +136,10 @@ def test_contract_materializes_exact(frozen: tuple[dict, dict, dict]) -> None:
 
 def test_contract_tampers_1_through_40_rejected(frozen: tuple[dict, dict, dict]) -> None:
     value, selection, capture = frozen
-    results = runner.run_tampers(value, selection, capture)
+    base = ROOT / "experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-train-calibration-v1"
+    bank = load(ROOT / "experiments/qwen35-2b-latent-workspace-v1/h-iter-phase0-generator-locality-v1/train-bank.json")
+    partition = load(base / "train-partition.json")
+    results = runner.run_tampers(value, selection, capture, plan_fixture(), bank, partition)
     assert [row["name"] for row in results] == contract.TAMPERS[:40]
 
 
