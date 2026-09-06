@@ -178,6 +178,42 @@ def test_tamper_schedule_and_memory_labels_are_stable() -> None:
     assert len(labels) == len(set(labels)) == 26
 
 
+def test_preexecution_failures_and_hydration_are_exactly_bound() -> None:
+    evidence = load_asset("preexecution-evidence.json")
+    hiter.validate_preexecution_evidence(evidence)
+    references = []
+    for attempt in evidence["attempts"]:
+        references.extend((attempt["launcher_log"], attempt["exit_status_file"]))
+    references.append(evidence["hydration"]["log"])
+    assert len(references) == len({row["path"] for row in references}) == 5
+    for reference in references:
+        assert hiter.sha256_bytes((ASSET_DIR / reference["path"]).read_bytes()) == reference["sha256"]
+    assert evidence["attempts"][0]["exposure"]["python_started"] is False
+    assert evidence["attempts"][1]["exposure"] == {
+        "python_started": True,
+        "runner_module_imported": True,
+        "phase0_module_imported": True,
+        "torch_function_import_reached": False,
+        "cuda_initialized": False,
+        "ledger_created": False,
+        "network_guard_installed": False,
+        "plan_loaded": False,
+        "bank_or_overlap_loaded": False,
+        "locality_probe_count": 0,
+        "model_or_transformer_forward_count": 0,
+        "synthetic_backward_count": 0,
+        "optimizer_step_count": 0,
+        "candidate_or_checkpoint_created": False,
+        "output_namespace_created": False,
+        "terminal_created": False,
+    }
+    tampered = json_roundtrip(evidence)
+    tampered["attempts"][1]["exposure"]["plan_loaded"] = True
+    tampered["evidence_sha256"] = hiter.canonical_sha256(tampered, omit="evidence_sha256")
+    with pytest.raises(hiter.ContractError, match="preexecution evidence"):
+        hiter.validate_preexecution_evidence(tampered)
+
+
 def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     plan = load_asset("phase0-plan.json")
     plan["runtime"] = hiter.EXPECTED_RUNTIME
@@ -198,6 +234,7 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
             "failure_authority_uses_execution_commit_git_blob": True,
             "launcher_bounds_full_surface": True,
             "terminal_self_reference_boundary_is_external": True,
+            "preexecution_failures_and_hydration_bound": True,
         }
     )
     plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
@@ -496,6 +533,8 @@ def test_authorized_plan_uses_lexical_git_path_across_working_symlink_race(
     outside.write_text("{}\n")
     plan_path.symlink_to(outside)
     plan = load_asset("phase0-plan.json")
+    plan["full_freeze"]["preexecution_failures_and_hydration_bound"] = True
+    plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
     plan_bytes = hiter.canonical_json(plan) + b"\n"
     plan_file_sha256 = hiter.sha256_bytes(plan_bytes)
     requested_paths: list[str] = []
@@ -562,6 +601,16 @@ def test_launcher_and_runtime_bind_shared_environment_and_outer_budget() -> None
     assert hiter.EXPECTED_RUNTIME["shared_project_pyproject_sha256"] in launcher
     assert hiter.EXPECTED_RUNTIME["shared_project_uv_lock_sha256"] in launcher
     assert 'exec timeout --signal=TERM --kill-after=60s 1260s "$0" --inner "$@"' in launcher
+    assert (
+        "readonly output_dir=/home/ubuntu/rlm/outputs/"
+        "q35-2b-h-iter-phase0-generator-locality-run1"
+    ) in launcher
+    assert 'readonly output_dir="$output_parent/$run_id"' not in launcher
+    assert hiter.RESOURCE_BOUNDS["output_root"] in launcher
+    assert (
+        '[[ "$output_dir" == /home/ubuntu/rlm/outputs/'
+        'q35-2b-h-iter-phase0-generator-locality-run1 ]] || exit 2'
+    ) in launcher
     assert 'if [[ ${1-} != --inner ]]' in launcher
     assert 'sys.executable != EXPECTED_RUNTIME["sys_executable"]' in runner
     assert 'sys.prefix != EXPECTED_RUNTIME["sys_prefix"]' in runner
@@ -632,6 +681,7 @@ def test_proof_validator_binds_launch_authority_before_payload_details() -> None
             "failure_authority_uses_execution_commit_git_blob": True,
             "launcher_bounds_full_surface": True,
             "terminal_self_reference_boundary_is_external": True,
+            "preexecution_failures_and_hydration_bound": True,
         }
     )
     plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")

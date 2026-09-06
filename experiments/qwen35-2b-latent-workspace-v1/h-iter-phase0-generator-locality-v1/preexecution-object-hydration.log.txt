@@ -1,0 +1,3 @@
+From https://github.com/lentzl/prime-rl
+ * branch                exp/q35-2b-recurrent-sidecar-v1 -> FETCH_HEAD
+   7677fc52d..4ae030809  exp/q35-2b-recurrent-sidecar-v1 -> origin/exp/q35-2b-recurrent-sidecar-v1

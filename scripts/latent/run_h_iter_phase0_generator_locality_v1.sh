@@ -21,7 +21,7 @@ readonly repo=/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1
 readonly plan="$repo/experiments/qwen35-2b-latent-workspace-v1/h-iter-phase0-generator-locality-v1/phase0-plan.json"
 readonly sidecar="$repo/experiments/qwen35-2b-latent-workspace-v1/h-iter-phase0-generator-locality-v1/phase0-plan.sha256"
 readonly output_parent=/home/ubuntu/rlm/outputs
-readonly output_dir="$output_parent/$run_id"
+readonly output_dir=/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1
 readonly uv_bin=/home/ubuntu/.local/bin/uv
 readonly shared_project=/home/ubuntu/rlm/prime-rl
 readonly shared_venv="$shared_project/.venv"
@@ -32,6 +32,7 @@ for directory in "$repo" "$output_parent" "$shared_project" "$shared_venv"; do
   [[ -d "$directory" && ! -L "$directory" ]] || exit 2
 done
 [[ -x "$uv_bin" && -f "$plan" && ! -L "$plan" && -f "$sidecar" && ! -L "$sidecar" ]] || exit 2
+[[ "$output_dir" == /home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1 ]] || exit 2
 [[ -f "$shared_project/pyproject.toml" && ! -L "$shared_project/pyproject.toml" ]] || exit 2
 [[ -f "$shared_project/uv.lock" && ! -L "$shared_project/uv.lock" ]] || exit 2
 [[ "$(sha256sum "$shared_project/pyproject.toml" | cut -d' ' -f1)" == "$shared_pyproject_sha256" ]] || exit 2

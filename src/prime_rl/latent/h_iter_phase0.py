@@ -22,6 +22,8 @@ OVERLAP_SCHEMA = "prime-rl/latent-h-iter-phase0-overlap-evidence/v1"
 OPERATION_SCHEMA = "prime-rl/latent-h-iter-phase0-operation-schedule/v1"
 TAMPER_SCHEMA = "prime-rl/latent-h-iter-phase0-tamper-schedule/v1"
 ARTIFACT_DIR_REL = "experiments/qwen35-2b-latent-workspace-v1/h-iter-phase0-generator-locality-v1"
+PREEXECUTION_EVIDENCE_SCHEMA = "prime-rl/latent-h-iter-phase0-preexecution-evidence/v1"
+PREEXECUTION_EVIDENCE_SHA256 = "8e5e39b4e0204e16c120cddafa1805f8ed5ad30db20470335b3a9570e34fd36c"
 
 NODE_COUNT = 24
 FEATURE_DIM = 4
@@ -1414,6 +1416,106 @@ PHASE_RECORD_KEYS = {
 }
 
 
+def validate_preexecution_evidence(evidence: dict[str, Any]) -> None:
+    no_science = {
+        "cuda_initialized": False,
+        "ledger_created": False,
+        "network_guard_installed": False,
+        "plan_loaded": False,
+        "bank_or_overlap_loaded": False,
+        "locality_probe_count": 0,
+        "model_or_transformer_forward_count": 0,
+        "synthetic_backward_count": 0,
+        "optimizer_step_count": 0,
+        "candidate_or_checkpoint_created": False,
+        "output_namespace_created": False,
+        "terminal_created": False,
+    }
+    common = {
+        "execution_commit": "bb438e42a21875cdeaa8ef2058cdb60ba077a58d",
+        "mechanism_code_commit": "1554ff3c2cd1a6a00bab6b7c24b8fd770a8537ca",
+        "plan_file_sha256": "f9868fab4d49359df56ce6cffc37b338de805f07c08ed6cc2ff818d5535b08a2",
+        "plan_sha256": "9404178335db6b402e58e9794a0d35748a546916b06e058647c2810a09b512de",
+    }
+    expected = {
+        "schema_version": PREEXECUTION_EVIDENCE_SCHEMA,
+        "mechanism": MECHANISM,
+        "output_namespace": RESOURCE_BOUNDS["output_root"],
+        "output_namespace_absent_after_both_attempts": True,
+        "retry_boundary": "same_namespace_permitted_only_because_no_namespace_terminal_or_scientific_exposure_exists",
+        "attempts": [
+            {
+                "attempt_index": 1,
+                "classification": "infrastructure_invalid_preexecution",
+                **common,
+                "exit_status": 128,
+                "exit_status_file": {
+                    "path": "preexecution-attempt1.exit.txt",
+                    "sha256": "56292515f7d3a7110811eb8de26b3f75f82a0766aa5a1fd66ebcfcb84fe6d5ff",
+                },
+                "launcher_log": {
+                    "path": "preexecution-attempt1.log.txt",
+                    "sha256": "cfc650580eec0ec9c11e0c0b2bd1ea7c651153f9a866516420b8a03ee02c6ab7",
+                },
+                "trigger": {
+                    "stage": "launcher_historical_commit_preflight",
+                    "error_type": "git_cat_file_missing_object",
+                    "missing_commit": "4ae0308094a71d13520554da40cfe6375438b610",
+                },
+                "exposure": {
+                    "python_started": False,
+                    "runner_module_imported": False,
+                    "phase0_module_imported": False,
+                    "torch_function_import_reached": False,
+                    **no_science,
+                },
+            },
+            {
+                "attempt_index": 2,
+                "classification": "infrastructure_invalid_preexecution",
+                **common,
+                "exit_status": 2,
+                "exit_status_file": {
+                    "path": "preexecution-attempt2.exit.txt",
+                    "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+                },
+                "launcher_log": {
+                    "path": "preexecution-attempt2.log.txt",
+                    "sha256": "6aafa7926b6fb92143435de120ce6f7a6c77b056c569812a67019255a1ca92b5",
+                },
+                "trigger": {
+                    "stage": "artifact_writer_preflight",
+                    "error_type": "InfrastructureInvalid",
+                    "error": "Phase-0 output namespace is not exact and fresh",
+                    "launcher_output_dir": "/home/ubuntu/rlm/outputs/h-iter-phase0-generator-locality-run1",
+                    "frozen_output_dir": RESOURCE_BOUNDS["output_root"],
+                },
+                "exposure": {
+                    "python_started": True,
+                    "runner_module_imported": True,
+                    "phase0_module_imported": True,
+                    "torch_function_import_reached": False,
+                    **no_science,
+                },
+            },
+        ],
+        "hydration": {
+            "source_commit": "4ae0308094a71d13520554da40cfe6375438b610",
+            "branch": "exp/q35-2b-recurrent-sidecar-v1",
+            "commit_object_available_after": True,
+            "log": {
+                "path": "preexecution-object-hydration.log.txt",
+                "sha256": "7d18bb525bc3e600c75a8bf6bbca31dbb913200384f872c2e285e9f8eef53b03",
+            },
+        },
+        "evidence_sha256": PREEXECUTION_EVIDENCE_SHA256,
+    }
+    if evidence != expected:
+        raise ContractError("Phase-0 preexecution evidence differs")
+    if evidence["evidence_sha256"] != canonical_sha256(evidence, omit="evidence_sha256"):
+        raise ContractError("Phase-0 preexecution evidence self hash differs")
+
+
 def validate_terminal_entry_timing(value: object, prior_exit: int, boundary: str) -> None:
     if not isinstance(value, int) or isinstance(value, bool):
         raise ContractError("Phase-0 prepublication time differs")
@@ -1599,6 +1701,7 @@ def validate_plan(plan: dict[str, Any]) -> None:
         "failure_authority_uses_execution_commit_git_blob": True,
         "launcher_bounds_full_surface": True,
         "terminal_self_reference_boundary_is_external": True,
+        "preexecution_failures_and_hydration_bound": True,
     }:
         raise ContractError("Phase-0 full-freeze contract differs")
     if plan["plan_sha256"] != canonical_sha256(plan, omit="plan_sha256"):

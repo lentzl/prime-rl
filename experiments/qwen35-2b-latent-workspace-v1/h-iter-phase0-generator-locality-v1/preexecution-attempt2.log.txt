@@ -1,0 +1,9 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 1029, in <module>
+    main()
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 960, in main
+    writer = ArtifactWriter(args.output_dir)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 178, in __init__
+    raise InfrastructureInvalid("Phase-0 output namespace is not exact and fresh")
+InfrastructureInvalid: Phase-0 output namespace is not exact and fresh

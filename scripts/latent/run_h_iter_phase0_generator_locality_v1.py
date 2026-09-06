@@ -52,6 +52,7 @@ from prime_rl.latent.h_iter_phase0 import (
     validate_failure,
     validate_locality_evidence,
     validate_plan,
+    validate_preexecution_evidence,
     validate_probe_selection,
     validate_proof,
     validate_schedule,
@@ -332,6 +333,19 @@ def asset_hashes(repo: Path, plan: dict[str, object]) -> dict[str, str]:
             raise InfrastructureInvalid(f"Phase-0 asset hash changed: {relative}")
         result[relative] = observed
     return result
+
+
+def validate_preexecution_assets(base: Path, evidence: dict[str, object]) -> None:
+    references = []
+    for attempt in evidence["attempts"]:
+        references.extend((attempt["launcher_log"], attempt["exit_status_file"]))
+    references.append(evidence["hydration"]["log"])
+    if len(references) != 5 or len({row["path"] for row in references}) != 5:
+        raise ContractError("Phase-0 preexecution artifact references differ")
+    for reference in references:
+        path = base / reference["path"]
+        if path.parent != base or sha256_bytes(read_regular_file_bytes(path)) != reference["sha256"]:
+            raise InfrastructureInvalid("Phase-0 preexecution artifact bytes differ")
 
 
 def runtime_evidence() -> tuple[dict[str, object], object]:
@@ -626,6 +640,10 @@ def run(
     sidecar = plan_path.with_name("phase0-plan.sha256")
     if sidecar.read_text() != f"{args.plan_file_sha256}\n":
         raise InfrastructureInvalid("Phase-0 plan sidecar differs")
+    base = repo / ARTIFACT_DIR_REL
+    preexecution = load_canonical_json(base / "preexecution-evidence.json")
+    validate_preexecution_evidence(preexecution)
+    validate_preexecution_assets(base, preexecution)
     runtime, torch = runtime_evidence()
     host_ram, free_disk_preflight = host_resources(repo)
     ledger.checkpoint("runtime_verified")
@@ -639,7 +657,6 @@ def run(
     before_assets = asset_hashes(repo, plan)
     ledger.checkpoint("full_freeze_preflight_verified")
 
-    base = repo / ARTIFACT_DIR_REL
     banks = {split: load_canonical_json(base / f"{split}-bank.json") for split in SPLITS}
     structural = validate_banks(banks)
     ledger.checkpoint("banks_structurally_validated")
