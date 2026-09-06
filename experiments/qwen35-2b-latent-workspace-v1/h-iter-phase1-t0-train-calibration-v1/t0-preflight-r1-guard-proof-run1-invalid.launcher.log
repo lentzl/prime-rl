@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase1_t0_preflight_r1_guard_proof_v1.py", line 422, in main
+    try: run(repo,args.execution_commit,args.plan_file_sha256,output)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase1_t0_preflight_r1_guard_proof_v1.py", line 329, in run
+    try: plan=strict_loads(plan_path.read_bytes()); validate_guard_plan(plan,repo=repo); verify_runtime(repo,plan,output)
+                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase1_t0_preflight_r1_guard_proof_v1.py", line 86, in verify_runtime
+    if observed!=runtime or file_sha(repo/"pyproject.toml")!=runtime["shared_project_pyproject_sha256"] or file_sha(repo/"uv.lock")!=runtime["shared_project_uv_lock_sha256"]: raise InfrastructureInvalid("T0 guard proof runtime differs")
+                                                                                                                                                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+InfrastructureInvalid: T0 guard proof runtime differs
