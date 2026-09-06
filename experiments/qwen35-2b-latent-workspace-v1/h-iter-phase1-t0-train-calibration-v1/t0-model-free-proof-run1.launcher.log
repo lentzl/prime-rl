@@ -1,0 +1,2 @@
+/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase1_t0_model_free_proof_v1.py:70: FutureWarning: `torch.distributed.reduce_op` is deprecated, please use `torch.distributed.ReduceOp` instead
+  if isinstance(obj,torch.optim.Optimizer): counts["optimizer"]+=1
