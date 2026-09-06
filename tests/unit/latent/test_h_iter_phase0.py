@@ -105,16 +105,26 @@ def test_overlap_sources_reparse_to_recorded_empty_intersections() -> None:
         assert not any(intersection.values())
 
 
-def test_locality_numeric_and_symbolic_proofs() -> None:
+def test_locality_numeric_and_symbolic_proofs(monkeypatch: pytest.MonkeyPatch) -> None:
     pytest.importorskip("torch")
     banks = {split: load_asset(f"{split}-bank.json") for split in hiter.SPLITS}
     selection = load_asset("locality-probe-selection.json")
+    original_transition = hiter._transition
+    actual_transition_calls = 0
+
+    def counted_transition(hidden, successor_index):
+        nonlocal actual_transition_calls
+        actual_transition_calls += 1
+        return original_transition(hidden, successor_index)
+
+    monkeypatch.setattr(hiter, "_transition", counted_transition)
     locality = hiter.run_all_locality_probes(banks, selection)
     locality["policy"] = hiter.locality_policy()
     locality["symbolic_dependencies"] = hiter.run_symbolic_dependency_audit(banks)
     hiter.validate_locality_evidence(locality, selection)
     assert locality["counts"]["graph_encode_passes"] == 16
     assert locality["counts"]["local_node_encode_calls"] == 384
+    assert actual_transition_calls == 348
 
 
 def test_all_mechanism_tampers_are_rejected() -> None:

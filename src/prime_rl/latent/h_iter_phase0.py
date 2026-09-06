@@ -868,6 +868,7 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
     original_hidden, original_successors, original_start_index, original_node_index = encoded()
     rec_k_minus_1 = None
     rec_k = None
+    baseline_vectors: dict[str, Any] = {}
     for arm in ARM_NAMES:
         hidden = original_hidden.clone().detach().requires_grad_(True)
         successors = original_successors
@@ -881,9 +882,20 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
                 state = _transition(state, successors)
             vector, scalar = _readout(state, start_index)
             rec_k = vector.detach().clone()
+        elif arm == "RESET_K":
+            reset_first = None
+            state = hidden
+            for _ in range(depth):
+                state = _transition(hidden, successors)
+                if reset_first is None:
+                    reset_first = state
+            if reset_first is None:
+                raise ContractError("reset arm performed no transition")
+            vector, scalar = _readout(state, start_index)
         else:
             state = _arm_state(arm, hidden, successors, depth)
             vector, scalar = _readout(state, start_index)
+        baseline_vectors[arm] = vector.detach().clone()
         scalar.backward()
         distances = _distance_indices(row, node_index)
         radius = _radius(arm, depth)
@@ -894,8 +906,7 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
         if outside.numel() and not torch.equal(outside, torch.zeros_like(outside)):
             raise ContractError("autograd outside radius is nonzero")
         if arm == "RESET_K":
-            one = _transition(hidden, successors)
-            if not torch.equal(state, one):
+            if not torch.equal(state, reset_first):
                 raise ContractError("reset arm does not equal one transition")
         baseline.append(
             {
@@ -964,7 +975,7 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
             distance_indices = _distance_indices(row, node_index)
             if distance >= NODE_COUNT:
                 raise ContractError("perturb location exceeds the ring")
-            reference, _ = _readout(_arm_state(arm, hidden, successors, depth), start_index)
+            reference = baseline_vectors[arm]
             changed = hidden.clone()
             changed[distance_indices[distance]] += perturb_vector
             observed, _ = _readout(_arm_state(arm, changed, successors, depth), start_index)
