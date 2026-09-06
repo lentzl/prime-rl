@@ -184,17 +184,52 @@ def test_ipc1_render_proof_rebinds_nonascii_source_to_bank_canonical_hash_only()
         "selected": [{"task_key": row["task_key"], "expected_action": row["action"]}],
         "row_canonical_sha256": [bank_hash],
     }
-    rebound = runner._bind_render_proof_source_rows(
+    rebound, evidence = runner._bind_render_proof_source_rows(
         [row], [proof], selection=selection, split="train"
     )
     assert proof["source_row_sha256"] == inherited_hash
     assert rebound == [{**proof, "source_row_sha256": bank_hash}]
+    assert evidence == {
+        "name": "train",
+        "row_count": 1,
+        "authoritative_bank_hash_matches": 1,
+        "inherited_utf8_hash_matches": 1,
+        "inherited_vs_bank_mismatches": 1,
+        "overwrite_only_matches": 1,
+        "post_repair_validator_matches": 0,
+    }
     tampered = deepcopy(selection)
     tampered["row_canonical_sha256"][0] = "0" * 64
     with pytest.raises(PhaseBContractError, match="source binding differs"):
         runner._bind_render_proof_source_rows(
             [row], [proof], selection=tampered, split="train"
         )
+    wrong_inherited = deepcopy(proof)
+    wrong_inherited["source_row_sha256"] = bank_hash
+    with pytest.raises(PhaseBContractError, match="source binding differs"):
+        runner._bind_render_proof_source_rows(
+            [row], [wrong_inherited], selection=selection, split="train"
+        )
+    terminal_proof = {
+        "task_key": row["task_key"],
+        "action": row["action"],
+        "source_row_sha256": bank_hash,
+        "reasoning_content_sha256": "1" * 64,
+        "modified_path": "messages.2.tool_calls.0.function.arguments",
+        "plain_ids_sha256": "2" * 64,
+        "opening_ids_sha256": "3" * 64,
+        "full_ids_sha256": "4" * 64,
+        "plain_tokens": 10,
+        "opening_tokens": 11,
+        "full_tokens": 12,
+        "counterfactual_target_sha256": {action: action * 2 for action in ACTIONS},
+        "action_trie_sha256": "5" * 64,
+        "action_trie_branch_count": 1,
+    }
+    runner._validate_render_proof_split("train", [terminal_proof], selection)
+    terminal_proof["source_row_sha256"] = inherited_hash
+    with pytest.raises(PhaseBContractError, match="render proof differs"):
+        runner._validate_render_proof_split("train", [terminal_proof], selection)
 
 
 def test_ipc1_candidate_ready_and_write_failure_boundaries_are_exact() -> None:

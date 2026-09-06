@@ -24,7 +24,12 @@ from types import ModuleType
 from typing import Any, Sequence
 from unittest import mock
 
-from prime_rl.phase_b_contract import PhaseBContractError, file_sha256, load_json_file
+from prime_rl.phase_b_contract import (
+    PhaseBContractError,
+    canonical_json_sha256,
+    file_sha256,
+    load_json_file,
+)
 from prime_rl.phase_b_identity_carrier import EXPECTED_CACHE_CLASSES
 from prime_rl.phase_b_ipc1 import (
     ACTIONS,
@@ -965,14 +970,16 @@ def _ordered_rows(parquet: Any, path: Path, selection: dict[str, Any]) -> list[d
 
 def _render_split(
     split: str, context: dict[str, Any], *, tokenizer: Any, parquet: Any, b1: ModuleType, smoke: ModuleType
-) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], dict[str, Any]]:
     selection = context["selections"][split]
     rows = _ordered_rows(parquet, context["paths"][f"{split}_parquet"], selection)
     rendered, proofs = b1._render_rows(rows, tokenizer=tokenizer, smoke=smoke)
-    proofs = _bind_render_proof_source_rows(rows, proofs, selection=selection, split=split)
+    proofs, hygiene = _bind_render_proof_source_rows(rows, proofs, selection=selection, split=split)
+    _validate_render_proof_split(split, proofs, selection)
+    hygiene["post_repair_validator_matches"] = len(proofs)
     if [row["task_key"] for row in rendered] != [record["task_key"] for record in selection["selected"]]:
         raise PhaseBContractError(f"B-IPC1 {split} tokenizer row order differs")
-    return rendered, proofs
+    return rendered, proofs, hygiene
 
 
 def _bind_render_proof_source_rows(
@@ -981,7 +988,7 @@ def _bind_render_proof_source_rows(
     *,
     selection: dict[str, Any],
     split: str,
-) -> list[dict[str, Any]]:
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Bind inherited B1 render proofs to IPC1's ASCII-stable bank hash dialect."""
 
     selected = selection.get("selected")
@@ -995,27 +1002,42 @@ def _bind_render_proof_source_rows(
     ):
         raise PhaseBContractError(f"B-IPC1 {split} render-proof source binding count differs")
     rebound: list[dict[str, Any]] = []
+    inherited_vs_bank_mismatches = 0
     for position, (source, inherited, selected_row, expected_hash) in enumerate(
         zip(rows, proofs, selected, expected_hashes, strict=True)
     ):
         if not isinstance(inherited, dict):
             raise PhaseBContractError(f"B-IPC1 {split} render proof {position} is not a mapping")
         observed_hash = canonical_bank_sha256(source)
+        inherited_hash = canonical_json_sha256(source)
         if (
             source.get("task_key") != selected_row.get("task_key")
+            or source.get("action") != selected_row.get("expected_action")
             or inherited.get("task_key") != selected_row.get("task_key")
+            or inherited.get("action") != selected_row.get("expected_action")
             or observed_hash != expected_hash
+            or inherited.get("source_row_sha256") != inherited_hash
         ):
             raise PhaseBContractError(f"B-IPC1 {split} render-proof source binding differs")
+        inherited_vs_bank_mismatches += int(inherited_hash != observed_hash)
         original = deepcopy(inherited)
         bound = deepcopy(inherited)
         bound["source_row_sha256"] = observed_hash
-        restored = deepcopy(bound)
-        restored["source_row_sha256"] = original.get("source_row_sha256")
-        if restored != original:
+        if set(bound) != set(original) or {
+            key: value for key, value in bound.items() if key != "source_row_sha256"
+        } != {key: value for key, value in original.items() if key != "source_row_sha256"}:
             raise PhaseBContractError(f"B-IPC1 {split} render-proof binding escaped source hash")
         rebound.append(bound)
-    return rebound
+    count = len(rebound)
+    return rebound, {
+        "name": split,
+        "row_count": count,
+        "authoritative_bank_hash_matches": count,
+        "inherited_utf8_hash_matches": count,
+        "inherited_vs_bank_mismatches": inherited_vs_bank_mismatches,
+        "overwrite_only_matches": count,
+        "post_repair_validator_matches": 0,
+    }
 
 
 def tokenizer_preflight(context: dict[str, Any], *, parquet: Any, AutoTokenizer: Any) -> dict[str, Any]:
@@ -1028,8 +1050,10 @@ def tokenizer_preflight(context: dict[str, Any], *, parquet: Any, AutoTokenizer:
     if smoke._metadata_hashes(model_path) != plan["model_metadata_sha256"]:
         raise ProvenanceContractViolated("B-IPC1 e33 metadata differs")
     tokenizer = AutoTokenizer.from_pretrained(model_path, local_files_only=True)
-    train, train_proofs = _render_split("train", context, tokenizer=tokenizer, parquet=parquet, b1=b1, smoke=smoke)
-    validation, validation_proofs = _render_split(
+    train, train_proofs, train_hygiene = _render_split(
+        "train", context, tokenizer=tokenizer, parquet=parquet, b1=b1, smoke=smoke
+    )
+    validation, validation_proofs, validation_hygiene = _render_split(
         "validation", context, tokenizer=tokenizer, parquet=parquet, b1=b1, smoke=smoke
     )
     _validate_render_proofs(
@@ -1057,6 +1081,7 @@ def tokenizer_preflight(context: dict[str, Any], *, parquet: Any, AutoTokenizer:
         "tokenizer": tokenizer,
         "rendered": {"train": train, "validation": validation},
         "render_proofs": {"train": train_proofs, "validation": validation_proofs},
+        "render_proof_hygiene": [train_hygiene, validation_hygiene],
         "probes": probes,
     }
 
@@ -2275,7 +2300,7 @@ def execute(
         validation_pass = any(result["value"]["passed"] for result in validation["common_arm_gates"])
         heldout = None
         if validation_pass:
-            heldout_rendered, heldout_proofs = _render_split(
+            heldout_rendered, heldout_proofs, heldout_hygiene = _render_split(
                 "heldout",
                 context,
                 tokenizer=context["tokenizer"],
@@ -2284,6 +2309,7 @@ def execute(
                 smoke=smoke,
             )
             context["render_proofs"]["heldout"] = heldout_proofs
+            context["render_proof_hygiene"].append(heldout_hygiene)
             heldout = _evaluate_split(
                 "heldout",
                 heldout_rendered,
@@ -2483,11 +2509,11 @@ def _recompute_evaluation(evaluation: dict[str, Any], module_safety: dict[str, b
     return {"common": common, "recurrent": recurrent}
 
 
-def _validate_render_proofs(receipt: dict[str, Any], *, plan: dict[str, Any], heldout_open: bool) -> None:
-    records = receipt.get("render_proofs")
-    expected_splits = ["train", "validation"] + (["heldout"] if heldout_open else [])
-    if not isinstance(records, list) or [record.get("name") for record in records] != expected_splits:
-        raise PhaseBContractError("B-IPC1 SUCCESS render-proof split order differs")
+def _validate_render_proof_split(
+    split: str, proofs: Any, selection: dict[str, Any]
+) -> None:
+    """Validate one ordered split without reading files or mutating evidence."""
+
     proof_keys = {
         "task_key",
         "action",
@@ -2504,27 +2530,41 @@ def _validate_render_proofs(receipt: dict[str, Any], *, plan: dict[str, Any], he
         "action_trie_sha256",
         "action_trie_branch_count",
     }
+    expected = selection.get("selected")
+    row_hashes = selection.get("row_canonical_sha256")
+    if (
+        not isinstance(expected, list)
+        or not isinstance(row_hashes, list)
+        or not isinstance(proofs, list)
+        or len(proofs) != len(expected)
+        or len(proofs) != len(row_hashes)
+    ):
+        raise PhaseBContractError(f"B-IPC1 {split} render-proof count differs")
+    for proof, selected, row_hash in zip(proofs, expected, row_hashes, strict=True):
+        _require_exact_keys(proof, proof_keys, label=f"{split} render proof")
+        if (
+            proof["task_key"] != selected["task_key"]
+            or proof["action"] != selected["expected_action"]
+            or proof["source_row_sha256"] != row_hash
+            or proof["modified_path"] != "messages.2.tool_calls.0.function.arguments"
+            or set(proof["counterfactual_target_sha256"]) != set(ACTIONS)
+            or not (0 < proof["plain_tokens"] <= proof["opening_tokens"] < proof["full_tokens"])
+            or type(proof["action_trie_branch_count"]) is not int
+            or proof["action_trie_branch_count"] < 1
+        ):
+            raise PhaseBContractError(f"B-IPC1 {split} render proof differs")
+
+
+def _validate_render_proofs(receipt: dict[str, Any], *, plan: dict[str, Any], heldout_open: bool) -> None:
+    records = receipt.get("render_proofs")
+    expected_splits = ["train", "validation"] + (["heldout"] if heldout_open else [])
+    if not isinstance(records, list) or [record.get("name") for record in records] != expected_splits:
+        raise PhaseBContractError("B-IPC1 SUCCESS render-proof split order differs")
     for split_record in records:
         _require_exact_keys(split_record, {"name", "rows"}, label="render-proof split")
         split = split_record["name"]
         selection = load_json_file(Path(_bank_record(plan, split)["selection_path"]))
-        expected = selection["selected"]
-        proofs = split_record["rows"]
-        if not isinstance(proofs, list) or len(proofs) != len(expected):
-            raise PhaseBContractError(f"B-IPC1 {split} render-proof count differs")
-        for proof, selected, row_hash in zip(proofs, expected, selection["row_canonical_sha256"], strict=True):
-            _require_exact_keys(proof, proof_keys, label=f"{split} render proof")
-            if (
-                proof["task_key"] != selected["task_key"]
-                or proof["action"] != selected["expected_action"]
-                or proof["source_row_sha256"] != row_hash
-                or proof["modified_path"] != "messages.2.tool_calls.0.function.arguments"
-                or set(proof["counterfactual_target_sha256"]) != set(ACTIONS)
-                or not (0 < proof["plain_tokens"] <= proof["opening_tokens"] < proof["full_tokens"])
-                or type(proof["action_trie_branch_count"]) is not int
-                or proof["action_trie_branch_count"] < 1
-            ):
-                raise PhaseBContractError(f"B-IPC1 {split} render proof differs")
+        _validate_render_proof_split(split, split_record["rows"], selection)
 
 
 def _validate_objective_evidence(value: Any, *, action: str, label: str) -> None:
@@ -4273,6 +4313,7 @@ def main() -> int:
                         "status": "preflight_passed",
                         "train_rows": len(context["rendered"]["train"]),
                         "validation_rows": len(context["rendered"]["validation"]),
+                        "render_proof_hygiene": context["render_proof_hygiene"],
                         "heldout_content_opened": False,
                         "model_loaded": False,
                         "cuda_initialized": context["smoke"]._cuda_initialized_if_torch_loaded(),
