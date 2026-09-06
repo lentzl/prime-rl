@@ -36,7 +36,10 @@ def read_json(path:Path)->dict:
     return strict_loads(path.read_bytes())
 
 def write_atomic(path:Path,payload:dict)->None:
-    data=canonical_json(payload)+b"\n"; path.parent.mkdir(parents=True,exist_ok=True)
+    write_bytes_atomic(path,canonical_json(payload)+b"\n")
+
+def write_bytes_atomic(path:Path,data:bytes)->None:
+    path.parent.mkdir(parents=True,exist_ok=True)
     tmp=path.with_name(path.name+".tmp")
     fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     try:
@@ -105,7 +108,7 @@ def main()->None:
     if head!=args.mechanism_commit or dirty: raise RuntimeError("T0 mechanism tree is not exact and clean")
     value=plan_value(repo,args.mechanism_commit); encoded=canonical_json(value)+b"\n"
     plan=repo/T0_DIR/"t0-model-free-proof-plan.json"; sidecar=repo/T0_DIR/"t0-model-free-proof-plan.sha256"
-    write_atomic(plan,value); sidecar.write_text(hashlib.sha256(encoded).hexdigest()+"\n",encoding="utf-8")
+    write_atomic(plan,value); write_bytes_atomic(sidecar,(hashlib.sha256(encoded).hexdigest()+"\n").encode())
     print(hashlib.sha256(encoded).hexdigest()); print(value["plan_sha256"])
 
 if __name__=="__main__": main()

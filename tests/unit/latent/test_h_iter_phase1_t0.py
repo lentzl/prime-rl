@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from prime_rl.latent.h_iter_phase1_t0 import (
+    PARAMETER_NAMES, PARAMETER_SHAPES,
     build_capture_schedule, build_memory_schedule, build_tamper_schedule,
     candidate_class, module_state_sha256,
 )
@@ -28,4 +29,6 @@ def test_candidate_contract_cpu() -> None:
     Candidate=candidate_class(torch); torch.manual_seed(17594986156060532329); item=Candidate()
     assert len(item.state_dict())==16
     assert sum(p.numel() for p in item.parameters())==366340
+    assert list(item.state_dict())==PARAMETER_NAMES
+    assert [{"name":name,"shape":list(tensor.shape),"dtype":str(tensor.dtype)} for name,tensor in item.state_dict().items()]==PARAMETER_SHAPES
     assert len(module_state_sha256(torch,dict(item.state_dict())))==64
