@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import contextlib
 import gc
 import hashlib
@@ -386,6 +387,7 @@ def _immutable_input_records(plan: dict[str, Any], *, require_match: bool = True
         ("runtime_source", plan["runtime_source"]["path"], plan["runtime_source"]["sha256"]),
         ("generator_source", plan["generator_source"]["path"], plan["generator_source"]["sha256"]),
         ("taskset_source", plan["taskset_source"]["path"], plan["taskset_source"]["sha256"]),
+        ("terminal_proof_manifest", plan["terminal_proof"]["manifest_path"], plan["terminal_proof"]["manifest_sha256"]),
     ]
     specifications.extend(
         (f"antecedent_{record['name']}", record["binding_path"], record["binding_sha256"])
@@ -405,6 +407,63 @@ def _immutable_input_records(plan: dict[str, Any], *, require_match: bool = True
     if require_match and any(record["expected_sha256"] != record["observed_sha256"] for record in records):
         raise ProvenanceContractViolated("B-IPC1 immutable input postflight hash differs")
     return records
+
+
+def _validate_terminal_proof_binding(plan: dict[str, Any]) -> None:
+    binding = plan["terminal_proof"]
+    path = Path(binding["manifest_path"])
+    if file_sha256(path) != binding["manifest_sha256"]:
+        raise ProvenanceContractViolated("B-IPC1 terminal proof manifest hash differs")
+    manifest = load_json_file(path)
+    if (
+        manifest.get("schema_version") != "q35-2b-phase-b-ipc1-terminal-proof-closure/v1"
+        or manifest.get("proof_execution_commit") != binding["proof_execution_commit"]
+        or manifest.get("runner_sha256") != binding["runner_sha256"]
+    ):
+        raise ProvenanceContractViolated("B-IPC1 terminal proof manifest identity differs")
+    proof = manifest.get("successful_exact_host_proof")
+    if not isinstance(proof, dict):
+        raise ProvenanceContractViolated("B-IPC1 successful terminal proof record is absent")
+    directory = path.parent
+    encoded_path = directory / proof["proof_base64_path"]
+    encoded = encoded_path.read_bytes()
+    if (
+        file_sha256(encoded_path) != proof["proof_base64_file_sha256"]
+        or not encoded.endswith(b"\n")
+        or any(byte in b" \t\r\n" for byte in encoded[:-1])
+    ):
+        raise ProvenanceContractViolated("B-IPC1 terminal proof encoding differs")
+    try:
+        decoded = base64.b64decode(encoded[:-1], validate=True)
+    except ValueError as error:
+        raise ProvenanceContractViolated("B-IPC1 terminal proof base64 is invalid") from error
+    decoded_receipt = strict_json_loads(decoded)
+    if (
+        hashlib.sha256(decoded).hexdigest() != binding["decoded_proof_sha256"]
+        or decoded_receipt.get("execution_commit") != binding["proof_execution_commit"]
+        or decoded_receipt.get("runner_sha256") != binding["runner_sha256"]
+        or decoded_receipt.get("model_loaded") is not False
+        or decoded_receipt.get("cuda_initialized") is not False
+        or decoded_receipt.get("exact_host_repository") is not True
+        or decoded_receipt.get("maximal_success", {}).get("file_sha256") != binding["maximal_success_file_sha256"]
+        or len(decoded_receipt.get("failure_terminals", [])) != binding["failure_terminal_count"]
+        or len(decoded_receipt.get("tamper_cases_rejected", [])) != binding["tamper_cases_rejected"]
+        or decoded_receipt.get("mapping_insertion_permutation_canonical_equal")
+        is not binding["mapping_insertion_permutation_canonical_equal"]
+        or decoded_receipt.get("global_exactly_one_terminal") is not binding["global_exactly_one_terminal"]
+    ):
+        raise ProvenanceContractViolated("B-IPC1 decoded terminal proof differs")
+    for prefix in ("log", "exit_status"):
+        if file_sha256(directory / proof[f"{prefix}_path"]) != proof[f"{prefix}_sha256"]:
+            raise ProvenanceContractViolated(f"B-IPC1 terminal proof {prefix} differs")
+    failed = manifest.get("superseded_preexecution_command_failure")
+    if not isinstance(failed, dict):
+        raise ProvenanceContractViolated("B-IPC1 superseded proof invocation record is absent")
+    if (
+        file_sha256(directory / failed["log_path"]) != binding["superseded_invocation_log_sha256"]
+        or file_sha256(directory / failed["exit_status_path"]) != binding["superseded_invocation_exit_sha256"]
+    ):
+        raise ProvenanceContractViolated("B-IPC1 superseded proof invocation bytes differ")
 
 
 def _validate_antecedents(plan: dict[str, Any]) -> None:
@@ -447,14 +506,23 @@ def preflight(args: argparse.Namespace) -> dict[str, Any]:
     plan = load_json_file(args.plan)
     _validate_host_plan(plan, args)
     _validate_antecedents(plan)
+    _validate_terminal_proof_binding(plan)
     paths = {
         "bank_manifest": Path(plan["bank_manifest"]["path"]),
         "overlap_closure": Path(plan["overlap_closure"]["path"]),
         "runtime_source": Path(plan["runtime_source"]["path"]),
         "generator_source": Path(plan["generator_source"]["path"]),
         "taskset_source": Path(plan["taskset_source"]["path"]),
+        "terminal_proof": Path(plan["terminal_proof"]["manifest_path"]),
     }
-    expected = {name: plan[name]["sha256"] for name in paths}
+    expected = {
+        "bank_manifest": plan["bank_manifest"]["sha256"],
+        "overlap_closure": plan["overlap_closure"]["sha256"],
+        "runtime_source": plan["runtime_source"]["sha256"],
+        "generator_source": plan["generator_source"]["sha256"],
+        "taskset_source": plan["taskset_source"]["sha256"],
+        "terminal_proof": plan["terminal_proof"]["manifest_sha256"],
+    }
     for bank in plan["banks"]:
         paths[f"{bank['split']}_selection"] = Path(bank["selection_path"])
         paths[f"{bank['split']}_parquet"] = Path(bank["parquet_path"])

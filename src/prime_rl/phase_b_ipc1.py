@@ -92,6 +92,7 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
             "implementation_commit",
             "plan_sha256",
             "execution_authorization",
+            "terminal_proof",
             "antecedents",
             "protected_model",
             "model_metadata_sha256",
@@ -218,6 +219,41 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
         },
         label="B1R antecedent",
     )
+    proof = require_exact_mapping_keys(
+        plan["terminal_proof"],
+        {
+            "manifest_path",
+            "manifest_sha256",
+            "proof_execution_commit",
+            "runner_sha256",
+            "decoded_proof_sha256",
+            "log_sha256",
+            "exit_status_sha256",
+            "exit_status",
+            "model_loaded",
+            "cuda_initialized",
+            "exact_host_repository",
+            "maximal_success_file_sha256",
+            "failure_terminal_count",
+            "tamper_cases_rejected",
+            "mapping_insertion_permutation_canonical_equal",
+            "global_exactly_one_terminal",
+            "superseded_invocation_log_sha256",
+            "superseded_invocation_exit_sha256",
+        },
+        label="terminal proof binding",
+    )
+    if (
+        proof["exit_status"] != 0
+        or proof["model_loaded"] is not False
+        or proof["cuda_initialized"] is not False
+        or proof["exact_host_repository"] is not True
+        or proof["failure_terminal_count"] != 4
+        or proof["tamper_cases_rejected"] != 15
+        or proof["mapping_insertion_permutation_canonical_equal"] is not True
+        or proof["global_exactly_one_terminal"] is not True
+    ):
+        raise PhaseBContractError("B-IPC1 terminal proof binding differs")
     training = plan.get("training")
     require_exact_mapping_keys(
         training,

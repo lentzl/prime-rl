@@ -15,6 +15,7 @@ from prime_rl.phase_b_ipc1 import (
     build_cache_guard_labels,
     build_memory_checkpoint_labels,
     build_model_call_schedule,
+    canonical_plan_sha256,
     canonical_terminal_bytes,
     evaluate_common_arm,
     evaluate_recurrent_value,
@@ -259,9 +260,10 @@ def test_ipc1_plan_and_terminal_writers_reject_schema_or_global_terminal_tamper(
     repository = _repository()
     plan = json.loads(
         (
-            repository / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-matched-learning-run1-plan.json"
+            repository / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-matched-learning-run2-plan.json"
         ).read_text()
     )
+    plan["plan_sha256"] = canonical_plan_sha256(plan)
     validate_ipc1_plan(plan)
     tampered = deepcopy(plan)
     tampered["unexpected"] = True
