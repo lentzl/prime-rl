@@ -1,0 +1,74 @@
+{
+  "expected_action_counts": {
+    "delegate_coordinator": 4,
+    "delegate_terminal": 4,
+    "solve_owned": 4
+  },
+  "key_actions": [
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v4-i35100:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v4-i35100"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v4-i35100"
+    },
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v5-i35100:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v5-i35100"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v5-i35100"
+    },
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v4-i35101:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v4-i35101"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v4-i35101"
+    },
+    {
+      "expected_action": "solve_owned",
+      "task_key": "document_adaptive_d0-v5-i35101:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "task_key": "document_adaptive_d1-v5-i35101"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "task_key": "document_adaptive_d2-v5-i35101"
+    }
+  ],
+  "ordered_key_action_sha256": "edf43c186f2c67f467fd60f309dfc0ea4fe34b8823159ce9d19a0736254c8f01",
+  "ordered_task_key_sha256": "a331879c34cbc242e5af3775e520b5f6347a8a830e14cab52b95f108ea349d7d",
+  "schema_version": "q35-2b-b-hic0-identity-carrier-selection/v1",
+  "task_keys": [
+    "document_adaptive_d0-v4-i35100:solve-anchor-1",
+    "document_adaptive_d1-v4-i35100",
+    "document_adaptive_d2-v4-i35100",
+    "document_adaptive_d0-v5-i35100:solve-anchor-1",
+    "document_adaptive_d1-v5-i35100",
+    "document_adaptive_d2-v5-i35100",
+    "document_adaptive_d0-v4-i35101:solve-anchor-1",
+    "document_adaptive_d1-v4-i35101",
+    "document_adaptive_d2-v4-i35101",
+    "document_adaptive_d0-v5-i35101:solve-anchor-1",
+    "document_adaptive_d1-v5-i35101",
+    "document_adaptive_d2-v5-i35101"
+  ]
+}

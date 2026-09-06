@@ -1,0 +1,73 @@
+{
+  "artifacts": {
+    "heldout.parquet": "278f5fff1ad16e9ae324b13994c99262600611a3127629098cfd193c1e8713cb",
+    "runtime-source.json": "b35b23978fe126b46ee536b9526c868fa02b898b244f06283154718d36fd27f0",
+    "selection.json": "084dc6083a56a03f7fd4b51da350c8b5e916f37db5bb4a5baa1ef50945026618",
+    "taskset-5283a85.py": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499"
+  },
+  "freshness": {
+    "diagnostic_rows_forbidden_future_training": true,
+    "prior_key_union_count": 60,
+    "prior_sources": {
+      "b1_heldout": {
+        "keys": 12,
+        "selection_sha256": "e086b751155c2c5e8d000cd60d3ff999bbdd91e6faaf3a3c68a5913de5957aca"
+      },
+      "br5": {
+        "keys": 12,
+        "selection_sha256": "8e160b9214aeb5cc971abf472cb31c0173bdfeee2d56fea98620dc87b166b3fe"
+      },
+      "e33_and_b1_training": {
+        "keys": 48,
+        "ordered_key_sha256": "cd24743d41543e07485a6c9c690e3622847807f6ec813374f99cc5115236fb9a"
+      }
+    },
+    "zero_exact_key_overlap": true
+  },
+  "generation": {
+    "d0_suffix": ":solve-anchor-1",
+    "families": [
+      "document_adaptive_d0",
+      "document_adaptive_d1",
+      "document_adaptive_d2"
+    ],
+    "instance_offset": 35100,
+    "instances_per_template": 2,
+    "order": "instance_then_variant_then_family",
+    "seed": 2281329355,
+    "seed_payload": "q35-2b-b-h-identity-carrier-v1:bank",
+    "seed_sha256": "87fa52cbc9b925761c786def9cd929bd54b9271b7aa9197215aa989b2d2f337d",
+    "split": "eval",
+    "template_variants": [
+      4,
+      5
+    ]
+  },
+  "generator": {
+    "source_path": "scripts/export_phase_b_hic0_bank_v1.py",
+    "source_sha256": "e0b28b0c2d1d0f6001db02d71c34672371263658ba85c61e01000578740c7c36"
+  },
+  "row_canonical_sha256": [
+    "d8dd8e68c5b94b05593c67c795b6148533cf982eabcabd9e1ec36735559e86d2",
+    "a4dba83e336adac9df546d92ccfbd1e2eb6d23572ab3c4866e2b0d3c8dffb9af",
+    "a5aa8be1cdebece2ea6cc636a19ba0bc210425582346059cd0041f32a8975480",
+    "ff35ee2990c7ec528182320519ac743df968526175ff08af5c6b9f9e98a87561",
+    "f97b4ab230303be2bcbe44493d20adfaa7fc62832a14f865c06804536c5fd4f1",
+    "869feece9fcc4ee4dd74a339b8ac39db8ad617318c36589fe49c821912d0b52b",
+    "c07e0123511aeb5cdc0bad832f3aae63dd17848f37a7e99b91e581ef49c95e5e",
+    "3ff3a06cb53908914ba8fa801c812ca2cc7eed52d9d254927ac75ab620aa2265",
+    "05409735bbfac7b99696450520fe65c63d9986fdb7d5c9d909e5fdde1f6d8013",
+    "47e90f2dc7a7614c8353fc00bfb1dca1d0f68141385be5a22e3d9be2cde04a63",
+    "3bfad2e233e2217c206f8abd25dc99c662949123c4c8df8c171225fdded7a07d",
+    "fbfa4b91f95f498a7d84d91684471420cd7c0e7bdf0bac55d57311cb9e8cad25"
+  ],
+  "row_list_canonical_sha256": "b6fc31c9bdbce338e9df62c1f241aa57ce96cf2f0b8b8f454442c9064e274a5b",
+  "rows": 12,
+  "schema_version": "q35-2b-b-hic0-identity-carrier-bank/v1",
+  "status": "complete",
+  "taskset": {
+    "commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "source_path": "experiments/qwen35-2b-latent-coordinator-v1/phase-b-hic0-identity-carrier-bank-v1/taskset-5283a85.py",
+    "source_sha256": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499"
+  }
+}

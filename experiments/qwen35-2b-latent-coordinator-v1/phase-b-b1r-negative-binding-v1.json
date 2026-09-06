@@ -1,0 +1,32 @@
+{
+  "schema_version": "q35-2b-phase-b1r-negative-binding/v1",
+  "source_snapshot": "/Users/ilkkalehto/Documents/rlm/tmp/durable-snapshots/2026-09-05-b1r-terminal",
+  "success_receipt_sha256": "4cb2bf1e7e884f24c297381dc30698bce4dac2586e3f4522f231600ad76ef761",
+  "snapshot_manifest_sha256": "7ea9c294c5db0450b9c67f800153df57a17605f7bb58df2000996a6fba26f038",
+  "execution_commit": "ff4e3fd8695a05945187702d7ff8bc6412711ad9",
+  "plan_file_sha256": "8909f30d82559203018282a1006ce8cbe4bdbf418728a0e06ca2399e4992d5a6",
+  "status": "SUCCESS",
+  "disposition": "b1_not_nominated",
+  "optimizer_updates": {
+    "STATIC": 4,
+    "FFN": 4,
+    "RECURRENT": 4
+  },
+  "carrier_penalty_evidence": {
+    "comparison": "step0 STATIC minus BASE target NLL",
+    "base_mean_nll": 0.021844669400403898,
+    "static_mean_nll": 0.14472176941732565,
+    "mean_penalty": 0.12287710001692176,
+    "positive_rows": 12,
+    "rows": 12
+  },
+  "recurrent_negative_evidence": {
+    "mean_L_REC4": -0.038532802214225136,
+    "mean_A_N_REC4_minus_FFN": -0.06479012221097946,
+    "gate_2_recurrent_own_learning": false,
+    "gate_3_matched_noninferiority": false,
+    "nominated": false
+  },
+  "candidate_reuse": false,
+  "diagnostic_only": true
+}
