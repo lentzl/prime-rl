@@ -1,0 +1,574 @@
+{
+  "action_order": [
+    "solve_owned",
+    "delegate_terminal",
+    "delegate_coordinator"
+  ],
+  "algorithm": "lexicographic_per_action_then_seeded_shuffle_then_take_then_action_interleave",
+  "candidate_pool_order_independent": true,
+  "candidate_pool_rows": 192,
+  "derivation_sha256": "03ffe55cee2227446460672212ef05b1a01d4c04f032eaef75b9ede361ae3ec7",
+  "ordered_key_action_sha256": "0f11b38aa752e217ebab6c689e3745b6bbfc13742e1bea4f8b4ed145c42282e8",
+  "ordered_task_key_sha256": "e00012f2603726197c8f54db848bbb1d635feaf7d33957aca4385561f25f64a5",
+  "ordered_update_schedule_sha256": "7d2b7bb606e73ce68d9c03faef38b4f2faa1127f627e4ab06983a6719052a9f5",
+  "row_canonical_sha256": [
+    "7103c40b271f3ee7fcbeffb21dd7e3278945bef25ae25de7ba7a8f92b731c4e2",
+    "712562b005953efeba7be3e69a771416e8df92ba20a2b608ad582a21455e5143",
+    "bbf9249c1519eb5622109a8dc02ef6b4b7404541bf37c20c4c8ce92213b92849",
+    "52d780d9ed2c82da48fd336c92b2f1d99c70fa8791b2c52323644b6b61564145",
+    "8120534426a78454f2d7a00bdd1123a12dd968b02f760a8631399fe1035eb6ed",
+    "0a42cd4166fdeab21f90216a526e2ae77fc00e9c065eba460e8cc464f68d8562",
+    "f757363472d177b23d1478c9b1c094c99ebf78caef8f092b1ac4d5511f09fee4",
+    "7753e07a75c7edc92d067d47e8cda85bd2cd5df4275518a1b579ac4332e88bb7",
+    "c84930f7e6b4825235d0ecf446e7d1ec7d2ce1c135c73a746ca70ec1c1c09c96",
+    "1745434215237cb2ad06e38f841f5d22596585a5538187d0e589328f2189c2ee",
+    "de61a4a61e38f1e9c98c7c429e3b14a1c028b313a18200a166754a9480b6e4dc",
+    "089422f951ea091e6799914efe008e5511395d6a50498e37fedfce896c97dcd4",
+    "82d9bee7e623e24953940b61070893d132fd0cc8bd1074ab318e1c756cbc5d81",
+    "78904e39483407f0358c7da6e1613506b1ea62c0139767020d1ad69c1c8ab0fa",
+    "c3e426ef36dcaefc05888fdb66de5483fff20f47ed7d61c3368dfbcea01e2184",
+    "f410eac45141705ebdddeed575689923378ae2996f093779e70902e8d32dff3e",
+    "73bc7d4d4943c51794fda58a43952ac9baff1f36c0b84317ffd4616b6d13dbd5",
+    "13dd997ecb0e7b5a1c532e30a2b54b107f65a52f0f1591f341509a7c4788df52",
+    "629112cf1a6445a018423b08f75806608583a27e0f5a57a46ce5de238568925c",
+    "c556e054919f9fde20cb7ef4f05298a86895aeb1416a50be857a781bebbcd519",
+    "a8ff2fd42ba8de188fed6190c05f3b7fdcafeeb96b4f7dbd3e5b8bb30c953895",
+    "3586fb2f511ddee5feefefe1822fb10d6e96ea666b8618d99f0feef74f2655dd",
+    "0fd5f1ad309e8117d815cc0255a4bfc0e84e53deb6dadb3ebdd3c958f61bd120",
+    "6a2552d1c40e5931df6b7b2168ff30a8eca24ecbc642ec6435981cdccb191ae0",
+    "b1d8dc039deafc773c9a6e7875734eaedcef2e26e547f07c70dd4d39c028d9c6",
+    "8ee387ca24b29fbcd5e7af03d29c85ed028b400c61c525b024de9286a8b03ee9",
+    "8e2a8f4be05c79b1bee0a968025f016afb5c11242434401b7919ba711e0b37bd",
+    "81f2736e48d755f29f86312439996464760a1af2e346920d6c8bfed9b9c79ae5",
+    "098bd63aeadda8b044e0be126bdb4d5f89bfdfb753c557b19abb5ec670a1893e",
+    "d3e6b5db221698cd3d5c3dc2bbd030feea0de7fe559fae3fec27333ab3b82af4",
+    "c6ebdf2c90cd1ee893d4ca89dd7ce20145820b554bce7c33359bab4a5b8942a1",
+    "c32e94935ecf6f82598451fc74e1e0ac6caed3fa4a0969a8b576e9b60974a716",
+    "e223731a16e230d07e5b38037b6c22927df6ea665578dbe08f15f93e369fd352",
+    "9639f7a4cf2720d26f0e5f086a97fe7ff37cfbbb98cedb63eb8c76b62e70c437",
+    "a43fe92efef4270c61d2d098a9a00ae0e3f1eed2e29378894da3dfc5d004a4d9",
+    "12a954f03ac6be973ff2aebbf589f062b0dcb63ae381f15e2935e21da79ec04e",
+    "b7e40241e1aca6b42eba2ee36c28e7e5918e859871c704ba11d14b00ab8f4173",
+    "d7510fd15053fc91fa4cc0f52cfdc8cfb4763e9fbd1e123e2a16f24e76bf0abe",
+    "0dc5f34420e19666f583648a335df2c7b8391c54310fcf117d0a9de69d4f4e1a",
+    "8dc1960516fd241cf8d8ce6fd23645b6e304d2cc003e2bc874e19fecc60575cf",
+    "bc955d59a587e8849076d7fa13e77b56e337f1513dc10e4ec4153c7249df2a6d",
+    "7bd67e21b50f4c7091d1edd30ef7504af500c3199b8e79c35500306f59054544",
+    "f6c277849760dad272ea4c040602e39ed366a8626cbe965b7e8f2e21a818bcc7",
+    "18fe35c0ab8bb35951ecebf90b14538df9a8e97d9f908d2cd0483ac55cd1fc16",
+    "4385c055d31b44cb166e6486474db9847884824f3f144d669b223832a770e72e",
+    "40f1034c6693649cfc8d764438b1e091785832f4b18429041f02f9db550662b2",
+    "4540efc750e5674359f7a8c500dbfaea8e8cdfebec6392f2ff5a4bfbe32341a5",
+    "7dd840e61d1b4dfb80701f600c5962d753b836569acde54f18cb355ef63837ae"
+  ],
+  "row_list_canonical_sha256": "af6e54c8fa1a8c57a3369827cd2421c40ce2b53429af7ef73e1c4f71923b5495",
+  "rows_per_action": 16,
+  "schema_version": "q35-2b-b-ipc1-selection/v1",
+  "seed": 67102044,
+  "seed_payload": "q35-2b-b-ipc1-matched-learning-v1:train",
+  "selected": [
+    {
+      "expected_action": "solve_owned",
+      "position": 0,
+      "task_key": "document_adaptive_d0-v1-i36103:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 1,
+      "task_key": "document_adaptive_d1-v1-i36103"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 2,
+      "task_key": "document_adaptive_d2-v1-i36103"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 3,
+      "task_key": "document_adaptive_d0-v1-i36112:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 4,
+      "task_key": "document_adaptive_d1-v1-i36112"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 5,
+      "task_key": "document_adaptive_d2-v1-i36112"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 6,
+      "task_key": "document_adaptive_d0-v2-i36113:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 7,
+      "task_key": "document_adaptive_d1-v2-i36113"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 8,
+      "task_key": "document_adaptive_d2-v2-i36113"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 9,
+      "task_key": "document_adaptive_d0-v3-i36100:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 10,
+      "task_key": "document_adaptive_d1-v3-i36100"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 11,
+      "task_key": "document_adaptive_d2-v3-i36100"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 12,
+      "task_key": "document_adaptive_d0-v3-i36103:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 13,
+      "task_key": "document_adaptive_d1-v3-i36103"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 14,
+      "task_key": "document_adaptive_d2-v3-i36103"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 15,
+      "task_key": "document_adaptive_d0-v1-i36100:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 16,
+      "task_key": "document_adaptive_d1-v1-i36100"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 17,
+      "task_key": "document_adaptive_d2-v1-i36100"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 18,
+      "task_key": "document_adaptive_d0-v2-i36103:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 19,
+      "task_key": "document_adaptive_d1-v2-i36103"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 20,
+      "task_key": "document_adaptive_d2-v2-i36103"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 21,
+      "task_key": "document_adaptive_d0-v2-i36101:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 22,
+      "task_key": "document_adaptive_d1-v2-i36101"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 23,
+      "task_key": "document_adaptive_d2-v2-i36101"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 24,
+      "task_key": "document_adaptive_d0-v0-i36112:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 25,
+      "task_key": "document_adaptive_d1-v0-i36112"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 26,
+      "task_key": "document_adaptive_d2-v0-i36112"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 27,
+      "task_key": "document_adaptive_d0-v2-i36111:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 28,
+      "task_key": "document_adaptive_d1-v2-i36111"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 29,
+      "task_key": "document_adaptive_d2-v2-i36111"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 30,
+      "task_key": "document_adaptive_d0-v2-i36106:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 31,
+      "task_key": "document_adaptive_d1-v2-i36106"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 32,
+      "task_key": "document_adaptive_d2-v2-i36106"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 33,
+      "task_key": "document_adaptive_d0-v3-i36106:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 34,
+      "task_key": "document_adaptive_d1-v3-i36106"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 35,
+      "task_key": "document_adaptive_d2-v3-i36106"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 36,
+      "task_key": "document_adaptive_d0-v3-i36107:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 37,
+      "task_key": "document_adaptive_d1-v3-i36107"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 38,
+      "task_key": "document_adaptive_d2-v3-i36107"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 39,
+      "task_key": "document_adaptive_d0-v2-i36100:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 40,
+      "task_key": "document_adaptive_d1-v2-i36100"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 41,
+      "task_key": "document_adaptive_d2-v2-i36100"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 42,
+      "task_key": "document_adaptive_d0-v3-i36111:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 43,
+      "task_key": "document_adaptive_d1-v3-i36111"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 44,
+      "task_key": "document_adaptive_d2-v3-i36111"
+    },
+    {
+      "expected_action": "solve_owned",
+      "position": 45,
+      "task_key": "document_adaptive_d0-v0-i36109:solve-anchor-1"
+    },
+    {
+      "expected_action": "delegate_terminal",
+      "position": 46,
+      "task_key": "document_adaptive_d1-v0-i36109"
+    },
+    {
+      "expected_action": "delegate_coordinator",
+      "position": 47,
+      "task_key": "document_adaptive_d2-v0-i36109"
+    }
+  ],
+  "split": "train",
+  "updates": [
+    {
+      "rows": [
+        {
+          "expected_action": "solve_owned",
+          "position": 0,
+          "task_key": "document_adaptive_d0-v1-i36103:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 1,
+          "task_key": "document_adaptive_d1-v1-i36103"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 2,
+          "task_key": "document_adaptive_d2-v1-i36103"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 3,
+          "task_key": "document_adaptive_d0-v1-i36112:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 4,
+          "task_key": "document_adaptive_d1-v1-i36112"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 5,
+          "task_key": "document_adaptive_d2-v1-i36112"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 6,
+          "task_key": "document_adaptive_d0-v2-i36113:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 7,
+          "task_key": "document_adaptive_d1-v2-i36113"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 8,
+          "task_key": "document_adaptive_d2-v2-i36113"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 9,
+          "task_key": "document_adaptive_d0-v3-i36100:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 10,
+          "task_key": "document_adaptive_d1-v3-i36100"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 11,
+          "task_key": "document_adaptive_d2-v3-i36100"
+        }
+      ],
+      "update_index": 1
+    },
+    {
+      "rows": [
+        {
+          "expected_action": "solve_owned",
+          "position": 0,
+          "task_key": "document_adaptive_d0-v3-i36103:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 1,
+          "task_key": "document_adaptive_d1-v3-i36103"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 2,
+          "task_key": "document_adaptive_d2-v3-i36103"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 3,
+          "task_key": "document_adaptive_d0-v1-i36100:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 4,
+          "task_key": "document_adaptive_d1-v1-i36100"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 5,
+          "task_key": "document_adaptive_d2-v1-i36100"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 6,
+          "task_key": "document_adaptive_d0-v2-i36103:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 7,
+          "task_key": "document_adaptive_d1-v2-i36103"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 8,
+          "task_key": "document_adaptive_d2-v2-i36103"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 9,
+          "task_key": "document_adaptive_d0-v2-i36101:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 10,
+          "task_key": "document_adaptive_d1-v2-i36101"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 11,
+          "task_key": "document_adaptive_d2-v2-i36101"
+        }
+      ],
+      "update_index": 2
+    },
+    {
+      "rows": [
+        {
+          "expected_action": "solve_owned",
+          "position": 0,
+          "task_key": "document_adaptive_d0-v0-i36112:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 1,
+          "task_key": "document_adaptive_d1-v0-i36112"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 2,
+          "task_key": "document_adaptive_d2-v0-i36112"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 3,
+          "task_key": "document_adaptive_d0-v2-i36111:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 4,
+          "task_key": "document_adaptive_d1-v2-i36111"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 5,
+          "task_key": "document_adaptive_d2-v2-i36111"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 6,
+          "task_key": "document_adaptive_d0-v2-i36106:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 7,
+          "task_key": "document_adaptive_d1-v2-i36106"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 8,
+          "task_key": "document_adaptive_d2-v2-i36106"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 9,
+          "task_key": "document_adaptive_d0-v3-i36106:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 10,
+          "task_key": "document_adaptive_d1-v3-i36106"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 11,
+          "task_key": "document_adaptive_d2-v3-i36106"
+        }
+      ],
+      "update_index": 3
+    },
+    {
+      "rows": [
+        {
+          "expected_action": "solve_owned",
+          "position": 0,
+          "task_key": "document_adaptive_d0-v3-i36107:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 1,
+          "task_key": "document_adaptive_d1-v3-i36107"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 2,
+          "task_key": "document_adaptive_d2-v3-i36107"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 3,
+          "task_key": "document_adaptive_d0-v2-i36100:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 4,
+          "task_key": "document_adaptive_d1-v2-i36100"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 5,
+          "task_key": "document_adaptive_d2-v2-i36100"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 6,
+          "task_key": "document_adaptive_d0-v3-i36111:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 7,
+          "task_key": "document_adaptive_d1-v3-i36111"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 8,
+          "task_key": "document_adaptive_d2-v3-i36111"
+        },
+        {
+          "expected_action": "solve_owned",
+          "position": 9,
+          "task_key": "document_adaptive_d0-v0-i36109:solve-anchor-1"
+        },
+        {
+          "expected_action": "delegate_terminal",
+          "position": 10,
+          "task_key": "document_adaptive_d1-v0-i36109"
+        },
+        {
+          "expected_action": "delegate_coordinator",
+          "position": 11,
+          "task_key": "document_adaptive_d2-v0-i36109"
+        }
+      ],
+      "update_index": 4
+    }
+  ]
+}

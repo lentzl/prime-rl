@@ -1,0 +1,25 @@
+{
+  "classification": "descriptive_antecedent_only_terminal_contract_invalid",
+  "success_file_sha256": "26dfb2c8942b767c0ca8697cc66eea9c0e0931123aa4ffd9c7426440323245c8",
+  "internal_receipt_sha256": "108342e04a3255afedbbf60d6dc8ccf86c5f0d2736b549634edbdeb8febbafc3",
+  "execution_commit": "28376109087e0525bc751f321d01138980b86344",
+  "plan_file_sha256": "fb545fe12f05c5cb9c32a1e6da2f11aee8a502cef42838ed1efed84682132b0e",
+  "formal_terminal_valid": false,
+  "validator_error": "B-HIC0 SUCCESS row/count evidence differs",
+  "invalidating_cause": "canonical sort_keys serialization reordered order-significant mapping keys before frozen validator replay",
+  "descriptive_evidence_only": {
+    "insert_eps_minus_base_mean_nll": 0.10561368500221047,
+    "inplace_eps_minus_base_mean_nll": -0.00010269187119374412,
+    "penalty_removal_fraction": 1.000972334893831,
+    "hidden_drift_ratio_mean": 0.09242930357967004,
+    "logit_drift_ratio_mean": 0.09342838832577494,
+    "inplace_margin_delta_mean": -0.0625,
+    "inplace_margin_delta_worst": -0.75,
+    "formal_gate7_descriptive_value": false
+  },
+  "candidate_reused": false,
+  "rows_reused": false,
+  "seeds_reused": false,
+  "admission": false,
+  "threshold_source": false
+}

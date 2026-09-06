@@ -1,0 +1,211 @@
+{
+  "artifacts": {
+    "heldout-selection.json": "b2462d36e83b58ca5df349f698ce27555fff075427f971c2d60cf5b4aa2b7c9e",
+    "heldout.parquet": "6884c33a39ad67b7a1579f831825a4e77bb28218b35032a2b424122d1d7e4e35",
+    "prior-overlap-closure-v1.json": "aaa470cd3fdd73f07f200ee3e2be05568cdb37ebf3c945f4db753a4d8e98f745",
+    "runtime-source.json": "9a01146f4644089c5d2d625e930b7b39e2b3c735d16689ebf1385afa68b90abb",
+    "taskset-5283a85.py": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499",
+    "train-selection.json": "ad5e3c7f7e49cc8cc194700f5cd1067a36ac5c5d47a1972980eaeffad2dc2c6b",
+    "train.parquet": "704d2d34c16672e20674b09d3cb56984881acaf44a3c6ca697a19c0504123591",
+    "validation-selection.json": "8174f5cce1a572ef7639ae2a5aed0b56065bce4c7dff4dad9068ae1a1d10801b",
+    "validation.parquet": "697f0ae744691bde7bcaa99d45bd7c7d221b6cbdca7b6382d6682159dfde6da5"
+  },
+  "freshness": {
+    "all_zero": true,
+    "comparisons": [
+      {
+        "left": "train",
+        "right": "validation",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "train",
+        "right": "heldout",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "validation",
+        "right": "heldout",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "a0_mechanism_bank",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "a0_nocache_bank",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "a0_nocache_disjointness",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "a1_disjointness",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "a1_heldout_bank",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "a1_train_bank",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "a1_validation_bank",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "b1_heldout_selection",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "b1_manifest",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "b1_training_selection",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "br5_selection",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "e33_action_v2",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "e33_c54_v1",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "e33_nonroot_v3",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "hic0_manifest",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      },
+      {
+        "left": "all_ipc1_selected",
+        "right": "hic0_selection",
+        "row_hash_overlap_count": 0,
+        "task_key_overlap_count": 0
+      }
+    ],
+    "selected_rows_permanently_excluded_from_future_training": 96
+  },
+  "generation": {
+    "action_order": [
+      "solve_owned",
+      "delegate_terminal",
+      "delegate_coordinator"
+    ],
+    "d0_suffix": ":solve-anchor-1",
+    "families": [
+      "document_adaptive_d0",
+      "document_adaptive_d1",
+      "document_adaptive_d2"
+    ],
+    "pool_evidence": [
+      {
+        "candidate_row_list_sha256": "85648ea4890c2a241087c0db594b6ccf1e42c94ec2e5f7897aeec7d5aec353b8",
+        "candidate_rows": 192,
+        "candidate_task_keys_sha256": "5da2cf2c5439c0d3e8fcf5bd7cac4c977a8e193f16dab0c88c4cecd538809e64",
+        "split": "train",
+        "taskset_split": "train"
+      },
+      {
+        "candidate_row_list_sha256": "5de4f12d0685a9b71864e0b309b625af8bbbb871bfdf4edbe5acd7cc9eec8599",
+        "candidate_rows": 48,
+        "candidate_task_keys_sha256": "aa0685f47f094ba9b4fb749d28fa70223dea7e0ffcad8c807fa26efb45a44ecc",
+        "split": "validation",
+        "taskset_split": "eval"
+      },
+      {
+        "candidate_row_list_sha256": "ded0a324df28106a6af54e7155fd0bfb29d1e591c5d756bf7ff1e59c31b8b119",
+        "candidate_rows": 48,
+        "candidate_task_keys_sha256": "465c027a12d75d525e1890758dca4ec2e20f5291305e004b56a9a90cd2acd8c9",
+        "split": "heldout",
+        "taskset_split": "eval"
+      }
+    ],
+    "taskset_commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "taskset_source_sha256": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499"
+  },
+  "generator": {
+    "source_path": "scripts/export_phase_b_ipc1_bank_v1.py",
+    "source_sha256": "54deb4ab33630dfa7b0a9b825d048645a4890da650fe179d13e044a11bae911f"
+  },
+  "rows": [
+    {
+      "count": 48,
+      "split": "train"
+    },
+    {
+      "count": 24,
+      "split": "validation"
+    },
+    {
+      "count": 24,
+      "split": "heldout"
+    }
+  ],
+  "schema_version": "q35-2b-phase-b-ipc1-bank/v1",
+  "selection_hashes": [
+    {
+      "ordered_key_action_sha256": "0f11b38aa752e217ebab6c689e3745b6bbfc13742e1bea4f8b4ed145c42282e8",
+      "ordered_task_key_sha256": "e00012f2603726197c8f54db848bbb1d635feaf7d33957aca4385561f25f64a5",
+      "row_list_canonical_sha256": "af6e54c8fa1a8c57a3369827cd2421c40ce2b53429af7ef73e1c4f71923b5495",
+      "split": "train"
+    },
+    {
+      "ordered_key_action_sha256": "e352b259cbaf15550ef09d2be22048780dd7da4dab6521e8049ac8b455e9a9c7",
+      "ordered_task_key_sha256": "079b68936214d1814bac6688b4ab5e0809349e4ae0e5642ac357f1dcdbec8f0d",
+      "row_list_canonical_sha256": "343fa29c77a87f0fef93e462085b77a5e2a8b9b88563c7b308d5ef133f228954",
+      "split": "validation"
+    },
+    {
+      "ordered_key_action_sha256": "1a6f638eab0c550744e56644ab44ab16b6a109f321942656a2c0d902a12574d4",
+      "ordered_task_key_sha256": "eeb9a13870c747164ed95fc5dfee7f8b166858d78d754bbdd5f0561d966dc91b",
+      "row_list_canonical_sha256": "756ccf8d4404c80bb0df843fa4ce49fe1e0b5eab8b32442c113dcf4fba0a7126",
+      "split": "heldout"
+    }
+  ],
+  "status": "complete"
+}
