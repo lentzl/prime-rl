@@ -296,6 +296,14 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     unsafe["failure_sha256"] = hiter.canonical_sha256(unsafe, omit="failure_sha256")
     with pytest.raises(hiter.ContractError, match="infrastructure"):
         hiter.validate_failure(unsafe, **validation_args)
+    unexpected_output = json_roundtrip(failure)
+    unexpected_output["actual_safety"]["output_inventory"] = ["intruder"]
+    unexpected_output["output_inventory_before_failure"] = ["intruder"]
+    unexpected_output["failure_sha256"] = hiter.canonical_sha256(
+        unexpected_output, omit="failure_sha256"
+    )
+    with pytest.raises(hiter.ContractError, match="infrastructure"):
+        hiter.validate_failure(unexpected_output, **validation_args)
     wrong_authority = json_roundtrip(failure)
     wrong_authority["execution_commit"] = "4" * 40
     wrong_authority["failure_sha256"] = hiter.canonical_sha256(wrong_authority, omit="failure_sha256")

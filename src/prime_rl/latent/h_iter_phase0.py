@@ -1988,6 +1988,7 @@ def validate_failure(
         or safety["pretrained_model_objects"] != 0
         or safety["tokenizer_objects"] != 0
         or safety["optimizer_objects"] != 0
+        or safety["output_inventory"] != []
         or safety["candidate_files"] != []
         or safety["checkpoint_files"] != []
         or safety["static_forbidden_model_call_sites"] != []

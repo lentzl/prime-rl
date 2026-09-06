@@ -831,6 +831,7 @@ def failure_payload(
         or observed_safety["pretrained_model_objects"]
         or observed_safety["tokenizer_objects"]
         or observed_safety["optimizer_objects"]
+        or observed_safety["output_inventory"]
         or observed_safety["candidate_files"]
         or observed_safety["checkpoint_files"]
         or observed_safety["static_forbidden_model_call_sites"]
