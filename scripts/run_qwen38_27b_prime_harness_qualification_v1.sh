@@ -219,6 +219,8 @@ for axis in "${axes[@]}"; do
     natural_n1a_local) split=train_gen; start_index=3806000; curriculum=$axis; family_filter=none ;;
     natural_direct_control) split=train_gen; start_index=3807000; curriculum=$axis; family_filter=none ;;
     natural_n2) split=train_gen; start_index=3808000; curriculum=$axis; family_filter=none ;;
+    json_max_direct_raw) split=valid_gen; start_index=0; curriculum=$axis; family_filter=none ;;
+    json_max_two_shard) split=valid_gen; start_index=0; curriculum=$axis; family_filter=none ;;
     *) echo "unknown qualification axis: $axis" >&2; exit 1 ;;
   esac
   if [[ -n "${QWEN38_QUALIFICATION_START_INDEX:-}" ]]; then
