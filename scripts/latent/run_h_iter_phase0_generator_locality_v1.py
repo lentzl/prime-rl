@@ -55,6 +55,7 @@ from prime_rl.latent.h_iter_phase0 import (
     validate_preexecution_evidence,
     validate_probe_selection,
     validate_proof,
+    validate_recovery_antecedent,
     validate_schedule,
 )
 
@@ -348,6 +349,14 @@ def validate_preexecution_assets(base: Path, evidence: dict[str, object]) -> Non
             raise InfrastructureInvalid("Phase-0 preexecution artifact bytes differ")
 
 
+def validate_recovery_antecedent_assets(base: Path, evidence: dict[str, object]) -> None:
+    validate_recovery_antecedent(evidence)
+    for reference in evidence["antecedent_assets"][:2]:
+        path = base / reference["path"]
+        if path.parent != base or sha256_bytes(read_regular_file_bytes(path)) != reference["sha256"]:
+            raise InfrastructureInvalid("Phase-0 recovery antecedent artifact bytes differ")
+
+
 def runtime_evidence() -> tuple[dict[str, object], object]:
     if os.environ.get("CUDA_VISIBLE_DEVICES") != "":
         raise InfrastructureInvalid("CUDA must be hidden for Phase-0")
@@ -442,16 +451,44 @@ def object_inventory(torch: object | None, output_dir: Path) -> dict[str, object
     optimizer_objects = 0
     pretrained_model_objects = 0
     tokenizer_objects = 0
-    for value in gc.get_objects():
-        with contextlib.suppress(ReferenceError):
+    census_errors = []
+    for object_index, value in enumerate(gc.get_objects()):
+        try:
             value_type = type(value)
             mro = value_type.__mro__
-            if any(base.__name__ == "Optimizer" and base.__module__.startswith("torch.optim") for base in mro):
+            if any(
+                base.__name__ == "Optimizer"
+                and isinstance(base.__module__, str)
+                and base.__module__.startswith("torch.optim")
+                for base in mro
+            ):
                 optimizer_objects += 1
-            if any(base.__name__ == "PreTrainedModel" and base.__module__.startswith("transformers") for base in mro):
+            if any(
+                base.__name__ == "PreTrainedModel"
+                and isinstance(base.__module__, str)
+                and base.__module__.startswith("transformers")
+                for base in mro
+            ):
                 pretrained_model_objects += 1
-            if value_type.__module__.startswith("transformers.tokenization"):
+            module = value_type.__module__
+            if isinstance(module, str) and module.startswith("transformers.tokenization"):
                 tokenizer_objects += 1
+        except TimeoutError:
+            raise
+        except Exception as error:
+            try:
+                error_text = str(error) or "<empty exception text>"
+            except TimeoutError:
+                raise
+            except Exception as rendering_error:
+                error_text = f"<unrenderable exception: {type(rendering_error).__name__}>"
+            census_errors.append(
+                {
+                    "object_index": object_index,
+                    "error_type": type(error).__name__,
+                    "error": error_text,
+                }
+            )
     inventory = sorted(path.name for path in output_dir.iterdir())
     candidates = [name for name in inventory if "candidate" in name.lower()]
     checkpoints = [name for name in inventory if "checkpoint" in name.lower()]
@@ -466,6 +503,8 @@ def object_inventory(torch: object | None, output_dir: Path) -> dict[str, object
         "pretrained_model_objects": pretrained_model_objects,
         "tokenizer_objects": tokenizer_objects,
         "optimizer_objects": optimizer_objects,
+        "uninspectable_count": len(census_errors),
+        "census_errors": census_errors,
         "output_inventory": inventory,
         "candidate_files": candidates,
         "checkpoint_files": checkpoints,
@@ -484,6 +523,8 @@ def safety_evidence(
     torch: object, repo: Path, output_dir: Path, network_guard: NetworkGuard
 ) -> dict[str, object]:
     observed = object_inventory(torch, output_dir)
+    if observed["uninspectable_count"] != 0 or observed["census_errors"]:
+        raise InfrastructureInvalid("Phase-0 object inventory was incomplete")
     return {
         "coordinator_e33_loaded": observed["pretrained_model_objects"] != 0,
         "worker_h176_loaded": observed["pretrained_model_objects"] != 0,
@@ -500,6 +541,8 @@ def safety_evidence(
         "pretrained_model_objects": observed["pretrained_model_objects"],
         "tokenizer_objects": observed["tokenizer_objects"],
         "optimizer_objects": observed["optimizer_objects"],
+        "uninspectable_count": observed["uninspectable_count"],
+        "census_errors": observed["census_errors"],
         "object_census_method": observed["object_census_method"],
         "cuda_observation_method": observed["cuda_observation_method"],
         "relevant_modules_absent_for_preimport_inference": observed[
@@ -644,6 +687,15 @@ def run(
     preexecution = load_canonical_json(base / "preexecution-evidence.json")
     validate_preexecution_evidence(preexecution)
     validate_preexecution_assets(base, preexecution)
+    antecedent = load_canonical_json(base / "deterministic-recovery-antecedent.json")
+    validate_recovery_antecedent_assets(base, antecedent)
+    antecedent_output = Path("/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1")
+    if (
+        not antecedent_output.is_dir()
+        or antecedent_output.is_symlink()
+        or list(antecedent_output.iterdir())
+    ):
+        raise InfrastructureInvalid("Phase-0 antecedent output namespace was not preserved empty")
     runtime, torch = runtime_evidence()
     host_ram, free_disk_preflight = host_resources(repo)
     ledger.checkpoint("runtime_verified")
@@ -952,6 +1004,8 @@ def failure_payload(
         or observed_safety["pretrained_model_objects"]
         or observed_safety["tokenizer_objects"]
         or observed_safety["optimizer_objects"]
+        or observed_safety["uninspectable_count"]
+        or observed_safety["census_errors"]
         or observed_safety["output_inventory"]
         or observed_safety["candidate_files"]
         or observed_safety["checkpoint_files"]

@@ -24,6 +24,27 @@ def load_asset(name: str) -> dict:
     return value
 
 
+def adapt_plan_to_recovery_contract(plan: dict) -> dict:
+    plan["run_identity"] = hiter.RUN_IDENTITY
+    plan["output_root"] = hiter.RESOURCE_BOUNDS["output_root"]
+    plan["runtime"] = hiter.EXPECTED_RUNTIME
+    plan["resource_bounds"] = hiter.RESOURCE_BOUNDS
+    plan["safety_boundary"] = hiter.DECISION_BOUNDARY | {
+        "coordinator_e33_loaded": False,
+        "worker_h176_loaded": False,
+        "tokenizer_calls": 0,
+        "model_forwards": 0,
+        "model_backwards": 0,
+        "optimizer_steps": 0,
+        "synthetic_cpu_backwards": 40,
+        "transformers_modeling_imports": 0,
+        "network_guard": hiter.NETWORK_GUARD_CONTRACT,
+    }
+    plan["full_freeze"]["preexecution_failures_and_hydration_bound"] = True
+    plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
+    return plan
+
+
 def test_generator_payloads_and_banks_regenerate_exactly() -> None:
     banks = {split: load_asset(f"{split}-bank.json") for split in hiter.SPLITS}
     summary = hiter.validate_banks(banks)
@@ -48,6 +69,30 @@ def test_generator_payloads_and_banks_regenerate_exactly() -> None:
         assert hiter.seed_u64(hiter.BANK_PAYLOADS[split]) == hiter.EXPECTED_PAYLOAD_SEEDS[split]
         assert hiter._digest(hiter.ORDER_PAYLOADS[split]) == hiter.EXPECTED_ORDER_SHA256[split]
         assert hiter.seed_u64(hiter.ORDER_PAYLOADS[split]) == hiter.EXPECTED_ORDER_SEEDS[split]
+
+
+def test_deterministic_recovery_antecedent_and_surface_assets_are_exact() -> None:
+    antecedent = load_asset("deterministic-recovery-antecedent.json")
+    hiter.validate_recovery_antecedent(antecedent)
+    assert (ASSET_DIR / "attempt3-terminal-invalid.exit.txt").read_bytes() == b"2\n"
+    assert hiter.sha256_bytes((ASSET_DIR / "attempt3-terminal-invalid.exit.txt").read_bytes()) == (
+        "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3"
+    )
+    assert hiter.sha256_bytes((ASSET_DIR / "attempt3-terminal-invalid.log.txt").read_bytes()) == (
+        "ee42c39b03600ac070cb19a9fba1e7e5a56c53bab53c427d208ea6a144056c45"
+    )
+    assert hiter.sha256_bytes((ASSET_DIR / "scientific-surface-builder.py").read_bytes()) == (
+        hiter.SCIENTIFIC_SURFACE_BUILDER_SHA256
+    )
+    baseline = (ASSET_DIR / "scientific-surface-b5cdb53.json").read_bytes()
+    assert len(baseline) == hiter.SCIENTIFIC_SURFACE_BASELINE_BYTES
+    assert hiter.sha256_bytes(baseline) == hiter.SCIENTIFIC_SURFACE_BASELINE_FILE_SHA256
+    parsed = hiter.strict_json_loads(baseline[:-1])
+    assert parsed["surface_sha256"] == hiter.SCIENTIFIC_SURFACE_BASELINE_INTERNAL_SHA256
+    altered = json_roundtrip(antecedent)
+    altered["allowed_recovery_runs"] = 2
+    with pytest.raises(hiter.ContractError, match="canonical hash"):
+        hiter.validate_recovery_antecedent(altered)
 
 
 def test_exact_generator_structure_and_answer_free_boundary() -> None:
@@ -215,29 +260,7 @@ def test_preexecution_failures_and_hydration_are_exactly_bound() -> None:
 
 
 def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
-    plan = load_asset("phase0-plan.json")
-    plan["runtime"] = hiter.EXPECTED_RUNTIME
-    plan["resource_bounds"] = hiter.RESOURCE_BOUNDS
-    plan["safety_boundary"] = hiter.DECISION_BOUNDARY | {
-        "coordinator_e33_loaded": False,
-        "worker_h176_loaded": False,
-        "tokenizer_calls": 0,
-        "model_forwards": 0,
-        "model_backwards": 0,
-        "optimizer_steps": 0,
-        "synthetic_cpu_backwards": 40,
-        "transformers_modeling_imports": 0,
-        "network_guard": hiter.NETWORK_GUARD_CONTRACT,
-    }
-    plan["full_freeze"].update(
-        {
-            "failure_authority_uses_execution_commit_git_blob": True,
-            "launcher_bounds_full_surface": True,
-            "terminal_self_reference_boundary_is_external": True,
-            "preexecution_failures_and_hydration_bound": True,
-        }
-    )
-    plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
+    plan = adapt_plan_to_recovery_contract(load_asset("phase0-plan.json"))
     execution = "1" * 40
     external_plan = "2" * 64
     def phase_record(phase: str, entered: int, exited: int, outcome: str) -> dict:
@@ -283,6 +306,8 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
             "pretrained_model_objects": 0,
             "tokenizer_objects": 0,
             "optimizer_objects": 0,
+            "uninspectable_count": 0,
+            "census_errors": [],
             "output_inventory": [],
             "candidate_files": [],
             "checkpoint_files": [],
@@ -532,9 +557,7 @@ def test_authorized_plan_uses_lexical_git_path_across_working_symlink_race(
     outside = tmp_path / "outside-plan.json"
     outside.write_text("{}\n")
     plan_path.symlink_to(outside)
-    plan = load_asset("phase0-plan.json")
-    plan["full_freeze"]["preexecution_failures_and_hydration_bound"] = True
-    plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
+    plan = adapt_plan_to_recovery_contract(load_asset("phase0-plan.json"))
     plan_bytes = hiter.canonical_json(plan) + b"\n"
     plan_file_sha256 = hiter.sha256_bytes(plan_bytes)
     requested_paths: list[str] = []
@@ -595,6 +618,74 @@ def test_atomic_writer_refuses_nonempty_or_second_terminal(
         second_writer.write("FAILURE.json", {"x": 2}, 1024)
 
 
+def test_object_inventory_handles_nonstring_and_records_per_object_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner_path = ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py"
+    spec = importlib.util.spec_from_file_location("hiter_phase0_runner_inventory_test", runner_path)
+    assert spec is not None and spec.loader is not None
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+
+    class FakeCuda:
+        @staticmethod
+        def is_initialized() -> bool:
+            return False
+
+    class FakeTorch:
+        cuda = FakeCuda()
+
+    class NonStringModuleMeta(type):
+        def __getattribute__(cls, name):
+            if name == "__module__":
+                return object()
+            return super().__getattribute__(name)
+
+    class NonStringSentinel(metaclass=NonStringModuleMeta):
+        pass
+
+    class RaisingModuleMeta(type):
+        def __getattribute__(cls, name):
+            if name == "__module__":
+                raise RuntimeError("synthetic module metadata failure")
+            return super().__getattribute__(name)
+
+    class RaisingSentinel(metaclass=RaisingModuleMeta):
+        pass
+
+    class TimeoutModuleMeta(type):
+        def __getattribute__(cls, name):
+            if name == "__module__":
+                raise TimeoutError("synthetic timeout")
+            return super().__getattribute__(name)
+
+    class TimeoutSentinel(metaclass=TimeoutModuleMeta):
+        pass
+
+    monkeypatch.setattr(runner.gc, "get_objects", lambda: [NonStringSentinel()])
+    safe = runner.object_inventory(FakeTorch(), tmp_path)
+    assert safe["uninspectable_count"] == 0 and safe["census_errors"] == []
+
+    monkeypatch.setattr(runner.gc, "get_objects", lambda: [RaisingSentinel()])
+    observed = runner.object_inventory(FakeTorch(), tmp_path)
+    assert observed["uninspectable_count"] == 1
+    assert observed["census_errors"] == [
+        {
+            "object_index": 0,
+            "error_type": "RuntimeError",
+            "error": "synthetic module metadata failure",
+        }
+    ]
+
+    monkeypatch.setattr(runner.gc, "get_objects", lambda: [TimeoutSentinel()])
+    with pytest.raises(TimeoutError, match="synthetic timeout"):
+        runner.object_inventory(FakeTorch(), tmp_path)
+
+    monkeypatch.setattr(runner.gc, "get_objects", list)
+    cleaned = runner.object_inventory(FakeTorch(), tmp_path)
+    assert cleaned["uninspectable_count"] == 0 and cleaned["census_errors"] == []
+
+
 def test_launcher_and_runtime_bind_shared_environment_and_outer_budget() -> None:
     launcher = (ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.sh").read_text()
     runner = (ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py").read_text()
@@ -603,14 +694,16 @@ def test_launcher_and_runtime_bind_shared_environment_and_outer_budget() -> None
     assert 'exec timeout --signal=TERM --kill-after=60s 1260s "$0" --inner "$@"' in launcher
     assert (
         "readonly output_dir=/home/ubuntu/rlm/outputs/"
-        "q35-2b-h-iter-phase0-generator-locality-run1"
+        "q35-2b-h-iter-phase0-deterministic-terminal-recovery-run1"
     ) in launcher
     assert 'readonly output_dir="$output_parent/$run_id"' not in launcher
     assert hiter.RESOURCE_BOUNDS["output_root"] in launcher
     assert (
         '[[ "$output_dir" == /home/ubuntu/rlm/outputs/'
-        'q35-2b-h-iter-phase0-generator-locality-run1 ]] || exit 2'
+        'q35-2b-h-iter-phase0-deterministic-terminal-recovery-run1 ]] || exit 2'
     ) in launcher
+    assert "readonly antecedent_output_dir=/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1" in launcher
+    assert '[[ -z "$(find "$antecedent_output_dir" -mindepth 1 -maxdepth 1 -print -quit)" ]] || exit 2' in launcher
     assert 'if [[ ${1-} != --inner ]]' in launcher
     assert 'sys.executable != EXPECTED_RUNTIME["sys_executable"]' in runner
     assert 'sys.prefix != EXPECTED_RUNTIME["sys_prefix"]' in runner
@@ -618,6 +711,19 @@ def test_launcher_and_runtime_bind_shared_environment_and_outer_budget() -> None
     assert 'tracker.enter("compute", RESOURCE_BOUNDS["compute_timeout_seconds"])' in runner
     assert 'tracker.enter("audit", RESOURCE_BOUNDS["audit_timeout_seconds"])' in runner
     assert 'tracker.enter("failure_audit", RESOURCE_BOUNDS["failure_audit_timeout_seconds"])' in runner
+    assert "validate_recovery_antecedent_assets(base, antecedent)" in runner
+
+
+def test_object_inventory_robustness_proof_harness_is_fresh_process_and_atomic() -> None:
+    proof = (
+        ROOT / "scripts/latent/prove_h_iter_phase0_object_inventory_robustness_v1.py"
+    ).read_text()
+    assert 'for arm_name in ("pre_torch", "torch_present")' in proof
+    assert "candidate_bytes != baseline_bytes" in proof
+    assert "runner.gc.get_objects = original_get_objects" in proof
+    assert '"scientific_exposure": False' in proof
+    assert 'temporary = output / ".proof.json.tmp"' in proof
+    assert "os.fsync(descriptor)" in proof and "os.replace(temporary, target)" in proof
 
 
 def test_network_guard_and_pre_torch_census_in_fresh_process(tmp_path: Path) -> None:

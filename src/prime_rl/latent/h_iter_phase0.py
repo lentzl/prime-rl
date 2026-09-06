@@ -10,7 +10,7 @@ from collections.abc import Iterable
 from typing import Any
 
 MECHANISM = "q35-2b-h-iter-phase0-generator-locality-v1"
-RUN_IDENTITY = "h-iter-phase0-generator-locality-run1"
+RUN_IDENTITY = "h-iter-phase0-deterministic-terminal-recovery-run1"
 BANK_SCHEMA = "q35-2b-h-iter-bank/v1"
 RECEIVER_SCHEMA = "q35-2b-h-iter-receiver-input/v1"
 SUPERVISION_SCHEMA = "q35-2b-h-iter-supervision/v1"
@@ -24,6 +24,17 @@ TAMPER_SCHEMA = "prime-rl/latent-h-iter-phase0-tamper-schedule/v1"
 ARTIFACT_DIR_REL = "experiments/qwen35-2b-latent-workspace-v1/h-iter-phase0-generator-locality-v1"
 PREEXECUTION_EVIDENCE_SCHEMA = "prime-rl/latent-h-iter-phase0-preexecution-evidence/v1"
 PREEXECUTION_EVIDENCE_SHA256 = "8e5e39b4e0204e16c120cddafa1805f8ed5ad30db20470335b3a9570e34fd36c"
+RECOVERY_ANTECEDENT_SCHEMA = "prime-rl/latent-h-iter-phase0-deterministic-recovery-antecedent/v1"
+RECOVERY_ANTECEDENT_SHA256 = "ccda7a124238f4ba28912f62d82872942ca293dbd782a3b54b99f11679ac6777"
+ROBUSTNESS_PROOF_SCHEMA = "prime-rl/latent-h-iter-phase0-object-inventory-robustness-proof/v1"
+ROBUSTNESS_PROOF_STATUS = "h_iter_phase0_object_inventory_robustness_validated"
+ROBUSTNESS_PROOF_RUN_ID = "h-iter-phase0-object-inventory-robustness-proof-run1"
+RECOVERY_CLAIM = "deterministic_terminal_recovery_not_independent_scientific_replication"
+ALLOWED_RECOVERY_RUNS = 1
+SCIENTIFIC_SURFACE_BUILDER_SHA256 = "2a560b609639efa56e5b19616c7597f942ea4ade24fbce6058ad9181ff577ee7"
+SCIENTIFIC_SURFACE_BASELINE_FILE_SHA256 = "3e34288a365ed52e0ae6f5d3b8a2245aec246f5b577cb81aebc7d365d99632e2"
+SCIENTIFIC_SURFACE_BASELINE_INTERNAL_SHA256 = "bef2a3772c61ef40cfd886d8d9ea408bd75ef59764b100136effeb16edec9a4d"
+SCIENTIFIC_SURFACE_BASELINE_BYTES = 215904
 
 NODE_COUNT = 24
 FEATURE_DIM = 4
@@ -1338,7 +1349,7 @@ RESOURCE_BOUNDS = {
     "external_postpublication_exit_reserve_seconds": 60,
     "kill_after_enforcement_grace_seconds": 60,
     "network": False,
-    "output_root": "/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1",
+    "output_root": "/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-deterministic-terminal-recovery-run1",
 }
 PHASE0_AUDITOR_EXPOSURE = {
     "train_rows": 96,
@@ -1386,6 +1397,9 @@ DECISION_BOUNDARY = {
     "phase1_learning_exposure": PHASE1_LEARNING_EXPOSURE,
     "phase0_probe_selection_precommitted": True,
     "phase1_thresholds_present": False,
+    "recovery_claim": RECOVERY_CLAIM,
+    "allowed_recovery_runs": ALLOWED_RECOVERY_RUNS,
+    "independent_scientific_replication": False,
 }
 PHASE_CAP_SECONDS = {
     "compute": 600,
@@ -1440,7 +1454,7 @@ def validate_preexecution_evidence(evidence: dict[str, Any]) -> None:
     expected = {
         "schema_version": PREEXECUTION_EVIDENCE_SCHEMA,
         "mechanism": MECHANISM,
-        "output_namespace": RESOURCE_BOUNDS["output_root"],
+        "output_namespace": "/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1",
         "output_namespace_absent_after_both_attempts": True,
         "retry_boundary": "same_namespace_permitted_only_because_no_namespace_terminal_or_scientific_exposure_exists",
         "attempts": [
@@ -1488,7 +1502,7 @@ def validate_preexecution_evidence(evidence: dict[str, Any]) -> None:
                     "error_type": "InfrastructureInvalid",
                     "error": "Phase-0 output namespace is not exact and fresh",
                     "launcher_output_dir": "/home/ubuntu/rlm/outputs/h-iter-phase0-generator-locality-run1",
-                    "frozen_output_dir": RESOURCE_BOUNDS["output_root"],
+                    "frozen_output_dir": "/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1",
                 },
                 "exposure": {
                     "python_started": True,
@@ -1514,6 +1528,31 @@ def validate_preexecution_evidence(evidence: dict[str, Any]) -> None:
         raise ContractError("Phase-0 preexecution evidence differs")
     if evidence["evidence_sha256"] != canonical_sha256(evidence, omit="evidence_sha256"):
         raise ContractError("Phase-0 preexecution evidence self hash differs")
+
+
+def validate_recovery_antecedent(evidence: dict[str, Any]) -> None:
+    if canonical_sha256(evidence, omit="antecedent_sha256") != RECOVERY_ANTECEDENT_SHA256:
+        raise ContractError("Phase-0 recovery antecedent canonical hash differs")
+    if evidence.get("antecedent_sha256") != RECOVERY_ANTECEDENT_SHA256:
+        raise ContractError("Phase-0 recovery antecedent self hash differs")
+    if evidence.get("schema_version") != RECOVERY_ANTECEDENT_SCHEMA:
+        raise ContractError("Phase-0 recovery antecedent schema differs")
+    if evidence.get("status") != "terminal_contract_invalid_after_complete_phase0_operations":
+        raise ContractError("Phase-0 recovery antecedent status differs")
+    if evidence.get("claim") != RECOVERY_CLAIM or evidence.get("allowed_recovery_runs") != 1:
+        raise ContractError("Phase-0 recovery authorization differs")
+    if evidence.get("antecedent_assets") != [
+        {
+            "path": "attempt3-terminal-invalid.exit.txt",
+            "sha256": "53c234e5e8472b6ac51c1ae1cab3fe06fad053beb8ebfd8977b010655bfdd3c3",
+        },
+        {
+            "path": "attempt3-terminal-invalid.log.txt",
+            "sha256": "ee42c39b03600ac070cb19a9fba1e7e5a56c53bab53c427d208ea6a144056c45",
+        },
+        {"path": "deterministic-recovery-antecedent.json", "sha256_role": "self"},
+    ]:
+        raise ContractError("Phase-0 recovery antecedent asset order differs")
 
 
 def validate_terminal_entry_timing(value: object, prior_exit: int, boundary: str) -> None:
@@ -1844,6 +1883,8 @@ def validate_proof(
         "pretrained_model_objects",
         "tokenizer_objects",
         "optimizer_objects",
+        "uninspectable_count",
+        "census_errors",
         "object_census_method",
         "cuda_observation_method",
         "relevant_modules_absent_for_preimport_inference",
@@ -1871,10 +1912,19 @@ def validate_proof(
         or safety.get("pretrained_model_objects") != 0
         or safety.get("tokenizer_objects") != 0
         or safety.get("optimizer_objects") != 0
+        or safety.get("uninspectable_count") != 0
+        or safety.get("census_errors") != []
         or safety.get("output_inventory_before_terminal") != []
         or safety.get("static_forbidden_model_call_sites") != []
     ):
         raise ContractError("model/optimizer object appeared in Phase-0")
+    if (
+        not isinstance(safety["uninspectable_count"], int)
+        or isinstance(safety["uninspectable_count"], bool)
+        or safety["uninspectable_count"] != 0
+        or safety["census_errors"] != []
+    ):
+        raise ContractError("Phase-0 success census-error evidence differs")
     if safety["phase0_auditor_opened"] != PHASE0_AUDITOR_EXPOSURE:
         raise ContractError("Phase-0 auditor exposure differs")
     if safety["phase1_learning_exposure"] != PHASE1_LEARNING_EXPOSURE:
@@ -2098,6 +2148,8 @@ def validate_failure(
         "pretrained_model_objects",
         "tokenizer_objects",
         "optimizer_objects",
+        "uninspectable_count",
+        "census_errors",
         "output_inventory",
         "candidate_files",
         "checkpoint_files",
@@ -2117,6 +2169,8 @@ def validate_failure(
         or safety["pretrained_model_objects"] != 0
         or safety["tokenizer_objects"] != 0
         or safety["optimizer_objects"] != 0
+        or safety["uninspectable_count"] != 0
+        or safety["census_errors"] != []
         or safety["output_inventory"] != []
         or safety["candidate_files"] != []
         or safety["checkpoint_files"] != []
@@ -2136,6 +2190,26 @@ def validate_failure(
     for key in ("pretrained_model_objects", "tokenizer_objects", "optimizer_objects"):
         if not isinstance(safety[key], int) or isinstance(safety[key], bool) or safety[key] < 0:
             raise ContractError("Phase-0 failure object count differs")
+    if (
+        not isinstance(safety["uninspectable_count"], int)
+        or isinstance(safety["uninspectable_count"], bool)
+        or safety["uninspectable_count"] < 0
+        or not isinstance(safety["census_errors"], list)
+        or safety["uninspectable_count"] != len(safety["census_errors"])
+        or any(
+            not isinstance(row, dict)
+            or set(row) != {"object_index", "error_type", "error"}
+            or not isinstance(row["object_index"], int)
+            or isinstance(row["object_index"], bool)
+            or row["object_index"] < 0
+            or not isinstance(row["error_type"], str)
+            or not row["error_type"]
+            or not isinstance(row["error"], str)
+            or not row["error"]
+            for row in safety["census_errors"]
+        )
+    ):
+        raise ContractError("Phase-0 failure census-error evidence differs")
     if safety["object_census_method"] != "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes":
         raise ContractError("Phase-0 failure object census method differs")
     if safety["torch_imported"] is False:

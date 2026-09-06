@@ -1,0 +1,30 @@
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 980, in main
+    proof, context = run(args, ledger, network_guard)
+                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 701, in run
+    safety = safety_evidence(torch, repo, args.output_dir, network_guard)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 486, in safety_evidence
+    observed = object_inventory(torch, output_dir)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 453, in object_inventory
+    if value_type.__module__.startswith("transformers.tokenization"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'getset_descriptor' object has no attribute 'startswith'
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 1046, in <module>
+    main()
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 1012, in main
+    failure = failure_payload(args, error, status, ledger, tracker, network_guard)
+              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 913, in failure_payload
+    inventory = object_inventory(torch, args.output_dir)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1/scripts/latent/run_h_iter_phase0_generator_locality_v1.py", line 453, in object_inventory
+    if value_type.__module__.startswith("transformers.tokenization"):
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'getset_descriptor' object has no attribute 'startswith'
