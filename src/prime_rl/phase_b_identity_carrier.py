@@ -169,8 +169,13 @@ def validate_hic0_terminal_receipt(
         receipt.get("plan_sha256") != plan.get("_file_sha256")
         or receipt.get("execution_commit") != execution_commit
         or receipt.get("selection_sha256") != plan.get("diagnostic_bank", {}).get("selection_sha256")
+        or receipt.get("run_identity") != plan.get("run_identity")
+        or receipt.get("bound_run1_failure_file_sha256")
+        != plan.get("run1_failure_dependency", {}).get("failure_file_sha256")
+        or receipt.get("bound_run1_failure_internal_receipt_sha256")
+        != plan.get("run1_failure_dependency", {}).get("failure_internal_receipt_sha256")
     ):
-        raise PhaseBContractError("B-HIC0 terminal plan, commit, or selection binding differs")
+        raise PhaseBContractError("B-HIC0 terminal plan, commit, selection, or superseded-failure binding differs")
     expected_immutable = {"plan": plan.get("_file_sha256"), **plan.get("immutable_input_hashes", {})}
     if success_file:
         rows = receipt.get("rows")

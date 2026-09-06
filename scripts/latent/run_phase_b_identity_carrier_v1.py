@@ -151,6 +151,14 @@ def _validate_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
         raise PhaseBContractError("B-HIC0 plan schema differs")
     if plan.get("status") != "frozen_pending_independent_review":
         raise PhaseBContractError("B-HIC0 plan is not frozen")
+    if (
+        plan.get("run_identity"),
+        plan.get("supersedes_run_identity"),
+    ) != (
+        "b-hic0-identity-carrier-r1",
+        "b-hic0-identity-carrier-run1",
+    ):
+        raise PhaseBContractError("B-HIC0-R1 run identity differs")
     if plan.get("plan_sha256") != _canonical_plan_hash(plan):
         raise PhaseBContractError("B-HIC0 internal plan hash differs")
     if file_sha256(args.plan) != args.authorized_plan_sha256:
@@ -1002,6 +1010,9 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
         "disposition": nomination["disposition"],
         "claim_class": "zero_update_identity_carrier_causal_diagnostic_nomination_only",
         "execution_commit": execution_commit,
+        "run_identity": plan["run_identity"],
+        "bound_run1_failure_file_sha256": plan["run1_failure_dependency"]["failure_file_sha256"],
+        "bound_run1_failure_internal_receipt_sha256": plan["run1_failure_dependency"]["failure_internal_receipt_sha256"],
         "saved_model_state": False,
         "B1R_candidates_reused": False,
         "optimizer": None,
@@ -1163,7 +1174,7 @@ def main() -> int:
         if args.output_dir.is_dir():
             signal.alarm(AUDIT_SECONDS)
             post = _failure_audit(plan, args, audit)
-            failure = {"schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1", "status": disposition, "terminal": "FAILURE", "disposition": disposition, "failure_class": failure_class, "error_type": type(error).__name__, "error": str(error), "elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "execution_commit": args.execution_commit, "selection_sha256": file_sha256(args.selection), "model_loaded": audit.get("model") is not None, "saved_model_state": False, "B1R_candidates_reused": False, "optimizer": None, "optimizer_updates": 0, "generation": False, "cache": False, "worker_loaded": False, "H176_loaded": False, "strand_a_combined": False, "preflight_resources": plan["_preflight_resources"], "post_failure_hash_audit": post, "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}}
+            failure = {"schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1", "status": disposition, "terminal": "FAILURE", "disposition": disposition, "failure_class": failure_class, "error_type": type(error).__name__, "error": str(error), "elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "execution_commit": args.execution_commit, "selection_sha256": file_sha256(args.selection), "run_identity": plan["run_identity"], "bound_run1_failure_file_sha256": plan["run1_failure_dependency"]["failure_file_sha256"], "bound_run1_failure_internal_receipt_sha256": plan["run1_failure_dependency"]["failure_internal_receipt_sha256"], "model_loaded": audit.get("model") is not None, "saved_model_state": False, "B1R_candidates_reused": False, "optimizer": None, "optimizer_updates": 0, "generation": False, "cache": False, "worker_loaded": False, "H176_loaded": False, "strand_a_combined": False, "preflight_resources": plan["_preflight_resources"], "post_failure_hash_audit": post, "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}}
             failure["receipt_sha256"] = canonical_json_sha256(
                 failure, omitted_fields=("receipt_sha256",)
             )
