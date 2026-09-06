@@ -34,8 +34,8 @@ PROOF_NAME="T0-PREFLIGHT-R1-GUARD-PROOF.json"
 FAILURE_NAME="T0-PREFLIGHT-R1-GUARD-FAILURE.json"
 MEMORY_LABELS=["ENTRY","RUNTIME_VERIFIED","FULL_FREEZE_PREFLIGHT_VERIFIED","ASSETS_PREFLIGHT_VERIFIED","FAILED_START_BOUND","BASELINE_SOURCE_VERIFIED","REPAIRED_SOURCE_VERIFIED","ACTUAL_SOURCE_PASS","GENERATE_REJECTED","SAVE_PRETRAINED_REJECTED","VALIDATION_BANK_REJECTED","HELDOUT_BANK_REJECTED","SAFETY_AUDIT_COMPLETE","TERMINAL_PREWRITE"]
 PROOF_KEYS={"schema_version","status","mechanism","run_identity","execution_commit","mechanism_code_commit","tree_sha256","plan_file_sha256","plan_sha256","runtime","asset_audit","failed_start_binding","source_evidence","case_results","safety","resources","memory","full_freeze","decision_boundary","proof_sha256"}
-PROOF_DECISION={"claim":"preflight_guard_robustness_mechanism_only","independent_scientific_replicate":False,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_or_gpu_authorized":False,"scientific_exposure":False,"validation_or_heldout_opened":False,"training":False,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}
-STATE:dict[str,Any]={"stage":"startup","memory":[],"network_attempts":0}
+PROOF_DECISION={"claim":"preflight_guard_robustness_mechanism_only","independent_scientific_replicate":False,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_or_gpu_authorized":False,"scientific_exposure":False,"validation_or_heldout_opened":False,"training_or_update":False,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}
+STATE:dict[str,Any]={"stage":"startup","memory":[],"network_attempts":0,"evidence":{},"phase_start_ns":None,"compute_enter_ns":None,"compute_exit_ns":None,"audit_enter_ns":None,"audit_exit_ns":None,"terminal_enter_ns":None,"terminal_validated":False}
 
 class T0PreflightR1GuardProofError(RuntimeError): pass
 class T0PreflightR1GuardProofBoundaryRejected(RuntimeError): pass
@@ -54,7 +54,9 @@ def _pairs(pairs:list[tuple[str,Any]])->dict[str,Any]:
         if key in value: raise ValueError("duplicate JSON key")
         value[key]=item
     return value
-def git(repo:Path,*args:str)->str: return subprocess.check_output(["git",*args],cwd=repo,text=True).strip()
+def git(repo:Path,*args:str)->str:
+    try: return subprocess.check_output(["git",*args],cwd=repo,text=True).strip()
+    except BaseException as error: raise InfrastructureInvalid("T0 guard git provenance unavailable") from error
 def rss()->int: return int(resource.getrusage(resource.RUSAGE_SELF).ru_maxrss)*1024
 def mark(label:str)->None:
     if label!=MEMORY_LABELS[len(STATE["memory"])]: raise RuntimeError("T0 guard proof memory order differs")
@@ -74,7 +76,7 @@ def asset_entries(repo:Path)->list[dict[str,Any]]:
     rows=[]
     for relative in sorted(GUARD_PROOF_ASSETS):
         path=repo/relative
-        if not path.is_file() or path.is_symlink(): raise RuntimeError(f"T0 guard unsafe asset {relative}")
+        if not path.is_file() or path.is_symlink(): raise InfrastructureInvalid(f"T0 guard unsafe asset {relative}")
         rows.append({"path":relative,"sha256":file_sha(path),"bytes":path.stat().st_size})
     return rows
 
@@ -84,6 +86,34 @@ def verify_runtime(repo:Path,plan:dict[str,Any],output:Path)->None:
     if observed!=runtime or file_sha(repo/"pyproject.toml")!=runtime["shared_project_pyproject_sha256"] or file_sha(repo/"uv.lock")!=runtime["shared_project_uv_lock_sha256"]: raise InfrastructureInvalid("T0 guard proof runtime differs")
     available=int(os.sysconf("SC_AVPHYS_PAGES"))*int(os.sysconf("SC_PAGE_SIZE")); free_disk=os.statvfs(output.parent).f_bavail*os.statvfs(output.parent).f_frsize
     if available<8*(1<<30) or free_disk<8*(1<<30): raise InfrastructureInvalid("T0 guard proof resources unavailable")
+
+TIMING_CONSTANTS={"outer_seconds":720,"startup_seconds":60,"compute_seconds":300,"compute_alarm_seconds":299,"audit_seconds":120,"audit_alarm_seconds":119,"failure_seconds":90,"failure_alarm_seconds":89,"terminal_seconds":30,"terminal_alarm_seconds":29,"postexit_seconds":30,"reserve_seconds":90,"success_terminal_entry_max_seconds":480,"compute_failure_terminal_entry_max_seconds":450,"audit_failure_terminal_entry_max_seconds":570,"prior_terminal_failure_entry_max_seconds":600}
+
+def timing_evidence(*,failure_enter_ns:int|None=None,failure_exit_ns:int|None=None)->dict[str,Any]:
+    value={**TIMING_CONSTANTS,"compute_enter_ns":STATE["compute_enter_ns"],"compute_exit_ns":STATE["compute_exit_ns"],"compute_duration_ns":None,"audit_enter_ns":STATE["audit_enter_ns"],"audit_exit_ns":STATE["audit_exit_ns"],"audit_duration_ns":None,"failure_enter_ns":failure_enter_ns,"failure_exit_ns":failure_exit_ns,"failure_duration_ns":None,"terminal_enter_ns":STATE["terminal_enter_ns"],"prepublication_elapsed_ns":STATE["terminal_enter_ns"]}
+    for phase in ("compute","audit","failure"):
+        entered=value[f"{phase}_enter_ns"]; exited=value[f"{phase}_exit_ns"]
+        value[f"{phase}_duration_ns"]=None if entered is None or exited is None else exited-entered
+    return value
+
+def validate_timing(value:dict[str,Any],*,success:bool)->None:
+    expected=set(TIMING_CONSTANTS)|{"compute_enter_ns","compute_exit_ns","compute_duration_ns","audit_enter_ns","audit_exit_ns","audit_duration_ns","failure_enter_ns","failure_exit_ns","failure_duration_ns","terminal_enter_ns","prepublication_elapsed_ns"}
+    if set(value)!=expected or any(value[key]!=item for key,item in TIMING_CONSTANTS.items()): raise RuntimeError("T0 guard timing contract differs")
+    for phase,cap in (("compute",300),("audit",120),("failure",90)):
+        entered=value[f"{phase}_enter_ns"]; exited=value[f"{phase}_exit_ns"]; duration=value[f"{phase}_duration_ns"]
+        if entered is None or exited is None:
+            if duration is not None: raise RuntimeError("T0 guard timing null relation differs")
+        elif not all(isinstance(x,int) and not isinstance(x,bool) and x>=0 for x in (entered,exited,duration)) or exited<entered or duration!=exited-entered or duration>cap*1_000_000_000: raise RuntimeError("T0 guard timing duration differs")
+    terminal=value["terminal_enter_ns"]
+    if not isinstance(terminal,int) or isinstance(terminal,bool) or terminal<0 or value["prepublication_elapsed_ns"]!=terminal: raise RuntimeError("T0 guard terminal timing differs")
+    if success:
+        if value["compute_enter_ns"]!=0 or value["compute_exit_ns"]!=value["audit_enter_ns"] or value["audit_exit_ns"]!=terminal or value["failure_enter_ns"] is not None or terminal>480_000_000_000: raise RuntimeError("T0 guard success timing sequence differs")
+    else:
+        if value["compute_enter_ns"]!=0 or value["compute_exit_ns"] is None or value["failure_enter_ns"] is None or value["failure_exit_ns"]!=terminal or value["failure_enter_ns"]>value["failure_exit_ns"]: raise RuntimeError("T0 guard failure timing sequence differs")
+        if value["audit_enter_ns"] is None:
+            if value["audit_exit_ns"] is not None or value["compute_exit_ns"]!=value["failure_enter_ns"] or terminal>450_000_000_000: raise RuntimeError("T0 guard compute failure timing differs")
+        else:
+            if value["compute_exit_ns"]!=value["audit_enter_ns"] or value["audit_exit_ns"]!=value["failure_enter_ns"] or terminal>600_000_000_000: raise RuntimeError("T0 guard audit failure timing differs")
 
 class NormalizeGuard(ast.NodeTransformer):
     def visit_FunctionDef(self,node:ast.FunctionDef)->Any:
@@ -113,7 +143,7 @@ def load_guard(source:str):
 def case_results(source:str)->tuple[list[dict[str,Any]],str]:
     guard,guard_hash=load_guard(source)
     validation_name="-".join(("validation","bank.json")); heldout_name="-".join(("heldout","bank.json"))
-    mutations=[("production_source_pass","production",source,"pass"),("generate_call_rejected","append_attribute_call",source+"\nobject().generate()\n","reject"),("save_pretrained_call_rejected","append_attribute_call",source+"\nobject().save_pretrained('x')\n","reject"),("validation_bank_literal_rejected","append_string_constant",source+f"\nFORBIDDEN_FIXTURE={validation_name!r}\n","reject"),("heldout_bank_literal_rejected","append_string_constant",source+f"\nFORBIDDEN_FIXTURE={'/tmp/'+heldout_name!r}\n","reject")]
+    mutations=[("production_source_accepts","production",source,"pass"),("generate_call_rejected","append_attribute_call",source+"\nobject().generate()\n","reject"),("save_pretrained_call_rejected","append_attribute_call",source+"\nobject().save_pretrained('x')\n","reject"),("validation_bank_literal_rejected","append_string_constant",source+f"\nFORBIDDEN_FIXTURE={validation_name!r}\n","reject"),("heldout_bank_literal_rejected","append_string_constant",source+f"\nFORBIDDEN_FIXTURE={'/tmp/'+heldout_name!r}\n","reject")]
     rows=[]
     for index,(name,kind,mutated,expected) in enumerate(mutations):
         error=None
@@ -151,7 +181,7 @@ def validate_proof(value:dict[str,Any],repo:Path|None=None)->None:
     rows=value["case_results"]
     row_keys={"index","name","mutation_kind","mutated_source_sha256","expected_outcome","observed_outcome","observed_error_type","qualifies"}
     if not isinstance(rows,list) or len(rows)!=5 or [r.get("name") for r in rows]!=GUARD_CASE_NAMES or [r.get("index") for r in rows]!=list(range(5)) or any(set(r)!=row_keys for r in rows) or [r["expected_outcome"] for r in rows]!=["pass","reject","reject","reject","reject"] or [r["observed_outcome"] for r in rows]!=["pass","reject","reject","reject","reject"] or [r["observed_error_type"] for r in rows]!=[None,"RuntimeError","RuntimeError","RuntimeError","RuntimeError"] or not all(r.get("qualifies") is True for r in rows): raise RuntimeError("T0 guard proof cases differ")
-    expected_safety={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh":True,"object_census_errors":0,"object_census_uninspectable":0}
+    expected_safety={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"train_opens":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh_before":True,"object_census_errors":0,"object_census_uninspectable":0}
     if value["safety"]!=expected_safety: raise RuntimeError("T0 guard proof safety differs")
     memory=value["memory"]
     if set(memory)!={"expected_labels","rows","label_sha256","complete"} or memory["expected_labels"]!=MEMORY_LABELS or [row.get("label") for row in memory["rows"]]!=MEMORY_LABELS or memory["label_sha256"]!=sha(canonical_json(MEMORY_LABELS)) or memory["complete"] is not True: raise RuntimeError("T0 guard proof memory differs")
@@ -163,9 +193,13 @@ def validate_proof(value:dict[str,Any],repo:Path|None=None)->None:
     if set(audit)!=audit_keys or audit["target_count"]!=46 or audit["pre_entries"]!=audit["post_entries"] or len(audit["pre_entries"])!=46 or any(set(row)!=entry_keys for row in audit["pre_entries"]) or audit["pre_sha256"]!=sha(canonical_json(audit["pre_entries"])) or audit["post_sha256"]!=sha(canonical_json(audit["post_entries"])) or audit["all_exact"] is not True: raise RuntimeError("T0 guard proof asset closure differs")
     resources=value["resources"]
     if set(resources)!={"minimum_ram_gib","minimum_disk_gib","maximum_artifact_bytes","timing","observed_rss_peak_bytes","artifact_bytes"} or resources["minimum_ram_gib"]!=8 or resources["minimum_disk_gib"]!=8 or resources["maximum_artifact_bytes"]!=1048576 or not isinstance(resources["observed_rss_peak_bytes"],int) or resources["observed_rss_peak_bytes"]<0 or not isinstance(resources["artifact_bytes"],int) or not 0<=resources["artifact_bytes"]<=1048576: raise RuntimeError("T0 guard proof resources differ")
+    validate_timing(resources["timing"],success=True)
+    if resources["artifact_bytes"]!=len(canonical_json(value)+b"\n") or resources["artifact_bytes"]<=0: raise RuntimeError("T0 guard proof artifact size differs")
     freeze=value["full_freeze"]
     if set(freeze)!={"head_before","head_after","tree_before","tree_after","clean_before","clean_after","assets_pre_sha256","assets_post_sha256","complete"} or freeze["head_before"]!=value["execution_commit"] or freeze["head_before"]!=freeze["head_after"] or freeze["tree_before"]!=value["tree_sha256"] or freeze["tree_before"]!=freeze["tree_after"] or freeze["clean_before"] is not True or freeze["clean_after"] is not True or freeze["assets_pre_sha256"]!=audit["pre_sha256"] or freeze["assets_post_sha256"]!=audit["post_sha256"] or freeze["complete"] is not True: raise RuntimeError("T0 guard proof freeze differs")
     if repo is not None:
+        plan_path=repo/PLAN_REL; plan=strict_loads(plan_path.read_bytes()); validate_guard_plan(plan,repo=repo)
+        if file_sha(plan_path)!=value["plan_file_sha256"] or plan["plan_sha256"]!=value["plan_sha256"] or plan["mechanism_code_commit"]!=value["mechanism_code_commit"] or git(repo,"rev-parse","HEAD")!=value["execution_commit"] or git(repo,"rev-parse","HEAD^")!=value["mechanism_code_commit"] or git(repo,"rev-parse","HEAD^{tree}")!=value["tree_sha256"]: raise RuntimeError("T0 guard proof authority replay differs")
         repaired=(repo/RUNNER_REL).read_text(); baseline=subprocess.check_output(["git","show",f"67b21d2ccd7cc3189154f67a80fe8db6abd3ec7b:{RUNNER_REL}"],cwd=repo).decode(); expected_rows,guard_hash=case_results(repaired); baseline_hash,baseline_nodes=normalized_source(baseline); repaired_hash,repaired_nodes=normalized_source(repaired)
         if rows!=expected_rows or baseline_nodes!=repaired_nodes or source!={"baseline_runner_file_sha256":sha(baseline.encode()),"repaired_runner_file_sha256":sha(repaired.encode()),"baseline_normalized_ast_sha256":baseline_hash,"repaired_normalized_ast_sha256":repaired_hash,"normalized_ast_equal":True,"guard_function_ast_sha256":guard_hash,"added_top_level_functions":["validate_static_exposure_source"],"full_forbidden_literals_absent_from_repaired_source":all(name not in repaired for name in ("-".join(("validation","bank.json")),"-".join(("heldout","bank.json")))),"only_allowed_surface_changed":True}: raise RuntimeError("T0 guard proof source replay differs")
         if asset_entries(repo)!=audit["pre_entries"]: raise RuntimeError("T0 guard proof asset replay differs")
@@ -179,37 +213,119 @@ def validate_failure(value:dict[str,Any])->None:
     if value["stage"] not in stages or value["execution_progress"]!={"stage":value["stage"],"memory_rows_completed":len(value["memory"]["rows"])}: raise RuntimeError("T0 guard failure progress differs")
     memory=value["memory"]
     if memory["expected_labels"]!=MEMORY_LABELS or [row.get("label") for row in memory["rows"]]!=MEMORY_LABELS[:len(memory["rows"])] or memory["label_sha256"]!=sha(canonical_json(MEMORY_LABELS)) or memory["complete"] is not (len(memory["rows"])==14): raise RuntimeError("T0 guard failure memory differs")
+    bounds={"startup":(0,0),"runtime":(1,2),"assets":(3,4),"failed_start":(4,5),"baseline_source":(5,6),"repaired_source":(6,7),"cases":(7,12),"safety":(12,13),"audit":(13,14),"terminal_publication":(14,14)}
+    if not bounds[value["stage"]][0]<=len(memory["rows"])<=bounds[value["stage"]][1]: raise RuntimeError("T0 guard failure memory stage differs")
+    for index,row in enumerate(memory["rows"]):
+        if set(row)!={"index","label","rss_bytes"} or row["index"]!=index or not isinstance(row["rss_bytes"],int) or row["rss_bytes"]<0: raise RuntimeError("T0 guard failure memory row differs")
+    required=(("runtime",2),("asset_audit",4),("failed_start_binding",5),("source_evidence",7),("full_freeze",14))
+    for field,milestone in required:
+        if len(memory["rows"])>=milestone and value[field] is None: raise RuntimeError(f"T0 guard failure {field} missing")
+        early_allowed=(field=="asset_audit" and value["stage"]=="assets") or (field=="failed_start_binding" and value["stage"]=="failed_start")
+        if len(memory["rows"])<milestone and value[field] is not None and not early_allowed: raise RuntimeError(f"T0 guard failure {field} premature")
+    cases_reached=stages.index(value["stage"])>=stages.index("cases")
+    if (value["case_results"] is not None) is not cases_reached: raise RuntimeError("T0 guard failure case evidence presence differs")
+    if value["decision_boundary"]!=PROOF_DECISION or not isinstance(value["execution_commit"],str) or len(value["execution_commit"])!=40 or not isinstance(value["plan_file_sha256"],str) or len(value["plan_file_sha256"])!=64: raise RuntimeError("T0 guard failure authority differs")
+    expected_runtime={"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","torch":"2.11.0+cu128","transformers":"5.6.2","tokenizers":"0.22.2","flash_linear_attention":"0.5.2","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5","cuda_visible_devices":""}
+    if value["runtime"] is not None and value["runtime"]!=expected_runtime: raise RuntimeError("T0 guard failure runtime differs")
+    if value["runtime"] is not None and (not isinstance(value["mechanism_code_commit"],str) or len(value["mechanism_code_commit"])!=40 or not isinstance(value["plan_sha256"],str) or len(value["plan_sha256"])!=64): raise RuntimeError("T0 guard failure plan authority differs")
+    if len(memory["rows"])>=3 and (not isinstance(value["tree_sha256"],str) or len(value["tree_sha256"])!=40): raise RuntimeError("T0 guard failure provenance differs")
+    audit=value["asset_audit"]
+    if audit is not None:
+        if set(audit)!={"target_count","pre_entries","pre_sha256","post_entries","post_sha256","all_exact"} or audit["target_count"]!=46 or audit["pre_sha256"]!=sha(canonical_json(audit["pre_entries"])): raise RuntimeError("T0 guard failure asset evidence differs")
+        if len(audit["pre_entries"])!=46 or [row.get("path") for row in audit["pre_entries"]]!=sorted(GUARD_PROOF_ASSETS) or any(set(row)!={"path","sha256","bytes"} or not isinstance(row["bytes"],int) or row["bytes"]<0 or not isinstance(row["sha256"],str) or len(row["sha256"])!=64 for row in audit["pre_entries"]): raise RuntimeError("T0 guard failure asset rows differ")
+        if audit["post_entries"] is None:
+            if audit["post_sha256"] is not None or audit["all_exact"] is not None: raise RuntimeError("T0 guard failure asset null relation differs")
+        elif audit["post_sha256"]!=sha(canonical_json(audit["post_entries"])) or audit["all_exact"] is not (audit["pre_entries"]==audit["post_entries"]): raise RuntimeError("T0 guard failure asset postflight differs")
+    if value["failed_start_binding"] is not None and value["failed_start_binding"]!=FAILED_START_BINDING: raise RuntimeError("T0 guard failure antecedent differs")
+    if value["source_evidence"] is not None:
+        source=value["source_evidence"]
+        if set(source)!={"baseline_runner_file_sha256","repaired_runner_file_sha256","baseline_normalized_ast_sha256","repaired_normalized_ast_sha256","normalized_ast_equal","guard_function_ast_sha256","added_top_level_functions","full_forbidden_literals_absent_from_repaired_source","only_allowed_surface_changed"}: raise RuntimeError("T0 guard failure source evidence differs")
+        if source["baseline_runner_file_sha256"]!="d6f8fcfb153e81c6aaf5faa42caf1700abba25a0594108ea8db4837034ca6bee" or source["repaired_runner_file_sha256"]!="29a7cb25cd3ec5c909716bbf30b35254423f1a9e159ec48134b8ec31fae0ab34" or source["added_top_level_functions"]!=["validate_static_exposure_source"]: raise RuntimeError("T0 guard failure source identity differs")
+    if value["case_results"] is not None:
+        rows=value["case_results"]
+        row_keys={"index","name","mutation_kind","mutated_source_sha256","expected_outcome","observed_outcome","observed_error_type","qualifies"}
+        if len(rows)!=5 or [row.get("index") for row in rows]!=list(range(5)) or [row.get("name") for row in rows]!=GUARD_CASE_NAMES or any(set(row)!=row_keys for row in rows): raise RuntimeError("T0 guard failure cases differ")
+    safety=value["safety"]
+    positive=False
+    if safety is not None:
+        keys={"cuda_visible_devices","cuda_initialized","torch_imported","transformers_imported","tokenizer_loaded","model_loaded","optimizer_constructed","scientific_forwards","training_operations","train_opens","validation_opens","heldout_opens","network_attempts","output_namespace_fresh_before","object_census_errors","object_census_uninspectable"}
+        if set(safety)!=keys: raise RuntimeError("T0 guard failure safety keyset differs")
+        positive=any((safety["cuda_initialized"],safety["torch_imported"],safety["transformers_imported"],safety["tokenizer_loaded"],safety["model_loaded"],safety["optimizer_constructed"],safety["scientific_forwards"],safety["training_operations"],safety["train_opens"],safety["validation_opens"],safety["heldout_opens"],safety["network_attempts"]))
+        census=safety["object_census_errors"]>0 or safety["object_census_uninspectable"]>0
+        if census and value["status"]!="infrastructure_invalid": raise RuntimeError("T0 guard census degradation masked")
+    if len(memory["rows"])>=13 and safety is None: raise RuntimeError("T0 guard failure safety missing")
+    if len(memory["rows"])<13 and safety is not None and value["stage"]!="safety" and not positive: raise RuntimeError("T0 guard failure safety premature")
+    if positive is not (value["status"]=="h_iter_phase1_t0_preflight_r1_guard_proof_boundary_rejected"): raise RuntimeError("T0 guard boundary evidence/status differs")
+    resources=value["resources"]
+    if set(resources)!={"minimum_ram_gib","minimum_disk_gib","maximum_artifact_bytes","timing","observed_rss_peak_bytes","artifact_bytes"} or resources["minimum_ram_gib"]!=8 or resources["minimum_disk_gib"]!=8 or resources["maximum_artifact_bytes"]!=1048576: raise RuntimeError("T0 guard failure resources differ")
+    validate_timing(resources["timing"],success=False)
+    if resources["artifact_bytes"]!=len(canonical_json(value)+b"\n") or resources["artifact_bytes"]<=0 or resources["artifact_bytes"]>1048576: raise RuntimeError("T0 guard failure artifact size differs")
+    if value["full_freeze"] is not None:
+        freeze=value["full_freeze"]
+        if set(freeze)!={"head_before","head_after","tree_before","tree_after","clean_before","clean_after","assets_pre_sha256","assets_post_sha256","complete"}: raise RuntimeError("T0 guard failure freeze differs")
+        if freeze["head_before"]!=value["execution_commit"] or freeze["head_after"]!=freeze["head_before"] or freeze["tree_before"]!=value["tree_sha256"] or freeze["tree_after"]!=freeze["tree_before"] or freeze["clean_before"] is not True or freeze["clean_after"] is not True or freeze["assets_pre_sha256"]!=audit["pre_sha256"] or freeze["assets_post_sha256"]!=audit["post_sha256"] or freeze["complete"] is not True: raise RuntimeError("T0 guard failure freeze closure differs")
     if value["status"]=="infrastructure_invalid" and not value["audit_errors"]: raise RuntimeError("T0 guard infrastructure evidence missing")
     if value["status"]!="infrastructure_invalid" and value["audit_errors"]!=[]: raise RuntimeError("T0 guard noninfra audit differs")
     if value["failure_sha256"]!=sha(canonical_json({k:v for k,v in value.items() if k!="failure_sha256"})): raise RuntimeError("T0 guard failure self hash differs")
 
+def finalize_terminal(value:dict[str,Any],hash_field:str)->dict[str,Any]:
+    value[hash_field]=""
+    for _ in range(12):
+        value[hash_field]=sha(canonical_json({k:v for k,v in value.items() if k!=hash_field}))
+        size=len(canonical_json(value)+b"\n")
+        if value["resources"]["artifact_bytes"]==size:
+            value[hash_field]=sha(canonical_json({k:v for k,v in value.items() if k!=hash_field}))
+            if len(canonical_json(value)+b"\n")==size: return value
+        value["resources"]["artifact_bytes"]=size
+    raise InfrastructureInvalid("T0 guard terminal artifact size did not converge")
+
 def atomic_terminal(output:Path,name:str,value:dict[str,Any],validator:Any)->None:
     data=canonical_json(value)+b"\n"
-    if len(data)>1048576 or output.exists() or output.is_symlink(): raise RuntimeError("T0 guard proof output differs")
-    output.mkdir(mode=0o700,parents=True); tmp=output/("."+name+".tmp")
+    if len(data)>1048576 or output.is_symlink(): raise InfrastructureInvalid("T0 guard proof output differs")
+    if not output.exists(): output.mkdir(mode=0o700,parents=True)
+    elif not output.is_dir(): raise InfrastructureInvalid("T0 guard proof output differs")
+    inventory=list(output.iterdir())
+    terminals={PROOF_NAME,FAILURE_NAME}&{path.name for path in inventory}
+    if terminals: raise InfrastructureInvalid("T0 guard terminal already exists")
+    for path in inventory:
+        if path.name not in {"."+PROOF_NAME+".tmp","."+FAILURE_NAME+".tmp"} or path.is_symlink() or not path.is_file(): raise InfrastructureInvalid("T0 guard proof output inventory differs")
+        path.unlink()
+    tmp=output/("."+name+".tmp")
     fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
     with os.fdopen(fd,"wb") as stream: stream.write(data); stream.flush(); os.fsync(stream.fileno())
     os.replace(tmp,output/name); dfd=os.open(output,os.O_RDONLY|os.O_DIRECTORY); os.fsync(dfd); os.close(dfd)
-    if (output/name).read_bytes()!=data: raise RuntimeError("T0 guard proof reopen differs")
-    validator(strict_loads(data))
+    reopened=(output/name).read_bytes()
+    if reopened!=data: raise InfrastructureInvalid("T0 guard proof reopen differs")
+    validator(strict_loads(reopened))
+    if sorted(path.name for path in output.iterdir())!=[name]: raise InfrastructureInvalid("T0 guard proof terminal inventory differs")
 
 def run(repo:Path,execution_commit:str,plan_file_sha256:str,output:Path)->None:
-    started=time.monotonic_ns(); mark("ENTRY")
+    started=time.monotonic_ns(); STATE["phase_start_ns"]=started; STATE["compute_enter_ns"]=0; mark("ENTRY")
     STATE["stage"]="runtime"
     plan_path=repo/PLAN_REL
-    if plan_path.is_symlink() or not plan_path.is_file() or file_sha(plan_path)!=plan_file_sha256: raise RuntimeError("T0 guard proof plan differs")
-    plan=strict_loads(plan_path.read_bytes()); validate_guard_plan(plan,repo=repo); verify_runtime(repo,plan,output); mark("RUNTIME_VERIFIED")
+    if plan_path.is_symlink() or not plan_path.is_file() or file_sha(plan_path)!=plan_file_sha256: raise InfrastructureInvalid("T0 guard proof plan differs")
+    try: plan=strict_loads(plan_path.read_bytes()); validate_guard_plan(plan,repo=repo); verify_runtime(repo,plan,output)
+    except InfrastructureInvalid: raise
+    except BaseException as error: raise InfrastructureInvalid("T0 guard proof plan/runtime validation differs") from error
+    STATE["evidence"].update({"plan":plan,"runtime":plan["runtime"]}); mark("RUNTIME_VERIFIED")
     head=git(repo,"rev-parse","HEAD"); tree=git(repo,"rev-parse","HEAD^{tree}"); clean=not bool(git(repo,"status","--porcelain","--untracked-files=all"))
-    if head!=execution_commit or not clean or plan["mechanism_code_commit"]!=head: raise RuntimeError("T0 guard proof freeze differs")
+    STATE["evidence"].update({"head":head,"tree":tree,"clean":clean})
+    if head!=execution_commit or not clean or git(repo,"rev-parse","HEAD^")!=plan["mechanism_code_commit"]: raise InfrastructureInvalid("T0 guard proof freeze differs")
     mark("FULL_FREEZE_PREFLIGHT_VERIFIED"); STATE["stage"]="assets"
     pre=asset_entries(repo); pre_sha=sha(canonical_json(pre))
-    if {row["path"]:row["sha256"] for row in pre}!=plan["asset_sha256"]: raise RuntimeError("T0 guard proof assets differ")
-    mark("ASSETS_PREFLIGHT_VERIFIED"); STATE["stage"]="failed_start"; validate_failed_start(repo); mark("FAILED_START_BOUND"); STATE["stage"]="baseline_source"
+    STATE["evidence"].update({"asset_pre":pre,"asset_pre_sha":pre_sha})
+    if {row["path"]:row["sha256"] for row in pre}!=plan["asset_sha256"]: raise InfrastructureInvalid("T0 guard proof assets differ")
+    mark("ASSETS_PREFLIGHT_VERIFIED"); STATE["stage"]="failed_start"; validate_failed_start(repo); STATE["evidence"]["failed_start_binding"]=FAILED_START_BINDING; mark("FAILED_START_BOUND"); STATE["stage"]="baseline_source"
     baseline=subprocess.check_output(["git","show",f"67b21d2ccd7cc3189154f67a80fe8db6abd3ec7b:{RUNNER_REL}"],cwd=repo).decode()
-    repaired=(repo/RUNNER_REL).read_text(); baseline_hash,baseline_dump=normalized_source(baseline); mark("BASELINE_SOURCE_VERIFIED")
-    repaired_hash,repaired_dump=normalized_source(repaired); mark("REPAIRED_SOURCE_VERIFIED"); STATE["stage"]="cases"
+    repaired=(repo/RUNNER_REL).read_text(); baseline_hash,baseline_dump=normalized_source(baseline); mark("BASELINE_SOURCE_VERIFIED"); STATE["stage"]="repaired_source"
+    repaired_hash,repaired_dump=normalized_source(repaired); mark("REPAIRED_SOURCE_VERIFIED")
+    _,guard_hash=load_guard(repaired)
+    source_evidence={"baseline_runner_file_sha256":sha(baseline.encode()),"repaired_runner_file_sha256":sha(repaired.encode()),"baseline_normalized_ast_sha256":baseline_hash,"repaired_normalized_ast_sha256":repaired_hash,"normalized_ast_equal":baseline_dump==repaired_dump,"guard_function_ast_sha256":guard_hash,"added_top_level_functions":["validate_static_exposure_source"],"full_forbidden_literals_absent_from_repaired_source":all(name not in repaired for name in ("-".join(("validation","bank.json")),"-".join(("heldout","bank.json")))),"only_allowed_surface_changed":baseline_dump==repaired_dump}
+    STATE["evidence"]["source_evidence"]=source_evidence
     if baseline_dump!=repaired_dump: raise RuntimeError("T0 guard normalized source differs")
+    STATE["stage"]="cases"
     rows,guard_hash=case_results(repaired)
+    STATE["evidence"]["case_results"]=rows
     for row,label in zip(rows,MEMORY_LABELS[7:12]):
         if not row["qualifies"]: raise RuntimeError("T0 guard case differs")
         mark(label)
@@ -219,28 +335,50 @@ def run(repo:Path,execution_commit:str,plan_file_sha256:str,output:Path)->None:
             module=type(obj).__module__
             if not isinstance(module,str): uninspectable+=1
         except Exception: errors+=1
-    safety={"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES"),"cuda_initialized":False,"torch_imported":"torch" in sys.modules,"transformers_imported":"transformers" in sys.modules,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"validation_opens":0,"heldout_opens":0,"network_attempts":STATE["network_attempts"],"output_namespace_fresh":not output.exists(),"object_census_errors":errors,"object_census_uninspectable":uninspectable}
-    if any((safety["torch_imported"],safety["transformers_imported"],safety["tokenizer_loaded"],safety["model_loaded"],safety["optimizer_constructed"],safety["scientific_forwards"],safety["training_operations"],safety["validation_opens"],safety["heldout_opens"],safety["network_attempts"])): raise T0PreflightR1GuardProofBoundaryRejected("T0 guard proof boundary exposure observed")
-    if safety!={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh":True,"object_census_errors":0,"object_census_uninspectable":0}: raise InfrastructureInvalid("T0 guard proof safety differs")
-    mark("SAFETY_AUDIT_COMPLETE"); STATE["stage"]="audit"
+    safety={"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES"),"cuda_initialized":False,"torch_imported":"torch" in sys.modules,"transformers_imported":"transformers" in sys.modules,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"train_opens":0,"validation_opens":0,"heldout_opens":0,"network_attempts":STATE["network_attempts"],"output_namespace_fresh_before":not output.exists(),"object_census_errors":errors,"object_census_uninspectable":uninspectable}
+    STATE["evidence"]["safety"]=safety
+    if any((safety["torch_imported"],safety["transformers_imported"],safety["tokenizer_loaded"],safety["model_loaded"],safety["optimizer_constructed"],safety["scientific_forwards"],safety["training_operations"],safety["train_opens"],safety["validation_opens"],safety["heldout_opens"],safety["network_attempts"])): raise T0PreflightR1GuardProofBoundaryRejected("T0 guard proof boundary exposure observed")
+    if safety!={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"train_opens":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh_before":True,"object_census_errors":0,"object_census_uninspectable":0}: raise InfrastructureInvalid("T0 guard proof safety differs")
+    mark("SAFETY_AUDIT_COMPLETE"); STATE["stage"]="audit"; STATE["compute_exit_ns"]=time.monotonic_ns()-started; STATE["audit_enter_ns"]=STATE["compute_exit_ns"]
     signal.alarm(0); signal.alarm(119)
     post=asset_entries(repo); post_sha=sha(canonical_json(post)); head_after=git(repo,"rev-parse","HEAD"); tree_after=git(repo,"rev-parse","HEAD^{tree}"); clean_after=not bool(git(repo,"status","--porcelain","--untracked-files=all"))
-    if pre!=post or head_after!=head or tree_after!=tree or not clean_after: raise RuntimeError("T0 guard proof postflight differs")
-    mark("TERMINAL_PREWRITE")
-    source_evidence={"baseline_runner_file_sha256":sha(baseline.encode()),"repaired_runner_file_sha256":sha(repaired.encode()),"baseline_normalized_ast_sha256":baseline_hash,"repaired_normalized_ast_sha256":repaired_hash,"normalized_ast_equal":True,"guard_function_ast_sha256":guard_hash,"added_top_level_functions":["validate_static_exposure_source"],"full_forbidden_literals_absent_from_repaired_source":all(name not in repaired for name in ("-".join(("validation","bank.json")),"-".join(("heldout","bank.json")))),"only_allowed_surface_changed":True}
-    timing={"outer":720,"startup":60,"compute":300,"compute_alarm":299,"audit":120,"audit_alarm":119,"failure":90,"failure_alarm":89,"terminal":30,"terminal_alarm":29,"postexit":30,"reserve":90,"success_entry":480,"compute_failure_entry":450,"audit_failure_entry":570,"prior_terminal_failure_entry":600}
-    proof={"schema_version":PROOF_SCHEMA,"status":PROOF_STATUS,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":head,"mechanism_code_commit":plan["mechanism_code_commit"],"tree_sha256":tree,"plan_file_sha256":plan_file_sha256,"plan_sha256":plan["plan_sha256"],"runtime":plan["runtime"],"asset_audit":{"target_count":46,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True},"failed_start_binding":FAILED_START_BINDING,"source_evidence":source_evidence,"case_results":rows,"safety":safety,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing,"observed_rss_peak_bytes":rss(),"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":STATE["memory"],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":True},"full_freeze":{"head_before":head,"head_after":head_after,"tree_before":tree,"tree_after":tree_after,"clean_before":clean,"clean_after":clean_after,"assets_pre_sha256":pre_sha,"assets_post_sha256":post_sha,"complete":True},"decision_boundary":PROOF_DECISION,"proof_sha256":""}
-    proof["proof_sha256"]=sha(canonical_json({k:v for k,v in proof.items() if k!="proof_sha256"})); validate_proof(proof,repo); STATE["stage"]="terminal_publication"; signal.alarm(0); signal.alarm(29); atomic_terminal(output,PROOF_NAME,proof,lambda value:validate_proof(value,repo)); signal.alarm(0)
+    if pre!=post or head_after!=head or tree_after!=tree or not clean_after: raise InfrastructureInvalid("T0 guard proof postflight differs")
+    mark("TERMINAL_PREWRITE"); STATE["audit_exit_ns"]=time.monotonic_ns()-started; STATE["terminal_enter_ns"]=STATE["audit_exit_ns"]
+    proof={"schema_version":PROOF_SCHEMA,"status":PROOF_STATUS,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":head,"mechanism_code_commit":plan["mechanism_code_commit"],"tree_sha256":tree,"plan_file_sha256":plan_file_sha256,"plan_sha256":plan["plan_sha256"],"runtime":plan["runtime"],"asset_audit":{"target_count":46,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True},"failed_start_binding":FAILED_START_BINDING,"source_evidence":source_evidence,"case_results":rows,"safety":safety,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing_evidence(),"observed_rss_peak_bytes":rss(),"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":STATE["memory"],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":True},"full_freeze":{"head_before":head,"head_after":head_after,"tree_before":tree,"tree_after":tree_after,"clean_before":clean,"clean_after":clean_after,"assets_pre_sha256":pre_sha,"assets_post_sha256":post_sha,"complete":True},"decision_boundary":PROOF_DECISION,"proof_sha256":""}
+    STATE["evidence"].update({"asset_audit":proof["asset_audit"],"resources":proof["resources"],"full_freeze":proof["full_freeze"]})
+    finalize_terminal(proof,"proof_sha256"); validate_proof(proof,repo); STATE["stage"]="terminal_publication"; signal.alarm(0); signal.alarm(29); atomic_terminal(output,PROOF_NAME,proof,lambda value:validate_proof(value,repo)); STATE["terminal_validated"]=True; signal.alarm(0)
 
 def publish_failure(output:Path,execution_commit:str,plan_file_sha256:str,error:BaseException)->None:
-    if output.exists() or output.is_symlink(): return
+    if output.is_symlink(): raise InfrastructureInvalid("T0 guard failure namespace is symlink")
+    if output.exists():
+        if not output.is_dir(): raise InfrastructureInvalid("T0 guard failure namespace differs")
+        failure=output/FAILURE_NAME; proof=output/PROOF_NAME
+        if failure.exists(): raise InfrastructureInvalid("T0 guard failure terminal already exists")
+        if proof.exists():
+            if STATE["terminal_validated"]: raise InfrastructureInvalid("T0 guard valid proof already exists")
+            if proof.is_symlink() or not proof.is_file(): raise InfrastructureInvalid("T0 guard invalid proof path differs")
+            proof.unlink()
     if isinstance(error,T0PreflightR1GuardProofBoundaryRejected): status="h_iter_phase1_t0_preflight_r1_guard_proof_boundary_rejected"; error_type="T0PreflightR1GuardProofBoundaryRejected"; audit=[]
     elif isinstance(error,(TimeoutError,OSError,MemoryError,InfrastructureInvalid)): status="infrastructure_invalid"; error_type="InfrastructureInvalid"; audit=[f"{type(error).__name__}: {error}"]
     else: status="h_iter_phase1_t0_preflight_r1_guard_proof_incomplete"; error_type="T0PreflightR1GuardProofError"; audit=[]
+    started=STATE["phase_start_ns"]
+    now=0 if started is None else time.monotonic_ns()-started
+    if STATE["compute_enter_ns"] is not None and STATE["compute_exit_ns"] is None: STATE["compute_exit_ns"]=now
+    elif STATE["audit_enter_ns"] is not None and STATE["audit_exit_ns"] is None: STATE["audit_exit_ns"]=now
+    failure_enter=now
     memory={"expected_labels":MEMORY_LABELS,"rows":list(STATE["memory"]),"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":len(STATE["memory"])==14}
+    evidence=STATE["evidence"]; plan=evidence.get("plan") or {}; pre=evidence.get("asset_pre")
+    asset_audit=None if pre is None else {"target_count":46,"pre_entries":pre,"pre_sha256":evidence["asset_pre_sha"],"post_entries":None,"post_sha256":None,"all_exact":None}
+    if evidence.get("asset_audit") is not None: asset_audit=evidence["asset_audit"]
+    resources={"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":None,"observed_rss_peak_bytes":rss(),"artifact_bytes":0}
     value={key:None for key in PROOF_KEYS if key!="proof_sha256"}
-    value.update({"schema_version":FAILURE_SCHEMA,"status":status,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":execution_commit,"plan_file_sha256":plan_file_sha256,"safety":{"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES"),"network_attempts":STATE["network_attempts"]},"memory":memory,"decision_boundary":PROOF_DECISION,"error_type":error_type,"error_message":str(error),"traceback":traceback.format_exc(),"stage":STATE["stage"],"execution_progress":{"stage":STATE["stage"],"memory_rows_completed":len(STATE["memory"])},"audit_errors":audit,"failure_sha256":""})
-    value["failure_sha256"]=sha(canonical_json({k:v for k,v in value.items() if k!="failure_sha256"})); validate_failure(value); atomic_terminal(output,FAILURE_NAME,value,validate_failure)
+    safety=evidence.get("safety")
+    if safety is None and STATE["network_attempts"]:
+        safety={"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES"),"cuda_initialized":False,"torch_imported":"torch" in sys.modules,"transformers_imported":"transformers" in sys.modules,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"train_opens":0,"validation_opens":0,"heldout_opens":0,"network_attempts":STATE["network_attempts"],"output_namespace_fresh_before":not output.exists(),"object_census_errors":0,"object_census_uninspectable":0}
+    value.update({"schema_version":FAILURE_SCHEMA,"status":status,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":execution_commit,"mechanism_code_commit":plan.get("mechanism_code_commit"),"tree_sha256":evidence.get("tree"),"plan_file_sha256":plan_file_sha256,"plan_sha256":plan.get("plan_sha256"),"runtime":evidence.get("runtime"),"asset_audit":asset_audit,"failed_start_binding":evidence.get("failed_start_binding"),"source_evidence":evidence.get("source_evidence"),"case_results":evidence.get("case_results"),"safety":safety,"resources":resources,"memory":memory,"full_freeze":evidence.get("full_freeze"),"decision_boundary":PROOF_DECISION,"error_type":error_type,"error_message":str(error),"traceback":traceback.format_exc(),"stage":STATE["stage"],"execution_progress":{"stage":STATE["stage"],"memory_rows_completed":len(STATE["memory"])},"audit_errors":audit,"failure_sha256":""})
+    failure_exit=0 if started is None else time.monotonic_ns()-started; STATE["terminal_enter_ns"]=failure_exit
+    resources["timing"]=timing_evidence(failure_enter_ns=failure_enter,failure_exit_ns=failure_exit)
+    finalize_terminal(value,"failure_sha256"); validate_failure(value); atomic_terminal(output,FAILURE_NAME,value,validate_failure)
 
 def main()->None:
     parser=argparse.ArgumentParser(); parser.add_argument("--repo",type=Path,required=True); parser.add_argument("--execution-commit",required=True); parser.add_argument("--plan-file-sha256",required=True); parser.add_argument("--run-id",required=True); parser.add_argument("--output-dir",type=Path,required=True); parser.add_argument("--validate-terminal",action="store_true"); args=parser.parse_args()

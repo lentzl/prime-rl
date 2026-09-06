@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import subprocess
 import sys
+import copy
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -14,7 +16,9 @@ from freeze_h_iter_phase1_t0_plan_v1 import (
     guard_plan_value, validate_guard_plan,
 )
 from run_h_iter_phase1_t0_preflight_r1_guard_proof_v1 import (
-    case_results, load_guard, normalized_source, validate_failed_start,
+    FAILURE_SCHEMA, FAILURE_NAME, MEMORY_LABELS, PROOF_DECISION, PROOF_KEYS,
+    atomic_terminal, canonical_json, case_results, finalize_terminal, load_guard,
+    normalized_source, sha, validate_failed_start, validate_failure,
 )
 
 RUNNER=ROOT/"scripts/latent/run_h_iter_phase1_t0_v1.py"
@@ -56,4 +60,29 @@ def test_guard_proof_plan_has_exact_46_assets() -> None:
     value=guard_plan_value(ROOT,"0"*40)
     validate_guard_plan(value,repo=ROOT)
     assert len(value["asset_sha256"])==46
-    assert value["execution_authorization"]=={"guard_proof_eligible_after_independent_review":True,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_authorized":False,"gpu_authorized":False,"training_authorized":False}
+    assert value["execution_authorization"]=={"guard_proof_eligible_after_independent_review":True,"t0_preflight_authorized":False,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False}
+
+def _runtime_failure() -> dict:
+    value={key:None for key in PROOF_KEYS if key!="proof_sha256"}
+    timing={"outer_seconds":720,"startup_seconds":60,"compute_seconds":300,"compute_alarm_seconds":299,"audit_seconds":120,"audit_alarm_seconds":119,"failure_seconds":90,"failure_alarm_seconds":89,"terminal_seconds":30,"terminal_alarm_seconds":29,"postexit_seconds":30,"reserve_seconds":90,"success_terminal_entry_max_seconds":480,"compute_failure_terminal_entry_max_seconds":450,"audit_failure_terminal_entry_max_seconds":570,"prior_terminal_failure_entry_max_seconds":600,"compute_enter_ns":0,"compute_exit_ns":1,"compute_duration_ns":1,"audit_enter_ns":None,"audit_exit_ns":None,"audit_duration_ns":None,"failure_enter_ns":1,"failure_exit_ns":2,"failure_duration_ns":1,"terminal_enter_ns":2,"prepublication_elapsed_ns":2}
+    value.update({"schema_version":FAILURE_SCHEMA,"status":"infrastructure_invalid","mechanism":"q35-2b-h-iter-phase1-t0-preflight-r1-guard-v1","run_identity":"h-iter-phase1-t0-preflight-r1-guard-proof-run1","execution_commit":"0"*40,"plan_file_sha256":"1"*64,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing,"observed_rss_peak_bytes":1,"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":[{"index":0,"label":"ENTRY","rss_bytes":1}],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":False},"decision_boundary":PROOF_DECISION,"error_type":"InfrastructureInvalid","error_message":"fixture","traceback":"fixture","stage":"runtime","execution_progress":{"stage":"runtime","memory_rows_completed":1},"audit_errors":["fixture"],"failure_sha256":""})
+    return finalize_terminal(value,"failure_sha256")
+
+def test_failure_stage_authority_and_artifact_tampers_rejected() -> None:
+    value=_runtime_failure(); validate_failure(value)
+    mutations=[]
+    future=copy.deepcopy(value); future["source_evidence"]={}; mutations.append(future)
+    wrong_memory=copy.deepcopy(value); wrong_memory["memory"]["rows"][0]["label"]="RUNTIME_VERIFIED"; mutations.append(wrong_memory)
+    wrong_authority=copy.deepcopy(value); wrong_authority["execution_commit"]="short"; mutations.append(wrong_authority)
+    wrong_size=copy.deepcopy(value); wrong_size["resources"]["artifact_bytes"]+=1; mutations.append(wrong_size)
+    for item in mutations:
+        item["failure_sha256"]=sha(canonical_json({key:entry for key,entry in item.items() if key!="failure_sha256"}))
+        with pytest.raises(RuntimeError): validate_failure(item)
+
+def test_atomic_failure_replaces_only_owned_temporary_file() -> None:
+    value=_runtime_failure()
+    with tempfile.TemporaryDirectory() as td:
+        output=Path(td)/"terminal"; output.mkdir(); (output/("."+FAILURE_NAME+".tmp")).write_bytes(b"stale")
+        atomic_terminal(output,FAILURE_NAME,value,validate_failure)
+        assert [path.name for path in output.iterdir()]==[FAILURE_NAME]
+        assert (output/FAILURE_NAME).read_bytes()==canonical_json(value)+b"\n"
