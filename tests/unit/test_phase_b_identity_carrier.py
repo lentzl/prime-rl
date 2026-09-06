@@ -423,7 +423,36 @@ def test_hic0_explicit_cache_imports_precede_guard_and_generation_config_is_clos
     fla_import = source.index('importlib.import_module("fla.models.utils")')
     guard = source.index("guard = _CacheGuard(model, transformers=transformers)")
     assert qwen_import < guard and fla_import < guard
-    assert 'config_candidates.append(getattr(self.model, "generation_config", None))' in source
+    assert 'candidates.append(getattr(model, "generation_config", None))' in source
+
+
+def test_hic0_cache_config_closure_allows_top_level_config_without_use_cache() -> None:
+    path = Path(__file__).parents[2] / "scripts/latent/run_phase_b_identity_carrier_v1.py"
+    spec = importlib.util.spec_from_file_location("hic0_config_closure_test", path)
+    assert spec is not None and spec.loader is not None
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+
+    class TopLevelConfig:
+        pass
+
+    class CacheConfig:
+        use_cache = True
+
+    class Nested:
+        config = CacheConfig()
+
+    class Model:
+        config = TopLevelConfig()
+        generation_config = Nested.config
+
+        def modules(self) -> list[object]:
+            return [self, Nested()]
+
+    configs = runner._deduplicated_use_cache_configs(Model())
+    assert len(configs) == 1
+    assert next(iter(configs.values())) == (Nested.config, True)
+    assert "self.model.config.use_cache" not in path.read_text(encoding="utf-8")
 
 
 def test_hic0_failure_classification_checks_contract_before_runtime() -> None:

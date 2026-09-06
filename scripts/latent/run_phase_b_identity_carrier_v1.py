@@ -49,7 +49,7 @@ from prime_rl.phase_b_value_screen import action_margin_from_logits
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-DEFAULT_PLAN = EXPERIMENT / "phase-b-hic0-identity-carrier-run1-plan.json"
+DEFAULT_PLAN = EXPERIMENT / "phase-b-hic0-identity-carrier-r1-plan.json"
 BR5_RUNNER = WORKTREE / "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py"
 B1_RUNNER = WORKTREE / "scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py"
 EXPECTED_ENV = Path("/home/ubuntu/rlm/prime-rl/.venv")
@@ -108,6 +108,16 @@ def _canonical_plan_hash(plan: dict[str, Any]) -> str:
     payload = deepcopy(plan)
     payload["plan_sha256"] = None
     return canonical_json_sha256(payload)
+
+
+def _deduplicated_use_cache_configs(model: Any) -> dict[int, tuple[Any, Any]]:
+    candidates = [getattr(module, "config", None) for module in model.modules()]
+    candidates.append(getattr(model, "generation_config", None))
+    return {
+        id(config): (config, config.use_cache)
+        for config in candidates
+        if config is not None and hasattr(config, "use_cache")
+    }
 
 
 def _git_head() -> str:
@@ -300,6 +310,8 @@ def preflight(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]
         "generator": Path(bank["generator_path"]),
         "taskset": Path(bank["taskset_source_path"]),
         "b1r_binding": Path(plan["b1r_dependency"]["binding_path"]),
+        "run1_failure": Path(plan["run1_failure_dependency"]["failure_path"]),
+        "run1_failure_binding": Path(plan["run1_failure_dependency"]["binding_path"]),
     }
     expected = {
         "selection": bank["selection_sha256"],
@@ -309,6 +321,8 @@ def preflight(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]
         "generator": bank["generator_sha256"],
         "taskset": bank["taskset_source_sha256"],
         "b1r_binding": plan["b1r_dependency"]["binding_sha256"],
+        "run1_failure": plan["run1_failure_dependency"]["failure_file_sha256"],
+        "run1_failure_binding": plan["run1_failure_dependency"]["binding_sha256"],
     }
     observed = {key: file_sha256(path) for key, path in immutable.items()}
     if observed != expected:
@@ -335,6 +349,79 @@ def preflight(args: argparse.Namespace) -> tuple[dict[str, Any], dict[str, Any]]
         "7ea9c294c5db0450b9c67f800153df57a17605f7bb58df2000996a6fba26f038",
     ):
         raise PhaseBContractError("B-HIC0 B1R negative dependency differs")
+    run1_dependency = plan["run1_failure_dependency"]
+    run1_binding = load_json_file(immutable["run1_failure_binding"])
+    run1_failure = load_json_file(immutable["run1_failure"])
+    if run1_binding != {
+        "schema_version": "q35-2b-phase-b-hic0-run1-failure-binding/v1",
+        "failure_path": str(immutable["run1_failure"]),
+        "failure_file_sha256": "fae6fb8e71f7aec0005fa9a7d3cd1d1b46520fca10417cf919d6f7b8080b7000",
+        "failure_internal_receipt_sha256": "d5e632ca70f76f0b9f98e4345a90146de3992e044704b752f47ad9af8ec8f809",
+        "execution_commit": "f30880504aea2bf57cb08d49d2bb04c02f17fbbc",
+        "plan_file_sha256": "44b16852a608dc1f21cefca53fe0c51962477be7865af5ade65814c1450696f6",
+        "status": "infrastructure_invalid",
+        "failure_class": "infrastructure",
+        "error_type": "AttributeError",
+        "error": "'Qwen3_5Config' object has no attribute 'use_cache'",
+        "model_loaded": True,
+        "source_forwards": 0,
+        "receiver_forwards": 0,
+        "cache_labels": ["CACHE_GUARD_ENTRY", "CACHE_GUARD_EXIT"],
+        "cache_model_calls": 0,
+        "optimizer_updates": 0,
+        "saved_model_state": False,
+        "e33_tensor_preserved": True,
+        "e33_disk_and_metadata_preserved": True,
+        "codec_tensor_preserved": True,
+        "immutable_input_hashes_match": True,
+        "audit_complete": True,
+        "namespace_only_contained_failure_json": True,
+        "standalone_run_log_available": False,
+        "standalone_preflight_manifest_available": False,
+    }:
+        raise PhaseBContractError("B-HIC0 run1 failure binding differs")
+    post = run1_failure.get("post_failure_hash_audit", {})
+    cache_guard = post.get("cache_guard", {})
+    if (
+        run1_failure.get("receipt_sha256") != run1_dependency["failure_internal_receipt_sha256"]
+        or run1_failure["receipt_sha256"]
+        != canonical_json_sha256(run1_failure, omitted_fields=("receipt_sha256",))
+        or (
+            run1_failure.get("status"),
+            run1_failure.get("failure_class"),
+            run1_failure.get("error_type"),
+            run1_failure.get("error"),
+            run1_failure.get("execution_commit"),
+            run1_failure.get("plan_sha256"),
+            run1_failure.get("model_loaded"),
+            run1_failure.get("optimizer_updates"),
+            run1_failure.get("saved_model_state"),
+        )
+        != (
+            "infrastructure_invalid",
+            "infrastructure",
+            "AttributeError",
+            "'Qwen3_5Config' object has no attribute 'use_cache'",
+            "f30880504aea2bf57cb08d49d2bb04c02f17fbbc",
+            "44b16852a608dc1f21cefca53fe0c51962477be7865af5ade65814c1450696f6",
+            True,
+            0,
+            False,
+        )
+        or cache_guard.get("labels") != ["CACHE_GUARD_ENTRY", "CACHE_GUARD_EXIT"]
+        or cache_guard.get("model_calls") != 0
+        or post.get("audit_complete") is not True
+        or not all(
+            post.get(key) is True
+            for key in (
+                "e33_tensor_preserved",
+                "e33_disk_and_metadata_preserved",
+                "codec_tensor_preserved",
+                "immutable_input_hashes_match",
+            )
+        )
+    ):
+        raise PhaseBContractError("B-HIC0 run1 failure evidence differs")
     return plan | {"_path": str(args.plan), "_file_sha256": observed.get("plan", args.authorized_plan_sha256)}, selection
 
 
@@ -452,12 +539,9 @@ class _CacheGuard:
 
     def __enter__(self) -> "_CacheGuard":
         try:
-            config_candidates = [getattr(module, "config", None) for module in self.model.modules()]
-            config_candidates.append(getattr(self.model, "generation_config", None))
-            for config in config_candidates:
-                if config is not None and hasattr(config, "use_cache"):
-                    self.configs.setdefault(id(config), (config, config.use_cache))
-                    config.use_cache = False
+            self.configs = _deduplicated_use_cache_configs(self.model)
+            for config, _value in self.configs.values():
+                config.use_cache = False
             classes = ordered_subclass_closure(self.base)
             if set(classes) != self.initial_classes:
                 raise CacheContractViolated("B-HIC0 cache census changed before patching")
@@ -494,8 +578,6 @@ class _CacheGuard:
         expected_pre = f"CACHE_GUARD_PRE_HIC0_R{row_index:02d}_{operation}"
         expected_post = f"CACHE_GUARD_POST_HIC0_R{row_index:02d}_{operation}"
         self.model.model.rope_deltas = None
-        if self.model.config.use_cache is not False:
-            raise CacheContractViolated("B-HIC0 model use_cache default reopened")
         self._append(expected_pre)
         output = self.model(past_key_values=None, use_cache=False, return_dict=True, **kwargs)
         if getattr(output, "past_key_values", None) is not None or self.model.model.rope_deltas is not None:
@@ -881,6 +963,8 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
         "generator": file_sha256(Path(plan["diagnostic_bank"]["generator_path"])),
         "taskset": file_sha256(Path(plan["diagnostic_bank"]["taskset_source_path"])),
         "b1r_binding": file_sha256(Path(plan["b1r_dependency"]["binding_path"])),
+        "run1_failure": file_sha256(Path(plan["run1_failure_dependency"]["failure_path"])),
+        "run1_failure_binding": file_sha256(Path(plan["run1_failure_dependency"]["binding_path"])),
     }
     protected = e33_pre == e33_post and file_pre == file_post and metadata_pre == metadata_post
     expected_immutable = {"plan": plan["_file_sha256"], **plan["immutable_input_hashes"]}
@@ -1009,6 +1093,8 @@ def _failure_audit(plan: dict[str, Any], args: argparse.Namespace, audit: dict[s
             "generator": file_sha256(Path(plan["diagnostic_bank"]["generator_path"])),
             "taskset": file_sha256(Path(plan["diagnostic_bank"]["taskset_source_path"])),
             "b1r_binding": file_sha256(Path(plan["b1r_dependency"]["binding_path"])),
+            "run1_failure": file_sha256(Path(plan["run1_failure_dependency"]["failure_path"])),
+            "run1_failure_binding": file_sha256(Path(plan["run1_failure_dependency"]["binding_path"])),
         }
         evidence["immutable_input_hashes_match"] = evidence["immutable_input_hashes"] == {
             "plan": plan["_file_sha256"],

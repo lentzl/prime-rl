@@ -1,0 +1,30 @@
+{
+  "schema_version": "q35-2b-phase-b-hic0-run1-failure-binding/v1",
+  "failure_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-hic0-run1-infrastructure-failure-v1/FAILURE.json",
+  "failure_file_sha256": "fae6fb8e71f7aec0005fa9a7d3cd1d1b46520fca10417cf919d6f7b8080b7000",
+  "failure_internal_receipt_sha256": "d5e632ca70f76f0b9f98e4345a90146de3992e044704b752f47ad9af8ec8f809",
+  "execution_commit": "f30880504aea2bf57cb08d49d2bb04c02f17fbbc",
+  "plan_file_sha256": "44b16852a608dc1f21cefca53fe0c51962477be7865af5ade65814c1450696f6",
+  "status": "infrastructure_invalid",
+  "failure_class": "infrastructure",
+  "error_type": "AttributeError",
+  "error": "'Qwen3_5Config' object has no attribute 'use_cache'",
+  "model_loaded": true,
+  "source_forwards": 0,
+  "receiver_forwards": 0,
+  "cache_labels": [
+    "CACHE_GUARD_ENTRY",
+    "CACHE_GUARD_EXIT"
+  ],
+  "cache_model_calls": 0,
+  "optimizer_updates": 0,
+  "saved_model_state": false,
+  "e33_tensor_preserved": true,
+  "e33_disk_and_metadata_preserved": true,
+  "codec_tensor_preserved": true,
+  "immutable_input_hashes_match": true,
+  "audit_complete": true,
+  "namespace_only_contained_failure_json": true,
+  "standalone_run_log_available": false,
+  "standalone_preflight_manifest_available": false
+}

@@ -1,0 +1,156 @@
+{
+  "B1R_candidates_reused": false,
+  "H176_loaded": false,
+  "cache": false,
+  "disposition": "infrastructure_invalid",
+  "elapsed_seconds": 105.73520302772522,
+  "error": "'Qwen3_5Config' object has no attribute 'use_cache'",
+  "error_type": "AttributeError",
+  "execution_commit": "f30880504aea2bf57cb08d49d2bb04c02f17fbbc",
+  "failure_class": "infrastructure",
+  "generation": false,
+  "model_loaded": true,
+  "optimizer": null,
+  "optimizer_updates": 0,
+  "plan_sha256": "44b16852a608dc1f21cefca53fe0c51962477be7865af5ade65814c1450696f6",
+  "post_failure_hash_audit": {
+    "audit_complete": true,
+    "cache_guard": {
+      "canonical_label_sha256": "99a2fa6ebe8bcfe7837cb0150b9cb1c63a165e941187bc75d285a1641c1682ef",
+      "classes": [
+        {
+          "distribution": "flash-linear-attention==0.5.2",
+          "fqcn": "fla.models.utils.Cache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
+          "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
+        },
+        {
+          "distribution": "flash-linear-attention==0.5.2",
+          "fqcn": "fla.models.utils.FLACache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
+          "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
+        },
+        {
+          "distribution": "flash-linear-attention==0.5.2",
+          "fqcn": "fla.models.utils.LegacyFLACache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py",
+          "module_sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"
+        },
+        {
+          "distribution": "transformers==5.6.2",
+          "fqcn": "transformers.cache_utils.Cache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+          "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+        },
+        {
+          "distribution": "transformers==5.6.2",
+          "fqcn": "transformers.cache_utils.DynamicCache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+          "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+        },
+        {
+          "distribution": "transformers==5.6.2",
+          "fqcn": "transformers.cache_utils.EncoderDecoderCache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+          "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+        },
+        {
+          "distribution": "transformers==5.6.2",
+          "fqcn": "transformers.cache_utils.QuantizedCache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+          "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+        },
+        {
+          "distribution": "transformers==5.6.2",
+          "fqcn": "transformers.cache_utils.StaticCache",
+          "module_path": "/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/transformers/cache_utils.py",
+          "module_sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586"
+        }
+      ],
+      "closure_check_count": 2,
+      "closure_checked_at_every_recorded_label": true,
+      "complete": false,
+      "dynamic_cache_trip_count": 1,
+      "exact_prefix_before_exit": true,
+      "exit_recorded": true,
+      "expected_label_sha256": "8230eae3b60a7fd00d7bfb557563a9d9ca32764ace262447275bd40538818471",
+      "label_count": 2,
+      "labels": [
+        "CACHE_GUARD_ENTRY",
+        "CACHE_GUARD_EXIT"
+      ],
+      "model_calls": 0,
+      "recursively_closed_config_count": 2,
+      "restored_in_finally": true
+    },
+    "codec_tensor_post": "8cfb5e1ba9dd59ce8f99268670ea0b1da997f6e31ea259ffba68757b07a83bd0",
+    "codec_tensor_pre": "8cfb5e1ba9dd59ce8f99268670ea0b1da997f6e31ea259ffba68757b07a83bd0",
+    "codec_tensor_preserved": true,
+    "cuda_memory": {
+      "current_allocated_bytes": 4428803584,
+      "current_reserved_bytes": 4565499904,
+      "maximum_allocated_bytes": 4462189568,
+      "maximum_reserved_bytes": 4565499904
+    },
+    "e33_disk_and_metadata_exact": true,
+    "e33_disk_and_metadata_preserved": true,
+    "e33_file_post": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "e33_file_pre": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "e33_tensor_post": "eedbc421bdefa3db5d00c546da176f5021e4423f099ce3d0f6b3c1cd30496f54",
+    "e33_tensor_pre": "eedbc421bdefa3db5d00c546da176f5021e4423f099ce3d0f6b3c1cd30496f54",
+    "e33_tensor_preserved": true,
+    "e33_tensor_reference_available": true,
+    "hash_probe_error": null,
+    "immutable_input_hashes": {
+      "b1r_binding": "839082fed228b9fd521fe2068ffbe32895f42e46c7814f73245bc555b38b587c",
+      "generator": "e0b28b0c2d1d0f6001db02d71c34672371263658ba85c61e01000578740c7c36",
+      "manifest": "9e0498d210bd87b29e0385a938ce1717f61e45d24c1dde32f49ad95307a051fb",
+      "parquet": "278f5fff1ad16e9ae324b13994c99262600611a3127629098cfd193c1e8713cb",
+      "plan": "44b16852a608dc1f21cefca53fe0c51962477be7865af5ade65814c1450696f6",
+      "runtime": "b35b23978fe126b46ee536b9526c868fa02b898b244f06283154718d36fd27f0",
+      "selection": "084dc6083a56a03f7fd4b51da350c8b5e916f37db5bb4a5baa1ef50945026618",
+      "taskset": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499"
+    },
+    "immutable_input_hashes_match": true,
+    "metadata_post": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    },
+    "metadata_pre": {
+      "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+      "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+      "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+      "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1",
+      "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+      "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f"
+    }
+  },
+  "preflight_resources": {
+    "available_host_ram_bytes": 96228855808,
+    "free_disk_bytes": 93612576768,
+    "minimum_free_disk_bytes": 64424509440,
+    "minimum_host_ram_bytes": 68719476736,
+    "offline_environment": {
+      "HF_HUB_OFFLINE": "1",
+      "TRANSFORMERS_OFFLINE": "1"
+    }
+  },
+  "receipt_sha256": "d5e632ca70f76f0b9f98e4345a90146de3992e044704b752f47ad9af8ec8f809",
+  "saved_model_state": false,
+  "schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1",
+  "selection_sha256": "084dc6083a56a03f7fd4b51da350c8b5e916f37db5bb4a5baa1ef50945026618",
+  "status": "infrastructure_invalid",
+  "strand_a_combined": false,
+  "terminal": "FAILURE",
+  "wall_clock_contract": {
+    "compute_seconds": 14040,
+    "failure_audit_seconds": 300,
+    "outer_seconds": 14400,
+    "terminal_publication_headroom_seconds": 60
+  },
+  "worker_loaded": false
+}
