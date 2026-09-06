@@ -31,6 +31,7 @@ from prime_rl.phase_b_ipc1 import (
     CUDA_MEMORY_CAP_BYTES,
     EVALUATION_DEPTHS,
     EXPECTED_LATE_FAILURE_TAMPERS,
+    EXPECTED_SUCCESS_TAMPERS,
     FAILURE_STATUS_CLASSES,
     INITIALIZATION_SEED,
     MINIMUM_FREE_DISK_BYTES,
@@ -55,8 +56,8 @@ from prime_rl.phase_b_ipc1 import (
 
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
-DEFAULT_PLAN = EXPERIMENT / "phase-b-ipc1-matched-learning-run2-plan.json"
-FREEZE_MANIFEST = EXPERIMENT / "phase-b-ipc1-matched-learning-run2.sha256"
+DEFAULT_PLAN = EXPERIMENT / "phase-b-ipc1-r1-matched-learning-run1-plan.json"
+FREEZE_MANIFEST = EXPERIMENT / "phase-b-ipc1-r1-matched-learning-run1.sha256"
 BR5_RUNNER = WORKTREE / "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py"
 B1_RUNNER = WORKTREE / "scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py"
 HIC0_RUNNER = WORKTREE / "scripts/latent/run_phase_b_identity_carrier_v1.py"
@@ -501,6 +502,7 @@ def _bank_record(plan: dict[str, Any], split: str) -> dict[str, Any]:
 
 
 def _immutable_input_records(plan: dict[str, Any], *, require_match: bool = True) -> list[dict[str, str]]:
+    failed = plan["run2_failure_dependency"]
     specifications = [
         ("plan", plan["_path"], plan["_file_sha256"]),
         ("bank_manifest", plan["bank_manifest"]["path"], plan["bank_manifest"]["sha256"]),
@@ -509,6 +511,11 @@ def _immutable_input_records(plan: dict[str, Any], *, require_match: bool = True
         ("generator_source", plan["generator_source"]["path"], plan["generator_source"]["sha256"]),
         ("taskset_source", plan["taskset_source"]["path"], plan["taskset_source"]["sha256"]),
         ("terminal_proof_manifest", plan["terminal_proof"]["manifest_path"], plan["terminal_proof"]["manifest_sha256"]),
+        ("run2_failure_binding", failed["binding_path"], failed["binding_sha256"]),
+        ("run2_failure_receipt", failed["failure_path"], failed["failure_file_sha256"]),
+        ("run2_failure_log", failed["run_log_path"], failed["run_log_sha256"]),
+        ("run2_failure_archive", failed["archive_path"], failed["archive_sha256"]),
+        ("run2_failure_manifest", failed["manifest_path"], failed["manifest_sha256"]),
     ]
     specifications.extend(
         (f"antecedent_{record['name']}", record["binding_path"], record["binding_sha256"])
@@ -569,6 +576,7 @@ def _validate_terminal_proof_binding(plan: dict[str, Any]) -> None:
         or decoded_receipt.get("maximal_success", {}).get("file_sha256") != binding["maximal_success_file_sha256"]
         or len(decoded_receipt.get("failure_terminals", [])) != binding["failure_terminal_count"]
         or len(decoded_receipt.get("tamper_cases_rejected", [])) != binding["tamper_cases_rejected"]
+        or decoded_receipt.get("tamper_cases_rejected") != list(EXPECTED_SUCCESS_TAMPERS)
         or len(decoded_receipt.get("late_failure_terminals", [])) != binding["late_failure_terminal_count"]
         or len(decoded_receipt.get("late_failure_tamper_cases_rejected", []))
         != binding["late_failure_tamper_cases_rejected"]
@@ -727,12 +735,138 @@ def _validate_antecedents(plan: dict[str, Any]) -> None:
         raise ProvenanceContractViolated("B-IPC1 B1R negative antecedent differs")
 
 
+def _validate_run2_failure_dependency(plan: dict[str, Any]) -> None:
+    dependency = plan["run2_failure_dependency"]
+    binding_path = Path(dependency["binding_path"])
+    binding = load_json_file(binding_path)
+    expected_keys = {
+        "schema_version",
+        "archive_path",
+        "archive_sha256",
+        "manifest_path",
+        "manifest_sha256",
+        "failure_path",
+        "failure_file_sha256",
+        "failure_internal_receipt_sha256",
+        "run_log_path",
+        "run_log_sha256",
+        "archive_created_post_run",
+        "archive_runner_generated",
+        "failed_run_identity",
+        "failed_execution_commit",
+        "failed_mechanism_commit",
+        "failed_plan_file_sha256",
+        "failed_plan_internal_sha256",
+        "failed_sidecar_sha256",
+        "status",
+        "failure_class",
+        "error_type",
+        "error",
+        "model_calls_completed",
+        "backward_calls_completed",
+        "optimizer_steps_completed",
+        "static_rows_exposed",
+        "static_updates_completed",
+        "ffn_rows_exposed",
+        "ffn_updates_completed",
+        "validation_started",
+        "heldout_opened",
+        "scientific_result",
+        "nomination",
+        "candidates_created",
+        "partial_state_reusable",
+        "remote_namespace_only_contained_failure",
+        "protected_state_preserved",
+        "audit_complete",
+    }
+    _require_exact_keys(binding, expected_keys, label="run2 failure binding")
+    if file_sha256(binding_path) != dependency["binding_sha256"]:
+        raise ProvenanceContractViolated("B-IPC1 run2 failure binding hash differs")
+    for field, binding_field in (
+        ("failure_path", "failure_file_sha256"),
+        ("run_log_path", "run_log_sha256"),
+        ("archive_path", "archive_sha256"),
+        ("manifest_path", "manifest_sha256"),
+    ):
+        if dependency[field] != binding[field] or file_sha256(Path(binding[field])) != binding[binding_field]:
+            raise ProvenanceContractViolated(f"B-IPC1 run2 failure {field} differs")
+    selected = {
+        key: binding[key]
+        for key in dependency
+        if key not in {"binding_path", "binding_sha256"}
+    }
+    if selected != {key: dependency[key] for key in selected}:
+        raise PhaseBContractError("B-IPC1 run2 failure dependency differs")
+    failure = load_json_file(Path(binding["failure_path"]))
+    archive = load_json_file(Path(binding["archive_path"]))
+    failure_unhashed = {key: value for key, value in failure.items() if key != "receipt_sha256"}
+    failure_internal_sha256 = hashlib.sha256(canonical_terminal_bytes(failure_unhashed)).hexdigest()
+    progress = failure.get("post_failure_audit", {}).get("execution_progress", {})
+    post_audit = failure.get("post_failure_audit", {})
+    if (
+        binding["schema_version"] != "q35-2b-phase-b-ipc1-run2-incomplete-binding/v1"
+        or failure.get("receipt_sha256") != binding["failure_internal_receipt_sha256"]
+        or failure_internal_sha256 != binding["failure_internal_receipt_sha256"]
+        or failure.get("execution_commit") != binding["failed_execution_commit"]
+        or failure.get("status") != binding["status"]
+        or failure.get("failure_class") != binding["failure_class"]
+        or failure.get("error_type") != binding["error_type"]
+        or failure.get("error") != binding["error"]
+        or failure.get("candidate_files_present") != []
+        or failure.get("candidate_files_valid") is not False
+        or post_audit.get("audit_complete") is not True
+        or post_audit.get("audit_errors") != []
+        or progress.get("model_calls_completed") != binding["model_calls_completed"]
+        or progress.get("backward_calls_completed") != binding["backward_calls_completed"]
+        or progress.get("optimizer_steps_completed") != binding["optimizer_steps_completed"]
+        or post_audit.get("e33_disk_preserved") is not True
+        or post_audit.get("e33_tensor_preserved") is not True
+        or post_audit.get("e33_gradients_absent") is not True
+        or post_audit.get("metadata_preserved") is not True
+        or post_audit.get("immutable_inputs_preserved") is not True
+        or archive.get("created_post_run") is not True
+        or archive.get("runner_generated") is not False
+        or archive.get("remote_namespace_inventory")
+        != [
+            {
+                "bytes": 86270,
+                "name": "FAILURE.json",
+                "regular": True,
+                "sha256": binding["failure_file_sha256"],
+                "symlink": False,
+            }
+        ]
+        or archive.get("prior_exposure")
+        != {
+            "ffn_rows": 12,
+            "ffn_updates": 1,
+            "model_calls_completed": 184,
+            "prelearning_and_preprobes_complete": True,
+            "static_rows": 48,
+            "static_updates": 4,
+        }
+        or any(
+            archive.get(key) is not False
+            for key in (
+                "candidates_created",
+                "heldout_opened",
+                "nomination",
+                "partial_state_reusable",
+                "scientific_result",
+                "validation_started",
+            )
+        )
+    ):
+        raise PhaseBContractError("B-IPC1 run2 failure evidence differs")
+
+
 def preflight(args: argparse.Namespace) -> dict[str, Any]:
     if not args.plan.is_file():
         raise ProvenanceContractViolated("B-IPC1 plan file is absent")
     plan = load_json_file(args.plan)
     _validate_host_plan(plan, args)
     _validate_antecedents(plan)
+    _validate_run2_failure_dependency(plan)
     _validate_terminal_proof_binding(plan)
     paths = {
         "bank_manifest": Path(plan["bank_manifest"]["path"]),
@@ -1456,7 +1590,12 @@ def _train_arm(
         _memory_checkpoint(torch, audit, f"optimizer:{arm}:update{update_index}:post_step")
         if any(parameter.grad is not None for parameter in model.parameters()):
             raise PhaseBContractError(f"B-IPC1 {arm} e33 gradient appeared after optimizer step")
-        scales = [] if sidecar is None else [float(sidecar.output_scale.detach().cpu())]
+        scales = (
+            []
+            if sidecar is None
+            else sidecar.output_scale.detach().float().cpu().reshape(-1).tolist()
+        )
+        _validate_sidecar_output_scale(scales, arm=arm, update_index=update_index)
         history.append(
             {
                 "update_index": update_index,
@@ -1468,7 +1607,7 @@ def _train_arm(
         )
     if any(not updates for updates in group_updates.values()):
         raise PhaseBContractError(f"B-IPC1 {arm} lacks finite nonzero trained-group gradients")
-    if sidecar is not None and (not history[0]["sidecar_output_scale"] or history[0]["sidecar_output_scale"][0] == 0):
+    if sidecar is not None and not any(value != 0.0 for value in history[0]["sidecar_output_scale"]):
         raise PhaseBContractError(f"B-IPC1 {arm} sidecar output scale did not open after step1")
     optimizer.zero_grad(set_to_none=True)
     optimizer.state.clear()
@@ -2367,6 +2506,19 @@ def _validate_objective_evidence(value: Any, *, action: str, label: str) -> None
             raise PhaseBContractError(f"B-IPC1 {label} branch differs")
 
 
+def _validate_sidecar_output_scale(scales: Any, *, arm: str, update_index: int) -> None:
+    if arm == "STATIC":
+        if scales != []:
+            raise PhaseBContractError("B-IPC1 STATIC output-scale evidence differs")
+        return
+    if arm not in ("FFN", "RECURRENT") or not isinstance(scales, list) or len(scales) != 256:
+        raise PhaseBContractError(f"B-IPC1 {arm} output-scale evidence differs")
+    for scale in scales:
+        _require_finite_number(scale, label=f"{arm} output scale")
+    if update_index == 1 and not any(scale != 0.0 for scale in scales):
+        raise PhaseBContractError(f"B-IPC1 {arm} output scale did not open after step1")
+
+
 def _validate_training_receipt(receipt: dict[str, Any], *, plan: dict[str, Any]) -> None:
     histories = receipt.get("training")
     evidence = receipt.get("training_evidence")
@@ -2434,13 +2586,9 @@ def _validate_training_receipt(receipt: dict[str, Any], *, plan: dict[str, Any])
                 if gradient["l2"] is not None:
                     _require_finite_number(gradient["l2"], label=f"{arm} gradient l2")
             _require_finite_number(update["preclip_global_norm"], label=f"{arm} preclip norm")
-            scales = update["sidecar_output_scale"]
-            if (arm == "STATIC" and scales != []) or (
-                arm != "STATIC" and (not isinstance(scales, list) or len(scales) != 1)
-            ):
-                raise PhaseBContractError(f"B-IPC1 {arm} output-scale evidence differs")
-            for scale in scales:
-                _require_finite_number(scale, label=f"{arm} output scale")
+            _validate_sidecar_output_scale(
+                update["sidecar_output_scale"], arm=arm, update_index=update["update_index"]
+            )
         if flattened != expected_keys or len(set(flattened)) != 48:
             raise PhaseBContractError(f"B-IPC1 {arm} exact exposure order differs")
         trained_keys[arm] = flattened

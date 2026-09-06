@@ -190,7 +190,7 @@ def _training(selection: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dic
                     "rows": rows,
                     "gradient_l2": [{"name": "codec.weight", "l2": 1.0}],
                     "preclip_global_norm": 1.0,
-                    "sidecar_output_scale": [] if arm == "STATIC" else [0.01],
+                    "sidecar_output_scale": [] if arm == "STATIC" else [0.01] * 256,
                 }
             )
         histories.append({"name": arm, "updates": updates})
@@ -806,6 +806,24 @@ def main() -> int:
         ),
         ("wrong_exposure", lambda item: item["training"][0]["updates"][0]["rows"][0].__setitem__("task_key", "reused")),
         (
+            "output_scale_wrong_length",
+            lambda item: item["training"][1]["updates"][0].__setitem__(
+                "sidecar_output_scale", [0.01] * 255
+            ),
+        ),
+        (
+            "output_scale_nonfinite",
+            lambda item: item["training"][1]["updates"][0]["sidecar_output_scale"].__setitem__(
+                0, float("nan")
+            ),
+        ),
+        (
+            "output_scale_all_zero_step1",
+            lambda item: item["training"][1]["updates"][0].__setitem__(
+                "sidecar_output_scale", [0.0] * 256
+            ),
+        ),
+        (
             "objective_extra",
             lambda item: item["training"][0]["updates"][0]["rows"][0]["objective_evidence"].__setitem__("square", True),
         ),
@@ -832,6 +850,8 @@ def main() -> int:
         mutate(candidate)
         _expect_rejected(candidate, plan=plan, execution_commit=args.execution_commit, output=success_dir)
         tampers.append(name)
+    if tampers != list(runtime.EXPECTED_SUCCESS_TAMPERS):
+        raise AssertionError("B-IPC1 SUCCESS tamper order differs")
 
     success_path = runtime._atomic_publish_bytes(success_dir, "SUCCESS.json", payload)
     verify_published_terminal(

@@ -147,6 +147,23 @@ def test_ipc1_failure_cache_trip_rules_are_exact_and_cache_rejection_is_unbounde
             )
 
 
+def test_ipc1_output_scale_evidence_is_full_finite_and_opens_after_step1() -> None:
+    runner = _runner_module()
+    runner._validate_sidecar_output_scale([], arm="STATIC", update_index=1)
+    for arm in ("FFN", "RECURRENT"):
+        values = [0.0] * 255 + [0.01]
+        runner._validate_sidecar_output_scale(values, arm=arm, update_index=1)
+        runner._validate_sidecar_output_scale([0.0] * 256, arm=arm, update_index=2)
+        with pytest.raises(PhaseBContractError, match="output-scale evidence"):
+            runner._validate_sidecar_output_scale(values[:-1], arm=arm, update_index=1)
+        nonfinite = list(values)
+        nonfinite[17] = float("nan")
+        with pytest.raises(PhaseBContractError, match="finite"):
+            runner._validate_sidecar_output_scale(nonfinite, arm=arm, update_index=1)
+        with pytest.raises(PhaseBContractError, match="did not open"):
+            runner._validate_sidecar_output_scale([0.0] * 256, arm=arm, update_index=1)
+
+
 def test_ipc1_candidate_ready_and_write_failure_boundaries_are_exact() -> None:
     runner = _runner_module()
     schedule = build_model_call_schedule(
@@ -416,7 +433,8 @@ def test_ipc1_plan_and_terminal_writers_reject_schema_or_global_terminal_tamper(
     repository = _repository()
     plan = json.loads(
         (
-            repository / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-matched-learning-run2-plan.json"
+            repository
+            / "experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-r1-matched-learning-run1-plan.json"
         ).read_text()
     )
     plan["terminal_proof"]["late_failure_tamper_cases_rejected"] = 21

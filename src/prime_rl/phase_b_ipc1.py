@@ -63,6 +63,26 @@ CUDA_MEMORY_CAP_BYTES = 32 * 1024**3
 MINIMUM_HOST_RAM_BYTES = 64 * 1024**3
 MINIMUM_FREE_DISK_BYTES = 60 * 1024**3
 ARTIFACT_CAP_BYTES = 512 * 1024**2
+EXPECTED_SUCCESS_TAMPERS = (
+    "top_extra",
+    "top_missing",
+    "wrong_update_index",
+    "wrong_action",
+    "wrong_exposure",
+    "output_scale_wrong_length",
+    "output_scale_nonfinite",
+    "output_scale_all_zero_step1",
+    "objective_extra",
+    "preprobe_backward",
+    "render_extra",
+    "aggregate_tamper",
+    "cache_count",
+    "memory_order",
+    "immutable_hash",
+    "candidate_filename",
+    "candidate_state",
+    "nomination",
+)
 EXPECTED_LATE_FAILURE_TAMPERS = (
     "post-model-pre-candidate:full_freeze",
     "post-model-pre-candidate:module_initial",
@@ -110,6 +130,8 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
             "schema_version",
             "status",
             "run_identity",
+            "supersedes_run_identity",
+            "run2_failure_dependency",
             "claim_class",
             "mechanism_code_commit",
             "implementation_commit",
@@ -142,6 +164,74 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
     )
     if plan.get("schema_version") != "q35-2b-phase-b-ipc1-matched-learning/v1":
         raise PhaseBContractError("B-IPC1 plan schema differs")
+    dependency = require_exact_mapping_keys(
+        plan.get("run2_failure_dependency"),
+        {
+            "binding_path",
+            "binding_sha256",
+            "failure_path",
+            "failure_file_sha256",
+            "failure_internal_receipt_sha256",
+            "run_log_path",
+            "run_log_sha256",
+            "archive_path",
+            "archive_sha256",
+            "manifest_path",
+            "manifest_sha256",
+            "failed_execution_commit",
+            "failed_plan_file_sha256",
+            "model_calls_completed",
+            "backward_calls_completed",
+            "optimizer_steps_completed",
+            "static_rows_exposed",
+            "ffn_rows_exposed",
+            "partial_state_reusable",
+            "validation_started",
+            "heldout_opened",
+            "scientific_result",
+            "candidates_created",
+        },
+        label="run2 failure dependency",
+    )
+    if (
+        plan.get("run_identity") != "b-ipc1-r1-matched-learning-run1"
+        or plan.get("supersedes_run_identity") != "b-ipc1-matched-learning-run2"
+        or dependency["failure_file_sha256"]
+        != "7a5aef7085a53280d18caad6c2d354248d26d153525f90aa21442db707d72f78"
+        or dependency["failure_internal_receipt_sha256"]
+        != "b123dfc3795604d67913e6a6f9ff4b058d988facbec822ab089f85cc3ef61d0c"
+        or dependency["run_log_sha256"]
+        != "0b4f98163c8d418dab62a153906d2a4127ce671cbf4b00545b9f563a6d3afdbd"
+        or dependency["archive_sha256"]
+        != "edd4354db156c48b5044f2ebe030861a77557ad901c7dbfbd89cd48dfa807cae"
+        or dependency["manifest_sha256"]
+        != "b9ac5c045ee929b663480a1f44cab1da881e243d22ee5a083e8a6b9d7d600bdd"
+        or dependency["failed_execution_commit"] != "3cd894e945f5b8239fe68073413205bee43e3877"
+        or dependency["failed_plan_file_sha256"]
+        != "4957dadb79da68acb5a60ffe5e3cf4c76379ab108f8bad41d7387c56bd4e61a1"
+        or [
+            dependency[key]
+            for key in (
+                "model_calls_completed",
+                "backward_calls_completed",
+                "optimizer_steps_completed",
+                "static_rows_exposed",
+                "ffn_rows_exposed",
+            )
+        ]
+        != [184, 63, 5, 48, 12]
+        or any(
+            dependency[key] is not False
+            for key in (
+                "partial_state_reusable",
+                "validation_started",
+                "heldout_opened",
+                "scientific_result",
+                "candidates_created",
+            )
+        )
+    ):
+        raise PhaseBContractError("B-IPC1 R1 superseded-run boundary differs")
     commit = plan.get("mechanism_code_commit")
     if (
         not isinstance(commit, str)
@@ -275,7 +365,7 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
         or proof["cuda_initialized"] is not False
         or proof["exact_host_repository"] is not True
         or proof["failure_terminal_count"] != 4
-        or proof["tamper_cases_rejected"] != 15
+        or proof["tamper_cases_rejected"] != 18
         or proof["late_failure_terminal_count"] != 2
         or proof["late_failure_tamper_cases_rejected"] != 21
         or not isinstance(proof["full_freeze_target_count"], int)
