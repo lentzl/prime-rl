@@ -1,0 +1,96 @@
+{
+  "schema_version": "q35-2b-ipc1-render-proof-hygiene-evidence-closure/v1",
+  "status": "complete",
+  "mechanism_commit": "72a3e77fc3a904a0af2c3d72195671b8dcaff11a",
+  "proof_execution_commit": "7677fc52dbc45b701eb9524086c99a18dbdbf6cc",
+  "proved_runtime_unchanged_by_closure": true,
+  "source_plan": {
+    "path": "../phase-b-ipc1-render-proof-hygiene-run2-plan.json",
+    "file_sha256": "f99dbf5e2ef727b28d1c4e0dd6d6f3fdc60dc22ab3fb669916b2fb44503a7250",
+    "internal_plan_sha256": "1a2592d023f8f6438737c2a5684006d9bf3576cc7d8eb16a8f2c9ba596e439d8"
+  },
+  "source_freeze_sidecar": {
+    "path": "../phase-b-ipc1-render-proof-hygiene-run2.sha256",
+    "file_sha256": "0dfae5d564f0309ade83af073b3854816f79a9893f17acbf6b6556841de887f2",
+    "target_count": 27,
+    "targets_canonical_sha256": "014988b127361265b28536c6e41351bb64fc76c7436ffd8dab0349ba4c29d17c"
+  },
+  "durable_source": {
+    "directory": "/Users/ilkkalehto/Documents/rlm/tmp/durable-snapshots/2026-09-06-ipc-render-proof-hygiene-run2",
+    "inventory": [
+      "PROOF.json"
+    ],
+    "standalone_log_retained": false,
+    "standalone_exit_status_retained": false
+  },
+  "successful_exact_host_proof": {
+    "proof_base64_path": "PROOF-run2.json.base64",
+    "proof_base64_file_sha256": "6c406a7d063fb551de4c7115cfd76eebcd02f661e240b9fe8843f0b2193748fa",
+    "decoded_proof_sha256": "58c6ea16d87236c179fd456efd1e3aded56c1e9e67b4ea629f7ada364288d7b4",
+    "proof_internal_sha256": "67e4835e8a4e9830d5ba22e27ba7cffa32e818cfa3f583fd3dc288875c9b5d30",
+    "status": "ipc1_render_proof_hygiene_validated",
+    "terminal": "PROOF",
+    "canonical_bytes": true,
+    "independent_frozen_validator_pass": true,
+    "real_row_count": 96,
+    "split_counts": [
+      {
+        "name": "train",
+        "count": 48
+      },
+      {
+        "name": "validation",
+        "count": 24
+      },
+      {
+        "name": "heldout",
+        "count": 24
+      }
+    ],
+    "u2014_source_rows": 96,
+    "authoritative_bank_hash_matches": 96,
+    "inherited_utf8_hash_matches": 96,
+    "inherited_vs_bank_mismatches": 96,
+    "overwrite_only_matches": 96,
+    "post_repair_validator_matches": 96,
+    "tamper_cases_rejected": 12,
+    "canonical_roundtrip_byte_equal": true,
+    "validator_passed_before_and_after_roundtrip": true,
+    "full_freeze_pre_post_exact": true,
+    "elapsed_seconds": 12.998209714889526
+  },
+  "runtime_provenance": {
+    "python": "3.12.14",
+    "transformers": "5.6.2",
+    "tokenizers": "0.22.2",
+    "pyarrow": "24.0.0",
+    "torch": "2.11.0+cu128",
+    "pyproject_sha256": "504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656",
+    "uv_lock_sha256": "fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"
+  },
+  "safety": {
+    "cuda_initialized": false,
+    "model_loaded": false,
+    "model_forward_count": 0,
+    "backward_count": 0,
+    "optimizer_steps": 0,
+    "candidate_files": [],
+    "update": false,
+    "heldout_auditor_opened": true,
+    "heldout_candidate_or_model_opened": false,
+    "heldout_scientific_evaluation": false,
+    "heldout_threshold_or_selection_use": false
+  },
+  "claim_boundary": {
+    "evidence_only": true,
+    "ipc1_rerun": false,
+    "candidate_reuse": false,
+    "ipc1_revalidation": false,
+    "nomination": false,
+    "admission": false,
+    "promotion": false,
+    "prior_ipc1_r1_status": "b_ipc1_incomplete",
+    "prior_ipc1_r1_failure_file_sha256": "5712e662256b623369c9cf05d6b830be7d8a8b6ca02d5dc9f4fc25162e68d2a2",
+    "prior_ipc1_r1_failure_internal_sha256": "b58357f73efeda6a314cb8c644612ba2c9f97ab87905d096330e9d8727bd1bcc"
+  }
+}
