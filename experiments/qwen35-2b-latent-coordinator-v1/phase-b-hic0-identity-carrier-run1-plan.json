@@ -2,8 +2,8 @@
   "schema_version": "q35-2b-phase-b-hic0-identity-carrier/v1",
   "status": "frozen_pending_independent_review",
   "claim_class": "zero_update_identity_carrier_causal_diagnostic_nomination_only",
-  "plan_sha256": "9c1a1239093a4c9a4da979716561bd18e78def5cf3dfedf9dbf4b0835f5cf76f",
-  "mechanism_code_commit": "0e234fd124b056f86f2083af8103b2dd875eec29",
+  "plan_sha256": "9fe3e96eb055784af9e84a03f440bcc3a6afdd8df37adae56548fb8b3f68d9e6",
+  "mechanism_code_commit": "4b58336ec0c9295d2edf176431750027e2827c6d",
   "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
   "protected_model": {
     "name": "e33",
@@ -110,7 +110,10 @@
     "first_decoder_block_rmsnorm": "model.model.language_model.layers[0].input_layernorm",
     "rmsnorm_formulas": {
       "A_insert": "norm(RMSNorm(r))/norm(r)",
-      "A_inplace": "norm(RMSNorm(x+r)-RMSNorm(x))/norm(r)"
+      "A_inplace": "norm(RMSNorm(x+r)-RMSNorm(x))/norm(r)",
+      "insert_cosine": "cos(RMSNorm(r),r)",
+      "inplace_cosine": "cos(RMSNorm(x),RMSNorm(x+r))",
+      "numeric_domain": "detached CPU float64"
     },
     "alignment": {
       "original": "T=full length; S=open length; I=plain length; B=S-1; K=T-S+1; labels[B:T]",
@@ -120,18 +123,40 @@
       "first_suffix_logits": "logits[:,0:1,:]",
       "invariants": "0<I<=S<T; inserted masks one, labels -100, position IDs shifted; trie offsets identical"
     },
-    "loss": "BR5-aligned supervised suffix teacher-forced causal loss",
+    "loss": "exact CPU-float64 suffix CE over L=logits[0,0:K-1,:], y=labels[0,1:K], per-token logsumexp(L[j])-L[j,y[j]], math.fsum/N; native output.loss finite descriptive and used only for designated backward",
     "generation": false,
     "cache": false,
     "attention_implementation": "eager",
     "cache_guard_label_count": 147,
     "cache_guard_label_sha256": "8230eae3b60a7fd00d7bfb557563a9d9ca32764ace262447275bd40538818471",
-    "cache_guard": "recursive use_cache closure plus DynamicCache constructor trip; ENTRY; PRE/POST every source/receiver call after rope_deltas reset; FINAL after 72; EXIT while patched; restore finally"
+    "cache_guard": "recursive loaded Cache subclass closure patches every __new__; exact pinned eight classes with fqcn/path/SHA/distribution; DynamicCache constructor trip; closure checked at every one of 147 labels; ENTRY; PRE/POST every source/receiver call after rope_deltas reset; FINAL after 72; EXIT before restore in finally",
+    "cache_classes": [
+      "fla.models.utils.Cache",
+      "fla.models.utils.FLACache",
+      "fla.models.utils.LegacyFLACache",
+      "transformers.cache_utils.Cache",
+      "transformers.cache_utils.DynamicCache",
+      "transformers.cache_utils.EncoderDecoderCache",
+      "transformers.cache_utils.QuantizedCache",
+      "transformers.cache_utils.StaticCache"
+    ],
+    "cache_class_sources": {
+      "fla.models.utils": {
+        "relative_path": "lib/python3.12/site-packages/fla/models/utils.py",
+        "sha256": "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1",
+        "distribution": "flash-linear-attention==0.5.2"
+      },
+      "transformers.cache_utils": {
+        "relative_path": "lib/python3.12/site-packages/transformers/cache_utils.py",
+        "sha256": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+        "distribution": "transformers==5.6.2"
+      }
+    }
   },
   "metrics": {
-    "per_arm": ["float64 target NLL", "correct-path action-trie margin", "final causal hidden", "first suffix logits"],
+    "per_arm": ["exact CPU-float64 suffix target NLL", "CPU-float64 correct-path action-trie margin from the same L", "final causal hidden", "first suffix logits"],
     "identity": "INPLACE_ZERO bitwise equals BASE for inputs_embeds, attention_mask, position_ids, labels, final hidden, first suffix logits, NLL, margin",
-    "drift": "normalized RMS difference from BASE; ratio INPLACE_EPS drift / INSERT_EPS drift",
+    "drift": "detached CPU-float64 normalized RMS difference from BASE; gate uses ratio of aggregate means, never mean per-row ratios",
     "rmsnorm_slots": 96,
     "all_deltas": "ARM minus BASE",
     "structural_insert_zero": "INSERT_ZERO minus BASE descriptive only",
@@ -142,10 +167,10 @@
   "nomination_gates": {
     "1": "12x5 complete finite plus all safety evidence",
     "2": "INPLACE_ZERO bitwise BASE on every frozen field",
-    "3": "mean P_insert>=.05 and >=9/12 positive",
+    "3": "mean P_insert>=.05 and >=9/12 strictly >1e-6",
     "4": "mean A_insert>=5*mean A_inplace and row ratio>5 on >=10/12",
     "5": "mean P_inplace<=.01; worst<=.05; removal>=.80; inplace wins>=10/12",
-    "6": "mean hidden and logit drift ratios<=.20; any zero insertion denominator is incomplete",
+    "6": "mean INPLACE hidden drift<=.20*mean INSERT hidden drift and separately mean INPLACE logit drift<=.20*mean INSERT logit drift; any zero insertion denominator is incomplete",
     "7": "INPLACE_EPS margin delta mean>=-.05 and worst>=-.50",
     "8": "backward, provenance, cache, protection, and resource all pass",
     "rule": "all eight gates pass; no retries, exclusions, alternate aggregation, or threshold changes"
@@ -158,6 +183,9 @@
     "clear_gradients_after_probe": true
   },
   "terminal_statuses": {
+    "top_level_status_is_literal": true,
+    "terminal_file_class_is_separate": true,
+    "internal_receipt_sha256_omits_only_itself": true,
     "pass": "b_hic0_inplace_carrier_nominated",
     "complete_threshold_miss": "b_hic0_inplace_carrier_not_nominated",
     "cache_or_pkv_failure": "b_hic0_nocache_rejected",
