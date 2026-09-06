@@ -886,6 +886,8 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
     nomination = evaluate_hic0(rows_evidence, safety=safety)
     if nomination["summaries"]["zero_drift_denominators"]:
         raise PhaseBContractError("B-HIC0 insertion drift denominator is zero")
+    if not nomination["gates"]["1_complete_finite_safe"]:
+        raise PhaseBContractError("B-HIC0 finite descriptive evidence is incomplete")
     _memory_checkpoint(torch, audit, "before_success")
     return {
         "schema_version": "q35-2b-phase-b-hic0-identity-carrier-success/v1",

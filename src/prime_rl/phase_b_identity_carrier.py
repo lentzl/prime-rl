@@ -204,7 +204,9 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
             math.isfinite(value) for value in (*insert_slots, *inplace_slots, *cosine_values)
         )
         row_inplace = mean64(inplace_slots)
-        row_amplification_ratio.append(float("inf") if row_inplace == 0.0 else mean64(insert_slots) / row_inplace)
+        if row_inplace == 0.0:
+            raise PhaseBContractError("B-HIC0 row RMSNorm amplification denominator is zero")
+        row_amplification_ratio.append(mean64(insert_slots) / row_inplace)
         drift = row.get("drift")
         if not isinstance(drift, dict):
             raise PhaseBContractError("B-HIC0 drift evidence is absent")
