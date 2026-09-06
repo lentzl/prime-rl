@@ -65,7 +65,7 @@ class NetworkGuard:
     def __init__(self)->None: self.originals=[]
     def deny(self,*_args:Any,**_kwargs:Any)->Any:
         STATE["network_attempts"]+=1
-        raise RuntimeError("T0 guard proof network denied")
+        raise T0PreflightR1GuardProofBoundaryRejected("T0 guard proof network denied")
     def install(self)->None:
         for owner,name in ((socket.socket,"connect"),(socket.socket,"connect_ex"),(socket,"create_connection"),(socket,"getaddrinfo")):
             self.originals.append((owner,name,getattr(owner,name))); setattr(owner,name,self.deny)
@@ -220,15 +220,17 @@ def run(repo:Path,execution_commit:str,plan_file_sha256:str,output:Path)->None:
             if not isinstance(module,str): uninspectable+=1
         except Exception: errors+=1
     safety={"cuda_visible_devices":os.environ.get("CUDA_VISIBLE_DEVICES"),"cuda_initialized":False,"torch_imported":"torch" in sys.modules,"transformers_imported":"transformers" in sys.modules,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"validation_opens":0,"heldout_opens":0,"network_attempts":STATE["network_attempts"],"output_namespace_fresh":not output.exists(),"object_census_errors":errors,"object_census_uninspectable":uninspectable}
-    if safety!={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh":True,"object_census_errors":0,"object_census_uninspectable":0}: raise RuntimeError("T0 guard proof safety differs")
+    if any((safety["torch_imported"],safety["transformers_imported"],safety["tokenizer_loaded"],safety["model_loaded"],safety["optimizer_constructed"],safety["scientific_forwards"],safety["training_operations"],safety["validation_opens"],safety["heldout_opens"],safety["network_attempts"])): raise T0PreflightR1GuardProofBoundaryRejected("T0 guard proof boundary exposure observed")
+    if safety!={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh":True,"object_census_errors":0,"object_census_uninspectable":0}: raise InfrastructureInvalid("T0 guard proof safety differs")
     mark("SAFETY_AUDIT_COMPLETE"); STATE["stage"]="audit"
+    signal.alarm(0); signal.alarm(119)
     post=asset_entries(repo); post_sha=sha(canonical_json(post)); head_after=git(repo,"rev-parse","HEAD"); tree_after=git(repo,"rev-parse","HEAD^{tree}"); clean_after=not bool(git(repo,"status","--porcelain","--untracked-files=all"))
     if pre!=post or head_after!=head or tree_after!=tree or not clean_after: raise RuntimeError("T0 guard proof postflight differs")
     mark("TERMINAL_PREWRITE")
     source_evidence={"baseline_runner_file_sha256":sha(baseline.encode()),"repaired_runner_file_sha256":sha(repaired.encode()),"baseline_normalized_ast_sha256":baseline_hash,"repaired_normalized_ast_sha256":repaired_hash,"normalized_ast_equal":True,"guard_function_ast_sha256":guard_hash,"added_top_level_functions":["validate_static_exposure_source"],"full_forbidden_literals_absent_from_repaired_source":all(name not in repaired for name in ("-".join(("validation","bank.json")),"-".join(("heldout","bank.json")))),"only_allowed_surface_changed":True}
     timing={"outer":720,"startup":60,"compute":300,"compute_alarm":299,"audit":120,"audit_alarm":119,"failure":90,"failure_alarm":89,"terminal":30,"terminal_alarm":29,"postexit":30,"reserve":90,"success_entry":480,"compute_failure_entry":450,"audit_failure_entry":570,"prior_terminal_failure_entry":600}
     proof={"schema_version":PROOF_SCHEMA,"status":PROOF_STATUS,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":head,"mechanism_code_commit":plan["mechanism_code_commit"],"tree_sha256":tree,"plan_file_sha256":plan_file_sha256,"plan_sha256":plan["plan_sha256"],"runtime":plan["runtime"],"asset_audit":{"target_count":46,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True},"failed_start_binding":FAILED_START_BINDING,"source_evidence":source_evidence,"case_results":rows,"safety":safety,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing,"observed_rss_peak_bytes":rss(),"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":STATE["memory"],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":True},"full_freeze":{"head_before":head,"head_after":head_after,"tree_before":tree,"tree_after":tree_after,"clean_before":clean,"clean_after":clean_after,"assets_pre_sha256":pre_sha,"assets_post_sha256":post_sha,"complete":True},"decision_boundary":PROOF_DECISION,"proof_sha256":""}
-    proof["proof_sha256"]=sha(canonical_json({k:v for k,v in proof.items() if k!="proof_sha256"})); validate_proof(proof,repo); STATE["stage"]="terminal_publication"; atomic_terminal(output,PROOF_NAME,proof,lambda value:validate_proof(value,repo))
+    proof["proof_sha256"]=sha(canonical_json({k:v for k,v in proof.items() if k!="proof_sha256"})); validate_proof(proof,repo); STATE["stage"]="terminal_publication"; signal.alarm(0); signal.alarm(29); atomic_terminal(output,PROOF_NAME,proof,lambda value:validate_proof(value,repo)); signal.alarm(0)
 
 def publish_failure(output:Path,execution_commit:str,plan_file_sha256:str,error:BaseException)->None:
     if output.exists() or output.is_symlink(): return
@@ -254,7 +256,8 @@ def main()->None:
     try: run(repo,args.execution_commit,args.plan_file_sha256,output)
     except BaseException as error:
         traceback.print_exc()
-        try: publish_failure(output,args.execution_commit,args.plan_file_sha256,error)
+        signal.alarm(0); signal.alarm(89)
+        try: publish_failure(output,args.execution_commit,args.plan_file_sha256,error); signal.alarm(0)
         except BaseException: traceback.print_exc()
         raise SystemExit(2) from error
 
