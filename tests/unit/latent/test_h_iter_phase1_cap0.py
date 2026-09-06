@@ -228,6 +228,27 @@ def test_exposure_precedence_and_progress_crossings(frozen: tuple[dict, dict, di
     value, selection, _ = frozen; plan = plan_fixture()
     failure = failure_fixture(plan, value, status=contract.INCOMPLETE_STATUS, error_type="CAP0ContractError", exposure=True)
     with pytest.raises(contract.CAP0ContractError): runner.validate_failure(failure, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
+
+def test_failure_cache_exit_and_probe_underreport_rejected(frozen: tuple[dict, dict, dict]) -> None:
+    value, selection, _ = frozen
+    plan = plan_fixture()
+    failure = failure_fixture(plan, value, status=contract.INCOMPLETE_STATUS, error_type="CAP0ContractError")
+    failure["cache_guard_partial"] = cache_fixture(value)
+    failure["progress"]["cache_checks_completed"] = 18
+    failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))
+    with pytest.raises(contract.CAP0ContractError):
+        runner.validate_failure(failure, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
+
+    failure = failure_fixture(plan, value, status=contract.INCOMPLETE_STATUS, error_type="CAP0ContractError")
+    failure["progress"].update({"stage": "capture", "tokenizer_calls_completed": 4, "model_forwards_completed": 8, "sequences_completed": 96, "cache_checks_completed": 17, "model_loaded": True})
+    failure["cache_guard_partial"] = cache_fixture(value)
+    failure["cache_guard_partial"]["check_labels"] = contract.CACHE_LABELS[:-1]
+    failure["cache_guard_partial"]["check_count"] = 17
+    failure["cache_guard_partial"].update({"classes_restored": False, "configs_restored": False, "complete": False})
+    failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))
+    with pytest.raises(contract.CAP0ContractError):
+        runner.validate_failure(failure, plan=plan, contract=value, selection=selection, execution_commit="7" * 40, plan_file_sha256="8" * 64)
     failure = failure_fixture(plan, value, status=contract.INCOMPLETE_STATUS, error_type="CAP0ContractError")
     failure["progress"]["sequences_completed"] = 24
     failure["failure_sha256"] = contract.sha256_bytes(contract.canonical_json({key: item for key, item in failure.items() if key != "failure_sha256"}))

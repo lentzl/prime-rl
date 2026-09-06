@@ -725,7 +725,16 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
     for key, maximum in (("tokenizer_calls_completed", 4), ("model_forwards_completed", 8), ("probes_completed", 4), ("cache_checks_completed", 18), ("memory_rows_completed", 28)):
         if not isinstance(progress[key], int) or isinstance(progress[key], bool) or not 0 <= progress[key] <= maximum:
             raise CAP0ContractError("CAP0 failure counter differs")
-    if progress["sequences_completed"] != 24 * progress["tokenizer_calls_completed"] or progress["probes_completed"] > progress["model_forwards_completed"] // 2:
+    tokenizer_calls = progress["tokenizer_calls_completed"]
+    forwards = progress["model_forwards_completed"]
+    probes_completed = progress["probes_completed"]
+    legal_tokenizer_counts = {forwards // 2 + (forwards % 2)}
+    if forwards % 2 == 0 and forwards < 8:
+        legal_tokenizer_counts.add(forwards // 2 + 1)
+    legal_probe_counts = {forwards // 2}
+    if forwards >= 2 and forwards % 2 == 0:
+        legal_probe_counts.add(forwards // 2 - 1)
+    if progress["sequences_completed"] != 24 * tokenizer_calls or tokenizer_calls not in legal_tokenizer_counts or probes_completed not in legal_probe_counts:
         raise CAP0ContractError("CAP0 failure counter crossing differs")
     if not isinstance(progress["model_loaded"], bool) or not isinstance(progress["model_released"], bool) or progress["model_released"] and not progress["model_loaded"]:
         raise CAP0ContractError("CAP0 failure model stage differs")
@@ -746,7 +755,12 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], contract:
     if cache is not None:
         validate_cache(cache, contract, complete=False)
         n = progress["model_forwards_completed"]
-        if len(cache["check_labels"]) not in {1 + 2 * n, 2 + 2 * n, 18} or progress["cache_checks_completed"] != len(cache["check_labels"]):
+        legal_cache_lengths = {1 + 2 * n}
+        if n < 8:
+            legal_cache_lengths.add(2 + 2 * n)
+        elif n == 8:
+            legal_cache_lengths.add(18)
+        if len(cache["check_labels"]) not in legal_cache_lengths or progress["cache_checks_completed"] != len(cache["check_labels"]) or cache["mandatory_negative_control"] is not True or cache["trip_count"] < 1:
             raise CAP0ContractError("CAP0 failure cache prefix differs")
         if failure["status"] != REJECT_STATUS and cache["trip_count"] > 1:
             raise CAP0ContractError("CAP0 cache trip masked")
