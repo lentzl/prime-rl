@@ -16,11 +16,17 @@ readonly output_dir="$output_parent/$run_id"
 readonly uv_bin=/home/ubuntu/.local/bin/uv
 readonly shared_project=/home/ubuntu/rlm/prime-rl
 readonly shared_venv="$shared_project/.venv"
+readonly shared_pyproject_sha256=504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656
+readonly shared_uv_lock_sha256=fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5
 
 for directory in "$repo" "$output_parent" "$shared_project" "$shared_venv"; do
   [[ -d "$directory" && ! -L "$directory" ]] || exit 2
 done
 [[ -x "$uv_bin" && -f "$plan" && ! -L "$plan" && -f "$sidecar" && ! -L "$sidecar" ]] || exit 2
+[[ -f "$shared_project/pyproject.toml" && ! -L "$shared_project/pyproject.toml" ]] || exit 2
+[[ -f "$shared_project/uv.lock" && ! -L "$shared_project/uv.lock" ]] || exit 2
+[[ "$(sha256sum "$shared_project/pyproject.toml" | cut -d' ' -f1)" == "$shared_pyproject_sha256" ]] || exit 2
+[[ "$(sha256sum "$shared_project/uv.lock" | cut -d' ' -f1)" == "$shared_uv_lock_sha256" ]] || exit 2
 [[ ! -e "$output_dir" && ! -L "$output_dir" ]] || exit 2
 available_kib=$(df -Pk "$output_parent" | awk 'NR==2 {print $4}')
 host_memory_kib=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
@@ -41,7 +47,7 @@ export WANDB_MODE=offline
 export UV_PROJECT_ENVIRONMENT="$shared_venv"
 export PYTHONPATH="$repo/src"
 set +e
-timeout --signal=TERM --kill-after=60s 900s "$uv_bin" run --project "$shared_project" --no-sync python \
+timeout --signal=TERM --kill-after=60s 1200s "$uv_bin" run --project "$shared_project" --no-sync python \
   "$repo/scripts/latent/run_h_iter_phase0_generator_locality_v1.py" \
   --repo "$repo" --plan "$plan" --plan-file-sha256 "$plan_sha256" \
   --execution-commit "$execution_commit" --output-dir "$output_dir"

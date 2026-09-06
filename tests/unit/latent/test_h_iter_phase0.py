@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import ast
 import importlib.util
+import os
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -159,7 +161,11 @@ def test_transition_and_readout_source_expose_only_local_one_hop_state() -> None
     readout_text = ast.unparse(readout)
     assert "index_select" in transition_text
     assert "matmul" not in transition_text and "adjacency" not in transition_text and "pool" not in transition_text
-    assert "state[start_index]" in readout_text
+    assert [argument.arg for argument in readout.args.args] == ["vector"]
+    assert "start_index" not in readout_text and "state" not in readout_text
+    torch = pytest.importorskip("torch")
+    with pytest.raises(hiter.ContractError, match="indexed start vector"):
+        hiter._readout(torch.zeros((24, 4), dtype=torch.float64))
 
 
 def test_tamper_schedule_and_memory_labels_are_stable() -> None:
@@ -172,6 +178,45 @@ def test_tamper_schedule_and_memory_labels_are_stable() -> None:
 
 
 def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
+    plan = load_asset("phase0-plan.json")
+    plan["runtime"] = hiter.EXPECTED_RUNTIME
+    plan["resource_bounds"] = hiter.RESOURCE_BOUNDS
+    plan["safety_boundary"] = hiter.DECISION_BOUNDARY | {
+        "coordinator_e33_loaded": False,
+        "worker_h176_loaded": False,
+        "tokenizer_calls": 0,
+        "model_forwards": 0,
+        "model_backwards": 0,
+        "optimizer_steps": 0,
+        "synthetic_cpu_backwards": 40,
+        "transformers_modeling_imports": 0,
+        "network_guard": hiter.NETWORK_GUARD_CONTRACT,
+    }
+    plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
+    execution = "1" * 40
+    external_plan = "2" * 64
+    def phase_record(phase: str, entered: int, exited: int, outcome: str) -> dict:
+        cap = hiter.PHASE_CAP_SECONDS[phase] * 1_000_000_000
+        return {
+            "phase": phase,
+            "entered_ns_since_start": entered,
+            "exited_ns_since_start": exited,
+            "duration_ns": exited - entered,
+            "outcome": outcome,
+            "cap_ns": cap,
+            "alarm_after_ns": cap - 1_000_000_000,
+            "alarm_safety_margin_ns": 1_000_000_000,
+            "timeout_observed": False,
+            "alarm_requested_after_ns": cap - 1_000_000_000,
+            "timeout_observed_duration_ns": None,
+            "delivery_overrun_ns": 0,
+            "timing_cap_exceeded": False,
+        }
+
+    phase_records = [
+        phase_record("compute", 0, 10, "error"),
+        phase_record("failure_audit", 10, 20, "completed"),
+    ]
     failure = {
         "schema_version": hiter.FAILURE_SCHEMA,
         "status": "h_iter_phase0_generator_locality_incomplete",
@@ -180,7 +225,11 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
         "error_type": "ContractError",
         "error": "synthetic",
         "traceback": "synthetic traceback",
-        "execution_commit": "1" * 40,
+        "execution_commit": execution,
+        "mechanism_code_commit": plan["mechanism_code_commit"],
+        "authorized_plan_file_sha256": external_plan,
+        "plan_file_sha256": external_plan,
+        "plan_sha256": plan["plan_sha256"],
         "actual_safety": {
             "cuda_visible_devices": "",
             "torch_imported": True,
@@ -194,10 +243,37 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
             "checkpoint_files": [],
             "static_forbidden_model_call_sites": [],
             "observation_complete": True,
+            "object_census_method": "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes",
+            "cuda_observation_method": "torch.cuda.is_initialized",
+            "relevant_modules_absent_for_preimport_inference": False,
+            "network_guard": hiter.NETWORK_GUARD_CONTRACT
+            | {
+                "installed": True,
+                "wrappers_restored": True,
+                "audit_hook_persistent": True,
+                "attempt_count": 0,
+            },
         },
-        "elapsed_seconds": 0.25,
+        "completed_phase_records": phase_records,
+        "final_terminal_publication": {
+            "phase": "terminal_publication",
+            "entered_ns_since_start": 20,
+            "limit_ns": 60_000_000_000,
+            "completion_observable_inside_terminal": False,
+            "self_reference_boundary": "post_write_fsync_reopen_validation_and_process_exit_are_external_to_immutable_terminal_bytes",
+        },
+        "prepublication_elapsed_ns": 20,
         "partial_memory": {"expected_labels": hiter.memory_labels(), "rows": []},
-        "full_freeze_failure_audit": {"errors": []},
+        "full_freeze_failure_audit": {
+            "head": execution,
+            "tree": "3" * 40,
+            "status": "",
+            "plan_file_sha256": external_plan,
+            "plan_sha256": plan["plan_sha256"],
+            "plan_sidecar_sha256": hiter.sha256_bytes(f"{external_plan}\n".encode()),
+            "plan_asset_hashes": plan["asset_sha256"],
+            "errors": [],
+        },
         "output_inventory_before_failure": [],
         "candidate_created": False,
         "checkpoint_created": False,
@@ -205,16 +281,40 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
         "failure_sha256": "",
     }
     failure["failure_sha256"] = hiter.canonical_sha256(failure, omit="failure_sha256")
-    hiter.validate_failure(failure)
+    validation_args = {
+        "plan": plan,
+        "expected_execution_commit": execution,
+        "expected_plan_file_sha256": external_plan,
+    }
+    hiter.validate_failure(failure, **validation_args)
     stale = json_roundtrip(failure)
     stale["error"] = "tampered"
     with pytest.raises(hiter.ContractError, match="self hash"):
-        hiter.validate_failure(stale)
+        hiter.validate_failure(stale, **validation_args)
     unsafe = json_roundtrip(failure)
     unsafe["actual_safety"]["cuda_initialized"] = True
     unsafe["failure_sha256"] = hiter.canonical_sha256(unsafe, omit="failure_sha256")
     with pytest.raises(hiter.ContractError, match="infrastructure"):
-        hiter.validate_failure(unsafe)
+        hiter.validate_failure(unsafe, **validation_args)
+    wrong_authority = json_roundtrip(failure)
+    wrong_authority["execution_commit"] = "4" * 40
+    wrong_authority["failure_sha256"] = hiter.canonical_sha256(wrong_authority, omit="failure_sha256")
+    with pytest.raises(hiter.ContractError, match="launch authority"):
+        hiter.validate_failure(wrong_authority, **validation_args)
+    wrong_plan_authority = json_roundtrip(failure)
+    wrong_plan_authority["authorized_plan_file_sha256"] = "5" * 64
+    wrong_plan_authority["failure_sha256"] = hiter.canonical_sha256(
+        wrong_plan_authority, omit="failure_sha256"
+    )
+    with pytest.raises(hiter.ContractError, match="plan authority"):
+        hiter.validate_failure(wrong_plan_authority, **validation_args)
+    malformed_memory = json_roundtrip(failure)
+    malformed_memory["partial_memory"]["rows"] = [
+        {"label": hiter.memory_labels()[0], "rss_bytes": True, "peak_rss_bytes": 1}
+    ]
+    malformed_memory["failure_sha256"] = hiter.canonical_sha256(malformed_memory, omit="failure_sha256")
+    with pytest.raises(hiter.ContractError, match="memory value"):
+        hiter.validate_failure(malformed_memory, **validation_args)
 
 
 def json_roundtrip(value: object):
@@ -243,3 +343,100 @@ def test_atomic_writer_refuses_nonempty_or_second_terminal(
     (second / "intruder").write_text("x")
     with pytest.raises(runner.InfrastructureInvalid, match="not empty"):
         second_writer.write("FAILURE.json", {"x": 2}, 1024)
+
+
+def test_launcher_and_runtime_bind_shared_environment_and_outer_budget() -> None:
+    launcher = (ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.sh").read_text()
+    runner = (ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py").read_text()
+    assert hiter.EXPECTED_RUNTIME["shared_project_pyproject_sha256"] in launcher
+    assert hiter.EXPECTED_RUNTIME["shared_project_uv_lock_sha256"] in launcher
+    assert "timeout --signal=TERM --kill-after=60s 1200s" in launcher
+    assert 'sys.executable != EXPECTED_RUNTIME["sys_executable"]' in runner
+    assert 'sys.prefix != EXPECTED_RUNTIME["sys_prefix"]' in runner
+    assert "class NetworkGuard" in runner and "sys.addaudithook" in runner
+    assert 'tracker.enter("compute", RESOURCE_BOUNDS["compute_timeout_seconds"])' in runner
+    assert 'tracker.enter("audit", RESOURCE_BOUNDS["audit_timeout_seconds"])' in runner
+    assert 'tracker.enter("failure_audit", RESOURCE_BOUNDS["failure_audit_timeout_seconds"])' in runner
+
+
+def test_network_guard_and_pre_torch_census_in_fresh_process(tmp_path: Path) -> None:
+    runner_path = ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py"
+    program = f"""
+import importlib.util
+import socket
+from pathlib import Path
+spec = importlib.util.spec_from_file_location('hiter_guard_subprocess', {str(runner_path)!r})
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+assert 'torch' not in module.sys.modules
+output = Path({str(tmp_path)!r})
+inventory = module.object_inventory(None, output)
+assert inventory['relevant_modules_absent_for_preimport_inference'] is True
+guard = module.NetworkGuard()
+with guard:
+    try:
+        socket.getaddrinfo('example.invalid', 443)
+    except module.InfrastructureInvalid:
+        pass
+    else:
+        raise AssertionError('network call was accepted')
+assert guard.installed is True and guard.wrappers_restored is True
+assert guard.attempt_count == 1
+"""
+    subprocess.run(
+        [sys.executable, "-c", program],
+        cwd=ROOT,
+        check=True,
+        env={**os.environ, "PYTHONPATH": str(ROOT / "src")},
+    )
+
+
+def test_proof_validator_binds_launch_authority_before_payload_details() -> None:
+    plan = load_asset("phase0-plan.json")
+    plan["runtime"] = hiter.EXPECTED_RUNTIME
+    plan["resource_bounds"] = hiter.RESOURCE_BOUNDS
+    plan["safety_boundary"] = hiter.DECISION_BOUNDARY | {
+        "coordinator_e33_loaded": False,
+        "worker_h176_loaded": False,
+        "tokenizer_calls": 0,
+        "model_forwards": 0,
+        "model_backwards": 0,
+        "optimizer_steps": 0,
+        "synthetic_cpu_backwards": 40,
+        "transformers_modeling_imports": 0,
+        "network_guard": hiter.NETWORK_GUARD_CONTRACT,
+    }
+    plan["plan_sha256"] = hiter.canonical_sha256(plan, omit="plan_sha256")
+    proof = {
+        key: None
+        for key in {
+            "schema_version", "status", "mechanism", "run_identity", "execution_commit",
+            "mechanism_code_commit", "plan_file_sha256", "plan_sha256", "runtime", "asset_audit",
+            "banks", "structural_audit", "overlap_audit", "operation_schedule", "locality",
+            "tamper_audit", "counts", "safety", "resources", "memory", "full_freeze",
+            "decision_boundary", "proof_sha256",
+        }
+    }
+    proof.update(
+        {
+            "schema_version": hiter.PROOF_SCHEMA,
+            "status": "h_iter_phase0_generator_locality_validated",
+            "mechanism": hiter.MECHANISM,
+            "run_identity": hiter.RUN_IDENTITY,
+            "execution_commit": "3" * 40,
+            "mechanism_code_commit": plan["mechanism_code_commit"],
+            "plan_file_sha256": "2" * 64,
+            "plan_sha256": plan["plan_sha256"],
+        }
+    )
+    with pytest.raises(hiter.ContractError, match="launch authority"):
+        hiter.validate_proof(
+            proof,
+            plan=plan,
+            banks={},
+            selection={},
+            schedule={},
+            overlap={},
+            expected_execution_commit="1" * 40,
+            expected_plan_file_sha256="2" * 64,
+        )

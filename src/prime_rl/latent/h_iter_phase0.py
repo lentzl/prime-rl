@@ -93,8 +93,8 @@ RECEIPT_TAMPERS = [
     "model_call_nonzero",
     "cuda_initialized_true",
     "optimizer_step_nonzero",
-    "validation_scientific_opened",
-    "heldout_scientific_opened",
+    "validation_phase1_learning_exposure_nonzero",
+    "heldout_phase1_learning_exposure_nonzero",
     "thresholds_present",
     "receipt_sha_stale",
 ]
@@ -697,10 +697,17 @@ def new_identity_sets(banks: dict[str, dict[str, Any]]) -> dict[str, set[str]]:
 
 
 def validate_no_threshold_fields(value: Any) -> None:
+    allowed_false_sentinels = {
+        "validation_learning_threshold_use",
+        "heldout_learning_threshold_use",
+        "phase1_thresholds_present",
+    }
     if isinstance(value, dict):
         for key, item in value.items():
             if "threshold" in key.lower():
-                raise ContractError("Phase-0 artifact contains a learning-threshold field")
+                if key not in allowed_false_sentinels or item is not False:
+                    raise ContractError("Phase-0 artifact contains a learning-threshold field")
+                continue
             validate_no_threshold_fields(item)
     elif isinstance(value, list):
         for item in value:
@@ -823,8 +830,7 @@ def _arm_state(arm: str, hidden: Any, successor_index: Any, depth: int, *, steps
     raise ContractError(f"unknown locality arm: {arm}")
 
 
-def _readout(state: Any, start_index: int):
-    vector = state[start_index]
+def _readout(vector: Any):
     if list(vector.shape) != [FEATURE_DIM]:
         raise ContractError("readout received more than the indexed start vector")
     return vector, vector.sum()
@@ -878,9 +884,9 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
             state = hidden
             for timestep in range(depth):
                 if timestep == depth - 1:
-                    rec_k_minus_1, _ = _readout(state, start_index)
+                    rec_k_minus_1, _ = _readout(state[start_index])
                 state = _transition(state, successors)
-            vector, scalar = _readout(state, start_index)
+            vector, scalar = _readout(state[start_index])
             rec_k = vector.detach().clone()
         elif arm == "RESET_K":
             reset_first = None
@@ -891,10 +897,10 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
                     reset_first = state
             if reset_first is None:
                 raise ContractError("reset arm performed no transition")
-            vector, scalar = _readout(state, start_index)
+            vector, scalar = _readout(state[start_index])
         else:
             state = _arm_state(arm, hidden, successors, depth)
-            vector, scalar = _readout(state, start_index)
+            vector, scalar = _readout(state[start_index])
         baseline_vectors[arm] = vector.detach().clone()
         scalar.backward()
         distances = _distance_indices(row, node_index)
@@ -946,9 +952,9 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
     swapped_k_minus_1 = None
     for timestep in range(depth):
         if timestep == depth - 1:
-            swapped_k_minus_1, _ = _readout(swapped_state, start_index)
+            swapped_k_minus_1, _ = _readout(swapped_state[start_index])
         swapped_state = _transition(swapped_state, successors)
-    swapped_k, _ = _readout(swapped_state, start_index)
+    swapped_k, _ = _readout(swapped_state[start_index])
     if rec_k_minus_1 is None or rec_k is None or swapped_k_minus_1 is None:
         raise ContractError("recurrent endpoint readout was not captured")
     if not torch.equal(rec_k_minus_1, swapped_k_minus_1):
@@ -978,7 +984,7 @@ def run_locality_probe(row: dict[str, Any], probe: dict[str, Any]) -> dict[str, 
             reference = baseline_vectors[arm]
             changed = hidden.clone()
             changed[distance_indices[distance]] += perturb_vector
-            observed, _ = _readout(_arm_state(arm, changed, successors, depth), start_index)
+            observed, _ = _readout(_arm_state(arm, changed, successors, depth)[start_index])
             delta = float((observed - reference).abs().max().item())
             if location == "inside" and (torch.equal(observed, reference) or delta <= 1e-12):
                 raise ContractError("inside-radius perturbation did not change readout")
@@ -1308,21 +1314,61 @@ EXPECTED_RUNTIME = {
     "pyarrow_distribution": "24.0.0",
     "cuda_visible_devices": "",
     "cuda_initialized_required": False,
+    "sys_executable": "/home/ubuntu/rlm/prime-rl/.venv/bin/python3",
+    "sys_prefix": "/home/ubuntu/rlm/prime-rl/.venv",
+    "shared_project_pyproject_sha256": "504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656",
+    "shared_project_uv_lock_sha256": "fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5",
 }
 RESOURCE_BOUNDS = {
     "minimum_host_ram_gib": 8,
     "minimum_free_disk_gib": 8,
     "maximum_artifact_bytes": 32 * 2**20,
-    "outer_timeout_seconds": 900,
+    "outer_timeout_seconds": 1200,
     "compute_timeout_seconds": 600,
     "audit_timeout_seconds": 180,
     "failure_audit_timeout_seconds": 180,
     "terminal_timeout_seconds": 60,
+    "success_inner_maximum_seconds": 840,
+    "compute_failure_maximum_seconds": 840,
+    "audit_failure_maximum_seconds": 1020,
+    "prepublication_terminal_failure_maximum_seconds": 1080,
+    "startup_external_headroom_seconds": 120,
     "network": False,
     "output_root": "/home/ubuntu/rlm/outputs/q35-2b-h-iter-phase0-generator-locality-run1",
 }
+PHASE0_AUDITOR_EXPOSURE = {
+    "train_rows": 96,
+    "validation_rows": 48,
+    "heldout_rows": 48,
+    "train_locality_probes": 4,
+    "validation_locality_probes": 2,
+    "heldout_locality_probes": 2,
+    "receiver_inputs": True,
+    "supervision": True,
+}
+PHASE1_LEARNING_EXPOSURE = {
+    "validation_model_or_tokenizer_calls": 0,
+    "heldout_model_or_tokenizer_calls": 0,
+    "validation_loss_or_learning_metrics": False,
+    "heldout_loss_or_learning_metrics": False,
+    "validation_learning_threshold_use": False,
+    "heldout_learning_threshold_use": False,
+    "validation_candidate_selection_use": False,
+    "heldout_candidate_selection_use": False,
+}
+NETWORK_GUARD_CONTRACT = {
+    "os_network_namespace": False,
+    "python_guard_operations": [
+        "socket.socket.connect",
+        "socket.socket.connect_ex",
+        "socket.create_connection",
+        "socket.getaddrinfo",
+    ],
+    "audit_events": ["socket.connect", "socket.getaddrinfo"],
+    "external_subprocess_allowlist": ["git rev-parse", "git status", "git show"],
+}
 DECISION_BOUNDARY = {
-    "claim": "phase0_generator_and_one_hop_locality_only",
+    "claim": "validation/heldout structurally and synthetic-locality auditor-opened; unopened to learned policy, model features/losses, threshold setting, or candidate selection",
     "phase1_learning_contract_set": False,
     "training_authorized": False,
     "model_or_gpu_authorized": False,
@@ -1332,9 +1378,83 @@ DECISION_BOUNDARY = {
     "promotion": False,
     "live_trajectory_count": 0,
     "four_live_floor_unchanged": True,
-    "validation_scientific_opened": False,
-    "heldout_scientific_opened": False,
+    "phase0_auditor_opened": PHASE0_AUDITOR_EXPOSURE,
+    "phase1_learning_exposure": PHASE1_LEARNING_EXPOSURE,
+    "phase0_probe_selection_precommitted": True,
+    "phase1_thresholds_present": False,
 }
+PHASE_CAP_SECONDS = {
+    "compute": 600,
+    "audit": 180,
+    "failure_audit": 180,
+    "terminal_publication": 60,
+}
+PHASE_RECORD_KEYS = {
+    "phase",
+    "entered_ns_since_start",
+    "exited_ns_since_start",
+    "duration_ns",
+    "outcome",
+    "cap_ns",
+    "alarm_after_ns",
+    "alarm_safety_margin_ns",
+    "timeout_observed",
+    "alarm_requested_after_ns",
+    "timeout_observed_duration_ns",
+    "delivery_overrun_ns",
+    "timing_cap_exceeded",
+}
+
+
+def validate_phase_records(records: list[dict[str, Any]], *, failure_status: str | None) -> int:
+    prior_exit = 0
+    for row in records:
+        if set(row) != PHASE_RECORD_KEYS or row["phase"] not in PHASE_CAP_SECONDS:
+            raise ContractError("Phase-0 phase record fields differ")
+        if row["outcome"] not in {"completed", "error"} or any(
+            not isinstance(row[key], int) or isinstance(row[key], bool) or row[key] < 0
+            for key in (
+                "entered_ns_since_start",
+                "exited_ns_since_start",
+                "duration_ns",
+                "cap_ns",
+                "alarm_after_ns",
+                "alarm_safety_margin_ns",
+                "alarm_requested_after_ns",
+                "delivery_overrun_ns",
+            )
+        ):
+            raise ContractError("Phase-0 phase record values differ")
+        cap_ns = PHASE_CAP_SECONDS[row["phase"]] * 1_000_000_000
+        if (
+            row["entered_ns_since_start"] < prior_exit
+            or row["duration_ns"] != row["exited_ns_since_start"] - row["entered_ns_since_start"]
+            or row["cap_ns"] != cap_ns
+            or row["alarm_after_ns"] != cap_ns - 1_000_000_000
+            or row["alarm_requested_after_ns"] != row["alarm_after_ns"]
+            or row["alarm_safety_margin_ns"] != 1_000_000_000
+            or row["alarm_after_ns"] + row["alarm_safety_margin_ns"] != row["cap_ns"]
+        ):
+            raise ContractError("Phase-0 phase chronology/cap differs")
+        if row["timeout_observed"] is True:
+            if row["outcome"] != "error" or row["timeout_observed_duration_ns"] != row["duration_ns"]:
+                raise ContractError("Phase-0 timeout observation differs")
+            if row["delivery_overrun_ns"] != max(0, row["duration_ns"] - cap_ns):
+                raise ContractError("Phase-0 timeout overrun arithmetic differs")
+        elif (
+            row["timeout_observed"] is not False
+            or row["timeout_observed_duration_ns"] is not None
+            or row["delivery_overrun_ns"] != 0
+        ):
+            raise ContractError("Phase-0 non-timeout phase evidence differs")
+        if row["timing_cap_exceeded"] is not (row["duration_ns"] > cap_ns):
+            raise ContractError("Phase-0 timing-cap flag differs")
+        if row["duration_ns"] > cap_ns and (
+            failure_status != "infrastructure_invalid" or row["timeout_observed"] is not True
+        ):
+            raise ContractError("Phase-0 phase duration exceeds cap")
+        prior_exit = row["exited_ns_since_start"]
+    return prior_exit
 
 
 def validate_plan(plan: dict[str, Any]) -> None:
@@ -1444,6 +1564,7 @@ def validate_plan(plan: dict[str, Any]) -> None:
         "optimizer_steps": 0,
         "synthetic_cpu_backwards": 40,
         "transformers_modeling_imports": 0,
+        "network_guard": NETWORK_GUARD_CONTRACT,
     }:
         raise ContractError("Phase-0 safety boundary differs")
     if plan["full_freeze"] != {
@@ -1466,7 +1587,10 @@ def validate_proof(
     selection: dict[str, Any],
     schedule: dict[str, Any],
     overlap: dict[str, Any],
+    expected_execution_commit: str,
+    expected_plan_file_sha256: str,
     require_receipt_tampers: bool = True,
+    require_final_timing: bool = True,
 ) -> None:
     keys = {
         "schema_version",
@@ -1502,10 +1626,14 @@ def validate_proof(
         raise ContractError("Phase-0 proof identity differs")
     if proof["mechanism_code_commit"] != plan["mechanism_code_commit"] or proof["plan_sha256"] != plan["plan_sha256"]:
         raise ContractError("Phase-0 proof plan/mechanism binding differs")
-    if not re.fullmatch(r"[0-9a-f]{40}", proof["execution_commit"]):
-        raise ContractError("Phase-0 execution commit is malformed")
-    if not re.fullmatch(r"[0-9a-f]{64}", proof["plan_file_sha256"]):
-        raise ContractError("Phase-0 external plan hash is malformed")
+    if proof["execution_commit"] != expected_execution_commit or not re.fullmatch(
+        r"[0-9a-f]{40}", expected_execution_commit
+    ):
+        raise ContractError("Phase-0 execution commit differs from launch authority")
+    if proof["plan_file_sha256"] != expected_plan_file_sha256 or not re.fullmatch(
+        r"[0-9a-f]{64}", expected_plan_file_sha256
+    ):
+        raise ContractError("Phase-0 external plan hash differs from launch authority")
     audit = proof["asset_audit"]
     if set(audit) != {"before", "after", "before_after_equal", "all_plan_assets_exact"}:
         raise ContractError("Phase-0 asset audit fields differ")
@@ -1578,13 +1706,18 @@ def validate_proof(
         "candidate_created",
         "checkpoint_created",
         "model_updated",
-        "network_enabled",
-        "validation_scientific_opened",
-        "heldout_scientific_opened",
+        "phase0_auditor_opened",
+        "phase1_learning_exposure",
+        "phase0_probe_selection_precommitted",
+        "phase1_thresholds_present",
+        "network_guard",
         "transformers_modeling_modules",
         "pretrained_model_objects",
         "tokenizer_objects",
         "optimizer_objects",
+        "object_census_method",
+        "cuda_observation_method",
+        "relevant_modules_absent_for_preimport_inference",
         "output_inventory_before_terminal",
         "static_forbidden_model_call_sites",
         "tokenizer_calls",
@@ -1601,9 +1734,6 @@ def validate_proof(
         "candidate_created",
         "checkpoint_created",
         "model_updated",
-        "network_enabled",
-        "validation_scientific_opened",
-        "heldout_scientific_opened",
     )
     if any(safety.get(key) is not False for key in expected_false):
         raise ContractError("Phase-0 safety boundary changed")
@@ -1616,6 +1746,34 @@ def validate_proof(
         or safety.get("static_forbidden_model_call_sites") != []
     ):
         raise ContractError("model/optimizer object appeared in Phase-0")
+    if safety["phase0_auditor_opened"] != PHASE0_AUDITOR_EXPOSURE:
+        raise ContractError("Phase-0 auditor exposure differs")
+    if safety["phase1_learning_exposure"] != PHASE1_LEARNING_EXPOSURE:
+        raise ContractError("Phase-1 learning exposure differs")
+    if safety["phase0_probe_selection_precommitted"] is not True or safety["phase1_thresholds_present"] is not False:
+        raise ContractError("Phase-0 exposure boundary differs")
+    if (
+        safety["object_census_method"]
+        != "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes"
+        or safety["cuda_observation_method"] != "torch.cuda.is_initialized"
+        or safety["relevant_modules_absent_for_preimport_inference"] is not False
+    ):
+        raise ContractError("Phase-0 success safety observation method differs")
+    network = safety["network_guard"]
+    if set(network) != {
+        *NETWORK_GUARD_CONTRACT,
+        "installed",
+        "wrappers_restored",
+        "audit_hook_persistent",
+        "attempt_count",
+    }:
+        raise ContractError("Phase-0 network guard fields differ")
+    if {key: network[key] for key in NETWORK_GUARD_CONTRACT} != NETWORK_GUARD_CONTRACT:
+        raise ContractError("Phase-0 network guard contract differs")
+    if network["installed"] is not True or network["wrappers_restored"] is not True:
+        raise ContractError("Phase-0 network guard lifecycle differs")
+    if network["audit_hook_persistent"] is not True or network["attempt_count"] != 0:
+        raise ContractError("Phase-0 network isolation failed")
     if {
         key: safety.get(key)
         for key in ("tokenizer_calls", "model_forwards", "model_backwards", "synthetic_cpu_backwards", "optimizer_steps")
@@ -1651,9 +1809,9 @@ def validate_proof(
         "free_disk_bytes_preflight",
         "free_disk_bytes_postflight",
         "artifact_bytes_before_terminal",
-        "compute_seconds",
-        "audit_seconds",
-        "total_seconds",
+        "completed_phase_records",
+        "final_terminal_publication",
+        "prepublication_elapsed_ns",
     }:
         raise ContractError("Phase-0 resource evidence fields differ")
     if resources.get("bounds") != RESOURCE_BOUNDS:
@@ -1663,9 +1821,26 @@ def validate_proof(
     for key in ("free_disk_bytes_preflight", "free_disk_bytes_postflight"):
         if not isinstance(resources.get(key), int) or resources[key] < 8 * 2**30:
             raise ContractError("Phase-0 free-disk evidence differs")
-    for name in ("compute_seconds", "audit_seconds", "total_seconds"):
-        if not finite_float(resources.get(name)) or resources[name] < 0:
-            raise ContractError("Phase-0 timing evidence differs")
+    if require_final_timing:
+        records = resources["completed_phase_records"]
+        if not isinstance(records, list) or [row.get("phase") for row in records] != ["compute", "audit"]:
+            raise ContractError("Phase-0 success phase order differs")
+        if any(row.get("outcome") != "completed" for row in records):
+            raise ContractError("Phase-0 success phase outcome differs")
+        prior_exit = validate_phase_records(records, failure_status=None)
+        terminal = resources["final_terminal_publication"]
+        if terminal != {
+            "phase": "terminal_publication",
+            "entered_ns_since_start": resources["prepublication_elapsed_ns"],
+            "limit_ns": 60_000_000_000,
+            "completion_observable_inside_terminal": False,
+            "self_reference_boundary": "post_write_fsync_reopen_validation_and_process_exit_are_external_to_immutable_terminal_bytes",
+        }:
+            raise ContractError("Phase-0 terminal self-reference boundary differs")
+        if not isinstance(resources["prepublication_elapsed_ns"], int) or isinstance(resources["prepublication_elapsed_ns"], bool):
+            raise ContractError("Phase-0 prepublication time differs")
+        if resources["prepublication_elapsed_ns"] < prior_exit or resources["prepublication_elapsed_ns"] > 840_000_000_000:
+            raise ContractError("Phase-0 success prepublication budget differs")
     if not isinstance(resources["artifact_bytes_before_terminal"], int) or resources["artifact_bytes_before_terminal"] != 0:
         raise ContractError("Phase-0 preterminal artifact inventory differs")
     freeze = proof["full_freeze"]
@@ -1692,7 +1867,14 @@ def validate_proof(
         raise ContractError("Phase-0 proof self hash differs")
 
 
-def validate_failure(failure: dict[str, Any]) -> None:
+def validate_failure(
+    failure: dict[str, Any],
+    *,
+    plan: dict[str, Any],
+    expected_execution_commit: str,
+    expected_plan_file_sha256: str,
+) -> None:
+    validate_plan(plan)
     if set(failure) != {
         "schema_version",
         "status",
@@ -1702,8 +1884,14 @@ def validate_failure(failure: dict[str, Any]) -> None:
         "error",
         "traceback",
         "execution_commit",
+        "mechanism_code_commit",
+        "authorized_plan_file_sha256",
+        "plan_file_sha256",
+        "plan_sha256",
         "actual_safety",
-        "elapsed_seconds",
+        "completed_phase_records",
+        "final_terminal_publication",
+        "prepublication_elapsed_ns",
         "partial_memory",
         "full_freeze_failure_audit",
         "output_inventory_before_failure",
@@ -1721,14 +1909,57 @@ def validate_failure(failure: dict[str, Any]) -> None:
         raise ContractError("Phase-0 failure schema/status differs")
     if failure["mechanism"] != MECHANISM or failure["run_identity"] != RUN_IDENTITY:
         raise ContractError("Phase-0 failure identity differs")
-    if not re.fullmatch(r"[0-9a-f]{40}", failure["execution_commit"]):
-        raise ContractError("Phase-0 failure execution commit is malformed")
+    if failure["execution_commit"] != expected_execution_commit or not re.fullmatch(
+        r"[0-9a-f]{40}", expected_execution_commit
+    ):
+        raise ContractError("Phase-0 failure execution commit differs from launch authority")
+    if failure["authorized_plan_file_sha256"] != expected_plan_file_sha256 or not re.fullmatch(
+        r"[0-9a-f]{64}", expected_plan_file_sha256
+    ):
+        raise ContractError("Phase-0 failure plan authority differs")
+    if (
+        failure["mechanism_code_commit"] != plan["mechanism_code_commit"]
+        or failure["plan_file_sha256"] != expected_plan_file_sha256
+        or failure["plan_sha256"] != plan["plan_sha256"]
+    ):
+        raise ContractError("Phase-0 failure plan/mechanism binding differs")
     if not isinstance(failure["error_type"], str) or not failure["error_type"]:
         raise ContractError("Phase-0 failure error type is absent")
     if not isinstance(failure["error"], str) or not isinstance(failure["traceback"], str):
         raise ContractError("Phase-0 failure error/traceback differs")
-    if not finite_float(failure["elapsed_seconds"]) or failure["elapsed_seconds"] < 0:
-        raise ContractError("Phase-0 failure elapsed time differs")
+    records = failure["completed_phase_records"]
+    allowed_sequences = [
+        [("compute", "error"), ("failure_audit", "completed")],
+        [("compute", "completed"), ("audit", "error"), ("failure_audit", "completed")],
+        [
+            ("compute", "completed"),
+            ("audit", "completed"),
+            ("terminal_publication", "error"),
+            ("failure_audit", "completed"),
+        ],
+    ]
+    if not isinstance(records, list) or [(row.get("phase"), row.get("outcome")) for row in records] not in allowed_sequences:
+        raise ContractError("Phase-0 failure phase sequence differs")
+    prior_exit = validate_phase_records(records, failure_status=failure["status"])
+    terminal = failure["final_terminal_publication"]
+    if terminal != {
+        "phase": "terminal_publication",
+        "entered_ns_since_start": failure["prepublication_elapsed_ns"],
+        "limit_ns": 60_000_000_000,
+        "completion_observable_inside_terminal": False,
+        "self_reference_boundary": "post_write_fsync_reopen_validation_and_process_exit_are_external_to_immutable_terminal_bytes",
+    }:
+        raise ContractError("Phase-0 failure terminal boundary differs")
+    if not isinstance(failure["prepublication_elapsed_ns"], int) or isinstance(failure["prepublication_elapsed_ns"], bool):
+        raise ContractError("Phase-0 failure prepublication time differs")
+    sequence = [(row["phase"], row["outcome"]) for row in records]
+    maximum = {
+        tuple(allowed_sequences[0]): 840_000_000_000,
+        tuple(allowed_sequences[1]): 1_020_000_000_000,
+        tuple(allowed_sequences[2]): 1_080_000_000_000,
+    }[tuple(sequence)]
+    if failure["prepublication_elapsed_ns"] < prior_exit or failure["prepublication_elapsed_ns"] > maximum:
+        raise ContractError("Phase-0 failure prepublication budget differs")
     safety = failure["actual_safety"]
     required_safety = {
         "cuda_visible_devices",
@@ -1743,6 +1974,10 @@ def validate_failure(failure: dict[str, Any]) -> None:
         "checkpoint_files",
         "static_forbidden_model_call_sites",
         "observation_complete",
+        "object_census_method",
+        "cuda_observation_method",
+        "relevant_modules_absent_for_preimport_inference",
+        "network_guard",
     }
     if set(safety) != required_safety or safety["observation_complete"] is not True:
         raise ContractError("Phase-0 failure safety observation is incomplete")
@@ -1759,6 +1994,53 @@ def validate_failure(failure: dict[str, Any]) -> None:
     )
     if unsafe and failure["status"] != "infrastructure_invalid":
         raise ContractError("unsafe Phase-0 failure is not infrastructure-invalid")
+    for key in (
+        "transformers_modeling_modules",
+        "output_inventory",
+        "candidate_files",
+        "checkpoint_files",
+        "static_forbidden_model_call_sites",
+    ):
+        if not isinstance(safety[key], list) or any(not isinstance(item, str) for item in safety[key]):
+            raise ContractError("Phase-0 failure safety list differs")
+    for key in ("pretrained_model_objects", "tokenizer_objects", "optimizer_objects"):
+        if not isinstance(safety[key], int) or isinstance(safety[key], bool) or safety[key] < 0:
+            raise ContractError("Phase-0 failure object count differs")
+    if safety["object_census_method"] != "gc_mro_scan_without_importing_model_tokenizer_or_optimizer_classes":
+        raise ContractError("Phase-0 failure object census method differs")
+    if safety["torch_imported"] is False:
+        if safety["cuda_observation_method"] != "torch_module_absence_proves_no_torch_cuda_runtime_contact":
+            raise ContractError("Phase-0 pre-Torch CUDA observation differs")
+        if safety["relevant_modules_absent_for_preimport_inference"] is not True:
+            raise ContractError("Phase-0 pre-Torch module absence was not proven")
+    elif (
+        safety["torch_imported"] is not True
+        or safety["cuda_observation_method"] != "torch.cuda.is_initialized"
+        or safety["relevant_modules_absent_for_preimport_inference"] is not False
+    ):
+        raise ContractError("Phase-0 post-Torch CUDA observation differs")
+    network = safety["network_guard"]
+    if set(network) != {
+        *NETWORK_GUARD_CONTRACT,
+        "installed",
+        "wrappers_restored",
+        "audit_hook_persistent",
+        "attempt_count",
+    } or {key: network[key] for key in NETWORK_GUARD_CONTRACT} != NETWORK_GUARD_CONTRACT:
+        raise ContractError("Phase-0 failure network guard differs")
+    if any(
+        not isinstance(network[key], bool)
+        for key in ("installed", "wrappers_restored", "audit_hook_persistent")
+    ) or not isinstance(network["attempt_count"], int) or isinstance(network["attempt_count"], bool) or network["attempt_count"] < 0:
+        raise ContractError("Phase-0 failure network guard values differ")
+    if (
+        network["installed"] is not True
+        or network["wrappers_restored"] is not True
+        or network["audit_hook_persistent"] is not True
+        or network["attempt_count"] != 0
+    ):
+        if failure["status"] != "infrastructure_invalid":
+            raise ContractError("Phase-0 network guard failure is not infrastructure-invalid")
     if failure["candidate_created"] != bool(safety["candidate_files"]):
         raise ContractError("Phase-0 failure candidate observation differs")
     if failure["checkpoint_created"] != bool(safety["checkpoint_files"]):
@@ -1772,8 +2054,69 @@ def validate_failure(failure: dict[str, Any]) -> None:
         raise ContractError("Phase-0 failure memory schema differs")
     if [row.get("label") for row in partial["rows"]] != memory_labels()[: len(partial["rows"])]:
         raise ContractError("Phase-0 failure memory prefix differs")
+    prior_peak = 0
+    for row in partial["rows"]:
+        if set(row) != {"label", "rss_bytes", "peak_rss_bytes"}:
+            raise ContractError("Phase-0 failure memory row fields differ")
+        if any(
+            not isinstance(row[key], int) or isinstance(row[key], bool) or row[key] < 0
+            for key in ("rss_bytes", "peak_rss_bytes")
+        ):
+            raise ContractError("Phase-0 failure memory value differs")
+        if row["peak_rss_bytes"] < row["rss_bytes"] or row["peak_rss_bytes"] < prior_peak:
+            raise ContractError("Phase-0 failure memory peak differs")
+        prior_peak = row["peak_rss_bytes"]
     audit = failure["full_freeze_failure_audit"]
-    if not isinstance(audit, dict) or not isinstance(audit.get("errors"), list):
+    if not isinstance(audit, dict) or set(audit) != {
+        "head",
+        "tree",
+        "status",
+        "plan_file_sha256",
+        "plan_sha256",
+        "plan_sidecar_sha256",
+        "plan_asset_hashes",
+        "errors",
+    } or not isinstance(audit["errors"], list):
         raise ContractError("Phase-0 failure freeze audit differs")
+    if audit["errors"]:
+        if failure["status"] != "infrastructure_invalid" or any(
+            not isinstance(error, dict)
+            or set(error) != {"check", "error"}
+            or not all(isinstance(value, str) and value for value in error.values())
+            for error in audit["errors"]
+        ):
+            raise ContractError("Phase-0 incomplete failure audit is not fail-closed")
+        if audit["head"] is not None and audit["head"] != expected_execution_commit:
+            raise ContractError("Phase-0 observed failure HEAD differs")
+        if audit["tree"] is not None and (
+            not isinstance(audit["tree"], str) or not re.fullmatch(r"[0-9a-f]{40}", audit["tree"])
+        ):
+            raise ContractError("Phase-0 observed failure tree differs")
+        if audit["status"] is not None and audit["status"] != "":
+            raise ContractError("Phase-0 observed failure worktree differs")
+        if audit["plan_file_sha256"] is not None and audit["plan_file_sha256"] != expected_plan_file_sha256:
+            raise ContractError("Phase-0 observed failure plan file differs")
+        if audit["plan_sha256"] is not None and audit["plan_sha256"] != plan["plan_sha256"]:
+            raise ContractError("Phase-0 observed failure internal plan differs")
+        if audit["plan_sidecar_sha256"] is not None and audit["plan_sidecar_sha256"] != sha256_bytes(
+            f"{expected_plan_file_sha256}\n".encode()
+        ):
+            raise ContractError("Phase-0 observed failure plan sidecar differs")
+        if audit["plan_asset_hashes"] is not None and audit["plan_asset_hashes"] != plan["asset_sha256"]:
+            raise ContractError("Phase-0 observed failure asset map differs")
+    else:
+        if (
+            audit["head"] != expected_execution_commit
+            or not isinstance(audit["tree"], str)
+            or not re.fullmatch(r"[0-9a-f]{40}", audit["tree"])
+            or audit["status"] != ""
+            or audit["plan_file_sha256"] != expected_plan_file_sha256
+            or audit["plan_sha256"] != failure["plan_sha256"]
+            or audit["plan_sidecar_sha256"] != sha256_bytes(f"{expected_plan_file_sha256}\n".encode())
+            or audit["plan_asset_hashes"] != plan["asset_sha256"]
+            or failure["plan_file_sha256"] != expected_plan_file_sha256
+            or failure["mechanism_code_commit"] != plan["mechanism_code_commit"]
+        ):
+            raise ContractError("Phase-0 exact failure freeze binding differs")
     if failure["failure_sha256"] != canonical_sha256(failure, omit="failure_sha256"):
         raise ContractError("Phase-0 failure self hash differs")
