@@ -1,0 +1,97 @@
+{
+  "artifact_manifest": {
+    "path": "/home/ubuntu/rlm/artifacts/q35-2b-json-max-calibration-v1/MANIFEST.json",
+    "sha256": "8ae2266f31a021b54f4d38678904b8c67052fe0cc8e82abcf9a3a11e960088fd"
+  },
+  "code": {
+    "evaluation_prime_commit": "b1b9a0d91519850f9c9783b98ed79bb12d181d27",
+    "verifiers_commit": "f2acdc17b8bf856e9c21dc5588656d31a35992cf"
+  },
+  "decision": {
+    "candidate_checkpoint_created": false,
+    "h176_training_warranted": false,
+    "next_bottleneck": "e33 coordinator local computation and child orchestration",
+    "reason": "H176 reports were numerically exact in all 14 observed deliveries, while e33 solved only 3/32 matched direct cases and the composed system solved 0/32. The other composed cases failed before a usable child report or during coordinator aggregation."
+  },
+  "evaluation": {
+    "axes": [
+      "json_max_direct_raw",
+      "json_max_two_shard"
+    ],
+    "master_seed": 20260819,
+    "num_rollouts": 1,
+    "num_tasks_per_axis": 32,
+    "result_dir": "/home/ubuntu/rlm/results/q35-2b-json-max-calibration-v1/json-max-baseline-e33-h176-valid32-run1",
+    "sampling_seed": 20260906,
+    "split": "valid_gen",
+    "start_index": 0
+  },
+  "evidence_files": {
+    "analysis": {
+      "bytes": 7981,
+      "path": "CALIBRATION_ANALYSIS.json",
+      "sha256": "2b970e799352aa447272a2a6ccde8376803d7b3cecf1a4a6985e8c824e91361c"
+    },
+    "direct_summary": {
+      "bytes": 1826,
+      "path": "json_max_direct_raw/SUMMARY.json",
+      "sha256": "176be0adb41979d30367c006960f2cbe75851ce832494b1ad8ff492da8807bbe"
+    },
+    "direct_traces": {
+      "bytes": 1653576,
+      "path": "json_max_direct_raw/traces.jsonl",
+      "sha256": "daae1651473d39406fba29e59c4d89650bd67530f913c0887c213685596f4efa"
+    },
+    "routing_audit": {
+      "bytes": 307399,
+      "path": "ROUTING_AUDIT.jsonl",
+      "sha256": "25724977a709c419d1cd6c01049a80070d3bdc0e50ba0da6ff383523f4fbfbe4"
+    },
+    "two_shard_summary": {
+      "bytes": 1825,
+      "path": "json_max_two_shard/SUMMARY.json",
+      "sha256": "a7bf387d12e079883a4b3e66676b5a0f2139ecc59dec8d63fce74f713b8380a3"
+    },
+    "two_shard_traces": {
+      "bytes": 1765172,
+      "path": "json_max_two_shard/traces.jsonl",
+      "sha256": "dcb89ced9f0fbcfb9fa22b25ca031d9a2310b978a698956bf73b9a843b54e452"
+    },
+    "versions": {
+      "bytes": 4733,
+      "path": "VERSIONS.txt",
+      "sha256": "823b8d9e8e97dcda448ba5e02941f1d1e6d1e53f0ba318189e18af1d7e07bda6"
+    }
+  },
+  "metrics": {
+    "composed": {
+      "child_contract_completed": 8,
+      "child_report_attempts": 14,
+      "child_report_exact": 14,
+      "episodes": 32,
+      "passed": 0
+    },
+    "direct": {
+      "episodes": 32,
+      "passed": 3
+    }
+  },
+  "protected_checkpoints": {
+    "e33": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2/model.safetensors",
+      "sha256_after": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+      "unchanged": true
+    },
+    "h176": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-child-sft-v1/h176child8-document-child-real12-step8-v2/weights/step_8/model.safetensors",
+      "sha256_after": "77980e247bbccd6463ddda02cd42d2c357e15f8ec1ad0ea84627e008a8674a1e",
+      "unchanged": true
+    }
+  },
+  "schema_version": "q35-2b-json-max-calibration-evidence/v1",
+  "sealed_split": {
+    "generated": true,
+    "opened_by_evaluation": false
+  },
+  "status": "complete"
+}
