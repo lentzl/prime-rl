@@ -374,14 +374,23 @@ inventory = module.object_inventory(None, output)
 assert inventory['relevant_modules_absent_for_preimport_inference'] is True
 guard = module.NetworkGuard()
 with guard:
-    try:
-        socket.getaddrinfo('example.invalid', 443)
-    except module.InfrastructureInvalid:
-        pass
-    else:
-        raise AssertionError('network call was accepted')
+    sock = socket.socket()
+    operations = [
+        lambda: sock.connect(('127.0.0.1', 9)),
+        lambda: sock.connect_ex(('127.0.0.1', 9)),
+        lambda: socket.create_connection(('127.0.0.1', 9)),
+        lambda: socket.getaddrinfo('example.invalid', 443),
+    ]
+    for operation in operations:
+        try:
+            operation()
+        except module.InfrastructureInvalid:
+            pass
+        else:
+            raise AssertionError('network call was accepted')
+    sock.close()
 assert guard.installed is True and guard.wrappers_restored is True
-assert guard.attempt_count == 1
+assert guard.attempt_count == 4
 """
     subprocess.run(
         [sys.executable, "-c", program],
