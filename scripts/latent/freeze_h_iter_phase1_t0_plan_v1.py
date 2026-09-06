@@ -12,12 +12,13 @@ from prime_rl.latent.h_iter_phase1_t0 import (
     ACTIONS, ARMS, ARTIFACT_DIR, CAP0_BINDING, CANDIDATE_FILES,
     E33_PATH, E33_STATE_SHA256, E33_TREE_SHA256, H176_PATH,
     H176_TREE_SHA256, MECHANISM, METADATA_SHA256, MF0_BINDING,
+    MODEL_FREE_EVIDENCE_BINDING,
     OUTPUT_ROOT, PLAN_SCHEMA, PROOF_OUTPUT_ROOT, PROOF_RUN_ID, RUN_ID,
     TRAIN_BANK_FILE_SHA256, TRAIN_BANK_INTERNAL_SHA256, TRAIN_BANK_PATH,
     build_antecedent_manifest, build_capture_schedule, build_contract,
     build_memory_schedule, build_tamper_schedule, canonical_json,
     sha256_bytes, strict_loads,
-    validate_plan,
+    validate_model_free_evidence_binding, validate_plan,
 )
 
 MF0_DIR="experiments/qwen35-2b-latent-workspace-v1/h-iter-phase1-train-calibration-v1"
@@ -31,6 +32,11 @@ PROOF_ASSETS=[
  "pyproject.toml","uv.lock","src/prime_rl/latent/h_iter_phase1_t0.py","scripts/latent/run_h_iter_phase1_t0_v1.py","scripts/latent/run_h_iter_phase1_t0_v1.sh","scripts/latent/freeze_h_iter_phase1_t0_plan_v1.py","tests/unit/latent/test_h_iter_phase1_t0.py","scripts/latent/run_h_iter_phase1_t0_model_free_proof_v1.py","scripts/latent/run_h_iter_phase1_t0_model_free_proof_v1.sh","tests/unit/latent/test_h_iter_phase1_t0_model_free_proof.py",
 ]
 if len(PROOF_ASSETS)!=31 or len(set(PROOF_ASSETS))!=31: raise RuntimeError("T0 proof asset set differs")
+FINAL_ASSETS=[*PROOF_ASSETS,
+ f"{T0_DIR}/t0-model-free-proof-plan.json",f"{T0_DIR}/t0-model-free-proof-plan.sha256",
+ MODEL_FREE_EVIDENCE_BINDING["evidence_manifest_path"],MODEL_FREE_EVIDENCE_BINDING["proof_path"],MODEL_FREE_EVIDENCE_BINDING["launcher_log_path"],MODEL_FREE_EVIDENCE_BINDING["exit_path"],
+]
+if len(FINAL_ASSETS)!=37 or len(set(FINAL_ASSETS))!=37: raise RuntimeError("T0 final asset set differs")
 
 def read_json(path:Path)->dict:
     return strict_loads(path.read_bytes())
@@ -69,7 +75,7 @@ def materialize(repo:Path)->None:
     outputs["t0-memory-schedule.json"]=build_memory_schedule(outputs["t0-capture-schedule.json"],schedule)
     for name,value in outputs.items(): write_atomic(repo/T0_DIR/name,value)
 
-def plan_value(repo:Path,commit:str)->dict:
+def plan_value(repo:Path,commit:str,proof_input:bool=True)->dict:
     def file_sha(path:str)->str: return hashlib.sha256((repo/path).read_bytes()).hexdigest()
     candidate=file_sha(f"{MF0_DIR}/candidate-module-contract.json")
     capture=file_sha(f"{MF0_DIR}/capture-contract.json")
@@ -79,9 +85,10 @@ def plan_value(repo:Path,commit:str)->dict:
     schedule=file_sha(f"{MF0_DIR}/training-schedule.json")
     antecedent_path=f"{T0_DIR}/t0-antecedent-evidence-manifest.json"
     antecedent=read_json(repo/antecedent_path)
-    assets={path:file_sha(path) for path in sorted(PROOF_ASSETS)}
+    if not proof_input: validate_model_free_evidence_binding(repo,MODEL_FREE_EVIDENCE_BINDING)
+    assets={path:file_sha(path) for path in sorted(PROOF_ASSETS if proof_input else FINAL_ASSETS)}
     resource={"minimum_gpu_free_gib":44,"maximum_allocated_or_reserved_gib":40,"minimum_ram_gib":64,"minimum_disk_gib":16,"maximum_output_bytes":33554432,"timing":{"outer":21600,"startup":600,"compute":18000,"audit":1200,"failure":1200,"terminal":300,"postexit":300,"alarm_safety_margin":1,"success_terminal_entry_max":19200,"compute_failure_terminal_entry_max":19200,"audit_failure_terminal_entry_max":20400,"prior_terminal_failure_entry_max":20700}}
-    value={"schema_version":PLAN_SCHEMA,"status":"h_iter_phase1_t0_model_free_proof_preregistered","mechanism":MECHANISM,"run_identity":PROOF_RUN_ID,"implementation_commit":commit,"mechanism_code_commit":commit,"plan_sha256":"","asset_sha256":assets,
+    value={"schema_version":PLAN_SCHEMA,"status":"h_iter_phase1_t0_model_free_proof_preregistered" if proof_input else "h_iter_phase1_t0_preregistered","mechanism":MECHANISM,"run_identity":PROOF_RUN_ID if proof_input else RUN_ID,"implementation_commit":commit,"mechanism_code_commit":commit,"plan_sha256":"","asset_sha256":assets,
       "archive_bindings":{"mf0":MF0_BINDING,"cap0_r1":CAP0_BINDING,"antecedent_manifest_path":antecedent_path,"antecedent_manifest_file_sha256":file_sha(antecedent_path),"antecedent_manifest_internal_sha256":antecedent["manifest_sha256"]},
       "remote_paths":{"repo":"/home/ubuntu/rlm/worktrees/q35-2b-latent-workspace-v1","shared_project":"/home/ubuntu/rlm/prime-rl","shared_python":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","e33":E33_PATH,"h176":H176_PATH,"physical_gpu":"0","visible_device":"cuda:0","proof_output":PROOF_OUTPUT_ROOT,"t0_output":OUTPUT_ROOT},
       "runtime":{"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","transformers":"5.6.2","tokenizers":"0.22.2","torch_distribution":"2.11.0+cu128","torch_runtime":"2.11.0+cu128","flash_linear_attention":"0.5.2","gpu_model":"NVIDIA RTX A6000","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"},
@@ -92,13 +99,13 @@ def plan_value(repo:Path,commit:str)->dict:
       "metric_gate_contract":{"metric_contract_path":f"{MF0_DIR}/metric-gate-contract.json","metric_contract_file_sha256":metric,"threshold_contract_path":f"{MF0_DIR}/threshold-builder-contract.json","threshold_contract_file_sha256":threshold,"gate_count":9,"all_required":True},
       "terminal_contract":{"proof_schema":"prime-rl/latent-h-iter-phase1-t0-proof/v1","failure_schema":"prime-rl/latent-h-iter-phase1-t0-failure/v1","complete_statuses":["h_iter_phase1_t0_validation_contract_design_authorized","h_iter_phase1_train_calibration_stop"],"failure_statuses":["h_iter_phase1_t0_incomplete","h_iter_phase1_t0_capture_mechanism_rejected","h_iter_phase1_t0_exposure_boundary_rejected","infrastructure_invalid"],"proof_filename":"T0-PROOF.json","failure_filename":"T0-FAILURE.json","candidate_filenames":CANDIDATE_FILES,"derived_threshold_filename":"derived-validation-thresholds.json","atomic_publish":True,"reopen_validate":True,"dual_terminal_forbidden":True},
       "resource_bounds":resource,"full_freeze":{"execution_parent_is_evidence_closure":True,"mechanism_is_ancestor":True,"head_exact":True,"tree_exact":True,"clean_before_after":True,"assets_pre_post_exact":True,"protected_pre_post_exact":True,"output_excluded":True},
-      "execution_authorization":{"model_free_proof_eligible_after_independent_review":True,"t0_preflight_eligible":False,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False},
-      "decision_boundary":{"claim":"model_free_proof_design_only","train_bank_schema_open_allowed":True,"train_scientific_model_exposure_allowed":False,"validation_or_heldout_opened":False,"model_or_gpu_authorized":False,"t0_training_authorized":False,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True},"model_free_proof_binding":None}
-    value["plan_sha256"]=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="plan_sha256"})); validate_plan(value,proof_input=True)
+      "execution_authorization":{"model_free_proof_eligible_after_independent_review":True,"t0_preflight_eligible":False,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False} if proof_input else {"model_free_proof_eligible_after_independent_review":False,"t0_preflight_eligible_after_independent_review":True,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False},
+      "decision_boundary":{"claim":"model_free_proof_design_only" if proof_input else "model_free_proof_validated_t0_preregistered","train_bank_schema_open_allowed":True,"train_scientific_model_exposure_allowed":False,"validation_or_heldout_opened":False,"model_or_gpu_authorized":False,"t0_training_authorized":False,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True},"model_free_proof_binding":None if proof_input else MODEL_FREE_EVIDENCE_BINDING}
+    value["plan_sha256"]=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="plan_sha256"})); validate_plan(value,proof_input=proof_input,repo=None if proof_input else repo)
     return value
 
 def main()->None:
-    parser=argparse.ArgumentParser(); parser.add_argument("--repo",type=Path,required=True); parser.add_argument("--materialize-only",action="store_true"); parser.add_argument("--mechanism-commit")
+    parser=argparse.ArgumentParser(); parser.add_argument("--repo",type=Path,required=True); parser.add_argument("--materialize-only",action="store_true"); parser.add_argument("--final",action="store_true"); parser.add_argument("--mechanism-commit")
     args=parser.parse_args(); repo=args.repo.resolve(strict=True)
     if args.materialize_only:
         materialize(repo); return
@@ -106,8 +113,8 @@ def main()->None:
     head=subprocess.check_output(["git","rev-parse","HEAD"],cwd=repo,text=True).strip()
     dirty=subprocess.check_output(["git","status","--porcelain","--untracked-files=all"],cwd=repo,text=True).strip()
     if head!=args.mechanism_commit or dirty: raise RuntimeError("T0 mechanism tree is not exact and clean")
-    value=plan_value(repo,args.mechanism_commit); encoded=canonical_json(value)+b"\n"
-    plan=repo/T0_DIR/"t0-model-free-proof-plan.json"; sidecar=repo/T0_DIR/"t0-model-free-proof-plan.sha256"
+    value=plan_value(repo,args.mechanism_commit,proof_input=not args.final); encoded=canonical_json(value)+b"\n"
+    plan=repo/T0_DIR/("t0-plan.json" if args.final else "t0-model-free-proof-plan.json"); sidecar=repo/T0_DIR/("t0-plan.sha256" if args.final else "t0-model-free-proof-plan.sha256")
     write_atomic(plan,value); write_bytes_atomic(sidecar,(hashlib.sha256(encoded).hexdigest()+"\n").encode())
     print(hashlib.sha256(encoded).hexdigest()); print(value["plan_sha256"])
 

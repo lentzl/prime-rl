@@ -3,6 +3,10 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
+import stat
+import subprocess
+from pathlib import Path
 from typing import Any
 
 MECHANISM = "q35-2b-h-iter-phase1-t0-train-calibration-v1"
@@ -17,6 +21,7 @@ PROOF_SCHEMA = "prime-rl/latent-h-iter-phase1-t0-proof/v1"
 FAILURE_SCHEMA = "prime-rl/latent-h-iter-phase1-t0-failure/v1"
 MODEL_FREE_PROOF_SCHEMA = "prime-rl/latent-h-iter-phase1-t0-model-free-proof/v1"
 MODEL_FREE_FAILURE_SCHEMA = "prime-rl/latent-h-iter-phase1-t0-model-free-failure/v1"
+MODEL_FREE_EVIDENCE_SCHEMA = "prime-rl/latent-h-iter-phase1-t0-model-free-evidence-manifest/v1"
 PREFLIGHT_SCHEMA = "prime-rl/latent-h-iter-phase1-t0-preflight/v1"
 ARMS = ["STATIC", "FFN", "FIXED_T4", "RESET_K", "REC_K"]
 ACTIONS = ["ACT_Z1", "ACT_K4", "ACT_M7", "ACT_Q9"]
@@ -67,6 +72,25 @@ METADATA_SHA256 = {"chat_template.jinja":"273d8e0e683b885071fb17e08d71e5f2a5ddfb
 
 MF0_BINDING = {"archive_freeze_commit":"4087ecde6da743f1a248bf99493264ecac459c63","evidence_commit":"197fb0ba67273015c9db98b52f230c875c745ca9","manifest_path":f"{MF0_DIR}/mf0-prereg-run1-evidence-manifest.json","manifest_file_sha256":"79caa566a74bd73ef4b56002f67f9584c5ac76d2521ab96b13afa6ad07aa0140","manifest_internal_sha256":"c0a9034efe192a93efd3d755e0769e2dfadc2745b5772c8955fc43f319fa9758","proof_path":f"{MF0_DIR}/mf0-prereg-run1.MF0-PROOF.json","proof_file_sha256":"7b1f99f06adbc1282511a0e05306304e0b44ffc9c7411eaad8963543c67fa6fc","proof_internal_sha256":"7101a4f19783911567c9b301dfd416cdcaac7b763d1d80f46355821367898a06","launcher_log_path":f"{MF0_DIR}/mf0-prereg-run1.launcher.log","launcher_log_sha256":"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855","exit_path":f"{MF0_DIR}/mf0-prereg-run1.exit.txt","exit_file_sha256":"9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"}
 CAP0_BINDING = {"archive_freeze_commit":"b358a4d38c3eed0bd266cdc9aceb00c215ba559f","evidence_commit":"7fd6b405356dbe7851eee04a1f0eb135b953316b","manifest_path":f"{CAP0_DIR}/cap0-r1-run1-evidence-manifest.json","manifest_file_sha256":"f60ca3e03e0bde9ad1818355feb362d729f2bfa51bb43f162cb0e4de08d3fd28","manifest_internal_sha256":"09d1ae6e14b95387398eb629cdb01b8ad705ef753f60d3707bf737cef323fae2","proof_path":f"{CAP0_DIR}/cap0-r1-run1.CAP0-R1-PROOF.json","proof_file_sha256":"c5716451c958d4382cdfd1853bc73db2d1d8b8c698d58668040d50ac9275afa9","proof_internal_sha256":"29651f11b9f719c7adc9435a139556e015f7cee79c2c260ee2e88ff225a6a7cc","launcher_log_path":f"{CAP0_DIR}/cap0-r1-run1.launcher.log","launcher_log_sha256":"e9963d000c16c399adf9b823a62e1951929391f6e6ee10aa768727c44c93a534","exit_path":f"{CAP0_DIR}/cap0-r1-run1.exit.txt","exit_file_sha256":"9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"}
+MODEL_FREE_EVIDENCE_BINDING = {
+    "proof_execution_commit":"ec3f4ba208f23cd62ae9fb79b2b04fe699807d71",
+    "evidence_commit":"c7a0189bd38a05f9f2d0d4a8cf17b4786eca6c72",
+    "archive_freeze_commit":"fedc907c9e463d0c5b926293b5cb43251b1afb47",
+    "proof_plan_path":f"{ARTIFACT_DIR}/t0-model-free-proof-plan.json",
+    "proof_plan_file_sha256":"310fe9da6201004f80e3415725e1f3e7a65cbe1d2fd0443acf3c3fd86705e524",
+    "proof_plan_sha256":"15f94e377f155da1079a1465cacd9f9440af2f9bae8782879ace0570e32a3a3a",
+    "evidence_manifest_path":f"{ARTIFACT_DIR}/t0-model-free-proof-run1-evidence-manifest.json",
+    "evidence_manifest_file_sha256":"8c7609fb4132609b60623125b92ae5c4ec9261eb7be5df373c84934371ae9c54",
+    "evidence_manifest_internal_sha256":"bee898b391a0dc92644da86adee87a3bfd9573af4ab9631e1dd1eb9a3c6c31f2",
+    "proof_path":f"{ARTIFACT_DIR}/t0-model-free-proof-run1.T0-MODEL-FREE-PROOF.json",
+    "proof_file_sha256":"6ccc7e08ee4a72287b0056fef0e5c335e6d60756b51be7170d3babc25bc407bc",
+    "proof_internal_sha256":"80e7bc7520831dac5ed7373b29476070c66209510e001816c0a6e93eb900fdae",
+    "launcher_log_path":f"{ARTIFACT_DIR}/t0-model-free-proof-run1.launcher.log",
+    "launcher_log_sha256":"a74f57bea39ee1ec2187be94ab8529e78e2ccaa2ac208f054c62e5a83f11142b",
+    "exit_path":f"{ARTIFACT_DIR}/t0-model-free-proof-run1.exit.txt",
+    "exit_file_sha256":"9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+    "validator_replay_passed":True,
+}
 
 CACHE_CLASS_RECORDS = [
     {"distribution":"flash-linear-attention==0.5.2","fqcn":name,"module_path":"/home/ubuntu/rlm/prime-rl/.venv/lib/python3.12/site-packages/fla/models/utils.py","module_sha256":"3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1"}
@@ -256,11 +280,57 @@ PLAN_KEYS={"schema_version","status","mechanism","run_identity","implementation_
 def _keys(value:Any,expected:set[str],label:str)->None:
     if not isinstance(value,dict) or set(value)!=expected: raise T0ContractError(f"{label} keyset differs")
 
-def validate_plan(value:dict[str,Any], *, proof_input:bool)->None:
+def _regular_file_bytes(root:Path,relative_path:str)->bytes:
+    path=root/relative_path
+    if path.is_symlink(): raise T0ContractError("T0 model-free evidence symlink differs")
+    flags=os.O_RDONLY|getattr(os,"O_NOFOLLOW",0)
+    try: fd=os.open(path,flags)
+    except OSError as error: raise T0ContractError("T0 model-free evidence file unavailable") from error
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode): raise T0ContractError("T0 model-free evidence file type differs")
+        chunks=[]
+        while True:
+            chunk=os.read(fd,1<<20)
+            if not chunk: break
+            chunks.append(chunk)
+        return b"".join(chunks)
+    finally: os.close(fd)
+
+def validate_model_free_evidence_binding(root:Path,binding:dict[str,Any])->None:
+    if binding!=MODEL_FREE_EVIDENCE_BINDING: raise T0ContractError("T0 model-free evidence binding differs")
+    expected_rows=[
+        {"order":1,"path":binding["proof_path"],"bytes":30078,"file_sha256":binding["proof_file_sha256"],"internal_hash_field":"proof_sha256","internal_hash_value":binding["proof_internal_sha256"]},
+        {"order":2,"path":binding["launcher_log_path"],"bytes":292,"file_sha256":binding["launcher_log_sha256"],"internal_hash_field":None,"internal_hash_value":None},
+        {"order":3,"path":binding["exit_path"],"bytes":2,"file_sha256":binding["exit_file_sha256"],"internal_hash_field":None,"internal_hash_value":None},
+    ]
+    raw_by_path={row["path"]:_regular_file_bytes(root,row["path"]) for row in expected_rows}
+    for row in expected_rows:
+        raw=raw_by_path[row["path"]]
+        if len(raw)!=row["bytes"] or sha256_bytes(raw)!=row["file_sha256"]: raise T0ContractError("T0 model-free evidence asset differs")
+    if raw_by_path[binding["exit_path"]]!=b"0\n": raise T0ContractError("T0 model-free evidence exit differs")
+    manifest_raw=_regular_file_bytes(root,binding["evidence_manifest_path"]); manifest=strict_loads(manifest_raw)
+    if manifest_raw!=canonical_json(manifest)+b"\n" or sha256_bytes(manifest_raw)!=binding["evidence_manifest_file_sha256"]: raise T0ContractError("T0 model-free evidence manifest file differs")
+    expected_manifest={"schema_version":MODEL_FREE_EVIDENCE_SCHEMA,"status":"h_iter_phase1_t0_model_free_evidence_archived","mechanism":MECHANISM,"run_identity":PROOF_RUN_ID,"execution_commit":binding["proof_execution_commit"],"mechanism_code_commit":"fdf3d705af8d74368c1e905003973ca4fe86c2ce","plan_file_sha256":binding["proof_plan_file_sha256"],"plan_sha256":binding["proof_plan_sha256"],"ordered_evidence_assets":expected_rows,"claim_boundary":MODEL_FREE_DECISION,"manifest_sha256":binding["evidence_manifest_internal_sha256"]}
+    if manifest!=expected_manifest or manifest["manifest_sha256"]!=sha256_bytes(canonical_json({key:item for key,item in manifest.items() if key!="manifest_sha256"})): raise T0ContractError("T0 model-free evidence manifest differs")
+    proof_plan_raw=_regular_file_bytes(root,binding["proof_plan_path"]); proof_plan=strict_loads(proof_plan_raw)
+    if proof_plan_raw!=canonical_json(proof_plan)+b"\n" or sha256_bytes(proof_plan_raw)!=binding["proof_plan_file_sha256"] or proof_plan.get("plan_sha256")!=binding["proof_plan_sha256"]: raise T0ContractError("T0 model-free proof plan differs")
+    validate_plan(proof_plan,proof_input=True)
+    proof_sidecar=_regular_file_bytes(root,binding["proof_plan_path"].removesuffix(".json")+".sha256")
+    if proof_sidecar!=binding["proof_plan_file_sha256"].encode()+b"\n": raise T0ContractError("T0 model-free proof plan sidecar differs")
+    proof=strict_loads(raw_by_path[binding["proof_path"]])
+    if raw_by_path[binding["proof_path"]]!=canonical_json(proof)+b"\n" or proof.get("proof_sha256")!=binding["proof_internal_sha256"] or proof.get("execution_commit")!=binding["proof_execution_commit"] or proof.get("decision_boundary")!=manifest["claim_boundary"]: raise T0ContractError("T0 model-free proof evidence differs")
+    capture=strict_loads(_regular_file_bytes(root,f"{ARTIFACT_DIR}/t0-capture-schedule.json")); schedule=strict_loads(_regular_file_bytes(root,SCHEDULE_PATH)); tampers=strict_loads(_regular_file_bytes(root,f"{ARTIFACT_DIR}/t0-tamper-schedule.json"))
+    validate_model_free_proof(proof,proof_plan,capture,schedule,tampers)
+    def git(*args:str)->str: return subprocess.check_output(["git",*args],cwd=root,text=True).strip()
+    try:
+        if git("rev-parse",f"{binding['evidence_commit']}^")!=binding["proof_execution_commit"] or git("rev-parse",f"{binding['archive_freeze_commit']}^")!=binding["evidence_commit"] or git("rev-parse",f"{binding['archive_freeze_commit']}^{{tree}}")!=git("rev-parse",f"{binding['evidence_commit']}^{{tree}}"): raise T0ContractError("T0 model-free evidence ancestry differs")
+    except (OSError,subprocess.CalledProcessError) as error: raise T0ContractError("T0 model-free evidence ancestry unavailable") from error
+
+def validate_plan(value:dict[str,Any], *, proof_input:bool, repo:Path|None=None)->None:
     _keys(value,PLAN_KEYS,"T0 plan")
     if value["schema_version"]!=PLAN_SCHEMA or value["mechanism"]!=MECHANISM or value["implementation_commit"]!=value["mechanism_code_commit"]: raise T0ContractError("T0 plan identity differs")
     if value["plan_sha256"]!=sha256_bytes(canonical_json({k:v for k,v in value.items() if k!="plan_sha256"})): raise T0ContractError("T0 plan self hash differs")
-    expected_status="h_iter_phase1_t0_model_free_proof_preregistered" if proof_input else "h_iter_phase1_t0_preregistered"; expected_run=PROOF_RUN_ID if proof_input else RUN_ID; expected_count=31 if proof_input else 38
+    expected_status="h_iter_phase1_t0_model_free_proof_preregistered" if proof_input else "h_iter_phase1_t0_preregistered"; expected_run=PROOF_RUN_ID if proof_input else RUN_ID; expected_count=31 if proof_input else 37
     if value["status"]!=expected_status or value["run_identity"]!=expected_run or len(value["asset_sha256"])!=expected_count or list(value["asset_sha256"])!=sorted(value["asset_sha256"]): raise T0ContractError("T0 plan phase differs")
     archives=value["archive_bindings"]
     if set(archives)!={"mf0","cap0_r1","antecedent_manifest_path","antecedent_manifest_file_sha256","antecedent_manifest_internal_sha256"} or archives["mf0"]!=MF0_BINDING or archives["cap0_r1"]!=CAP0_BINDING or archives["antecedent_manifest_path"]!=f"{ARTIFACT_DIR}/t0-antecedent-evidence-manifest.json" or not digest_string(archives["antecedent_manifest_file_sha256"]) or not digest_string(archives["antecedent_manifest_internal_sha256"]): raise T0ContractError("T0 archive binding differs")
@@ -283,7 +353,8 @@ def validate_plan(value:dict[str,Any], *, proof_input:bool)->None:
     else:
         if value["execution_authorization"]!={"model_free_proof_eligible_after_independent_review":False,"t0_preflight_eligible_after_independent_review":True,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False} or value["decision_boundary"]!={"claim":"model_free_proof_validated_t0_preregistered","train_bank_schema_open_allowed":True,"train_scientific_model_exposure_allowed":False,"validation_or_heldout_opened":False,"model_or_gpu_authorized":False,"t0_training_authorized":False,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}: raise T0ContractError("T0 final authorization differs")
         binding=value["model_free_proof_binding"]
-        if not isinstance(binding,dict) or set(binding)!={"proof_execution_commit","proof_plan_path","proof_plan_file_sha256","proof_plan_sha256","evidence_manifest_path","evidence_manifest_file_sha256","evidence_manifest_internal_sha256","proof_path","proof_file_sha256","proof_internal_sha256","stdout_log_path","stdout_log_sha256","stderr_log_path","stderr_log_sha256","exit_path","exit_file_sha256","validator_replay_passed"} or binding["validator_replay_passed"] is not True: raise T0ContractError("T0 proof binding absent")
+        if binding!=MODEL_FREE_EVIDENCE_BINDING: raise T0ContractError("T0 proof binding absent")
+        if repo is not None: validate_model_free_evidence_binding(repo,binding)
 
 def validate_model_free_proof(value:dict[str,Any],plan:dict[str,Any],capture:dict[str,Any],schedule:dict[str,Any],tampers:dict[str,Any])->None:
     _keys(value,MODEL_FREE_PROOF_KEYS,"T0 model-free proof")
@@ -428,7 +499,7 @@ def validate_t0_proof(value:dict[str,Any], *, partition:dict[str,Any]|None=None,
     _keys(runtime,{"python","sys_executable","sys_prefix","transformers","tokenizers","torch_distribution","torch_runtime","flash_linear_attention","gpu_name","physical_gpu","visible_device","shared_project_pyproject_sha256","shared_project_uv_lock_sha256"},"T0 runtime")
     if runtime!={"python":"3.12.14","sys_executable":"/home/ubuntu/rlm/prime-rl/.venv/bin/python3","sys_prefix":"/home/ubuntu/rlm/prime-rl/.venv","transformers":"5.6.2","tokenizers":"0.22.2","torch_distribution":"2.11.0+cu128","torch_runtime":"2.11.0+cu128","flash_linear_attention":"0.5.2","gpu_name":"NVIDIA RTX A6000","physical_gpu":"0","visible_device":"cuda:0","shared_project_pyproject_sha256":"504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656","shared_project_uv_lock_sha256":"fca5fa6183345b5b68974078c38d58e0320f79eef13a695af11ceab12fdf36d5"}: raise T0ContractError("T0 runtime differs")
     audit=value["asset_audit"]; _keys(audit,{"target_count","pre_entries","pre_sha256","post_entries","post_sha256","all_exact"},"T0 asset audit")
-    if audit["target_count"]!=38 or len(audit["pre_entries"])!=38 or audit["pre_entries"]!=audit["post_entries"] or audit["pre_sha256"]!=audit["post_sha256"] or audit["pre_sha256"]!=sha256_bytes(canonical_json(audit["pre_entries"])) or audit["all_exact"] is not True: raise T0ContractError("T0 asset audit differs")
+    if audit["target_count"]!=37 or len(audit["pre_entries"])!=37 or audit["pre_entries"]!=audit["post_entries"] or audit["pre_sha256"]!=audit["post_sha256"] or audit["pre_sha256"]!=sha256_bytes(canonical_json(audit["pre_entries"])) or audit["all_exact"] is not True: raise T0ContractError("T0 asset audit differs")
     if any(set(row)!={"path","sha256","bytes"} or not isinstance(row["path"],str) or not digest_string(row["sha256"]) or not isinstance(row["bytes"],int) or isinstance(row["bytes"],bool) or row["bytes"]<0 for row in audit["pre_entries"]): raise T0ContractError("T0 asset row differs")
     antecedent=value["antecedent_binding"]; _keys(antecedent,{"manifest_path","manifest_file_sha256","manifest_internal_sha256","mf0_archive_exact","cap0_r1_archive_exact"},"T0 antecedent")
     if antecedent["mf0_archive_exact"] is not True or antecedent["cap0_r1_archive_exact"] is not True: raise T0ContractError("T0 antecedent differs")
@@ -539,7 +610,7 @@ def validate_t0_proof(value:dict[str,Any], *, partition:dict[str,Any]|None=None,
     timing=resources["timing"]; timing_keys={"outer_seconds","startup_seconds","compute_seconds","audit_seconds","failure_seconds","terminal_seconds","postexit_seconds","alarm_safety_margin_seconds","compute_enter_ns","compute_exit_ns","compute_duration_ns","audit_enter_ns","audit_exit_ns","audit_duration_ns","failure_enter_ns","failure_exit_ns","failure_duration_ns","terminal_enter_ns","prepublication_elapsed_ns"}
     if set(timing)!=timing_keys or [timing[k] for k in ("outer_seconds","startup_seconds","compute_seconds","audit_seconds","failure_seconds","terminal_seconds","postexit_seconds","alarm_safety_margin_seconds")]!=[21600,600,18000,1200,1200,300,300,1] or timing["compute_duration_ns"]!=timing["compute_exit_ns"]-timing["compute_enter_ns"] or timing["audit_duration_ns"]!=timing["audit_exit_ns"]-timing["audit_enter_ns"] or timing["prepublication_elapsed_ns"]!=timing["terminal_enter_ns"] or timing["terminal_enter_ns"]>19200*10**9: raise T0ContractError("T0 timing differs")
     freeze=value["full_freeze"]; _keys(freeze,{"target_count","head_before","head_after","tree_before","tree_after","clean_before","clean_after","pre_entries","post_entries","pre_sha256","post_sha256","complete"},"T0 full freeze")
-    if freeze["target_count"]!=38 or freeze["head_before"]!=freeze["head_after"] or freeze["tree_before"]!=freeze["tree_after"] or freeze["clean_before"] is not True or freeze["clean_after"] is not True or freeze["pre_entries"]!=freeze["post_entries"] or freeze["pre_sha256"]!=freeze["post_sha256"] or freeze["complete"] is not True: raise T0ContractError("T0 full freeze differs")
+    if freeze["target_count"]!=37 or freeze["head_before"]!=freeze["head_after"] or freeze["tree_before"]!=freeze["tree_after"] or freeze["clean_before"] is not True or freeze["clean_after"] is not True or freeze["pre_entries"]!=freeze["post_entries"] or freeze["pre_sha256"]!=freeze["post_sha256"] or freeze["complete"] is not True: raise T0ContractError("T0 full freeze differs")
     tamper=value["tamper_audit"]; _keys(tamper,{"schedule_file_sha256","expected_count","results","rejected_count","all_rejected"},"T0 tamper")
     if tamper["expected_count"]!=98 or tamper["rejected_count"]!=98 or tamper["all_rejected"] is not True or len(tamper["results"])!=98 or any(set(row)!={"index","name","rejected","observed_error_type"} or row["index"]!=index or row["name"]!=_TAMPER_NAMES[index] or row["rejected"] is not True or not isinstance(row["observed_error_type"],str) or not row["observed_error_type"] for index,row in enumerate(tamper["results"])): raise T0ContractError("T0 tamper evidence differs")
     decision=value["decision_boundary"]
@@ -615,7 +686,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     if asset_audit is not None:
         _keys(asset_audit,{"target_count","pre_entries","pre_sha256","post_entries","post_sha256","all_exact"},"T0 failure asset audit")
         pre_entries=asset_audit["pre_entries"]
-        if asset_audit["target_count"]!=38 or not isinstance(pre_entries,list) or len(pre_entries)!=38 or any(set(row)!=T0_ASSET_ROW_KEYS or not isinstance(row["path"],str) or not row["path"] or not digest_string(row["sha256"]) or not isinstance(row["bytes"],int) or isinstance(row["bytes"],bool) or row["bytes"]<0 for row in pre_entries) or asset_audit["pre_sha256"]!=sha256_bytes(canonical_json(pre_entries)): raise T0ContractError("T0 failure asset preflight differs")
+        if asset_audit["target_count"]!=37 or not isinstance(pre_entries,list) or len(pre_entries)!=37 or any(set(row)!=T0_ASSET_ROW_KEYS or not isinstance(row["path"],str) or not row["path"] or not digest_string(row["sha256"]) or not isinstance(row["bytes"],int) or isinstance(row["bytes"],bool) or row["bytes"]<0 for row in pre_entries) or asset_audit["pre_sha256"]!=sha256_bytes(canonical_json(pre_entries)): raise T0ContractError("T0 failure asset preflight differs")
         post_entries=asset_audit["post_entries"]
         if post_entries is None:
             if asset_audit["post_sha256"] is not None or asset_audit["all_exact"] is not None: raise T0ContractError("T0 failure asset postflight null relation differs")
@@ -869,7 +940,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     if full_freeze is not None:
         _keys(full_freeze,{"target_count","head_before","head_after","tree_before","tree_after","clean_before","clean_after","pre_entries","post_entries","pre_sha256","post_sha256","complete"},"T0 failure full freeze")
         freeze_pre=full_freeze["pre_entries"]; freeze_post=full_freeze["post_entries"]
-        if full_freeze["target_count"]!=38 or not isinstance(freeze_pre,list) or len(freeze_pre)!=38 or any(set(row)!=T0_ASSET_ROW_KEYS for row in freeze_pre) or full_freeze["pre_sha256"]!=sha256_bytes(canonical_json(freeze_pre)) or not isinstance(full_freeze["clean_before"],bool): raise T0ContractError("T0 failure freeze preflight differs")
+        if full_freeze["target_count"]!=37 or not isinstance(freeze_pre,list) or len(freeze_pre)!=37 or any(set(row)!=T0_ASSET_ROW_KEYS for row in freeze_pre) or full_freeze["pre_sha256"]!=sha256_bytes(canonical_json(freeze_pre)) or not isinstance(full_freeze["clean_before"],bool): raise T0ContractError("T0 failure freeze preflight differs")
         if freeze_post is not None and (not isinstance(freeze_post,list) or any(set(row)!=T0_ASSET_ROW_KEYS for row in freeze_post) or full_freeze["post_sha256"]!=sha256_bytes(canonical_json(freeze_post))): raise T0ContractError("T0 failure freeze postflight differs")
         if freeze_post is None and full_freeze["post_sha256"] is not None: raise T0ContractError("T0 failure freeze postflight null relation differs")
         if any(item is not None and (not isinstance(item,str) or len(item)!=40 or any(character not in "0123456789abcdef" for character in item)) for item in (full_freeze["head_before"],full_freeze["head_after"],full_freeze["tree_before"],full_freeze["tree_after"])) or not isinstance(full_freeze["clean_after"],(bool,type(None))): raise T0ContractError("T0 failure freeze identity differs")

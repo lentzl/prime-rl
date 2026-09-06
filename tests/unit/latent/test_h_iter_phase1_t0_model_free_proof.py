@@ -8,11 +8,12 @@ import pytest
 
 from prime_rl.latent.h_iter_phase1_t0 import (
     MECHANISM, MODEL_FREE_DECISION, MODEL_FREE_FAILURE_SCHEMA,
+    MODEL_FREE_EVIDENCE_BINDING,
     MODEL_FREE_PROOF_KEYS, PROOF_MEMORY_LABELS, PROOF_RUN_ID,
     SYNTHETIC_SEED, SYNTHETIC_SHA256, T0ContractError,
     T0_COMPLETE_COUNTS, T0_FAILURE_MEMORY_BOUNDS,
     build_tamper_schedule, canonical_json, capture_failure_evidence_row_count, sha256_bytes,
-    validate_capture_failure_microstate, validate_failure_memory_stage, validate_model_free_failure, validate_t0_failure, validate_t0_proof,
+    validate_capture_failure_microstate, validate_failure_memory_stage, validate_model_free_evidence_binding, validate_model_free_failure, validate_plan, validate_t0_failure, validate_t0_proof,
     FAILURE_SCHEMA,
 )
 
@@ -31,6 +32,19 @@ def test_proof_asset_count_literal() -> None:
     sys.path.insert(0,str(ROOT/"scripts/latent"))
     from freeze_h_iter_phase1_t0_plan_v1 import PROOF_ASSETS
     assert len(PROOF_ASSETS)==len(set(PROOF_ASSETS))==31
+
+def test_final_plan_binds_and_replays_exact_model_free_archive() -> None:
+    import sys
+    sys.path.insert(0,str(ROOT/"scripts/latent"))
+    from freeze_h_iter_phase1_t0_plan_v1 import FINAL_ASSETS, plan_value
+    assert len(FINAL_ASSETS)==len(set(FINAL_ASSETS))==37
+    validate_model_free_evidence_binding(ROOT,MODEL_FREE_EVIDENCE_BINDING)
+    plan=plan_value(ROOT,"0"*40,proof_input=False)
+    validate_plan(plan,proof_input=False,repo=ROOT)
+    assert plan["model_free_proof_binding"]==MODEL_FREE_EVIDENCE_BINDING
+    assert plan["execution_authorization"]=={"model_free_proof_eligible_after_independent_review":False,"t0_preflight_eligible_after_independent_review":True,"t0_full_authorized":False,"model_load_authorized":False,"gpu_authorized":False,"training_authorized":False}
+    changed=copy.deepcopy(plan); changed["model_free_proof_binding"]["launcher_log_sha256"]="0"*64; changed["plan_sha256"]=sha256_bytes(canonical_json({key:item for key,item in changed.items() if key!="plan_sha256"}))
+    with pytest.raises(T0ContractError,match="proof binding"): validate_plan(changed,proof_input=False,repo=ROOT)
 
 def test_all_tamper_targets_are_reachable_and_non_noop() -> None:
     import sys
