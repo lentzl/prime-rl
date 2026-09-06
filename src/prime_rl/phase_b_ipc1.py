@@ -236,6 +236,9 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
             "maximal_success_file_sha256",
             "failure_terminal_count",
             "tamper_cases_rejected",
+            "late_failure_terminal_count",
+            "late_failure_tamper_cases_rejected",
+            "full_freeze_target_count",
             "mapping_insertion_permutation_canonical_equal",
             "global_exactly_one_terminal",
             "superseded_invocation_log_sha256",
@@ -250,6 +253,10 @@ def validate_ipc1_plan(plan: dict[str, Any], *, require_authorized: bool = True)
         or proof["exact_host_repository"] is not True
         or proof["failure_terminal_count"] != 4
         or proof["tamper_cases_rejected"] != 15
+        or proof["late_failure_terminal_count"] != 2
+        or proof["late_failure_tamper_cases_rejected"] != 13
+        or not isinstance(proof["full_freeze_target_count"], int)
+        or proof["full_freeze_target_count"] < 1
         or proof["mapping_insertion_permutation_canonical_equal"] is not True
         or proof["global_exactly_one_terminal"] is not True
     ):

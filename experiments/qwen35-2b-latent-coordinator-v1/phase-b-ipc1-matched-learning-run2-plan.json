@@ -5,7 +5,7 @@
   "claim_class": "nomination_only_inplace_carrier_matched_learning_screen",
   "mechanism_code_commit": "a07b614254245f9cddd6f4a1ec646795cc75bdba",
   "implementation_commit": "a07b614254245f9cddd6f4a1ec646795cc75bdba",
-  "plan_sha256": "3a94628092bfdee8d06e308814bb4720e7e4c990ead334d4640ef5c074554b4c",
+  "plan_sha256": "9fdc4cd1cf916524a2e613367933e55d41424c3ce588bdd5bcb7b666f93ba0ae",
   "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
   "terminal_proof": {
     "manifest_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-terminal-proof-v1/MANIFEST.json",
@@ -22,6 +22,9 @@
     "maximal_success_file_sha256": "2b5e888a46d2017d4fe9b786265da9a3bfc10e1eae212acdc875a69ad78206e6",
     "failure_terminal_count": 4,
     "tamper_cases_rejected": 15,
+    "late_failure_terminal_count": 2,
+    "late_failure_tamper_cases_rejected": 13,
+    "full_freeze_target_count": 35,
     "mapping_insertion_permutation_canonical_equal": true,
     "global_exactly_one_terminal": true,
     "superseded_invocation_log_sha256": "01fb786d146854845fdc5d02e48e210fcab616bd947916936f56fcf7211f9970",

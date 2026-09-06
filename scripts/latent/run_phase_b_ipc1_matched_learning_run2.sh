@@ -10,13 +10,14 @@ readonly PLAN="$EXPERIMENT_DIR/phase-b-ipc1-matched-learning-run2-plan.json"
 readonly FREEZE_MANIFEST="$EXPERIMENT_DIR/phase-b-ipc1-matched-learning-run2.sha256"
 readonly OUTPUT_DIR=/home/ubuntu/rlm/results/q35-2b-b-ipc1-matched-learning-run2
 
-if [[ $# -lt 2 || $# -gt 3 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ ]]; then
-  echo "usage: $0 <exact-clean-execution-commit> <root-authorized-plan-sha256> [--preflight-only]" >&2
+if [[ $# -lt 3 || $# -gt 4 || ! $1 =~ ^[0-9a-f]{40}$ || ! $2 =~ ^[0-9a-f]{64}$ || ! $3 =~ ^[0-9a-f]{64}$ ]]; then
+  echo "usage: $0 <exact-clean-execution-commit> <root-authorized-plan-sha256> <root-authorized-freeze-sha256> [--preflight-only]" >&2
   exit 64
 fi
 readonly EXECUTION_COMMIT=$1
 readonly ROOT_AUTHORIZED_PLAN_SHA256=$2
-readonly MODE=${3:-}
+readonly ROOT_AUTHORIZED_FREEZE_SHA256=$3
+readonly MODE=${4:-}
 if [[ -n $MODE && $MODE != --preflight-only ]]; then
   echo "third argument must be --preflight-only" >&2
   exit 64
@@ -29,6 +30,7 @@ cd "$WORKTREE"
 [[ ! -e "$OUTPUT_DIR" && ! -L "$OUTPUT_DIR" ]]
 [[ -z $(nvidia-smi --query-compute-apps=pid --format=csv,noheader | tr -d '[:space:]') ]]
 [[ $(sha256sum "$PLAN" | cut -d' ' -f1) == "$ROOT_AUTHORIZED_PLAN_SHA256" ]]
+[[ $(sha256sum "$FREEZE_MANIFEST" | cut -d' ' -f1) == "$ROOT_AUTHORIZED_FREEZE_SHA256" ]]
 (cd "$EXPERIMENT_DIR" && sha256sum --check "$(basename "$FREEZE_MANIFEST")")
 
 export UV_PROJECT_ENVIRONMENT="$SHARED_ENV"
@@ -44,4 +46,5 @@ exec timeout --signal=TERM --kill-after=60s 4h \
   --output-dir "$OUTPUT_DIR" \
   --execution-commit "$EXECUTION_COMMIT" \
   --authorized-plan-sha256 "$ROOT_AUTHORIZED_PLAN_SHA256" \
+  --authorized-freeze-manifest-sha256 "$ROOT_AUTHORIZED_FREEZE_SHA256" \
   ${MODE:+"$MODE"}

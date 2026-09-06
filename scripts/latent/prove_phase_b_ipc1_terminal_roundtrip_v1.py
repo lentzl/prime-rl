@@ -312,6 +312,18 @@ def _candidate_fixture(output: Path, arm: str, value: float) -> tuple[dict[str, 
     return candidate, post
 
 
+def _cache_class_records() -> list[dict[str, str]]:
+    return [
+        {
+            "fqcn": fqcn,
+            "module_path": f"/frozen/{suffix}",
+            "module_sha256": module_sha256,
+            "distribution": distribution,
+        }
+        for fqcn, suffix, module_sha256, distribution in runtime.EXPECTED_CACHE_CLASSES
+    ]
+
+
 def _success(plan: dict[str, Any], output: Path, execution_commit: str) -> dict[str, Any]:
     selections = {
         split: load_json_file(Path(runtime._bank_record(plan, split)["selection_path"]))
@@ -417,15 +429,15 @@ def _success(plan: dict[str, Any], output: Path, execution_commit: str) -> dict[
             "restored_in_finally": True,
             "model_calls": 796,
             "recursively_closed_config_count": 1,
-            "classes": [
+            "configs": [
                 {
-                    "fqcn": f"cache.Class{index}",
-                    "module_path": f"/frozen/cache{index}.py",
-                    "module_sha256": str(index) * 64,
-                    "distribution": "transformers==5.6.2",
+                    "position": 0,
+                    "fqcn": "transformers.GenerationConfig",
+                    "original_use_cache": True,
+                    "current_use_cache": True,
                 }
-                for index in range(8)
             ],
+            "classes": _cache_class_records(),
         },
         "cuda_memory": {
             "cap_bytes": runtime.CUDA_MEMORY_CAP_BYTES,
@@ -457,6 +469,7 @@ def _success(plan: dict[str, Any], output: Path, execution_commit: str) -> dict[
             "e33_gradients_absent": True,
         },
         "immutable_inputs": runtime._immutable_input_records(plan),
+        "full_freeze": runtime._full_freeze_audit(plan, execution_commit=execution_commit),
         "render_proofs": [_render_proofs(split, selections[split]) for split in ("train", "validation", "heldout")],
         "bank_bindings": [
             {
@@ -483,22 +496,39 @@ def _success(plan: dict[str, Any], output: Path, execution_commit: str) -> dict[
     return receipt
 
 
-def _failure(plan: dict[str, Any], execution_commit: str, pair: tuple[str, str], error_type: str) -> dict[str, Any]:
+def _failure(
+    plan: dict[str, Any],
+    execution_commit: str,
+    pair: tuple[str, str],
+    error_type: str,
+    *,
+    output: Path,
+) -> dict[str, Any]:
     audit = {
         "audit_complete": True,
         "audit_errors": [],
         "immutable_inputs_preserved": True,
         "immutable_inputs": runtime._immutable_input_records(plan),
+        "full_freeze": runtime._full_freeze_audit(plan, execution_commit=execution_commit),
         "e33_tensor_preserved": None,
         "e33_disk_preserved": None,
         "metadata_preserved": None,
         "e33_gradients_absent": None,
+        "output_inventory": runtime._output_inventory(output),
         "candidate_files_present": [],
         "candidate_files_valid": False,
+        "candidate_file_audits": [],
         "candidate_module_state": [],
         "candidate_initial_state": None,
         "cache_guard": None,
         "cuda_memory": None,
+        "execution_progress": {
+            "model_calls_completed": 0,
+            "backward_calls_completed": 0,
+            "optimizer_steps_completed": 0,
+            "schedule_name": None,
+            "completed_call_prefix_sha256": runtime.canonical_bank_sha256([]),
+        },
     }
     return {
         "schema_version": "q35-2b-phase-b-ipc1-matched-learning-failure/v1",
@@ -513,8 +543,137 @@ def _failure(plan: dict[str, Any], execution_commit: str, pair: tuple[str, str],
         "run_identity": plan["run_identity"],
         "model_loaded": False,
         "candidate_files_valid": False,
-        "candidate_files_present": [],
+        "candidate_files_present": audit["candidate_files_present"],
         "execution_breadcrumbs": {"stage": "schema_proof", "task_key": None, "arm": None, "call_index": None},
+        "post_failure_audit": audit,
+        "elapsed_seconds": 1.0,
+    }
+
+
+def _late_failure(
+    plan: dict[str, Any], execution_commit: str, *, output: Path, post_candidate: bool
+) -> dict[str, Any]:
+    selections = {
+        split: load_json_file(Path(runtime._bank_record(plan, split)["selection_path"]))
+        for split in ("train", "validation", "heldout")
+    }
+    schedule = build_model_call_schedule(
+        [row["task_key"] for row in selections["train"]["selected"]],
+        [row["task_key"] for row in selections["validation"]["selected"]],
+        [row["task_key"] for row in selections["heldout"]["selected"]],
+        open_heldout=True,
+    )
+    initial = [
+        {"name": name, "sha256": hashlib.sha256(f"initial:{name}".encode()).hexdigest()}
+        for name in runtime.MODULE_NAMES
+    ]
+    current = [
+        {"name": name, "sha256": hashlib.sha256(f"current:{name}".encode()).hexdigest()}
+        for name in runtime.MODULE_NAMES
+    ]
+    if post_candidate:
+        _candidate, states = _candidate_fixture(output, "STATIC", 1.0)
+        current[0]["sha256"] = states[0]["sha256"]
+    inventory = runtime._output_inventory(output)
+    candidate_files = [record["name"] for record in inventory if record["name"].endswith(".pt")]
+    cache_labels = build_cache_guard_labels(schedule)
+    memory_labels = build_memory_checkpoint_labels(schedule)
+    memory_stop = "candidate:STATIC:after_write" if post_candidate else "before_candidate_writes"
+    memory_prefix = memory_labels[: memory_labels.index(memory_stop) + 1]
+    audit = {
+        "audit_complete": True,
+        "audit_errors": [],
+        "immutable_inputs_preserved": True,
+        "immutable_inputs": runtime._immutable_input_records(plan),
+        "full_freeze": runtime._full_freeze_audit(plan, execution_commit=execution_commit),
+        "e33_tensor_preserved": True,
+        "e33_disk_preserved": True,
+        "metadata_preserved": True,
+        "e33_gradients_absent": True,
+        "output_inventory": inventory,
+        "candidate_files_present": candidate_files,
+        "candidate_files_valid": False,
+        "candidate_file_audits": runtime._failure_candidate_audit(
+            output, current_modules=current, torch=torch
+        ),
+        "candidate_module_state": current,
+        "candidate_initial_state": initial,
+        "cache_guard": {
+            "complete": True,
+            "labels": cache_labels,
+            "label_count": len(cache_labels),
+            "canonical_label_sha256": runtime.canonical_bank_sha256(cache_labels),
+            "expected_label_sha256": runtime.canonical_bank_sha256(cache_labels),
+            "exact_prefix": True,
+            "exit_recorded": True,
+            "dynamic_cache_trip_count": 1,
+            "closure_check_count": len(cache_labels),
+            "closure_checked_at_every_label": True,
+            "restored_in_finally": True,
+            "model_calls": len(schedule),
+            "recursively_closed_config_count": 1,
+            "configs": [
+                {
+                    "position": 0,
+                    "fqcn": "transformers.GenerationConfig",
+                    "original_use_cache": True,
+                    "current_use_cache": True,
+                }
+            ],
+            "classes": _cache_class_records(),
+        },
+        "cuda_memory": {
+            "allocator": {
+                "device_total_bytes": 48 * 1024**3,
+                "cap_bytes": runtime.CUDA_MEMORY_CAP_BYTES,
+                "requested_fraction": 2 / 3,
+                "observed_fraction": 2 / 3,
+            },
+            "ledger": [
+                {
+                    "checkpoint": label,
+                    "current_allocated_bytes": 0,
+                    "current_reserved_bytes": 0,
+                    "maximum_allocated_bytes": 0,
+                    "maximum_reserved_bytes": 0,
+                }
+                for label in memory_prefix
+            ],
+            "current": {
+                "current_allocated_bytes": 0,
+                "current_reserved_bytes": 0,
+                "maximum_allocated_bytes": 0,
+                "maximum_reserved_bytes": 0,
+            },
+        },
+        "execution_progress": {
+            "model_calls_completed": len(schedule),
+            "backward_calls_completed": 147,
+            "optimizer_steps_completed": 12,
+            "schedule_name": "heldout_open",
+            "completed_call_prefix_sha256": runtime.canonical_bank_sha256(schedule),
+        },
+    }
+    return {
+        "schema_version": "q35-2b-phase-b-ipc1-matched-learning-failure/v1",
+        "terminal": "FAILURE",
+        "status": "b_ipc1_incomplete",
+        "disposition": "b_ipc1_incomplete",
+        "failure_class": "contract_or_evidence_incomplete",
+        "error_type": "RuntimeError",
+        "error": "synthetic late post-candidate failure" if post_candidate else "synthetic post-model pre-candidate failure",
+        "execution_commit": execution_commit,
+        "plan_sha256": plan["_file_sha256"],
+        "run_identity": plan["run_identity"],
+        "model_loaded": True,
+        "candidate_files_valid": False,
+        "candidate_files_present": candidate_files,
+        "execution_breadcrumbs": {
+            "stage": "candidate_write" if post_candidate else "final_audit",
+            "task_key": None,
+            "arm": "STATIC" if post_candidate else None,
+            "call_index": len(schedule),
+        },
         "post_failure_audit": audit,
         "elapsed_seconds": 1.0,
     }
@@ -540,6 +699,25 @@ def _expect_rejected(receipt: dict[str, Any], *, plan: dict[str, Any], execution
     raise AssertionError("B-IPC1 terminal tamper unexpectedly validated")
 
 
+def _expect_failure_rejected(
+    receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str, output: Path
+) -> None:
+    try:
+        roundtrip_validate_terminal(
+            receipt,
+            validator=runtime.validate_failure_receipt,
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": execution_commit,
+                "output_dir": output,
+                "torch": torch,
+            },
+        )
+    except PhaseBContractError:
+        return
+    raise AssertionError("B-IPC1 late FAILURE tamper unexpectedly validated")
+
+
 def main() -> int:
     args = _args()
     if args.output_dir.exists() or args.output_dir.is_symlink():
@@ -553,6 +731,9 @@ def main() -> int:
     _relocate_repository_paths(plan, args.repository_root.resolve())
     plan["_path"] = str(args.plan)
     plan["_file_sha256"] = file_sha256(args.plan)
+    freeze_manifest = args.repository_root.resolve() / runtime.FREEZE_MANIFEST.relative_to(runtime.WORKTREE)
+    plan["_freeze_manifest_path"] = str(freeze_manifest)
+    plan["_freeze_manifest_sha256"] = file_sha256(freeze_manifest)
     args.output_dir.mkdir(mode=0o700)
     runtime._fsync_directory(args.output_dir.parent)
 
@@ -645,18 +826,28 @@ def main() -> int:
     for pair, error_type in zip(FAILURE_STATUS_CLASSES, error_types, strict=True):
         directory = args.output_dir / pair[0]
         directory.mkdir(mode=0o700)
-        failure = _failure(plan, args.execution_commit, pair, error_type)
+        failure = _failure(plan, args.execution_commit, pair, error_type, output=directory)
         parsed_failure, failure_payload, failure_sha = roundtrip_validate_terminal(
             failure,
             validator=runtime.validate_failure_receipt,
-            validator_kwargs={"plan": plan, "execution_commit": args.execution_commit},
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": directory,
+                "torch": torch,
+            },
         )
         path = runtime._atomic_publish_bytes(directory, "FAILURE.json", failure_payload)
         verify_published_terminal(
             path,
             failure_payload,
             validator=runtime.validate_failure_receipt,
-            validator_kwargs={"plan": plan, "execution_commit": args.execution_commit},
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": directory,
+                "torch": torch,
+            },
         )
         failure_records.append(
             {
@@ -664,6 +855,105 @@ def main() -> int:
                 "failure_class": pair[1],
                 "file_sha256": failure_sha,
                 "internal_sha256": parsed_failure["receipt_sha256"],
+            }
+        )
+
+    late_failure_records = []
+    late_tampers = []
+    for name, post_candidate in (("post-model-pre-candidate", False), ("late-post-candidate", True)):
+        directory = args.output_dir / name
+        directory.mkdir(mode=0o700)
+        failure = _late_failure(
+            plan,
+            args.execution_commit,
+            output=directory,
+            post_candidate=post_candidate,
+        )
+        tamper_specs = [
+            ("full_freeze", lambda item: item["post_failure_audit"]["full_freeze"].__setitem__("complete", False)),
+            (
+                "module_initial",
+                lambda item: item["post_failure_audit"]["candidate_initial_state"][0].__setitem__(
+                    "sha256", "f" * 64
+                ),
+            ),
+            (
+                "cache_prefix",
+                lambda item: item["post_failure_audit"]["cache_guard"]["labels"].reverse(),
+            ),
+            (
+                "memory_prefix",
+                lambda item: item["post_failure_audit"]["cuda_memory"]["ledger"].reverse(),
+            ),
+            (
+                "progress",
+                lambda item: item["post_failure_audit"]["execution_progress"].__setitem__(
+                    "model_calls_completed", 795
+                ),
+            ),
+        ]
+        if post_candidate:
+            tamper_specs.extend(
+                [
+                    (
+                        "candidate_inventory",
+                        lambda item: item["post_failure_audit"]["output_inventory"][0].__setitem__(
+                            "sha256", "f" * 64
+                        ),
+                    ),
+                    (
+                        "candidate_safe_load",
+                        lambda item: item["post_failure_audit"]["candidate_file_audits"][0].__setitem__(
+                            "scientific_valid", True
+                        ),
+                    ),
+                    (
+                        "module_current",
+                        lambda item: item["post_failure_audit"]["candidate_module_state"][0].__setitem__(
+                            "sha256", "f" * 64
+                        ),
+                    ),
+                ]
+            )
+        for suffix, mutate in tamper_specs:
+            candidate = deepcopy(failure)
+            mutate(candidate)
+            _expect_failure_rejected(
+                candidate,
+                plan=plan,
+                execution_commit=args.execution_commit,
+                output=directory,
+            )
+            late_tampers.append(f"{name}:{suffix}")
+        parsed_failure, failure_payload, failure_sha = roundtrip_validate_terminal(
+            failure,
+            validator=runtime.validate_failure_receipt,
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": directory,
+                "torch": torch,
+            },
+        )
+        path = runtime._atomic_publish_bytes(directory, "FAILURE.json", failure_payload)
+        verify_published_terminal(
+            path,
+            failure_payload,
+            validator=runtime.validate_failure_receipt,
+            validator_kwargs={
+                "plan": plan,
+                "execution_commit": args.execution_commit,
+                "output_dir": directory,
+                "torch": torch,
+            },
+        )
+        late_failure_records.append(
+            {
+                "name": name,
+                "file_sha256": failure_sha,
+                "internal_sha256": parsed_failure["receipt_sha256"],
+                "model_loaded": True,
+                "candidate_files_present": parsed_failure["candidate_files_present"],
             }
         )
 
@@ -678,7 +968,10 @@ def main() -> int:
             "internal_sha256": parsed["receipt_sha256"],
         },
         "failure_terminals": failure_records,
+        "late_failure_terminals": late_failure_records,
         "tamper_cases_rejected": tampers,
+        "late_failure_tamper_cases_rejected": late_tampers,
+        "full_freeze_target_count": success["full_freeze"]["target_count"],
         "mapping_insertion_permutation_canonical_equal": True,
         "prepublish_validation": True,
         "postpublish_reopen_byte_compare_hash_parse_validation": True,

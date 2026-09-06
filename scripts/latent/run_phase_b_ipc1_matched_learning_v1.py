@@ -24,6 +24,7 @@ from typing import Any, Sequence
 from unittest import mock
 
 from prime_rl.phase_b_contract import PhaseBContractError, file_sha256, load_json_file
+from prime_rl.phase_b_identity_carrier import EXPECTED_CACHE_CLASSES
 from prime_rl.phase_b_ipc1 import (
     ACTIONS,
     ARTIFACT_CAP_BYTES,
@@ -53,6 +54,7 @@ from prime_rl.phase_b_ipc1 import (
 WORKTREE = Path("/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1")
 EXPERIMENT = WORKTREE / "experiments/qwen35-2b-latent-coordinator-v1"
 DEFAULT_PLAN = EXPERIMENT / "phase-b-ipc1-matched-learning-run2-plan.json"
+FREEZE_MANIFEST = EXPERIMENT / "phase-b-ipc1-matched-learning-run2.sha256"
 BR5_RUNNER = WORKTREE / "scripts/latent/run_phase_b_fixed_depth_smoke_v1.py"
 B1_RUNNER = WORKTREE / "scripts/latent/run_phase_b_teacher_forced_value_screen_v1.py"
 HIC0_RUNNER = WORKTREE / "scripts/latent/run_phase_b_identity_carrier_v1.py"
@@ -63,6 +65,7 @@ EXPECTED_PYTHONPATH = (
 )
 COMPUTE_SECONDS = 14_040
 AUDIT_SECONDS = 300
+MODULE_NAMES = ("STATIC.codec", "FFN.codec", "FFN.sidecar", "RECURRENT.codec", "RECURRENT.sidecar")
 
 
 def _require_exact_keys(value: Any, expected: set[str], *, label: str) -> dict[str, Any]:
@@ -117,6 +120,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--execution-commit", required=True)
     parser.add_argument("--authorized-plan-sha256", required=True)
+    parser.add_argument("--authorized-freeze-manifest-sha256", required=True)
     parser.add_argument("--preflight-only", action="store_true")
     return parser.parse_args()
 
@@ -146,6 +150,96 @@ def _git_parent(commit: str) -> str:
     return subprocess.run(
         ["git", "rev-parse", f"{commit}^"], cwd=WORKTREE, check=True, capture_output=True, text=True
     ).stdout.strip()
+
+
+def _git_file_bytes(commit: str, path: Path) -> bytes:
+    relative = path.resolve(strict=True).relative_to(WORKTREE.resolve(strict=True))
+    return subprocess.run(
+        ["git", "show", f"{commit}:{relative.as_posix()}"],
+        cwd=WORKTREE,
+        check=True,
+        capture_output=True,
+    ).stdout
+
+
+def _freeze_manifest_records(path: Path, *, execution_commit: str) -> list[dict[str, Any]]:
+    manifest_directory = path.parent.resolve(strict=True)
+    records: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for position, line in enumerate(path.read_text(encoding="ascii").splitlines()):
+        digest, separator, relative_text = line.partition("  ")
+        if (
+            not separator
+            or len(digest) != 64
+            or any(character not in "0123456789abcdef" for character in digest)
+            or not relative_text
+            or relative_text in seen
+        ):
+            raise ProvenanceContractViolated("B-IPC1 freeze manifest record differs")
+        unresolved = manifest_directory / relative_text
+        if unresolved.is_symlink():
+            raise ProvenanceContractViolated("B-IPC1 freeze manifest target is unsafe")
+        target = unresolved.resolve(strict=True)
+        if not target.is_file() or not target.is_relative_to(WORKTREE.resolve(strict=True)):
+            raise ProvenanceContractViolated("B-IPC1 freeze manifest target is unsafe")
+        observed = file_sha256(target)
+        committed = hashlib.sha256(_git_file_bytes(execution_commit, target)).hexdigest()
+        records.append(
+            {
+                "position": position,
+                "relative_path": relative_text,
+                "expected_sha256": digest,
+                "observed_sha256": observed,
+                "committed_sha256": committed,
+            }
+        )
+        seen.add(relative_text)
+    if not records:
+        raise ProvenanceContractViolated("B-IPC1 freeze manifest is empty")
+    return records
+
+
+def _full_freeze_audit(plan: dict[str, Any], *, execution_commit: str, require_match: bool = True) -> dict[str, Any]:
+    path = Path(plan["_freeze_manifest_path"])
+    if path.is_symlink() or not path.is_file() or not path.resolve().is_relative_to(WORKTREE.resolve(strict=True)):
+        raise ProvenanceContractViolated("B-IPC1 freeze manifest path is unsafe")
+    authorized = plan["_freeze_manifest_sha256"]
+    observed = file_sha256(path)
+    committed = hashlib.sha256(_git_file_bytes(execution_commit, path)).hexdigest()
+    head = _git_head()
+    clean = not subprocess.run(
+        ["git", "status", "--porcelain", "--untracked-files=all"],
+        cwd=WORKTREE,
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout
+    records = _freeze_manifest_records(path, execution_commit=execution_commit)
+    complete = (
+        head == execution_commit
+        and clean
+        and observed == authorized
+        and committed == authorized
+        and all(
+            record["expected_sha256"] == record["observed_sha256"] == record["committed_sha256"]
+            for record in records
+        )
+    )
+    evidence = {
+        "execution_commit": execution_commit,
+        "head_commit": head,
+        "worktree_clean": clean,
+        "manifest_path": str(path),
+        "authorized_manifest_sha256": authorized,
+        "observed_manifest_sha256": observed,
+        "committed_manifest_sha256": committed,
+        "target_count": len(records),
+        "targets": records,
+        "complete": complete,
+    }
+    if require_match and not complete:
+        raise ProvenanceContractViolated("B-IPC1 full freeze postflight differs")
+    return evidence
 
 
 def _memory(torch: Any) -> dict[str, int]:
@@ -195,6 +289,20 @@ def _cache_class_identity(cls: type, *, hic0: ModuleType) -> dict[str, str]:
     ):
         raise CacheContractViolated(f"B-IPC1 cache class identity differs: {identity['fqcn']}")
     return identity
+
+
+def _validate_cache_class_records(records: Any, *, label: str) -> None:
+    if not isinstance(records, list) or len(records) != len(EXPECTED_CACHE_CLASSES):
+        raise PhaseBContractError(f"B-IPC1 {label} cache class count differs")
+    for record, expected in zip(records, EXPECTED_CACHE_CLASSES, strict=True):
+        _require_exact_keys(record, {"fqcn", "module_path", "module_sha256", "distribution"}, label="cache class")
+        if (
+            record["fqcn"] != expected[0]
+            or not str(record["module_path"]).endswith(expected[1])
+            or record["module_sha256"] != expected[2]
+            or record["distribution"] != expected[3]
+        ):
+            raise PhaseBContractError(f"B-IPC1 {label} cache class identity differs")
 
 
 class _CacheGuard:
@@ -320,6 +428,15 @@ class _CacheGuard:
             "restored_in_finally": self.restored,
             "model_calls": self.calls,
             "recursively_closed_config_count": len(self.configs),
+            "configs": [
+                {
+                    "position": position,
+                    "fqcn": f"{type(config).__module__}.{type(config).__qualname__}",
+                    "original_use_cache": original,
+                    "current_use_cache": config.use_cache,
+                }
+                for position, (config, original) in enumerate(self.configs.values())
+            ],
             "classes": [
                 _cache_class_identity(cls, hic0=self.hic0) for cls in self.hic0.ordered_subclass_closure(self.base)
             ],
@@ -330,6 +447,8 @@ def _validate_host_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
     validate_ipc1_plan(plan, require_authorized=True)
     if file_sha256(args.plan) != args.authorized_plan_sha256:
         raise ProvenanceContractViolated("B-IPC1 authorized plan file hash differs")
+    if file_sha256(FREEZE_MANIFEST) != args.authorized_freeze_manifest_sha256:
+        raise ProvenanceContractViolated("B-IPC1 authorized freeze manifest hash differs")
     if args.execution_commit != _git_head() or plan["mechanism_code_commit"] != _git_parent(args.execution_commit):
         raise ProvenanceContractViolated("B-IPC1 deployed exact-parent commit binding differs")
     if subprocess.run(
@@ -448,6 +567,10 @@ def _validate_terminal_proof_binding(plan: dict[str, Any]) -> None:
         or decoded_receipt.get("maximal_success", {}).get("file_sha256") != binding["maximal_success_file_sha256"]
         or len(decoded_receipt.get("failure_terminals", [])) != binding["failure_terminal_count"]
         or len(decoded_receipt.get("tamper_cases_rejected", [])) != binding["tamper_cases_rejected"]
+        or len(decoded_receipt.get("late_failure_terminals", [])) != binding["late_failure_terminal_count"]
+        or len(decoded_receipt.get("late_failure_tamper_cases_rejected", []))
+        != binding["late_failure_tamper_cases_rejected"]
+        or decoded_receipt.get("full_freeze_target_count") != binding["full_freeze_target_count"]
         or decoded_receipt.get("mapping_insertion_permutation_canonical_equal")
         is not binding["mapping_insertion_permutation_canonical_equal"]
         or decoded_receipt.get("global_exactly_one_terminal") is not binding["global_exactly_one_terminal"]
@@ -564,8 +687,15 @@ def preflight(args: argparse.Namespace) -> dict[str, Any]:
             or canonical_bank_sha256(build_memory_checkpoint_labels(schedule)) != frozen["memory_label_sha256"]
         ):
             raise PhaseBContractError(f"B-IPC1 {name} schedule hash differs")
+    runtime_plan = plan | {
+        "_path": str(args.plan),
+        "_file_sha256": args.authorized_plan_sha256,
+        "_freeze_manifest_path": str(FREEZE_MANIFEST),
+        "_freeze_manifest_sha256": args.authorized_freeze_manifest_sha256,
+    }
+    _full_freeze_audit(runtime_plan, execution_commit=args.execution_commit)
     return {
-        "plan": plan | {"_path": str(args.plan), "_file_sha256": args.authorized_plan_sha256},
+        "plan": runtime_plan,
         "paths": paths,
         "selections": selections,
         "schedules": schedules,
@@ -1039,6 +1169,7 @@ def _pre_update_gate(
                         torch=torch,
                     )
                     objective.backward()
+                    audit["backward_calls_completed"] += 1
                     named = [(f"codec.{name}", parameter) for name, parameter in codecs[arm].named_parameters()]
                     if sidecar is not None:
                         named.extend((f"sidecar.{name}", parameter) for name, parameter in sidecar.named_parameters())
@@ -1182,6 +1313,7 @@ def _train_arm(
                 torch=torch,
             )
             (objective / 12).backward()
+            audit["backward_calls_completed"] += 1
             if any(parameter.grad is not None for parameter in model.parameters()):
                 raise PhaseBContractError(f"B-IPC1 {arm} caused an e33 gradient")
             if any(
@@ -1216,6 +1348,7 @@ def _train_arm(
             raise PhaseBContractError(f"B-IPC1 {arm} preclip gradient norm is nonfinite")
         _memory_checkpoint(torch, audit, f"optimizer:{arm}:update{update_index}:post_clip")
         optimizer.step()
+        audit["optimizer_steps_completed"] += 1
         _memory_checkpoint(torch, audit, f"optimizer:{arm}:update{update_index}:post_step")
         if any(parameter.grad is not None for parameter in model.parameters()):
             raise PhaseBContractError(f"B-IPC1 {arm} e33 gradient appeared after optimizer step")
@@ -1615,6 +1748,7 @@ def _save_candidates(
 ) -> list[dict[str, Any]]:
     records = []
     for arm in TRAINING_ARMS:
+        audit.update({"stage": "candidate_write", "task_key": None, "arm": arm})
         name = f"{arm}.final.pt"
         _memory_checkpoint(torch, audit, f"candidate:{arm}:before_write")
         codec_state = b1._cpu_state_dict(codecs[arm])
@@ -1665,7 +1799,17 @@ def execute(
     smoke = context["smoke"]
     b1 = context["b1"]
     hic0 = _load_module(HIC0_RUNNER, "b_ipc1_hic0_runtime")
-    audit.update({"torch": torch, "smoke": smoke, "b1": b1, "hic0": hic0, "stage": "runtime_validation"})
+    audit.update(
+        {
+            "torch": torch,
+            "smoke": smoke,
+            "b1": b1,
+            "hic0": hic0,
+            "stage": "runtime_validation",
+            "execution_commit": execution_commit,
+            "schedules": context["schedules"],
+        }
+    )
     smoke._validate_torch_runtime(plan, torch=torch)
     smoke._validate_transformers_runtime(plan, transformers=transformers)
     smoke._require_gpu0_idle()
@@ -1854,6 +1998,7 @@ def execute(
     _memory_checkpoint(torch, audit, "after_final_audits")
     _memory_checkpoint(torch, audit, "before_candidate_writes")
     candidates = _save_candidates(output, codecs, sidecars, b1=b1, torch=torch, audit=audit)
+    full_freeze = _full_freeze_audit(plan, execution_commit=execution_commit)
     _memory_checkpoint(torch, audit, "before_terminal")
     schedule_name = "heldout_open" if heldout is not None else "validation_reject"
     expected_memory = build_memory_checkpoint_labels(context["schedules"][schedule_name])
@@ -1924,6 +2069,7 @@ def execute(
             "e33_gradients_absent": True,
         },
         "immutable_inputs": immutable_inputs,
+        "full_freeze": full_freeze,
         "render_proofs": [{"name": split, "rows": proofs} for split, proofs in context["render_proofs"].items()],
         "bank_bindings": [
             {
@@ -2327,6 +2473,78 @@ def _validate_candidate_records(
             raise PhaseBContractError(f"B-IPC1 {arm} candidate differs from exact post-module state")
 
 
+def _output_inventory(output: Path) -> list[dict[str, Any]]:
+    if not output.is_dir() or output.is_symlink():
+        return []
+    records = []
+    for path in sorted(output.iterdir(), key=lambda item: item.name):
+        if path.name in {"SUCCESS.json", "FAILURE.json"}:
+            continue
+        kind = "symlink" if path.is_symlink() else "file" if path.is_file() else "directory" if path.is_dir() else "other"
+        records.append(
+            {
+                "name": path.name,
+                "kind": kind,
+                "size_bytes": path.stat().st_size if kind == "file" else None,
+                "sha256": file_sha256(path) if kind == "file" else None,
+            }
+        )
+    return records
+
+
+def _failure_candidate_audit(
+    output: Path, *, current_modules: list[dict[str, str]], torch: Any
+) -> list[dict[str, Any]]:
+    current = {record["name"]: record["sha256"] for record in current_modules}
+    records = []
+    for path in sorted(output.glob("*.pt"), key=lambda item: item.name) if output.is_dir() else []:
+        arm = path.name.removesuffix(".final.pt") if path.name.endswith(".final.pt") else None
+        record: dict[str, Any] = {
+            "name": path.name,
+            "path_safe": path.parent == output and not path.is_symlink() and path.is_file(),
+            "file_sha256": file_sha256(path) if path.is_file() and not path.is_symlink() else None,
+            "safe_load_valid": False,
+            "safe_load_error": None,
+            "arm": arm,
+            "payload_schema": None,
+            "module_state": None,
+            "matches_in_memory_state": None,
+            "scientific_valid": False,
+        }
+        try:
+            if not record["path_safe"] or arm not in TRAINING_ARMS:
+                raise PhaseBContractError("B-IPC1 failure candidate path/name differs")
+            payload = torch.load(path, map_location="cpu", weights_only=True)
+            _require_exact_keys(
+                payload,
+                {"schema_version", "arm", "codec", "sidecar", "module_post_state"},
+                label=f"{arm} failure candidate payload",
+            )
+            if payload["schema_version"] != "q35-2b-phase-b-ipc1-candidate/v1" or payload["arm"] != arm:
+                raise PhaseBContractError("B-IPC1 failure candidate identity differs")
+            if (arm == "STATIC") is not (payload["sidecar"] is None):
+                raise PhaseBContractError("B-IPC1 failure candidate sidecar shape differs")
+            state = _candidate_state_records(payload["codec"], payload["sidecar"], torch=torch)
+            if state != payload["module_post_state"]:
+                raise PhaseBContractError("B-IPC1 failure candidate state record differs")
+            expected = [current.get(f"{arm}.codec")]
+            if arm != "STATIC":
+                expected.append(current.get(f"{arm}.sidecar"))
+            observed = [item["tensor_sha256"] for item in state]
+            record.update(
+                {
+                    "safe_load_valid": True,
+                    "payload_schema": payload["schema_version"],
+                    "module_state": state,
+                    "matches_in_memory_state": observed == expected,
+                }
+            )
+        except BaseException as error:
+            record["safe_load_error"] = f"{type(error).__name__}:{error}"
+        records.append(record)
+    return records
+
+
 def _validate_reporting_metric(value: Any, *, label: str, with_identity_hashes: bool = True) -> None:
     keys = {
         "nll",
@@ -2565,6 +2783,7 @@ def validate_success_receipt(
             "cuda_memory",
             "protection",
             "immutable_inputs",
+            "full_freeze",
             "render_proofs",
             "bank_bindings",
             "schedule_binding",
@@ -2730,6 +2949,7 @@ def validate_success_receipt(
             "restored_in_finally",
             "model_calls",
             "recursively_closed_config_count",
+            "configs",
             "classes",
         },
         label="cache guard",
@@ -2746,13 +2966,21 @@ def validate_success_receipt(
         or cache.get("closure_check_count") != cache.get("label_count")
         or cache.get("closure_checked_at_every_label") is not True
         or cache.get("recursively_closed_config_count", 0) < 1
+        or len(cache.get("configs", [])) != cache.get("recursively_closed_config_count")
         or len(cache.get("classes", [])) != 8
     ):
         raise PhaseBContractError("B-IPC1 SUCCESS cache evidence differs")
     if not isinstance(cache["labels"], list) or len(cache["labels"]) != cache["label_count"]:
         raise PhaseBContractError("B-IPC1 SUCCESS cache labels differ")
-    for cls in cache["classes"]:
-        _require_exact_keys(cls, {"fqcn", "module_path", "module_sha256", "distribution"}, label="cache class")
+    _validate_cache_class_records(cache["classes"], label="SUCCESS")
+    for position, config in enumerate(cache["configs"]):
+        _require_exact_keys(
+            config,
+            {"position", "fqcn", "original_use_cache", "current_use_cache"},
+            label="cache config",
+        )
+        if config["position"] != position or config["current_use_cache"] is not config["original_use_cache"]:
+            raise PhaseBContractError("B-IPC1 SUCCESS cache config restoration differs")
     memory = receipt.get("cuda_memory")
     _require_exact_keys(memory, {"cap_bytes", "allocator", "ledger", "ordered_label_sha256"}, label="CUDA memory")
     _require_exact_keys(
@@ -2836,6 +3064,8 @@ def validate_success_receipt(
         raise PhaseBContractError("B-IPC1 SUCCESS immutable postflight hashes differ")
     for record in immutable_inputs:
         _require_exact_keys(record, {"name", "path", "expected_sha256", "observed_sha256"}, label="immutable input")
+    if receipt.get("full_freeze") != _full_freeze_audit(plan, execution_commit=execution_commit):
+        raise PhaseBContractError("B-IPC1 SUCCESS full-freeze postflight differs")
     _validate_candidate_records(
         receipt.get("candidates"), output_dir=output_dir, module_post=module_hashes["post"], torch=torch
     )
@@ -2874,7 +3104,222 @@ def validate_success_receipt(
         raise PhaseBContractError("B-IPC1 SUCCESS claim boundary differs")
 
 
-def validate_failure_receipt(receipt: dict[str, Any], *, plan: dict[str, Any], execution_commit: str) -> None:
+def _validate_failure_module_records(records: Any, *, allow_absent: bool, label: str) -> None:
+    if records is None and allow_absent:
+        return
+    if not isinstance(records, list) or [record.get("name") for record in records] != list(MODULE_NAMES):
+        raise PhaseBContractError(f"B-IPC1 FAILURE {label} module order differs")
+    for record in records:
+        _require_exact_keys(record, {"name", "sha256"}, label=f"FAILURE {label} module")
+        if (
+            not isinstance(record["sha256"], str)
+            or len(record["sha256"]) != 64
+            or any(character not in "0123456789abcdef" for character in record["sha256"])
+        ):
+            raise PhaseBContractError(f"B-IPC1 FAILURE {label} module hash differs")
+
+
+def _failure_expected_schedules(plan: dict[str, Any]) -> dict[str, list[dict[str, Any]]]:
+    keys = {
+        split: [
+            record["task_key"]
+            for record in load_json_file(Path(_bank_record(plan, split)["selection_path"]))["selected"]
+        ]
+        for split in ("train", "validation", "heldout")
+    }
+    return {
+        "validation_reject": build_model_call_schedule(
+            keys["train"], keys["validation"], keys["heldout"], open_heldout=False
+        ),
+        "heldout_open": build_model_call_schedule(
+            keys["train"], keys["validation"], keys["heldout"], open_heldout=True
+        ),
+    }
+
+
+def _validate_failure_cache_and_progress(audit: dict[str, Any], *, plan: dict[str, Any]) -> None:
+    progress = _require_exact_keys(
+        audit["execution_progress"],
+        {
+            "model_calls_completed",
+            "backward_calls_completed",
+            "optimizer_steps_completed",
+            "schedule_name",
+            "completed_call_prefix_sha256",
+        },
+        label="FAILURE execution progress",
+    )
+    calls = progress["model_calls_completed"]
+    backwards = progress["backward_calls_completed"]
+    steps = progress["optimizer_steps_completed"]
+    if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in (calls, backwards, steps)):
+        raise PhaseBContractError("B-IPC1 FAILURE execution progress counts differ")
+    cache = audit["cache_guard"]
+    if cache is None:
+        if calls != 0 or progress["schedule_name"] is not None or progress["completed_call_prefix_sha256"] != canonical_bank_sha256([]):
+            raise PhaseBContractError("B-IPC1 FAILURE pre-guard progress differs")
+        if backwards != 0 or steps != 0:
+            raise PhaseBContractError("B-IPC1 FAILURE pre-guard update counts differ")
+        return
+    schedules = _failure_expected_schedules(plan)
+    schedule_name = progress["schedule_name"]
+    if schedule_name not in schedules:
+        raise PhaseBContractError("B-IPC1 FAILURE schedule identity differs")
+    schedule = schedules[schedule_name]
+    if calls > len(schedule) or progress["completed_call_prefix_sha256"] != canonical_bank_sha256(schedule[:calls]):
+        raise PhaseBContractError("B-IPC1 FAILURE completed call prefix differs")
+    if backwards > sum(bool(record["backward"]) for record in schedule[:calls]) or steps > 12:
+        raise PhaseBContractError("B-IPC1 FAILURE backward/update progress exceeds schedule")
+    _require_exact_keys(
+        cache,
+        {
+            "complete",
+            "labels",
+            "label_count",
+            "canonical_label_sha256",
+            "expected_label_sha256",
+            "exact_prefix",
+            "exit_recorded",
+            "dynamic_cache_trip_count",
+            "closure_check_count",
+            "closure_checked_at_every_label",
+            "restored_in_finally",
+            "model_calls",
+            "recursively_closed_config_count",
+            "configs",
+            "classes",
+        },
+        label="FAILURE cache guard",
+    )
+    labels = cache["labels"]
+    expected_labels = build_cache_guard_labels(schedule)
+    prefix = labels[:-1] if labels[-1:] == ["CACHE_GUARD_EXIT"] else labels
+    if (
+        not isinstance(labels, list)
+        or cache["label_count"] != len(labels)
+        or cache["canonical_label_sha256"] != canonical_bank_sha256(labels)
+        or cache["expected_label_sha256"] != canonical_bank_sha256(expected_labels)
+        or expected_labels[: len(prefix)] != prefix
+        or cache["exact_prefix"] is not True
+        or cache["model_calls"] != calls
+        or cache["dynamic_cache_trip_count"] not in (0, 1)
+        or (labels != [] and cache["dynamic_cache_trip_count"] != 1)
+        or cache["closure_check_count"] != len(labels)
+        or cache["closure_checked_at_every_label"] is not True
+    ):
+        raise PhaseBContractError("B-IPC1 FAILURE cache prefix evidence differs")
+    if cache["exit_recorded"] is not (labels[-1:] == ["CACHE_GUARD_EXIT"]):
+        raise PhaseBContractError("B-IPC1 FAILURE cache exit evidence differs")
+    if cache["exit_recorded"] and cache["restored_in_finally"] is not True:
+        raise PhaseBContractError("B-IPC1 FAILURE cache restoration differs")
+    if cache["complete"] is not (labels == expected_labels):
+        raise PhaseBContractError("B-IPC1 FAILURE cache completeness differs")
+    classes = cache["classes"]
+    configs = cache["configs"]
+    if (
+        not isinstance(classes, list)
+        or len(classes) != 8
+        or not isinstance(configs, list)
+        or len(configs) != cache["recursively_closed_config_count"]
+        or cache["recursively_closed_config_count"] < 1
+    ):
+        raise PhaseBContractError("B-IPC1 FAILURE cache closure evidence differs")
+    _validate_cache_class_records(classes, label="FAILURE")
+    for position, record in enumerate(configs):
+        _require_exact_keys(
+            record,
+            {"position", "fqcn", "original_use_cache", "current_use_cache"},
+            label="cache config",
+        )
+        if record["position"] != position or record["current_use_cache"] is not record["original_use_cache"]:
+            raise PhaseBContractError("B-IPC1 FAILURE cache config restoration differs")
+
+
+def _validate_failure_memory(
+    audit: dict[str, Any], *, plan: dict[str, Any], infrastructure: bool, required: bool
+) -> None:
+    memory = audit["cuda_memory"]
+    if memory is None:
+        if required:
+            raise PhaseBContractError("B-IPC1 post-model FAILURE lacks CUDA memory evidence")
+        return
+    _require_exact_keys(memory, {"allocator", "ledger", "current"}, label="FAILURE CUDA memory")
+    allocator = memory["allocator"]
+    if allocator is not None:
+        _require_exact_keys(
+            allocator,
+            {"device_total_bytes", "cap_bytes", "requested_fraction", "observed_fraction"},
+            label="FAILURE CUDA allocator",
+        )
+        if allocator["cap_bytes"] != CUDA_MEMORY_CAP_BYTES:
+            raise PhaseBContractError("B-IPC1 FAILURE CUDA allocator cap differs")
+    schedules = _failure_expected_schedules(plan)
+    allowed_labels = [build_memory_checkpoint_labels(schedule) for schedule in schedules.values()]
+    ledger = memory["ledger"]
+    if not isinstance(ledger, list) or not any(labels[: len(ledger)] == [item.get("checkpoint") for item in ledger] for labels in allowed_labels):
+        raise PhaseBContractError("B-IPC1 FAILURE CUDA memory prefix differs")
+    values = []
+    previous_maximum_allocated = 0
+    previous_maximum_reserved = 0
+    for record in ledger:
+        _require_exact_keys(
+            record,
+            {
+                "checkpoint",
+                "current_allocated_bytes",
+                "current_reserved_bytes",
+                "maximum_allocated_bytes",
+                "maximum_reserved_bytes",
+            },
+            label="FAILURE memory checkpoint",
+        )
+        numeric = [record[key] for key in record if key.endswith("_bytes")]
+        if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in numeric):
+            raise PhaseBContractError("B-IPC1 FAILURE memory value differs")
+        if (
+            record["current_allocated_bytes"] > record["maximum_allocated_bytes"]
+            or record["current_reserved_bytes"] > record["maximum_reserved_bytes"]
+            or record["maximum_allocated_bytes"] < previous_maximum_allocated
+            or record["maximum_reserved_bytes"] < previous_maximum_reserved
+        ):
+            raise PhaseBContractError("B-IPC1 FAILURE memory monotonicity differs")
+        previous_maximum_allocated = record["maximum_allocated_bytes"]
+        previous_maximum_reserved = record["maximum_reserved_bytes"]
+        values.extend(numeric)
+    current = memory["current"]
+    _require_exact_keys(
+        current,
+        {
+            "current_allocated_bytes",
+            "current_reserved_bytes",
+            "maximum_allocated_bytes",
+            "maximum_reserved_bytes",
+        },
+        label="FAILURE current memory",
+    )
+    current_values = list(current.values())
+    if any(isinstance(value, bool) or not isinstance(value, int) or value < 0 for value in current_values):
+        raise PhaseBContractError("B-IPC1 FAILURE current memory value differs")
+    if (
+        current["current_allocated_bytes"] > current["maximum_allocated_bytes"]
+        or current["current_reserved_bytes"] > current["maximum_reserved_bytes"]
+        or current["maximum_allocated_bytes"] < previous_maximum_allocated
+        or current["maximum_reserved_bytes"] < previous_maximum_reserved
+    ):
+        raise PhaseBContractError("B-IPC1 FAILURE current memory monotonicity differs")
+    values.extend(current_values)
+    if not infrastructure and any(value > CUDA_MEMORY_CAP_BYTES for value in values):
+        raise PhaseBContractError("B-IPC1 non-infrastructure FAILURE exceeded memory cap")
+
+
+def validate_failure_receipt(
+    receipt: dict[str, Any],
+    *,
+    plan: dict[str, Any],
+    execution_commit: str,
+    output_dir: Path,
+    torch: Any | None,
+) -> None:
     _require_exact_keys(
         receipt,
         {
@@ -2945,16 +3390,20 @@ def validate_failure_receipt(receipt: dict[str, Any], *, plan: dict[str, Any], e
             "audit_errors",
             "immutable_inputs_preserved",
             "immutable_inputs",
+            "full_freeze",
             "e33_tensor_preserved",
             "e33_disk_preserved",
             "metadata_preserved",
             "e33_gradients_absent",
+            "output_inventory",
             "candidate_files_present",
             "candidate_files_valid",
+            "candidate_file_audits",
             "candidate_module_state",
             "candidate_initial_state",
             "cache_guard",
             "cuda_memory",
+            "execution_progress",
         },
         label="FAILURE postflight audit",
     )
@@ -2965,17 +3414,69 @@ def validate_failure_receipt(receipt: dict[str, Any], *, plan: dict[str, Any], e
     expected_immutable_audit = _immutable_input_records(plan, require_match=False)
     if audit["immutable_inputs"] != expected_immutable_audit:
         raise PhaseBContractError("B-IPC1 FAILURE immutable input audit differs")
+    if audit["full_freeze"] != _full_freeze_audit(plan, execution_commit=execution_commit, require_match=False):
+        raise PhaseBContractError("B-IPC1 FAILURE full-freeze postflight differs")
     provenance_failure = pair == FAILURE_STATUS_CLASSES[3] and receipt["error_type"] == "ProvenanceContractViolated"
+    if audit["full_freeze"].get("complete") is not True and not provenance_failure:
+        raise PhaseBContractError("B-IPC1 FAILURE full freeze was not preserved")
     if audit["immutable_inputs_preserved"] is not True and not provenance_failure:
         raise PhaseBContractError("B-IPC1 FAILURE immutable inputs were not preserved")
     if audit["candidate_files_present"] != receipt["candidate_files_present"]:
         raise PhaseBContractError("B-IPC1 FAILURE candidate file evidence differs")
-    if not isinstance(audit["candidate_module_state"], list) or not isinstance(
-        receipt["candidate_files_present"], list
-    ):
-        raise PhaseBContractError("B-IPC1 FAILURE candidate state evidence differs")
-    for record in audit["candidate_module_state"]:
-        _require_exact_keys(record, {"name", "sha256"}, label="FAILURE candidate module state")
+    observed_inventory = _output_inventory(output_dir)
+    if audit["output_inventory"] != observed_inventory:
+        raise PhaseBContractError("B-IPC1 FAILURE output inventory differs")
+    expected_present = [record["name"] for record in observed_inventory if record["name"].endswith(".pt")]
+    if receipt["candidate_files_present"] != expected_present:
+        raise PhaseBContractError("B-IPC1 FAILURE candidate file rescan differs")
+    expected_candidate_order = [f"{arm}.final.pt" for arm in TRAINING_ARMS]
+    if set(expected_present) != set(expected_candidate_order[: len(expected_present)]):
+        raise PhaseBContractError("B-IPC1 FAILURE candidate file order differs")
+    modules_absent = audit["candidate_initial_state"] is None and audit["candidate_module_state"] == []
+    _validate_failure_module_records(
+        audit["candidate_initial_state"], allow_absent=modules_absent, label="initial"
+    )
+    _validate_failure_module_records(
+        audit["candidate_module_state"], allow_absent=modules_absent, label="current"
+    )
+    if receipt["candidate_files_present"]:
+        if torch is None:
+            raise PhaseBContractError("B-IPC1 FAILURE cannot audit candidate files without torch")
+        expected_candidate_audits = _failure_candidate_audit(
+            output_dir,
+            current_modules=audit["candidate_module_state"],
+            torch=torch,
+        )
+        if audit["candidate_file_audits"] != expected_candidate_audits:
+            raise PhaseBContractError("B-IPC1 FAILURE candidate safe-load audit differs")
+    elif audit["candidate_file_audits"] != []:
+        raise PhaseBContractError("B-IPC1 FAILURE claims absent candidate audits")
+    for record in audit["candidate_file_audits"]:
+        _require_exact_keys(
+            record,
+            {
+                "name",
+                "path_safe",
+                "file_sha256",
+                "safe_load_valid",
+                "safe_load_error",
+                "arm",
+                "payload_schema",
+                "module_state",
+                "matches_in_memory_state",
+                "scientific_valid",
+            },
+            label="FAILURE candidate file audit",
+        )
+        if record["scientific_valid"] is not False:
+            raise PhaseBContractError("B-IPC1 FAILURE candidate was marked scientifically valid")
+    _validate_failure_cache_and_progress(audit, plan=plan)
+    _validate_failure_memory(
+        audit,
+        plan=plan,
+        infrastructure=pair == FAILURE_STATUS_CLASSES[3],
+        required=receipt.get("model_loaded") is True,
+    )
     if receipt.get("model_loaded") is True and not all(
         audit.get(key) is True
         for key in (
@@ -3028,17 +3529,33 @@ def _post_failure_audit(plan: dict[str, Any], audit: dict[str, Any]) -> dict[str
     result: dict[str, Any] = {
         "immutable_inputs_preserved": False,
         "immutable_inputs": [],
+        "full_freeze": None,
         "e33_tensor_preserved": None,
         "e33_disk_preserved": None,
         "metadata_preserved": None,
         "e33_gradients_absent": None,
+        "output_inventory": [],
         "candidate_files_present": [],
         "candidate_files_valid": False,
+        "candidate_file_audits": [],
         "candidate_module_state": [],
         "candidate_initial_state": audit.get("module_pre"),
         "cache_guard": None,
         "cuda_memory": None,
+        "execution_progress": {
+            "model_calls_completed": 0,
+            "backward_calls_completed": audit.get("backward_calls_completed", 0),
+            "optimizer_steps_completed": audit.get("optimizer_steps_completed", 0),
+            "schedule_name": None,
+            "completed_call_prefix_sha256": canonical_bank_sha256([]),
+        },
     }
+    try:
+        result["full_freeze"] = _full_freeze_audit(
+            plan, execution_commit=audit["execution_commit"], require_match=False
+        )
+    except BaseException as error:
+        errors.append(f"full_freeze:{type(error).__name__}:{error}")
     try:
         result["immutable_inputs"] = _immutable_input_records(plan, require_match=False)
         result["immutable_inputs_preserved"] = all(
@@ -3062,22 +3579,49 @@ def _post_failure_audit(plan: dict[str, Any], audit: dict[str, Any]) -> dict[str
             errors.append(f"e33:{type(error).__name__}:{error}")
     try:
         output = Path(audit["output_dir"])
-        result["candidate_files_present"] = sorted(path.name for path in output.glob("*.pt")) if output.is_dir() else []
+        result["output_inventory"] = _output_inventory(output)
+        result["candidate_files_present"] = [
+            record["name"] for record in result["output_inventory"] if record["name"].endswith(".pt")
+        ]
         modules = audit.get("modules") or []
         if modules and smoke is not None:
             result["candidate_module_state"] = [
                 {"name": record["name"], "sha256": smoke._module_tensor_sha256(record["module"], audit["torch"])}
                 for record in modules
             ]
+        if audit.get("torch") is not None:
+            result["candidate_file_audits"] = _failure_candidate_audit(
+                output,
+                current_modules=result["candidate_module_state"],
+                torch=audit["torch"],
+            )
     except BaseException as error:
         errors.append(f"candidate:{type(error).__name__}:{error}")
     guard = audit.get("cache_guard")
     if guard is not None:
         try:
             result["cache_guard"] = guard.evidence()
+            schedules = audit["schedules"]
+            schedule_name = next((name for name, value in schedules.items() if value == guard.schedule), None)
+            completed = guard.schedule[: guard.calls]
+            result["execution_progress"] = {
+                "model_calls_completed": guard.calls,
+                "backward_calls_completed": audit.get("backward_calls_completed", 0),
+                "optimizer_steps_completed": audit.get("optimizer_steps_completed", 0),
+                "schedule_name": schedule_name,
+                "completed_call_prefix_sha256": canonical_bank_sha256(completed),
+            }
         except BaseException as error:
             errors.append(f"cache:{type(error).__name__}:{error}")
-    result["cuda_memory"] = _memory(audit["torch"]) if audit.get("torch") is not None else None
+    if audit.get("torch") is not None:
+        try:
+            result["cuda_memory"] = {
+                "allocator": audit.get("allocator"),
+                "ledger": audit.get("memory_ledger", []),
+                "current": _memory(audit["torch"]),
+            }
+        except BaseException as error:
+            errors.append(f"memory:{type(error).__name__}:{error}")
     return {"audit_complete": not errors, "audit_errors": errors, **result}
 
 
@@ -3102,11 +3646,17 @@ def main() -> int:
     started = time.time()
     signal.signal(signal.SIGALRM, _timeout_handler)
     signal.alarm(COMPUTE_SECONDS)
-    audit: dict[str, Any] = {"output_dir": str(args.output_dir)}
+    audit: dict[str, Any] = {
+        "output_dir": str(args.output_dir),
+        "execution_commit": args.execution_commit,
+        "backward_calls_completed": 0,
+        "optimizer_steps_completed": 0,
+    }
     plan: dict[str, Any] | None = None
     try:
         context = preflight(args)
         plan = context["plan"]
+        audit["schedules"] = context["schedules"]
         if not args.preflight_only:
             args.output_dir.mkdir(mode=0o700)
         import pyarrow.parquet as parquet
@@ -3200,7 +3750,7 @@ def main() -> int:
             "run_identity": plan["run_identity"],
             "model_loaded": audit.get("model") is not None,
             "candidate_files_valid": False,
-            "candidate_files_present": sorted(path.name for path in args.output_dir.glob("*.pt")),
+            "candidate_files_present": post["candidate_files_present"],
             "execution_breadcrumbs": {key: audit.get(key) for key in ("stage", "task_key", "arm", "call_index")},
             "post_failure_audit": post,
             "elapsed_seconds": time.time() - started,
@@ -3216,7 +3766,12 @@ def main() -> int:
             failure, payload, _file_hash = roundtrip_validate_terminal(
                 failure,
                 validator=validate_failure_receipt,
-                validator_kwargs={"plan": plan, "execution_commit": args.execution_commit},
+                validator_kwargs={
+                    "plan": plan,
+                    "execution_commit": args.execution_commit,
+                    "output_dir": args.output_dir,
+                    "torch": audit.get("torch"),
+                },
             )
             signal.alarm(0)
             target = _atomic_publish_bytes(args.output_dir, "FAILURE.json", payload)
@@ -3224,7 +3779,12 @@ def main() -> int:
                 target,
                 payload,
                 validator=validate_failure_receipt,
-                validator_kwargs={"plan": plan, "execution_commit": args.execution_commit},
+                validator_kwargs={
+                    "plan": plan,
+                    "execution_commit": args.execution_commit,
+                    "output_dir": args.output_dir,
+                    "torch": audit.get("torch"),
+                },
             )
         except BaseException as publication_error:
             print(f"B-IPC1 failure publication failed: {publication_error}", file=sys.stderr)
