@@ -365,6 +365,17 @@ T0_ASSET_ROW_KEYS={"path","sha256","bytes"}
 T0_RESOURCE_KEYS={"gpu_name","physical_gpu","visible_device","free_gpu_bytes_pre","available_ram_bytes_pre","free_disk_bytes_pre","max_allocated_bytes","max_reserved_bytes","artifact_bytes","timing"}
 T0_TIMING_KEYS={"outer_seconds","startup_seconds","compute_seconds","audit_seconds","failure_seconds","terminal_seconds","postexit_seconds","alarm_safety_margin_seconds","compute_enter_ns","compute_exit_ns","compute_duration_ns","audit_enter_ns","audit_exit_ns","audit_duration_ns","failure_enter_ns","failure_exit_ns","failure_duration_ns","terminal_enter_ns","prepublication_elapsed_ns"}
 T0_DECISION_BASE={"candidate_modules_updated":True,"protected_models_updated":False,"validation_execution_authorized":False,"validation_or_heldout_opened":False,"live_trajectory_count":0,"admission":False,"nomination":False,"promotion":False,"four_live_floor_unchanged":True}
+T0_FAILURE_MEMORY_BOUNDS={
+    "startup_pre_model":(0,5),"model_load":(5,6),"capture":(6,201),"model_release":(201,203),
+    "candidate_init":(203,204),"preconnect":(204,205),"precal":(205,206),"train":(206,527),
+    "postcal":(527,528),"postfit":(528,529),"gate_evaluation":(529,531),"candidate_write":(530,531),
+    "postflight_audit":(531,534),"terminal_publication":(534,534),
+}
+
+def validate_failure_memory_stage(stage:str,row_count:int)->None:
+    if stage not in T0_FAILURE_MEMORY_BOUNDS or not isinstance(row_count,int) or isinstance(row_count,bool): raise T0ContractError("T0 failure memory stage schema differs")
+    low,high=T0_FAILURE_MEMORY_BOUNDS[stage]
+    if not low<=row_count<=high: raise T0ContractError("T0 failure memory stage boundary differs")
 
 def validate_t0_proof(value:dict[str,Any], *, partition:dict[str,Any]|None=None, capture_schedule:dict[str,Any]|None=None, training_schedule:dict[str,Any]|None=None, memory_schedule:dict[str,Any]|None=None, output_inventory:list[str]|None=None, output_dir:Any|None=None)->None:
     if partition is None or capture_schedule is None or training_schedule is None or memory_schedule is None: raise T0ContractError("T0 proof frozen validation sources missing")
@@ -534,7 +545,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         _keys(capture,{"schedule_sha256","rows","counts","aggregate_sha256"},"T0 failure capture")
         rows=capture["rows"]
         failed_inflight=isinstance(rows,list) and len(rows)==captures+1 and rows[-1].get("finite") is False and stage=="capture"
-        if capture["schedule_sha256"]!=capture_schedule["schedule_sha256"] or not isinstance(rows,list) or len(rows)!=captures and not failed_inflight or capture["counts"]!={"rows":captures,"tokenizer_calls":tokenizers,"model_forwards":model_forwards,"sequences":24*tokenizers} or capture["aggregate_sha256"]!=sha256_bytes(canonical_json(rows)): raise T0ContractError("T0 failure capture evidence differs")
+        if stage_rank[stage]<stage_rank["capture"] or not isinstance(rows,list) or not rows or capture["schedule_sha256"]!=capture_schedule["schedule_sha256"] or len(rows)!=captures and not failed_inflight or capture["counts"]!={"rows":captures,"tokenizer_calls":tokenizers,"model_forwards":model_forwards,"sequences":24*tokenizers} or capture["aggregate_sha256"]!=sha256_bytes(canonical_json(rows)): raise T0ContractError("T0 failure capture evidence differs")
         capture_keys={"capture_index","row_id","row_sha256","receiver_input_sha256","node_count","token_count_min","token_count_max","input_ids_sha256","attention_mask_sha256","hidden_shape","hidden_dtype","hidden_sha256","finite"}
         for index,(row,source) in enumerate(zip(rows,capture_schedule["rows"])):
             if set(row)!=capture_keys or {key:row[key] for key in ("capture_index","row_id","row_sha256","receiver_input_sha256","node_count")}!=source or row["capture_index"]!=index or not 1<=row["token_count_min"]<=row["token_count_max"]<=128 or row["hidden_shape"]!=[24,2048] or row["hidden_dtype"]!="torch.bfloat16" or not all(digest_string(row[key]) for key in ("input_ids_sha256","attention_mask_sha256","hidden_sha256")) or not isinstance(row["finite"],bool): raise T0ContractError("T0 failure capture row differs")
@@ -620,6 +631,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         raise T0ContractError("T0 failure stage crossing differs")
     initial=value.get("candidate_initial_state")
     if initial is not None:
+        if stage_rank[stage]<stage_rank["candidate_init"] or progress["candidates_initialized"]!=5: raise T0ContractError("T0 failure future candidate initial evidence")
         _keys(initial,{"seed_payload","seed_payload_sha256","seed_u64_be","arm_order","action_order","rows","all_equal"},"T0 failure candidate initial")
         initial_keys={"arm","parameter_names","parameter_shapes","parameter_name_count","parameter_count","device","dtype","initial_state_sha256","finite"}
         if (initial["seed_payload"],initial["seed_payload_sha256"],initial["seed_u64_be"])!=(INIT_PAYLOAD,INIT_SHA256,INIT_SEED) or initial["arm_order"]!=ARMS or initial["action_order"]!=ACTIONS or initial["all_equal"] is not True or [row.get("arm") for row in initial["rows"]]!=ARMS or any(set(row)!=initial_keys or row["parameter_names"]!=PARAMETER_NAMES or row["parameter_shapes"]!=PARAMETER_SHAPES or row["parameter_name_count"]!=16 or row["parameter_count"]!=366340 or row["device"]!="cuda:0" or row["dtype"]!="torch.float32" or row["finite"] is not True or not digest_string(row["initial_state_sha256"]) for row in initial["rows"]) or len({row["initial_state_sha256"] for row in initial["rows"]})!=1: raise T0ContractError("T0 failure candidate initial differs")
@@ -627,6 +639,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         raise T0ContractError("T0 failure candidate initial missing")
     preconnect=value.get("preconnect_evidence")
     if preconnect is not None:
+        if stage_rank[stage]<stage_rank["preconnect"] or completed<5 or progress["preconnect_arms_completed"]!=5: raise T0ContractError("T0 failure future preconnect evidence")
         _keys(preconnect,{"row_id","depth","action_index","rows","counts","all_qualify"},"T0 failure preconnect")
         if preconnect["row_id"]!="hi_be342227610f62e0" or preconnect["depth"]!=4 or preconnect["action_index"]!=0 or preconnect["counts"]!={"forwards":5,"backwards":5,"optimizer_steps":0} or preconnect["all_qualify"] is not True or [row.get("arm") for row in preconnect["rows"]]!=ARMS: raise T0ContractError("T0 failure preconnect differs")
         preconnect_keys={"arm","operation_index","loss","codec_grad_l2","cell_grad_l2","readout_grad_l2","state_before_sha256","state_after_sha256","gradients_cleared","finite","qualifies"}
@@ -647,6 +660,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
     metric_count=progress["metric_row_records_completed"]
     f3_incomplete=stage=="gate_evaluation" and completed==385 and metric_count==639 and progress["aggregate_records_completed"]==0 and progress["gates_evaluated"]==0
     if not (complete_metric_count<=metric_count<=max_metric_count or f3_incomplete) or progress["aggregate_records_completed"] not in ({0,135} if completed==385 and metric_count==640 else {0}) or progress["gates_evaluated"] not in ({0,9} if progress["aggregate_records_completed"]==135 else {0}): raise T0ContractError("T0 failure metric progress differs")
+    if (value.get("metric_evidence") is None)!=(metric_count==0): raise T0ContractError("T0 failure metric evidence presence differs")
     candidate_prefix=progress["candidate_files_present"]
     if candidate_prefix!=CANDIDATE_FILES[:len(candidate_prefix)] or len(candidate_prefix)>5 or progress["threshold_file_present"] and (len(candidate_prefix)!=5 or progress["gates_evaluated"]!=9 or stage not in {"candidate_write","postflight_audit","terminal_publication"}): raise T0ContractError("T0 failure candidate prefix differs")
     derived=value.get("derived_thresholds")
@@ -661,7 +675,9 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         if not isinstance(gate,dict) or set(gate)!={"ordered_rows","pass_count","all_pass"} or len(gate["ordered_rows"])!=9 or [row.get("name") for row in gate["ordered_rows"]]!=GATE_NAMES: raise T0ContractError("T0 failure gate evidence differs")
     elif gate is not None:
         raise T0ContractError("T0 failure future gate evidence differs")
-    cache=value.get("cache_guard") if isinstance(value.get("cache_guard"),dict) else {}
+    raw_cache=value.get("cache_guard")
+    if raw_cache is not None and (not isinstance(raw_cache,dict) or not raw_cache or stage_rank[stage]<stage_rank["capture"] or cache_checks==0): raise T0ContractError("T0 failure future cache evidence")
+    cache=raw_cache if isinstance(raw_cache,dict) else {}
     safety=value.get("safety") if isinstance(value.get("safety"),dict) else {}
     protected=value.get("protected_state") if isinstance(value.get("protected_state"),dict) else {}
     if protected:
@@ -739,6 +755,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         for row in rows:
             numbers=[row.get(key) for key in ("current_allocated_bytes","current_reserved_bytes","peak_allocated_bytes","peak_reserved_bytes")]
             if set(row)!=memory_keys or any(not isinstance(item,int) or isinstance(item,bool) or not 0<=item<=40*(1<<30) for item in numbers) or numbers[0]>numbers[2] or numbers[1]>numbers[3]: raise T0ContractError("T0 failure memory row differs")
+        validate_failure_memory_stage(stage,len(rows))
         row_labels=[r["label"] for r in rows]
         post_capture=sum(label.startswith("POST_CAPTURE_") for label in row_labels); pre_capture=sum(label.startswith("PRE_CAPTURE_") for label in row_labels)
         if post_capture!=captures or pre_capture not in {tokenizers,tokenizers+1} or not captures<=tokenizers<=pre_capture: raise T0ContractError("T0 failure memory/capture crossing differs")
@@ -766,6 +783,7 @@ def validate_t0_failure(value:dict[str,Any], *, partition:dict[str,Any]|None=Non
         if train_labels!=expected_train_completed: raise T0ContractError("T0 failure training memory prefix differs")
     elif captures or completed or progress["stage"] not in {"startup_pre_model","model_load"}: raise T0ContractError("T0 failure memory evidence missing")
     memory_count=len(memory["rows"]) if isinstance(memory,dict) and isinstance(memory.get("rows"),list) else 0
+    if memory_count and any(item is None for item in (runtime,asset_audit,antecedent,data,resources)): raise T0ContractError("T0 failure memory lacks foundational evidence")
     metric_rows=metric.get("row_records",[]) if isinstance(metric,dict) else []
     presentations={phase:sum(row.get("phase")==phase for row in metric_rows if isinstance(row,dict)) for phase in ("PRECAL","POSTCAL","POSTFIT")}
     tamper=value.get("tamper_audit")

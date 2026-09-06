@@ -10,9 +10,9 @@ from prime_rl.latent.h_iter_phase1_t0 import (
     MECHANISM, MODEL_FREE_DECISION, MODEL_FREE_FAILURE_SCHEMA,
     MODEL_FREE_PROOF_KEYS, PROOF_MEMORY_LABELS, PROOF_RUN_ID,
     SYNTHETIC_SEED, SYNTHETIC_SHA256, T0ContractError,
-    T0_COMPLETE_COUNTS,
+    T0_COMPLETE_COUNTS, T0_FAILURE_MEMORY_BOUNDS,
     build_tamper_schedule, canonical_json, sha256_bytes,
-    validate_model_free_failure, validate_t0_failure, validate_t0_proof,
+    validate_failure_memory_stage, validate_model_free_failure, validate_t0_failure, validate_t0_proof,
     FAILURE_SCHEMA,
 )
 
@@ -153,6 +153,37 @@ def test_complete_counts_cannot_be_claimed_at_zero_or_one_capture() -> None:
     validate_t0_failure(one,**validation)
     forged_one=copy.deepcopy(one); forged_one["counts"]={**T0_COMPLETE_COUNTS,"candidate_files":0,"threshold_files":0}; forged_one["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in forged_one.items() if key!="failure_sha256"}))
     with pytest.raises(T0ContractError,match="counts/progress"): validate_t0_failure(forged_one,**validation)
+
+def test_failure_memory_stage_boundaries_and_future_evidence() -> None:
+    pytest.importorskip("torch")
+    expected={"startup_pre_model":(0,5),"model_load":(5,6),"capture":(6,201),"model_release":(201,203),"candidate_init":(203,204),"preconnect":(204,205),"precal":(205,206),"train":(206,527),"postcal":(527,528),"postfit":(528,529),"gate_evaluation":(529,531),"candidate_write":(530,531),"postflight_audit":(531,534),"terminal_publication":(534,534)}
+    assert T0_FAILURE_MEMORY_BOUNDS==expected
+    for stage,(low,high) in expected.items():
+        validate_failure_memory_stage(stage,low); validate_failure_memory_stage(stage,high)
+        if low:
+            with pytest.raises(T0ContractError,match="memory stage boundary"): validate_failure_memory_stage(stage,low-1)
+        with pytest.raises(T0ContractError,match="memory stage boundary"): validate_failure_memory_stage(stage,high+1)
+    fixture,partition,capture,schedule,memory,tampers,validation=_production_sources()
+    base=fixture(partition,capture,schedule,memory,tampers,[],True)
+    progress={"stage":"startup_pre_model","capture_rows_completed":0,"tokenizer_calls_completed":0,"model_forwards_completed":0,"sequences_completed":0,"cache_checks_completed":0,"candidates_initialized":0,"preconnect_arms_completed":0,"operations_completed":0,"current_operation_index":None,"current_phase":None,"current_arm":None,"current_epoch":None,"current_depth":None,"sidecar_forwards_completed":0,"sidecar_backwards_completed":0,"optimizer_steps_completed":0,"cell_calls_completed":0,"metric_row_records_completed":0,"aggregate_records_completed":0,"gates_evaluated":0,"candidate_files_present":[],"threshold_file_present":False}
+    zero=copy.deepcopy({key:item for key,item in base.items() if key!="proof_sha256"})
+    for field in ("runtime","asset_audit","antecedent_binding","data_binding","capture_evidence","candidate_initial_state","preconnect_evidence","metric_evidence","gate_evidence","derived_thresholds","protected_state","cache_guard","resources","memory","full_freeze","tamper_audit","decision_boundary"): zero[field]=None
+    zero["candidate_disposition"]={"arm_order":["STATIC","FFN","FIXED_T4","RESET_K","REC_K"],"files_present":[],"threshold_file_present":False,"rows":[],"reusable":False}
+    zero["counts"]={key:0 for key in base["counts"]}
+    zero.update({"schema_version":FAILURE_SCHEMA,"status":"infrastructure_invalid","error_type":"InfrastructureInvalid","error_message":"startup fixture","traceback":"fixture","stage":"startup_pre_model","execution_progress":progress,"audit_errors":["startup fixture"],"failure_sha256":""})
+    def rejected(value:dict,pattern:str|None=None)->None:
+        value["failure_sha256"]=sha256_bytes(canonical_json({key:item for key,item in value.items() if key!="failure_sha256"}))
+        with pytest.raises(T0ContractError,match=pattern): validate_t0_failure(value,**validation)
+    future_memory=copy.deepcopy(zero)
+    for field in ("runtime","asset_audit","antecedent_binding","data_binding","resources"): future_memory[field]=copy.deepcopy(base[field])
+    future_memory["asset_audit"].update({"post_entries":None,"post_sha256":None,"all_exact":None}); future_memory["resources"]["timing"]=None
+    future_rows=base["memory"]["rows"][:8]
+    future_memory["memory"]={**base["memory"],"rows":future_rows,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in future_rows])),"complete":False}; future_memory["counts"]["memory_rows"]=8
+    rejected(future_memory,"memory stage boundary")
+    for field in ("candidate_initial_state","preconnect_evidence","capture_evidence","cache_guard"):
+        future=copy.deepcopy(zero); future[field]=copy.deepcopy(base[field]); rejected(future)
+    empty_capture=copy.deepcopy(zero); empty_capture["capture_evidence"]={"schedule_sha256":capture["schedule_sha256"],"rows":[],"counts":{"rows":0,"tokenizer_calls":0,"model_forwards":0,"sequences":0},"aggregate_sha256":sha256_bytes(canonical_json([]))}; rejected(empty_capture,"capture evidence")
+    empty_cache=copy.deepcopy(zero); empty_cache["cache_guard"]={}; rejected(empty_cache,"cache evidence")
 
 def test_postflight_failure_requires_freeze_tamper_and_decision_evidence() -> None:
     pytest.importorskip("torch")

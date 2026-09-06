@@ -370,6 +370,7 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                     value["capture_evidence"]=None; value["memory"]=None; value["cache_guard"]=None; value["protected_state"]=None
                     for field in ("runtime","asset_audit","antecedent_binding","data_binding","resources"): value[field]=None
                 else:
+                    if name=="F1": value["capture_evidence"]=None
                     value["asset_audit"]={**value["asset_audit"],"post_entries":None,"post_sha256":None,"all_exact":None}; value["resources"]={**value["resources"],"timing":None}
                     memory_count=9 if name=="F1" else 10; memory_rows=value["memory"]["rows"][:memory_count]; value["memory"]={"schedule_file_sha256":value["memory"]["schedule_file_sha256"],"expected_count":534,"rows":memory_rows,"label_sha256":sha256_bytes(canonical_json([r["label"] for r in memory_rows])),"complete":False}
                     cache_count=progress["cache_checks_completed"]; cache_rows=value["cache_guard"]["label_rows"][:cache_count]; value["cache_guard"].update({"label_rows":cache_rows,"label_sha256":sha256_bytes(canonical_json([r["label"] for r in cache_rows])),"actual_checks":cache_count})
