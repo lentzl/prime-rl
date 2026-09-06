@@ -1,0 +1,322 @@
+{
+  "schema_version": "q35-2b-phase-b-ipc1-matched-learning/v1",
+  "status": "frozen_pending_independent_review",
+  "run_identity": "b-ipc1-matched-learning-run1",
+  "claim_class": "nomination_only_inplace_carrier_matched_learning_screen",
+  "mechanism_code_commit": "69517c54c283017d1e8b76e1afda7e36adf2552f",
+  "implementation_commit": "69517c54c283017d1e8b76e1afda7e36adf2552f",
+  "plan_sha256": "32b6cb2dbc6a49afa1cd0cc43c32299eb42e41c512197f92974ddb1b6b168fe3",
+  "execution_authorization": "independent_gatekeeper_review_then_root_schedule_required",
+  "antecedents": [
+    {
+      "name": "HIC0_R1",
+      "binding_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-hic0-r1-invalid-descriptive-binding-v1.json",
+      "binding_sha256": "05f8255a2681f3090580975e6dad182d56439c08a403d9c13be139e3ad2eefbe",
+      "classification": "descriptive_antecedent_only_terminal_contract_invalid",
+      "success_file_sha256": "26dfb2c8942b767c0ca8697cc66eea9c0e0931123aa4ffd9c7426440323245c8",
+      "internal_receipt_sha256": "108342e04a3255afedbbf60d6dc8ccf86c5f0d2736b549634edbdeb8febbafc3",
+      "execution_commit": "28376109087e0525bc751f321d01138980b86344",
+      "plan_file_sha256": "fb545fe12f05c5cb9c32a1e6da2f11aee8a502cef42838ed1efed84682132b0e",
+      "formal_terminal_valid": false,
+      "validator_error": "B-HIC0 SUCCESS row/count evidence differs",
+      "invalidating_cause": "canonical sort_keys serialization reordered order-significant mapping keys before frozen validator replay",
+      "descriptive_evidence_only": {
+        "insert_eps_minus_base_mean_nll": 0.10561368500221047,
+        "inplace_eps_minus_base_mean_nll": -0.00010269187119374412,
+        "penalty_removal_fraction": 1.000972334893831,
+        "hidden_drift_ratio_mean": 0.09242930357967004,
+        "logit_drift_ratio_mean": 0.09342838832577494,
+        "inplace_margin_delta_mean": -0.0625,
+        "inplace_margin_delta_worst": -0.75,
+        "formal_gate7_descriptive_value": false
+      },
+      "candidate_reused": false,
+      "rows_reused": false,
+      "seeds_reused": false,
+      "admission": false,
+      "threshold_source": false
+    },
+    {
+      "name": "B1R",
+      "binding_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-b1r-negative-binding-v1.json",
+      "binding_sha256": "839082fed228b9fd521fe2068ffbe32895f42e46c7814f73245bc555b38b587c",
+      "status": "SUCCESS",
+      "disposition": "b1_not_nominated",
+      "success_receipt_sha256": "4cb2bf1e7e884f24c297381dc30698bce4dac2586e3f4522f231600ad76ef761",
+      "candidate_reused": false,
+      "rows_reused": false,
+      "seeds_reused": false,
+      "admission": false,
+      "threshold_source": false
+    }
+  ],
+  "protected_model": {
+    "name": "e33",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "weight_sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "architecture": "Qwen3_5ForConditionalGeneration",
+    "text_hidden_size": 2048,
+    "trainable": false
+  },
+  "model_metadata_sha256": {
+    "config.json": "22949388ed61c1100b20a3cae55bb22122554c74e06fc23f1be50cca1fec3b8c",
+    "tokenizer.json": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "tokenizer_config.json": "747ba36a06ba5428bb74e984d75136b37cf5dafe97b8dd315f701b361a9f417f",
+    "chat_template.jinja": "273d8e0e683b885071fb17e08d71e5f2a5ddfb5309756181681de4f5a1822d80",
+    "generation_config.json": "93f19a5ed0fb9f9e8e65dafae7a9bc4c6a32b3e37f6278980d05d3f4ca29f17b",
+    "processor_config.json": "d89ef49ce9cd37fbf510158e13c1ef063d9286411c1ec9049932dbe0487143b1"
+  },
+  "bank_manifest": {
+    "path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/MANIFEST.json",
+    "sha256": "6c8661c851cdee29701a4feb58c40c841898a9f94dbc50b7e63e94602c48dde8"
+  },
+  "overlap_closure": {
+    "path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/prior-overlap-closure-v1.json",
+    "sha256": "aaa470cd3fdd73f07f200ee3e2be05568cdb37ebf3c945f4db753a4d8e98f745"
+  },
+  "runtime_source": {
+    "path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/runtime-source.json",
+    "sha256": "9a01146f4644089c5d2d625e930b7b39e2b3c735d16689ebf1385afa68b90abb"
+  },
+  "generator_source": {
+    "path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/scripts/export_phase_b_ipc1_bank_v1.py",
+    "sha256": "54deb4ab33630dfa7b0a9b825d048645a4890da650fe179d13e044a11bae911f"
+  },
+  "taskset_source": {
+    "commit": "5283a85a01b5e8a065b3d2db17f9efa6aa0f3b2f",
+    "path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/taskset-5283a85.py",
+    "sha256": "15332134b09d5b6bccfaaf03166ddb5aa88b8bafe84a01e34b7409b218f50499"
+  },
+  "banks": [
+    {
+      "split": "train",
+      "taskset_split": "train",
+      "variants": [0, 1, 2, 3],
+      "instance_start": 36100,
+      "instance_stop": 36116,
+      "seed_payload": "q35-2b-b-ipc1-matched-learning-v1:train",
+      "derivation_sha256": "03ffe55cee2227446460672212ef05b1a01d4c04f032eaef75b9ede361ae3ec7",
+      "seed": 67102044,
+      "rows_per_action": 16,
+      "rows": 48,
+      "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/train-selection.json",
+      "selection_sha256": "ad5e3c7f7e49cc8cc194700f5cd1067a36ac5c5d47a1972980eaeffad2dc2c6b",
+      "parquet_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/train.parquet",
+      "parquet_sha256": "704d2d34c16672e20674b09d3cb56984881acaf44a3c6ca697a19c0504123591",
+      "ordered_task_key_sha256": "e00012f2603726197c8f54db848bbb1d635feaf7d33957aca4385561f25f64a5",
+      "ordered_key_action_sha256": "0f11b38aa752e217ebab6c689e3745b6bbfc13742e1bea4f8b4ed145c42282e8",
+      "row_list_canonical_sha256": "af6e54c8fa1a8c57a3369827cd2421c40ce2b53429af7ef73e1c4f71923b5495",
+      "ordered_update_schedule_sha256": "7d2b7bb606e73ce68d9c03faef38b4f2faa1127f627e4ab06983a6719052a9f5"
+    },
+    {
+      "split": "validation",
+      "taskset_split": "eval",
+      "variants": [4, 5],
+      "instance_start": 36200,
+      "instance_stop": 36208,
+      "seed_payload": "q35-2b-b-ipc1-matched-learning-v1:validation",
+      "derivation_sha256": "0f2a3f07f5def290f8e501a89463f3f2d908658fb40b68f4129f1a28fc054b51",
+      "seed": 254426887,
+      "rows_per_action": 8,
+      "rows": 24,
+      "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/validation-selection.json",
+      "selection_sha256": "8174f5cce1a572ef7639ae2a5aed0b56065bce4c7dff4dad9068ae1a1d10801b",
+      "parquet_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/validation.parquet",
+      "parquet_sha256": "697f0ae744691bde7bcaa99d45bd7c7d221b6cbdca7b6382d6682159dfde6da5",
+      "ordered_task_key_sha256": "079b68936214d1814bac6688b4ab5e0809349e4ae0e5642ac357f1dcdbec8f0d",
+      "ordered_key_action_sha256": "e352b259cbaf15550ef09d2be22048780dd7da4dab6521e8049ac8b455e9a9c7",
+      "row_list_canonical_sha256": "343fa29c77a87f0fef93e462085b77a5e2a8b9b88563c7b308d5ef133f228954"
+    },
+    {
+      "split": "heldout",
+      "taskset_split": "eval",
+      "variants": [4, 5],
+      "instance_start": 36300,
+      "instance_stop": 36308,
+      "seed_payload": "q35-2b-b-ipc1-matched-learning-v1:heldout",
+      "derivation_sha256": "e48061b02620818c4b21fe55ea2f92e26ccd7ece68ca0c94fa8cb6a66867b040",
+      "seed": 3833618864,
+      "rows_per_action": 8,
+      "rows": 24,
+      "selection_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/heldout-selection.json",
+      "selection_sha256": "b2462d36e83b58ca5df349f698ce27555fff075427f971c2d60cf5b4aa2b7c9e",
+      "parquet_path": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/experiments/qwen35-2b-latent-coordinator-v1/phase-b-ipc1-bank-v1/heldout.parquet",
+      "parquet_sha256": "6884c33a39ad67b7a1579f831825a4e77bb28218b35032a2b424122d1d7e4e35",
+      "ordered_task_key_sha256": "eeb9a13870c747164ed95fc5dfee7f8b166858d78d754bbdd5f0561d966dc91b",
+      "ordered_key_action_sha256": "1a6f638eab0c550744e56644ab44ab16b6a109f321942656a2c0d902a12574d4",
+      "row_list_canonical_sha256": "756ccf8d4404c80bb0df843fa4ce49fe1e0b5eab8b32442c113dcf4fba0a7126"
+    }
+  ],
+  "training": {
+    "arm_order": ["STATIC", "FFN", "RECURRENT"],
+    "optimizer_updates_per_arm": 4,
+    "rows_per_update": 12,
+    "rows_per_action_per_update": 4,
+    "unique_row_exposures_per_arm": 48,
+    "same_schedule_every_arm": true,
+    "recurrent_depth": 4,
+    "bptt_window": 4,
+    "early_stop": false,
+    "initialization_seed_payload": "q35-2b-b-ipc1-matched-learning-v1:init",
+    "initialization_derivation_sha256": "0bd65b6f8536fba9fc0914cd2252ca91d5632e708b66dce6ba6d1113d2ded26a",
+    "initialization_seed": 198597487,
+    "construction_order": ["codec_template", "STATIC.codec", "FFN.codec", "RECURRENT.codec", "FFN.sidecar", "RECURRENT.sidecar"],
+    "optimizer": {
+      "name": "AdamW",
+      "learning_rate": 0.0001,
+      "betas": [0.9, 0.95],
+      "epsilon": 1e-8,
+      "weight_decay": 0.0,
+      "gradient_clip_norm": 1.0
+    },
+    "objective": {
+      "formula": "aligned_suffix_CE + 0.1*w(action)*mean_branch_relu(BASE_margin_detached-candidate_margin)",
+      "retention_coefficient": 0.1,
+      "action_weights": [
+        {"action": "solve_owned", "weight": 1.0},
+        {"action": "delegate_terminal", "weight": 1.0},
+        {"action": "delegate_coordinator", "weight": 2.0}
+      ],
+      "branch_reduction": "arithmetic_mean_over_every_correct_leaf_branch",
+      "candidate_logit_dtype": "float32",
+      "base_detached": true,
+      "same_forward": true
+    }
+  },
+  "receiver": {
+    "geometry": "length_preserving_addition",
+    "slots": 8,
+    "target_span": "J=I-8:I",
+    "token_shift": false,
+    "mask_shift": false,
+    "position_shift": false,
+    "label_shift": false,
+    "initial_receiver_gate": 0.001,
+    "evaluation_depths": [1, 2, 4, 8]
+  },
+  "pre_update_mechanism_gate": {
+    "probe_selection_indices": [0, 1, 2, 5],
+    "probe_identity_sha256": "253b13ab6f49a8fd78d165dab4f3a10b5977e3e62f7c6f3b6c1482f785b1603a",
+    "eps_backward_assignments": [
+      {"arm": "STATIC", "selection_index": 0},
+      {"arm": "FFN", "selection_index": 1},
+      {"arm": "RECURRENT", "selection_index": 2}
+    ],
+    "index5_backward": false,
+    "zero_identity_fields": ["inputs_embeds", "attention_mask", "position_ids", "labels", "final_hidden", "first_suffix_logits", "nll", "margin"],
+    "failure_disposition": "b_ipc1_mechanism_rejected"
+  },
+  "evaluation_firewall": {
+    "all_arms_frozen_before_validation": true,
+    "validation_rows": 24,
+    "heldout_rows_if_opened": 24,
+    "open_heldout_iff_at_least_one_common_validation_pass": true,
+    "validation_cannot_select_checkpoint_threshold_or_hyperparameter": true,
+    "heldout_cannot_select_checkpoint_threshold_or_hyperparameter": true,
+    "reruns": false,
+    "row_exclusions": false
+  },
+  "nomination_gates": {
+    "common_each_split": {
+      "delta_n_pre_minus_post": {"mean_min": 0.001, "median_min": 0.0, "strict_wins_gt_1e_6_min": 13, "each_action_mean_min": -0.005, "worst_min": -0.05},
+      "delta_m_post_minus_base": {"mean_min": -0.05, "each_action_mean_min": -0.10, "worst_min": -0.50, "coordinator_mean_min": -0.05, "coordinator_worst_min": -0.50},
+      "coordinator_delta_m_post_minus_pre": {"mean_min": 0.05, "median_min": 0.0, "strict_wins_gt_1e_6_min": 5},
+      "noncollapse": "every trained group finite with nonzero parameter delta; residual and receiver gate finite/nonzero; ZERO exact BASE"
+    },
+    "recurrent_each_split": {
+      "positive_nll_route": {"mean_min": 0.001, "median_min": 0.0, "strict_wins_gt_1e_6_min": 13, "nonnegative_action_means_min": 2},
+      "positive_margin_route": {"mean_min": 0.020, "median_min": 0.0, "strict_wins_gt_1e_6_min": 13, "nonnegative_action_means_min": 2},
+      "depth_T4_over_T1": {"nll_mean_min": -0.0025, "nll_worst_min": -0.05, "margin_mean_min": -0.05, "margin_worst_min": -0.50, "nll_positive_mean_min": 0.0005, "margin_positive_mean_min": 0.010, "positive_either": true},
+      "retention": {"cosine_min": 0.995, "norm_ratio_min": 0.95, "norm_ratio_max": 1.05, "relative_l2_max": 0.10},
+      "stability": {"memory_rms_change_strict_min": 0.000001, "median_contraction_max": 0.90, "max_contraction_max": 1.25, "row_oscillation_max": 0.25, "aggregate_oscillation_mean_max": 0.10},
+      "T8_nonregression": {"nll_mean_max": 0.005, "nll_worst_max": 0.05, "margin_mean_min": -0.10, "margin_worst_min": -0.50}
+    }
+  },
+  "schedules": {
+    "validation_reject": {
+      "model_forwards": 532,
+      "source_forwards": 72,
+      "receiver_forwards": 460,
+      "backward_calls": 147,
+      "optimizer_steps": 12,
+      "model_call_schedule_sha256": "2708f24c58d309171464811809b849d92eff19ae4337a25a7c43c9a5c0b4f5dd",
+      "cache_label_count": 1067,
+      "cache_label_sha256": "a6727b312ddff0d9e5f946becede403e3b494a5de707a9cb3aaa86b93d0f1362",
+      "memory_checkpoint_count": 717,
+      "memory_label_sha256": "aeb94016463aae90590745fd49a15fce98b0d7144fac1df37e486dfe9537360f"
+    },
+    "heldout_open": {
+      "model_forwards": 796,
+      "source_forwards": 96,
+      "receiver_forwards": 700,
+      "backward_calls": 147,
+      "optimizer_steps": 12,
+      "model_call_schedule_sha256": "de20823f8fa5647ffe396ecd9a87fbc3d92a8ee7a7c00f95128bff4989b5db60",
+      "cache_label_count": 1595,
+      "cache_label_sha256": "49cacbf08de1d4fdab6a6bffc95dc3044a0629709466f5969d5dcba51b0a711b",
+      "memory_checkpoint_count": 981,
+      "memory_label_sha256": "c1fb38e2e0b8718b2214800d8fa9c26a25d37a854c2d0dc4f83210bd97d0af7e"
+    }
+  },
+  "terminal_statuses": {
+    "recurrent_nominated": "b_ipc1_inplace_learning_recurrent_nominated",
+    "inplace_learning_nominated": "b_ipc1_inplace_learning_nominated",
+    "heldout_opened_not_nominated": "b_ipc1_inplace_learning_not_nominated",
+    "validation_not_nominated": "b_ipc1_validation_not_nominated",
+    "mechanism_rejected": "b_ipc1_mechanism_rejected",
+    "nocache_rejected": "b_ipc1_nocache_rejected",
+    "incomplete": "b_ipc1_incomplete",
+    "infrastructure": "infrastructure_invalid"
+  },
+  "boundaries": {
+    "nomination_only": true,
+    "live_trajectory_count": 0,
+    "later_live_admission_minimum_complete_trajectories": 4,
+    "e33_trainable": false,
+    "H176_loaded": false,
+    "strand_a_combined": false,
+    "generation": false,
+    "cache": false,
+    "teacher_forced_rows_are_live_trajectories": false
+  },
+  "resources": {
+    "visible_gpus": 1,
+    "required_gpu_name": "NVIDIA RTX A6000",
+    "second_gpu_idle": true,
+    "cuda_memory_cap_bytes": 34359738368,
+    "minimum_host_ram_bytes": 68719476736,
+    "minimum_free_disk_bytes": 64424509440,
+    "artifact_cap_bytes": 536870912,
+    "outer_wall_clock_seconds": 14400,
+    "compute_limit_seconds": 14040,
+    "failure_audit_limit_seconds": 300,
+    "terminal_publication_headroom_seconds": 60
+  },
+  "software": {
+    "transformers": "5.6.2",
+    "torch": "2.11.0+cu128",
+    "torch_distribution": "2.11.0+cu128",
+    "transformers_source_sha256": {
+      "transformers.cache_utils": "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586",
+      "transformers.generation.utils": "2cf094451e1f30391c3449cfd44828ab8b27ba721ae2cdc0a0415413689b0f9c",
+      "transformers.loss.loss_utils": "3df3438f0cb80cb7b903d6d06f522839756f4ca9301a02d793748ae099c27d9f",
+      "transformers.models.qwen3_5.modeling_qwen3_5": "3e2b6239e4b2c3e512d4f9836a1dba12e975ae652407e84f2d3c2beebf0c9528"
+    }
+  },
+  "execution_environment": {
+    "uv": "/home/ubuntu/.local/bin/uv",
+    "uv_project": "/home/ubuntu/rlm/prime-rl",
+    "UV_PROJECT_ENVIRONMENT": "/home/ubuntu/rlm/prime-rl/.venv",
+    "PYTHONPATH": "/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/src:/home/ubuntu/rlm/worktrees/q35-2b-recurrent-sidecar-v1/packages/prime-rl-configs/src",
+    "CUDA_VISIBLE_DEVICES": "0",
+    "HF_HUB_OFFLINE": "1",
+    "TRANSFORMERS_OFFLINE": "1"
+  },
+  "outputs": {
+    "directory": "/home/ubuntu/rlm/results/q35-2b-b-ipc1-matched-learning-run1",
+    "artifact_cap_bytes": 536870912,
+    "candidate_files": ["STATIC.final.pt", "FFN.final.pt", "RECURRENT.final.pt"],
+    "terminal": "exclusive atomic canonical SUCCESS.json or FAILURE.json",
+    "candidate_valid_only_with_roundtrip_valid_success": true
+  }
+}
