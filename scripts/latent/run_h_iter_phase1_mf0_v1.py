@@ -593,8 +593,10 @@ def validate_runtime(torch: Any) -> dict[str, Any]:
         "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"),
         "cuda_initialized_required": False,
     }
-    if runtime != EXPECTED_RUNTIME or torch.cuda.is_initialized():
-        raise ExposureBoundaryRejected("MF0 runtime or CUDA boundary differs")
+    if runtime != EXPECTED_RUNTIME:
+        raise InfrastructureInvalid("MF0 runtime identity differs")
+    if torch.cuda.is_initialized():
+        raise ExposureBoundaryRejected("MF0 CUDA boundary differs")
     return runtime
 
 
@@ -646,8 +648,10 @@ def host_resources(repo: Path) -> tuple[int, int]:
 
 def load_assets(repo: Path) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
     bank_path = repo / TRAIN_BANK_PATH
+    if file_sha256(bank_path) != TRAIN_BANK_FILE_SHA256:
+        raise InfrastructureInvalid("MF0 TRAIN bank file hash differs")
     bank = load_canonical(bank_path)
-    if file_sha256(bank_path) != TRAIN_BANK_FILE_SHA256 or bank.get("bank_sha256") != TRAIN_BANK_INTERNAL_SHA256 or bank.get("split") != "train" or len(bank.get("rows", [])) != 96:
+    if bank.get("bank_sha256") != TRAIN_BANK_INTERNAL_SHA256 or bank.get("split") != "train" or len(bank.get("rows", [])) != 96:
         raise MF0ContractError("MF0 TRAIN bank differs")
     base = repo / ARTIFACT_DIR
     assets = {name: load_canonical(base / name) for name in ASSET_NAMES}
@@ -791,7 +795,7 @@ def validate_failure(failure: dict[str, Any], *, plan: dict[str, Any], execution
     taxonomy = {INCOMPLETE_STATUS: "MF0ContractError", EXPOSURE_STATUS: "ExposureBoundaryRejected"}
     if failure["status"] in taxonomy and failure["error_type"] != taxonomy[failure["status"]]:
         raise MF0ContractError("MF0 failure taxonomy differs")
-    infrastructure_types = {"InfrastructureInvalid", "TimeoutError", "MemoryError", "OSError", "PermissionError", "FileNotFoundError", "CalledProcessError"}
+    infrastructure_types = {"InfrastructureInvalid", "TimeoutError", "MemoryError", "OSError", "PermissionError", "FileNotFoundError", "CalledProcessError", "ImportError", "ModuleNotFoundError"}
     if failure["status"] == INFRASTRUCTURE_STATUS and failure["error_type"] not in infrastructure_types:
         raise MF0ContractError("MF0 infrastructure taxonomy differs")
     if failure["status"] not in {*taxonomy, INFRASTRUCTURE_STATUS}:
@@ -981,7 +985,9 @@ def main() -> None:
             gc.collect()
             inventory = object_inventory(torch, writer.output_dir)
             absent = ("transformers_modeling_modules", "pretrained_model_objects", "tokenizer_objects", "optimizer_objects", "candidate_module_objects", "uninspectable_count", "census_errors", "cuda_initialized", "output_inventory")
-            if any(inventory[key] not in (0, [], False) for key in absent):
+            if inventory["uninspectable_count"] != 0 or inventory["census_errors"]:
+                raise InfrastructureInvalid("MF0 final object census was incomplete")
+            if any(inventory[key] not in (0, [], False) for key in absent if key not in {"uninspectable_count", "census_errors"}):
                 raise ExposureBoundaryRejected("MF0 final object/CUDA census differs")
             ledger.checkpoint("safety_resource_contract_validated")
             tamper_results = []
@@ -1108,7 +1114,7 @@ def main() -> None:
         repo = args.repo.resolve()
         authorized_plan = load_authorized_plan(repo, args.execution_commit, args.plan_file_sha256)
         audit = build_failure_audit(repo, args, authorized_plan)
-        infrastructure_kinds = (InfrastructureInvalid, TimeoutError, MemoryError, OSError, subprocess.CalledProcessError)
+        infrastructure_kinds = (InfrastructureInvalid, TimeoutError, MemoryError, OSError, subprocess.CalledProcessError, ImportError)
         if isinstance(original_error, MF0ContractError):
             status = INCOMPLETE_STATUS
             error: BaseException = original_error

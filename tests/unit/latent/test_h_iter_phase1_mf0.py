@@ -193,6 +193,26 @@ def test_launcher_has_full_timeout_and_fresh_validator() -> None:
     assert contract.OUTPUT_ROOT in source
 
 
+def test_runtime_mismatch_is_infrastructure_and_cuda_is_exposure(monkeypatch: pytest.MonkeyPatch) -> None:
+    class FakeCuda:
+        initialized = False
+
+        @classmethod
+        def is_initialized(cls) -> bool:
+            return cls.initialized
+
+    class FakeTorch:
+        __version__ = "fixture"
+        cuda = FakeCuda()
+
+    monkeypatch.setattr(runner, "file_sha256", lambda _path: "fixture")
+    observed = {"python": runner.platform.python_version(), "torch": "fixture", "sys_executable": sys.executable, "sys_prefix": sys.prefix, "shared_project_pyproject_sha256": "fixture", "shared_project_uv_lock_sha256": "fixture", "cuda_visible_devices": os.environ.get("CUDA_VISIBLE_DEVICES"), "cuda_initialized_required": False}
+    monkeypatch.setattr(runner, "EXPECTED_RUNTIME", {**observed, "python": "different"})
+    with pytest.raises(runner.InfrastructureInvalid): runner.validate_runtime(FakeTorch())
+    monkeypatch.setattr(runner, "EXPECTED_RUNTIME", observed); FakeCuda.initialized = True
+    with pytest.raises(runner.ExposureBoundaryRejected): runner.validate_runtime(FakeTorch())
+
+
 def test_fresh_process_deep_validator(tmp_path: Path, assets: dict[str, dict]) -> None:
     plan = plan_fixture(); proof = proof_fixture(plan, assets)
     bundle = tmp_path / "bundle.json"
