@@ -335,7 +335,7 @@ def _load_plan(args: argparse.Namespace) -> dict[str, Any]:
         or runtime_provenance
         != {
             "versions": EXPECTED_RUNTIME,
-            "python_executable": str(EXPECTED_ENV / "bin/python"),
+            "python_executable": str(EXPECTED_ENV / "bin/python3"),
             "project_path": str(EXPECTED_PROJECT),
             "pyproject_path": str(EXPECTED_PROJECT / "pyproject.toml"),
             "pyproject_sha256": "504907808f992f1e6883f54c2695a4814ae77d6b80814239cbfc98d81a543656",
@@ -546,7 +546,7 @@ def _observe_runtime_provenance(plan: dict[str, Any]) -> dict[str, Any]:
             "pyarrow": pyarrow.__version__,
             "torch": torch.__version__,
         },
-        "python_executable": str(Path(sys.executable).resolve()),
+        "python_executable": sys.executable,
         "project_path": str(EXPECTED_PROJECT),
         "pyproject_path": frozen["pyproject_path"],
         "pyproject_sha256": file_sha256(Path(frozen["pyproject_path"])),
@@ -1247,10 +1247,10 @@ def main() -> int:
         prior = _validate_prior_failure(plan)
         pre = _full_freeze(plan, execution_commit=args.execution_commit)
         evidence, _model_state = _produce_evidence(plan)
+        _enter_phase(state, "audit", started=started)
         post = _full_freeze(plan, execution_commit=args.execution_commit)
         safety = _observe_safety(args.output_dir, counters)
         _validate_safety_observation(safety, require_safe=True)
-        _enter_phase(state, "audit", started=started)
         if pre != post:
             raise PhaseBContractError("IPC render hygiene pre/post freeze differs")
         _enter_phase(state, "terminal_publication", started=started)
