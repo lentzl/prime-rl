@@ -420,6 +420,30 @@ def replay_production_terminals(torch:Any,state:dict[str,Any],partition:dict[str
                 for bad in (masked,spurious,premature):
                     try: validate_t0_failure(bad,**validation); entry_drift_tampers=False
                     except T0ContractError: pass
+                cache_variants=[("PRE_DRIFT",1,2,1,3,11,1,True),("POST_DRIFT",1,2,2,4,11,2,True),("EXIT_DRIFT",96,96,96,193,200,96,True),("NO_TRIP",0,0,0,1,6,0,False)]
+                variant_source=production_fixture(partition,capture_schedule,schedule,memory_schedule,tampers,[],True)
+                for variant_name,captures,tokenizers,forwards,checks,memory_count,evidence_count,drift in cache_variants:
+                    variant=copy.deepcopy(parsed); variant_progress=variant["execution_progress"]; variant_progress.update({"capture_rows_completed":captures,"tokenizer_calls_completed":tokenizers,"model_forwards_completed":forwards,"sequences_completed":24*tokenizers,"cache_checks_completed":checks})
+                    evidence_rows=variant_source["capture_evidence"]["rows"][:evidence_count]; variant["capture_evidence"]=None if not evidence_rows else {"schedule_sha256":variant_source["capture_evidence"]["schedule_sha256"],"rows":evidence_rows,"counts":{"rows":evidence_count,"tokenizer_calls":tokenizers,"model_forwards":forwards,"sequences":24*tokenizers},"aggregate_sha256":sha256_bytes(canonical_json(evidence_rows))}
+                    variant_memory=variant_source["memory"]["rows"][:memory_count]; variant["memory"].update({"rows":variant_memory,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in variant_memory]))})
+                    variant_config=copy.deepcopy(variant_source["cache_guard"]["configuration_records"])
+                    if drift: variant_config[0]["value_during"]=True
+                    variant_labels=variant_source["cache_guard"]["label_rows"][:checks]; variant["cache_guard"].update({"configuration_records":variant_config,"label_rows":variant_labels,"label_sha256":sha256_bytes(canonical_json([row["label"] for row in variant_labels])),"actual_checks":checks,"dynamic_cache_negative_trips":0 if variant_name=="NO_TRIP" else 1,"dynamic_cache_actual_trips":0,"returned_pkv_count":0,"configuration_drift_count":int(drift),"restored":True})
+                    variant["counts"].update({"capture_rows":captures,"tokenizer_calls":tokenizers,"model_forwards":forwards,"sequences":24*tokenizers,"cache_checks":checks,"memory_rows":memory_count}); variant.update({"status":"h_iter_phase1_t0_capture_mechanism_rejected" if drift else "h_iter_phase1_t0_incomplete","error_type":"T0CaptureMechanismRejected" if drift else "T0ContractError","error_message":variant_name}); variant["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in variant.items() if k!="failure_sha256"}))
+                    variant_out=root/f"F1_{variant_name}"; variant_out.mkdir(); variant_terminal=variant_out/"T0-FAILURE.json"; variant_bytes=canonical_json(variant)+b"\n"; variant_fd=os.open(variant_terminal,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+                    with os.fdopen(variant_fd,"wb") as stream: stream.write(variant_bytes); stream.flush(); os.fsync(stream.fileno())
+                    try: validate_t0_failure(strict_loads(variant_terminal.read_bytes()),output_inventory=["T0-FAILURE.json"],output_dir=variant_out,**validation)
+                    except T0ContractError: entry_drift_validated=False
+                    variant_bad=copy.deepcopy(variant)
+                    if drift: variant_bad.update({"status":"h_iter_phase1_t0_incomplete","error_type":"T0ContractError"})
+                    else: variant_bad.update({"status":"h_iter_phase1_t0_capture_mechanism_rejected","error_type":"T0CaptureMechanismRejected"})
+                    variant_bad["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in variant_bad.items() if k!="failure_sha256"}))
+                    try: validate_t0_failure(variant_bad,**validation); entry_drift_tampers=False
+                    except T0ContractError: pass
+                    if drift:
+                        no_observation=copy.deepcopy(variant); no_observation["cache_guard"]["configuration_records"][0]["value_during"]=False; no_observation["failure_sha256"]=sha256_bytes(canonical_json({k:v for k,v in no_observation.items() if k!="failure_sha256"}))
+                        try: validate_t0_failure(no_observation,**validation); entry_drift_tampers=False
+                        except T0ContractError: pass
             failures.append({"fixture":name,"validated":terminal.read_bytes()==encoded and entry_drift_validated,"tamper_rejected":rejected and entry_drift_tampers})
         sample=production_fixture(partition,capture_schedule,schedule,memory_schedule,tampers,[],True)
         mapping=canonical_json(sample)==canonical_json(dict(reversed(list(sample.items()))))
