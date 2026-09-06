@@ -361,17 +361,18 @@ def run(repo:Path,execution_commit:str,plan_file_sha256:str,output:Path)->None:
     STATE["evidence"]["safety"]=safety
     if any((safety["torch_imported"],safety["transformers_imported"],safety["tokenizer_loaded"],safety["model_loaded"],safety["optimizer_constructed"],safety["scientific_forwards"],safety["training_operations"],safety["train_opens"],safety["validation_opens"],safety["heldout_opens"],safety["network_attempts"])): raise T0PreflightR1GuardProofBoundaryRejected("T0 guard proof boundary exposure observed")
     if safety!={"cuda_visible_devices":"","cuda_initialized":False,"torch_imported":False,"transformers_imported":False,"tokenizer_loaded":False,"model_loaded":False,"optimizer_constructed":False,"scientific_forwards":0,"training_operations":0,"train_opens":0,"validation_opens":0,"heldout_opens":0,"network_attempts":0,"output_namespace_fresh_before":True,"object_census_errors":0,"object_census_uninspectable":0}: raise InfrastructureInvalid("T0 guard proof safety differs")
-    mark("SAFETY_AUDIT_COMPLETE"); STATE["stage"]="audit"; STATE["compute_exit_ns"]=time.monotonic_ns()-started; STATE["audit_enter_ns"]=STATE["compute_exit_ns"]
-    signal.alarm(0); signal.alarm(119)
+    mark("SAFETY_AUDIT_COMPLETE"); compute_audit_boundary=time.monotonic_ns()-started
+    signal.alarm(0); signal.alarm(119); STATE.update({"stage":"audit","compute_exit_ns":compute_audit_boundary,"audit_enter_ns":compute_audit_boundary})
     post=asset_entries(repo); post_sha=sha(canonical_json(post)); head_after=git(repo,"rev-parse","HEAD"); tree_after=git(repo,"rev-parse","HEAD^{tree}"); clean_after=not bool(git(repo,"status","--porcelain","--untracked-files=all"))
     if pre!=post or head_after!=head or tree_after!=tree or not clean_after: raise InfrastructureInvalid("T0 guard proof postflight differs")
     asset_audit={"target_count":46,"pre_entries":pre,"pre_sha256":pre_sha,"post_entries":post,"post_sha256":post_sha,"all_exact":True}
     full_freeze={"head_before":head,"head_after":head_after,"tree_before":tree,"tree_after":tree_after,"clean_before":clean,"clean_after":clean_after,"assets_pre_sha256":pre_sha,"assets_post_sha256":post_sha,"complete":True}
     STATE["evidence"].update({"asset_audit":asset_audit,"full_freeze":full_freeze})
-    mark("TERMINAL_PREWRITE"); STATE["audit_exit_ns"]=time.monotonic_ns()-started; STATE["prior_terminal_enter_ns"]=STATE["audit_exit_ns"]; STATE["terminal_enter_ns"]=STATE["audit_exit_ns"]
+    mark("TERMINAL_PREWRITE"); audit_terminal_boundary=time.monotonic_ns()-started
+    signal.alarm(0); signal.alarm(29); STATE.update({"stage":"terminal_publication","audit_exit_ns":audit_terminal_boundary,"prior_terminal_enter_ns":audit_terminal_boundary,"terminal_enter_ns":audit_terminal_boundary})
     proof={"schema_version":PROOF_SCHEMA,"status":PROOF_STATUS,"mechanism":GUARD_MECHANISM,"run_identity":GUARD_RUN_ID,"execution_commit":head,"mechanism_code_commit":plan["mechanism_code_commit"],"tree_sha256":tree,"plan_file_sha256":plan_file_sha256,"plan_sha256":plan["plan_sha256"],"runtime":plan["runtime"],"asset_audit":asset_audit,"failed_start_binding":FAILED_START_BINDING,"source_evidence":source_evidence,"case_results":rows,"safety":safety,"resources":{"minimum_ram_gib":8,"minimum_disk_gib":8,"maximum_artifact_bytes":1048576,"timing":timing_evidence(),"observed_rss_peak_bytes":rss(),"artifact_bytes":0},"memory":{"expected_labels":MEMORY_LABELS,"rows":STATE["memory"],"label_sha256":sha(canonical_json(MEMORY_LABELS)),"complete":True},"full_freeze":full_freeze,"decision_boundary":PROOF_DECISION,"proof_sha256":""}
     STATE["evidence"]["resources"]=proof["resources"]
-    STATE["stage"]="terminal_publication"; signal.alarm(0); signal.alarm(29); finalize_terminal(proof,"proof_sha256"); validate_proof(proof,repo); atomic_terminal(output,PROOF_NAME,proof,lambda value:validate_proof(value,repo)); STATE["terminal_validated"]=True; signal.alarm(0)
+    finalize_terminal(proof,"proof_sha256"); validate_proof(proof,repo); atomic_terminal(output,PROOF_NAME,proof,lambda value:validate_proof(value,repo)); STATE["terminal_validated"]=True; signal.alarm(0)
 
 def publish_failure(repo:Path,output:Path,execution_commit:str,plan_file_sha256:str,error:BaseException)->None:
     if output.is_symlink(): raise InfrastructureInvalid("T0 guard failure namespace is symlink")

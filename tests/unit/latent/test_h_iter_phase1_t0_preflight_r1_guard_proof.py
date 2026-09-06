@@ -118,6 +118,10 @@ def test_truthful_repaired_cases_audit_and_terminal_failures_validate() -> None:
     for field in ("prior_terminal_failure_ns","prior_terminal_duration_ns"):
         changed=copy.deepcopy(audit); changed["resources"]["timing"][field]=1; changed=finalize_terminal(changed,"failure_sha256")
         with pytest.raises(RuntimeError): validate_failure(changed)
+    partial_compute=copy.deepcopy(audit); partial_compute["resources"]["timing"]["audit_enter_ns"]=None; partial_compute["resources"]["timing"]["audit_duration_ns"]=None; partial_compute=finalize_terminal(partial_compute,"failure_sha256")
+    with pytest.raises(RuntimeError): validate_failure(partial_compute)
+    partial_terminal=copy.deepcopy(terminal); partial_terminal["resources"]["timing"]["prior_terminal_enter_ns"]=None; partial_terminal["resources"]["timing"]["prior_terminal_failure_ns"]=None; partial_terminal["resources"]["timing"]["prior_terminal_duration_ns"]=None; partial_terminal=finalize_terminal(partial_terminal,"failure_sha256")
+    with pytest.raises(RuntimeError): validate_failure(partial_terminal)
 
 def test_source_and_case_coordinated_tampers_rejected() -> None:
     value=_late_failure("audit",13,with_source=True,with_cases=True,with_safety=True,with_freeze=False); validate_failure(value,ROOT)
