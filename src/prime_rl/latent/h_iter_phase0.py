@@ -1391,6 +1391,12 @@ PHASE_CAP_SECONDS = {
     "failure_audit": 180,
     "terminal_publication": 60,
 }
+TERMINAL_ENTRY_MAXIMUM_NS = {
+    "success": 780_000_000_000,
+    "compute_failure": 780_000_000_000,
+    "audit_failure": 960_000_000_000,
+    "terminal_failure": 1_020_000_000_000,
+}
 PHASE_RECORD_KEYS = {
     "phase",
     "entered_ns_since_start",
@@ -1406,6 +1412,14 @@ PHASE_RECORD_KEYS = {
     "delivery_overrun_ns",
     "timing_cap_exceeded",
 }
+
+
+def validate_terminal_entry_timing(value: object, prior_exit: int, boundary: str) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise ContractError("Phase-0 prepublication time differs")
+    maximum = TERMINAL_ENTRY_MAXIMUM_NS[boundary]
+    if value < prior_exit or value > maximum:
+        raise ContractError("Phase-0 prepublication budget differs")
 
 
 def validate_phase_records(records: list[dict[str, Any]], *, failure_status: str | None) -> int:
@@ -1849,10 +1863,7 @@ def validate_proof(
             "self_reference_boundary": "post_write_fsync_reopen_validation_and_process_exit_are_external_to_immutable_terminal_bytes",
         }:
             raise ContractError("Phase-0 terminal self-reference boundary differs")
-        if not isinstance(resources["prepublication_elapsed_ns"], int) or isinstance(resources["prepublication_elapsed_ns"], bool):
-            raise ContractError("Phase-0 prepublication time differs")
-        if resources["prepublication_elapsed_ns"] < prior_exit or resources["prepublication_elapsed_ns"] > 840_000_000_000:
-            raise ContractError("Phase-0 success prepublication budget differs")
+        validate_terminal_entry_timing(resources["prepublication_elapsed_ns"], prior_exit, "success")
     if not isinstance(resources["artifact_bytes_before_terminal"], int) or resources["artifact_bytes_before_terminal"] != 0:
         raise ContractError("Phase-0 preterminal artifact inventory differs")
     freeze = proof["full_freeze"]
@@ -1968,16 +1979,13 @@ def validate_failure(
         "self_reference_boundary": "post_write_fsync_reopen_validation_and_process_exit_are_external_to_immutable_terminal_bytes",
     }:
         raise ContractError("Phase-0 failure terminal boundary differs")
-    if not isinstance(failure["prepublication_elapsed_ns"], int) or isinstance(failure["prepublication_elapsed_ns"], bool):
-        raise ContractError("Phase-0 failure prepublication time differs")
     sequence = [(row["phase"], row["outcome"]) for row in records]
-    maximum = {
-        tuple(allowed_sequences[0]): 840_000_000_000,
-        tuple(allowed_sequences[1]): 1_020_000_000_000,
-        tuple(allowed_sequences[2]): 1_080_000_000_000,
+    boundary = {
+        tuple(allowed_sequences[0]): "compute_failure",
+        tuple(allowed_sequences[1]): "audit_failure",
+        tuple(allowed_sequences[2]): "terminal_failure",
     }[tuple(sequence)]
-    if failure["prepublication_elapsed_ns"] < prior_exit or failure["prepublication_elapsed_ns"] > maximum:
-        raise ContractError("Phase-0 failure prepublication budget differs")
+    validate_terminal_entry_timing(failure["prepublication_elapsed_ns"], prior_exit, boundary)
     safety = failure["actual_safety"]
     required_safety = {
         "cuda_visible_devices",
@@ -2089,85 +2097,113 @@ def validate_failure(
     audit = failure["full_freeze_failure_audit"]
     if not isinstance(audit, dict) or set(audit) != {
         "head",
+        "head_exact",
         "tree",
+        "tree_exact",
         "status",
+        "status_clean",
         "plan_file_sha256",
+        "plan_file_exact",
         "plan_sha256",
+        "plan_internal_exact",
         "plan_sidecar_sha256",
+        "plan_sidecar_exact",
         "plan_asset_hashes",
+        "plan_assets_exact",
         "provenance_exact",
         "errors",
     } or not isinstance(audit["errors"], list):
         raise ContractError("Phase-0 failure freeze audit differs")
+    observed_fields = {
+        "head_read": "head",
+        "tree_read": "tree",
+        "status_read": "status",
+        "plan_file_read": "plan_file_sha256",
+        "plan_internal_read": "plan_sha256",
+        "plan_sidecar_read": "plan_sidecar_sha256",
+        "plan_assets_read": "plan_asset_hashes",
+    }
+    expected_mismatch_errors = {
+        "head_exact": "execution HEAD differs",
+        "tree_exact": "execution tree differs",
+        "status_clean": "worktree is not clean",
+        "plan_file_exact": "external plan file hash differs",
+        "plan_internal_exact": "working plan internal hash differs",
+        "plan_sidecar_exact": "external plan sidecar differs",
+        "plan_assets_exact": "working plan asset closure differs",
+    }
+    if any(
+        not isinstance(error, dict)
+        or set(error) != {"check", "error"}
+        or error["check"] not in {*observed_fields, *expected_mismatch_errors}
+        or not isinstance(error["error"], str)
+        or not error["error"]
+        for error in audit["errors"]
+    ):
+        raise ContractError("Phase-0 failure audit error schema differs")
+    error_checks = [error["check"] for error in audit["errors"]]
+    if len(error_checks) != len(set(error_checks)):
+        raise ContractError("Phase-0 failure audit errors are duplicated")
+    error_check_set = set(error_checks)
+    if any(
+        (read_check in error_check_set) is not (audit[field] is None)
+        for read_check, field in observed_fields.items()
+    ):
+        raise ContractError("Phase-0 failure audit read/null closure differs")
+    for key in ("head", "tree"):
+        if audit[key] is not None and (
+            not isinstance(audit[key], str) or not re.fullmatch(r"[0-9a-f]{40}", audit[key])
+        ):
+            raise ContractError("Phase-0 observed failure git identity differs")
+    if audit["status"] is not None and not isinstance(audit["status"], str):
+        raise ContractError("Phase-0 observed failure worktree status differs")
+    for key in ("plan_file_sha256", "plan_sha256", "plan_sidecar_sha256"):
+        if audit[key] is not None and (
+            not isinstance(audit[key], str) or not re.fullmatch(r"[0-9a-f]{64}", audit[key])
+        ):
+            raise ContractError("Phase-0 observed failure plan digest differs")
+    observed_assets = audit["plan_asset_hashes"]
+    if observed_assets is not None and (
+        not isinstance(observed_assets, dict)
+        or not observed_assets
+        or list(observed_assets) != sorted(observed_assets)
+        or any(
+            not isinstance(path, str)
+            or not isinstance(digest, str)
+            or not re.fullmatch(r"[0-9a-f]{64}", digest)
+            for path, digest in observed_assets.items()
+        )
+    ):
+        raise ContractError("Phase-0 observed failure asset map is malformed")
+    expected_sidecar_sha256 = sha256_bytes(f"{expected_plan_file_sha256}\n".encode())
+    exact_truth = {
+        "head_exact": audit["head"] == expected_execution_commit,
+        "tree_exact": audit["tree"] == expected_execution_tree,
+        "status_clean": audit["status"] == "",
+        "plan_file_exact": audit["plan_file_sha256"] == expected_plan_file_sha256,
+        "plan_internal_exact": audit["plan_sha256"] == plan["plan_sha256"],
+        "plan_sidecar_exact": audit["plan_sidecar_sha256"] == expected_sidecar_sha256,
+        "plan_assets_exact": audit["plan_asset_hashes"] == plan["asset_sha256"],
+    }
+    if any(audit[name] is not truth for name, truth in exact_truth.items()):
+        raise ContractError("Phase-0 failure audit exactness flags differ")
+    if any(
+        (name in error_check_set) is not (not truth)
+        for name, truth in exact_truth.items()
+    ):
+        raise ContractError("Phase-0 failure mismatch/error closure differs")
+    if any(
+        error["check"] in expected_mismatch_errors
+        and error["error"] != expected_mismatch_errors[error["check"]]
+        for error in audit["errors"]
+    ):
+        raise ContractError("Phase-0 failure mismatch error evidence differs")
     if audit["errors"]:
-        if failure["status"] != "infrastructure_invalid" or any(
-            not isinstance(error, dict)
-            or set(error) != {"check", "error"}
-            or not all(isinstance(value, str) and value for value in error.values())
-            for error in audit["errors"]
-        ):
+        if failure["status"] != "infrastructure_invalid":
             raise ContractError("Phase-0 incomplete failure audit is not fail-closed")
-        error_checks = {error["check"] for error in audit["errors"]}
-        expected_mismatch_errors = {
-            "head_exact": "execution HEAD differs",
-            "tree_exact": "execution tree differs",
-            "status_clean": "worktree is not clean",
-            "plan_file_exact": "external plan file hash differs",
-            "plan_sidecar_exact": "external plan sidecar differs",
-        }
-        if any(
-            error["check"] in expected_mismatch_errors
-            and error["error"] != expected_mismatch_errors[error["check"]]
-            for error in audit["errors"]
-        ):
-            raise ContractError("Phase-0 failure mismatch error evidence differs")
-        mismatch_truth = {
-            "head_exact": audit["head"] != expected_execution_commit,
-            "tree_exact": audit["tree"] != expected_execution_tree,
-            "status_clean": audit["status"] != "",
-            "plan_file_exact": audit["plan_file_sha256"] != expected_plan_file_sha256,
-            "plan_sidecar_exact": audit["plan_sidecar_sha256"]
-            != sha256_bytes(f"{expected_plan_file_sha256}\n".encode()),
-        }
-        if any((name in error_checks) is not mismatch for name, mismatch in mismatch_truth.items()):
-            raise ContractError("Phase-0 failure mismatch/error closure differs")
-        if (
-            audit["head"] is not None
-            and audit["head"] != expected_execution_commit
-            and "head_exact" not in error_checks
-        ):
-            raise ContractError("Phase-0 observed failure HEAD differs")
-        if audit["tree"] is not None and (
-            not isinstance(audit["tree"], str) or not re.fullmatch(r"[0-9a-f]{40}", audit["tree"])
-        ):
-            raise ContractError("Phase-0 observed failure tree differs")
-        if audit["status"] is not None and audit["status"] != "" and "status_clean" not in error_checks:
-            raise ContractError("Phase-0 observed failure worktree differs")
-        if (
-            audit["plan_file_sha256"] is not None
-            and audit["plan_file_sha256"] != expected_plan_file_sha256
-            and "plan_file_exact" not in error_checks
-        ):
-            raise ContractError("Phase-0 observed failure plan file differs")
-        if audit["plan_sha256"] is not None and audit["plan_sha256"] != plan["plan_sha256"]:
-            raise ContractError("Phase-0 observed failure internal plan differs")
-        if (
-            audit["plan_sidecar_sha256"] is not None
-            and audit["plan_sidecar_sha256"] != sha256_bytes(f"{expected_plan_file_sha256}\n".encode())
-            and "plan_sidecar_exact" not in error_checks
-        ):
-            raise ContractError("Phase-0 observed failure plan sidecar differs")
-        if audit["plan_asset_hashes"] is not None and audit["plan_asset_hashes"] != plan["asset_sha256"]:
-            raise ContractError("Phase-0 observed failure asset map differs")
     else:
         if (
-            audit["head"] != expected_execution_commit
-            or audit["tree"] != expected_execution_tree
-            or audit["status"] != ""
-            or audit["plan_file_sha256"] != expected_plan_file_sha256
-            or audit["plan_sha256"] != failure["plan_sha256"]
-            or audit["plan_sidecar_sha256"] != sha256_bytes(f"{expected_plan_file_sha256}\n".encode())
-            or audit["plan_asset_hashes"] != plan["asset_sha256"]
+            not all(exact_truth.values())
             or failure["plan_file_sha256"] != expected_plan_file_sha256
             or failure["mechanism_code_commit"] != plan["mechanism_code_commit"]
         ):

@@ -15,6 +15,7 @@ import resource
 import shutil
 import signal
 import socket
+import stat
 import subprocess
 import sys
 import time
@@ -59,6 +60,10 @@ from prime_rl.latent.h_iter_phase0 import (
 
 class InfrastructureInvalid(RuntimeError):
     pass
+
+
+PLAN_RELATIVE_PATH = f"{ARTIFACT_DIR_REL}/phase0-plan.json"
+PLAN_SIDECAR_RELATIVE_PATH = f"{ARTIFACT_DIR_REL}/phase0-plan.sha256"
 
 
 class PhaseTracker:
@@ -260,6 +265,21 @@ def file_sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def read_regular_file_bytes(path: Path) -> bytes:
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as error:
+        raise InfrastructureInvalid(f"required Phase-0 asset is absent/symlinked: {path}") from error
+    try:
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            raise InfrastructureInvalid(f"required Phase-0 asset is not a regular file: {path}")
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            return handle.read()
+    finally:
+        os.close(descriptor)
+
+
 def run_git(repo: Path, *args: str) -> str:
     if not args or args[0] not in {"rev-parse", "status"}:
         raise InfrastructureInvalid("Phase-0 subprocess is outside the frozen allowlist")
@@ -275,9 +295,7 @@ def git_blob(repo: Path, commit: str, path: str) -> bytes:
 
 
 def load_canonical_json(path: Path) -> dict[str, object]:
-    if path.is_symlink() or not path.is_file():
-        raise InfrastructureInvalid(f"required Phase-0 asset is absent/symlinked: {path}")
-    data = path.read_bytes()
+    data = read_regular_file_bytes(path)
     if not data.endswith(b"\n") or data.endswith(b"\n\n"):
         raise InfrastructureInvalid(f"Phase-0 artifact LF framing differs: {path}")
     parsed = strict_json_loads(data[:-1])
@@ -287,18 +305,17 @@ def load_canonical_json(path: Path) -> dict[str, object]:
 
 
 def load_authorized_plan(repo: Path, args: argparse.Namespace) -> dict[str, object]:
-    try:
-        relative = args.plan.resolve().relative_to(repo).as_posix()
-    except ValueError as error:
-        raise InfrastructureInvalid("Phase-0 plan is outside the execution tree") from error
-    data = git_blob(repo, args.execution_commit, relative)
+    expected_plan_path = repo / PLAN_RELATIVE_PATH
+    if args.plan != expected_plan_path:
+        raise InfrastructureInvalid("Phase-0 plan path is not the frozen lexical path")
+    data = git_blob(repo, args.execution_commit, PLAN_RELATIVE_PATH)
     if sha256_bytes(data) != args.plan_file_sha256 or not data.endswith(b"\n") or data.endswith(b"\n\n"):
         raise InfrastructureInvalid("authorized Phase-0 plan git blob differs")
     plan = strict_json_loads(data[:-1])
     if not isinstance(plan, dict) or data != canonical_json(plan) + b"\n":
         raise InfrastructureInvalid("authorized Phase-0 plan git blob is not canonical")
     validate_plan(plan)
-    sidecar = git_blob(repo, args.execution_commit, str(Path(relative).with_name("phase0-plan.sha256")))
+    sidecar = git_blob(repo, args.execution_commit, PLAN_SIDECAR_RELATIVE_PATH)
     if sidecar != f"{args.plan_file_sha256}\n".encode():
         raise InfrastructureInvalid("authorized Phase-0 plan sidecar git blob differs")
     return plan
@@ -600,7 +617,8 @@ def run(
     network_guard: NetworkGuard,
 ) -> tuple[dict[str, object], dict[str, object]]:
     repo = args.repo.resolve(strict=True)
-    plan_path = args.plan.resolve(strict=True)
+    load_authorized_plan(repo, args)
+    plan_path = repo / PLAN_RELATIVE_PATH
     plan = load_canonical_json(plan_path)
     validate_plan(plan)
     if file_sha256(plan_path) != args.plan_file_sha256:
@@ -776,18 +794,27 @@ def failure_payload(
 ) -> dict[str, object]:
     audit: dict[str, object] = {
         "head": None,
+        "head_exact": False,
         "tree": None,
+        "tree_exact": False,
         "status": None,
+        "status_clean": False,
         "plan_file_sha256": None,
+        "plan_file_exact": False,
         "plan_sha256": None,
+        "plan_internal_exact": False,
         "plan_sidecar_sha256": None,
+        "plan_sidecar_exact": False,
         "plan_asset_hashes": None,
+        "plan_assets_exact": False,
         "provenance_exact": False,
         "errors": [],
     }
     repo = args.repo.resolve()
     authorized_plan = load_authorized_plan(repo, args)
     authorized_tree = run_git(repo, "rev-parse", f"{args.execution_commit}^{{tree}}")
+    working_plan_path = repo / PLAN_RELATIVE_PATH
+    working_sidecar_path = repo / PLAN_SIDECAR_RELATIVE_PATH
     for name, git_args in (
         ("head", ("rev-parse", "HEAD")),
         ("tree", ("rev-parse", "HEAD^{tree}")),
@@ -796,24 +823,43 @@ def failure_payload(
         try:
             audit[name] = run_git(repo, *git_args)
         except BaseException as audit_error:
-            audit["errors"].append({"check": name, "error": f"{type(audit_error).__name__}: {audit_error}"})
+            audit["errors"].append(
+                {"check": f"{name}_read", "error": f"{type(audit_error).__name__}: {audit_error}"}
+            )
     try:
-        audit["plan_file_sha256"] = file_sha256(args.plan.resolve())
+        audit["plan_file_sha256"] = sha256_bytes(read_regular_file_bytes(working_plan_path))
     except BaseException as audit_error:
-        audit["errors"].append({"check": "plan_file", "error": f"{type(audit_error).__name__}: {audit_error}"})
+        audit["errors"].append(
+            {"check": "plan_file_read", "error": f"{type(audit_error).__name__}: {audit_error}"}
+        )
     try:
-        audit["plan_sidecar_sha256"] = file_sha256(args.plan.resolve().with_name("phase0-plan.sha256"))
+        audit["plan_sidecar_sha256"] = sha256_bytes(read_regular_file_bytes(working_sidecar_path))
     except BaseException as audit_error:
-        audit["errors"].append({"check": "plan_sidecar", "error": f"{type(audit_error).__name__}: {audit_error}"})
+        audit["errors"].append(
+            {"check": "plan_sidecar_read", "error": f"{type(audit_error).__name__}: {audit_error}"}
+        )
+    working_plan = None
     try:
-        plan = load_canonical_json(args.plan.resolve())
-        validate_plan(plan)
-        audit["plan_sha256"] = plan["plan_sha256"]
-        audit["plan_asset_hashes"] = asset_hashes(repo, plan)
+        working_plan = load_canonical_json(working_plan_path)
+        validate_plan(working_plan)
+        audit["plan_sha256"] = working_plan["plan_sha256"]
     except BaseException as audit_error:
-        audit["errors"].append({"check": "plan_and_assets", "error": f"{type(audit_error).__name__}: {audit_error}"})
+        audit["errors"].append(
+            {"check": "plan_internal_read", "error": f"{type(audit_error).__name__}: {audit_error}"}
+        )
+    if working_plan is None:
+        audit["errors"].append(
+            {"check": "plan_assets_read", "error": "working plan unavailable for asset audit"}
+        )
+    else:
+        try:
+            audit["plan_asset_hashes"] = asset_hashes(repo, working_plan)
+        except BaseException as audit_error:
+            audit["errors"].append(
+                {"check": "plan_assets_read", "error": f"{type(audit_error).__name__}: {audit_error}"}
+            )
     expected_sidecar = sha256_bytes(f"{args.plan_file_sha256}\n".encode())
-    mismatch_checks = (
+    exact_checks = (
         ("head_exact", audit["head"] == args.execution_commit, "execution HEAD differs"),
         ("tree_exact", audit["tree"] == authorized_tree, "execution tree differs"),
         ("status_clean", audit["status"] == "", "worktree is not clean"),
@@ -823,12 +869,23 @@ def failure_payload(
             "external plan file hash differs",
         ),
         (
+            "plan_internal_exact",
+            audit["plan_sha256"] == authorized_plan["plan_sha256"],
+            "working plan internal hash differs",
+        ),
+        (
             "plan_sidecar_exact",
             audit["plan_sidecar_sha256"] == expected_sidecar,
             "external plan sidecar differs",
         ),
+        (
+            "plan_assets_exact",
+            audit["plan_asset_hashes"] == authorized_plan["asset_sha256"],
+            "working plan asset closure differs",
+        ),
     )
-    for check, exact, detail in mismatch_checks:
+    for check, exact, detail in exact_checks:
+        audit[check] = exact
         if not exact:
             audit["errors"].append({"check": check, "error": detail})
     audit["provenance_exact"] = not audit["errors"]

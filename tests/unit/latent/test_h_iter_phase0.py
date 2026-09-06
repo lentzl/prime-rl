@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import ast
 import importlib.util
 import os
@@ -273,12 +274,19 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
         "partial_memory": {"expected_labels": hiter.memory_labels(), "rows": []},
         "full_freeze_failure_audit": {
             "head": execution,
+            "head_exact": True,
             "tree": "3" * 40,
+            "tree_exact": True,
             "status": "",
+            "status_clean": True,
             "plan_file_sha256": external_plan,
+            "plan_file_exact": True,
             "plan_sha256": plan["plan_sha256"],
+            "plan_internal_exact": True,
             "plan_sidecar_sha256": hiter.sha256_bytes(f"{external_plan}\n".encode()),
+            "plan_sidecar_exact": True,
             "plan_asset_hashes": plan["asset_sha256"],
+            "plan_assets_exact": True,
             "provenance_exact": True,
             "errors": [],
         },
@@ -335,6 +343,7 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     observed_dirty = json_roundtrip(failure)
     observed_dirty["status"] = "infrastructure_invalid"
     observed_dirty["full_freeze_failure_audit"]["status"] = " M tracked-file"
+    observed_dirty["full_freeze_failure_audit"]["status_clean"] = False
     observed_dirty["full_freeze_failure_audit"]["errors"] = [
         {"check": "status_clean", "error": "worktree is not clean"}
     ]
@@ -344,9 +353,7 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
     )
     hiter.validate_failure(observed_dirty, **validation_args)
     missing_dirty_error = json_roundtrip(observed_dirty)
-    missing_dirty_error["full_freeze_failure_audit"]["errors"] = [
-        {"check": "unrelated", "error": "not the observed mismatch"}
-    ]
+    missing_dirty_error["full_freeze_failure_audit"]["errors"] = []
     missing_dirty_error["failure_sha256"] = hiter.canonical_sha256(
         missing_dirty_error, omit="failure_sha256"
     )
@@ -373,40 +380,152 @@ def test_failure_schema_rejects_unsafe_and_stale_terminals() -> None:
         hiter.validate_failure(unobserved_timeout, **validation_args)
 
     provenance_races = [
-        ("head", "4" * 40, [{"check": "head_exact", "error": "execution HEAD differs"}]),
-        ("tree", "4" * 40, [{"check": "tree_exact", "error": "execution tree differs"}]),
+        (
+            "head",
+            "4" * 40,
+            "head_exact",
+            [{"check": "head_exact", "error": "execution HEAD differs"}],
+        ),
+        (
+            "tree",
+            "4" * 40,
+            "tree_exact",
+            [{"check": "tree_exact", "error": "execution tree differs"}],
+        ),
         (
             "plan_file_sha256",
             "5" * 64,
+            "plan_file_exact",
             [{"check": "plan_file_exact", "error": "external plan file hash differs"}],
         ),
         (
             "plan_sidecar_sha256",
             "5" * 64,
+            "plan_sidecar_exact",
             [{"check": "plan_sidecar_exact", "error": "external plan sidecar differs"}],
         ),
         (
             "plan_asset_hashes",
             None,
-            [{"check": "plan_and_assets", "error": "OSError: synthetic asset read failure"}],
+            "plan_assets_exact",
+            [
+                {"check": "plan_assets_read", "error": "OSError: synthetic asset read failure"},
+                {"check": "plan_assets_exact", "error": "working plan asset closure differs"},
+            ],
         ),
         (
             "head",
             None,
+            "head_exact",
             [
-                {"check": "head", "error": "OSError: synthetic HEAD read failure"},
+                {"check": "head_read", "error": "OSError: synthetic HEAD read failure"},
                 {"check": "head_exact", "error": "execution HEAD differs"},
             ],
         ),
     ]
-    for field, value, errors in provenance_races:
+    for field, value, exact_field, errors in provenance_races:
         raced = json_roundtrip(failure)
         raced["status"] = "infrastructure_invalid"
         raced["full_freeze_failure_audit"][field] = value
+        raced["full_freeze_failure_audit"][exact_field] = False
         raced["full_freeze_failure_audit"]["errors"] = errors
         raced["full_freeze_failure_audit"]["provenance_exact"] = False
         raced["failure_sha256"] = hiter.canonical_sha256(raced, omit="failure_sha256")
         hiter.validate_failure(raced, **validation_args)
+
+    alternate_plan = json_roundtrip(plan)
+    alternate_plan["mechanism_code_commit"] = "9" * 40
+    alternate_plan["plan_sha256"] = hiter.canonical_sha256(
+        alternate_plan, omit="plan_sha256"
+    )
+    hiter.validate_plan(alternate_plan)
+    alternate = json_roundtrip(failure)
+    alternate["status"] = "infrastructure_invalid"
+    alternate["full_freeze_failure_audit"]["plan_sha256"] = alternate_plan["plan_sha256"]
+    alternate["full_freeze_failure_audit"]["plan_internal_exact"] = False
+    alternate["full_freeze_failure_audit"]["errors"] = [
+        {"check": "plan_internal_exact", "error": "working plan internal hash differs"}
+    ]
+    alternate["full_freeze_failure_audit"]["provenance_exact"] = False
+    alternate["failure_sha256"] = hiter.canonical_sha256(alternate, omit="failure_sha256")
+    hiter.validate_failure(alternate, **validation_args)
+
+    alternate_assets = json_roundtrip(failure)
+    alternate_assets["status"] = "infrastructure_invalid"
+    observed_assets = dict(alternate_assets["full_freeze_failure_audit"]["plan_asset_hashes"])
+    first_asset = next(iter(observed_assets))
+    observed_assets[first_asset] = "9" * 64
+    alternate_assets["full_freeze_failure_audit"]["plan_asset_hashes"] = observed_assets
+    alternate_assets["full_freeze_failure_audit"]["plan_assets_exact"] = False
+    alternate_assets["full_freeze_failure_audit"]["errors"] = [
+        {"check": "plan_assets_exact", "error": "working plan asset closure differs"}
+    ]
+    alternate_assets["full_freeze_failure_audit"]["provenance_exact"] = False
+    alternate_assets["failure_sha256"] = hiter.canonical_sha256(
+        alternate_assets, omit="failure_sha256"
+    )
+    hiter.validate_failure(alternate_assets, **validation_args)
+
+
+def test_terminal_entry_bounds_accept_exact_and_reject_plus_one_ns() -> None:
+    assert hiter.TERMINAL_ENTRY_MAXIMUM_NS == {
+        "success": 780_000_000_000,
+        "compute_failure": 780_000_000_000,
+        "audit_failure": 960_000_000_000,
+        "terminal_failure": 1_020_000_000_000,
+    }
+    for boundary, maximum in hiter.TERMINAL_ENTRY_MAXIMUM_NS.items():
+        hiter.validate_terminal_entry_timing(maximum, maximum, boundary)
+        with pytest.raises(hiter.ContractError, match="prepublication budget"):
+            hiter.validate_terminal_entry_timing(maximum + 1, maximum, boundary)
+
+
+def test_authorized_plan_uses_lexical_git_path_across_working_symlink_race(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    runner_path = ROOT / "scripts/latent/run_h_iter_phase0_generator_locality_v1.py"
+    spec = importlib.util.spec_from_file_location("hiter_phase0_runner_plan_test", runner_path)
+    assert spec is not None and spec.loader is not None
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+
+    repo = tmp_path / "repo"
+    plan_path = repo / runner.PLAN_RELATIVE_PATH
+    plan_path.parent.mkdir(parents=True)
+    outside = tmp_path / "outside-plan.json"
+    outside.write_text("{}\n")
+    plan_path.symlink_to(outside)
+    plan = load_asset("phase0-plan.json")
+    plan_bytes = hiter.canonical_json(plan) + b"\n"
+    plan_file_sha256 = hiter.sha256_bytes(plan_bytes)
+    requested_paths: list[str] = []
+
+    def frozen_blob(_repo: Path, _commit: str, path: str) -> bytes:
+        requested_paths.append(path)
+        if path == runner.PLAN_RELATIVE_PATH:
+            return plan_bytes
+        if path == runner.PLAN_SIDECAR_RELATIVE_PATH:
+            return f"{plan_file_sha256}\n".encode()
+        raise AssertionError(path)
+
+    monkeypatch.setattr(runner, "git_blob", frozen_blob)
+    args = argparse.Namespace(
+        plan=plan_path,
+        execution_commit="1" * 40,
+        plan_file_sha256=plan_file_sha256,
+    )
+    assert runner.load_authorized_plan(repo, args) == plan
+    assert requested_paths == [runner.PLAN_RELATIVE_PATH, runner.PLAN_SIDECAR_RELATIVE_PATH]
+    with pytest.raises(runner.InfrastructureInvalid, match="symlinked"):
+        runner.load_canonical_json(plan_path)
+
+    escaped = argparse.Namespace(
+        plan=outside,
+        execution_commit="1" * 40,
+        plan_file_sha256=plan_file_sha256,
+    )
+    with pytest.raises(runner.InfrastructureInvalid, match="frozen lexical path"):
+        runner.load_authorized_plan(repo, escaped)
 
 
 def json_roundtrip(value: object):
