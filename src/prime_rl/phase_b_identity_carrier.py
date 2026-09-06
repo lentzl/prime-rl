@@ -30,6 +30,29 @@ SUCCESS_STATUSES = (
     "b_hic0_inplace_carrier_not_nominated",
 )
 FAILURE_STATUSES = ("b_hic0_nocache_rejected", "b_hic0_incomplete", "infrastructure_invalid")
+EXPECTED_CACHE_CLASSES = (
+    ("fla.models.utils.Cache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
+    ("fla.models.utils.FLACache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
+    ("fla.models.utils.LegacyFLACache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
+    ("transformers.cache_utils.Cache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.DynamicCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.EncoderDecoderCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.QuantizedCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+    ("transformers.cache_utils.StaticCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
+)
+EXPECTED_GATE_KEYS = tuple(f"{index}_{name}" for index, name in enumerate(
+    (
+        "complete_finite_safe",
+        "inplace_zero_bitwise_identity",
+        "insert_penalty_replicates",
+        "rmsnorm_amplification",
+        "inplace_penalty_removed",
+        "hidden_and_logit_drift_removed",
+        "inplace_margin_noninferior",
+        "backward_and_provenance",
+    ),
+    start=1,
+))
 
 
 def mean64(values: Sequence[float]) -> float:
@@ -64,6 +87,10 @@ def recursive_subclass_closure(base: type) -> set[type]:
     return closure
 
 
+def ordered_subclass_closure(base: type) -> tuple[type, ...]:
+    return tuple(sorted(recursive_subclass_closure(base), key=lambda cls: (cls.__module__, cls.__qualname__)))
+
+
 def build_cache_guard_labels() -> list[str]:
     labels = ["CACHE_GUARD_ENTRY"]
     for row_index in range(1, EXPECTED_ROWS + 1):
@@ -77,6 +104,17 @@ def build_cache_guard_labels() -> list[str]:
     labels.extend(("CACHE_GUARD_FINAL", "CACHE_GUARD_EXIT"))
     if len(labels) != CACHE_LABEL_COUNT or canonical_json_sha256(labels) != CACHE_LABEL_SHA256:
         raise PhaseBContractError("B-HIC0 cache-guard label schedule differs")
+    return labels
+
+
+def expected_memory_checkpoint_labels() -> list[str]:
+    labels = ["after_model_load", "after_codec_construction"]
+    for row_index in range(1, EXPECTED_ROWS + 1):
+        labels.append(f"capture:r{row_index:02d}")
+        labels.extend(f"receiver:r{row_index:02d}:{arm}" for arm in ARMS)
+        if row_index == 3:
+            labels.append("after_backward")
+    labels.append("before_success")
     return labels
 
 
@@ -98,7 +136,20 @@ def aligned_suffix_geometry(*, total: int, supervised_start: int, insertion_inde
     }
 
 
-def validate_hic0_terminal_receipt(receipt: dict[str, Any], *, success_file: bool) -> None:
+def validate_suffix_target_ids(targets: Sequence[int], *, vocabulary_size: int) -> None:
+    if not targets or vocabulary_size <= 0:
+        raise PhaseBContractError("B-HIC0 suffix target domain is empty")
+    if any(type(target) is not int or not 0 <= target < vocabulary_size for target in targets):
+        raise PhaseBContractError("B-HIC0 suffix target ID is outside the vocabulary")
+
+
+def validate_hic0_terminal_receipt(
+    receipt: dict[str, Any],
+    *,
+    success_file: bool,
+    plan: dict[str, Any],
+    execution_commit: str,
+) -> None:
     statuses = SUCCESS_STATUSES if success_file else FAILURE_STATUSES
     if receipt.get("status") not in statuses or receipt.get("terminal") != ("SUCCESS" if success_file else "FAILURE"):
         raise PhaseBContractError("B-HIC0 terminal status literal differs")
@@ -108,10 +159,157 @@ def validate_hic0_terminal_receipt(receipt: dict[str, Any], *, success_file: boo
         raise PhaseBContractError("B-HIC0 internal receipt hash differs")
     if receipt.get("optimizer") is not None or receipt.get("optimizer_updates") != 0:
         raise PhaseBContractError("B-HIC0 receipt crossed the zero-update boundary")
+    if receipt.get("saved_model_state") is not False or receipt.get("B1R_candidates_reused") is not False:
+        raise PhaseBContractError("B-HIC0 receipt crossed the state/candidate boundary")
     if any(receipt.get(key) is not False for key in ("generation", "cache", "worker_loaded")):
         raise PhaseBContractError("B-HIC0 receipt crossed the no-generation/cache/worker boundary")
     if receipt.get("H176_loaded") is not False or receipt.get("strand_a_combined") is not False:
         raise PhaseBContractError("B-HIC0 receipt crossed the model/strand boundary")
+    if (
+        receipt.get("plan_sha256") != plan.get("_file_sha256")
+        or receipt.get("execution_commit") != execution_commit
+        or receipt.get("selection_sha256") != plan.get("diagnostic_bank", {}).get("selection_sha256")
+    ):
+        raise PhaseBContractError("B-HIC0 terminal plan, commit, or selection binding differs")
+    expected_immutable = {"plan": plan.get("_file_sha256"), **plan.get("immutable_input_hashes", {})}
+    if success_file:
+        rows = receipt.get("rows")
+        nomination = receipt.get("nomination")
+        cache_guard = receipt.get("cache_guard")
+        protection = receipt.get("protection")
+        promotion = receipt.get("promotion")
+        ledger = receipt.get("cuda_memory_ledger")
+        if (
+            receipt.get("schema_version") != "q35-2b-phase-b-hic0-identity-carrier-success/v1"
+            or receipt.get("claim_class") != "zero_update_identity_carrier_causal_diagnostic_nomination_only"
+            or receipt.get("model_loaded") is not True
+            or receipt.get("source_forwards") != 12
+            or receipt.get("receiver_forwards") != 60
+            or receipt.get("backward_forwards_reused") != 1
+            or not isinstance(rows, list)
+            or len(rows) != EXPECTED_ROWS
+            or len({row.get("task_key") for row in rows}) != EXPECTED_ROWS
+            or Counter(row.get("action") for row in rows)
+            != Counter({action: 4 for action in ACTIONS})
+            or any(tuple(row.get("arms", {})) != ARMS for row in rows)
+        ):
+            raise PhaseBContractError("B-HIC0 SUCCESS row/count evidence differs")
+        recomputed = evaluate_hic0(rows, safety=nomination.get("safety", {})) if isinstance(nomination, dict) else None
+        if (
+            not isinstance(nomination, dict)
+            or nomination.get("disposition") != receipt["status"]
+            or nomination.get("nominated") is not (receipt["status"] == SUCCESS_STATUSES[0])
+            or not isinstance(nomination.get("gates"), dict)
+            or tuple(nomination["gates"]) != EXPECTED_GATE_KEYS
+            or any(type(value) is not bool for value in nomination["gates"].values())
+            or (receipt["status"] == SUCCESS_STATUSES[0]) is not all(nomination["gates"].values())
+            or recomputed != nomination
+        ):
+            raise PhaseBContractError("B-HIC0 SUCCESS nomination/status evidence differs")
+        observed_cache_classes = cache_guard.get("classes", []) if isinstance(cache_guard, dict) else []
+        cache_identities_match = len(observed_cache_classes) == len(EXPECTED_CACHE_CLASSES) and all(
+            item.get("fqcn") == expected[0]
+            and str(item.get("module_path", "")).endswith(expected[1])
+            and item.get("module_sha256") == expected[2]
+            and item.get("distribution") == expected[3]
+            for item, expected in zip(observed_cache_classes, EXPECTED_CACHE_CLASSES, strict=True)
+        )
+        if (
+            not isinstance(cache_guard, dict)
+            or cache_guard.get("complete") is not True
+            or cache_guard.get("label_count") != CACHE_LABEL_COUNT
+            or cache_guard.get("canonical_label_sha256") != CACHE_LABEL_SHA256
+            or cache_guard.get("closure_check_count") != CACHE_LABEL_COUNT
+            or cache_guard.get("closure_checked_at_every_recorded_label") is not True
+            or cache_guard.get("restored_in_finally") is not True
+            or cache_guard.get("model_calls") != 72
+            or cache_guard.get("dynamic_cache_trip_count") != 1
+            or cache_guard.get("exit_recorded") is not True
+            or cache_guard.get("recursively_closed_config_count", 0) < 1
+            or not cache_identities_match
+        ):
+            raise PhaseBContractError("B-HIC0 SUCCESS cache evidence differs")
+        backward = receipt.get("backward")
+        if (
+            not isinstance(backward, dict)
+            or backward.get("row") != "document_adaptive_d2-v4-i35100"
+            or backward.get("receiver_forward_reused") is not True
+            or backward.get("extra_receiver_forwards") != 0
+            or any(
+                evidence.get("finite") is not True or evidence.get("nonzero") is not True
+                for evidence in (backward.get("residual_gradient", {}), backward.get("encoder_group", {}), backward.get("receiver_group", {}))
+            )
+            or backward.get("all_named_gradients_finite") is not True
+            or backward.get("e33_gradients_absent") is not True
+        ):
+            raise PhaseBContractError("B-HIC0 SUCCESS backward evidence differs")
+        if (
+            not isinstance(protection, dict)
+            or protection.get("e33_tensor_pre") != protection.get("e33_tensor_post")
+            or protection.get("e33_file_pre") != protection.get("e33_file_post")
+            or protection.get("metadata_pre") != protection.get("metadata_post")
+            or protection.get("codec_pre") != protection.get("codec_post")
+            or protection.get("e33_file_pre") != plan.get("protected_model", {}).get("weight_sha256")
+            or protection.get("metadata_pre") != plan.get("model_metadata_sha256")
+            or receipt.get("immutable_input_hashes") != expected_immutable
+        ):
+            raise PhaseBContractError("B-HIC0 SUCCESS protection/provenance evidence differs")
+        resources = plan.get("resources", {})
+        preflight = receipt.get("preflight_resources", {})
+        allocator = receipt.get("allocator", {})
+        memory = receipt.get("cuda_memory", {})
+        if (
+            not isinstance(ledger, list)
+            or [item.get("checkpoint") for item in ledger] != expected_memory_checkpoint_labels()
+            or any(
+                value > 32 * 1024**3
+                for item in ledger
+                for key, value in item.items()
+                if key.endswith("_bytes")
+            )
+            or any(value > 32 * 1024**3 for key, value in memory.items() if key.endswith("_bytes"))
+            or allocator.get("cap_bytes") != 32 * 1024**3
+            or allocator.get("observed_fraction") != allocator.get("requested_fraction")
+            or preflight.get("available_host_ram_bytes", 0) < resources.get("minimum_host_ram_bytes", 0)
+            or preflight.get("free_disk_bytes", 0) < resources.get("minimum_free_disk_bytes", 0)
+            or preflight.get("offline_environment") != {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"}
+            or not isinstance(promotion, dict)
+            or promotion.get("admitted") is not False
+            or promotion.get("diagnostic_rows_count_as_live_trajectories") is not False
+            or promotion.get("complete_live_trajectory_count") != 0
+            or promotion.get("minimum_complete_live_trajectories_unchanged") != 4
+        ):
+            raise PhaseBContractError("B-HIC0 SUCCESS resource/promotion evidence differs")
+    else:
+        expected_failure_class = {
+            "b_hic0_nocache_rejected": "scientific_cache_rejection",
+            "b_hic0_incomplete": "contract_or_evidence_incomplete",
+            "infrastructure_invalid": "infrastructure",
+        }[receipt["status"]]
+        audit = receipt.get("post_failure_hash_audit")
+        if (
+            receipt.get("schema_version") != "q35-2b-phase-b-hic0-identity-carrier-failure/v1"
+            or receipt.get("failure_class") != expected_failure_class
+            or not isinstance(audit, dict)
+            or audit.get("audit_complete") is not True
+            or audit.get("immutable_input_hashes") != expected_immutable
+            or audit.get("immutable_input_hashes_match") is not True
+        ):
+            raise PhaseBContractError("B-HIC0 FAILURE class or postflight audit differs")
+        if type(receipt.get("model_loaded")) is not bool:
+            raise PhaseBContractError("B-HIC0 FAILURE model-load evidence differs")
+        if receipt["model_loaded"] is True:
+            tensor_post = audit.get("e33_tensor_post")
+            if (
+                not isinstance(tensor_post, str)
+                or len(tensor_post) != 64
+                or audit.get("e33_disk_and_metadata_exact") is not True
+                or (
+                    audit.get("e33_tensor_reference_available") is True
+                    and audit.get("e33_tensor_preserved") is not True
+                )
+            ):
+                raise PhaseBContractError("B-HIC0 FAILURE lacks protected e33 evidence")
 
 
 def validate_hic0_selection(selection: dict[str, Any]) -> list[dict[str, str]]:
@@ -226,7 +424,9 @@ def evaluate_hic0(rows: list[dict[str, Any]], *, safety: dict[str, bool]) -> dic
                 destination.append(numerator / denominator)
     p_insert_mean = mean64(p_insert)
     p_inplace_mean = mean64(p_inplace)
-    removal = (p_insert_mean - p_inplace_mean) / p_insert_mean if p_insert_mean > 0.0 else float("-inf")
+    if p_insert_mean == 0.0:
+        raise PhaseBContractError("B-HIC0 insertion penalty does not define finite removal")
+    removal = (p_insert_mean - p_inplace_mean) / p_insert_mean
     summaries = {
         "P_insert": {
             "values": p_insert,

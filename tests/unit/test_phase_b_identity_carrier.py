@@ -1,4 +1,6 @@
+import importlib.util
 from copy import deepcopy
+from pathlib import Path
 
 import pytest
 
@@ -6,14 +8,18 @@ from prime_rl.phase_b_contract import PhaseBContractError, canonical_json_sha256
 from prime_rl.phase_b_identity_carrier import (
     ACTIONS,
     ARMS,
+    EXPECTED_CACHE_CLASSES,
     IDENTITY_FIELDS,
     SAFETY_FIELDS,
     aligned_suffix_geometry,
     build_cache_guard_labels,
     evaluate_hic0,
+    expected_memory_checkpoint_labels,
+    ordered_subclass_closure,
     recursive_subclass_closure,
     validate_hic0_selection,
     validate_hic0_terminal_receipt,
+    validate_suffix_target_ids,
 )
 
 
@@ -31,6 +37,7 @@ def _rows() -> list[dict[str, object]]:
         rows.append(
             {
                 "task_key": f"row-{index}",
+                "action": ACTIONS[index % 3],
                 "arms": arms,
                 "same_residual_bytes_insert_and_inplace": True,
                 "inplace_zero_identity": dict.fromkeys(IDENTITY_FIELDS, True),
@@ -175,11 +182,52 @@ def test_hic0_positive_row_gate_uses_strict_one_e_minus_six() -> None:
     assert result["gates"]["3_insert_penalty_replicates"] is False
 
 
-def test_hic0_terminal_receipt_requires_literal_and_internal_hash() -> None:
-    receipt = {
-        "status": "b_hic0_inplace_carrier_not_nominated",
+def _terminal_plan() -> dict[str, object]:
+    return {
+        "_file_sha256": "p" * 64,
+        "diagnostic_bank": {"selection_sha256": "s" * 64},
+        "immutable_input_hashes": {"selection": "s" * 64, "bank": "b" * 64},
+        "protected_model": {"weight_sha256": "w" * 64},
+        "model_metadata_sha256": {"config.json": "m" * 64},
+        "resources": {
+            "minimum_host_ram_bytes": 64 * 1024**3,
+            "minimum_free_disk_bytes": 60 * 1024**3,
+        },
+    }
+
+
+def _seal(receipt: dict[str, object]) -> dict[str, object]:
+    receipt["receipt_sha256"] = canonical_json_sha256(
+        receipt, omitted_fields=("receipt_sha256",)
+    )
+    return receipt
+
+
+def _success_receipt() -> dict[str, object]:
+    plan = _terminal_plan()
+    rows = _rows()
+    nomination = evaluate_hic0(rows, safety=dict.fromkeys(SAFETY_FIELDS, True))
+    cache_classes = [
+        {
+            "fqcn": fqcn,
+            "module_path": f"/frozen/.venv/{relative_path}",
+            "module_sha256": source_sha,
+            "distribution": distribution,
+        }
+        for fqcn, relative_path, source_sha, distribution in EXPECTED_CACHE_CLASSES
+    ]
+    return _seal({
+        "schema_version": "q35-2b-phase-b-hic0-identity-carrier-success/v1",
+        "status": "b_hic0_inplace_carrier_nominated",
         "terminal": "SUCCESS",
-        "disposition": "b_hic0_inplace_carrier_not_nominated",
+        "disposition": "b_hic0_inplace_carrier_nominated",
+        "claim_class": "zero_update_identity_carrier_causal_diagnostic_nomination_only",
+        "execution_commit": "e" * 40,
+        "plan_sha256": plan["_file_sha256"],
+        "selection_sha256": "s" * 64,
+        "model_loaded": True,
+        "saved_model_state": False,
+        "B1R_candidates_reused": False,
         "optimizer": None,
         "optimizer_updates": 0,
         "generation": False,
@@ -187,12 +235,156 @@ def test_hic0_terminal_receipt_requires_literal_and_internal_hash() -> None:
         "worker_loaded": False,
         "H176_loaded": False,
         "strand_a_combined": False,
-    }
-    receipt["receipt_sha256"] = canonical_json_sha256(receipt, omitted_fields=("receipt_sha256",))
-    validate_hic0_terminal_receipt(receipt, success_file=True)
+        "source_forwards": 12,
+        "receiver_forwards": 60,
+        "backward_forwards_reused": 1,
+        "rows": rows,
+        "nomination": nomination,
+        "backward": {
+            "row": "document_adaptive_d2-v4-i35100",
+            "receiver_forward_reused": True,
+            "extra_receiver_forwards": 0,
+            "residual_gradient": {"finite": True, "nonzero": True},
+            "encoder_group": {"finite": True, "nonzero": True},
+            "receiver_group": {"finite": True, "nonzero": True},
+            "all_named_gradients_finite": True,
+            "e33_gradients_absent": True,
+        },
+        "cache_guard": {
+            "complete": True,
+            "label_count": 147,
+            "canonical_label_sha256": "8230eae3b60a7fd00d7bfb557563a9d9ca32764ace262447275bd40538818471",
+            "closure_check_count": 147,
+            "closure_checked_at_every_recorded_label": True,
+            "restored_in_finally": True,
+            "model_calls": 72,
+            "dynamic_cache_trip_count": 1,
+            "exit_recorded": True,
+            "recursively_closed_config_count": 3,
+            "classes": cache_classes,
+        },
+        "protection": {
+            "e33_tensor_pre": "t" * 64,
+            "e33_tensor_post": "t" * 64,
+            "e33_file_pre": "w" * 64,
+            "e33_file_post": "w" * 64,
+            "metadata_pre": {"config.json": "m" * 64},
+            "metadata_post": {"config.json": "m" * 64},
+            "codec_pre": "c" * 64,
+            "codec_post": "c" * 64,
+        },
+        "immutable_input_hashes": {
+            "plan": "p" * 64,
+            "selection": "s" * 64,
+            "bank": "b" * 64,
+        },
+        "preflight_resources": {
+            "available_host_ram_bytes": 70 * 1024**3,
+            "free_disk_bytes": 70 * 1024**3,
+            "offline_environment": {"HF_HUB_OFFLINE": "1", "TRANSFORMERS_OFFLINE": "1"},
+        },
+        "allocator": {
+            "cap_bytes": 32 * 1024**3,
+            "requested_fraction": 0.7,
+            "observed_fraction": 0.7,
+        },
+        "cuda_memory": {"maximum_allocated_bytes": 1, "maximum_reserved_bytes": 1},
+        "cuda_memory_ledger": [
+            {"checkpoint": label, "maximum_allocated_bytes": 1, "maximum_reserved_bytes": 1}
+            for label in expected_memory_checkpoint_labels()
+        ],
+        "promotion": {
+            "admitted": False,
+            "diagnostic_rows_count_as_live_trajectories": False,
+            "complete_live_trajectory_count": 0,
+            "minimum_complete_live_trajectories_unchanged": 4,
+        },
+    })
+
+
+def test_hic0_terminal_receipt_requires_deep_literal_and_internal_hash() -> None:
+    receipt = _success_receipt()
+    validate_hic0_terminal_receipt(
+        receipt,
+        success_file=True,
+        plan=_terminal_plan(),
+        execution_commit="e" * 40,
+    )
     receipt["status"] = "SUCCESS"
     with pytest.raises(PhaseBContractError, match="status literal"):
-        validate_hic0_terminal_receipt(receipt, success_file=True)
+        validate_hic0_terminal_receipt(
+            receipt,
+            success_file=True,
+            plan=_terminal_plan(),
+            execution_commit="e" * 40,
+        )
+
+
+def test_hic0_terminal_receipt_rejects_deep_cache_tamper() -> None:
+    receipt = _success_receipt()
+    receipt["cache_guard"]["classes"][0]["module_sha256"] = "0" * 64
+    _seal(receipt)
+    with pytest.raises(PhaseBContractError, match="cache evidence"):
+        validate_hic0_terminal_receipt(
+            receipt,
+            success_file=True,
+            plan=_terminal_plan(),
+            execution_commit="e" * 40,
+        )
+
+
+def test_hic0_failure_receipt_requires_class_and_protected_audit() -> None:
+    plan = _terminal_plan()
+    failure = _seal(
+        {
+            "schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1",
+            "status": "b_hic0_incomplete",
+            "terminal": "FAILURE",
+            "disposition": "b_hic0_incomplete",
+            "failure_class": "contract_or_evidence_incomplete",
+            "execution_commit": "e" * 40,
+            "plan_sha256": "p" * 64,
+            "selection_sha256": "s" * 64,
+            "model_loaded": True,
+            "saved_model_state": False,
+            "B1R_candidates_reused": False,
+            "optimizer": None,
+            "optimizer_updates": 0,
+            "generation": False,
+            "cache": False,
+            "worker_loaded": False,
+            "H176_loaded": False,
+            "strand_a_combined": False,
+            "post_failure_hash_audit": {
+                "audit_complete": True,
+                "immutable_input_hashes": {
+                    "plan": "p" * 64,
+                    "selection": "s" * 64,
+                    "bank": "b" * 64,
+                },
+                "immutable_input_hashes_match": True,
+                "e33_tensor_post": "t" * 64,
+                "e33_tensor_reference_available": True,
+                "e33_tensor_preserved": True,
+                "e33_disk_and_metadata_exact": True,
+            },
+        }
+    )
+    validate_hic0_terminal_receipt(
+        failure,
+        success_file=False,
+        plan=plan,
+        execution_commit="e" * 40,
+    )
+    failure["failure_class"] = "infrastructure"
+    _seal(failure)
+    with pytest.raises(PhaseBContractError, match="class or postflight"):
+        validate_hic0_terminal_receipt(
+            failure,
+            success_file=False,
+            plan=plan,
+            execution_commit="e" * 40,
+        )
 
 
 def test_recursive_subclass_closure_is_transitive() -> None:
@@ -206,3 +398,51 @@ def test_recursive_subclass_closure_is_transitive() -> None:
         pass
 
     assert recursive_subclass_closure(Base) == {Base, Child, Grandchild}
+    assert ordered_subclass_closure(Base) == tuple(
+        sorted((Base, Child, Grandchild), key=lambda cls: (cls.__module__, cls.__qualname__))
+    )
+
+
+def test_hic0_cache_class_census_is_exact_and_deterministic() -> None:
+    assert len(EXPECTED_CACHE_CLASSES) == 8
+    assert [item[0] for item in EXPECTED_CACHE_CLASSES] == sorted(item[0] for item in EXPECTED_CACHE_CLASSES)
+    assert {item[3] for item in EXPECTED_CACHE_CLASSES} == {
+        "flash-linear-attention==0.5.2",
+        "transformers==5.6.2",
+    }
+    assert all(len(item[2]) == 64 for item in EXPECTED_CACHE_CLASSES)
+
+
+def test_hic0_explicit_cache_imports_precede_guard_and_generation_config_is_closed() -> None:
+    source = (
+        Path(__file__).parents[2] / "scripts/latent/run_phase_b_identity_carrier_v1.py"
+    ).read_text(encoding="utf-8")
+    qwen_import = source.index(
+        'importlib.import_module("transformers.models.qwen3_5.modeling_qwen3_5")'
+    )
+    fla_import = source.index('importlib.import_module("fla.models.utils")')
+    guard = source.index("guard = _CacheGuard(model, transformers=transformers)")
+    assert qwen_import < guard and fla_import < guard
+    assert 'config_candidates.append(getattr(self.model, "generation_config", None))' in source
+
+
+def test_hic0_failure_classification_checks_contract_before_runtime() -> None:
+    path = Path(__file__).parents[2] / "scripts/latent/run_phase_b_identity_carrier_v1.py"
+    spec = importlib.util.spec_from_file_location("hic0_failure_classification_test", path)
+    assert spec is not None and spec.loader is not None
+    runner = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(runner)
+
+    assert runner._failure_class(PhaseBContractError("alignment"))[0] == "b_hic0_incomplete"
+    assert runner._failure_class(RuntimeError("native runtime"))[0] == "infrastructure_invalid"
+    assert runner._failure_class(runner.CacheContractViolated("cache"))[0] == "b_hic0_nocache_rejected"
+    assert runner._failure_class(runner.ResourceContractExceeded("cap"))[0] == "infrastructure_invalid"
+    assert runner._failure_class(runner.ProvenanceContractViolated("hash"))[0] == "infrastructure_invalid"
+
+
+def test_hic0_suffix_target_ids_must_be_inside_vocabulary() -> None:
+    validate_suffix_target_ids([0, 4, 9], vocabulary_size=10)
+    with pytest.raises(PhaseBContractError, match="outside the vocabulary"):
+        validate_suffix_target_ids([0, 10], vocabulary_size=10)
+    with pytest.raises(PhaseBContractError, match="outside the vocabulary"):
+        validate_suffix_target_ids([-1, 3], vocabulary_size=10)

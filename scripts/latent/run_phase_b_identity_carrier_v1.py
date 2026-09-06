@@ -32,15 +32,18 @@ from prime_rl.phase_b_contract import (
 from prime_rl.phase_b_identity_carrier import (
     ARMS,
     CACHE_LABEL_SHA256,
+    EXPECTED_CACHE_CLASSES,
     IDENTITY_FIELDS,
     SLOTS,
     aligned_suffix_geometry,
     build_cache_guard_labels,
     evaluate_hic0,
     normalized_rms_difference,
+    ordered_subclass_closure,
     recursive_subclass_closure,
     validate_hic0_selection,
     validate_hic0_terminal_receipt,
+    validate_suffix_target_ids,
 )
 from prime_rl.phase_b_value_screen import action_margin_from_logits
 
@@ -63,16 +66,6 @@ AUDIT_SECONDS = 300
 TERMINAL_SECONDS = 60
 CODEC_SEED = 262_502_387
 MINIMUM_RAM_BYTES = 64 * 1024**3
-EXPECTED_CACHE_CLASSES = (
-    ("fla.models.utils.Cache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
-    ("fla.models.utils.FLACache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
-    ("fla.models.utils.LegacyFLACache", "lib/python3.12/site-packages/fla/models/utils.py", "3785d027727370b6eb8da96050109a249254c90caa12a3531a4034cc79f256a1", "flash-linear-attention==0.5.2"),
-    ("transformers.cache_utils.Cache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
-    ("transformers.cache_utils.DynamicCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
-    ("transformers.cache_utils.EncoderDecoderCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
-    ("transformers.cache_utils.QuantizedCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
-    ("transformers.cache_utils.StaticCache", "lib/python3.12/site-packages/transformers/cache_utils.py", "a51d2cd525f4458941a20cb5b3b8a8d989d8ca5bcd451855a27bb41743fed586", "transformers==5.6.2"),
-)
 
 
 class CacheContractViolated(PhaseBContractError):
@@ -164,6 +157,16 @@ def _validate_plan(plan: dict[str, Any], args: argparse.Namespace) -> None:
         raise PhaseBContractError("B-HIC0 requires a clean deployed worktree")
     if plan.get("mechanism_code_commit") != _git_parent(args.execution_commit):
         raise PhaseBContractError("B-HIC0 exact-parent mechanism binding differs")
+    if plan.get("execution_environment") != {
+        "uv": "/home/ubuntu/.local/bin/uv",
+        "uv_project": "/home/ubuntu/rlm/prime-rl",
+        "UV_PROJECT_ENVIRONMENT": str(EXPECTED_ENV),
+        "PYTHONPATH": EXPECTED_PYTHONPATH,
+        "CUDA_VISIBLE_DEVICES": "0",
+        "HF_HUB_OFFLINE": "1",
+        "TRANSFORMERS_OFFLINE": "1",
+    }:
+        raise PhaseBContractError("B-HIC0 execution environment contract differs")
     if Path(os.environ.get("UV_PROJECT_ENVIRONMENT", "")) != EXPECTED_ENV:
         raise PhaseBContractError("B-HIC0 UV_PROJECT_ENVIRONMENT differs")
     if Path(sys.prefix).resolve() != EXPECTED_ENV.resolve(strict=True):
@@ -405,7 +408,7 @@ class _CacheGuard:
         self.initial_classes = recursive_subclass_closure(self.base)
         self.patched_classes: set[type] = set()
         self.stack = contextlib.ExitStack()
-        self.configs: list[tuple[Any, bool]] = []
+        self.configs: dict[int, tuple[Any, bool]] = {}
         self.calls = 0
         self.trips = 0
         self.closure_checks = 0
@@ -425,7 +428,23 @@ class _CacheGuard:
         if new_classes:
             names = sorted(f"{cls.__module__}.{cls.__qualname__}" for cls in new_classes)
             raise CacheContractViolated(f"B-HIC0 new unpatched cache subclasses loaded: {names}")
+        if any(config.use_cache is not False for config, _value in self.configs.values()):
+            raise CacheContractViolated("B-HIC0 recursive use_cache closure reopened")
         self.closure_checks += 1
+
+    def _restore(self) -> None:
+        stack_error = None
+        try:
+            self.stack.close()
+        except BaseException as error:
+            stack_error = error
+        for config, value in self.configs.values():
+            config.use_cache = value
+        if any(config.use_cache is not value for config, value in self.configs.values()):
+            raise CacheContractViolated("B-HIC0 use_cache originals were not restored exactly")
+        self.restored = True
+        if stack_error is not None:
+            raise stack_error
 
     def _append(self, label: str) -> None:
         self._verify_closure()
@@ -433,12 +452,15 @@ class _CacheGuard:
 
     def __enter__(self) -> "_CacheGuard":
         try:
-            for module in self.model.modules():
-                config = getattr(module, "config", None)
+            config_candidates = [getattr(module, "config", None) for module in self.model.modules()]
+            config_candidates.append(getattr(self.model, "generation_config", None))
+            for config in config_candidates:
                 if config is not None and hasattr(config, "use_cache"):
-                    self.configs.append((config, bool(config.use_cache)))
+                    self.configs.setdefault(id(config), (config, config.use_cache))
                     config.use_cache = False
-            classes = sorted(self.initial_classes, key=lambda cls: (cls.__module__, cls.__qualname__))
+            classes = ordered_subclass_closure(self.base)
+            if set(classes) != self.initial_classes:
+                raise CacheContractViolated("B-HIC0 cache census changed before patching")
             identities = tuple(
                 (
                     item["fqcn"],
@@ -464,10 +486,7 @@ class _CacheGuard:
                 raise CacheContractViolated("B-HIC0 DynamicCache trip count differs")
             self._append("CACHE_GUARD_ENTRY")
         except BaseException:
-            self.stack.close()
-            for config, value in reversed(self.configs):
-                config.use_cache = value
-            self.restored = True
+            self._restore()
             raise
         return self
 
@@ -494,10 +513,7 @@ class _CacheGuard:
         try:
             self._append("CACHE_GUARD_EXIT")
         finally:
-            self.stack.close()
-            for config, value in reversed(self.configs):
-                config.use_cache = value
-            self.restored = True
+            self._restore()
 
     def evidence(self) -> dict[str, Any]:
         complete = self.labels == self.expected
@@ -515,7 +531,7 @@ class _CacheGuard:
             "closure_checked_at_every_recorded_label": self.closure_checks == len(self.labels),
             "classes": [
                 _cache_class_identity(cls)
-                for cls in sorted(self.initial_classes, key=lambda item: (item.__module__, item.__qualname__))
+                for cls in ordered_subclass_closure(self.base)
             ],
             "recursively_closed_config_count": len(self.configs),
             "restored_in_finally": self.restored,
@@ -533,8 +549,9 @@ def _suffix_nll_float64(logits: Any, labels: Any, *, torch: Any) -> float:
     if int(labels[0, 0]) != -100 or logits.shape[1] < 2:
         raise PhaseBContractError("B-HIC0 suffix labels lack their causal masked predictor")
     targets = labels.detach()[0, 1:].to(device="cpu", dtype=torch.long)
-    if bool(torch.any(targets < 0)) or targets.numel() != logits.shape[1] - 1:
+    if targets.numel() != logits.shape[1] - 1:
         raise PhaseBContractError("B-HIC0 suffix target labels are not contiguous and valid")
+    validate_suffix_target_ids([int(value) for value in targets.tolist()], vocabulary_size=logits.shape[2])
     values = logits.detach()[0, : targets.numel(), :].to(device="cpu", dtype=torch.float64)
     per_token = torch.logsumexp(values, dim=-1) - values.gather(1, targets[:, None]).squeeze(1)
     as_list = [float(value) for value in per_token.tolist()]
@@ -625,8 +642,11 @@ def _cosine(left: Any, right: Any, *, torch: Any) -> float:
     left = left.detach().cpu().double().reshape(-1)
     right = right.detach().cpu().double().reshape(-1)
     if float(torch.linalg.vector_norm(left)) == 0.0 or float(torch.linalg.vector_norm(right)) == 0.0:
-        return 0.0
-    return float(torch.nn.functional.cosine_similarity(left, right, dim=0))
+        raise PhaseBContractError("B-HIC0 cosine input has zero norm")
+    value = float(torch.nn.functional.cosine_similarity(left, right, dim=0))
+    if not math.isfinite(value):
+        raise PhaseBContractError("B-HIC0 cosine is non-finite")
+    return value
 
 
 def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: str, torch: Any, transformers: Any, AutoModelForImageTextToText: Any, LocalDepthCodec: Any, audit: dict[str, Any]) -> dict[str, Any]:
@@ -898,6 +918,8 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
         "disposition": nomination["disposition"],
         "claim_class": "zero_update_identity_carrier_causal_diagnostic_nomination_only",
         "execution_commit": execution_commit,
+        "saved_model_state": False,
+        "B1R_candidates_reused": False,
         "optimizer": None,
         "optimizer_updates": 0,
         "generation": False,
@@ -925,9 +947,13 @@ def execute(plan: dict[str, Any], context: dict[str, Any], *, execution_commit: 
 def _failure_class(error: BaseException) -> tuple[str, str]:
     if isinstance(error, CacheContractViolated):
         return "b_hic0_nocache_rejected", "scientific_cache_rejection"
-    if isinstance(error, (ResourceContractExceeded, ProvenanceContractViolated, TimeoutError, OSError, RuntimeError)) or "out of memory" in str(error).lower():
+    if isinstance(error, (ResourceContractExceeded, ProvenanceContractViolated, TimeoutError, OSError)):
         return "infrastructure_invalid", "infrastructure"
-    return "b_hic0_incomplete", "contract_or_evidence_incomplete"
+    if isinstance(error, PhaseBContractError):
+        return "b_hic0_incomplete", "contract_or_evidence_incomplete"
+    if isinstance(error, RuntimeError) or "out of memory" in str(error).lower():
+        return "infrastructure_invalid", "infrastructure"
+    return "infrastructure_invalid", "infrastructure"
 
 
 def _failure_audit(plan: dict[str, Any], args: argparse.Namespace, audit: dict[str, Any]) -> dict[str, Any]:
@@ -939,7 +965,12 @@ def _failure_audit(plan: dict[str, Any], args: argparse.Namespace, audit: dict[s
         if model is not None:
             evidence["e33_tensor_post"] = smoke._module_tensor_sha256(model, audit["torch"])
             evidence["e33_tensor_pre"] = audit.get("e33_pre")
-            evidence["e33_tensor_preserved"] = evidence["e33_tensor_post"] == audit.get("e33_pre")
+            evidence["e33_tensor_reference_available"] = audit.get("e33_pre") is not None
+            evidence["e33_tensor_preserved"] = (
+                evidence["e33_tensor_post"] == audit["e33_pre"]
+                if evidence["e33_tensor_reference_available"]
+                else None
+            )
         codec = audit.get("codec")
         if codec is not None:
             evidence["codec_tensor_post"] = smoke._module_tensor_sha256(codec, audit["torch"])
@@ -954,12 +985,18 @@ def _failure_audit(plan: dict[str, Any], args: argparse.Namespace, audit: dict[s
             evidence["e33_file_post"],
             evidence["metadata_post"],
         ) == (audit.get("file_pre"), audit.get("metadata_pre"))
-        if model is not None and not evidence["e33_tensor_preserved"]:
+        evidence["e33_disk_and_metadata_exact"] = (
+            evidence["e33_file_post"] == plan["protected_model"]["weight_sha256"]
+            and evidence["metadata_post"] == plan["model_metadata_sha256"]
+        )
+        if model is not None and evidence["e33_tensor_reference_available"] and not evidence["e33_tensor_preserved"]:
             errors.append("e33_tensor_preserved: false")
         if codec is not None and not evidence["codec_tensor_preserved"]:
             errors.append("codec_tensor_preserved: false")
         if audit.get("file_pre") is not None and not evidence["e33_disk_and_metadata_preserved"]:
             errors.append("e33_disk_and_metadata_preserved: false")
+        if not evidence["e33_disk_and_metadata_exact"]:
+            errors.append("e33_disk_and_metadata_exact: false")
     except BaseException as error:
         errors.append(f"protected_hash: {type(error).__name__}: {error}")
     try:
@@ -983,7 +1020,10 @@ def _failure_audit(plan: dict[str, Any], args: argparse.Namespace, audit: dict[s
         errors.append(f"immutable_hash: {type(error).__name__}: {error}")
     guard = audit.get("cache_guard_object")
     if guard is not None:
-        evidence["cache_guard"] = guard.evidence()
+        try:
+            evidence["cache_guard"] = guard.evidence()
+        except BaseException as error:
+            errors.append(f"cache_guard: {type(error).__name__}: {error}")
     torch = audit.get("torch")
     if torch is not None and torch.cuda.is_initialized():
         try:
@@ -1021,9 +1061,14 @@ def main() -> int:
         from prime_rl.latent.local_depth import LocalDepthCodec
         audit["torch"] = torch
         receipt = execute(plan, context, execution_commit=args.execution_commit, torch=torch, transformers=transformers, AutoModelForImageTextToText=AutoModelForImageTextToText, LocalDepthCodec=LocalDepthCodec, audit=audit)
-        receipt.update({"elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "selection_sha256": file_sha256(args.selection), "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}})
+        receipt.update({"model_loaded": True, "elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "selection_sha256": file_sha256(args.selection), "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}})
         receipt["receipt_sha256"] = canonical_json_sha256(receipt, omitted_fields=("receipt_sha256",))
-        validate_hic0_terminal_receipt(receipt, success_file=True)
+        validate_hic0_terminal_receipt(
+            receipt,
+            success_file=True,
+            plan=plan,
+            execution_commit=args.execution_commit,
+        )
         signal.alarm(0)
         atomic_exclusive_json(args.output_dir, "SUCCESS.json", receipt, maximum_directory_bytes=ARTIFACT_CAP)
         return 0
@@ -1032,11 +1077,16 @@ def main() -> int:
         if args.output_dir.is_dir():
             signal.alarm(AUDIT_SECONDS)
             post = _failure_audit(plan, args, audit)
-            failure = {"schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1", "status": disposition, "terminal": "FAILURE", "disposition": disposition, "failure_class": failure_class, "error_type": type(error).__name__, "error": str(error), "elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "optimizer": None, "optimizer_updates": 0, "generation": False, "cache": False, "worker_loaded": False, "H176_loaded": False, "strand_a_combined": False, "preflight_resources": plan["_preflight_resources"], "post_failure_hash_audit": post, "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}}
+            failure = {"schema_version": "q35-2b-phase-b-hic0-identity-carrier-failure/v1", "status": disposition, "terminal": "FAILURE", "disposition": disposition, "failure_class": failure_class, "error_type": type(error).__name__, "error": str(error), "elapsed_seconds": time.time() - started, "plan_sha256": args.authorized_plan_sha256, "execution_commit": args.execution_commit, "selection_sha256": file_sha256(args.selection), "model_loaded": audit.get("model") is not None, "saved_model_state": False, "B1R_candidates_reused": False, "optimizer": None, "optimizer_updates": 0, "generation": False, "cache": False, "worker_loaded": False, "H176_loaded": False, "strand_a_combined": False, "preflight_resources": plan["_preflight_resources"], "post_failure_hash_audit": post, "wall_clock_contract": {"outer_seconds": OUTER_SECONDS, "compute_seconds": COMPUTE_SECONDS, "failure_audit_seconds": AUDIT_SECONDS, "terminal_publication_headroom_seconds": TERMINAL_SECONDS}}
             failure["receipt_sha256"] = canonical_json_sha256(
                 failure, omitted_fields=("receipt_sha256",)
             )
-            validate_hic0_terminal_receipt(failure, success_file=False)
+            validate_hic0_terminal_receipt(
+                failure,
+                success_file=False,
+                plan=plan,
+                execution_commit=args.execution_commit,
+            )
             signal.alarm(0)
             atomic_exclusive_json(args.output_dir, "FAILURE.json", failure, maximum_directory_bytes=ARTIFACT_CAP)
         print(f"B-HIC0 failed: {type(error).__name__}: {error}", file=sys.stderr)
