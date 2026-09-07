@@ -27,6 +27,18 @@ if [[ ! -e "$dataset_dir" ]]; then
     --traces "$source_trace" \
     --output-dir "$dataset_dir"
 fi
+audit_path="$dataset_dir/RENDERER-AUDIT.json"
+if [[ ! -e "$audit_path" ]]; then
+  audit_tmp="$dataset_dir/.RENDERER-AUDIT.json.tmp.$$"
+  trap 'rm -f "$audit_tmp"' EXIT
+  CUDA_VISIBLE_DEVICES="" HF_HUB_OFFLINE=1 TRANSFORMERS_OFFLINE=1 \
+    "$python_bin" scripts/audit_q35_2b_document_summary_live_revision_renderer_v2.py \
+      --trace "$source_trace" \
+      --tokenizer "$source_model" \
+      --dataset-dir "$dataset_dir" >"$audit_tmp"
+  mv "$audit_tmp" "$audit_path"
+  trap - EXIT
+fi
 mkdir -p "$state_dir"
 "$python_bin" scripts/run_q35_2b_document_decision_sft_v1.py \
   --repo "$root" \

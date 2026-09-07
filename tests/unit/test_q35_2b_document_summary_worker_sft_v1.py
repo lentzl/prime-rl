@@ -491,6 +491,26 @@ def test_training_runner_accepts_live_revision_contract() -> None:
     assert "enable_thinking = true" in config
 
 
+def test_live_revision_training_requires_a_matching_renderer_audit(
+    tmp_path: Path,
+) -> None:
+    module = _runner_module()
+    dataset = tmp_path / "dataset"
+    dataset.mkdir()
+    (dataset / "MANIFEST.json").write_text("{}")
+    (dataset / "train.parquet").write_bytes(b"parquet")
+
+    try:
+        module._validated_renderer_audit(
+            dataset,
+            {"schema_version": "qwen35-2b-document-summary-live-revision-sft/v2"},
+        )
+    except ValueError as error:
+        assert "missing live revision renderer audit" in str(error)
+    else:
+        raise AssertionError("missing renderer audit was accepted")
+
+
 def test_text_revision_training_wrapper_defaults_to_one_update() -> None:
     wrapper = (
         Path(__file__).parents[2]
@@ -512,6 +532,7 @@ def test_live_revision_training_wrapper_is_bounded_and_thinking_explicit() -> No
     assert "--learning-rate 2e-7" in wrapper
     assert '--optimizer-updates "$optimizer_updates"' in wrapper
     assert "--enable-thinking" in wrapper
+    assert "RENDERER-AUDIT.json" in wrapper
 
 
 def test_live_revision_renderer_audit_checks_exact_completion_suffix() -> None:

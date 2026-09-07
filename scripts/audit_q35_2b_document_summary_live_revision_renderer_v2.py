@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import tempfile
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 
@@ -194,14 +195,31 @@ def _audit_mode(
     }
 
 
-def audit(*, trace: Path, tokenizer_path: Path) -> dict[str, Any]:
+def audit(
+    *, trace: Path, tokenizer_path: Path, dataset_dir: Path | None = None
+) -> dict[str, Any]:
     if torch.cuda.is_initialized():
         raise RuntimeError("renderer audit must begin before CUDA initialization")
     live_messages = _trace_messages(trace)
-    with tempfile.TemporaryDirectory(prefix="summary-live-revision-audit-") as tmp:
-        dataset_dir = Path(tmp) / "dataset"
-        manifest = export(traces=[trace], output_dir=dataset_dir)
-        rows = Dataset.from_parquet(str(dataset_dir / "train.parquet"))
+    temporary = dataset_dir is None
+    context = (
+        tempfile.TemporaryDirectory(prefix="summary-live-revision-audit-")
+        if temporary
+        else nullcontext(None)
+    )
+    with context as tmp:
+        if not temporary and dataset_dir is None:
+            raise AssertionError("persistent renderer audit requires a dataset path")
+        active_dataset_dir = (
+            Path(tmp) / "dataset" if temporary else dataset_dir.resolve()
+        )
+        if temporary:
+            manifest = export(traces=[trace], output_dir=active_dataset_dir)
+        else:
+            manifest = json.loads(
+                (active_dataset_dir / "MANIFEST.json").read_text(encoding="utf-8")
+            )
+        rows = Dataset.from_parquet(str(active_dataset_dir / "train.parquet"))
         row = next(
             row
             for row in rows
@@ -234,6 +252,12 @@ def audit(*, trace: Path, tokenizer_path: Path) -> dict[str, Any]:
         selected_mode = next(mode for mode in modes if mode["enable_thinking"])
         if not selected_mode["live_history_token_equivalent"]:
             raise ValueError("thinking-enabled history differs from the live trace")
+        manifest_sha256 = hashlib.sha256(
+            (active_dataset_dir / "MANIFEST.json").read_bytes()
+        ).hexdigest()
+        parquet_sha256 = hashlib.sha256(
+            (active_dataset_dir / "train.parquet").read_bytes()
+        ).hexdigest()
     if torch.cuda.is_initialized():
         raise RuntimeError("renderer audit initialized CUDA")
     return {
@@ -242,6 +266,8 @@ def audit(*, trace: Path, tokenizer_path: Path) -> dict[str, Any]:
         "trace": str(trace.resolve()),
         "tokenizer": str(tokenizer_path.resolve()),
         "dataset_schema_version": manifest["schema_version"],
+        "dataset_manifest_sha256": manifest_sha256,
+        "dataset_parquet_sha256": parquet_sha256,
         "role_sequence": [message["role"] for message in messages],
         "live_task_prompt_equal": True,
         "live_prior_draft_equal": True,
@@ -260,10 +286,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--trace", type=Path, required=True)
     parser.add_argument("--tokenizer", type=Path, required=True)
+    parser.add_argument("--dataset-dir", type=Path)
     args = parser.parse_args()
     print(
         json.dumps(
-            audit(trace=args.trace, tokenizer_path=args.tokenizer),
+            audit(
+                trace=args.trace,
+                tokenizer_path=args.tokenizer,
+                dataset_dir=args.dataset_dir,
+            ),
             indent=2,
             sort_keys=True,
         )

@@ -525,6 +525,48 @@ def _metrics(path: Path) -> dict[str, Any]:
     return result
 
 
+def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, Any]:
+    audit_path = path / "RENDERER-AUDIT.json"
+    if not audit_path.is_file():
+        raise ValueError(f"missing live revision renderer audit: {audit_path}")
+    audit = json.loads(audit_path.read_text(encoding="utf-8"))
+    modes = audit.get("modes")
+    selected = next(
+        (
+            mode
+            for mode in modes or []
+            if isinstance(mode, dict) and mode.get("enable_thinking") is True
+        ),
+        None,
+    )
+    if (
+        audit.get("schema_version")
+        != "qwen35-2b-document-summary-live-revision-renderer-audit/v2"
+        or audit.get("status") != "complete"
+        or audit.get("dataset_schema_version") != dataset["schema_version"]
+        or audit.get("dataset_manifest_sha256")
+        != sha256_file(path / "MANIFEST.json")
+        or audit.get("dataset_parquet_sha256") != sha256_file(path / "train.parquet")
+        or audit.get("selected_enable_thinking") is not True
+        or audit.get("cuda_initialized") is not False
+        or audit.get("live_task_prompt_equal") is not True
+        or audit.get("live_prior_draft_equal") is not True
+        or audit.get("live_revision_feedback_equal") is not True
+        or audit.get("role_sequence")
+        != ["user", "user", "assistant", "user", "assistant"]
+        or selected is None
+        or selected.get("live_history_token_equivalent") is not True
+        or selected.get("prior_assistant_trainable_tokens") != 0
+        or selected.get("truncated") is not False
+        or selected.get("completion_boundary_alignment")
+        != "renderer_common_prefix_v1"
+        or not isinstance(selected.get("trainable_completion_tokens"), int)
+        or selected["trainable_completion_tokens"] <= 0
+    ):
+        raise ValueError(f"invalid live revision renderer audit: {audit_path}")
+    return audit
+
+
 def _gpus_idle() -> bool:
     result = subprocess.run(
         [
@@ -549,6 +591,12 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     source_sha = sha256_file(source_weight)
     dataset_dir = args.dataset_dir.resolve()
     dataset = _validated_dataset(dataset_dir)
+    renderer_audit = None
+    if (
+        dataset["schema_version"]
+        == "qwen35-2b-document-summary-live-revision-sft/v2"
+    ):
+        renderer_audit = _validated_renderer_audit(dataset_dir, dataset)
     output_root = args.output_root.resolve()
     state_dir = args.state_dir.resolve()
     config_path = state_dir / f"{args.run_name}.toml"
@@ -603,6 +651,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "family_counts": dataset["family_counts"],
             "answer_free": dataset["answer_free"],
             "tool_call_format": dataset["tool_call_format"],
+            "renderer_audit_sha256": (
+                None
+                if renderer_audit is None
+                else sha256_file(dataset_dir / "RENDERER-AUDIT.json")
+            ),
         },
         "training": {
             "config_path": str(config_path),
