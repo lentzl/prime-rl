@@ -81,6 +81,16 @@ def _read_episodes(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _select_train_episodes(
+    rows: list[dict[str, Any]], *, start: int, count: int
+) -> list[dict[str, Any]]:
+    if start < 0 or count < 1 or start + count > len(rows):
+        raise ValueError(
+            f"TRAIN episode window [{start}, {start + count}) exceeds {len(rows)} rows"
+        )
+    return rows[start : start + count]
+
+
 def _wire_message(message: dict[str, Any]) -> dict[str, Any]:
     result = {key: value for key, value in message.items() if value is not None}
     content = result.get("content")
@@ -536,6 +546,7 @@ def main() -> None:
     parser.add_argument("--master-seed", type=int, default=20260819)
     parser.add_argument("--tiny-pairs", type=int, default=8)
     parser.add_argument("--train-pairs", type=int, default=128)
+    parser.add_argument("--train-start", type=int, default=0)
     parser.add_argument("--decision-repeats", type=int, default=3)
     parser.add_argument("--fanin-repeats", type=int, default=2)
     args = parser.parse_args()
@@ -549,10 +560,12 @@ def main() -> None:
     generator = load_generator(args.generator)
     tiny_episodes = _read_episodes(args.tiny_episodes)
     train_episodes = _read_episodes(args.train_episodes)
-    if args.tiny_pairs > len(tiny_episodes) or args.train_pairs > len(train_episodes):
+    if args.tiny_pairs > len(tiny_episodes):
         raise ValueError("requested coordinator pairs exceed available TRAIN episodes")
     selected_tiny = tiny_episodes[: args.tiny_pairs]
-    selected_train = train_episodes[: args.train_pairs]
+    selected_train = _select_train_episodes(
+        train_episodes, start=args.train_start, count=args.train_pairs
+    )
     if {row["episode_id"] for row in selected_tiny} & {row["episode_id"] for row in selected_train}:
         raise ValueError("tiny and expanded coordinator episodes overlap")
 
@@ -601,6 +614,8 @@ def main() -> None:
             "tiny_pairs": len(selected_tiny),
             "tiny_rows": len(tiny_rows),
             "train_pairs": len(selected_train),
+            "train_start": args.train_start,
+            "train_stop": args.train_start + len(selected_train),
             "new_train_rows": len(train_new),
             "root_rehearsal_rows": len(rehearsal),
             "full_rows": len(full_rows),

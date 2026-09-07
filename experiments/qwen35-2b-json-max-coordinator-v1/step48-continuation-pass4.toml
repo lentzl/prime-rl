@@ -1,10 +1,10 @@
-max_steps = 64
+max_steps = 16
 output_dir = "/home/ubuntu/rlm/outputs/q35-2b-json-max-coordinator-sft-v1"
 clean = false
 
 [run]
-name = "coordinator-json-max-curve-e33-lr1e6-4pass-v2"
-dir = "coordinator-json-max-curve-e33-lr1e6-4pass-v2"
+name = "coordinator-json-max-curve-step48-continuation-lr5e7-pass4-v1"
+dir = "coordinator-json-max-curve-step48-continuation-lr5e7-pass4-v1"
 
 [deployment]
 type = "single_node"
@@ -12,7 +12,7 @@ gpus_per_node = 2
 num_gpus = 2
 
 [model]
-name = "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2"
+name = "/home/ubuntu/rlm/outputs/q35-2b-json-max-coordinator-sft-v1/coordinator-json-max-curve-e33-lr1e6-pass1-v1/weights/step_48"
 impl = "custom"
 optimization_dtype = "bfloat16"
 reduce_dtype = "bfloat16"
@@ -39,7 +39,7 @@ enable_thinking = false
 
 [data]
 type = "sft"
-name = "/home/ubuntu/rlm/artifacts/q35-2b-json-max-coordinator-sft-v1/coordinator-json-max-128-root60-v4/train"
+name = "/home/ubuntu/rlm/artifacts/q35-2b-json-max-coordinator-sft-v1/coordinator-json-max-128-root60-v5/train"
 batch_size = 12
 micro_batch_size = 1
 seq_len = 16384
@@ -54,7 +54,7 @@ tool = false
 
 [optim]
 type = "adamw"
-lr = 0.000001
+lr = 0.0000005
 weight_decay = 0.01
 max_norm = 1.0
 betas1 = 0.9
@@ -66,7 +66,6 @@ type = "constant"
 [ckpt]
 interval = 16
 keep_last = 1
-keep_interval = 16
 weights_only = true
 
 [ckpt.weights]

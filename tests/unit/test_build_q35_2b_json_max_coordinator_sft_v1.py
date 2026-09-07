@@ -128,18 +128,39 @@ def test_target_validator_rejects_agent_message_as_spawn() -> None:
         raise AssertionError("non-native spawn target was accepted")
 
 
+def test_train_episode_window_is_bounded_and_disjoint() -> None:
+    rows = []
+    for index in range(4):
+        row = episode()
+        row["episode_id"] = f"train-{index}"
+        rows.append(row)
+    assert [row["episode_id"] for row in builder._select_train_episodes(rows, start=1, count=2)] == [
+        "train-1",
+        "train-2",
+    ]
+    for start, count in ((-1, 1), (0, 0), (3, 2)):
+        try:
+            builder._select_train_episodes(rows, start=start, count=count)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError("out-of-range TRAIN window was accepted")
+
+
 def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
     root = Path(__file__).resolve().parents[2]
     config_dir = root / "experiments" / "qwen35-2b-json-max-coordinator-v1"
     tiny = tomllib.loads((config_dir / "tiny-fit-e33-step8.toml").read_text())
     pass1 = tomllib.loads((config_dir / "fresh-curve-e33-pass1.toml").read_text())
-    curve = tomllib.loads((config_dir / "fresh-curve-e33-4pass.toml").read_text())
+    continuation = tomllib.loads(
+        (config_dir / "step48-continuation-pass4.toml").read_text()
+    )
 
     e33 = (
         "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/"
         "c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2"
     )
-    for config in (tiny, pass1, curve):
+    for config in (tiny, pass1):
         assert config["model"]["name"] == e33
         assert config["tokenizer"]["name"] == e33
         assert config["deployment"] == {
@@ -178,12 +199,6 @@ def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
         "weights": {"save_sharded": True, "save_format": "safetensors"},
     }
 
-    assert curve["max_steps"] == 64
-    assert curve["run"]["name"] == "coordinator-json-max-curve-e33-lr1e6-4pass-v2"
-    assert curve["data"]["name"].endswith("/train")
-    assert curve["ckpt"]["interval"] == 16
-    assert curve["ckpt"]["keep_interval"] == 16
-
     assert pass1["max_steps"] == 48
     assert pass1["run"]["name"] == "coordinator-json-max-curve-e33-lr1e6-pass1-v1"
     assert pass1["data"]["name"].endswith("/train")
@@ -193,6 +208,29 @@ def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
         "weights_only": True,
         "weights": {"save_sharded": True, "save_format": "safetensors"},
     }
+
+    assert continuation["max_steps"] == 16
+    assert continuation["model"]["name"].endswith(
+        "/coordinator-json-max-curve-e33-lr1e6-pass1-v1/weights/step_48"
+    )
+    assert continuation["tokenizer"]["name"] == e33
+    assert continuation["run"]["name"] == (
+        "coordinator-json-max-curve-step48-continuation-lr5e7-pass4-v1"
+    )
+    assert continuation["data"]["name"].endswith(
+        "/coordinator-json-max-128-root60-v5/train"
+    )
+    assert continuation["optim"]["lr"] == 5e-7
+    assert continuation["deployment"] == {
+        "type": "single_node",
+        "gpus_per_node": 2,
+        "num_gpus": 2,
+    }
+    assert continuation["data"]["batch_size"] == 12
+    assert continuation["data"]["micro_batch_size"] == 1
+    assert continuation["data"]["seq_len"] == 16384
+    assert continuation["data"]["shuffle"] is False
+    assert continuation["ckpt"]["interval"] == 16
 
 
 def test_qualification_driver_supports_an_explicit_train_fit_split() -> None:
