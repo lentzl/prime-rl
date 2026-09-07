@@ -252,6 +252,7 @@ class SFTDataset(StatefulIterableDataset):
         # rendering and use it only to override whether renderer-sampled tokens
         # attributed to that individual message contribute to the loss.
         message_trainable: dict[int, bool] = {}
+        mask_generation_prompt = False
         render_messages: list[dict[str, Any]] = []
         for index, message in enumerate(messages):
             trainable = message.get("trainable")
@@ -259,8 +260,23 @@ class SFTDataset(StatefulIterableDataset):
                 raise ValueError(
                     f"Message {index} trainable override must be a boolean"
                 )
+            mask_prompt = message.get("mask_generation_prompt")
+            if "mask_generation_prompt" in message and not isinstance(
+                mask_prompt, bool
+            ):
+                raise ValueError(
+                    f"Message {index} mask_generation_prompt must be a boolean"
+                )
+            if mask_prompt:
+                if index != len(messages) - 1 or message.get("role") != "assistant":
+                    raise ValueError(
+                        "mask_generation_prompt is only valid on the final assistant message"
+                    )
+                mask_generation_prompt = True
             rendered_message = {
-                key: value for key, value in message.items() if key != "trainable"
+                key: value
+                for key, value in message.items()
+                if key not in {"trainable", "mask_generation_prompt"}
             }
             render_messages.append(rendered_message)
             if "trainable" in message:
@@ -331,6 +347,16 @@ class SFTDataset(StatefulIterableDataset):
         )
         input_ids = list(sample.token_ids)
         loss_mask = list(sample.loss_mask)
+        if mask_generation_prompt:
+            generation_prompt = self.renderer.render(
+                messages[:-1], tools=tools, add_generation_prompt=True
+            )
+            prompt_ids = list(generation_prompt.token_ids)
+            if input_ids[: len(prompt_ids)] != prompt_ids:
+                raise ValueError(
+                    "Final assistant training sample does not extend its generation prompt"
+                )
+            loss_mask[: len(prompt_ids)] = [False] * len(prompt_ids)
         mm = sample.multi_modal_data
         mm_token_type_ids = list(sample.mm_token_type_ids) if sample.mm_token_type_ids is not None else None
         if mm is not None and mm.mm_items and not self.multimodal:

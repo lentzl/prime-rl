@@ -452,6 +452,7 @@ def test_live_revision_export_matches_the_real_role_sequence_and_masks_context(
         ]
         assert messages[2]["trainable"] is False
         assert messages[4]["trainable"] is True
+        assert messages[4]["mask_generation_prompt"] is True
         assert "Summarize the chapter below" in messages[1]["content"]
         assert "Your draft has" in messages[3]["content"]
         assert "Do not call tools" in messages[3]["content"]

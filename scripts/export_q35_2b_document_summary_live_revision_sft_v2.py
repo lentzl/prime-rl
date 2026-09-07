@@ -128,6 +128,7 @@ def _messages(
         {
             "role": "assistant",
             "content": case["target"],
+            "mask_generation_prompt": True,
             "tool_calls": [],
             "trainable": True,
         },
@@ -239,6 +240,7 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
         "context_assistant_messages_per_row": 1,
         "prior_assistant_draft_trainable": False,
         "corrected_assistant_target_trainable": True,
+        "generation_prompt_tokens_trainable": False,
         "distinct_conversation_payloads": 3,
         "repetitions_per_chapter": REPETITIONS_PER_CHAPTER,
         "broad_skill_claim": False,

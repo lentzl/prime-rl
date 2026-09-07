@@ -58,6 +58,35 @@ class _MultiMessageRenderer:
         return [_STOP_TOKEN_ID]
 
 
+class _GenerationPrefixRenderer:
+    """Render a sampled prefix token that inference already supplies."""
+
+    def render(self, messages, *, add_generation_prompt=False, **kwargs):
+        token_ids = [_BOS_TOKEN_ID]
+        message_indices = [-1]
+        sampled_mask = [False]
+        for index, message in enumerate(messages):
+            token_ids.append(200 + index)
+            message_indices.append(index)
+            sampled_mask.append(False)
+            if message["role"] == "assistant":
+                token_ids.extend([900, 300 + index, _STOP_TOKEN_ID])
+                message_indices.extend([index, index, index])
+                sampled_mask.extend([True, True, True])
+        if add_generation_prompt:
+            token_ids.extend([200 + len(messages), 900])
+            message_indices.extend([-1, -1])
+            sampled_mask.extend([False, False])
+        return RenderedTokens(
+            token_ids=token_ids,
+            message_indices=message_indices,
+            sampled_mask=sampled_mask,
+        )
+
+    def get_stop_token_ids(self):
+        return [_STOP_TOKEN_ID]
+
+
 @pytest.fixture(scope="module")
 def build_dummy_dataset():
     return lambda letter, num_examples: Dataset.from_list(
@@ -329,6 +358,35 @@ def test_message_trainable_override_must_be_boolean() -> None:
                 ]
             }
         )
+
+
+def test_generation_prompt_tokens_are_context_not_targets() -> None:
+    messages = [
+        {"role": "user", "content": "source"},
+        {"role": "assistant", "content": "draft", "trainable": False},
+        {"role": "user", "content": "feedback"},
+        {
+            "role": "assistant",
+            "content": "revision",
+            "trainable": True,
+            "mask_generation_prompt": True,
+        },
+    ]
+    dataset = SFTDataset(
+        Dataset.from_list([{"messages": messages}]),
+        _GenerationPrefixRenderer(),
+        shuffle=False,
+    )
+
+    sample = next(iter(dataset))
+    observed = list(zip(sample["target_ids"], sample["loss_mask"], strict=True))
+
+    assert observed[-4:] == [
+        (203, False),
+        (900, False),
+        (303, True),
+        (_STOP_TOKEN_ID, True),
+    ]
 
 
 def test_multiturn_loss_mask_with_tools():
