@@ -12,6 +12,9 @@ receipt=$output_root/$label/SMOKE-RECEIPT.txt
 if [[ -z "${INFERENCE_BIN:-}" && ! -x "$root/.venv/bin/inference" && -x /home/ubuntu/rlm/prime-rl/.venv/bin/inference ]]; then
   export INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference
 fi
+if [[ -z "${UV_PROJECT_ENVIRONMENT:-}" && ! -x "$root/.venv/bin/python" && -x /home/ubuntu/rlm/prime-rl/.venv/bin/python ]]; then
+  export UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv
+fi
 
 if [[ -e "$receipt" ]]; then
   echo "refusing to overwrite document translation receipt: $receipt" >&2
