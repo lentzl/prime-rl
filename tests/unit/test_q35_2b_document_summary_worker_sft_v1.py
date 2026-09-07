@@ -143,3 +143,13 @@ def test_training_runner_accepts_summary_worker_contract() -> None:
     )
     assert module.DATASET_ANSWER_FREE["qwen35-2b-document-summary-worker-sft/v1"] is False
     assert module.DATASET_ROWS["qwen35-2b-document-summary-worker-sft/v1"] == 12
+
+
+def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_worker_sft_v1.sh"
+    ).read_text()
+
+    assert "optimizer_updates=${4:-2}" in wrapper
+    assert '--optimizer-updates "$optimizer_updates"' in wrapper

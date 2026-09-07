@@ -5,6 +5,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 source_trace=${1:?source summary-worker trace required}
 source_model=${2:?source H176 checkpoint required}
 run_name=${3:-h176-summary-worker-sft12-step2-v1}
+optimizer_updates=${4:-2}
 dataset_dir=${DOCUMENT_SUMMARY_SFT_DATASET:-/home/ubuntu/rlm/data/q35-2b-document-summary-worker-sft-v1}
 output_root=${DOCUMENT_SUMMARY_SFT_OUTPUT_ROOT:-/home/ubuntu/rlm/outputs/q35-2b-document-summary-worker-sft-v1}
 state_dir=${DOCUMENT_SUMMARY_SFT_STATE_DIR:-/home/ubuntu/rlm/state/q35-2b-document-summary-worker-sft-v1}
@@ -35,5 +36,5 @@ mkdir -p "$state_dir"
   --state-dir "$state_dir" \
   --run-name "$run_name" \
   --learning-rate 1e-6 \
-  --optimizer-updates 2 \
+  --optimizer-updates "$optimizer_updates" \
   --timeout 3600
