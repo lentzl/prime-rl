@@ -24,7 +24,7 @@ max_total_tokens = 131072
 [env.agent.harness]
 id = "prime_agent"
 version = "0.7.2-beta.495.1.97b994c"
-env = { RLM_MAX_DEPTH = "1" }
+env = { RLM_MAX_DEPTH = "1", PRIME_AGENT_KERNEL_PYTHON = "/usr/local/bin/python" }
 autonomous = true
 gates = ["python /workspace/document-translation-v1/completion_gate.py"]
 autonomous_max_continuations = 10
@@ -35,7 +35,7 @@ process_timeout_ms = 1140000
 
 [env.agent.runtime]
 type = "docker"
-image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-default-parent-v1"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-document-translation-v1"
 
 [env.agent.timeout]
 setup = 300.0

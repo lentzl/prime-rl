@@ -15,6 +15,15 @@ hashes, coverage, and artifact validation are implemented directly in the small
 Verifiers task contract. We will add extraction or assembly helpers only when a real
 document exposes that need.
 
+The pinned Prime Agent runtime normally bootstraps its Python kernel on first use.
+Evaluation removes outbound network access before the first model turn, so this
+smoke uses a small derivative image with those documented kernel dependencies baked
+in. Build it once on the execution host with:
+
+```bash
+scripts/build_document_translation_prime_agent_image_v1.sh
+```
+
 Starting models:
 
 - document owner: the strongest existing e33-descended coordinator checkpoint;

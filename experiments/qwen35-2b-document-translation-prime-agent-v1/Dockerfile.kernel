@@ -1,0 +1,58 @@
+FROM rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-default-parent-v1
+
+ARG PRIME_AGENT_ROOT=/var/tmp/vf-prime-agent/0.7.2-beta.495.1.97b994c/lib/node_modules/prime-agent/dist
+
+# Prime Agent normally bootstraps this environment lazily. Evaluation containers
+# lose outbound network access before the first model turn, so bake the documented
+# runtime surface into the image and point the kernel launcher at it explicitly.
+RUN python -m pip install --no-cache-dir \
+      ipykernel \
+      dill \
+      requests \
+      httpx \
+      pyyaml \
+      tomli \
+      python-dotenv \
+      pandas \
+      numpy \
+      scipy \
+      beautifulsoup4 \
+      lxml \
+      pydantic \
+      tyro \
+    && python -m pip install --no-cache-dir "${PRIME_AGENT_ROOT}/prime-agent-runtime" \
+    && python -m pip install --no-cache-dir \
+      "${PRIME_AGENT_ROOT}/skills/agent-message" \
+      "${PRIME_AGENT_ROOT}/skills/agent-observe" \
+      "${PRIME_AGENT_ROOT}/skills/attach-image" \
+      "${PRIME_AGENT_ROOT}/skills/compact" \
+      "${PRIME_AGENT_ROOT}/skills/edit" \
+      "${PRIME_AGENT_ROOT}/skills/goal" \
+      "${PRIME_AGENT_ROOT}/skills/refine" \
+      "${PRIME_AGENT_ROOT}/skills/rlm-heartbeat" \
+      "${PRIME_AGENT_ROOT}/skills/websearch"
+
+ENV PRIME_AGENT_KERNEL_PYTHON=/usr/local/bin/python
+
+RUN python - <<'PY'
+import agent_message
+import agent_observe
+import bs4
+import dill
+import dotenv
+import httpx
+import ipykernel
+import lxml
+import numpy
+import pandas
+import pydantic
+import requests
+import rlm
+import scipy
+import tomli
+import tyro
+import yaml
+
+assert callable(rlm.run)
+assert callable(rlm.host_request)
+PY
