@@ -442,6 +442,10 @@ def _load_rehearsal(path: Path, repeats: int) -> tuple[list[dict[str, Any]], dic
         for source_row in unique:
             row = copy.deepcopy(source_row)
             row["phase"] = "rehearsal"
+            for message in row["messages"]:
+                message.setdefault("reasoning_content", None)
+                message.setdefault("tool_calls", None)
+                message.setdefault("tool_call_id", None)
             rows.append(row)
     return rows, {
         "path": str(path.resolve()),
