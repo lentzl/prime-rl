@@ -18,7 +18,7 @@ num_tasks = 1
 mode = "worker_probe"
 
 [env.agent]
-max_turns = 12
+max_turns = 16
 max_output_tokens = 32768
 max_total_tokens = 65536
 
@@ -29,7 +29,7 @@ env = { RLM_MAX_DEPTH = "0", PRIME_AGENT_KERNEL_PYTHON = "/usr/local/bin/python"
 autonomous = true
 gates = ["python /workspace/document-summary-v1/completion_gate.py"]
 autonomous_max_continuations = 6
-autonomous_max_turns = 12
+autonomous_max_turns = 16
 autonomous_max_tokens = 65536
 autonomous_timeout_ms = 600000
 process_timeout_ms = 540000
