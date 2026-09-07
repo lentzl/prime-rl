@@ -140,7 +140,15 @@ def _audit_mode(
         )
         if trainable
     ]
-    expected_completion = full.token_ids[prompt_length:]
+    expected_completion = [
+        token_id
+        for token_id, sampled in zip(
+            full.token_ids[prompt_length:],
+            full.sampled_mask[prompt_length:],
+            strict=True,
+        )
+        if sampled
+    ]
     if trainable_ids != expected_completion:
         raise ValueError("loss mask does not select the exact live completion suffix")
 
