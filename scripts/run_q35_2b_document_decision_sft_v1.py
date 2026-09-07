@@ -31,6 +31,10 @@ DATASET_CONTRACTS = {
         "child",
         "grounded_english_chapter_summary_gate_repair",
     ),
+    "qwen35-2b-document-summary-worker-repair-sft/v2": (
+        "child",
+        "grounded_english_chapter_summary_gate_surgical_repair",
+    ),
     "qwen35-2b-document-summary-worker-mixed-sft/v1": (
         "child",
         "grounded_english_chapter_summary_and_gate_repair",
@@ -141,6 +145,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-child-sft/v1": True,
     "qwen35-2b-document-summary-worker-sft/v1": False,
     "qwen35-2b-document-summary-worker-repair-sft/v1": False,
+    "qwen35-2b-document-summary-worker-repair-sft/v2": False,
     "qwen35-2b-document-summary-worker-mixed-sft/v1": False,
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,

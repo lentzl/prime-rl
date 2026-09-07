@@ -19,13 +19,13 @@ from export_q35_2b_document_summary_worker_sft_v1 import (
     _source_context,
 )
 
-SCHEMA_VERSION = "qwen35-2b-document-summary-worker-repair-sft/v1"
-OBJECTIVE = "grounded_english_chapter_summary_gate_repair"
+SCHEMA_VERSION = "qwen35-2b-document-summary-worker-repair-sft/v2"
+OBJECTIVE = "grounded_english_chapter_summary_gate_surgical_repair"
 
 
 def _repair_case(
     chapter: dict[str, Any],
-) -> tuple[dict[str, Any], dict[str, Any], str, str]:
+) -> tuple[dict[str, Any], dict[str, Any], str, int]:
     job = _job(chapter)
     correct = chapter["report"]
     bad = json.loads(json.dumps(correct))
@@ -35,23 +35,13 @@ def _repair_case(
         if len(bullet["source_ids"]) > 1
     )
     missing_source_id = bad["bullets"][merge_index]["source_ids"].pop()
-    copy_index = next(
-        index
-        for index, bullet in enumerate(bad["bullets"])
-        if index != merge_index and len(bullet["source_ids"]) == 1
-    )
-    copied_bullet_id = bad["bullets"][copy_index]["id"]
-    copied_source_id = bad["bullets"][copy_index]["source_ids"][0]
-    bad["bullets"][copy_index]["text"] = next(
-        row["text"] for row in chapter["paragraphs"] if row["id"] == copied_source_id
-    )
-    return job, bad, missing_source_id, copied_bullet_id
+    return job, bad, missing_source_id, merge_index
 
 
 def _messages(
     runtime_message: dict[str, Any], chapter: dict[str, Any]
 ) -> list[dict[str, Any]]:
-    job, bad_report, missing_source_id, copied_bullet_id = _repair_case(chapter)
+    job, bad_report, missing_source_id, repair_index = _repair_case(chapter)
     correct_report = chapter["report"]
     slug = chapter["slug"]
     read_id = f"summary-repair-read-{hashlib.sha256(slug.encode()).hexdigest()[:16]}"
@@ -65,11 +55,14 @@ def _messages(
         "{'job': job, 'report': report}"
     )
     write_code = (
-        f"report['bullets'] = {correct_report['bullets']!r}\n"
-        "report['issues'] = []\n"
+        "before = json.loads(json.dumps(report['bullets']))\n"
+        f"repair_index = {repair_index}\n"
+        f"report['bullets'][repair_index] = {correct_report['bullets'][repair_index]!r}\n"
+        "assert all(report['bullets'][i] == before[i] for i in range(3) if i != repair_index)\n"
         "expected_ids = {row['id'] for row in job['paragraphs']}\n"
-        "covered_ids = {source_id for bullet in report['bullets'] for source_id in bullet['source_ids']}\n"
-        "assert len(report['bullets']) == 3 and covered_ids == expected_ids\n"
+        "ordered_ids = [source_id for bullet in report['bullets'] for source_id in bullet['source_ids']]\n"
+        "assert len(report['bullets']) == 3 and set(ordered_ids) == expected_ids\n"
+        "assert len(ordered_ids) == len(expected_ids)\n"
         "assert all(5 <= len(bullet['text'].split()) <= 45 for bullet in report['bullets'])\n"
         "written = output_path.write_text(json.dumps(report, indent=2) + '\\n', encoding='utf-8')\n"
         "written"
@@ -81,8 +74,7 @@ def _messages(
         f"{OUTPUT_PATH}. Diagnostic: AssertionError: missing paragraph coverage: "
         f"[{missing_source_id!r}]. Keep exactly three bullets; revise one bullet's text "
         "to summarize the missing paragraph together with its existing source, and cite both "
-        f"source IDs | verbatim source copying in bullets [{copied_bullet_id!r}]; "
-        "paraphrase each complete source sentence in shorter wording\n\n"
+        "source IDs\n\n"
         "Continue working as the same terminal worker. There is no parent receiver: do not "
         "call agent_message. Do not edit the job or parse completion_gate.py. Read the original "
         "job and current report, update only the required worker-report.json in one corrective "
@@ -121,8 +113,8 @@ def _messages(
             "role": "assistant",
             "content": "",
             "reasoning_content": (
-                "The gate identified both defects. I will directly rewrite the existing three "
-                "bullets with paraphrased text and complete source coverage, then stop."
+                "The gate identified one missing source in an otherwise complete report. I will "
+                "change only the affected bullet, preserve the other two exactly, and stop."
             ),
             "tool_calls": [
                 {
@@ -197,6 +189,7 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
         "native_prime_agent_context": True,
         "on_policy_failure_context": True,
         "repair_only": True,
+        "surgical_single_bullet_repair": True,
         "initial_bad_assistant_turns": 0,
         "evaluation_document_excluded": True,
         "evaluation_document_id": EVALUATION_DOCUMENT_ID,

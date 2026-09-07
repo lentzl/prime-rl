@@ -199,6 +199,7 @@ def test_summary_repair_export_teaches_atomic_correction_without_bad_turns(
         "summary_repair_safety": 4,
     }
     assert manifest["repair_only"] is True
+    assert manifest["surgical_single_bullet_repair"] is True
     assert manifest["initial_bad_assistant_turns"] == 0
     assert manifest["on_policy_failure_context"] is True
     assert _runner_module()._validated_dataset(output) == manifest
@@ -210,7 +211,7 @@ def test_summary_repair_export_teaches_atomic_correction_without_bad_turns(
         assert len(messages) == 7
         assert messages[1]["role"] == "user"
         assert "missing paragraph coverage" in messages[1]["content"]
-        assert "verbatim source copying" in messages[1]["content"]
+        assert "verbatim source copying" not in messages[1]["content"]
         assert "There is no parent receiver" in messages[1]["content"]
         assert "do not call agent_message" in messages[1]["content"]
         assert "Do not edit the job" in messages[1]["content"]
@@ -220,8 +221,10 @@ def test_summary_repair_export_teaches_atomic_correction_without_bad_turns(
         write_code = json.loads(
             messages[4]["tool_calls"][0]["function"]["arguments"]
         )["code"]
-        assert "report['bullets'] =" in write_code
-        assert "covered_ids == expected_ids" in write_code
+        assert "report['bullets'][repair_index] =" in write_code
+        assert "if i != repair_index" in write_code
+        assert "set(ordered_ids) == expected_ids" in write_code
+        assert "len(ordered_ids) == len(expected_ids)" in write_code
         assert messages[6]["tool_calls"] == []
 
         tool_payload = messages[3]["content"]
@@ -234,15 +237,18 @@ def test_training_runner_accepts_summary_repair_contract() -> None:
     module = _runner_module()
 
     assert module.DATASET_CONTRACTS[
-        "qwen35-2b-document-summary-worker-repair-sft/v1"
-    ] == ("child", "grounded_english_chapter_summary_gate_repair")
+        "qwen35-2b-document-summary-worker-repair-sft/v2"
+    ] == ("child", "grounded_english_chapter_summary_gate_surgical_repair")
     assert (
         module.DATASET_ANSWER_FREE[
-            "qwen35-2b-document-summary-worker-repair-sft/v1"
+            "qwen35-2b-document-summary-worker-repair-sft/v2"
         ]
         is False
     )
-    assert module.DATASET_ROWS["qwen35-2b-document-summary-worker-repair-sft/v1"] == 12
+    assert module.DATASET_ROWS["qwen35-2b-document-summary-worker-repair-sft/v2"] == 12
+    assert module.DATASET_CONTRACTS[
+        "qwen35-2b-document-summary-worker-repair-sft/v1"
+    ] == ("child", "grounded_english_chapter_summary_gate_repair")
 
 
 def test_summary_repair_training_wrapper_is_bounded() -> None:
