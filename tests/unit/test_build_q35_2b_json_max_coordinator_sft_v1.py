@@ -132,13 +132,14 @@ def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
     root = Path(__file__).resolve().parents[2]
     config_dir = root / "experiments" / "qwen35-2b-json-max-coordinator-v1"
     tiny = tomllib.loads((config_dir / "tiny-fit-e33-step8.toml").read_text())
+    pass1 = tomllib.loads((config_dir / "fresh-curve-e33-pass1.toml").read_text())
     curve = tomllib.loads((config_dir / "fresh-curve-e33-4pass.toml").read_text())
 
     e33 = (
         "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/"
         "c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2"
     )
-    for config in (tiny, curve):
+    for config in (tiny, pass1, curve):
         assert config["model"]["name"] == e33
         assert config["tokenizer"]["name"] == e33
         assert config["deployment"] == {
@@ -181,6 +182,16 @@ def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
     assert curve["data"]["name"].endswith("/train")
     assert curve["ckpt"]["interval"] == 48
     assert curve["ckpt"]["keep_interval"] == 48
+
+    assert pass1["max_steps"] == 48
+    assert pass1["run"]["name"] == "coordinator-json-max-curve-e33-lr1e6-pass1-v1"
+    assert pass1["data"]["name"].endswith("/train")
+    assert pass1["ckpt"] == {
+        "interval": 48,
+        "keep_last": 1,
+        "weights_only": True,
+        "weights": {"save_sharded": True, "save_format": "safetensors"},
+    }
 
 
 def test_qualification_driver_supports_an_explicit_train_fit_split() -> None:
