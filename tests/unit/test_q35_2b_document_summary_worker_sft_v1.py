@@ -73,6 +73,23 @@ def _mixed_module():
         sys.path.remove(str(scripts))
 
 
+def _text_revision_module():
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "export_q35_2b_document_summary_text_revision_sft_v1",
+            scripts / "export_q35_2b_document_summary_text_revision_sft_v1.py",
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(scripts))
+
+
 def _source_trace(tmp_path: Path) -> Path:
     trace = {
         "id": "failed-but-authentic-summary-probe",
@@ -311,6 +328,81 @@ def test_mixed_summary_training_wrapper_is_bounded() -> None:
     ).read_text()
 
     assert "optimizer_updates=${4:-2}" in wrapper
+    assert '--optimizer-updates "$optimizer_updates"' in wrapper
+
+
+def test_text_revision_export_masks_failure_context_and_balances_cases(
+    tmp_path: Path,
+) -> None:
+    module = _text_revision_module()
+    output = tmp_path / "text-revision-dataset"
+    manifest = module.export(traces=[_source_trace(tmp_path)], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 12
+    assert manifest["family_counts"] == {
+        "summary_text_revision_exceptions": 4,
+        "summary_text_revision_operations": 4,
+        "summary_text_revision_scope": 4,
+    }
+    assert manifest["case_kind_counts"] == {
+        "already_compliant": 3,
+        "looser_budget": 3,
+        "observed_budget": 3,
+        "tighter_qualification": 3,
+    }
+    assert manifest["assistant_target_messages_per_row"] == 1
+    assert manifest["context_assistant_messages_per_row"] == 0
+    assert manifest["failed_reasoning_tokens_in_targets"] is False
+    assert manifest["native_prime_agent_context"] is True
+    assert manifest["prime_agent_tools_available"] is True
+    assert manifest["fresh_confirmation_documents_reserved"] is True
+    assert _runner_module()._validated_dataset(output) == manifest
+
+    for row in rows:
+        messages = row["messages"]
+        assistants = [message for message in messages if message["role"] == "assistant"]
+        assert len(messages) == 3
+        assert len(assistants) == 1
+        assert assistants[0]["content"].startswith("* ")
+        assert assistants[0].get("reasoning_content") in (None, "")
+        assert assistants[0].get("tool_calls") == []
+        assert "Previous draft:" in messages[1]["content"]
+        assert "Answer immediately" in messages[1]["content"]
+        assert "Do not count words out loud" in messages[1]["content"]
+
+    for record in manifest["case_records"]:
+        assert record["target_words"] <= record["budget"]
+        assert record["target_words"] <= record["source_budget"]
+        assert record["expects_change"] is (
+            record["kind"] != "already_compliant"
+        )
+        assert (record["draft_words"] > record["budget"]) is record[
+            "expects_change"
+        ]
+
+
+def test_training_runner_accepts_text_revision_contract() -> None:
+    module = _runner_module()
+    schema = "qwen35-2b-document-summary-text-revision-sft/v1"
+
+    assert module.DATASET_CONTRACTS[schema] == (
+        "child",
+        "grounded_english_chapter_summary_constrained_revision",
+    )
+    assert module.DATASET_ANSWER_FREE[schema] is False
+    assert module.DATASET_ROWS[schema] == 12
+    assert module.DATASET_BATCH_SIZES[schema] == 12
+
+
+def test_text_revision_training_wrapper_defaults_to_one_update() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_text_revision_sft_v1.sh"
+    ).read_text()
+
+    assert "optimizer_updates=${4:-1}" in wrapper
+    assert "--learning-rate 2e-7" in wrapper
     assert '--optimizer-updates "$optimizer_updates"' in wrapper
 
 
