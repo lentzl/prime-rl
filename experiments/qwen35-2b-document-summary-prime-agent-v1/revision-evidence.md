@@ -154,5 +154,9 @@ the first one-step update did not reliably teach revision. The next bounded
 intervention therefore uses the real role sequence: source request, prior
 assistant draft, measured user feedback, then corrected assistant response.
 The prior assistant draft is explicitly zero-loss context; only the correction
-is supervised. The renderer/token/loss boundary must be audited against the
-live prefix before another update is allowed.
+is supervised. With thinking enabled, Qwen3.5's generation prompt and complete
+teacher-forced render diverge at the final newline BPE boundary; the existing
+trajectory convention masks their exact common prefix and supervises the
+complete-render suffix. This approximation and the exact token counts are
+audited before training, and a live transfer check remains mandatory after any
+update.

@@ -103,8 +103,15 @@ def _audit_mode(
         messages[:-1], tools=tools, add_generation_prompt=True
     )
     prompt_length = len(generation_prompt.token_ids)
-    if full.token_ids[:prompt_length] != generation_prompt.token_ids:
-        raise ValueError("authored correction does not extend the generation prompt")
+    shared_prefix = 0
+    for prompt_id, full_id in zip(
+        generation_prompt.token_ids, full.token_ids, strict=False
+    ):
+        if prompt_id != full_id:
+            break
+        shared_prefix += 1
+    if shared_prefix == 0:
+        raise ValueError("authored correction has no generation-prompt prefix")
 
     live_history = [
         messages[0],
@@ -143,8 +150,8 @@ def _audit_mode(
     expected_completion = [
         token_id
         for token_id, sampled in zip(
-            full.token_ids[prompt_length:],
-            full.sampled_mask[prompt_length:],
+            full.token_ids[shared_prefix:],
+            full.sampled_mask[shared_prefix:],
             strict=True,
         )
         if sampled
@@ -167,6 +174,9 @@ def _audit_mode(
         "enable_thinking": enable_thinking,
         "full_tokens": len(full.token_ids),
         "generation_prompt_tokens": prompt_length,
+        "generation_prompt_shared_prefix_tokens": shared_prefix,
+        "generation_prompt_is_full_prefix": shared_prefix == prompt_length,
+        "generation_prompt_divergent_tail_tokens": prompt_length - shared_prefix,
         "trainable_completion_tokens": len(trainable_ids),
         "full_token_ids_sha256": _sha256_ids(full.token_ids),
         "generation_prompt_token_ids_sha256": _sha256_ids(
@@ -179,6 +189,7 @@ def _audit_mode(
         ),
         "prior_assistant_trainable_tokens": 0,
         "truncated": False,
+        "completion_boundary_alignment": "renderer_common_prefix_v1",
         "decoded_trainable_prefix": tokenizer.decode(trainable_ids[:8]),
     }
 

@@ -432,6 +432,8 @@ def test_live_revision_export_matches_the_real_role_sequence_and_masks_context(
     assert manifest["distinct_conversation_payloads"] == 3
     assert manifest["repetitions_per_chapter"] == 4
     assert manifest["broad_skill_claim"] is False
+    assert manifest["completion_boundary_alignment"] == "renderer_common_prefix_v1"
+    assert manifest["live_transfer_check_required"] is True
     assert manifest["live_revision_role_sequence"] == [
         "runtime_user",
         "task_user",

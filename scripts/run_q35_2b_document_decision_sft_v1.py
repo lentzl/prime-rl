@@ -397,7 +397,11 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                 or manifest.get("context_assistant_messages_per_row") != 1
                 or manifest.get("prior_assistant_draft_trainable") is not False
                 or manifest.get("corrected_assistant_target_trainable") is not True
-                or manifest.get("generation_prompt_tokens_trainable") is not False
+                or manifest.get("generation_prompt_common_prefix_trainable")
+                is not False
+                or manifest.get("completion_boundary_alignment")
+                != "renderer_common_prefix_v1"
+                or manifest.get("live_transfer_check_required") is not True
                 or manifest.get("distinct_conversation_payloads") != 3
                 or manifest.get("repetitions_per_chapter") != 4
                 or manifest.get("broad_skill_claim") is not False

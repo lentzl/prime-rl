@@ -352,11 +352,21 @@ class SFTDataset(StatefulIterableDataset):
                 messages[:-1], tools=tools, add_generation_prompt=True
             )
             prompt_ids = list(generation_prompt.token_ids)
-            if input_ids[: len(prompt_ids)] != prompt_ids:
+            shared_prefix = 0
+            for prompt_id, full_id in zip(prompt_ids, input_ids, strict=False):
+                if prompt_id != full_id:
+                    break
+                shared_prefix += 1
+            if shared_prefix == 0:
                 raise ValueError(
-                    "Final assistant training sample does not extend its generation prompt"
+                    "Final assistant training sample has no generation-prompt prefix"
                 )
-            loss_mask[: len(prompt_ids)] = [False] * len(prompt_ids)
+            # Some renderers diverge at the final BPE boundary between a
+            # generation prompt and a complete assistant turn (Qwen3.5's
+            # thinking newline is one example). Match the renderer's existing
+            # trajectory convention: mask the exact shared prefix and train
+            # the complete-render suffix from the first divergent token.
+            loss_mask[:shared_prefix] = [False] * shared_prefix
         mm = sample.multi_modal_data
         mm_token_type_ids = list(sample.mm_token_type_ids) if sample.mm_token_type_ids is not None else None
         if mm is not None and mm.mm_items and not self.multimodal:
