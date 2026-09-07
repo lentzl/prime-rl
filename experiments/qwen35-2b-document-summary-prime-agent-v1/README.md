@@ -9,6 +9,13 @@ JSON artifact. It measures whether the current H176 worker can preserve importan
 facts, cite source paragraph IDs, and compress the source without copying it. No
 weights are updated.
 
+The initial unscaffolded probe is retained as a diagnostic: H176 drafted a partial
+summary but repeatedly passed a path directly to `json.dump`, ignored the nested
+bullet schema, and never produced an artifact. The current contract adds only a
+generic correct JSON-file pattern and an explicit schema self-check. It does not
+expose hidden facts or reference wording. This second probe separates recoverable
+tool protocol from a real summarization weakness before we train anything.
+
 Only after that isolation passes do we use `smoke.toml` to test the end-to-end owner
 workflow: the owner spawns three named Prime Agent children, receives their explicit
 reports, and assembles the chapter summaries. Each job embeds the full contract so
