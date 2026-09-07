@@ -20,6 +20,7 @@ if [[ ! -f "$source_trace" || ! -f "$source_model/model.safetensors" || ! -f "$s
 fi
 
 cd "$root"
+export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-/home/ubuntu/rlm/prime-rl/.venv}
 if [[ ! -e "$dataset_dir" ]]; then
   "$python_bin" scripts/export_q35_2b_document_summary_worker_sft_v1.py \
     --traces "$source_trace" \
