@@ -120,8 +120,9 @@ def _audit_mode(
     live_prompt = renderer.render(
         live_history, tools=tools, add_generation_prompt=True
     )
-    if live_prompt.token_ids != generation_prompt.token_ids:
-        raise ValueError("authored history is not token-equivalent to the live trace")
+    live_history_token_equivalent = (
+        live_prompt.token_ids == generation_prompt.token_ids
+    )
 
     dataset = SFTDataset(
         Dataset.from_list([row]),
@@ -164,7 +165,10 @@ def _audit_mode(
             generation_prompt.token_ids
         ),
         "trainable_token_ids_sha256": _sha256_ids(trainable_ids),
-        "live_history_token_equivalent": True,
+        "live_history_token_equivalent": live_history_token_equivalent,
+        "live_generation_prompt_token_ids_sha256": _sha256_ids(
+            live_prompt.token_ids
+        ),
         "prior_assistant_trainable_tokens": 0,
         "truncated": False,
         "decoded_trainable_prefix": tokenizer.decode(trainable_ids[:8]),
@@ -208,6 +212,9 @@ def audit(*, trace: Path, tokenizer_path: Path) -> dict[str, Any]:
             )
             for enable_thinking in (False, True)
         ]
+        selected_mode = next(mode for mode in modes if mode["enable_thinking"])
+        if not selected_mode["live_history_token_equivalent"]:
+            raise ValueError("thinking-enabled history differs from the live trace")
     if torch.cuda.is_initialized():
         raise RuntimeError("renderer audit initialized CUDA")
     return {
@@ -221,6 +228,11 @@ def audit(*, trace: Path, tokenizer_path: Path) -> dict[str, Any]:
         "live_prior_draft_equal": True,
         "live_revision_feedback_equal": True,
         "modes": modes,
+        "selected_enable_thinking": True,
+        "selection_reason": (
+            "thinking-enabled rendering is token-equivalent to the live second-turn "
+            "history and masks the generation-prefilled prefix"
+        ),
         "cuda_initialized": False,
     }
 

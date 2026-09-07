@@ -522,6 +522,7 @@ def test_live_revision_renderer_audit_checks_exact_completion_suffix() -> None:
     assert "trainable_ids != expected_completion" in audit
     assert "prior assistant draft contributes to SFT loss" in audit
     assert "for enable_thinking in (False, True)" in audit
+    assert '"selected_enable_thinking": True' in audit
 
 
 def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
