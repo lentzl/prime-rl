@@ -23,6 +23,10 @@ DATASET_CONTRACTS = {
         "child",
         "canonical_answer_free_document_leaf_compute_report_stop",
     ),
+    "qwen35-2b-document-summary-worker-sft/v1": (
+        "child",
+        "grounded_english_chapter_summary_report",
+    ),
     "qwen35-2b-document-coordinator-fanin-sft/v1": (
         "coordinator",
         "grounded_document_coordinator_spawn_partial_yield_fanin",
@@ -127,6 +131,7 @@ DATASET_CONTRACTS = {
 DATASET_ANSWER_FREE = {
     "qwen35-2b-document-decision-sft/v2": True,
     "qwen35-2b-document-child-sft/v1": True,
+    "qwen35-2b-document-summary-worker-sft/v1": False,
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
     "qwen35-2b-document-child-cleanup-sft/v1": True,

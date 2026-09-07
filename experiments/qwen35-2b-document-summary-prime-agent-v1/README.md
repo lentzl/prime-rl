@@ -29,3 +29,12 @@ The existing baked Prime Agent runtime image is reused because summarization nee
 new runtime dependency. Training is justified only by the first demonstrated weak
 role: worker summarization if the direct probe fails; delegation or fan-in if the
 worker passes but the owner workflow fails.
+
+Both direct H176 probes failed before producing an artifact. The first drafted a
+partial three-string summary and then repeated an invalid `json.dump` call. The
+protocol-scaffolded rerun still confused input and output paths, used the document ID
+as the worker ID, created empty bullet objects, and repeated the same write error.
+This isolates the next intervention to the worker. The bounded adaptation uses 12
+authored English chapters (four planning, four operations, four safety), two full-
+dense updates at 1e-6, and a Prime Agent read/write trajectory. The Northstar probe
+document and its reference wording are excluded from training.
