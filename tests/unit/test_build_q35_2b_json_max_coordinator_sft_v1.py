@@ -181,3 +181,15 @@ def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
     assert curve["data"]["name"].endswith("/train")
     assert curve["ckpt"]["interval"] == 48
     assert curve["ckpt"]["keep_interval"] == 48
+
+
+def test_qualification_driver_supports_an_explicit_train_fit_split() -> None:
+    launcher = (
+        Path(__file__).resolve().parents[2]
+        / "scripts"
+        / "run_qwen38_27b_prime_harness_qualification_v1.sh"
+    ).read_text()
+    assert "split_override=${QWEN38_QUALIFICATION_SPLIT:-}" in launcher
+    assert '""|train_gen|valid_gen' in launcher
+    assert 'split=$split_override' in launcher
+    assert "printf 'split_override=%s\\n'" in launcher

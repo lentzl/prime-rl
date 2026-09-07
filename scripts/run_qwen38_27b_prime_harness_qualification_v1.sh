@@ -13,6 +13,7 @@ runtime_python=${EVAL_PYTHON_BIN:-$root/.venv/bin/python}
 client_base_url=${EVAL_CLIENT_BASE_URL:-http://127.0.0.1:8100/v1}
 client_health_url=${EVAL_CLIENT_HEALTH_URL:-${client_base_url%/v1}/health}
 axes_csv=${QWEN38_QUALIFICATION_AXES:-direct,atomic_state,atomic_send,atomic_child_request,natural_n1a,natural_n1b,natural_n1a_local,single,natural_n2}
+split_override=${QWEN38_QUALIFICATION_SPLIT:-}
 num_tasks=${QWEN38_QUALIFICATION_NUM_TASKS:-1}
 num_rollouts=${QWEN38_QUALIFICATION_NUM_ROLLOUTS:-1}
 max_concurrent=${QWEN38_QUALIFICATION_MAX_CONCURRENT:-4}
@@ -53,6 +54,10 @@ if [[ ! "$index_offset" =~ ^[0-9]+$ ]]; then
   echo "QWEN38_QUALIFICATION_INDEX_OFFSET must be a non-negative integer" >&2
   exit 1
 fi
+case "$split_override" in
+  ""|train_gen|valid_gen) ;;
+  *) echo "QWEN38_QUALIFICATION_SPLIT must be train_gen or valid_gen" >&2; exit 1 ;;
+esac
 if [[ ! "$sampling_seed" =~ ^[0-9]+$ ]]; then
   echo "QUALIFICATION_SAMPLING_SEED must be a non-negative integer" >&2
   exit 1
@@ -169,6 +174,7 @@ mkdir -p "$output_root/resolved-configs"
   printf 'uv_lock_sha256=%s\n' "$uv_lock_sha256"
   printf 'inference_config_sha256=%s\n' "$inference_config_sha256"
   printf 'axes=%s\n' "$axes_csv"
+  printf 'split_override=%s\n' "${split_override:-axis_default}"
   printf 'num_tasks=%s\n' "$num_tasks"
   printf 'num_rollouts=%s\n' "$num_rollouts"
   printf 'max_concurrent=%s\n' "$max_concurrent"
@@ -223,6 +229,9 @@ for axis in "${axes[@]}"; do
     json_max_two_shard) split=valid_gen; start_index=0; curriculum=$axis; family_filter=none ;;
     *) echo "unknown qualification axis: $axis" >&2; exit 1 ;;
   esac
+  if [[ -n "$split_override" ]]; then
+    split=$split_override
+  fi
   if [[ -n "${QWEN38_QUALIFICATION_START_INDEX:-}" ]]; then
     if [[ ${#axes[@]} -ne 1 ]]; then
       echo "QWEN38_QUALIFICATION_START_INDEX requires exactly one selected axis" >&2
