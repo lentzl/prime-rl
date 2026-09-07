@@ -306,3 +306,14 @@ def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
 
     assert "optimizer_updates=${4:-2}" in wrapper
     assert '--optimizer-updates "$optimizer_updates"' in wrapper
+
+
+def test_summary_worker_smoke_routes_depth_zero_to_worker_checkpoint() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_smoke_v1.sh"
+    ).read_text()
+
+    assert '"$worker_model" "$worker_model" "$label" "$revision"' in wrapper
+    assert '"$owner_model" "$worker_model" "$label" "$revision"' not in wrapper
+    assert "depth_zero_routed_model=%s" in wrapper

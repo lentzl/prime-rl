@@ -2,7 +2,7 @@
 set -euo pipefail
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-owner_model=${1:?document-owner model path required}
+owner_model=${1:?document-owner model path required for compatibility and audit}
 worker_model=${2:?summary-worker model path required}
 label=${3:-worker-h176-direct-run1}
 revision=${4:-existing-lineages-no-update}
@@ -32,7 +32,7 @@ DOCUMENT_SUMMARY_CONFIG="$summary_config" \
 EVAL_DRIVER=scripts/run_q35_2b_document_summary_eval_v1.sh \
 QWEN38_QUALIFICATION_OUTPUT_ROOT="$output_root" \
 scripts/run_q35_2b_dual_policy_mastery_v1.sh \
-  "$owner_model" "$worker_model" "$label" "$revision"
+  "$worker_model" "$worker_model" "$label" "$revision"
 
 owner_sha_after=$(sha256sum "$owner_model/model.safetensors" | awk '{print $1}')
 worker_sha_after=$(sha256sum "$worker_model/model.safetensors" | awk '{print $1}')
@@ -47,6 +47,8 @@ mkdir -p "$(dirname "$receipt")"
   printf 'owner_model_sha256=%s\n' "$owner_sha_after"
   printf 'worker_model=%s\n' "$worker_model"
   printf 'worker_model_sha256=%s\n' "$worker_sha_after"
+  printf 'depth_zero_routed_model=%s\n' "$worker_model"
+  printf 'depth_zero_routed_model_sha256=%s\n' "$worker_sha_after"
   printf 'result=%s\n' "$output_root/$label/document"
 } >"$receipt"
 
