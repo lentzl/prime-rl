@@ -22,6 +22,12 @@ CASE_KINDS = (
     "looser_budget",
     "already_compliant",
 )
+LEGACY_OPERATIONS_FACT_GROUPS = (
+    ("P0", "incident lead", "fifteen-minute|15-minute|15 minute"),
+    ("named owner", "different customers", "never be merged"),
+    ("handoff", "last completed action", "next required action", "due time"),
+    ("quoted", "must not be followed"),
+)
 
 TARGETS = {
     "scope": (
@@ -142,7 +148,11 @@ def _load_development_fixture() -> tuple[
         raise ImportError(f"cannot load development fixture: {fixture_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    return module.build_fixture()
+    document, fact_groups = module.build_fixture()
+    # Preserve byte-compatible regeneration of the historical v1 curriculum.
+    # Its operations coverage contract is now known to be incomplete; v2 uses
+    # the corrected fixture groups and must be used for prospective updates.
+    return document, fact_groups | {"operations": LEGACY_OPERATIONS_FACT_GROUPS}
 
 
 def _bullets(text: str) -> list[str]:
