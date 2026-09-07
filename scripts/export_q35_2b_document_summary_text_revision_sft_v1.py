@@ -12,7 +12,6 @@ from typing import Any
 
 from datasets import Dataset
 from export_q35_2b_document_decision_sft_v1 import _wire_message, sha256_file
-from export_q35_2b_document_summary_worker_sft_v1 import _source_context
 
 SCHEMA_VERSION = "qwen35-2b-document-summary-text-revision-sft/v1"
 OBJECTIVE = "grounded_english_chapter_summary_constrained_revision"
@@ -94,6 +93,39 @@ QUALIFICATIONS = {
     "operations": "the receiving owner confirms it",
     "exceptions": "operations manager approval",
 }
+
+
+def _revision_source_context(
+    traces: list[Path],
+) -> tuple[dict[str, Any], list[dict[str, Any]], Path, str]:
+    candidates = []
+    for path in traces:
+        if not path.is_file():
+            raise FileNotFoundError(path)
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                if not line.strip():
+                    continue
+                envelope = json.loads(line)
+                for trace in envelope.get("traces") or []:
+                    nodes = trace.get("nodes") or []
+                    tools = trace.get("tools") or []
+                    if (
+                        trace.get("task", {}).get("type")
+                        in {"DocumentSummaryWorkerTask", "DocumentSummaryTextTask"}
+                        and len(nodes) >= 2
+                        and nodes[0].get("parent") is None
+                        and nodes[0].get("message", {}).get("role") == "user"
+                        and [tool.get("name") for tool in tools] == ["ipython"]
+                    ):
+                        candidates.append(
+                            (nodes[0]["message"], tools, path.resolve(), trace["id"])
+                        )
+    if len(candidates) != 1:
+        raise ValueError(
+            f"expected one Prime Agent summary text context, found {len(candidates)}"
+        )
+    return candidates[0]
 
 
 def _load_development_fixture() -> tuple[
@@ -262,7 +294,7 @@ def _messages(runtime_message: dict[str, Any], case: dict[str, Any]) -> list[dic
 def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
     if output_dir.exists():
         raise FileExistsError(f"refusing to overwrite summary revision SFT: {output_dir}")
-    runtime_message, tools, source_path, source_trace_id = _source_context(traces)
+    runtime_message, tools, source_path, source_trace_id = _revision_source_context(traces)
     document, fact_groups = _load_development_fixture()
     if document["document_id"] != DEVELOPMENT_DOCUMENT_ID:
         raise ValueError("summary revision development document differs")

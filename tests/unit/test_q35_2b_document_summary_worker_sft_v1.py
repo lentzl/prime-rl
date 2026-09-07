@@ -90,10 +90,12 @@ def _text_revision_module():
         sys.path.remove(str(scripts))
 
 
-def _source_trace(tmp_path: Path) -> Path:
+def _source_trace(
+    tmp_path: Path, task_type: str = "DocumentSummaryWorkerTask"
+) -> Path:
     trace = {
         "id": "failed-but-authentic-summary-probe",
-        "task": {"type": "DocumentSummaryWorkerTask", "data": {}},
+        "task": {"type": task_type, "data": {}},
         "nodes": [
             {
                 "parent": None,
@@ -336,7 +338,10 @@ def test_text_revision_export_masks_failure_context_and_balances_cases(
 ) -> None:
     module = _text_revision_module()
     output = tmp_path / "text-revision-dataset"
-    manifest = module.export(traces=[_source_trace(tmp_path)], output_dir=output)
+    manifest = module.export(
+        traces=[_source_trace(tmp_path, "DocumentSummaryTextTask")],
+        output_dir=output,
+    )
     rows = Dataset.from_parquet(str(output / "train.parquet"))
 
     assert manifest["rows"] == 12
