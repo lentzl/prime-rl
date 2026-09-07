@@ -512,6 +512,18 @@ def test_live_revision_training_wrapper_is_bounded_and_thinking_explicit() -> No
     assert "--enable-thinking" in wrapper
 
 
+def test_live_revision_renderer_audit_checks_exact_completion_suffix() -> None:
+    audit = (
+        Path(__file__).parents[2]
+        / "scripts/audit_q35_2b_document_summary_live_revision_renderer_v2.py"
+    ).read_text()
+
+    assert "live_prompt.token_ids != generation_prompt.token_ids" in audit
+    assert "trainable_ids != expected_completion" in audit
+    assert "prior assistant draft contributes to SFT loss" in audit
+    assert "for enable_thinking in (False, True)" in audit
+
+
 def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
     wrapper = (
         Path(__file__).parents[2]
