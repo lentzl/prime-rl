@@ -1,0 +1,77 @@
+max_steps = 192
+output_dir = "/home/ubuntu/rlm/outputs/q35-2b-json-max-coordinator-sft-v1"
+clean = false
+
+[run]
+name = "coordinator-json-max-curve-e33-lr1e6-4pass-v1"
+dir = "coordinator-json-max-curve-e33-lr1e6-4pass-v1"
+
+[deployment]
+type = "single_node"
+gpus_per_node = 2
+num_gpus = 2
+
+[model]
+name = "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2"
+impl = "custom"
+optimization_dtype = "bfloat16"
+reduce_dtype = "bfloat16"
+
+[model.vlm]
+vision_encoder_attr = "model.visual"
+language_model_attr = "model.language_model"
+freeze_vision_encoder = true
+
+[model.compile]
+fullgraph = false
+
+[model.ac]
+mode = "full"
+freq = 1
+targets = ["norm"]
+
+[tokenizer]
+name = "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2"
+
+[renderer]
+name = "qwen3.5"
+enable_thinking = false
+
+[data]
+type = "sft"
+name = "/home/ubuntu/rlm/artifacts/q35-2b-json-max-coordinator-sft-v1/coordinator-json-max-128-root60-v4/train"
+batch_size = 12
+micro_batch_size = 1
+seq_len = 16384
+shuffle = false
+seed = 20260907
+
+[data.loss_mask]
+system = false
+user = false
+assistant = true
+tool = false
+
+[optim]
+type = "adamw"
+lr = 0.000001
+weight_decay = 0.01
+max_norm = 1.0
+betas1 = 0.9
+betas2 = 0.999
+
+[scheduler]
+type = "constant"
+
+[ckpt]
+interval = 48
+keep_last = 1
+keep_interval = 48
+weights_only = true
+
+[ckpt.weights]
+save_sharded = true
+save_format = "safetensors"
+
+[file_monitor]
+filename = "metrics.jsonl"

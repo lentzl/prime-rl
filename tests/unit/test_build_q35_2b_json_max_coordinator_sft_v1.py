@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import tomllib
 from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "build_q35_2b_json_max_coordinator_sft_v1.py"
@@ -125,3 +126,58 @@ def test_target_validator_rejects_agent_message_as_spawn() -> None:
         pass
     else:
         raise AssertionError("non-native spawn target was accepted")
+
+
+def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
+    root = Path(__file__).resolve().parents[2]
+    config_dir = root / "experiments" / "qwen35-2b-json-max-coordinator-v1"
+    tiny = tomllib.loads((config_dir / "tiny-fit-e33-step8.toml").read_text())
+    curve = tomllib.loads((config_dir / "fresh-curve-e33-4pass.toml").read_text())
+
+    e33 = (
+        "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/"
+        "c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2"
+    )
+    for config in (tiny, curve):
+        assert config["model"]["name"] == e33
+        assert config["tokenizer"]["name"] == e33
+        assert config["deployment"] == {
+            "type": "single_node",
+            "gpus_per_node": 2,
+            "num_gpus": 2,
+        }
+        assert config["model"]["optimization_dtype"] == "bfloat16"
+        assert config["model"]["reduce_dtype"] == "bfloat16"
+        assert config["data"]["batch_size"] == 12
+        assert config["data"]["micro_batch_size"] == 1
+        assert config["data"]["seq_len"] == 16384
+        assert config["data"]["shuffle"] is False
+        assert config["data"]["loss_mask"] == {
+            "system": False,
+            "user": False,
+            "assistant": True,
+            "tool": False,
+        }
+        assert config["optim"] == {
+            "type": "adamw",
+            "lr": 1e-6,
+            "weight_decay": 0.01,
+            "max_norm": 1.0,
+            "betas1": 0.9,
+            "betas2": 0.999,
+        }
+        assert config["scheduler"] == {"type": "constant"}
+
+    assert tiny["max_steps"] == 8
+    assert tiny["data"]["name"].endswith("/tiny_fit")
+    assert tiny["ckpt"] == {
+        "interval": 1,
+        "keep_last": 1,
+        "weights_only": True,
+        "weights": {"save_sharded": True, "save_format": "safetensors"},
+    }
+
+    assert curve["max_steps"] == 192
+    assert curve["data"]["name"].endswith("/train")
+    assert curve["ckpt"]["interval"] == 48
+    assert curve["ckpt"]["keep_interval"] == 48
