@@ -1,10 +1,10 @@
-max_steps = 192
+max_steps = 64
 output_dir = "/home/ubuntu/rlm/outputs/q35-2b-json-max-coordinator-sft-v1"
 clean = false
 
 [run]
-name = "coordinator-json-max-curve-e33-lr1e6-4pass-v1"
-dir = "coordinator-json-max-curve-e33-lr1e6-4pass-v1"
+name = "coordinator-json-max-curve-e33-lr1e6-4pass-v2"
+dir = "coordinator-json-max-curve-e33-lr1e6-4pass-v2"
 
 [deployment]
 type = "single_node"
@@ -64,9 +64,9 @@ betas2 = 0.999
 type = "constant"
 
 [ckpt]
-interval = 48
+interval = 16
 keep_last = 1
-keep_interval = 48
+keep_interval = 16
 weights_only = true
 
 [ckpt.weights]

@@ -178,10 +178,11 @@ def test_training_configs_are_bounded_fresh_e33_descendants() -> None:
         "weights": {"save_sharded": True, "save_format": "safetensors"},
     }
 
-    assert curve["max_steps"] == 192
+    assert curve["max_steps"] == 64
+    assert curve["run"]["name"] == "coordinator-json-max-curve-e33-lr1e6-4pass-v2"
     assert curve["data"]["name"].endswith("/train")
-    assert curve["ckpt"]["interval"] == 48
-    assert curve["ckpt"]["keep_interval"] == 48
+    assert curve["ckpt"]["interval"] == 16
+    assert curve["ckpt"]["keep_interval"] == 16
 
     assert pass1["max_steps"] == 48
     assert pass1["run"]["name"] == "coordinator-json-max-curve-e33-lr1e6-pass1-v1"
