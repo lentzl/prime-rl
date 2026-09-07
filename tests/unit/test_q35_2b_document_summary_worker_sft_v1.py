@@ -39,6 +39,23 @@ def _runner_module():
         sys.path.remove(str(scripts))
 
 
+def _repair_module():
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "export_q35_2b_document_summary_worker_repair_sft_v1",
+            scripts / "export_q35_2b_document_summary_worker_repair_sft_v1.py",
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(scripts))
+
+
 def _source_trace(tmp_path: Path) -> Path:
     trace = {
         "id": "failed-but-authentic-summary-probe",
@@ -143,6 +160,72 @@ def test_training_runner_accepts_summary_worker_contract() -> None:
     )
     assert module.DATASET_ANSWER_FREE["qwen35-2b-document-summary-worker-sft/v1"] is False
     assert module.DATASET_ROWS["qwen35-2b-document-summary-worker-sft/v1"] == 12
+
+
+def test_summary_repair_export_teaches_atomic_correction_without_bad_turns(
+    tmp_path: Path,
+) -> None:
+    module = _repair_module()
+    output = tmp_path / "repair-dataset"
+    manifest = module.export(traces=[_source_trace(tmp_path)], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 12
+    assert manifest["family_counts"] == {
+        "summary_repair_operations": 4,
+        "summary_repair_planning": 4,
+        "summary_repair_safety": 4,
+    }
+    assert manifest["repair_only"] is True
+    assert manifest["initial_bad_assistant_turns"] == 0
+    assert manifest["on_policy_failure_context"] is True
+    assert _runner_module()._validated_dataset(output) == manifest
+    rendered = json.dumps([row["messages"] for row in rows])
+    assert module.EVALUATION_DOCUMENT_ID not in rendered
+    assert "Project Northstar" not in rendered
+    for row in rows:
+        messages = row["messages"]
+        assert len(messages) == 7
+        assert messages[1]["role"] == "user"
+        assert "missing paragraph coverage" in messages[1]["content"]
+        assert "verbatim source copying" in messages[1]["content"]
+        assert "must not add a fourth bullet" in messages[2]["reasoning_content"]
+        write_code = json.loads(
+            messages[4]["tool_calls"][0]["function"]["arguments"]
+        )["code"]
+        assert "report['bullets'] =" in write_code
+        assert "covered_ids == expected_ids" in write_code
+        assert messages[6]["tool_calls"] == []
+
+        tool_payload = messages[3]["content"]
+        missing = messages[1]["content"].split("missing paragraph coverage: ", 1)[1]
+        assert "report" in tool_payload
+        assert missing.startswith("['")
+
+
+def test_training_runner_accepts_summary_repair_contract() -> None:
+    module = _runner_module()
+
+    assert module.DATASET_CONTRACTS[
+        "qwen35-2b-document-summary-worker-repair-sft/v1"
+    ] == ("child", "grounded_english_chapter_summary_gate_repair")
+    assert (
+        module.DATASET_ANSWER_FREE[
+            "qwen35-2b-document-summary-worker-repair-sft/v1"
+        ]
+        is False
+    )
+    assert module.DATASET_ROWS["qwen35-2b-document-summary-worker-repair-sft/v1"] == 12
+
+
+def test_summary_repair_training_wrapper_is_bounded() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_worker_repair_sft_v1.sh"
+    ).read_text()
+
+    assert "optimizer_updates=${4:-2}" in wrapper
+    assert '--optimizer-updates "$optimizer_updates"' in wrapper
 
 
 def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
