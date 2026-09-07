@@ -11,6 +11,13 @@ eval_bin=${EVAL_BIN:-$root/.venv/bin/eval}
 runtime_python=${EVAL_PYTHON_BIN:-$root/.venv/bin/python}
 uv_bin=${UV_BIN:-$(command -v uv || true)}
 
+if [[ ! -x "$eval_bin" && -x /home/ubuntu/rlm/prime-rl/.venv/bin/eval ]]; then
+  eval_bin=/home/ubuntu/rlm/prime-rl/.venv/bin/eval
+fi
+if [[ ! -x "$runtime_python" && -x /home/ubuntu/rlm/prime-rl/.venv/bin/python ]]; then
+  runtime_python=/home/ubuntu/rlm/prime-rl/.venv/bin/python
+fi
+
 if [[ -z "$uv_bin" && -x "$HOME/.local/bin/uv" ]]; then
   uv_bin=$HOME/.local/bin/uv
 fi

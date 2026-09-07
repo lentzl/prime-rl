@@ -9,6 +9,10 @@ revision=${4:-existing-lineages-no-update}
 output_root=${DOCUMENT_TRANSLATION_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-document-translation-prime-agent-v1}
 receipt=$output_root/$label/SMOKE-RECEIPT.txt
 
+if [[ -z "${INFERENCE_BIN:-}" && ! -x "$root/.venv/bin/inference" && -x /home/ubuntu/rlm/prime-rl/.venv/bin/inference ]]; then
+  export INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference
+fi
+
 if [[ -e "$receipt" ]]; then
   echo "refusing to overwrite document translation receipt: $receipt" >&2
   exit 1
