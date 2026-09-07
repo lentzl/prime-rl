@@ -56,6 +56,23 @@ def _repair_module():
         sys.path.remove(str(scripts))
 
 
+def _mixed_module():
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "export_q35_2b_document_summary_worker_mixed_sft_v1",
+            scripts / "export_q35_2b_document_summary_worker_mixed_sft_v1.py",
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(scripts))
+
+
 def _source_trace(tmp_path: Path) -> Path:
     trace = {
         "id": "failed-but-authentic-summary-probe",
@@ -222,6 +239,59 @@ def test_summary_repair_training_wrapper_is_bounded() -> None:
     wrapper = (
         Path(__file__).parents[2]
         / "scripts/run_q35_2b_document_summary_worker_repair_sft_v1.sh"
+    ).read_text()
+
+    assert "optimizer_updates=${4:-2}" in wrapper
+    assert '--optimizer-updates "$optimizer_updates"' in wrapper
+
+
+def test_mixed_summary_export_interleaves_base_and_repair_rows(
+    tmp_path: Path,
+) -> None:
+    module = _mixed_module()
+    output = tmp_path / "mixed-dataset"
+    manifest = module.export(traces=[_source_trace(tmp_path)], output_dir=output)
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 24
+    assert manifest["base_rows"] == manifest["repair_rows"] == 12
+    assert manifest["batch_size"] == 12
+    assert manifest["initial_bad_assistant_turns"] == 0
+    assert manifest["family_counts"] == {
+        "summary_base_operations": 4,
+        "summary_base_planning": 4,
+        "summary_base_safety": 4,
+        "summary_repair_operations": 4,
+        "summary_repair_planning": 4,
+        "summary_repair_safety": 4,
+    }
+    assert len(rows) == 24
+    kinds = [row["task_key"].split("-")[2] for row in rows]
+    assert kinds == ["base", "repair"] * 12
+    assert all(kinds[offset : offset + 12].count("base") == 6 for offset in (0, 12))
+    assert _runner_module()._validated_dataset(output) == manifest
+    rendered = json.dumps([row["messages"] for row in rows])
+    assert module.EVALUATION_DOCUMENT_ID not in rendered
+    assert "Project Northstar" not in rendered
+
+
+def test_training_runner_accepts_mixed_summary_contract() -> None:
+    module = _runner_module()
+    schema = "qwen35-2b-document-summary-worker-mixed-sft/v1"
+
+    assert module.DATASET_CONTRACTS[schema] == (
+        "child",
+        "grounded_english_chapter_summary_and_gate_repair",
+    )
+    assert module.DATASET_ANSWER_FREE[schema] is False
+    assert module.DATASET_ROWS[schema] == 24
+    assert module.DATASET_BATCH_SIZES[schema] == 12
+
+
+def test_mixed_summary_training_wrapper_is_bounded() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_worker_mixed_sft_v1.sh"
     ).read_text()
 
     assert "optimizer_updates=${4:-2}" in wrapper

@@ -31,6 +31,10 @@ DATASET_CONTRACTS = {
         "child",
         "grounded_english_chapter_summary_gate_repair",
     ),
+    "qwen35-2b-document-summary-worker-mixed-sft/v1": (
+        "child",
+        "grounded_english_chapter_summary_and_gate_repair",
+    ),
     "qwen35-2b-document-coordinator-fanin-sft/v1": (
         "coordinator",
         "grounded_document_coordinator_spawn_partial_yield_fanin",
@@ -137,6 +141,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-child-sft/v1": True,
     "qwen35-2b-document-summary-worker-sft/v1": False,
     "qwen35-2b-document-summary-worker-repair-sft/v1": False,
+    "qwen35-2b-document-summary-worker-mixed-sft/v1": False,
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
     "qwen35-2b-document-child-cleanup-sft/v1": True,
@@ -164,6 +169,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-adaptive-cognition-sft/v3": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
+    "qwen35-2b-document-summary-worker-mixed-sft/v1": 24,
     "qwen35-2b-document-manager-admission-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
@@ -186,6 +192,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-adaptive-cognition-sft/v3": 48,
 }
 DATASET_BATCH_SIZES = {
+    "qwen35-2b-document-summary-worker-mixed-sft/v1": 12,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
     "qwen35-2b-document-utility-topology-sft/v1": 6,
