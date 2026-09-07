@@ -206,7 +206,12 @@ def test_summary_repair_export_teaches_atomic_correction_without_bad_turns(
         assert messages[1]["role"] == "user"
         assert "missing paragraph coverage" in messages[1]["content"]
         assert "verbatim source copying" in messages[1]["content"]
-        assert "must not add a fourth bullet" in messages[2]["reasoning_content"]
+        assert "There is no parent receiver" in messages[1]["content"]
+        assert "do not call agent_message" in messages[1]["content"]
+        assert "Do not edit the job" in messages[1]["content"]
+        assert "update only the required worker-report.json" in messages[1]["content"]
+        assert "I am the terminal worker" in messages[2]["reasoning_content"]
+        assert "will not message a parent" in messages[2]["reasoning_content"]
         write_code = json.loads(
             messages[4]["tool_calls"][0]["function"]["arguments"]
         )["code"]

@@ -83,7 +83,10 @@ def _messages(
         "to summarize the missing paragraph together with its existing source, and cite both "
         f"source IDs | verbatim source copying in bullets [{copied_bullet_id!r}]; "
         "paraphrase each complete source sentence in shorter wording\n\n"
-        "Continue working. Fix the failure, then produce terminal evidence."
+        "Continue working as the same terminal worker. There is no parent receiver: do not "
+        "call agent_message. Do not edit the job or parse completion_gate.py. Read the original "
+        "job and current report, update only the required worker-report.json in one corrective "
+        "write, then stop after the gate passes."
     )
     return [
         _wire_message(runtime_message),
@@ -92,8 +95,9 @@ def _messages(
             "role": "assistant",
             "content": "",
             "reasoning_content": (
-                "I will inspect the job and current artifact, then replace the three bullets in "
-                "one atomic repair. I must not add a fourth bullet or loop on scratch validation."
+                "I am the terminal worker, so I will not message a parent, edit the input job, or "
+                "parse the gate. I will inspect the original job and current artifact, then "
+                "replace the three bullets in one atomic repair."
             ),
             "tool_calls": [
                 {
