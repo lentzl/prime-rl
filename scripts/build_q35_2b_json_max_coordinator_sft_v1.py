@@ -13,7 +13,6 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-
 SCHEMA_VERSION = "q35-2b-json-max-coordinator-sft/v1"
 OBJECTIVE = "root_json_max_direct_compute_and_one_child_lifecycle"
 PHASES = ("direct_compute", "composed_spawn", "composed_wait", "composed_complete")
