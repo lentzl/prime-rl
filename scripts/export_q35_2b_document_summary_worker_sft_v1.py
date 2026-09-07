@@ -369,6 +369,10 @@ def _messages(runtime_message: dict[str, Any], chapter: dict[str, Any]) -> list[
         f"output_path = Path({OUTPUT_PATH!r})\n"
         "assert set(report) == {'worker', 'chapter_id', 'bullets', 'issues'}\n"
         "assert all(set(row) == {'id', 'text', 'source_ids'} for row in report['bullets'])\n"
+        "expected_source_ids = {row['id'] for row in job['paragraphs']}\n"
+        "ordered_source_ids = [source_id for bullet in report['bullets'] for source_id in bullet['source_ids']]\n"
+        "assert set(ordered_source_ids) == expected_source_ids\n"
+        "assert len(ordered_source_ids) == len(expected_source_ids)\n"
         "assert isinstance(report['issues'], list)\n"
         "output_path.parent.mkdir(parents=True, exist_ok=True)\n"
         "written = output_path.write_text(json.dumps(report, indent=2) + '\\n', encoding='utf-8')\n"
@@ -378,11 +382,20 @@ def _messages(runtime_message: dict[str, Any], chapter: dict[str, Any]) -> list[
         "Act as the terminal chapter summarizer, not a coordinator. Do not spawn a child. "
         f"Read only `{job['path']}`, follow its task_contract exactly, and write the complete "
         f"JSON report to `{OUTPUT_PATH}`. Use Path(output_path).write_text with json.dumps; "
-        "issues must be a list and bullets must be objects with the exact required keys. "
+        "issues must be a list, bullets must be objects with the exact required keys, and each "
+        "paragraph ID must appear exactly once beside the bullet that actually summarizes it. "
         "Stop after the file exists."
     )
+    runtime = _wire_message(runtime_message)
+    if not isinstance(runtime.get("content"), str):
+        raise ValueError("summary worker runtime context must contain text")
+    runtime["content"] += (
+        "\n\nFor chapter summaries, keep each bullet as a Python dict until the complete report is "
+        "serialized. Use literal paragraph ID strings, cite each paragraph exactly once, and "
+        "keep every cited source's facts in that same bullet."
+    )
     return [
-        _wire_message(runtime_message),
+        runtime,
         {"role": "user", "content": task_prompt},
         {
             "role": "assistant",
@@ -405,7 +418,8 @@ def _messages(runtime_message: dict[str, Any], chapter: dict[str, Any]) -> list[
             "content": "",
             "reasoning_content": (
                 "I have the source and exact contract. I will write three concise bullet objects, "
-                "cover every paragraph ID, and use the explicit output path rather than the input path."
+                "keep each fact with its literal source ID, cover every paragraph exactly once, "
+                "and use the explicit output path rather than the input path."
             ),
             "tool_calls": [
                 {

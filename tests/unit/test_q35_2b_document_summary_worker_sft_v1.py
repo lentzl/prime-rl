@@ -165,6 +165,11 @@ def test_summary_targets_use_correct_paths_schema_and_grounding(tmp_path: Path) 
         assert module.OUTPUT_PATH in write_code
         assert "json.dump(" not in write_code
         assert "output_path.parent.mkdir" in write_code
+        assert "set(ordered_source_ids) == expected_source_ids" in write_code
+        assert "len(ordered_source_ids) == len(expected_source_ids)" in write_code
+        assert "each paragraph ID must appear exactly once" in messages[1]["content"]
+        assert "keep every cited source's facts in that same bullet" in messages[0]["content"]
+        assert "keep each fact with its literal source ID" in messages[4]["reasoning_content"]
         assert messages[6]["tool_calls"] == []
 
 
