@@ -476,7 +476,9 @@ def _token_counts(rows: list[dict[str, Any]], renderer: Any) -> dict[str, Any]:
             add_generation_prompt=False,
         )
         total.append(len(rendered.token_ids))
-        masked.append(sum(bool(value) for value in rendered.loss_mask))
+        # With assistant-only SFT, SFTDataset deliberately consumes the renderer's
+        # sampled_mask directly so assistant stop markers stay trainable.
+        masked.append(sum(bool(value) for value in rendered.sampled_mask))
     if not all(0 < masked_count < total_count <= 8192 for masked_count, total_count in zip(masked, total)):
         raise ValueError("coordinator corpus has invalid masked/total token counts")
     return {
