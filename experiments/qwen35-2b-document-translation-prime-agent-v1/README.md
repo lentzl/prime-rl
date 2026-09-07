@@ -33,3 +33,10 @@ Starting models:
 The next training decision follows the observed failure: translation quality points
 to the worker; orchestration, fan-in, or artifact-completion failure points to the
 owner or harness contract. We do not train both roles preemptively.
+
+`smoke-worker.toml` is the isolation step when a delegated run confounds those
+roles. It routes the worker checkpoint through a depth-zero Prime Agent session,
+gives it only the five-unit definitions job, and requires the same typed report as
+a file. It does not add a translation helper or expose the authored reference. A
+failure there is direct evidence for worker adaptation; a pass moves the next fix
+back to delegation/reporting or the owner.

@@ -7,6 +7,7 @@ worker_model=${2:?translation-worker model path required}
 label=${3:-owner-e33-lineage-worker-h176-run1}
 revision=${4:-existing-lineages-no-update}
 output_root=${DOCUMENT_TRANSLATION_OUTPUT_ROOT:-/home/ubuntu/rlm/results/q35-2b-document-translation-prime-agent-v1}
+translation_config=${DOCUMENT_TRANSLATION_CONFIG:-$root/experiments/qwen35-2b-document-translation-prime-agent-v1/smoke.toml}
 receipt=$output_root/$label/SMOKE-RECEIPT.txt
 
 if [[ -z "${INFERENCE_BIN:-}" && ! -x "$root/.venv/bin/inference" && -x /home/ubuntu/rlm/prime-rl/.venv/bin/inference ]]; then
@@ -28,7 +29,7 @@ cd "$root"
 DUAL_SCAFFOLD_PROFILE=custom \
 DUAL_EXTERNAL_MODEL=q35-2b-document-translation-prime-agent-v1 \
 DUAL_DEPTH_DEFAULT_CHILD=1 \
-DOCUMENT_TRANSLATION_CONFIG="$root/experiments/qwen35-2b-document-translation-prime-agent-v1/smoke.toml" \
+DOCUMENT_TRANSLATION_CONFIG="$translation_config" \
 EVAL_DRIVER=scripts/run_q35_2b_document_translation_eval_v1.sh \
 QWEN38_QUALIFICATION_OUTPUT_ROOT="$output_root" \
 scripts/run_q35_2b_dual_policy_mastery_v1.sh \
