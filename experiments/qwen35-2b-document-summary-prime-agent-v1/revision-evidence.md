@@ -16,7 +16,7 @@ summary checkpoint. It is development evidence, not a held-out result.
   `len(bullet.split())` over the extracted bullet text.
 - Chapter budget: `int(sum(len(paragraph_text.split())) * 0.8)`.
 
-## Successful operations revision
+## Historically accepted operations revision
 
 Trace:
 `/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/worker-h176-summary-base-consolidation-step1-run-text-operations-direct-revision/document/document-summary/traces.jsonl`
@@ -28,6 +28,14 @@ Trace:
 - Separate metrics: bullet count 1, concision 1, non-copying 1, fact coverage 1
 - Source word count: 97; budget: 77
 - Initial draft word count: 87
+
+The reward and component metrics above are preserved as originally recorded.
+They do not establish semantic completeness: the then-current four keyword
+groups did not require the P1/P2 classifications or receiving-owner
+confirmation in the ticket system. Under the corrected prospective fact
+obligations, this revision covers only 2 of 4 groups (0.5): it preserves the
+ownership/merge rule and quoted-instruction rule, but omits both obligations
+above.
 
 Exact initial draft:
 
@@ -108,11 +116,43 @@ of committing a final answer. The exact generated node is preserved in the
 trace identified above; the failed reasoning is diagnostic context and must
 not become an assistant-token SFT target.
 
+## One-step revision update diagnostic
+
+The first 12-row, one-update experiment is retained as diagnostic evidence,
+not as a candidate for promotion.
+
+- Source model SHA-256:
+  `2d3ab0900a6ff8fc6b28f16fd0d4a31e3f3ad71bf19c30a13dfbbe82eb462a6f`
+- Updated model SHA-256:
+  `ee35c11f278e931928fdb43c0b70a5af26b99a57c9e27a4cb1e08b1f4b5ed256`
+- Training loss: `0.822640061378479`; gradient norm: `81`; NaNs: `0`
+- The 12 rows contained only three distinct authored targets.
+
+On the exceptions chapter at low reasoning, the updated checkpoint produced an
+81-word, fact-complete first draft, then spent the entire 768-token revision
+turn recounting and emitted no answer content. The final reward and every
+summary component were zero. Trace SHA-256:
+`a19e49ea0681cfc9db8b8369782a0b9eb35a7914fd3c4f79afe963b35276babb`.
+
+On the operations chapter at high reasoning, it emitted a four-bullet revision
+but missed the word budget and still omitted the explicit ticket-system
+confirmation. Its reasoning repeatedly miscounted words and stopped while
+editing. The recorded reward was zero; the old fact metric reported `0.75`,
+which must not be read as semantic completeness. Trace SHA-256:
+`f124fe7bbd6eb17b690077b459ffa370e4d25a7670a88e3bd26cb0b4151e1088`.
+
+These results show that the original SFT representation did not transfer the
+revision behavior reliably. That dataset placed the source, draft, and
+feedback together in a new user message, unlike the live assistant-draft then
+user-feedback prefix.
+
 ## Interpretation
 
-The checkpoint can read the chapter and produce a fact-complete draft. It can
-also perform the constrained rewrite on the operations chapter. The current
-gap is narrower: reliably commit one final, fact-preserving rewrite under a
-measured word budget. The next data intervention therefore trains only the
-final revision response while keeping the source, prior draft, and scaffold
-feedback in untrained context.
+The checkpoint can read these development chapters and often produce a strong
+initial draft. The historical operations reward overstated completeness, and
+the first one-step update did not reliably teach revision. The next bounded
+intervention therefore uses the real role sequence: source request, prior
+assistant draft, measured user feedback, then corrected assistant response.
+The prior assistant draft is explicitly zero-loss context; only the correction
+is supervised. The renderer/token/loss boundary must be audited against the
+live prefix before another update is allowed.

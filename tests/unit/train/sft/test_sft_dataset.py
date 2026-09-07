@@ -33,6 +33,31 @@ class _DummyRenderer:
         return [_STOP_TOKEN_ID]
 
 
+class _MultiMessageRenderer:
+    """Expose one sampled token per message plus assistant stop markers."""
+
+    def render(self, messages, **kwargs):
+        token_ids = [_BOS_TOKEN_ID]
+        message_indices = [-1]
+        sampled_mask = [False]
+        for index, message in enumerate(messages):
+            token_ids.append(100 + index)
+            message_indices.append(index)
+            sampled_mask.append(message["role"] == "assistant")
+            if message["role"] == "assistant":
+                token_ids.append(_STOP_TOKEN_ID)
+                message_indices.append(index)
+                sampled_mask.append(True)
+        return RenderedTokens(
+            token_ids=token_ids,
+            message_indices=message_indices,
+            sampled_mask=sampled_mask,
+        )
+
+    def get_stop_token_ids(self):
+        return [_STOP_TOKEN_ID]
+
+
 @pytest.fixture(scope="module")
 def build_dummy_dataset():
     return lambda letter, num_examples: Dataset.from_list(
@@ -257,6 +282,53 @@ def test_multiturn_loss_mask():
     dataset = SFTDataset(dataset, create_renderer(tokenizer), max_examples=1)
     sample = next(iter(dataset))
     print_sample(sample["input_ids"], sample["loss_mask"], tokenizer)
+
+
+def test_message_trainable_override_masks_prior_assistant_only() -> None:
+    messages = [
+        {"role": "user", "content": "source"},
+        {
+            "role": "assistant",
+            "content": "prior draft",
+            "trainable": False,
+        },
+        {"role": "user", "content": "revision feedback"},
+        {
+            "role": "assistant",
+            "content": "corrected answer",
+            "trainable": True,
+        },
+    ]
+    dataset = SFTDataset(
+        Dataset.from_list([{"messages": messages}]),
+        _MultiMessageRenderer(),
+        shuffle=False,
+    )
+
+    sample = next(iter(dataset))
+    observed = list(zip(sample["target_ids"], sample["loss_mask"], strict=True))
+
+    assert observed == [
+        (100, False),
+        (101, False),
+        (_STOP_TOKEN_ID, False),
+        (102, False),
+        (103, True),
+        (_STOP_TOKEN_ID, True),
+    ]
+
+
+def test_message_trainable_override_must_be_boolean() -> None:
+    dataset = SFTDataset(Dataset.from_list([]), _MultiMessageRenderer())
+
+    with pytest.raises(ValueError, match="trainable override must be a boolean"):
+        dataset._process(
+            {
+                "messages": [
+                    {"role": "assistant", "content": "answer", "trainable": "no"}
+                ]
+            }
+        )
 
 
 def test_multiturn_loss_mask_with_tools():

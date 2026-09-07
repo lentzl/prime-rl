@@ -345,6 +345,7 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
     assert "lora" not in config.lower()
     assert 'optimization_dtype = "bfloat16"' in config
     assert 'reduce_dtype = "bfloat16"' in config
+    assert "enable_thinking = false" in config
     assert module.DATASET_CONTRACTS["qwen35-2b-document-child-sft/v1"] == (
         "child",
         "canonical_answer_free_document_leaf_compute_report_stop",

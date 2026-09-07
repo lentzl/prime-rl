@@ -246,6 +246,27 @@ class SFTDataset(StatefulIterableDataset):
 
         messages = resolve_messages(example)
 
+        # A multi-turn correction example may contain an earlier assistant
+        # response as fixed conversational context. ``trainable`` is a dataset
+        # annotation, not part of the chat wire format: strip it before
+        # rendering and use it only to override whether renderer-sampled tokens
+        # attributed to that individual message contribute to the loss.
+        message_trainable: dict[int, bool] = {}
+        render_messages: list[dict[str, Any]] = []
+        for index, message in enumerate(messages):
+            trainable = message.get("trainable")
+            if "trainable" in message and not isinstance(trainable, bool):
+                raise ValueError(
+                    f"Message {index} trainable override must be a boolean"
+                )
+            rendered_message = {
+                key: value for key, value in message.items() if key != "trainable"
+            }
+            render_messages.append(rendered_message)
+            if "trainable" in message:
+                message_trainable[id(rendered_message)] = trainable
+        messages = render_messages
+
         # Parse available tools, if present - assumes OAI format. Accepts either
         # `tools` or `tool_defs` (the verifiers rollout format), as either a
         # JSON-encoded string of a list or a list of dicts; verifiers-shaped
@@ -273,6 +294,8 @@ class SFTDataset(StatefulIterableDataset):
 
         def should_mask(message: dict) -> bool:
             assert "role" in message, "Message must have a role"
+            if id(message) in message_trainable:
+                return message_trainable[id(message)]
             match message["role"]:
                 case "user":
                     return self.loss_mask_config.user
@@ -288,7 +311,11 @@ class SFTDataset(StatefulIterableDataset):
         # Defer to the renderer's sampled_mask by default: a role filter would
         # drop sampled stop markers attributed to the next message (e.g. GLM's
         # turn-closing <|user|> / <|observation|>).
-        role_to_mask = None if self.loss_mask_config.assistant else should_mask
+        role_to_mask = (
+            should_mask
+            if message_trainable or not self.loss_mask_config.assistant
+            else None
+        )
 
         # Non-assistant roles are opted into the loss via the renderer's
         # body-only path: the message content is trained, not the role

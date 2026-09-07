@@ -90,6 +90,23 @@ def _text_revision_module():
         sys.path.remove(str(scripts))
 
 
+def _live_revision_module():
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "export_q35_2b_document_summary_live_revision_sft_v2",
+            scripts / "export_q35_2b_document_summary_live_revision_sft_v2.py",
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(scripts))
+
+
 def _source_trace(
     tmp_path: Path, task_type: str = "DocumentSummaryWorkerTask"
 ) -> Path:
@@ -400,6 +417,77 @@ def test_training_runner_accepts_text_revision_contract() -> None:
     assert module.DATASET_BATCH_SIZES[schema] == 12
 
 
+def test_live_revision_export_matches_the_real_role_sequence_and_masks_context(
+    tmp_path: Path,
+) -> None:
+    module = _live_revision_module()
+    output = tmp_path / "live-revision-dataset"
+    manifest = module.export(
+        traces=[_source_trace(tmp_path, "DocumentSummaryTextTask")],
+        output_dir=output,
+    )
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["rows"] == 12
+    assert manifest["distinct_conversation_payloads"] == 3
+    assert manifest["repetitions_per_chapter"] == 4
+    assert manifest["broad_skill_claim"] is False
+    assert manifest["live_revision_role_sequence"] == [
+        "runtime_user",
+        "task_user",
+        "assistant_draft_context",
+        "revision_feedback_user",
+        "assistant_corrected_target",
+    ]
+    assert _runner_module()._validated_dataset(output) == manifest
+
+    for row in rows:
+        messages = row["messages"]
+        assert [message["role"] for message in messages] == [
+            "user",
+            "user",
+            "assistant",
+            "user",
+            "assistant",
+        ]
+        assert messages[2]["trainable"] is False
+        assert messages[4]["trainable"] is True
+        assert "Summarize the chapter below" in messages[1]["content"]
+        assert "Your draft has" in messages[3]["content"]
+        assert "Do not call tools" in messages[3]["content"]
+        assert messages[4]["content"].startswith("* ")
+
+    operations = next(
+        row for row in rows if row["family"] == "summary_live_revision_operations"
+    )
+    target = operations["messages"][-1]["content"]
+    assert "P0, P1 or P2" in target
+    assert "P0 immediately pages" in target
+    assert "receiving owners confirm in the ticket system" in target
+
+
+def test_training_runner_accepts_live_revision_contract() -> None:
+    module = _runner_module()
+    schema = "qwen35-2b-document-summary-live-revision-sft/v2"
+
+    assert module.DATASET_CONTRACTS[schema] == (
+        "child",
+        "grounded_english_chapter_summary_live_prefix_revision",
+    )
+    assert module.DATASET_ANSWER_FREE[schema] is False
+    assert module.DATASET_ROWS[schema] == 12
+    assert module.DATASET_BATCH_SIZES[schema] == 12
+    config = module.training_config(
+        run_name="live-revision",
+        model_path=Path("/models/summary"),
+        dataset_dir=Path("/data/live-revision"),
+        output_root=Path("/outputs"),
+        learning_rate=2e-7,
+        enable_thinking=True,
+    )
+    assert "enable_thinking = true" in config
+
+
 def test_text_revision_training_wrapper_defaults_to_one_update() -> None:
     wrapper = (
         Path(__file__).parents[2]
@@ -409,6 +497,18 @@ def test_text_revision_training_wrapper_defaults_to_one_update() -> None:
     assert "optimizer_updates=${4:-1}" in wrapper
     assert "--learning-rate 2e-7" in wrapper
     assert '--optimizer-updates "$optimizer_updates"' in wrapper
+
+
+def test_live_revision_training_wrapper_is_bounded_and_thinking_explicit() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_live_revision_sft_v2.sh"
+    ).read_text()
+
+    assert "optimizer_updates=${4:-1}" in wrapper
+    assert "--learning-rate 2e-7" in wrapper
+    assert '--optimizer-updates "$optimizer_updates"' in wrapper
+    assert "--enable-thinking" in wrapper
 
 
 def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:

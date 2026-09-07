@@ -43,6 +43,10 @@ DATASET_CONTRACTS = {
         "child",
         "grounded_english_chapter_summary_constrained_revision",
     ),
+    "qwen35-2b-document-summary-live-revision-sft/v2": (
+        "child",
+        "grounded_english_chapter_summary_live_prefix_revision",
+    ),
     "qwen35-2b-document-coordinator-fanin-sft/v1": (
         "coordinator",
         "grounded_document_coordinator_spawn_partial_yield_fanin",
@@ -152,6 +156,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-summary-worker-repair-sft/v2": False,
     "qwen35-2b-document-summary-worker-mixed-sft/v1": False,
     "qwen35-2b-document-summary-text-revision-sft/v1": False,
+    "qwen35-2b-document-summary-live-revision-sft/v2": False,
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
     "qwen35-2b-document-child-cleanup-sft/v1": True,
@@ -181,6 +186,7 @@ DATASET_ANSWER_FREE = {
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 24,
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
+    "qwen35-2b-document-summary-live-revision-sft/v2": 12,
     "qwen35-2b-document-manager-admission-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
@@ -205,6 +211,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
 DATASET_BATCH_SIZES = {
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 12,
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
+    "qwen35-2b-document-summary-live-revision-sft/v2": 12,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
     "qwen35-2b-document-utility-topology-sft/v1": 6,
@@ -240,6 +247,7 @@ def training_config(
     learning_rate: float,
     optimizer_updates: int = 1,
     batch_size: int = 12,
+    enable_thinking: bool = False,
 ) -> str:
     if not 1 <= optimizer_updates <= 8:
         raise ValueError("document decision bootstrap requires one to eight updates")
@@ -284,7 +292,7 @@ name = {_quote(model_path)}
 
 [renderer]
 name = "qwen3.5"
-enable_thinking = false
+enable_thinking = {str(enable_thinking).lower()}
 
 [data]
 type = "sft"
@@ -373,6 +381,29 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         or (manifest.get("role"), manifest.get("objective")) != contract
         or manifest.get("rows") != DATASET_ROWS.get(schema_version)
         or not family_counts_valid
+        or (
+            schema_version == "qwen35-2b-document-summary-live-revision-sft/v2"
+            and (
+                manifest.get("live_revision_role_sequence")
+                != [
+                    "runtime_user",
+                    "task_user",
+                    "assistant_draft_context",
+                    "revision_feedback_user",
+                    "assistant_corrected_target",
+                ]
+                or manifest.get("assistant_messages_per_row") != 2
+                or manifest.get("assistant_target_messages_per_row") != 1
+                or manifest.get("context_assistant_messages_per_row") != 1
+                or manifest.get("prior_assistant_draft_trainable") is not False
+                or manifest.get("corrected_assistant_target_trainable") is not True
+                or manifest.get("distinct_conversation_payloads") != 3
+                or manifest.get("repetitions_per_chapter") != 4
+                or manifest.get("broad_skill_claim") is not False
+                or manifest.get("requires_renderer_boundary_audit_before_training")
+                is not True
+            )
+        )
         or (
             schema_version
             in {
@@ -524,6 +555,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         learning_rate=args.learning_rate,
         optimizer_updates=args.optimizer_updates,
         batch_size=DATASET_BATCH_SIZES.get(dataset["schema_version"], dataset["rows"]),
+        enable_thinking=args.enable_thinking,
     )
     _write_once(config_path, config)
 
@@ -575,6 +607,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "loss_nan_count": metrics["loss/nan_count"],
             "gradient_norm": metrics["optim/grad_norm"],
             "time_per_step_seconds": metrics["time/step"],
+            "renderer_enable_thinking": args.enable_thinking,
         },
         "output": {"model_path": str(output_model.resolve()), "model_sha256": output_sha},
     }
@@ -593,6 +626,7 @@ def main() -> None:
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--learning-rate", type=float, default=2e-6)
     parser.add_argument("--optimizer-updates", type=int, default=1)
+    parser.add_argument("--enable-thinking", action="store_true")
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--uv-bin", type=Path, default=Path("/home/ubuntu/.local/bin/uv"))
     args = parser.parse_args()
