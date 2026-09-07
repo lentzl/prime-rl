@@ -1,0 +1,56 @@
+model = "q35-2b-document-summary-text-probe-v1"
+num_tasks = 1
+num_rollouts = 1
+shuffle = false
+max_concurrent = 1
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 1
+
+[env.taskset]
+id = "document-summary-v1"
+split = "development"
+num_tasks = 1
+mode = "text_probe"
+text_probe_chapter = "scope"
+
+[env.agent]
+max_turns = 1
+max_output_tokens = 4096
+max_total_tokens = 8192
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+env = { RLM_MAX_DEPTH = "0", PRIME_AGENT_KERNEL_PYTHON = "/usr/local/bin/python" }
+autonomous = false
+gates = []
+process_timeout_ms = 180000
+
+[env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-document-translation-v1"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 180.0
+finalize = 30.0
+scoring = 30.0
+
+[client]
+base_url = "http://127.0.0.1:8100/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+seed = 20260907
+temperature = 0.2
+top_p = 0.9
+top_k = 20
+min_p = 0.0
+reasoning_effort = "high"
+max_tokens = 4096
