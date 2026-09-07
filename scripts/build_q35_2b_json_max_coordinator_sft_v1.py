@@ -110,8 +110,8 @@ def load_runtime_surface(trace_path: Path) -> tuple[dict[str, Any], str, dict[st
     ]
     if not roots:
         raise ValueError("runtime trace lacks its unsampled root instruction")
-    runtime = _wire_message(roots[0]["message"])
-    content = runtime.get("content")
+    runtime_wire = _wire_message(roots[0]["message"])
+    content = runtime_wire.get("content")
     if not isinstance(content, str):
         raise ValueError("runtime root instruction is not text")
     required_fragments = (
@@ -134,7 +134,7 @@ def load_runtime_surface(trace_path: Path) -> tuple[dict[str, Any], str, dict[st
     if task_system != REQUIRED_SYSTEM_PROMPT:
         raise ValueError("active task system prompt differs from the audited contract")
     return (
-        runtime,
+        _message("user", content),
         json.dumps(tools, sort_keys=True, separators=(",", ":")),
         {
             "runtime_trace": str(trace_path.resolve()),
@@ -437,7 +437,12 @@ def _load_rehearsal(path: Path, repeats: int) -> tuple[list[dict[str, Any]], dic
     unique = Dataset.from_parquet(str(parquet_path)).to_list()
     if not unique or any(row.get("role") != "coordinator" for row in unique):
         raise ValueError(f"rehearsal source is not coordinator-only: {path}")
-    rows = [copy.deepcopy(row) for _ in range(repeats) for row in unique]
+    rows = []
+    for _ in range(repeats):
+        for source_row in unique:
+            row = copy.deepcopy(source_row)
+            row["phase"] = "rehearsal"
+            rows.append(row)
     return rows, {
         "path": str(path.resolve()),
         "manifest_sha256": sha256_file(manifest_path),
