@@ -520,7 +520,7 @@ def test_live_revision_renderer_audit_checks_exact_completion_suffix() -> None:
         / "scripts/audit_q35_2b_document_summary_live_revision_renderer_v2.py"
     ).read_text()
 
-    assert "live_prompt.token_ids != generation_prompt.token_ids" in audit
+    assert "live_prompt.token_ids == generation_prompt.token_ids" in audit
     assert "trainable_ids != expected_completion" in audit
     assert "prior assistant draft contributes to SFT loss" in audit
     assert "for enable_thinking in (False, True)" in audit
