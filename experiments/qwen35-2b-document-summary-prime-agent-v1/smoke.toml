@@ -1,0 +1,59 @@
+model = "q35-2b-document-summary-prime-agent-v1"
+num_tasks = 1
+num_rollouts = 1
+shuffle = false
+max_concurrent = 1
+verbose = false
+rich = false
+server = false
+push = false
+
+[env]
+max_concurrent_agents = 4
+
+[env.taskset]
+id = "document-summary-v1"
+split = "development"
+num_tasks = 1
+mode = "owner"
+
+[env.agent]
+max_turns = 24
+max_output_tokens = 32768
+max_total_tokens = 131072
+
+[env.agent.harness]
+id = "prime_agent"
+version = "0.7.2-beta.495.1.97b994c"
+env = { RLM_MAX_DEPTH = "1", PRIME_AGENT_KERNEL_PYTHON = "/usr/local/bin/python" }
+autonomous = true
+gates = ["python /workspace/document-summary-v1/completion_gate.py"]
+autonomous_max_continuations = 8
+autonomous_max_turns = 24
+autonomous_max_tokens = 131072
+autonomous_timeout_ms = 1200000
+process_timeout_ms = 1140000
+
+[env.agent.runtime]
+type = "docker"
+image = "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-document-translation-v1"
+
+[env.agent.timeout]
+setup = 300.0
+rollout = 1200.0
+finalize = 60.0
+scoring = 60.0
+
+[client]
+base_url = "http://127.0.0.1:8100/v1"
+api_key_var = "PRIME_API_KEY"
+type = "eval"
+
+[sampling]
+seed = 20260907
+temperature = 0.2
+top_p = 0.9
+top_k = 20
+min_p = 0.0
+reasoning_effort = "high"
+max_tokens = 8192
