@@ -7,7 +7,7 @@ image=${DOCUMENT_TRANSLATION_RUNTIME_IMAGE:-rlm-prime-agent-runtime:0.7.2-beta.4
 
 docker build --file "$dockerfile" --tag "$image" "$root"
 
-docker run --rm --entrypoint /usr/local/bin/python "$image" - <<'PY'
+docker run --rm --interactive --entrypoint /usr/local/bin/python "$image" - <<'PY'
 import agent_message
 import agent_observe
 import ipykernel
