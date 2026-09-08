@@ -275,6 +275,12 @@ or role-proxy behavior. `DOCUMENT_SUMMARY_PROBES` selects space-separated existi
 probe config names; defaults are `exceptions city-shade`. Inspect every episode
 in the receipt's declared probe list and both checkpoint hashes;
 driver completion and file-presence rewards do not establish semantic utility.
+`DOCUMENT_SUMMARY_PROBE_CONCURRENCY` optionally runs multiple independent probes
+per frozen model in bounded waves (default 1). Use the same value for both arms
+and label the changed scheduling when comparing with an earlier run. The driver
+waits for every wave member, records concurrency in its receipt and rejects
+duplicate probe labels. This can reduce an idle GPU tail without adding models
+or changing the chapter task; measure actual throughput and timeout effects.
 Initialize the routing audit as an empty event log before starting the proxy:
 direct-engine runs legitimately leave it empty, and final receipt hashing must
 not fail solely because no role-routing event was emitted.
