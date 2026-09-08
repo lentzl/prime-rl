@@ -1,5 +1,5 @@
 {
-  "status": "launched_trainer_startup",
+  "status": "complete",
   "launch_time_utc": "2026-09-08 11:00 UTC",
   "run_name": "h176-summary-direct-repair-step128-r5",
   "code_commit": "4b43ee641859fb8a88150add195e99683c83d23d",
@@ -16,7 +16,11 @@
     "parquet_sha256": "cb572f23f5caf1d6b9d43e20a57cadedbf67a39991e389b12a09f3e97111f043",
     "cases_sha256": "87d99810f979725fb267d1e01f01c874d94f34ec5f93721043fad6f95ca55552",
     "rows": 88,
-    "family_counts": {"retained_train": 20, "public_chapter": 24, "format_repair": 44},
+    "family_counts": {
+      "retained_train": 20,
+      "public_chapter": 24,
+      "format_repair": 44
+    },
     "all_44_previous_cases_and_complete_rows_preserved_exactly": true,
     "new_unique_chapters": 0,
     "new_semantic_teacher_labels": 0,
@@ -56,8 +60,50 @@
     "campaign_gpu_hour_cap": null
   },
   "rationale": "Continue from R4's concrete gains in source coverage and numerical units while teaching correction response and stopping. Preserve earlier successful episodes; do not train incorrect drafts as successful outputs. Behavioral regressions remain diagnostic, not an automatic rollback or a bar to further updates.",
-  "validation": {"focused_tests_passed": 47, "ruff": "passed", "wrapper_dataset_and_audit_validation": "passed on the drained host with R4 tokenizer"},
+  "validation": {
+    "focused_tests_passed": 47,
+    "ruff": "passed",
+    "wrapper_dataset_and_audit_validation": "passed on the drained host with R4 tokenizer"
+  },
   "semantic_promotion": false,
   "capability_threshold_required_before_training": false,
-  "remaining_launch_conditions": []
+  "remaining_launch_conditions": [],
+  "trainer_finished_at_utc": "2026-09-08 11:52:44 UTC",
+  "completion_verified_at_utc": "2026-09-08 12:00 UTC",
+  "output": {
+    "name": "R5 experimental frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-repair-step128-r5/weights/step_128",
+    "sha256": "a4a6540656b4d17d1407674e9951986f46e26289a96702a25f1b2ea34445140f",
+    "stable_marker": true,
+    "independent_weight_hash_verified": true
+  },
+  "completed_training": {
+    "optimizer_updates": 128,
+    "loss_records": 128,
+    "exact_steps_1_through_128": true,
+    "all_losses_finite": true,
+    "nan_count_total": 0,
+    "first_loss": 0.526274561882019,
+    "last_loss": 0.6175302863121033,
+    "minimum_loss": 0.370270311832428,
+    "maximum_loss": 1.0570683479309082,
+    "final_pre_clipping_gradient_norm": 20.75,
+    "last_step_seconds": 23.808410004945472,
+    "reported_final_epoch": 32,
+    "reported_sample_count": 2817,
+    "processed_tokens": 16777216,
+    "loss_interpretation": "Mixed batches and states; not a semantic capability score.",
+    "fresh_optimizer": true,
+    "exact_training_resume": false,
+    "config_sha256": "bfe00a33bc814f587773dc903b35a5007b99bcb4e1d77cc9c3d8485e086f584f"
+  },
+  "completion_evidence": {
+    "receipt": "/home/ubuntu/rlm/state/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-repair-step128-r5-receipt.json",
+    "local_receipt": "outputs/summary-direct-sft-r5/h176-summary-direct-repair-step128-r5-receipt.json",
+    "local_training_artifacts": "outputs/summary-direct-sft-r5/training/",
+    "wrapper_pid": 2595305,
+    "wrapper_absent": true,
+    "gpus_drained_at_verification": true
+  },
+  "semantic_review": "pending matched R4/R5 native five-chapter evaluation"
 }
