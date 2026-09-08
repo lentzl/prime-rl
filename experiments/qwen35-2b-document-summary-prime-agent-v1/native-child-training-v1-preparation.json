@@ -1,0 +1,102 @@
+{
+  "status": "local_preparation_complete_real_trainer_audit_pending",
+  "dataset_name": "r9-native-child",
+  "local_path": "outputs/summary-direct-sft-r9-native-child",
+  "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r9-native-child",
+  "manifest_sha256": "ba1bbb33a123e89d25e5133142f949bc7bb1d3989cd1f22447f27f258d1881fb",
+  "cases_sha256": "510649d36148c1b81a4c2edbfa018ef2b1e98574ce52112ceff8c1de21a98fec",
+  "parquet_sha256": "8fd8344f1c5dddd6e62ca6d0ec41859abecc68cf527aa3dcdfbc685f27a72bea",
+  "host_hashes_match_verified_utc": "2026-09-08 15:55:07 UTC",
+  "rows": 191,
+  "family_counts": {
+    "retained_train": 20,
+    "public_chapter": 32,
+    "format_repair": 52,
+    "semantic_repair": 14,
+    "native_child": 52,
+    "native_count_repair": 21
+  },
+  "prior_r8_rows_and_cases_preserved_exactly": 118,
+  "unique_train_sources": 52,
+  "new_source_chapters": 0,
+  "new_teacher_semantic_labels": 0,
+  "authorship": "Authored native-context teacher episodes using existing reviewed TRAIN summaries; not on-policy success or independent human gold.",
+  "rationale": "The owner R1/R7 trial demonstrated native child reads and files but poor summaries, repeated successful writes from character/word confusion and one queued receipt. Teach useful summaries together with the actual depth-one reporting/stopping contract while retaining direct/semantic correction rehearsal.",
+  "native_interface": {
+    "runtime_trace": "outputs/summary-owner-r1-r7/owner-r1-r7-direct-public-r1/document/document-summary/traces.jsonl",
+    "trace_sha256": "c5c53f7df756406e08dd78b23b6612f020bc47d1063eb90266f5a4e8e31242ad",
+    "child_session_id": "01a0818e-e073-75e7-b1e0-3af499f903ba",
+    "source_use": "Observed depth-one runtime header and common IPython tool schema only. Evaluation assignment/source/output excluded.",
+    "task_prompt": "Authored for each TRAIN chapter through the same current _markdown_jobs helper as live setup; incidental provider warnings are not replayed.",
+    "inherited_instruction_change": "The observed child inherited an unconditional document-owner identity. Replace that task instruction with the current shared depth/assignment-aware wording, rather than teaching a conflicting role.",
+    "verifiers_commit": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1",
+    "taskset_sha256": "aa411b6a950bac8de380871dca4191abd03a0f771bea2c1ccbf566bce12be2e3",
+    "scaffold_changes": [
+      "Shared task instruction distinguishes depth-zero ownership from assigned chapter-child work.",
+      "Child assignment and recovery explain that write_text returns characters, not words or a failure.",
+      "Owner assignment explains why a sleep loop over retained handles cannot finish and prevents message handling."
+    ],
+    "forced_actions_or_teacher_answers_in_live_scaffold": false,
+    "new_harness": false
+  },
+  "teaching": {
+    "clean_native_episodes": 52,
+    "count_repair_episodes": 21,
+    "count_repair_selection": "Existing reviewed summaries whose valid bullet-word count is within the task allowance but whose character count exceeds it; meaningful unit confusion, not arbitrary duplicate rows.",
+    "clean_sequence": "Read complete assigned source; write reviewed bullets once; import json and send the exact chapter/path receipt to parent; stop.",
+    "repair_sequence": "After a correct saved summary, an authored unchanged repeated write with mistaken count reasoning is masked. Current repeated-success feedback follows; supervise actual bullet-word counting, one parent send, then stopping.",
+    "masked_native_message_indices": [
+      6
+    ],
+    "native_receipt_result": "Only printed queued status is scripted; the replay send stub validates exact payload/parent, saved reviewed file and single-send cardinality.",
+    "queued_is_not_consumed": true,
+    "original_reviewed_sources_and_targets_unchanged": true
+  },
+  "verification": {
+    "actual_file_episodes_replayed": 191,
+    "prior_rows_and_cases_exactly_equal": true,
+    "native_runtime_and_assignment_checked": true,
+    "assistant_mask_annotations_checked": true,
+    "negative_mutations_rejected": [
+      "duplicate receipt",
+      "wrong receipt path",
+      "send before saved file",
+      "false source observation",
+      "false word-count observation",
+      "extra write after send",
+      "source overwrite",
+      "wrong depth context"
+    ],
+    "existing_task_tests_passed": 47,
+    "existing_training_wrapper_tests_passed": 18,
+    "scoped_ruff_passed": true,
+    "modified_skills_validated": true,
+    "test_runner_note": "Initial isolated invocation lacked pytest; pytest-only rerun lacked the async plugin. Supplying pytest and pytest-asyncio ran all 47 task checks successfully. No live-host tests or environment edits.",
+    "real_tokenizer_and_loss_audit": false,
+    "live_child_execution_verified": false
+  },
+  "implementation_sha256": {
+    "exporter": "3890282d9b08bbab317013a57582ec389c6e83b2b14429e739902eb71d6ae3e0",
+    "auditor": "93aa7f2358c94a347f9f5e594065431fd2eae157da363929ef4ec4c363ff95a4",
+    "training_wrapper": "d2472a181862f9ffe0434f60f14518ca0a2fcef96f85815ed00596efa7b7e0f0"
+  },
+  "next_boundary": {
+    "active_training": "h176-summary-direct-chapters-step128-r8",
+    "wrapper_pid": 2620867,
+    "completion_observer_tool_session": 82187,
+    "latest_read_only_observation_utc": "2026-09-08 15:55:07 UTC",
+    "optimizer_updates_observed": 63,
+    "latest_loss": 0.8468396663665771,
+    "latest_loss_nan_count": 0,
+    "live_host_code_unchanged": "8590c4c519567d261efd57cced918c3efb0fb66b / 077c030f3d20a34364401d3d2d089422c059dd7a",
+    "next_worker_parent": "Valid completed R8 descendant by default; not a reset to R7 or vanilla.",
+    "next_owner_parent": "Owner R1 remains the current owner frontier.",
+    "remaining_before_training": [
+      "Verify current R8 terminal receipt and process/GPU drain.",
+      "At that idle boundary sync the published code, then perform the real complete-sequence and loss-mask audit using the next parent tokenizer.",
+      "Confirm room for the next output; R6 archive is copying, but no R6 host deletion or verified-copy claim yet."
+    ],
+    "semantic_admission_threshold": false,
+    "r9_training_launched": false
+  }
+}

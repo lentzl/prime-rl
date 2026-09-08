@@ -455,11 +455,17 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         base_cases = {c["slug"]: c for c in cases if c["family"] in {"retained_train", "public_chapter"}}
         repairs = [c for c in cases if c["family"] == "format_repair"]
         semantic_repairs = [c for c in cases if c["family"] == "semantic_repair"]
+        native_children = [c for c in cases if c["family"] == "native_child"]
+        native_repairs = [c for c in cases if c["family"] == "native_count_repair"]
         expected_families = {"retained_train", "public_chapter"}
         if repairs:
             expected_families.add("format_repair")
         if semantic_repairs:
             expected_families.add("semantic_repair")
+        if native_children:
+            expected_families.add("native_child")
+        if native_repairs:
+            expected_families.add("native_count_repair")
         family_counts_valid = (
             family_counts == dict(Counter(c["family"] for c in cases))
             and set(family_counts) == expected_families
@@ -468,6 +474,8 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             and len({c["slug"] for c in cases}) == expected_rows
             and manifest.get("format_repair_episodes", 0) == len(repairs)
             and manifest.get("semantic_repair_episodes", 0) == len(semantic_repairs)
+            and manifest.get("native_child_episodes", 0) == len(native_children)
+            and manifest.get("native_count_repair_episodes", 0) == len(native_repairs)
             and (not repairs or (
                 len(repairs) == len(base_cases)
                 and manifest.get("incorrect_draft_and_stop_masked") is True
@@ -485,6 +493,24 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                         and isinstance(c.get("incorrect_draft"), str)
                         and c["incorrect_draft"] != c["summary"] for c in semantic_repairs)
             ))
+            and (not native_children or (
+                {c.get("base_slug") for c in native_children} == set(base_cases)
+                and len(native_children) == len(base_cases)
+                and manifest.get("native_receipt_observations") == "scripted_queued_status_not_live_delivery"
+                and manifest.get("native_child_context", {}).get("evaluation_task_and_source_excluded") is True
+            ))
+            and (not native_repairs or (
+                bool(native_children) and manifest.get("incorrect_native_retry_masked") is True
+                and len({c.get("base_slug") for c in native_repairs}) == len(native_repairs)
+                and all(c.get("summary_word_count", 0) <= c.get("word_budget", 0) < len(c["summary"])
+                        and c.get("masked_message_indices") == [6] for c in native_repairs)
+            ))
+            and all(c.get("base_slug") in base_cases
+                    and c["source"] == base_cases[c["base_slug"]]["source"]
+                    and c["summary"] == base_cases[c["base_slug"]]["summary"]
+                    and c.get("receipt_observation") == "scripted_queued_status_not_live_delivery"
+                    and c.get("native_job", {}).get("prompt", "").startswith("You are the chapter summarizer ")
+                    for c in native_children + native_repairs)
         )
         if (manifest.get("direct_summary") is not True or manifest.get("notes_stage") is not False
                 or manifest.get("assistant_only_loss") is not True
@@ -801,12 +827,18 @@ def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[st
                    or not 0 < r.get("supervised_tokens", 0) < r.get("tokens", 0) <= 16384 for r in records)):
         raise ValueError("invalid direct-summary renderer audit")
     by_slug = {r["slug"]: r for r in records}
-    if any(c["family"] in {"format_repair", "semantic_repair"} and (
+    if any(c["family"] in {"format_repair", "semantic_repair", "native_count_repair"} and (
             by_slug[c["slug"]].get(c["family"]) is not True
             or by_slug[c["slug"]].get("incorrect_prefix_supervised_tokens") != 0
             or by_slug[c["slug"]].get("incorrect_prefix_context_tokens", 0) <= 0
     ) for c in cases):
         raise ValueError("invalid direct-summary incorrect-prefix loss mask audit")
+    if any(c["family"] in {"native_child", "native_count_repair"} and (
+            by_slug[c["slug"]].get("native_child") is not True
+            or by_slug[c["slug"]].get("receipt_send_stub_only") is not True
+            or by_slug[c["slug"]].get("native_child_execution_verified") is not False
+    ) for c in cases):
+        raise ValueError("invalid native-child receipt replay audit")
     return audit
 
 

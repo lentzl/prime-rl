@@ -20,6 +20,99 @@ from export_q35_2b_document_summary_live_revision_sft_v2 import _load_fixture_mo
 SCHEMA_VERSION = "qwen35-2b-document-summary-direct-sft/v1"
 OBJECTIVE = "grounded_english_direct_chapter_key_bullets"
 REPO = Path(__file__).resolve().parents[1]
+NATIVE_FAMILIES = {"native_child", "native_count_repair"}
+
+
+def _native_context(path):
+    from document_summary_v1.taskset import DocumentSummaryConfig, DocumentSummaryTaskset
+
+    traces = [t for line in path.read_text().splitlines() if line.strip()
+              for t in json.loads(line).get("traces", [])]
+    if len(traces) != 1 or traces[0].get("errors"):
+        raise ValueError("need one captured native owner/child trace for interface context")
+    trace = traces[0]
+    if (trace["task"]["type"] != "DocumentSummaryMarkdownTask"
+            or [tool["name"] for tool in trace["tools"]] != ["ipython"]):
+        raise ValueError("not the native Markdown owner/child interface")
+    current = DocumentSummaryTaskset(DocumentSummaryConfig(mode="owner_direct")).load()[0]
+    for call in trace["calls"]:
+        index = call["node"]
+        if index < 2:
+            continue
+        context = [_wire_message(copy.deepcopy(n["message"])) for n in trace["nodes"][index - 2:index]]
+        if ([m["role"] for m in context] != ["user", "user"]
+                or "\nRecursive agent depth: 1\n" not in context[0]["content"]
+                or not context[1]["content"].startswith("[task from parent]\n\n")
+                or call["client_session_id"] not in context[0]["content"]):
+            continue
+        old = trace["task"]["data"]["system_prompt"]
+        if context[0]["content"].count(old) != 1:
+            raise ValueError("child does not expose the inherited task instruction")
+        context[0]["content"] = context[0]["content"].replace(old, current.data.system_prompt, 1)
+        return context[0], trace["tools"], {
+            "path": str(path), "sha256": sha256_file(path), "trace_id": trace["id"],
+            "client_session_id": call["client_session_id"],
+            "inherited_task_instruction_replaced_with_current_role_aware_prompt": True,
+            "evaluation_task_and_source_excluded": True,
+        }
+    raise ValueError("no observed depth-one child runtime prefix")
+
+
+def _native_messages(runtime, chapter, base_case, index, *, count_repair=False):
+    from document_summary_v1.taskset import MARKDOWN_CHILD_RECOVERY_FEEDBACK, _markdown_jobs
+    from export_q35_2b_document_summary_owner_sft_v1 import _reply, _tool
+
+    chapter_id = f"chapter-{1 + index % 4:03d}"
+    job = next(iter(_markdown_jobs({"chapters": [{
+        "id": chapter_id, "title": chapter["slug"], "paragraphs": chapter["paragraphs"],
+    }]}).values()))
+    summary, source = chapter["summary"], base_case["source"]
+    budget = int(sum(len(p["text"].split()) for p in chapter["paragraphs"]) * 0.8)
+    words = sum(len(line[2:].split()) for line in summary.splitlines())
+    if count_repair and not words <= budget < len(summary):
+        raise ValueError("count correction needs a valid word count exceeding the allowance only in characters")
+    write_code = (f"summary_text = {summary!r}\ncharacters_written = "
+                  f"Path({job['summary_path']!r}).write_text(summary_text, encoding='utf-8')\n"
+                  "print(characters_written)")
+    messages = [copy.deepcopy(runtime), {"role": "user", "content": "[task from parent]\n\n" + job["prompt"]},
+        _tool("read-source", "from pathlib import Path\n"
+              f"source_text = Path({job['source_path']!r}).read_text(encoding='utf-8')\n"
+              "print(source_text, end='')", "Read the complete assigned source before selecting the key points."),
+        _result("read-source", source),
+        _tool("write-summary", write_code,
+              "Select the main ideas from this chapter, preserve qualifications and event order, "
+              "and write 3-5 concise English bullets. Do not supply events or conclusions from outside the source."),
+        _result("write-summary", str(len(summary)) + "\n"),
+    ]
+    if count_repair:
+        messages += [
+            _tool("repeat-write", write_code,
+                  "The returned number is above the word allowance. Rewrite the summary again.", trainable=False),
+            _result("repeat-write", str(len(summary)) + "\n\n" + MARKDOWN_CHILD_RECOVERY_FEEDBACK),
+            _tool("check-words", "word_count = sum(len(line[2:].split()) for line in summary_text.splitlines())\n"
+                  "print(word_count)", "The previous comparison confused characters with words. "
+                  "Path.write_text succeeded and returned characters written. Count the actual bullet words, "
+                  "excluding Markdown markers; do not rewrite unchanged text because of its character count."),
+            _result("check-words", str(words) + "\n"),
+        ]
+    receipt = {"chapter_id": chapter_id, "summary_path": job["summary_path"]}
+    messages += [
+        _tool("send-receipt", f"import json\nreceipt = {receipt!r}\n"
+              "delivery = await agent_message.send(json.dumps(receipt), receiver_role='parent')\n"
+              "print(delivery['deliveryStatus'])",
+              "The assigned source-grounded bullets are saved. The write return counts characters, not words. "
+              "Send this chapter's exact saved-file receipt once; do not send the summary text or another path."),
+        _result("send-receipt", "queued\n"),
+        _reply("Done.", "The native send succeeded and queued the receipt. That does not prove the owner "
+               "has consumed it. My assigned work is finished; stop without resending, polling or rewriting."),
+    ]
+    family = "native_count_repair" if count_repair else "native_child"
+    case = dict(base_case, slug=f"{chapter['slug']}-{family.replace('_', '-')}",
+                base_slug=chapter["slug"], family=family, native_job=job,
+                word_budget=budget, summary_word_count=words,
+                receipt_observation="scripted_queued_status_not_live_delivery",
+                masked_message_indices=[6] if count_repair else [])
+    return messages, case
 
 
 def _context(trace_path: Path):
@@ -195,7 +288,7 @@ def _semantic_repairs(path, chapters, cases):
 
 def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path,
            teacher_additions: Path | None = None, include_format_repairs: bool = False,
-           semantic_repairs: Path | None = None):
+           semantic_repairs: Path | None = None, native_child_trace: Path | None = None):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     trace, context, original_budget = _context(trace_path)
@@ -247,6 +340,7 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 "summary": summary,
             }
         )
+    base_cases = list(cases)
     reviewed_repairs = _semantic_repairs(semantic_repairs, chapters, cases)
     if include_format_repairs:
         for chapter, base_case in zip(chapters, list(cases), strict=True):
@@ -276,6 +370,22 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         cases.append(dict(base_case, slug=slug, base_slug=chapter["slug"], family="semantic_repair",
                           incorrect_draft=draft, correction_reasoning=reasoning,
                           feedback_kind="authored_user_revision_request_not_native_gate_feedback"))
+    native_context = None
+    if native_child_trace is not None:
+        runtime, native_tools, native_context = _native_context(native_child_trace)
+        if native_tools != trace["tools"]:
+            raise ValueError("direct and native-child IPython schemas differ")
+        for index, (chapter, base_case) in enumerate(zip(chapters, base_cases, strict=True)):
+            budget = int(sum(len(p["text"].split()) for p in chapter["paragraphs"]) * 0.8)
+            for repair in ([False, True] if len(chapter["summary"]) > budget else [False]):
+                messages, case = _native_messages(runtime, chapter, base_case, index, count_repair=repair)
+                rows.append({
+                    "messages": messages, "tools": json.dumps(native_tools, sort_keys=True),
+                    "task_key": f"summary-direct-{case['slug']}",
+                    "trace_id": f"summary-direct-authored:{case['slug']}",
+                    "family": case["family"], "role": "child", "objective": OBJECTIVE,
+                })
+                cases.append(case)
     if len({r["task_key"] for r in rows}) != len(rows):
         raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
@@ -321,6 +431,15 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         "broad_skill_claim": False,
         "dataset": {"path": "train.parquet", "sha256": sha256_file(parquet)},
     }
+    if native_context is not None:
+        manifest.update(
+            native_child_context=native_context,
+            native_child_episodes=sum(c["family"] == "native_child" for c in cases),
+            native_count_repair_episodes=sum(c["family"] == "native_count_repair" for c in cases),
+            native_receipt_observations="scripted_queued_status_not_live_delivery",
+            native_count_repair_feedback="current_task_interception_feedback_after_repeated_success",
+            incorrect_native_retry_masked=True,
+        )
     (output_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
 
@@ -333,6 +452,7 @@ if __name__ == "__main__":
     parser.add_argument("--teacher-additions", type=Path)
     parser.add_argument("--include-format-repairs", action="store_true")
     parser.add_argument("--semantic-repairs", type=Path)
+    parser.add_argument("--native-child-trace", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -344,6 +464,7 @@ if __name__ == "__main__":
                 teacher_additions=args.teacher_additions,
                 include_format_repairs=args.include_format_repairs,
                 semantic_repairs=args.semantic_repairs,
+                native_child_trace=args.native_child_trace,
                 output_dir=args.output_dir,
             ),
             indent=2,

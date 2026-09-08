@@ -335,6 +335,19 @@ gate. Record that distinction; a format gate does not supply factual review.
 Both the draft and premature stop are masked. The real trainer audit covers
 `semantic_repair` as well as `format_repair`; annotation checks and file replay
 are preparation, not substitutes for verifying token loss and truncation.
+For child integration teaching, the same exporter accepts `--native-child-trace`.
+It takes only an observed depth-one runtime prefix and IPython schema, replaces
+the inherited task instruction with the current role-aware instruction, and
+uses existing reviewed TRAIN chapters for read/write/parent-receipt/stop episodes.
+No evaluation task or source enters those examples. Selected count-repair states
+mask a repeated successful write with mistaken word-count reasoning, then teach
+the actual bullet-word count and one parent send. `Path.write_text` returns a
+character count, not a word count or a failure. The audit replays real file I/O
+with a declared exact-receipt stub; a scripted queued status is not live delivery.
+Check native-role context, source/target preservation and incorrect-retry loss
+masks in the real trainer audit before the next update. Native session logs can
+omit model-facing interception rewrites, so inspect the finalized trace as well
+when diagnosing whether recovery feedback reached a child.
 For native owner acquisition, `export_q35_2b_document_summary_owner_sft_v1.py`
 combines TRAIN-only scripted index/delegation/receipt/assembly episodes with the
 acquired 48-row role-decision rehearsal. Its runtime trace supplies only the
@@ -349,7 +362,7 @@ The owner audit replays actual file I/O with an explicitly declared admission
 stub, verifies preserved rehearsal and the real trainer/tokenizer's complete
 sequences and loss masks. Stubbed admission is not evidence of live delegation.
 The existing training wrapper requires this matching audit before an owner update.
-The owner exporter, audit and training-wrapper validation import the summary
+The owner and native-child exporters/audits import the summary
 taskset. When using the shared host environment with `--no-sync`, include both
 the checkout's `deps/verifiers/environments/document_summary_v1` and
 `deps/verifiers` in `PYTHONPATH`; the former package is not necessarily installed

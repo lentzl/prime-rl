@@ -5,24 +5,83 @@ from __future__ import annotations
 
 import argparse
 import ast
+import asyncio
+import inspect
+import io
 import json
+import re
 import tempfile
+from contextlib import redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
 
-import torch
-from audit_q35_2b_document_summary_commit_revision_renderer_v3 import _renderer_messages, _renderer_tools
 from datasets import Dataset
 from export_q35_2b_document_decision_sft_v1 import sha256_file
-from export_q35_2b_document_summary_direct_sft_v1 import SCHEMA_VERSION
+from export_q35_2b_document_summary_direct_sft_v1 import NATIVE_FAMILIES, SCHEMA_VERSION
 from export_q35_2b_document_summary_evidence_sft_v1 import ROOT
-from renderers.configs import Qwen35RendererConfig
-from renderers.qwen35 import Qwen35Renderer
-from transformers import AutoTokenizer
 
-from prime_rl.trainer.sft.data import SFTDataset
+
+async def _verify_native_file_observations(row, case, workspace):
+    from document_summary_v1.taskset import MARKDOWN_CHILD_RECOVERY_FEEDBACK
+
+    job = case["native_job"]
+    if ("\nRecursive agent depth: 1\n" not in row["messages"][0]["content"]
+            or row["messages"][1]["content"] != "[task from parent]\n\n" + job["prompt"]):
+        raise ValueError("native child runtime or assignment differs from the declared job")
+    chapter_id = job["chapter_id"]
+    if (re.fullmatch(r"chapter-\d{3}", chapter_id) is None
+            or job["worker"] != f"{chapter_id}-summarizer"
+            or job["source_path"] != f"{ROOT}/chapters/{chapter_id}/source.md"
+            or job["summary_path"] != f"{ROOT}/chapters/{chapter_id}/summary.md"
+            or case["summary_word_count"] != sum(len(line[2:].split()) for line in case["summary"].splitlines())
+            or not 0 < case["summary_word_count"] <= case["word_budget"]):
+        raise ValueError("invalid native chapter identity, scoped paths or word-count target")
+    def remap(text):
+        return text.replace(ROOT, str(workspace))
+
+    source_path, summary_path = Path(remap(job["source_path"])), Path(remap(job["summary_path"]))
+    source_path.parent.mkdir(parents=True)
+    source_path.write_text(case["source"], encoding="utf-8")
+    sent, observations, writes = [], {}, 0
+
+    async def send(message, *, receiver_role):
+        expected = {"chapter_id": job["chapter_id"], "summary_path": str(summary_path)}
+        if (sent or receiver_role != "parent" or json.loads(message) != expected
+                or summary_path.read_text() != case["summary"]):
+            raise ValueError("child must save the reviewed summary before one exact parent receipt")
+        sent.append(message)
+        return {"deliveryStatus": "queued"}
+
+    scope = {"agent_message": SimpleNamespace(send=send)}
+    for message in row["messages"]:
+        for call in message.get("tool_calls") or []:
+            if call["function"]["name"] != "ipython":
+                raise ValueError("child episode replaced the native IPython interface")
+            program = ast.parse(remap(json.loads(call["function"]["arguments"])["code"]))
+            writes += sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                          and node.func.attr == "write_text" for node in ast.walk(program))
+            output = io.StringIO()
+            with redirect_stdout(output):
+                execution = eval(compile(program, "child-teacher", "exec",
+                                         flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT), scope)
+                if inspect.isawaitable(execution):
+                    await execution
+            observed = output.getvalue().replace(str(workspace), ROOT)
+            if call["id"] == "repeat-write":
+                observed = observed.rstrip() + "\n\n" + MARKDOWN_CHILD_RECOVERY_FEEDBACK
+            observations[call["id"]] = observed
+        if message["role"] == "tool" and observations[message["tool_call_id"]] != message["content"]:
+            raise ValueError("native child scripted observation differs from execution")
+    expected_writes = 2 if case["family"] == "native_count_repair" else 1
+    if (len(sent) != 1 or writes != expected_writes or summary_path.read_text() != case["summary"]
+            or source_path.read_text() != case["source"]
+            or set(p for p in workspace.rglob('*') if p.is_file()) != {source_path, summary_path}):
+        raise ValueError("child did not preserve its source, save once, report once and stop")
 
 
 def verify_file_observations(row, case, workspace: Path):
+    if case["family"] in NATIVE_FAMILIES:
+        return asyncio.run(_verify_native_file_observations(row, case, workspace))
     workspace.mkdir()
     (workspace / "source.md").write_text(case["source"], encoding="utf-8")
     scope, observed = {}, {}
@@ -47,6 +106,14 @@ def verify_file_observations(row, case, workspace: Path):
 
 
 def audit(dataset_dir: Path, tokenizer_path: Path):
+    import torch
+    from audit_q35_2b_document_summary_commit_revision_renderer_v3 import _renderer_messages, _renderer_tools
+    from renderers.configs import Qwen35RendererConfig
+    from renderers.qwen35 import Qwen35Renderer
+    from transformers import AutoTokenizer
+
+    from prime_rl.trainer.sft.data import SFTDataset
+
     manifest = json.loads((dataset_dir / "MANIFEST.json").read_text())
     if manifest["schema_version"] != SCHEMA_VERSION:
         raise ValueError("unexpected dataset schema")
@@ -69,16 +136,22 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             verify_file_observations(row, case, Path(temporary) / case["slug"])
             messages, tools = _renderer_messages(row["messages"]), _renderer_tools(row["tools"])
             repair = case["family"] in {"format_repair", "semantic_repair"}
+            native = case["family"] in NATIVE_FAMILIES
+            count_repair = case["family"] == "native_count_repair"
             roles = ["user", "user", "assistant", "tool"]
             if repair:
                 roles += ["assistant", "tool", "assistant", "user"]
             roles += ["assistant", "tool", "assistant"]
+            if native:
+                roles = ["user", "user"] + ["assistant", "tool"] * (5 if count_repair else 3) + ["assistant"]
             if [m["role"] for m in messages] != roles:
-                raise ValueError("not a direct read/write/stop episode")
+                raise ValueError("not the declared read/write/report/stop episode")
             if (case["family"] == "semantic_repair"
                     and row["messages"][8]["reasoning_content"] != case["correction_reasoning"]):
                 raise ValueError("semantic correction reasoning differs from reviewed target")
-            masked_prefix = {4, 6} if repair else set()
+            masked_prefix = {6} if count_repair else ({4, 6} if repair else set())
+            if native and case["masked_message_indices"] != sorted(masked_prefix):
+                raise ValueError("native retry mask annotation differs from its episode")
             if any(
                 m.get("trainable") is not (i not in masked_prefix)
                 for i, m in enumerate(row["messages"]) if m["role"] == "assistant"
@@ -97,7 +170,7 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 bool(mask) and index in masked_prefix
                 for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True)
             )
-            if repair and masked_prefix_tokens == 0:
+            if (repair or count_repair) and masked_prefix_tokens == 0:
                 raise ValueError("incorrect draft context has no renderer-sampled tokens to mask")
             if sample["loss_mask"] != expected or not any(expected):
                 raise ValueError("loss mask differs from renderer-sampled assistant tokens")
@@ -113,6 +186,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             decoded = tokenizer.decode(supervised)
             if "Done." not in decoded or "summary_text" not in decoded or "read_text" not in decoded:
                 raise ValueError("training omits one of read/write/stop actions")
+            if native and ("agent_message.send" not in decoded or "receiver_role" not in decoded):
+                raise ValueError("native child training omits its parent receipt")
             records.append(
                 {
                     "slug": case["slug"],
@@ -125,6 +200,10 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "incorrect_prefix_context_tokens": masked_prefix_tokens,
                     "format_repair": case["family"] == "format_repair",
                     "semantic_repair": case["family"] == "semantic_repair",
+                    "native_child": native,
+                    "native_count_repair": count_repair,
+                    "receipt_send_stub_only": native,
+                    "native_child_execution_verified": False,
                 }
             )
     result = {
