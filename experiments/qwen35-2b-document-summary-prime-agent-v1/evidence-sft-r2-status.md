@@ -141,3 +141,12 @@ Use `DOCUMENT_SUMMARY_PROBES='alice-ch1 bennett-ch1'` with the existing paired
 driver. No new harness or optimizer update. Assess end-to-end usefulness and
 whether the all-paragraph-ID notes contract creates avoidable bookkeeping on
 long prose. Existing task-owner integration remains unfinished.
+
+## 2026-09-08 07:27 UTC
+
+Public-chapter run `evidence-r2-public-chapters-r1` is launched through the visible
+Launcher under Prime-RL `773b9ccbe`, Verifiers `3321579b`. Both inference engines
+are healthy, using about 8.6 GiB per GPU. Driver selects `alice-ch1 bennett-ch1`,
+one frozen model per GPU, four episodes total. Both native config dry-runs,
+forty-six local focused tests, Ruff and shell syntax checks passed. No host tests
+were run beside live work. Results are pending; no success claim from startup.
