@@ -297,6 +297,20 @@ The document training wrapper accepts a positive explicit update count. Use that
 per-run count and timeout for bounded reassessment; there is no campaign-wide
 GPU-hour or eight-update quota on the Owner's existing allocation.
 
+For the document-summary campaign, the Owner explicitly prefers aggressive,
+successive weight updates and accepts the risk of behavioral collapse. Continue
+from the latest valid experimental checkpoint by default, even when the full
+summary still fails evaluation. Small gains and diagnosed failures should guide
+additional training, not create a minimum capability threshold for permission to
+train. Keep semantic promotion separate from the training frontier. Train useful
+partial behavior and corrected targets without labeling erroneous suffixes as
+successes; complete successful rollouts are not the only possible supervision.
+Preserve recoverable checkpoints and compare periodically for regressions, but
+do not turn those checks into an admission gate for every next update. Numerical
+corruption, invalid data or broken infrastructure remain reasons to repair the
+run. Behavioral regression alone is evidence to investigate, not an automatic
+rollback or campaign stop. Never change numerical dtype settings implicitly.
+
 For `run_q35_2b_spade_dual_dense_autonomous_v1.py --coevolution`, treat a
 generated batch as complete only when all of these exist and agree:
 

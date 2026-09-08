@@ -2,7 +2,7 @@
 
 Prepared 2026-09-08. This is source material and assistant-authored supervision, not a trained checkpoint, independent human gold, or model-generated replay.
 
-The next training step should build on R2 and use the existing native Prime Agent/IPython route to read a complete chapter and write 3–5 English key bullets. No intermediate notes file or paragraph-coverage obligation is intended. The direct evaluation with wider correction allowance still produced factual errors and omissions; see `direct-public-chapters-r2-results.json`. Increasing the allowance again is not the next experiment.
+R3 builds on R2 and uses the existing native Prime Agent/IPython route to read a complete chapter and write 3–5 English key bullets. No intermediate notes file or paragraph-coverage obligation is intended. The earlier direct evaluation with wider correction allowance still produced factual errors and omissions; see `direct-public-chapters-r2-results.json`.
 
 ## Sources and review
 
@@ -38,6 +38,8 @@ Checks actually run:
 - Regenerating from pinned inputs reproduces every prepared file byte-for-byte.
 - Existing-output protection and code lint pass.
 
-Still required before an optimizer launch: export native direct-summary episodes using observed runtime context, reproduce their file observations, audit assistant-only supervision and full untruncated chapter tokenization, and register the dataset in the existing training wrapper. Preserve R2 and compare a resulting candidate against it; no semantic promotion follows from formatting checks alone.
+Completed: native direct-summary export with observed runtime context, reproduced file observations, assistant-only supervision and full untruncated chapter tokenization audits, and registration in the existing training wrapper. R3 completed 32 full-dense updates from R2 on 20 retained TRAIN cases interleaved with these 20 public chapters. See `direct-sft-r3-run.json` for the checkpoint and receipts. The R2/R3 four-chapter native comparison is running under `r2-vs-r3-direct-four-chapters-r1`; no semantic promotion follows from training or formatting checks alone.
+
+Owner direction, 2026-09-08: favor more successive weight updates, including learning from small gains and corrected failures, and accept behavioral-collapse risk. R3 is now the default experimental training frontier, not a promoted reliable model. A poor held-out result must not impose a capability threshold before further training. Continue building on the latest valid checkpoint, preserve recoverable predecessors, and use comparisons to steer training and detect regression rather than veto all updates until the whole task passes. No automatic rollback follows from behavioral regression alone.
 
 There is no campaign GPU-hour ceiling. Use the existing two-GPU host efficiently; additional infrastructure remains outside the current authorization. The archived diagnostic reference is recoverable locally; current learned checkpoints remain on the host.
