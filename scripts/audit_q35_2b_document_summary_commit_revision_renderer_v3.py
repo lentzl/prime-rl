@@ -13,16 +13,16 @@ from typing import Any
 
 import torch
 from datasets import Dataset
-from renderers.configs import Qwen35RendererConfig
-from renderers.qwen35 import Qwen35Renderer
-from transformers import AutoTokenizer
-
 from export_q35_2b_document_summary_commit_revision_sft_v3 import (
     CHAPTER_ORDER,
     _load_fixture_module,
     _observed_cases,
     export,
 )
+from renderers.configs import Qwen35RendererConfig
+from renderers.qwen35 import Qwen35Renderer
+from transformers import AutoTokenizer
+
 from prime_rl.trainer.sft.data import SFTDataset, _drop_null_fields
 from prime_rl.utils.chat_template import deserialize_tool_calls, normalize_messages
 
