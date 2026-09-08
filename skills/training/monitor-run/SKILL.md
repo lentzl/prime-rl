@@ -301,6 +301,10 @@ and case manifests rather than requiring exactly 40 episodes. Preserve the
 earlier data and exclude all evaluation chapters, including prospective ones.
 The direct exporter excludes numbered chapter probe files (`*-ch[0-9]*.md`),
 not only first chapters; keep new probe books outside the TRAIN source list.
+When extending the public TRAIN corpus, inspect both chapter boundaries. A new
+part heading can fall between the chapter's final prose and the next chapter
+marker (for example, Treasure Island VI/VII); omit that transition heading,
+preserve the complete prose, and verify earlier chapter files remain unchanged.
 Run `audit_q35_2b_document_summary_direct_sft_v1.py` against the
 source checkpoint's tokenizer before launch. It replays teacher file operations,
 checks complete untruncated trainer sequences, and verifies assistant-only loss.

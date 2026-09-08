@@ -79,7 +79,7 @@ def prepare(raw_dir: Path, output_dir: Path, *, additional_chapters_per_book: in
         for number in selected:
             start, end = boundaries[number - 1], boundaries[number]
             body = text[start.end() : end.start()].strip()
-            body = re.sub(r"\n+PART TWO: LOGICAL CONSIDERATIONS\s*$", "", body)
+            body = re.sub(r"\n+PART [A-Z]+(?:: |--)[^\n]+\s*$", "", body)
             paragraphs = [" ".join(p.split()) for p in re.split(r"\n\s*\n", body) if p.strip()]
             source = "\n\n".join(paragraphs) + "\n"
             if not 400 <= len(source.split()) <= 6500 or "*** END OF" in source:
