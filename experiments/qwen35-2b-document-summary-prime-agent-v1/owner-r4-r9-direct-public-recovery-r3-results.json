@@ -1,0 +1,48 @@
+{
+  "status": "complete_failed_after_native_delegation",
+  "run_name": "owner-r4-r9-direct-public-recovery-r3",
+  "launched_at_utc": "2026-09-08 20:59:40 UTC",
+  "agent_ended_at_utc": "2026-09-08 21:06:16 UTC",
+  "wrapper_and_gpu_drain_verified_at_utc": "2026-09-08 21:09:01 UTC",
+  "code": {"prime_rl": "47afb208c9e5548da910921889851960a54aaa18", "verifiers": "13ca238572232f92cf8d506f5d8aea47ae2734aa"},
+  "comparison": "Same R4/R9 weights and original r1 task/worker prompts, logic, scoring and sampling. Only the owner recovery string changed. 47 taskset tests, Ruff, AST comparison and host dry-run passed. No forced answers or actions.",
+  "owner_sha256": "72e72675f1f2f5ea8a8cea2f7e41e2ea7acb3e8bc1b39a33ee17bba2c48bb7dc",
+  "worker_sha256": "07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3",
+  "both_weights_unchanged": true,
+  "stop_condition": "max_turns",
+  "artifact_reward": 0,
+  "errors": 0,
+  "model_calls": {"owner": 22, "alice_child": 5, "bennett_child": 5, "auxiliary": 0},
+  "all_32_upstream_routes_http_200": true,
+  "owner": {
+    "index_displayed_and_two_exact_named_children_launched": true,
+    "duplicate_spawn_attempt_rejected": true,
+    "handles_cleared_before_duplicate_spawn_failure": true,
+    "both_matching_receipts_delivered_to_context": true,
+    "receipts_stored_in_kernel": false,
+    "passive_yield": false,
+    "assigned_summary_reads_completed": 0,
+    "assembly": false,
+    "recovery_feedback_observed": 2,
+    "diagnosis": "Misuses is_alive on admission handles, clears handles then attempts duplicate named spawn. Both receipts arrive and it briefly reasons that both are present, but tries to read through nonexistent handle.job fields from the now-empty dictionary. KeyError is misread as an absent child reply. It then increases asyncio.sleep from 1 through 15 seconds; changing code avoids most exact-repeat no-progress feedback. No valid persistent receipt map is created."
+  },
+  "workers": {
+    "both_sources_read_and_receipts_sent_then_stopped": true,
+    "alice": "Draft is unsupported prose, including picking a daisy, falling a definite four thousand miles, eating a glass bottle and entering the garden. Both writes fail because summary_path is a string. After repeated-failure feedback containing the successful-write integer-return reminder, it falsely claims a previous write succeeded and sends a receipt. Final summary file is absent.",
+    "bennett": "Saves only receipt JSON to the summary path, reads it back and recognizes it as receipt JSON, but sends the receipt without authoring a summary. No key bullets.",
+    "interpretation": "Recovery wording may have contributed to Alice's mistaken success claim, but a single trace does not isolate that cause. Separate traceback/failure guidance from successful-write guidance; preserve positive actual save/read/receipt teaching and mask failed claims/actions. Matching receipts alone do not establish artifact existence or semantic utility."
+  },
+  "evidence": {
+    "local_path": "outputs/summary-owner-r4-r9-recovery-r3/owner-r4-r9-direct-public-recovery-r3",
+    "trace_sha256": "30c0d462b5a77201b03aa811d5ebf9a7536ec9d1f6a8dc58598613439a2c789c",
+    "routing_sha256": "b3ee29eec949883b23ff72fe521343a176b1c846a4ccbc4add670063c40b624b",
+    "receipt_sha256": "b06d64d348702eef45ff181079603657eb467c2c7d48e524fd96973e1c5581c8",
+    "native_capture_manifest_sha256": "0d9e2b642996c88fce4b6bf1f7812484e8a3f8ffbd56ec29cece159559fc7ca3",
+    "native_capture_verified_files": 153,
+    "native_capture_verified_bytes": 1974446,
+    "native_capture": "Latest live snapshots, all recorded file hashes verified locally; finalized intercepted trace preserved separately. Not a claim of complete lifecycle coverage.",
+    "runtime_id": "79e3eb2e046ee55dde59f44e3b5d63722f12d1e213f162c19133839b682ba73b"
+  },
+  "semantic_promotion": false,
+  "next": "Continue from R9 on the already audited 294-row native self-review mixture; retain R4 as owner. Storage recovered from regenerable uv package cache makes another checkpoint feasible. A separate child-failure feedback correction is tested but was not used in this trial. Owner's observation-based handle/receipt recovery and varied-delay polling remain unresolved."
+}

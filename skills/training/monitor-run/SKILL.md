@@ -661,6 +661,15 @@ in-flight container.
 
 ### Publishing code when local Git ref scans stall
 
+Before treating checkpoint space as exhausted, inspect regenerable package caches
+while the host is idle. For uv, `uv cache prune --ci --cache-dir EXACT_CACHE_PATH`
+removes downloaded-wheel cache entries while retaining source-built wheels. Use its
+in-use lock, not `--force`; first check that installed environments do not depend
+on symlinks or path files into the cache. Do not delete model caches or checkpoints
+under this rationale. Measure actual filesystem space afterward: hardlinked
+installed packages remain allocated. Verify the existing environment imports
+with `--no-sync` before resuming, and record what was removed and its recoverability.
+
 Use `GIT_OPTIONAL_LOCKS=0` for read-only status/diff checks on cloud-managed
 checkouts; an optional index refresh can hold `index.lock` while file reads stall.
 Prefer explicitly scoped paths; the flag does not prevent all cloud-read stalls
