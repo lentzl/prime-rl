@@ -35,6 +35,9 @@ def verify_file_observations(row, case, workspace: Path):
             exec(compile(ast.Module(body=program.body[:-1], type_ignores=[]), "teacher", "exec"), scope)
             value = eval(compile(ast.Expression(program.body[-1].value), "teacher", "eval"), scope)
             observed[call["id"]] = repr(value)
+            if case["family"] == "semantic_repair" and call["id"] == "write-summary-draft":
+                if (workspace / "summary.md").read_text() != case["incorrect_draft"]:
+                    raise ValueError("semantic draft differs from reviewed incorrect context")
         if message["role"] == "tool" and observed[message["tool_call_id"]] != message["content"]:
             raise ValueError("teacher observation does not match execution")
     if (workspace / "summary.md").read_text() != case["summary"]:
@@ -72,6 +75,9 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             roles += ["assistant", "tool", "assistant"]
             if [m["role"] for m in messages] != roles:
                 raise ValueError("not a direct read/write/stop episode")
+            if (case["family"] == "semantic_repair"
+                    and row["messages"][8]["reasoning_content"] != case["correction_reasoning"]):
+                raise ValueError("semantic correction reasoning differs from reviewed target")
             masked_prefix = {4, 6} if repair else set()
             if any(
                 m.get("trainable") is not (i not in masked_prefix)

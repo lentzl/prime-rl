@@ -25,6 +25,8 @@
     "semantic_prefix_annotations_checked": 14,
     "invalid_specifications_rejected": ["source hash mismatch", "duplicate chapter", "unknown TRAIN chapter", "missing edit span", "unchanged draft", "format-invalid draft", "non-TRAIN split"],
     "scoped_ruff": "passed",
+    "existing_training_wrapper_tests": "18 passed",
+    "actual_dataset_contracts": "R6 96 rows and prepared 110-row mixture both accepted",
     "real_trainer_token_mask_and_context_audit": "pending idle host; not inferred from annotation checks"
   },
   "hashes": {
