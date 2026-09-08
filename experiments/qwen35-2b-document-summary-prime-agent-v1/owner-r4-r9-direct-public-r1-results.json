@@ -1,0 +1,28 @@
+{
+  "status": "launched_startup_not_yet_behaviorally_measured",
+  "run_name": "owner-r4-r9-direct-public-r1",
+  "launched_at_utc": "2026-09-08 20:10:59 UTC",
+  "wrapper_pid": 2632099,
+  "owner": {
+    "name": "R4",
+    "sha256": "72e72675f1f2f5ea8a8cea2f7e41e2ea7acb3e8bc1b39a33ee17bba2c48bb7dc"
+  },
+  "worker": {
+    "name": "R9",
+    "sha256": "07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3"
+  },
+  "code": {
+    "repository": "f988f4cf806d7bbbd1fb012452fb2ae8c0cf2bc1",
+    "verifiers": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1",
+    "synced_at_idle": "2026-09-08 20:08:13 UTC",
+    "native_runtime_and_evaluation_files_unchanged": true
+  },
+  "config": "experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml",
+  "dry_run_completed_at_utc": "2026-09-08 20:09:21 UTC",
+  "prospective_resolved_config_sha256": "ed32a0dbde6efde687c14126b2f199319c5fc8019deae814d2069c0ca4eb0d36",
+  "evaluation_scope": "Same Alice/Bennett development task, Prime Agent version, role-aware scaffold and sampling; R4 owner and fixed R9 worker. No source-answer forcing.",
+  "output_path": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r4-r9-direct-public-r1",
+  "semantic_promotion": false,
+  "next": "Inspect actual assignments, complete child summaries, receipt arrival versus storage, assigned-file reads, unchanged assembly and stopping. Preserve native sessions during runtime life where possible.",
+  "launch_command": "( for summary_flag in ${!DUAL_@}; do unset \"$summary_flag\"; done; cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = f988f4cf806d7bbbd1fb012452fb2ae8c0cf2bc1 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && date -u && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r4-r9-direct-public-r1 && UV_BIN=/home/ubuntu/.local/bin/uv UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers DOCUMENT_SUMMARY_CONFIG=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml scripts/run_q35_2b_document_summary_smoke_v1.sh /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-handle-step64-r4/weights/step_64 /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-native-chapters-step128-r9/weights/step_128 owner-r4-r9-direct-public-r1 owner-r4-handle-recovery-worker-r9 )"
+}

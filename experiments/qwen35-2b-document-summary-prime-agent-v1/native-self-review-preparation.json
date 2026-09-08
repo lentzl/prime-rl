@@ -1,5 +1,19 @@
 {
-  "status": "complete_file_replay_pending_real_tokenizer_audit",
+  "status": "complete_real_R9_tokenizer_audit_not_yet_trained",
+  "host_dataset": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r12-native-self-review",
+  "host_code_commit": "f988f4cf806d7bbbd1fb012452fb2ae8c0cf2bc1",
+  "host_synced_at_idle_utc": "2026-09-08 20:08:13 UTC",
+  "renderer_audit_sha256": "cc0b6a57316ab708e8bdf51fc91bb6a730f21162526dc8c1ee0505f591462a7e",
+  "renderer_audit": {
+    "rows": 294,
+    "maximum_tokens": 14552,
+    "total_tokens": 2165402,
+    "supervised_tokens": 131738,
+    "all_checks_pass": true,
+    "native_correction_reasoning_supervised": true,
+    "incorrect_draft_source_tool_loss_zero": true,
+    "truncation": false
+  },
   "all_file_episodes_replayed": 294,
   "previous_rows_and_cases_preserved_all_fields": 216,
   "negative_mask_observation_and_reasoning_mutations_rejected": 234,
@@ -27,5 +41,5 @@
   "existing_local_tests": "47 passed; these do not substitute for replay of the new native episodes or a real tokenizer loss audit",
   "ruff": "passed",
   "earlier_local_export": "outputs/summary-direct-sft-r12-native-revisions retained untrained; superseded to make format-correction reasoning accurate for short sources as well as copied openings.",
-  "next": "Real R9-tokenizer audit at an idle host boundary. Native R4/R9 remains the next whole-system trial. Dataset r12 is not a training-run number."
+  "next": "Native R4/R9 is the next whole-system trial. Use its observations to choose the next worker block from R9; this audited dataset is ready. Dataset r12 is not a training-run number."
 }
