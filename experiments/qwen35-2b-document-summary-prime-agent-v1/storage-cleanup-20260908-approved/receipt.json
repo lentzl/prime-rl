@@ -1,0 +1,13 @@
+{
+  "status": "complete",
+  "time": "2026-09-08T22:10:37.405913+00:00",
+  "manifest_sha256": "05b2cc8022053b6c9b4b415be6e1d0ac54815f440f42c67c1a28d07d52e8a24b",
+  "event_head": "acc3f6091fef9ae7a478072420baef5f153b022fe2c01ed911da33f48d3b56df",
+  "deleted_files": 18,
+  "deleted_bytes": 79678059552,
+  "free_before": 6546321408,
+  "free_after": 86224359424,
+  "protected_hashes_verified_after": true,
+  "retained_evidence_exactly_unchanged": true,
+  "recoverability": "Selected weights have no verified backup; exact historical model states will not be recoverable through this cleanup. All non-weight evidence is retained."
+}
