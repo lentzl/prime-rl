@@ -360,6 +360,13 @@ Check native-role context, source/target preservation and incorrect-retry loss
 masks in the real trainer audit before the next update. Native session logs can
 omit model-facing interception rewrites, so inspect the finalized trace as well
 when diagnosing whether recovery feedback reached a child.
+When retaining native session logs, start the bounded capture observer at trial
+startup and bind it to the newly created runtime's verified ID, image and creation
+time. Short episodes can finish between path discovery and a later copy call.
+Inspect `/tmp/vf-prime-agent-runs` recursively; child JSONL files live below
+`agent/session-artifacts`. A path listing or empty capture directory is not an
+archive, and even live snapshots may omit the final events. Preserve the complete
+intercepted trace separately and state the coverage actually recovered.
 For native source-copy or semantic failures, `--include-native-revisions` adds
 authored self-review before the receipt: masked incorrect draft write, actual
 saved-draft read, reviewed correction, then one send and stop. It reuses existing
@@ -656,6 +663,8 @@ in-flight container.
 
 Use `GIT_OPTIONAL_LOCKS=0` for read-only status/diff checks on cloud-managed
 checkouts; an optional index refresh can hold `index.lock` while file reads stall.
+Prefer explicitly scoped paths; the flag does not prevent all cloud-read stalls
+or guarantee that a later phase of the Git operation cannot acquire a lock.
 If a lock blocks publication, identify its owning process and wait for or resolve
 that exact operation. Never remove a lock while its owner is still live.
 

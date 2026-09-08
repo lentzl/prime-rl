@@ -1,5 +1,53 @@
 {
-  "status": "launched_startup_not_yet_behaviorally_measured",
+  "status": "complete_failed_receipt_storage_assembly_and_semantic_quality",
+  "completion": {
+    "agent_ended_at_utc": "2026-09-08 20:14:05 UTC",
+    "wrapper_and_gpu_drained_at_utc": "2026-09-08 20:15:57 UTC",
+    "stop_condition": "max_turns",
+    "artifact_reward": 0,
+    "envelope_trace_and_nested_call_errors": 0,
+    "owner_model_calls": 21,
+    "child_model_calls": 11,
+    "alice_calls": 5,
+    "bennett_calls": 6,
+    "all_32_routes_http_200": true,
+    "both_weight_hashes_unchanged": true,
+    "preexisting_12_containers_preserved": true
+  },
+  "owner_behavior": {
+    "index_read_and_exact_named_delegation": true,
+    "both_handles_retained": true,
+    "first_completion_tokens": 95,
+    "empty_ipython_calls": 1,
+    "sleep_tool_calls": 18,
+    "no_progress_feedback_rewrites": 12,
+    "join_or_await_handle_misuse": false,
+    "both_matching_receipts_delivered_to_context": true,
+    "receipt_payloads_stored_in_kernel": 0,
+    "assigned_summary_reads": 0,
+    "document_assembled": false,
+    "diagnosis": "After exact delegation, emits an empty IPython call then repeatedly awaits asyncio.sleep. After each child message it waits again; after the second arrival it incorrectly reasons that the first child just replied and another is still missing. No receipts dictionary is initialized or updated. Avoiding prior handle-method errors did not produce correct yielding or fan-in."
+  },
+  "worker_behavior": {
+    "both_complete_sources_read": true,
+    "both_files_written_and_receipts_queued": true,
+    "both_children_stopped": true,
+    "usable_bullet_summaries": 0,
+    "alice": "Four prose paragraphs cover more of the chapter than the prior source-opening copy but invent a tiny unlit garden, imply countries were passed during the fall, put the cake on the table rather than in the box under it, and continue toward the garden beyond the chapter ending. No Markdown bullets. Repeats successful writes while fixing missing json and then non-serializable Path receipt arguments.",
+    "bennett": "One prose paragraph, no Markdown bullets. Captures finite twenty-four hours and time's non-stealability, but omits equal daily allocation, daily renewal, and inability to buy or borrow extra time. The money-is-common framing loses the chapter's central contrast. Recovers a misspelled variable after an already successful write and a missing json import before sending.",
+    "interpretation": "These are observed outputs from unchanged R9, not a new worker weight comparison. Format-derived metric zeros alone do not establish literal source copying; semantic judgments come from the actual saved text and sources."
+  },
+  "evidence": {
+    "local_path": "outputs/summary-owner-r4-r9/owner-r4-r9-direct-public-r1",
+    "trace_sha256": "55ee3cff1a41148b3cb650d6b5a0586d8b10197123e1d8b9f29c0ad2ef9f2750",
+    "receipt_sha256": "4757e9720837a1982925e5eda82a992df8ea99198f82ff23055b103d583b01d5",
+    "routing_sha256": "e8d907fb103cc0c7786a78c67a3570bf80ebe21c5c69438050ec6e01ba985bea",
+    "summary_sha256": "3f1c201f016879a33e59ba1238a896119a10c8f57e268572ac08fe4737e740ad",
+    "complete_intercepted_branches_and_files_preserved": true,
+    "native_jsonl_archived": false,
+    "native_capture": "Exact runtime and deeper session paths were verified live, but the bounded copy observer began after lifecycle cleanup. Its capture directory is empty; a path listing is not a native-log archive.",
+    "timing": "Do not infer zero harness overhead from the aggregate overlapping model/harness timing fields."
+  },
   "run_name": "owner-r4-r9-direct-public-r1",
   "launched_at_utc": "2026-09-08 20:10:59 UTC",
   "wrapper_pid": 2632099,
@@ -23,6 +71,6 @@
   "evaluation_scope": "Same Alice/Bennett development task, Prime Agent version, role-aware scaffold and sampling; R4 owner and fixed R9 worker. No source-answer forcing.",
   "output_path": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r4-r9-direct-public-r1",
   "semantic_promotion": false,
-  "next": "Inspect actual assignments, complete child summaries, receipt arrival versus storage, assigned-file reads, unchanged assembly and stopping. Preserve native sessions during runtime life where possible.",
+  "next": "Continue from current role frontiers. Audited native worker self-review curriculum is ready for an R9 continuation once recovery space is available; owner needs receipt tracking and passive turn-ending corrections. Do not promote or automatically roll back. Private HF backup permission is pending, and no upload is authorized by the earlier HF status question.",
   "launch_command": "( for summary_flag in ${!DUAL_@}; do unset \"$summary_flag\"; done; cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = f988f4cf806d7bbbd1fb012452fb2ae8c0cf2bc1 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && date -u && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r4-r9-direct-public-r1 && UV_BIN=/home/ubuntu/.local/bin/uv UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers DOCUMENT_SUMMARY_CONFIG=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml scripts/run_q35_2b_document_summary_smoke_v1.sh /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-handle-step64-r4/weights/step_64 /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-native-chapters-step128-r9/weights/step_128 owner-r4-r9-direct-public-r1 owner-r4-handle-recovery-worker-r9 )"
 }
