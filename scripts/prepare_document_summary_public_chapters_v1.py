@@ -123,7 +123,7 @@ def prepare(raw_dir: Path, output_dir: Path, *, additional_chapters_per_book: in
         "normalization": "CRLF to LF; chapter headings omitted; paragraph-internal whitespace unwrapped; inter-part heading omitted; prose and sidenotes retained",
         "source_license": "https://www.gutenberg.org/policy/license.html",
         "raw_files_include_full_license": True,
-        "excluded_eval_books": [11, 2274],
+        "excluded_eval_books": [11, 2274, 37134],
         "pretraining_contamination_possible": True,
         "books": books,
         "chapters": chapters,

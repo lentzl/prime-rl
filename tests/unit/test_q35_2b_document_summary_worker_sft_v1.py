@@ -130,6 +130,15 @@ def test_direct_teacher_export_preserves_read_write_stop_and_rejects_source_chan
     (expanded / "MANIFEST.json").write_text(json.dumps(expanded_manifest))
     with pytest.raises(ValueError, match="invalid document decision"):
         _validated_dataset(expanded)
+    probe = scripts.parent / "experiments/qwen35-2b-document-summary-prime-agent-v1/chapter-probes/strunk-ch3.md"
+    overlapping = source + "\n\n" + probe.read_text().strip().split("\n\n")[1] + "\n"
+    (source_dir / "chapter-0.md").write_text(overlapping)
+    sources[0]["source_sha256"] = hashlib.sha256(overlapping.encode()).hexdigest()
+    (source_dir / "SOURCES.json").write_text(json.dumps({"split": "TRAIN", "chapters": sources,
+                                                       "books": [{"ebook": n} for n in (35, 120, 97, 37423)]}))
+    with pytest.raises(ValueError, match="evaluation-overlapping"):
+        export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher,
+               teacher_additions=extra_teacher, output_dir=tmp_path / "overlap")
     (source_dir / "chapter-0.md").write_text("changed source")
     with pytest.raises(ValueError, match="changed chapter"):
         export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher,

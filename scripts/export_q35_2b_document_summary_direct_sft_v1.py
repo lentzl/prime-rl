@@ -166,7 +166,7 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         for p in chapter["paragraphs"]
     }
     probe_dir = REPO / "experiments/qwen35-2b-document-summary-prime-agent-v1/chapter-probes"
-    for path in [probe_dir / "city-shade.md", probe_dir / "evening-access.md", *probe_dir.glob("*-ch1.md")]:
+    for path in [probe_dir / "city-shade.md", probe_dir / "evening-access.md", *probe_dir.glob("*-ch[0-9]*.md")]:
         excluded.update(path.read_text().strip().split("\n\n"))
     rows, cases = [], []
     chapters = _chapters(source_dir, teacher_path, teacher_additions)
@@ -253,7 +253,7 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         "teacher_labels_sha256": sha256_file(teacher_path),
         "teacher_additions_sha256": None if teacher_additions is None else sha256_file(teacher_additions),
         "cases_sha256": sha256_file(output_dir / "CASES.json"),
-        "eval_books_excluded_as_sources": [11, 2274],
+        "eval_books_excluded_as_sources": [11, 2274, 37134],
         "incidental_overlap": "Dewey chapter 8 alludes to Alice's cake; no zero-phrase-overlap claim",
         "pretraining_contamination_possible": True,
         "broad_skill_claim": False,

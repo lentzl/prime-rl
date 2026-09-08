@@ -1,7 +1,7 @@
 {
   "retrieved_at": "2026-09-08",
   "purpose": "real complete chapter development evaluation, not training",
-  "normalization": "UTF-8, CRLF to LF, unwrap lines inside paragraphs, omit chapter headings and decorative star separators; preserve chapter prose",
+  "normalization": "Per-chapter normalization overrides this default: UTF-8, CRLF to LF, unwrap lines inside paragraphs, omit chapter headings and decorative star separators; preserve chapter prose",
   "license_url": "https://www.gutenberg.org/policy/license.html",
   "pretraining_contamination": "Possible: well-known public books; no unseen-pretraining or generalization proof claim.",
   "chapters": [
@@ -24,6 +24,28 @@
       "start_marker": "\nI\n\nTHE DAILY MIRACLE",
       "end_marker": "\nII\n\nTHE DESIRE TO EXCEED",
       "file_sha256": "3d55072076fb18140c6ad411c80c5071c7fe350eff031e3bfe2296631146a449"
+    },
+    {
+      "slug": "strunk-ch3",
+      "title": "The Elements of Style",
+      "author": "William Strunk, Jr.",
+      "ebook": 37134,
+      "url": "https://www.gutenberg.org/cache/epub/37134/pg37134.txt",
+      "catalog_url": "https://www.gutenberg.org/ebooks/37134",
+      "full_book_sha256": "fcc9a82788d649db7099424cd1c02e8c6457139478aefdaeb2a34809ae6a5e70",
+      "words": 5495,
+      "paragraphs": 242,
+      "start_marker": "III. ELEMENTARY PRINCIPLES OF COMPOSITION",
+      "end_marker": "IV. A FEW MATTERS OF FORM",
+      "file_sha256": "db06ed2fb78a17cf462eddb6fb637aaf0a5dac5065c211c32cbfff87f5e1718e",
+      "native_source_sha256": "183a97c08df89b94bd2cf2db246929415376a1fa048a0429c1e841de64e29366",
+      "native_task_key": "b9887d284b5bfaca8a319e0060f1781bf94aa6a34307b137ec4757f4a143bf4a",
+      "native_source_observation_bytes": 37581,
+      "normalization": "UTF-8; CRLF to LF; omit only chapter III heading and boundary whitespace; preserve all rules 8-18, prose, examples, line breaks and indentation; chapter IV excluded",
+      "split": "prospective evaluation relative to frozen R5 training data",
+      "training_excluded": true,
+      "prior_campaign_evaluations": 0,
+      "review": "README.md#prospective-composition-chapter"
     }
   ]
 }
