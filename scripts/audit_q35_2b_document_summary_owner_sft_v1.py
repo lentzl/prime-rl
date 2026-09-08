@@ -49,8 +49,15 @@ def validate_dataset(path):
     owner_rows = sum(sequence_counts.values())
     wait_count = owner_counts.get("owner_wait_repair", 0)
     start_count = owner_counts.get("owner_start_repair", 0)
+    handle_count = owner_counts.get("owner_handle_repair", 0)
     if (not cases or set(owner_counts) - {
-            "owner_delegation_fanin", "owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair"}
+            "owner_delegation_fanin", "owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair",
+            "owner_handle_repair"}
+            or (handle_count and (
+                manifest.get("handle_repair_episodes") != handle_count
+                or manifest.get("incorrect_handle_action_masked") is not True
+                or manifest.get("handle_repair_context") !=
+                "authored_join_or_await_failure_with_declared_admission_stub"))
             or (start_count and (
                 manifest.get("start_repair_episodes") != start_count
                 or manifest.get("incorrect_start_response_masked") is not True
@@ -124,10 +131,20 @@ def verify_masks(row, case):
         schema_repair = case["schema_repair"]
         wait_repair = case.get("wait_repair", False)
         start_repair = case.get("start_repair")
-        family = ("owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
+        handle_repair = case.get("handle_repair")
+        family = ("owner_handle_repair" if handle_repair else "owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
                   "owner_schema_receipt_repair" if schema_repair else "owner_delegation_fanin")
-        if case["family"] != family or sum(map(bool, (wait_repair, schema_repair, start_repair))) > 1:
+        if case["family"] != family or sum(map(bool, (wait_repair, schema_repair, start_repair, handle_repair))) > 1:
             raise ValueError("inconsistent owner repair family")
+        if handle_repair:
+            boundary = case.get("handle_repair_boundary")
+            if handle_repair not in ("join", "await") or boundary not in ("before_receipts", "last_receipt_unstored"):
+                raise ValueError("invalid handle-repair boundary")
+            expected = {6 if boundary == "before_receipts" else 8 + 4 * (len(case["chapters"]) - 1)}
+            calls = [(i, call) for i, message in enumerate(_clean(row["messages"]))
+                     for call in message.get("tool_calls", []) if call["id"] == "wrong-handle"]
+            if len(calls) != 1 or {i for i, _ in calls} != expected:
+                raise ValueError("handle misuse is not at its declared boundary")
         if start_repair:
             if start_repair not in ("repetition", "premature_wait"):
                 raise ValueError("invalid start-repair boundary")

@@ -885,7 +885,7 @@ def _validated_owner_summary_audit(path: Path, source_model: Path) -> dict[str, 
                            or row.get("teacher_episode_replayed") is not True))))
                    or (row.get("family", "").startswith("adaptive_")
                        and row.get("rehearsal_preserved") is not True)
-                   or (row.get("family") in {"owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair"}
+                   or (row.get("family") in {"owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair", "owner_handle_repair"}
                        and row.get("decision_prefix_exact") is not True
                        and row.get("incorrect_prefix_context_tokens", 0) <= 0)
                    for row in rows)):

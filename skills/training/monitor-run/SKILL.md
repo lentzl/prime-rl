@@ -389,6 +389,13 @@ handoff sequence. These are TRAIN-only corrective analogues, not native successe
 or copied evaluation output. A routed child request alone does not establish a
 valid chapter assignment: inspect its actual name and prompt before attributing
 missing summaries to the worker's summarization ability.
+For retained-handle misuse, `--include-handle-repairs` adds masked join/await
+failures before receipts and immediately after the final message arrives but
+before its payload is stored. Supervise passive turn ending or explicit receipt
+validation followed by reading assigned files, respectively. A queued send,
+message delivered to context, receipt stored in the kernel, and assembled file
+remain separate observations. Replay the declared admission stub's error type;
+do not represent it as the full native traceback or treat a handle as a result.
 For thinking-enabled owner SFT, use `--decision-prefixes` to supervise each
 correct assistant decision at its own generation boundary, masking earlier
 assistant history. Whole-episode Qwen rendering strips reasoning before later
