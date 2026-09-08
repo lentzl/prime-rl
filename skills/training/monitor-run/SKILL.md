@@ -389,6 +389,15 @@ handoff sequence. These are TRAIN-only corrective analogues, not native successe
 or copied evaluation output. A routed child request alone does not establish a
 valid chapter assignment: inspect its actual name and prompt before attributing
 missing summaries to the worker's summarization ability.
+For thinking-enabled owner SFT, use `--decision-prefixes` to supervise each
+correct assistant decision at its own generation boundary, masking earlier
+assistant history. Whole-episode Qwen rendering strips reasoning before later
+user/child messages; `enable_thinking=true` alone does not preserve those earlier
+targets. Keep full authored episodes in CASES for file replay, not student input.
+The audit must check exact prefixes, all intended decision boundaries, preserved
+current-target reasoning in the actual supervised tokens, zero history loss and
+complete source/rehearsal provenance. Do not change the inference renderer to
+make this training-only check pass.
 The owner and native-child exporters/audits import the summary
 taskset. When using the shared host environment with `--no-sync`, include both
 the checkout's `deps/verifiers/environments/document_summary_v1` and
@@ -630,6 +639,13 @@ Never infer cleanup scope from age alone and never remove a pre-existing or
 in-flight container.
 
 ### Publishing code when local Git ref scans stall
+
+Before deleting a remote checkpoint in favor of a local archive, repeat the
+local byte-count and content-hash checks. An iCloud `dataless` placeholder and a
+historical matching hash do not prove that recovery bytes are currently readable.
+If the fresh read fails, retain the remote checkpoint and verify a complete copy
+outside the cloud-managed folder before cleanup. Do not claim data loss merely
+from placeholder metadata.
 
 If a push or bundle stalls while enumerating local refs, inspect its exact
 process before retrying. A temporary bare repository can reuse the existing

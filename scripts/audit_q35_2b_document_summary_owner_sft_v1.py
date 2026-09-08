@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import ast
 import asyncio
+import copy
 import inspect
 import io
 import json
@@ -36,6 +37,16 @@ def validate_dataset(path):
     manifest = json.loads((path / "MANIFEST.json").read_text())
     cases = json.loads((path / "CASES.json").read_text())
     owner_counts = Counter(c["family"] for c in cases)
+    prefixes = manifest.get("owner_supervision_boundary", "full_episode") == "assistant_turn_prefix"
+    if manifest.get("owner_supervision_boundary", "full_episode") not in {"full_episode", "assistant_turn_prefix"}:
+        raise ValueError("unsupported owner supervision boundary")
+    sequence_counts = Counter()
+    for case in cases:
+        sequence_counts[case["family"]] += (
+            sum(m["role"] == "assistant" and m.get("trainable") is not False
+                for m in case["teacher_messages"]) if prefixes else 1
+        )
+    owner_rows = sum(sequence_counts.values())
     wait_count = owner_counts.get("owner_wait_repair", 0)
     start_count = owner_counts.get("owner_start_repair", 0)
     if (not cases or set(owner_counts) - {
@@ -54,7 +65,8 @@ def validate_dataset(path):
         raise ValueError("invalid owner episode families or waiting-repair provenance")
     if (manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("status") != "complete"
             or manifest.get("role") != "coordinator" or manifest.get("objective") != OBJECTIVE
-            or manifest.get("rows") != len(cases) + 48 or manifest.get("owner_rows") != len(cases)
+            or manifest.get("rows") != owner_rows + 48 or manifest.get("owner_rows") != owner_rows
+            or (prefixes and manifest.get("owner_teacher_episodes") != len(cases))
             or manifest.get("rehearsal_rows") != 48 or manifest.get("answer_free") is not False
             or manifest.get("renderer_enable_thinking") is not True
             or manifest.get("authored_handoffs_not_live_delegation") is not True
@@ -66,7 +78,7 @@ def validate_dataset(path):
             or len({c["task_key"] for c in cases}) != len(cases)):
         raise ValueError("invalid scripted owner training dataset")
     rows = list(Dataset.from_parquet(str(path / "train.parquet")))
-    expected = {**owner_counts,
+    expected = {**sequence_counts,
                 "adaptive_solve_owned": 16, "adaptive_delegate_terminal": 16,
                 "adaptive_delegate_coordinator": 16}
     if (len(rows) != manifest["rows"] or len({r["task_key"] for r in rows}) != len(rows)
@@ -75,10 +87,16 @@ def validate_dataset(path):
             or manifest.get("task_keys") != [r["task_key"] for r in rows]):
         raise ValueError("owner/rehearsal mixture identity mismatch")
     by_key = {c["task_key"]: c for c in cases}
-    if {r["task_key"] for r in rows if r["family"] in owner_counts} != set(by_key):
+    if {r.get("episode_key") or r["task_key"] for r in rows if r["family"] in owner_counts} != set(by_key):
         raise ValueError("owner case/row identity mismatch")
+    if prefixes:
+        expected_keys = {f"{case['task_key']}:decision-{i}" for case in cases
+                         for i, message in enumerate(case["teacher_messages"])
+                         if message["role"] == "assistant" and message.get("trainable") is not False}
+        if {row["task_key"] for row in rows if row["family"] in owner_counts} != expected_keys:
+            raise ValueError("missing or duplicated owner decision boundary")
     for row in rows:
-        case = by_key.get(row["task_key"])
+        case = by_key.get(row.get("episode_key") or row["task_key"])
         if case is not None and row["family"] != case["family"]:
             raise ValueError("owner case/row family mismatch")
         verify_masks(row, case)
@@ -86,6 +104,21 @@ def validate_dataset(path):
 
 
 def verify_masks(row, case):
+    if case is not None and row.get("episode_key"):
+        index = row.get("target_message_index")
+        teacher = case["teacher_messages"]
+        verify_masks({"messages": teacher}, case)
+        if (not isinstance(index, int) or not 0 <= index < len(teacher)
+                or teacher[index]["role"] != "assistant" or teacher[index].get("trainable") is False
+                or row["task_key"] != f"{case['task_key']}:decision-{index}"):
+            raise ValueError("invalid owner decision target")
+        expected_messages = copy.deepcopy(teacher[:index + 1])
+        for message in expected_messages[:-1]:
+            if message["role"] == "assistant":
+                message["trainable"] = False
+        if _clean(row["messages"]) != _clean(expected_messages):
+            raise ValueError("owner prefix differs from its teacher episode or target mask")
+        return {i for i, message in enumerate(expected_messages[:-1]) if message["role"] == "assistant"}
     expected = set()
     if case is not None:
         schema_repair = case["schema_repair"]
@@ -205,12 +238,20 @@ def audit(dataset_dir, tokenizer_path, rehearsal_dir):
     tokenizer = AutoTokenizer.from_pretrained(str(tokenizer_path))
     renderer = Qwen35Renderer(tokenizer, Qwen35RendererConfig(enable_thinking=True))
     records = []
+    replayed = {}
     with tempfile.TemporaryDirectory(prefix="summary-owner-replay-") as temporary:
         for i, row in enumerate(rows):
-            case = cases.get(row["task_key"])
+            case = cases.get(row.get("episode_key") or row["task_key"])
             record = {"task_key": row["task_key"], "family": row["family"]}
             if case is not None:
-                record.update(asyncio.run(verify_episode(row, case, Path(temporary) / str(i))))
+                if row.get("episode_key"):
+                    if case["task_key"] not in replayed:
+                        replayed[case["task_key"]] = asyncio.run(verify_episode(
+                            {"messages": case["teacher_messages"]}, case, Path(temporary) / str(i)))
+                    record.update(replayed[case["task_key"]], teacher_episode_replayed=True,
+                                  decision_prefix_exact=True, target_message_index=row["target_message_index"])
+                else:
+                    record.update(asyncio.run(verify_episode(row, case, Path(temporary) / str(i))))
             elif any(_clean(row[key]) != _clean(value) for key, value in old[row["task_key"]].items()):
                 raise ValueError("acquired role rehearsal content changed")
             masked = verify_masks(row, case)
@@ -230,18 +271,37 @@ def audit(dataset_dir, tokenizer_path, rehearsal_dir):
             if supervised_messages != {i for i, message in enumerate(messages)
                                        if message["role"] == "assistant" and i not in masked}:
                 raise ValueError("one or more positive owner/rehearsal actions receive no supervision")
-            bad_tokens = sum(bool(mask) and index in masked
+            if row.get("episode_key"):
+                target_index = row["target_message_index"]
+                target_text = tokenizer.decode([token for token, index in
+                                                zip(full.token_ids, full.message_indices, strict=True)
+                                                if index == target_index])
+                reasoning = messages[target_index].get("reasoning_content", "").strip()
+                supervised_text = tokenizer.decode([token for token, mask in
+                                                    zip(full.token_ids[1:], expected, strict=True) if mask])
+                if (not reasoning or reasoning not in target_text
+                        or reasoning not in supervised_text
+                        or "<think>" not in target_text or "</think>" not in target_text):
+                    raise ValueError("current owner decision reasoning is absent from rendered supervision")
+                record["target_reasoning_present"] = True
+                record["target_reasoning_supervised"] = True
+            incorrect = ({i for i, message in enumerate(case["teacher_messages"][:len(messages)])
+                          if message.get("trainable") is False} if row.get("episode_key") else masked)
+            bad_tokens = sum(bool(mask) and index in incorrect
                              for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True))
-            if masked and not bad_tokens:
+            if incorrect and not bad_tokens:
                 raise ValueError("incorrect owner action absent from masked context")
             record.update(tokens=len(ids), supervised_tokens=sum(expected), truncated=False,
                           source_or_user_supervised_tokens=0, incorrect_prefix_supervised_tokens=0,
                           incorrect_prefix_context_tokens=bad_tokens,
+                          masked_history_context_tokens=sum(bool(mask) and index in masked
+                              for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True)),
                           rehearsal_preserved=case is None)
             records.append(record)
     result = {
         "schema_version": "qwen35-2b-document-summary-owner-renderer-audit/v1", "status": "complete",
         "dataset_schema_version": SCHEMA_VERSION,
+        "owner_supervision_boundary": manifest.get("owner_supervision_boundary", "full_episode"),
         "dataset_manifest_sha256": sha256_file(dataset_dir / "MANIFEST.json"),
         "dataset_parquet_sha256": sha256_file(dataset_dir / "train.parquet"),
         "tokenizer_path": str(tokenizer_path), "tokenizer_sha256": sha256_file(tokenizer_path / "tokenizer.json"),

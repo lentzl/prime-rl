@@ -1,11 +1,25 @@
 {
-  "status": "preparing_not_a_launched_or_audited_training_run",
+  "status": "correcting_generation_boundary_after_full_episode_audit_not_launched",
   "motivation": "owner-r2-r9-direct-public-r1-results.json",
   "training_parent": {
     "name": "owner R2",
     "sha256": "a1bf59637b0f52a5f5bb6408fa95792acff5c419de8c85dd7da824db895b6bfb"
   },
   "worker": "R9 remains the worker frontier; no correctly assigned chapter reached it in this trial.",
+  "renderer_boundary_correction": {
+    "observation": "The real full-episode audit passed mask/truncation checks, but token inspection found that Qwen35Renderer strips reasoning before later user/child messages. The initial read-index and spawn actions were rendered without their authored thinking blocks; the wrong repetitive reasoning-only response rendered as an empty assistant message.",
+    "causal_limit": "This is a verified teaching-format mismatch, not proof that it caused the observed native regression.",
+    "change": "Export each correct owner assistant decision as a separate prefix ending at that decision. Mask all earlier assistant history. Keep full teacher episodes in CASES for replay, never as an extra student input.",
+    "new_validation": "Every intended decision appears exactly once; each target's reasoning and thinking boundaries are present, with reasoning in actual supervised tokens; all historical assistant tokens remain masked. Replay complete teacher episodes separately.",
+    "new_local_path": "outputs/summary-owner-sft-r3-turn-prefix",
+    "full_episode_data_retained_not_scheduled": true,
+    "full_episode_renderer_audit_sha256": "a65b59e9a50946d01b0b2a408d2f0a4bdd1f5ed4074dd799d6263184be6ac9fa",
+    "full_episode_audit_rows": 96,
+    "full_episode_audit_tokens": 614596,
+    "full_episode_maximum_tokens": 8364,
+    "full_episode_supervised_tokens": 40350,
+    "inference_renderer_changed": false
+  },
   "curriculum": {
     "new_lessons": "Recover from a short repetitive no-action response or premature waiting before any child exists; read the index, then perform exact delegation, receipt validation and unchanged assembly.",
     "new_owner_episodes": 12,
@@ -29,6 +43,21 @@
     "optimizer": "fresh optimizer, weights continuation, not exact resume",
     "rationale": "A focused forward repair after very low owner training loss and a native task-start regression. Shorter exposure and half the previous learning rate are adaptive choices for this block, not a standing update ceiling or an assertion that overtraining is proven."
   },
-  "pending": ["Complete export and file replay", "Verify previous 84 rows and all rehearsal fields unchanged", "Real R2 tokenizer/trainer mask audit while host idle", "Recoverable storage for output checkpoint", "Commit/sync at idle and validate resolved configuration", "Launch and verify actual optimizer progress"],
+  "prepared_data": {
+    "local_path": "outputs/summary-owner-sft-r3-start",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r3-start",
+    "manifest_sha256": "462813cb4a9ac278f44650de505cde99c529f9cb5d9e471e07915d7fd9d55330",
+    "cases_sha256": "07935464a66b203121dc00796f54e6746ed90acd9f2811145b8d877ac0a339c9",
+    "parquet_sha256": "8ba4faef27904fe318460f5153d8a0a83a4da275936a4ab3db1c884aede8acac",
+    "host_copy_hashes_matched": true,
+    "owner_file_replays": 48,
+    "prior_rows_preserved_all_fields": 84,
+    "prior_cases_preserved": 36,
+    "deliberately_unmasked_start_response_rejections": 12,
+    "existing_local_tests_passed": 47,
+    "ruff": "passed",
+    "skill_validation": "passed"
+  },
+  "pending": ["Decision-prefix export, exact source preservation and replay", "Real R2 tokenizer audit proving target reasoning is supervised", "Commit/sync at idle and validate resolved configuration", "Launch and verify actual optimizer progress"],
   "semantic_promotion": false
 }

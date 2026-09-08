@@ -217,7 +217,7 @@ def _messages(context, case):
 
 
 def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_dir: Path,
-           *, include_wait_repairs=False, include_start_repairs=False):
+           *, include_wait_repairs=False, include_start_repairs=False, decision_prefixes=False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     context, tools = _context(runtime_trace)
@@ -240,9 +240,26 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         cases += [_case(chapters, i, False, wait_repair=True) for i in range(12)]
     if include_start_repairs:
         cases += [_case(chapters, i, False, start_repair=True) for i in range(12, 24)]
-    owner_rows = [{"messages": _messages(context, c), "tools": json.dumps(tools),
-                   "task_key": c["task_key"], "trace_id": c["task_key"], "family": c["family"],
-                   "role": "coordinator", "objective": OBJECTIVE} for c in cases]
+    owner_rows = []
+    for case in cases:
+        messages = _messages(context, case)
+        base = {"tools": json.dumps(tools), "family": case["family"],
+                "role": "coordinator", "objective": OBJECTIVE}
+        if decision_prefixes:
+            case["teacher_messages"] = messages
+            for index, message in enumerate(messages):
+                if message["role"] != "assistant" or message.get("trainable") is False:
+                    continue
+                prefix = copy.deepcopy(messages[:index + 1])
+                for historical in prefix[:-1]:
+                    if historical["role"] == "assistant":
+                        historical["trainable"] = False
+                key = f"{case['task_key']}:decision-{index}"
+                owner_rows.append({**base, "messages": prefix, "task_key": key, "trace_id": key,
+                                   "episode_key": case["task_key"], "target_message_index": index})
+        else:
+            owner_rows.append({**base, "messages": messages, "task_key": case["task_key"],
+                               "trace_id": case["task_key"]})
     rows = [row for triple in zip_longest(owner_rows, rehearsal[::2], rehearsal[1::2])
             for row in triple if row is not None]
     columns = dict.fromkeys(key for row in rows for key in row)
@@ -256,6 +273,8 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         "task_keys": [r["task_key"] for r in rows], "answer_free": False,
         "tool_call_format": "openai_function_v1", "renderer_enable_thinking": True,
         "training_batch_size": 8, "owner_rows": len(owner_rows), "rehearsal_rows": len(rehearsal),
+        "owner_teacher_episodes": len(cases),
+        "owner_supervision_boundary": "assistant_turn_prefix" if decision_prefixes else "full_episode",
         "authored_handoffs_not_live_delegation": True, "incorrect_schema_action_masked": True,
         "wait_repair_episodes": sum(c["wait_repair"] for c in cases),
         "incorrect_wait_action_masked": include_wait_repairs,
@@ -287,7 +306,9 @@ if __name__ == "__main__":
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--include-wait-repairs", action="store_true")
     parser.add_argument("--include-start-repairs", action="store_true")
+    parser.add_argument("--decision-prefixes", action="store_true")
     args = parser.parse_args()
     print(json.dumps(export(args.runtime_trace, args.training_dir, args.rehearsal_dir, args.output_dir,
                             include_wait_repairs=args.include_wait_repairs,
-                            include_start_repairs=args.include_start_repairs), indent=2))
+                            include_start_repairs=args.include_start_repairs,
+                            decision_prefixes=args.decision_prefixes), indent=2))

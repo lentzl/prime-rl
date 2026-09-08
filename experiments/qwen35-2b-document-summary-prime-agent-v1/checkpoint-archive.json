@@ -21,9 +21,14 @@
       "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/TRAINING-RECEIPT.json",
       "archive_verified_utc": "2026-09-08 17:17 UTC",
       "fresh_recovery_recheck": "After the R2/R9 trial, local stat showed an iCloud dataless placeholder and a fresh shasum read returned the empty-content digest, not the historical verified weight hash. Remote R8 still matches c481f251. Do not remove the remote weight based on the historical local check.",
-      "replacement_archive_in_progress": "/Users/ilkkalehto/.local/share/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8",
-      "remote_removal_status": "not_removed; fresh non-iCloud recovery verification pending",
-      "remote_removal_scope": "Retained on-host. No removal authorized beside live training; recheck references and recovery at a normal idle boundary if space is needed."
+      "replacement_archive": "/Users/ilkkalehto/.local/share/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8",
+      "replacement_verification": "Complete rsync finished. Fresh model SHA-256 c481f251 matched; file is 4426558864 bytes without dataless flag. Full rsync -naci showed no differences. Separate receipt SHA-256 ab87343fb6b5a4845c3c30f1e917efa30241218115bc62581604e366acc6b0f1 matches host.",
+      "remote_removal_status": "removed_after_fresh_non_iCloud_recovery_verification_via_Launcher",
+      "remote_removal_scope": "Only exact R8 model.safetensors. Full non-iCloud recovery copy, original cloud archive, all host configs/metrics/receipts, current owner R2 and worker R9 remain.",
+      "state_references": "Only completed R8 receipt/config and completed R9 source receipt/config. No live GPU process; owner audit had completed.",
+      "removal_time_utc": "2026-09-08 18:36:09 UTC",
+      "removal_verified_utc": "2026-09-08 18:36:39 UTC",
+      "host_free_space_after_removal": "7.0 GiB"
     },
     {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-semantic-repair-step128-r7/weights/step_128/model.safetensors",

@@ -867,6 +867,7 @@ def _validated_owner_summary_audit(path: Path, source_model: Path) -> dict[str, 
             or audit.get("tokenizer_sha256") != sha256_file(source_model / "tokenizer.json")
             or audit.get("selected_enable_thinking") is not True or audit.get("seq_len") != 16384
             or audit.get("cuda_initialized") is not False
+            or audit.get("owner_supervision_boundary", "full_episode") != manifest.get("owner_supervision_boundary", "full_episode")
             or [row.get("task_key") for row in rows] != manifest["task_keys"]
             or Counter(row.get("family") for row in rows) != manifest["family_counts"]
             or any(row.get("truncated") is not False or not 0 < row.get("tokens", 0) <= 16384
@@ -876,10 +877,16 @@ def _validated_owner_summary_audit(path: Path, source_model: Path) -> dict[str, 
                    or (row.get("family", "").startswith("owner_") and (
                        row.get("scripted_file_observations_reproduced") is not True
                        or row.get("admission_stub_only") is not True
-                       or row.get("native_child_execution_verified") is not False))
+                       or row.get("native_child_execution_verified") is not False
+                       or (manifest.get("owner_supervision_boundary") == "assistant_turn_prefix" and (
+                           row.get("decision_prefix_exact") is not True
+                           or row.get("target_reasoning_present") is not True
+                           or row.get("target_reasoning_supervised") is not True
+                           or row.get("teacher_episode_replayed") is not True))))
                    or (row.get("family", "").startswith("adaptive_")
                        and row.get("rehearsal_preserved") is not True)
                    or (row.get("family") in {"owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair"}
+                       and row.get("decision_prefix_exact") is not True
                        and row.get("incorrect_prefix_context_tokens", 0) <= 0)
                    for row in rows)):
         raise ValueError("invalid owner/rehearsal renderer and scripted-observation audit")
