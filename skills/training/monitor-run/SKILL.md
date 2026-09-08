@@ -273,6 +273,9 @@ can reuse the two frozen engines while running one model per GPU concurrently.
 Its receipt explicitly records direct engine routing, not owner/child delegation
 or role-proxy behavior. Inspect all four episode traces and checkpoint hashes;
 driver completion and file-presence rewards do not establish semantic utility.
+Initialize the routing audit as an empty event log before starting the proxy:
+direct-engine runs legitimately leave it empty, and final receipt hashing must
+not fail solely because no role-routing event was emitted.
 When exporting teacher episodes from intercepted traces, select the recorded
 model-visible continuation rather than its raw pre-interception sibling. Record
 the feedback style in the dataset manifest so later scaffold changes do not

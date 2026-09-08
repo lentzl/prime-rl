@@ -366,6 +366,7 @@ cleanup() {
   done
 }
 trap cleanup EXIT INT TERM
+: >"$routing_audit"
 printf 'timestamp,index,utilization_gpu_percent,memory_used_mib,memory_total_mib\n' \
   >"$gpu_metrics"
 
