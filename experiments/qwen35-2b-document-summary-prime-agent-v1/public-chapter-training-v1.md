@@ -89,3 +89,47 @@ chapters remain excluded from TRAIN; the Strunk probe adds no teacher targets.
 The [standing charter](../../docs/continual-domain-training-charter.md) governs
 subsequent curation, updates and recovery; preserving this block does not
 require future datasets to be append-only.
+
+## Next source block prepared during native-owner R1
+
+The four new complete chapters are Time Machine 7 (2,321 words), Treasure
+Island 7 (1,816), Flatland 19 (2,403), and How We Think 11 (3,360). Together
+they add 9,900 source words: 32 public chapters and 84,355 public source words.
+Each complete chapter was read before its five-bullet target was authored and
+checked against the source. The review is by the authoring assistant, not
+independent human gold or observed student success.
+
+The targets preserve suspected versus confirmed locations, preparations versus
+completed voyages, demonstrated versus conjectured dimensions, and practical
+empirical success versus causal explanation. They summarize the main argument
+or sequence without importing later events or turning historical assertions
+into modern guidance. In particular, the four-dimensional figure's sixteen
+vertices and eight bounding cubes are the Square's proposed analogy, not an
+observed journey. Dewey's contrast does not dismiss all experience as useless.
+
+`public-chapter-teacher-r4-additions.json` retains the earlier eight additional
+labels exactly and adds four new ones. `outputs/summary-public-training-chapters-r4/`
+contains the prepared sources. All 28 earlier source files and chapter metadata
+are unchanged; both ends of the four new chapters were inspected. Sources remain
+the same four TRAIN books; evaluation books and chapter outputs are not added.
+
+`outputs/summary-direct-sft-r8-chapters/` contains 118 episodes: 20 retained TRAIN
+cases, 32 public chapters, 52 authored format repairs and 14 semantic repairs.
+All 110 R7 parquet rows and case records are unchanged when matched by identity.
+The eight new rows teach four new chapter summaries in direct and correction
+states; the existing exporter masks the bad draft and premature stop. Keeping
+this rehearsal for this block is a choice, not an append-only corpus requirement.
+
+Existing dataset validation, source hashes, summary constraints and mask
+annotations pass. The existing file-observation replay function reproduces all
+118 teacher file operations and Python result observations. These are local
+preparation checks, not the real trainer/tokenizer audit or live native results.
+That audit remains pending an idle boundary, using R7's tokenizer. No R8 training
+has been launched; native owner/R7 integration remains the immediate next trial.
+
+Prepared manifest SHA256:
+`55f149075867300b94cbc8244912d96520385975e0e3494a6e28cf5413227b63`.
+Parquet SHA256:
+`227b92714d1d0cf3dcc6aad30f3d571d8a3d4f0b278088f88a21056286318fea`.
+Cases SHA256:
+`303fe60afbce2219b09365b03e633ce146c59de1f403cab2f4b668d8fed16d25`.
