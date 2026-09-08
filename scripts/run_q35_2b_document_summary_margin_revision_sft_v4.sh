@@ -8,6 +8,7 @@ operations_trace=${3:?operations margin-scaffold trace required}
 exceptions_trace=${4:?exceptions margin-scaffold trace required}
 run_name=${5:-h176-summary-margin-revision-sft12-step4-v4}
 optimizer_updates=${6:-4}
+learning_rate=${7:-2e-7}
 dataset_dir=${DOCUMENT_SUMMARY_MARGIN_REVISION_SFT_DATASET:-/home/ubuntu/rlm/data/q35-2b-document-summary-margin-revision-sft-v4}
 output_root=${DOCUMENT_SUMMARY_MARGIN_REVISION_SFT_OUTPUT_ROOT:-/home/ubuntu/rlm/outputs/q35-2b-document-summary-margin-revision-sft-v4}
 state_dir=${DOCUMENT_SUMMARY_MARGIN_REVISION_SFT_STATE_DIR:-/home/ubuntu/rlm/state/q35-2b-document-summary-margin-revision-sft-v4}
@@ -61,6 +62,6 @@ mkdir -p "$state_dir"
   --output-root "$output_root" \
   --state-dir "$state_dir" \
   --run-name "$run_name" \
-  --learning-rate 2e-7 \
+  --learning-rate "$learning_rate" \
   --optimizer-updates "$optimizer_updates" \
   --timeout 3600
