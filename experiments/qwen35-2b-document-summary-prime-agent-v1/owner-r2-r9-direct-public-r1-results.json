@@ -1,0 +1,55 @@
+{
+  "status": "launched_startup_not_a_completed_native_episode",
+  "run_name": "owner-r2-r9-direct-public-r1",
+  "frozen_code": {
+    "prime_rl": "c3a8cc9ccd35ccacf82c8ec4392fddd34e3aec7f",
+    "verifiers": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1"
+  },
+  "models": {
+    "owner": {
+      "name": "e33-summary-owner-wait-step64-r2",
+      "sha256": "a1bf59637b0f52a5f5bb6408fa95792acff5c419de8c85dd7da824db895b6bfb"
+    },
+    "worker": {
+      "name": "h176-summary-native-chapters-step128-r9",
+      "sha256": "07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3"
+    }
+  },
+  "evaluation": {
+    "config": "smoke-owner-direct.toml",
+    "chapters": [
+      "alice-ch1",
+      "bennett-ch1"
+    ],
+    "split": "development_exposed_TRAIN_excluded",
+    "native_harness": "Prime Agent 0.7.2-beta.495.1.97b994c with RLM children and persistent IPython",
+    "config_validated_at_idle_utc": "2026-09-08 17:53:32 UTC",
+    "launch_time_utc": "2026-09-08 17:55:11 UTC",
+    "smoke_wrapper_pid": 2624134,
+    "dual_policy_wrapper_pid": 2624160,
+    "initial_engines_starting_verified_utc": "2026-09-08 17:56:07 UTC",
+    "inherited_DUAL_flags_cleared": true,
+    "expected_depth_zero_role": "owner R2",
+    "expected_child_role": "worker R9",
+    "actual_native_routes_verified": false
+  },
+  "evidence": {
+    "host_result": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r2-r9-direct-public-r1",
+    "local_result": "outputs/summary-owner-r2-r9/owner-r2-r9-direct-public-r1"
+  },
+  "comparison": {
+    "previous": "owner-r1-r7-direct-public-r1-results.json",
+    "same_development_chapters_and_sampling": true,
+    "confound": "Both role weights and role-aware task/recovery wording changed since owner R1/R7. Whole-system comparison, not isolated weight attribution."
+  },
+  "review_pending": [
+    "Actual owner delegation and retained handles",
+    "Turn ending instead of blocking polling, with accumulated receipts preserved",
+    "Child source read, faithful bullets, saved files, exact parent send and stopping",
+    "Separate queued sends, owner-visible received messages and owner processing",
+    "Unchanged index-order assembly and full source-based semantic review",
+    "Errors, native stop reason and resource timing"
+  ],
+  "semantic_promotion": false,
+  "launch_command": "( for summary_flag in ${!DUAL_@}; do unset \"$summary_flag\"; done; cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = c3a8cc9ccd35ccacf82c8ec4392fddd34e3aec7f && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && date -u && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r2-r9-direct-public-r1 && UV_BIN=/home/ubuntu/.local/bin/uv UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers DOCUMENT_SUMMARY_CONFIG=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml scripts/run_q35_2b_document_summary_smoke_v1.sh /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2/weights/step_64 /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-native-chapters-step128-r9/weights/step_128 owner-r2-r9-direct-public-r1 owner-r2-worker-r9-native-corrections )"
+}

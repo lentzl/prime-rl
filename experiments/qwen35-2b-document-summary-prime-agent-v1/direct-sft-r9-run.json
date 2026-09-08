@@ -1,5 +1,20 @@
 {
-  "status": "live_training_not_capability_promotion",
+  "status": "complete_verified_training_frontier_not_capability_promotion",
+  "completion": {
+    "trainer_finished_at_utc": "2026-09-08 17:51:40 UTC",
+    "process_and_gpu_drain_verified_at_utc": "2026-09-08 17:52:17 UTC",
+    "ordered_finite_loss_records": 128,
+    "finite_gradient_records": 128,
+    "all_recorded_loss_nan_counts_zero": true,
+    "last_loss": 0.5899540781974792,
+    "last_gradient_norm": 35.0,
+    "stable_checkpoint": true,
+    "output_weight_sha256": "07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3",
+    "weight_hash_independently_verified": true,
+    "receipt_sha256": "a9faa166f781391a5e636a46bbe0028cfc431707b419185271219eb51a64e7a9",
+    "logs_metrics_configs_receipt_copied_locally": true,
+    "native_behavior_evaluated": false
+  },
   "run_name": "h176-summary-native-chapters-step128-r9",
   "frozen_code": {
     "prime_rl": "c3a8cc9ccd35ccacf82c8ec4392fddd34e3aec7f",
