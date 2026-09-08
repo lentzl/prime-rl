@@ -1,9 +1,51 @@
+import ast
 import importlib.util
 import json
 import sys
 from pathlib import Path
 
 from datasets import Dataset
+
+
+def test_evidence_teacher_episodes_reproduce_their_file_observations(tmp_path: Path) -> None:
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        from document_summary_evidence_training_v1 import training_chapters
+        from export_q35_2b_document_summary_evidence_sft_v1 import ROOT, _messages
+    finally:
+        sys.path.remove(str(scripts))
+    chapters = training_chapters()
+    assert len(chapters) == len({c["slug"] for c in chapters}) == 16
+    context = [{"role": "user", "content": "Prime Agent runtime"}, {"role": "user", "content": "Read source.md and write notes.md."}]
+    feedback = {"role": "user", "content": "Your notes are now saved; at most 68 total words."}
+    for chapter in chapters:
+        workspace = tmp_path / chapter["slug"]
+        workspace.mkdir()
+        source = "\n\n".join(f"[{p['id']}] {p['text']}" for p in chapter["paragraphs"]) + "\n"
+        (workspace / "source.md").write_text(source)
+        scope = {}
+        observed = {}
+        messages = _messages(context, feedback, chapter, 68)
+        for message in messages:
+            if message["role"] == "user" and "Your notes are now saved" in message.get("content", ""):
+                (workspace / "notes-extracted.md").write_bytes((workspace / "notes.md").read_bytes())
+            for call in message.get("tool_calls", []):
+                code = json.loads(call["function"]["arguments"])["code"].replace(ROOT, str(workspace))
+                program = ast.parse(code)
+                assert isinstance(program.body[-1], ast.Expr)
+                exec(compile(ast.Module(body=program.body[:-1], type_ignores=[]), "teacher", "exec"), scope)
+                value = eval(compile(ast.Expression(program.body[-1].value), "teacher", "eval"), scope)
+                observed[call["id"]] = repr(value)
+            if message["role"] == "tool":
+                assert observed[message["tool_call_id"]] == message["content"]
+        assert (workspace / "notes-extracted.md").read_text() == chapter["notes"]
+        assert (workspace / "summary.md").read_text() == chapter["summary"]
+        assert chapter["notes"] != chapter["summary"]
+        bullets = chapter["summary"].splitlines()
+        assert len(bullets) == 4 and all(line.startswith("- ") for line in bullets)
+        budget = int(sum(len(p["text"].split()) for p in chapter["paragraphs"]) * .8)
+        assert sum(len(line[2:].split()) for line in bullets) <= budget
 
 
 def _module():

@@ -15,6 +15,10 @@ from export_q35_2b_document_decision_sft_v1 import sha256_file
 
 SCHEMA_VERSION = "qwen35-2b-document-decision-update/v1"
 DATASET_CONTRACTS = {
+    "qwen35-2b-document-summary-evidence-sft/v1": (
+        "child",
+        "grounded_english_source_notes_summary_episode",
+    ),
     "qwen35-2b-document-decision-sft/v2": (
         "coordinator",
         "canonical_answer_free_first_document_action",
@@ -157,6 +161,7 @@ DATASET_CONTRACTS = {
     ),
 }
 DATASET_ANSWER_FREE = {
+    "qwen35-2b-document-summary-evidence-sft/v1": False,
     "qwen35-2b-document-decision-sft/v2": True,
     "qwen35-2b-document-child-sft/v1": True,
     "qwen35-2b-document-summary-worker-sft/v1": False,
@@ -194,6 +199,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-adaptive-cognition-sft/v3": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
+    "qwen35-2b-document-summary-evidence-sft/v1": 16,
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 24,
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
     "qwen35-2b-document-summary-live-revision-sft/v2": 12,
@@ -221,6 +227,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-adaptive-cognition-sft/v3": 48,
 }
 DATASET_BATCH_SIZES = {
+    "qwen35-2b-document-summary-evidence-sft/v1": 8,
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 12,
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
     "qwen35-2b-document-summary-live-revision-sft/v2": 12,
@@ -736,6 +743,11 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     source_sha = sha256_file(source_weight)
     dataset_dir = args.dataset_dir.resolve()
     dataset = _validated_dataset(dataset_dir)
+    if (
+        dataset["schema_version"] == "qwen35-2b-document-summary-evidence-sft/v1"
+        and (not args.enable_thinking or dataset.get("renderer_enable_thinking") is not True)
+    ):
+        raise ValueError("evidence episodes require the observed thinking-enabled tool interface")
     if (
         dataset["schema_version"]
         == "qwen35-2b-document-summary-margin-revision-sft/v4"
