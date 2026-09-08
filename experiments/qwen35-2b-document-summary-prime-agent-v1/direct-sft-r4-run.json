@@ -1,5 +1,19 @@
 {
-  "status": "launched_trainer_startup",
+  "status": "complete",
+  "completion": {
+    "trainer_finished_utc": "2026-09-08 10:31:02 UTC",
+    "terminal_verified_utc": "2026-09-08 10:32 UTC",
+    "wrapper_absent_and_gpus_drained": true,
+    "optimizer_loss_records": 64,
+    "all_loss_records_finite": true,
+    "total_loss_nan_count": 0,
+    "first_loss": 0.6462002396583557,
+    "last_loss": 0.7093276381492615,
+    "output_model_path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step64-r4/weights/step_64",
+    "output_model_sha256": "32e40abcaf2352f47039830f57440eba002c5bf61dfc9f354c3cfde6d4dddf54",
+    "local_receipt": "outputs/summary-direct-sft-r4/h176-summary-direct-chapters-step64-r4-receipt.json",
+    "local_training_logs": "outputs/summary-direct-sft-r4/training"
+  },
   "launch_time_utc": "2026-09-08 10:04 UTC",
   "launch_code_commit": "676336da6b9ee1e7e5b5836eaf3e74863c471825",
   "verifiers_commit": "3957bdb4400565e55fd9e4c362c44ef59739f96f",
@@ -49,6 +63,6 @@
   "rationale": "Continue learning from R3 rather than impose an evaluation pass threshold. Retain all earlier supervision, add four complete chapters with new chronology and conceptual-compression examples, and train for a larger 64-update block. Inspect regressions separately; behavioral collapse risk is explicitly accepted by the Owner.",
   "semantic_promotion": false,
   "remaining_launch_conditions": [],
-  "next_check": "Confirm first optimizer step, resolved configuration and GPU health; preserve unique run label on failure.",
+  "next_check": "Compare frozen R3 and R4 on the four direct chapters with the same corrected repeat feedback and two-probe concurrency per arm; inspect semantic utility separately from format and stopping.",
   "capability_threshold_required_before_training": false
 }
