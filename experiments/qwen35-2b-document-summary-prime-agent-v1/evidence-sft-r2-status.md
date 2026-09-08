@@ -98,3 +98,12 @@ no dependency pins were changed to work around it.
 No further optimizer run or checkpoint promotion is justified by the lower
 training loss alone. There is no artificial GPU-hour ceiling on this allocation.
 Broader chapter utility and existing task-owner integration remain active work.
+
+## 2026-09-08 07:15 UTC
+
+Launched `evidence-sft-r2-paired-literal-write-repair-r1` through the visible
+Launcher under Prime-RL `a504c467d`, Verifiers `3321579b`. Both frozen inference
+engines loaded their checkpoints and returned healthy responses; approximately
+8.6 GiB is allocated per GPU. The paired evaluator is starting the two chapter
+arms. Results are pending; startup is not a utility result. Existing R1/R2
+weights and sampling are unchanged. No additional infrastructure was acquired.
