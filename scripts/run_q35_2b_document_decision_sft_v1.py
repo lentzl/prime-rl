@@ -225,6 +225,7 @@ DATASET_BATCH_SIZES = {
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
     "qwen35-2b-document-summary-live-revision-sft/v2": 12,
     "qwen35-2b-document-summary-commit-revision-sft/v3": 12,
+    "qwen35-2b-document-summary-margin-revision-sft/v4": 12,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
     "qwen35-2b-document-utility-topology-sft/v1": 6,
