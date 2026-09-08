@@ -116,7 +116,16 @@ def _audit_row(
     )
     if stripped_prompt.token_ids != generation_prompt.token_ids:
         raise ValueError("reasoning-stripped live history differs from the SFT prefix")
-    if observed["raw_reasoning_present"] and raw_prompt.token_ids == prompt_ids:
+    if (
+        observed.get("wire_history_reasoning_stripped")
+        and raw_prompt.token_ids != prompt_ids
+    ):
+        raise ValueError("wire-filtered live history differs from the SFT prefix")
+    if (
+        not observed.get("wire_history_reasoning_stripped")
+        and observed["raw_reasoning_present"]
+        and raw_prompt.token_ids == prompt_ids
+    ):
         raise ValueError("raw reasoning history unexpectedly equals the commit prefix")
 
     dataset = SFTDataset(
@@ -164,6 +173,9 @@ def _audit_row(
         "trainable_token_ids_sha256": _sha256_ids(trainable_ids),
         "raw_history_token_equivalent": raw_prompt.token_ids == prompt_ids,
         "reasoning_stripped_history_token_equivalent": True,
+        "wire_history_reasoning_stripped": observed.get(
+            "wire_history_reasoning_stripped", False
+        ),
         "prior_assistant_trainable_tokens": 0,
         "truncated": False,
         "completion_boundary_alignment": "renderer_common_prefix_v1",

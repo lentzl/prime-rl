@@ -43,6 +43,12 @@ def audit(
         family_prefix="summary_margin_revision",
         temporary_prefix="summary-margin-revision-audit-",
     )
+    if not all(
+        chapter.get("wire_history_reasoning_stripped") is True
+        and chapter.get("raw_history_token_equivalent") is True
+        for chapter in result["chapters"]
+    ):
+        raise ValueError("margin revision traces do not expose the exact wire prefix")
     result["feedback_safety_margin_words"] = 3
     result["on_policy_margin_prefix_verified"] = True
     return result

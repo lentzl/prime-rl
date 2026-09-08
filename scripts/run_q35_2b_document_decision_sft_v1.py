@@ -676,6 +676,11 @@ def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, 
             and (
                 audit.get("feedback_safety_margin_words") != 3
                 or audit.get("on_policy_margin_prefix_verified") is not True
+                or any(
+                    record.get("wire_history_reasoning_stripped") is not True
+                    or record.get("raw_history_token_equivalent") is not True
+                    for record in records or []
+                )
             )
         )
         or audit.get("cuda_initialized") is not False

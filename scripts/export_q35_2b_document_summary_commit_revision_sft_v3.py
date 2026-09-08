@@ -78,13 +78,40 @@ def _observed_cases(
                     continue
                 for trace in json.loads(line).get("traces") or []:
                     nodes = trace.get("nodes") or []
-                    if (
-                        trace.get("task", {}).get("type")
-                        != "DocumentSummaryTextTask"
-                        or len(nodes) != 5
-                    ):
+                    if trace.get("task", {}).get("type") != "DocumentSummaryTextTask":
                         continue
-                    raw_messages = [node.get("message", {}) for node in nodes]
+                    all_messages = [node.get("message", {}) for node in nodes]
+                    roles = [message.get("role") for message in all_messages]
+                    wire_history_reasoning_stripped = False
+                    if roles == ["user", "user", "assistant", "user", "assistant"]:
+                        raw_messages = all_messages
+                        sampled_draft_message = all_messages[2]
+                    elif roles == [
+                        "user",
+                        "user",
+                        "assistant",
+                        "assistant",
+                        "user",
+                        "assistant",
+                    ]:
+                        if (
+                            not nodes[2].get("sampled")
+                            or nodes[3].get("sampled")
+                            or _content_text(all_messages[2].get("content"))
+                            != _content_text(all_messages[3].get("content"))
+                        ):
+                            raise ValueError("wire-filtered draft evidence differs")
+                        raw_messages = [
+                            all_messages[0],
+                            all_messages[1],
+                            all_messages[3],
+                            all_messages[4],
+                            all_messages[5],
+                        ]
+                        sampled_draft_message = all_messages[2]
+                        wire_history_reasoning_stripped = True
+                    else:
+                        continue
                     task_prompt = _content_text(raw_messages[1].get("content"))
                     matched = [
                         chapter_id
@@ -144,8 +171,11 @@ def _observed_cases(
                         "draft_words": _word_count(draft),
                         "word_budget": word_budget,
                         "raw_reasoning_present": bool(
-                            raw_messages[2].get("reasoning_content")
-                            or raw_messages[2].get("reasoning_details")
+                            sampled_draft_message.get("reasoning_content")
+                            or sampled_draft_message.get("reasoning_details")
+                        ),
+                        "wire_history_reasoning_stripped": (
+                            wire_history_reasoning_stripped
                         ),
                     }
                     evidence.append(

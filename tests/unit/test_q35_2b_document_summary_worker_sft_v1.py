@@ -301,6 +301,7 @@ def _margin_revision_traces(tmp_path: Path) -> list[Path]:
                 },
                 {
                     "parent": 1,
+                    "sampled": True,
                     "message": {
                         "role": "assistant",
                         "content": draft,
@@ -308,7 +309,15 @@ def _margin_revision_traces(tmp_path: Path) -> list[Path]:
                     },
                 },
                 {
-                    "parent": 2,
+                    "parent": 1,
+                    "sampled": False,
+                    "message": {
+                        "role": "assistant",
+                        "content": draft,
+                    },
+                },
+                {
+                    "parent": 3,
                     "message": {
                         "role": "user",
                         "content": module._expected_feedback(
@@ -319,7 +328,7 @@ def _margin_revision_traces(tmp_path: Path) -> list[Path]:
                     },
                 },
                 {
-                    "parent": 3,
+                    "parent": 4,
                     "message": {"role": "assistant", "content": draft},
                 },
             ],
