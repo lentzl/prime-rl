@@ -30,6 +30,22 @@ is present. Missing output remains missing; the exporter does not fill it in.
 These are model-produced diagnostic artifacts, not certified summaries. Full
 calls, errors and lifecycle information remain in the native trace.
 
+The `smoke-evidence-direct-alice-ch1.toml` and
+`smoke-evidence-direct-bennett-ch1.toml` configs select `direct_probe`: read the
+same complete chapter and directly write 3–5 key English bullets in Prime Agent.
+No notes stage or paragraph-ID checklist is required. The gate checks bullet
+structure and word limits only; it supplies no reference answer. Existing
+file-write recovery remains available. This changes the prompt, stages and
+structural feedback together, so comparisons do not isolate notes alone.
+Use `DOCUMENT_SUMMARY_PROBES='direct-alice-ch1 direct-bennett-ch1'` with the paired
+driver. The staged path and its results remain intact.
+
+`upstream-staged-public-chapters-r1-results.json` records the published upstream
+reference versus R2 before this simplification. Neither model produced usable
+key-bullet summaries in that four-episode screen; the upstream Bennett output
+was a paragraph-by-paragraph obligation report. This cautions against attributing
+the failures to training alone. The reference is not a proven exact ancestor.
+
 ## Training and interpretation
 
 Evidence curriculum R2 retains the sixteen earlier source cases and adds four

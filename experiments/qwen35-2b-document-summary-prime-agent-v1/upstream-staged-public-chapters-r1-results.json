@@ -1,0 +1,213 @@
+{
+  "comparison": "Pinned published Qwen/Qwen3.5-2B reference versus evidence R2, staged notes, complete public chapters",
+  "code_commit": "c162799ca81b2b120206046fc6201b54fe526c75",
+  "verifiers_commit": "3321579b3bd76e655b9999126c7b9e4bc1fb99df",
+  "baseline_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+  "baseline_sha256": "aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1",
+  "candidate_sha256": "da1ec708bf191313797c97f5e729baeef57deffae294b90901eb6a8fafe7691d",
+  "role_proxy_used": false,
+  "no_optimizer_updates": true,
+  "semantic_promotion": false,
+  "pretraining_contamination_possible": true,
+  "interpretation": [
+    "Neither model produced a usable key-bullet chapter summary in this four-episode screen.",
+    "The upstream Bennett artifact is a paragraph-by-paragraph obligation/qualifier report, not key bullets. Other episodes have no summary artifact.",
+    "R2 Bennett repeatedly attempts broken asynchronous helper/delegation code, then writes only the first paragraph's obligation notes and says Done. agent_completed does not prove artifact or semantic completion.",
+    "Upstream failure weakens an attribution to training alone. This published reference is not a proven exact unmodified ancestor of R2.",
+    "The next direct-probe comparison removes mandatory notes and paragraph bookkeeping while changing prompt and structural bullet feedback. It is a joint workflow intervention, not a one-factor notes ablation."
+  ],
+  "episodes": [
+    {
+      "label": "upstream-vs-r2-public-chapters-r1-baseline-alice-ch1",
+      "trace_sha256": "7f25db44a7f7444a888e97a1340292491cf1fb3f349a98e04720e78a0d6ccf61",
+      "trace_id": "b018a9446b894fc78815647c1ff21a76",
+      "stop_condition": "max_turns",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_chars": 12564,
+      "summary": null,
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 0
+      },
+      "timing": {
+        "start": 1788853661.7367344,
+        "boot": {
+          "start": 1788853661.7370777,
+          "end": 1788853662.1993456
+        },
+        "setup": {
+          "start": 1788853662.1993456,
+          "end": 1788853665.6603992
+        },
+        "agent": {
+          "start": 1788853665.6603992,
+          "end": 1788853808.6020699,
+          "model": {
+            "duration": 124.26165437698364
+          },
+          "harness": {
+            "duration": 18.68001627922058
+          }
+        },
+        "finalize": {
+          "start": 1788853808.6021168,
+          "end": 1788853808.8633149
+        },
+        "scoring": {
+          "start": 1788853808.8633149,
+          "end": 1788853808.8663468
+        }
+      }
+    },
+    {
+      "label": "upstream-vs-r2-public-chapters-r1-baseline-bennett-ch1",
+      "trace_sha256": "b0b5a5957106a6d88d1893b36ccca31b73366be67be67185fd359f4201a604d1",
+      "trace_id": "7e6f39fa5f1642fe934c905ee452a6b5",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_chars": 6240,
+      "summary": "# Summary - document-summary-v1/source.md\n\n## [chapter-p001]\n**Obligation:** Man fritters his income away; wish narrator had half of it.\n**Qualifiers:** Regular income, enough for luxuries and needs, not extravagant; always in difficulties; somehow he gets nothing out of his money; excellent flat--half empty!\n\n## [chapter-p002]\n**Obligation:** None specified.\n**Qualifiers:** At one time or another, in their superior way.\n\n## [chapter-p003]\n**Obligation:** None specified.\n**Qualifiers:** Recently, in a daily organ; a battle raged round the question whether a woman can exist nicely in the country on L85 a year.\n\n## [chapter-p004]\n**Obligation:** None specified.\n**Qualifiers:** It is the inexplicable raw material of everything; with it, all is possible; without it, nothing; the supply of time is truly a daily miracle; an affair genuinely astonishing when one examines it.\n\n## [chapter-p005]\n**Obligation:** None specified.\n**Qualifiers:** It is unstealable; no one receives either more or less than you receive.\n\n## [chapter-p006]\n**Obligation:** None specified.\n**Qualifiers:** In the realm of time there is no aristocracy of wealth; there is no aristocracy of intellect; genius is never rewarded by even an extra hour a day; there is no punishment; you cannot draw on the future; impossible to get into debt; you can only waste the passing moment; you cannot waste to-morrow; it is kept for you; you cannot waste the next hour; it is kept for you.\n\n## [chapter-p007]\n**Obligation:** None specified.\n**Qualifiers:** Affair was a miracle; is it not?\n\n## [chapter-p008]\n**Obligation:** None specified.\n**Qualifiers:** Twenty-four hours of daily time; health, pleasure, money, content, respect, evolution of immortal soul; your happiness--the elusive prize that you are all clutching for, my friends!--depends on that; strange that the newspapers, so enterprising and up-to-date as they are, are not full of 'How to live on a given income of time,' instead of 'How to live on a given income of money'!; money is far commoner than time; when one reflects, one perceives that money is just about the commonest thing there is; it encumbers the earth in gross heaps.\n\n## [chapter-p009]\n**Obligation:** None specified.\n**Qualifiers:** Can't contrive to live on a certain income of money; one braces the muscles and makes it guineas, and balances the budget; but if one cannot arrange that an income of twenty-four hours a day shall exactly cover all proper items of expenditure; one does muddle one's life definitely; the supply of time, though gloriously regular, is cruelly restricted.\n\n## [chapter-p010]\n**Obligation:** None specified.\n**Qualifiers:** I do not mean exists; which of us is free from that uneasy feeling; which of us is quite sure; which of us is not; which of us has not been saying to himself all his life; I shall alter that when I have a little more time.\n\n## [chapter-p011]\n**Obligation:** None specified.\n**Qualifiers:** We have, and we have always had; it is the realisation of this profound and neglected truth; which, by the way, I have not discovered.\n",
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 1,
+        "notes_words": 896,
+        "summary_words": 0
+      },
+      "timing": {
+        "start": 1788853811.8965852,
+        "boot": {
+          "start": 1788853811.896862,
+          "end": 1788853812.3786852
+        },
+        "setup": {
+          "start": 1788853812.3786852,
+          "end": 1788853815.8571105
+        },
+        "agent": {
+          "start": 1788853815.8571105,
+          "end": 1788853954.3396273,
+          "model": {
+            "duration": 134.0869219303131
+          },
+          "harness": {
+            "duration": 4.395594835281372
+          }
+        },
+        "finalize": {
+          "start": 1788853954.339672,
+          "end": 1788853954.6245313
+        },
+        "scoring": {
+          "start": 1788853954.6245313,
+          "end": 1788853954.627754
+        }
+      }
+    },
+    {
+      "label": "upstream-vs-r2-public-chapters-r1-candidate-alice-ch1",
+      "trace_sha256": "4e2a7f35dcb39599974cabf758e62d26f1af7482bd1ad5088b758607fdfe14d9",
+      "trace_id": "e897168e78e64ba48ebcc21567e28faf",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_chars": 11589,
+      "summary": null,
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 1,
+        "notes_words": 2165,
+        "summary_words": 0
+      },
+      "timing": {
+        "start": 1788853661.6916282,
+        "boot": {
+          "start": 1788853661.6919756,
+          "end": 1788853662.1999657
+        },
+        "setup": {
+          "start": 1788853662.1999657,
+          "end": 1788853665.6593788
+        },
+        "agent": {
+          "start": 1788853665.6593788,
+          "end": 1788853701.939728,
+          "model": {
+            "duration": 31.82345414161682
+          },
+          "harness": {
+            "duration": 4.456895112991333
+          }
+        },
+        "finalize": {
+          "start": 1788853701.9397624,
+          "end": 1788853702.2078385
+        },
+        "scoring": {
+          "start": 1788853702.2078385,
+          "end": 1788853702.2144284
+        }
+      }
+    },
+    {
+      "label": "upstream-vs-r2-public-chapters-r1-candidate-bennett-ch1",
+      "trace_sha256": "848a36bb2d3ad28ad8aecd62905919fde485bd43079d22d339f1aa821c8ac0c8",
+      "trace_id": "ae78a9a2febb49169bbedd6383e99da4",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_chars": 299,
+      "summary": null,
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 0
+      },
+      "timing": {
+        "start": 1788853705.1924858,
+        "boot": {
+          "start": 1788853705.1928294,
+          "end": 1788853705.6593766
+        },
+        "setup": {
+          "start": 1788853705.6593766,
+          "end": 1788853708.9550426
+        },
+        "agent": {
+          "start": 1788853708.9550426,
+          "end": 1788853773.533259,
+          "model": {
+            "duration": 59.75498390197754
+          },
+          "harness": {
+            "duration": 4.823232412338257
+          }
+        },
+        "finalize": {
+          "start": 1788853773.5332835,
+          "end": 1788853773.8028855
+        },
+        "scoring": {
+          "start": 1788853773.8028855,
+          "end": 1788853773.8044026
+        }
+      }
+    }
+  ]
+}
