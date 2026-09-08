@@ -275,6 +275,13 @@ or role-proxy behavior. `DOCUMENT_SUMMARY_PROBES` selects space-separated existi
 probe config names; defaults are `exceptions city-shade`. Inspect every episode
 in the receipt's declared probe list and both checkpoint hashes;
 driver completion and file-presence rewards do not establish semantic utility.
+For owner-led summarization, select `smoke-owner-direct.toml` with the existing
+summary smoke launcher. It selects the owner checkpoint at depth zero only for
+owner modes; terminal probes continue to use the worker there. Verify both role
+routes and actual child receipts before claiming delegated capability. The
+Markdown artifact reward checks matching handoffs and unchanged assembly, not
+semantic fidelity or all protocol actions. Inspect exported per-chapter text and
+the native trace; never infer those behaviors from a configuration dry-run.
 `DOCUMENT_SUMMARY_PROBE_CONCURRENCY` optionally runs multiple independent probes
 per frozen model in bounded waves (default 1). Use the same value for both arms
 and label the changed scheduling when comparing with an earlier run. The driver

@@ -30,6 +30,29 @@ is present. Missing output remains missing; the exporter does not fill it in.
 These are model-produced diagnostic artifacts, not certified summaries. Full
 calls, errors and lifecycle information remain in the native trace.
 
+## Owner-led chapter summaries
+
+`smoke-owner-direct.toml` uses native RLM depth one: the owner reads an answer-free
+index, retains named children, yields for their receipts and assembles the saved
+Markdown unchanged in chapter order. Each worker reads and summarizes its own
+chapter. This config selects the complete Alice and Bennett first chapters in
+that order through `env.taskset.chapter_paths`. These are development-exposed,
+not fresh confirmation. Without file paths, the taskset uses its selected fixture.
+
+The existing `run_q35_2b_document_summary_smoke_v1.sh OWNER WORKER LABEL REVISION`
+selects the depth-zero checkpoint from the config's task mode: owner modes use
+OWNER, terminal probes use WORKER. Set `DOCUMENT_SUMMARY_CONFIG` to the owner
+config for delegation. The proxy's depth-positive requests use WORKER. Inspect
+both role routes and native child messages before claiming a delegated result.
+
+The evaluation driver exports the assembled `artifacts/summary.md`, numbered
+chapter source/summary files and `artifacts/handoffs.json`. Missing files remain
+absent; readable text matches captured trace bytes. A completed artifact and
+matching receipts establish a handoff, not faithful summaries. Source-access,
+stopping, exactly-once sends and semantic usefulness require trace/output review.
+Local tests and model-free config loading are preparation, not a live integration
+result. Do not change a GPU checkout while training or evaluation is active.
+
 The `smoke-evidence-direct-alice-ch1.toml` and
 `smoke-evidence-direct-bennett-ch1.toml` configs select `direct_probe`: read the
 same complete chapter and directly write 3–5 key English bullets in Prime Agent.

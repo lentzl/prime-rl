@@ -61,3 +61,29 @@ for artifact in source notes extracted_notes summary; do
     jq -j --arg key "$key" "$selector" "$trace_path" >"$run_output/artifacts/$artifact.md"
   fi
 done
+
+owner_selector='.traces[] | select(.task.type == "DocumentSummaryMarkdownTask")'
+if jq -e "$owner_selector" "$trace_path" >/dev/null; then
+  mkdir -p "$run_output/artifacts/chapters"
+  jq "$owner_selector | {jobs: .task.data.jobs, receipts: .info.chapter_receipts, errors: .info.summary_file_errors}" \
+    "$trace_path" >"$run_output/artifacts/handoffs.json"
+  selector="$owner_selector | .info.document_summary_markdown | select(type == \"string\")"
+  if jq -e "$selector" "$trace_path" >/dev/null; then
+    jq -j "$selector" "$trace_path" >"$run_output/artifacts/summary.md"
+  fi
+  while IFS= read -r index; do
+    for artifact in source summary; do
+      selector="$owner_selector | .task.data.document.chapters[\$index].id as \$chapter | "
+      if [[ "$artifact" == source ]]; then
+        selector+='.info.chapter_sources[$chapter]'
+      else
+        selector+='. as $trace | .task.data.jobs | to_entries[] | select(.value.chapter_id == $chapter) | $trace.info.chapter_summary_files[.key]'
+      fi
+      selector+=' | select(type == "string")'
+      if jq -e --argjson index "$index" "$selector" "$trace_path" >/dev/null; then
+        jq -j --argjson index "$index" "$selector" "$trace_path" \
+          >"$run_output/artifacts/chapters/$index-$artifact.md"
+      fi
+    done
+  done < <(jq -r "$owner_selector | .task.data.document.chapters | keys[]" "$trace_path")
+fi
