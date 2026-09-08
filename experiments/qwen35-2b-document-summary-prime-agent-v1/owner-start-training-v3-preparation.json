@@ -1,5 +1,5 @@
 {
-  "status": "correcting_generation_boundary_after_full_episode_audit_not_launched",
+  "status": "decision_prefix_audit_and_owner_R3_training_complete_native_trial_next",
   "motivation": "owner-r2-r9-direct-public-r1-results.json",
   "training_parent": {
     "name": "owner R2",
@@ -12,6 +12,22 @@
     "change": "Export each correct owner assistant decision as a separate prefix ending at that decision. Mask all earlier assistant history. Keep full teacher episodes in CASES for replay, never as an extra student input.",
     "new_validation": "Every intended decision appears exactly once; each target's reasoning and thinking boundaries are present, with reasoning in actual supervised tokens; all historical assistant tokens remain masked. Replay complete teacher episodes separately.",
     "new_local_path": "outputs/summary-owner-sft-r3-turn-prefix",
+    "new_host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r3-turn-prefix",
+    "decision_sequences": 456,
+    "unchanged_rehearsal_sequences": 48,
+    "total_sequences": 504,
+    "full_teacher_episodes_preserved_and_replayed": 48,
+    "target_or_history_mask_mutations_rejected": 876,
+    "manifest_sha256": "f214fddd04cc8a8e5cb8eb391b55ecd1f864e37647d528fdd68635ba0b1c86c2",
+    "cases_sha256": "bf414d2d008d67527d6c49145c4768fcd89ceb892dc2a3ae1b6bb6e6b7ba81d9",
+    "parquet_sha256": "abad4d39823153870a39e4353fe97b0b8d45cae4136f73502d53f1c64e6b1637",
+    "renderer_audit_sha256": "c31209ce8ab375b79ba3a45d51ab70537064b8712b75a0a93942c66ee00d1e42",
+    "sequence_tokens": 3313673,
+    "maximum_sequence_tokens": 8364,
+    "supervised_tokens": 51024,
+    "all_456_owner_targets_have_reasoning_in_supervised_tokens": true,
+    "source_tool_history_and_incorrect_action_loss_zero": true,
+    "cuda_initialized_by_audit": false,
     "full_episode_data_retained_not_scheduled": true,
     "full_episode_renderer_audit_sha256": "a65b59e9a50946d01b0b2a408d2f0a4bdd1f5ed4074dd799d6263184be6ac9fa",
     "full_episode_audit_rows": 96,
@@ -58,6 +74,7 @@
     "ruff": "passed",
     "skill_validation": "passed"
   },
-  "pending": ["Decision-prefix export, exact source preservation and replay", "Real R2 tokenizer audit proving target reasoning is supervised", "Commit/sync at idle and validate resolved configuration", "Launch and verify actual optimizer progress"],
+  "pending": ["Native owner R3 / worker R9 trial"],
+  "run_record": "owner-sft-r3-run.json",
   "semantic_promotion": false
 }

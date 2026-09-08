@@ -1,0 +1,101 @@
+{
+  "status": "complete_checkpoint_and_all_optimizer_records_verified",
+  "completion": {
+    "last_update_at_utc": "2026-09-08 19:03:54 UTC",
+    "trainer_finished_at_utc": "2026-09-08 19:04:07 UTC",
+    "process_and_gpu_drain_verified_at_utc": "2026-09-08 19:04:55 UTC",
+    "optimizer_updates": 32,
+    "loss_and_gradient_steps_exactly_1_through_32": true,
+    "all_losses_and_gradients_finite": true,
+    "loss_nan_count_sum": 0,
+    "last_loss": 0.17481237649917603,
+    "last_gradient_norm": 36.75,
+    "peak_preclipping_gradient_norm": 245.0,
+    "weight_path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-start-step32-r3/weights/step_32",
+    "weight_sha256": "3d5b1b89d3aeffe868d2df2b012054f6306d132cb35c878f816f9bfb93a1e5c2",
+    "weight_bytes": 4426558864,
+    "stable_marker_present": true,
+    "receipt_sha256": "c0fbda3ef4a68cc4dad5d154fbb508bc1a0f54281b805b4cf876058f3c105fd7",
+    "independent_weight_hash_matches_receipt": true,
+    "local_nonweight_evidence": "outputs/summary-owner-sft-r3/run",
+    "interpretation": "New owner training frontier, not evidence of native task success or semantic promotion."
+  },
+  "launch_time_utc": "2026-09-08 18:50:20 UTC",
+  "initial_processes": {"uv_wrapper_pid": 2628223, "training_wrapper_pid": 2628226, "sft_uv_pid": 2628250},
+  "saved_config_hash_matches_prospective": true,
+  "initial_training_observation": {
+    "at_utc": "2026-09-08 18:52:41 UTC",
+    "loop_started_at_utc": "2026-09-08 18:51:06 UTC",
+    "completed_updates": 3,
+    "trainer_rank_pids": [2628299, 2628300],
+    "latest_loss": 0.5141595602035522,
+    "latest_gradient_norm": 156.0,
+    "latest_loss_nan_count": 0,
+    "first_three_displayed_losses_and_gradients_finite": true,
+    "gpu_utilization_percent_at_18_51_48": [100, 100],
+    "gpu_memory_mib_each": 11922,
+    "gradient_caution": "Finite pre-clipping norms 188, 163, 156; max_norm remains 1.0. No numerical setting changed and no behavioral conclusion is drawn from these early updates."
+  },
+  "run_name": "e33-summary-owner-start-step32-r3",
+  "source": {
+    "name": "owner R2",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2/weights/step_64",
+    "sha256": "a1bf59637b0f52a5f5bb6408fa95792acff5c419de8c85dd7da824db895b6bfb"
+  },
+  "worker_unchanged": "worker R9 07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3",
+  "code": {
+    "repository_base_commit": "29dd7b85313bbdbad208aa93e99851ea56c8c3f2",
+    "verifiers_commit": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1",
+    "execution_scripts": "/home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1/r3-execution-scripts",
+    "overlay_read_only": true,
+    "overlay_reason": "At launch, the local commit was stalled in Git index refresh reading cloud-managed files; it later failed with an index-lock write timeout. The exact audited three-script snapshot ran without changing the frozen GPU checkout. The matching implementation was subsequently committed locally through the inspected staged tree; this remains base plus overlay execution, not clean base-commit execution.",
+    "matching_implementation_commit": "59bbf919ea38d24064eb7f001f1cb29721b4005e",
+    "matching_implementation_tree": "27d2fddb566f46c62934ef55fe62bb15ae487d8e",
+    "script_sha256": {
+      "run_q35_2b_document_decision_sft_v1.py": "ed9bf686abb77c3b9ea50ce4b65a9485f043c1872124035fc34fc6d286a28479",
+      "audit_q35_2b_document_summary_owner_sft_v1.py": "4f89f75a536540fae2cd30529dc0f2f8738665a16feae1637a526d1931dd8526",
+      "export_q35_2b_document_summary_owner_sft_v1.py": "a80e58f28e96a2b5023f5475953ab075b1fd833bb29166426cd424ae951fdfdb"
+    }
+  },
+  "dataset": {
+    "path": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r3-turn-prefix",
+    "rows": 504,
+    "owner_decision_prefixes": 456,
+    "owner_teacher_episodes": 48,
+    "unchanged_role_rehearsal_rows": 48,
+    "manifest_sha256": "f214fddd04cc8a8e5cb8eb391b55ecd1f864e37647d528fdd68635ba0b1c86c2",
+    "parquet_sha256": "abad4d39823153870a39e4353fe97b0b8d45cae4136f73502d53f1c64e6b1637",
+    "audit_sha256": "c31209ce8ab375b79ba3a45d51ab70537064b8712b75a0a93942c66ee00d1e42",
+    "sequence_tokens": 3313673,
+    "maximum_sequence_tokens": 8364,
+    "supervised_tokens": 51024,
+    "all_owner_current_reasoning_supervised": true,
+    "history_source_tool_and_incorrect_action_loss_zero": true,
+    "authored_admission_and_receipts_not_live_successes": true
+  },
+  "training": {
+    "optimizer_updates": 32,
+    "learning_rate": 5e-7,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "packed_sequence_length": 16384,
+    "renderer_enable_thinking": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "fresh_optimizer": true,
+    "exact_resume": false,
+    "gpus": 2,
+    "run_timeout_seconds": 7200,
+    "campaign_gpu_hour_cap": null
+  },
+  "validation": {
+    "dry_run_completed_at_utc": "2026-09-08 18:40:35 UTC",
+    "prospective_config_sha256": "51dfe555fcfc585e271876b2817d5b25503e7cd68f7f93e2f5c2a7a51d4aba7a",
+    "real_renderer_audit_complete": true,
+    "existing_local_tests_passed": 47,
+    "local_mask_mutation_rejections": 876
+  },
+  "next": "After completion and checkpoint verification, run the actual owner R3 / worker R9 chapter task with existing harness/scaffold and inspect valid assignments, messages, saved faithful summaries, assembly and stopping. Keep training frontier separate from promotion.",
+  "semantic_promotion": false,
+  "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 29dd7b85313bbdbad208aa93e99851ea56c8c3f2 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-start-step32-r3 && test \"$(sha256sum /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1/r3-execution-scripts/run_q35_2b_document_decision_sft_v1.py | cut -d ' ' -f 1)\" = ed9bf686abb77c3b9ea50ce4b65a9485f043c1872124035fc34fc6d286a28479 && test \"$(sha256sum /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1/r3-execution-scripts/audit_q35_2b_document_summary_owner_sft_v1.py | cut -d ' ' -f 1)\" = 4f89f75a536540fae2cd30529dc0f2f8738665a16feae1637a526d1931dd8526 && test \"$(sha256sum /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1/r3-execution-scripts/export_q35_2b_document_summary_owner_sft_v1.py | cut -d ' ' -f 1)\" = a80e58f28e96a2b5023f5475953ab075b1fd833bb29166426cd424ae951fdfdb && date -u && PYTHONPATH=/home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1/r3-execution-scripts:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/scripts:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1/r3-execution-scripts/run_q35_2b_document_decision_sft_v1.py --repo /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 --source-model /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2/weights/step_64 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r3-turn-prefix --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1 --run-name e33-summary-owner-start-step32-r3 --learning-rate 5e-7 --optimizer-updates 32 --checkpoint-interval 32 --enable-thinking --timeout 7200"
+}

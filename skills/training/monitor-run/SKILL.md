@@ -661,3 +661,12 @@ specific branch with `--no-tags` and `GIT_OBJECT_DIRECTORY` pointing to the
 existing object store. Inspect the fetched commit and merge it normally in the
 local checkout before publishing; never force-push over concurrent work or sync
 the live GPU checkout merely to resolve a publishing divergence.
+
+If an ordinary commit fails while refreshing cloud-managed worktree files,
+first confirm that process is terminal and its index lock is absent. Inspect the
+staged paths and diff, and obtain the exact staged tree with `git write-tree`.
+`git commit-tree` can commit that inspected tree with the current HEAD as parent;
+advance only the current branch with `git update-ref BRANCH NEW OLD`, guarding the old
+HEAD. This preserves unstaged changes and avoids another full-worktree refresh.
+Verify the new parent and tree before publishing; this bypasses commit hooks,
+so retain the separately executed checks and never claim hooks ran.

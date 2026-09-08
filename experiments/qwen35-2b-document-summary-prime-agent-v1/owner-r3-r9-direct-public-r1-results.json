@@ -1,0 +1,41 @@
+{
+  "status": "launch_dispatched_wrapper_live_before_engine_readiness",
+  "run_label": "owner-r3-r9-direct-public-r1",
+  "launch_time_utc": "2026-09-08 19:06:45 UTC",
+  "wrapper_pid": 2628623,
+  "owner": {
+    "name": "R3",
+    "sha256": "3d5b1b89d3aeffe868d2df2b012054f6306d132cb35c878f816f9bfb93a1e5c2"
+  },
+  "worker": {
+    "name": "R9",
+    "sha256": "07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3"
+  },
+  "code": {
+    "host_base": "29dd7b85313bbdbad208aa93e99851ea56c8c3f2",
+    "verifiers": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1",
+    "inference_uses_training_overlay": false,
+    "host_checkout_not_synced": true
+  },
+  "configuration": {
+    "path": "experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml",
+    "dry_run_completed_at_utc": "2026-09-08 19:05:39 UTC",
+    "same_development_chapters_harness_scaffold_sampling_as_R2_R9": true,
+    "chapters": [
+      "Alice chapter 1",
+      "How to Live on 24 Hours a Day chapter 1"
+    ],
+    "native_prime_agent": true,
+    "answer_forcing": false
+  },
+  "output_path": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r3-r9-direct-public-r1",
+  "pending": [
+    "Engine readiness and correct routing",
+    "Actual index read and valid named assignments",
+    "Child source reads and source-faithful saved bullet summaries",
+    "Matching receipt consumption, unchanged assembly and stopping",
+    "Complete native and intercepted trace preservation"
+  ],
+  "semantic_promotion": false,
+  "launch_command": "( for summary_flag in ${!DUAL_@}; do unset \"$summary_flag\"; done; cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 29dd7b85313bbdbad208aa93e99851ea56c8c3f2 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && date -u && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r3-r9-direct-public-r1 && UV_BIN=/home/ubuntu/.local/bin/uv UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers DOCUMENT_SUMMARY_CONFIG=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml scripts/run_q35_2b_document_summary_smoke_v1.sh /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-start-step32-r3/weights/step_32 /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-native-chapters-step128-r9/weights/step_128 owner-r3-r9-direct-public-r1 owner-r3-decision-prefix-repair-worker-r9 )"
+}
