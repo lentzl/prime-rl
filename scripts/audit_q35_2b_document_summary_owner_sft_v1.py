@@ -35,9 +35,19 @@ def _clean(value):
 def validate_dataset(path):
     manifest = json.loads((path / "MANIFEST.json").read_text())
     cases = json.loads((path / "CASES.json").read_text())
+    owner_counts = Counter(c["family"] for c in cases)
+    wait_count = owner_counts.get("owner_wait_repair", 0)
+    if (not cases or set(owner_counts) - {
+            "owner_delegation_fanin", "owner_schema_receipt_repair", "owner_wait_repair"}
+            or (wait_count and (
+                manifest.get("wait_repair_episodes") != wait_count
+                or manifest.get("incorrect_wait_action_masked") is not True
+                or manifest.get("wait_repair_context") !=
+                "authored_finite_two_poll_analogue_not_execution_of_observed_infinite_loop"))):
+        raise ValueError("invalid owner episode families or waiting-repair provenance")
     if (manifest.get("schema_version") != SCHEMA_VERSION or manifest.get("status") != "complete"
             or manifest.get("role") != "coordinator" or manifest.get("objective") != OBJECTIVE
-            or manifest.get("rows") != 72 or manifest.get("owner_rows") != 24
+            or manifest.get("rows") != len(cases) + 48 or manifest.get("owner_rows") != len(cases)
             or manifest.get("rehearsal_rows") != 48 or manifest.get("answer_free") is not False
             or manifest.get("renderer_enable_thinking") is not True
             or manifest.get("authored_handoffs_not_live_delegation") is not True
@@ -46,18 +56,49 @@ def validate_dataset(path):
             or manifest.get("dataset", {}).get("path") != "train.parquet"
             or sha256_file(path / "train.parquet") != manifest["dataset"]["sha256"]
             or sha256_file(path / "CASES.json") != manifest["cases_sha256"]
-            or len(cases) != 24 or len({c["task_key"] for c in cases}) != 24):
+            or len({c["task_key"] for c in cases}) != len(cases)):
         raise ValueError("invalid scripted owner training dataset")
     rows = list(Dataset.from_parquet(str(path / "train.parquet")))
-    expected = {"owner_delegation_fanin": 12, "owner_schema_receipt_repair": 12,
+    expected = {**owner_counts,
                 "adaptive_solve_owned": 16, "adaptive_delegate_terminal": 16,
                 "adaptive_delegate_coordinator": 16}
-    if (len(rows) != 72 or len({r["task_key"] for r in rows}) != 72
+    if (len(rows) != manifest["rows"] or len({r["task_key"] for r in rows}) != len(rows)
             or dict(Counter(r["family"] for r in rows)) != expected
             or manifest.get("family_counts") != expected
             or manifest.get("task_keys") != [r["task_key"] for r in rows]):
         raise ValueError("owner/rehearsal mixture identity mismatch")
-    return manifest, rows, {c["task_key"]: c for c in cases}
+    by_key = {c["task_key"]: c for c in cases}
+    if {r["task_key"] for r in rows if r["family"] in owner_counts} != set(by_key):
+        raise ValueError("owner case/row identity mismatch")
+    for row in rows:
+        case = by_key.get(row["task_key"])
+        if case is not None and row["family"] != case["family"]:
+            raise ValueError("owner case/row family mismatch")
+        verify_masks(row, case)
+    return manifest, rows, by_key
+
+
+def verify_masks(row, case):
+    expected = set()
+    if case is not None:
+        schema_repair = case["schema_repair"]
+        wait_repair = case.get("wait_repair", False)
+        family = ("owner_wait_repair" if wait_repair else
+                  "owner_schema_receipt_repair" if schema_repair else "owner_delegation_fanin")
+        if case["family"] != family or (wait_repair and schema_repair):
+            raise ValueError("inconsistent owner repair family")
+        if schema_repair:
+            expected = {4}
+        if wait_repair:
+            stage = case.get("wait_repair_after_receipts")
+            if stage not in (0, 1) or stage >= len(case["chapters"]):
+                raise ValueError("invalid waiting-repair boundary")
+            expected = {6 if stage == 0 else 10}
+    masked = {i for i, message in enumerate(_clean(row["messages"]))
+              if message.get("trainable") is False}
+    if masked != expected:
+        raise ValueError("wrong owner incorrect-action mask")
+    return masked
 
 
 async def verify_episode(row, case, workspace):
@@ -160,10 +201,7 @@ def audit(dataset_dir, tokenizer_path, rehearsal_dir):
                 record.update(asyncio.run(verify_episode(row, case, Path(temporary) / str(i))))
             elif any(_clean(row[key]) != _clean(value) for key, value in old[row["task_key"]].items()):
                 raise ValueError("acquired role rehearsal content changed")
-            cleaned = _clean(row["messages"])
-            masked = {i for i, message in enumerate(cleaned) if message.get("trainable") is False}
-            if masked != ({4} if case and case["schema_repair"] else set()):
-                raise ValueError("wrong schema-action mask")
+            masked = verify_masks(row, case)
             messages = _renderer_messages(row["messages"])
             full = renderer.render(messages, tools=_renderer_tools(row["tools"]))
             ids = list(full.token_ids)
@@ -183,7 +221,7 @@ def audit(dataset_dir, tokenizer_path, rehearsal_dir):
             bad_tokens = sum(bool(mask) and index in masked
                              for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True))
             if masked and not bad_tokens:
-                raise ValueError("incorrect schema action absent from masked context")
+                raise ValueError("incorrect owner action absent from masked context")
             record.update(tokens=len(ids), supervised_tokens=sum(expected), truncated=False,
                           source_or_user_supervised_tokens=0, incorrect_prefix_supervised_tokens=0,
                           incorrect_prefix_context_tokens=bad_tokens,

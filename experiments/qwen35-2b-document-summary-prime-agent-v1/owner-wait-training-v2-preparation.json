@@ -1,0 +1,40 @@
+{
+  "status": "prepared_file_replayed_real_renderer_audit_pending",
+  "prepared_utc": "2026-09-08 16:17 UTC",
+  "purpose": "Teach the current acquired owner to yield instead of polling persistent handles, then retain matching receipts and assemble unchanged chapter summaries.",
+  "next_owner_parent": {
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-native-step64-r1/weights/step_64",
+    "sha256": "d0968efdea5c9ed759b0caa81f7b146cf74c11935baff5c61d7a66294963104f"
+  },
+  "dataset": {
+    "local_path": "outputs/summary-owner-sft-r2-wait",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r2-wait",
+    "rows": 84,
+    "owner_clean": 12,
+    "owner_schema_receipt_repair": 12,
+    "owner_wait_repair": 12,
+    "original_role_rehearsal": 48,
+    "manifest_sha256": "5354c3d4b07ae4eeb122d1a3c668ff142e7442df81ec30d58f1647fe27d45c6a",
+    "cases_sha256": "78e010209000e3be9abd1ab5f5de5e19c8bfe62da94d898d616b31a0e17c6dc6",
+    "parquet_sha256": "f55e63a503400ea4d7b58906a76b5c5f1b59469a211a136e668538729453eefc",
+    "source_target_continuity": "All 24 previous owner case chapter groups and reviewed summary targets preserved. Owner messages and index job prompts regenerated against the current role-aware task instructions; these are not byte-identical old owner episodes. All 48 acquired rehearsal rows preserve every original field.",
+    "runtime_context_trace_sha256": "c5c53f7df756406e08dd78b23b6612f020bc47d1063eb90266f5a4e8e31242ad",
+    "evaluation_source_or_output_added": false,
+    "authorship": "Scripted TRAIN episodes with real file I/O and explicitly stubbed admission/receipts, not successful native student trajectories.",
+    "waiting_repair": "Six cases before any receipt and six after the first of multiple receipts. The wrong two-poll action is an authored finite analogue, not a fabricated return from the observed infinite cell. Its action/reasoning is masked; the subsequent passive reply is supervised. Handles remain retained and receipts are tracked separately.",
+    "incorrect_action_message_indices": {"schema_repair": 4, "wait_before_receipts": 6, "wait_after_first_receipt": 10}
+  },
+  "local_checks": {
+    "actual_owner_file_replays": 36,
+    "original_rehearsal_rows_preserved": 48,
+    "prior_owner_source_summary_groups_preserved": 24,
+    "rejected_mutations": ["discard handles", "discard receipts", "unmask incorrect polling action"],
+    "existing_training_wrapper_tests_passed": 18,
+    "scoped_lint": "passed",
+    "training_skill_validation": "passed",
+    "real_trainer_tokenizer_mask_audit": "pending idle host; local annotation checks are not token-loss proof"
+  },
+  "training_launched": false,
+  "semantic_or_native_capability_promotion": false,
+  "next": "At the normal idle boundary, sync published code and audit with the current owner tokenizer. Continue the owner from R1, worker from valid completed R8. Use the combined native system again after the targeted role updates."
+}

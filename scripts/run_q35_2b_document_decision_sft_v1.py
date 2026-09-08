@@ -879,7 +879,7 @@ def _validated_owner_summary_audit(path: Path, source_model: Path) -> dict[str, 
                        or row.get("native_child_execution_verified") is not False))
                    or (row.get("family", "").startswith("adaptive_")
                        and row.get("rehearsal_preserved") is not True)
-                   or (row.get("family") == "owner_schema_receipt_repair"
+                   or (row.get("family") in {"owner_schema_receipt_repair", "owner_wait_repair"}
                        and row.get("incorrect_prefix_context_tokens", 0) <= 0)
                    for row in rows)):
         raise ValueError("invalid owner/rehearsal renderer and scripted-observation audit")

@@ -354,6 +354,14 @@ acquired 48-row role-decision rehearsal. Its runtime trace supplies only the
 owner prompt prefix and IPython schema, not evaluation chapter contents or
 successful child experience. Wrong index lookups are masked context; receipt
 validation, passive yielding and unchanged index-order assembly are supervised.
+For owner waiting repairs, `--include-wait-repairs` adds masked finite polling
+analogues before any receipt and after a partial fan-in, followed by passive
+turn endings. These are authored executable lessons, not a claim that an observed
+infinite cell returned. Retain handles and track received receipts separately;
+do not clear handles to make a waiting condition pass. Regenerate owner examples
+against the current role-aware task prompt while preserving reviewed TRAIN
+source/summary pairs and acquired rehearsal. The audit derives owner-family
+counts from the cases and checks each repair's action mask before token replay.
 Use explicitly printed results for these teacher cells so replayed stdout is
 exact without assuming Python repr matches IPython's object pretty-printer.
 Keep all original rehearsal fields when forming a mixed Arrow dataset: building

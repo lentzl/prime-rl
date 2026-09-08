@@ -65,7 +65,7 @@ def _context(path):
     return [runtime, {"role": "user", "content": task.data.prompt}], trace["tools"]
 
 
-def _case(chapters, document_number, repair):
+def _case(chapters, document_number, repair, *, wait_repair=False):
     count = 1 + document_number % 4
     selected = [chapters[(document_number * 3 + i) % len(chapters)] for i in range(count)]
     if document_number % 2:
@@ -90,13 +90,26 @@ def _case(chapters, document_number, repair):
             }, "valid": False})
         deliveries.append({"worker": worker, "payload": payload, "valid": True})
     return {
-        "task_key": f"{document['document_id']}:{'repair' if repair else 'clean'}",
-        "family": "owner_schema_receipt_repair" if repair else "owner_delegation_fanin",
+        "task_key": f"{document['document_id']}:{'wait-repair' if wait_repair else 'repair' if repair else 'clean'}",
+        "family": ("owner_wait_repair" if wait_repair else
+                   "owner_schema_receipt_repair" if repair else "owner_delegation_fanin"),
         "index": index, "schema_repair": repair, "deliveries": deliveries,
+        "wait_repair": wait_repair,
+        "wait_repair_after_receipts": (document_number % 2) if wait_repair else None,
         "chapters": selected,
         "summaries": {worker: c["summary"] for worker, c in zip(jobs, selected, strict=True)},
         "authorship": "scripted_training_episode_not_on_policy_or_observed_child_execution",
     }
+
+
+def _poll_handles(names):
+    return [
+        _tool("poll-handles", "pending = sorted(handles)\nfor _ in range(2):\n"
+              "    pending = sorted(handles)\nprint(json.dumps(pending))",
+              "Wait for the children by repeatedly checking whether the handle dictionary empties.",
+              trainable=False),
+        _result("poll-handles", json.dumps(sorted(names)) + "\n"),
+    ]
 
 
 def _messages(context, case):
@@ -126,7 +139,14 @@ def _messages(context, case):
               "Keep each job's exact worker name and complete prompt together in index order. "
               "Retain every returned native handle; do not rewrite the assignments or sort separate lists."),
         _result("spawn-chapters", json.dumps(names) + "\n"),
+    ]
+    if case.get("wait_repair_after_receipts") == 0:
+        messages += _poll_handles(names)
+    messages += [
         _reply("Waiting for the named chapter workers' receipts.",
+               ("Polling retained handles cannot await results: these handles remain in the dictionary "
+                "after a child finishes. Do not turn this into a sleep loop or clear the handles. "
+                if case.get("wait_repair_after_receipts") == 0 else "") +
                "All requested workers have been admitted. End this turn without polling or respawning. "
                "No summary can be read or assembled before the matching receipts arrive."),
     ]
@@ -152,8 +172,14 @@ def _messages(context, case):
             _result(call_id, json.dumps(sorted(received)) + "\n"),
         ]
         if received != set(names):
+            repair_wait = case.get("wait_repair_after_receipts") == len(received)
+            if repair_wait:
+                messages += _poll_handles(names)
             messages.append(_reply(
                 "Waiting for matching receipts from " + ", ".join(n for n in names if n not in received) + ".",
+                ("The handle dictionary includes finished as well as pending children; it does not empty "
+                 "when messages arrive. Track received receipts separately and end the turn so new messages "
+                 "can be handled. Do not wait in an IPython loop or discard a handle. " if repair_wait else "") +
                 "The handoff is incomplete. Keep the existing handles and valid receipts; yield without polling, "
                 "respawning, reading summaries or creating substitute content.",
             ))
@@ -174,7 +200,8 @@ def _messages(context, case):
     return messages
 
 
-def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_dir: Path):
+def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_dir: Path,
+           *, include_wait_repairs=False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     context, tools = _context(runtime_trace)
@@ -193,6 +220,8 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         raise ValueError("changed or unsupported acquired role rehearsal")
     rehearsal = list(Dataset.from_parquet(str(rehearsal_dir / "train.parquet")))
     cases = [_case(chapters, i, repair) for i in range(12) for repair in (False, True)]
+    if include_wait_repairs:
+        cases += [_case(chapters, i, False, wait_repair=True) for i in range(12)]
     owner_rows = [{"messages": _messages(context, c), "tools": json.dumps(tools),
                    "task_key": c["task_key"], "trace_id": c["task_key"], "family": c["family"],
                    "role": "coordinator", "objective": OBJECTIVE} for c in cases]
@@ -210,6 +239,10 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         "tool_call_format": "openai_function_v1", "renderer_enable_thinking": True,
         "training_batch_size": 8, "owner_rows": len(owner_rows), "rehearsal_rows": len(rehearsal),
         "authored_handoffs_not_live_delegation": True, "incorrect_schema_action_masked": True,
+        "wait_repair_episodes": sum(c["wait_repair"] for c in cases),
+        "incorrect_wait_action_masked": include_wait_repairs,
+        "wait_repair_context": ("authored_finite_two_poll_analogue_not_execution_of_observed_infinite_loop"
+                                if include_wait_repairs else None),
         "runtime_context": {"path": str(runtime_trace.resolve()), "sha256": sha256_file(runtime_trace),
                             "usage": "runtime prefix and tool schema only; no evaluation sources or outputs"},
         "training_source": {"path": str(training_dir.resolve()),
@@ -229,5 +262,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     for name in ("runtime-trace", "training-dir", "rehearsal-dir", "output-dir"):
         parser.add_argument(f"--{name}", type=Path, required=True)
+    parser.add_argument("--include-wait-repairs", action="store_true")
     args = parser.parse_args()
-    print(json.dumps(export(args.runtime_trace, args.training_dir, args.rehearsal_dir, args.output_dir), indent=2))
+    print(json.dumps(export(args.runtime_trace, args.training_dir, args.rehearsal_dir, args.output_dir,
+                            include_wait_repairs=args.include_wait_repairs), indent=2))
