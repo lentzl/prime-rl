@@ -64,3 +64,37 @@ city-shade, fixed Verifiers `53efed80`, same runtime/sampling, one model per GPU
 Only artifact export and the empty-routing-log receipt fix changed in the
 launcher. Host free space is 3.2 GiB; this permits the no-update comparison but
 must be addressed under retention rules before another weight checkpoint.
+
+## 2026-09-08 07:13 UTC
+
+Matched postflight `evidence-sft-r2-paired-r1-vs-r2` completed with four native
+traces, no captured errors, and unchanged R1/R2 hashes. Readable artifact exports
+match trace text exactly. Results are in `evidence-sft-r2-results.json`.
+
+R1 saved four short exceptions bullets but omitted approval conjunctions and
+other operational qualifiers. On city-shade it saved broad source-linked notes,
+then a prose paragraph rather than bullets. Its wording changed an unestablished
+immediate cooling effect into a claim that planting did not immediately cool
+neighborhoods. Neither output is a semantic pass.
+
+R2 reached max turns on both chapters. Both first failures were string-literal
+`.write_text` calls after it had authored notes (69 and 285 words). The longer
+draft retained substantial source relationships, but retries wandered into
+syntax errors and a loop overwrote all but the last paragraph. No final summary
+was saved. This is a live execution regression, not a demonstrated loss of all
+underlying drafting ability and not a model-capacity ceiling.
+
+Next no-update comparison uses Verifiers `3321579b`: first-error feedback supplies
+a corrected file-write cell with the model's literal text unchanged. It only
+recognizes an explicit task-output destination, never executes code, and records
+the original draft hash. The native model must still choose and execute the
+suggestion. This is syntax-scaffold assistance, not learned execution or semantic
+repair. Both checkpoints receive the same scaffold; runtime, tasks and sampling
+stay fixed. Forty-two local tests and Ruff pass; an offline replay recognizes
+both observed first failures. Native evaluation config dry-run passes from the
+isolated environment. The top workspace's existing dependency conflict remains;
+no dependency pins were changed to work around it.
+
+No further optimizer run or checkpoint promotion is justified by the lower
+training loss alone. There is no artificial GPU-hour ceiling on this allocation.
+Broader chapter utility and existing task-owner integration remain active work.
