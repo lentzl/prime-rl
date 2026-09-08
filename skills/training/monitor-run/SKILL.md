@@ -277,6 +277,9 @@ When exporting teacher episodes from intercepted traces, select the recorded
 model-visible continuation rather than its raw pre-interception sibling. Record
 the feedback style in the dataset manifest so later scaffold changes do not
 silently leave supervision aligned to obsolete gate framing.
+The document training wrapper accepts a positive explicit update count. Use that
+per-run count and timeout for bounded reassessment; there is no campaign-wide
+GPU-hour or eight-update quota on the Owner's existing allocation.
 
 For `run_q35_2b_spade_dual_dense_autonomous_v1.py --coevolution`, treat a
 generated batch as complete only when all of these exist and agree:

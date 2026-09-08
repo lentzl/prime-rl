@@ -277,8 +277,8 @@ def training_config(
     batch_size: int = 12,
     enable_thinking: bool = False,
 ) -> str:
-    if not 1 <= optimizer_updates <= 8:
-        raise ValueError("document decision bootstrap requires one to eight updates")
+    if optimizer_updates < 1:
+        raise ValueError("document training requires a positive update count")
     if not 1 <= checkpoint_interval <= optimizer_updates:
         raise ValueError("checkpoint interval must end within the bounded update run")
     if optimizer_updates % checkpoint_interval:
