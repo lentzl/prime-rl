@@ -1,5 +1,57 @@
 {
-  "status": "launch_dispatched_wrapper_live_before_engine_readiness",
+  "status": "complete_valid_delegation_and_two_received_receipts_no_assembly_semantic_failure",
+  "completion": {
+    "agent_ended_at_utc": "2026-09-08 19:09:46 UTC",
+    "process_and_gpu_drain_verified_at_utc": "2026-09-08 19:11:09 UTC",
+    "stop_condition": "max_turns",
+    "artifact_reward": 0.0,
+    "envelope_errors": [],
+    "trace_errors": [],
+    "nested_call_errors": [],
+    "owner_calls": 21,
+    "child_calls": 11,
+    "alice_child_calls": 6,
+    "bennett_child_calls": 5,
+    "all_32_routes_status_200_and_correct_checkpoints": true,
+    "both_weight_hashes_unchanged_after_trial": true
+  },
+  "behavior": {
+    "initial_index_read": true,
+    "initial_response_completion_tokens": 282,
+    "initial_response_finish_reason": "tool_calls",
+    "exact_named_chapter_assignments": 2,
+    "handles_retained_in_dictionary": true,
+    "owner_wait_failure": "After admission, tried handle.join(), await handle and repeated method introspection instead of ending the turn. Native tools explicitly reported that RLMSpawnHandle has no join and is not awaitable.",
+    "child_complete_source_reads": 2,
+    "child_summary_files_written": 2,
+    "matching_receipts_queued": 2,
+    "matching_receipts_delivered_to_owner_context": 2,
+    "receipts_validated_and_stored_in_owner_kernel": 0,
+    "owner_acknowledged_both_receipts_in_reasoning": true,
+    "owner_summary_file_reads": 0,
+    "assembly": false,
+    "owner_after_receipts_failure": "Recognized both messages but repeatedly tried to await handles as summary text; no summary reads or assembly followed. One observed repeated-failure scaffold rewrite did not resolve it.",
+    "children_final_done_responses": 2,
+    "json_import_recovery": "Both children first attempted json.dumps without importing json, then imported it and queued the correct receipt. Alice incorrectly claimed the earlier import had not persisted; the child had not imported it. This is not evidence of kernel-state loss.",
+    "child_write_observations": "Bennett wrote its identical draft twice within one cell. Alice first tried writing a list, then concatenated the first two source paragraphs as a string. Numeric write returns were character counts."
+  },
+  "semantic_review": {
+    "alice": "Not a bullet summary: copies the first two tagged paragraphs and omits the rabbit watch, pursuit/fall, hall/key/garden barrier, shrinking/key problem and cake ending. The source read itself was complete; extraction and coverage failed.",
+    "bennett": "Not Markdown bullets. Promotes the opening quoted criticism into a narrated factual case and invents unused new clothes/trivial pleasures. The claim that time cannot be spent on others is unsupported. Misses the equal fixed 24-hour allocation, inability to buy/borrow more, renewed daily supply and practical implication of never waiting for more time.",
+    "usable_chapter_summaries": 0,
+    "verdict": "Whole-system utility remains unproven. Correct admission and both delivered receipts are useful recovered behavior relative to R2/R9, not complete ownership or reliable summarization."
+  },
+  "evidence": {
+    "local_path": "outputs/summary-owner-r3-r9/owner-r3-r9-direct-public-r1",
+    "trace_sha256": "4263a2e6146fc6d95d15f81be0c2305020f03efbdd0ff276466b43e40023a22e",
+    "smoke_receipt_sha256": "f141aa37ec7dabe2347d981ddfe55ec9245cb0476874619acf56726288b155e1",
+    "routing_sha256": "64ba5183902f9ebab53b4261f121f64088a9ee021ab93e3ac2d87a9f6f2b8429",
+    "summary_sha256": "3f1c201f016879a33e59ba1238a896119a10c8f57e268572ac08fe4737e740ad",
+    "complete_intercepted_owner_and_child_branches_preserved": true,
+    "complete_native_jsonl_preserved": false,
+    "native_capture_limit": "Initial limited search missed the deeper /tmp session path; lifecycle cleanup removed this trial container before the expanded capture. The final intercepted trace includes both role branches, actual tool observations and receipt delivery messages.",
+    "timing_limit": "Concurrent model durations overlap; derived zero harness duration is not a profiling result."
+  },
   "run_label": "owner-r3-r9-direct-public-r1",
   "launch_time_utc": "2026-09-08 19:06:45 UTC",
   "wrapper_pid": 2628623,
@@ -29,13 +81,7 @@
     "answer_forcing": false
   },
   "output_path": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r3-r9-direct-public-r1",
-  "pending": [
-    "Engine readiness and correct routing",
-    "Actual index read and valid named assignments",
-    "Child source reads and source-faithful saved bullet summaries",
-    "Matching receipt consumption, unchanged assembly and stopping",
-    "Complete native and intercepted trace preservation"
-  ],
+  "next": "Continue from R3 with TRAIN-only handle.join/await-handle recovery at before-receipt and complete-fan-in boundaries, retaining the acquired start/delegation behavior. Continue R9 with native full-source-to-bullet semantic/format corrections. Recover storage for the next checkpoint before launching; host has 2.8 GiB free, local disk 4.8 GiB. No automatic rollback or new resource purchase.",
   "semantic_promotion": false,
   "launch_command": "( for summary_flag in ${!DUAL_@}; do unset \"$summary_flag\"; done; cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 29dd7b85313bbdbad208aa93e99851ea56c8c3f2 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && date -u && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r3-r9-direct-public-r1 && UV_BIN=/home/ubuntu/.local/bin/uv UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers DOCUMENT_SUMMARY_CONFIG=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml scripts/run_q35_2b_document_summary_smoke_v1.sh /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-start-step32-r3/weights/step_32 /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-native-chapters-step128-r9/weights/step_128 owner-r3-r9-direct-public-r1 owner-r3-decision-prefix-repair-worker-r9 )"
 }
