@@ -1,11 +1,12 @@
 {
   "date": "2026-09-08",
   "operation": "verified_local_archive_then_remove_remote_weight_file",
-  "reason": "free existing GPU-host storage for continued evidence curriculum; no additional service",
+  "reason": "free existing GPU-host storage for continued evidence curriculum and reference comparisons; no additional service",
   "retained_on_host": [
     "protected lineages",
     "pre-margin v4 comparison baseline",
     "current v8 source candidate",
+    "evidence R1 and R2 checkpoints",
     "all receipts/configs/traces"
   ],
   "files": [
@@ -24,6 +25,17 @@
       "local_and_remote_hashes_matched": true,
       "complete_run_directory_copied": true,
       "remote_removal_scope": "model.safetensors only"
+    },
+    {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-commit-revision-sft-v5/h176-summary-commit-revision-sft12-step6-v5/weights/step_4/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-commit-revision-sft-v5/h176-summary-commit-revision-sft12-step6-v5/weights/step_4/model.safetensors",
+      "sha256": "ef89d76723e50d5eb3e000bb330a6869f50a350d71ff70d5f4d7ed7aef6db2a8",
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "full_copy_checksum_comparison": "no file-content differences; directory timestamps differ",
+      "training_receipt_archived": "q35-2b-document-summary-commit-revision-sft-v5/TRAINING-RECEIPT.json",
+      "remote_removal_scope": "model.safetensors only",
+      "no_active_gpu_process_at_removal": true
     }
   ]
 }

@@ -1,0 +1,94 @@
+{
+  "comparison": "R1 versus R2 on complete public chapters, native Prime Agent",
+  "verifiers_commit": "3321579b3bd76e655b9999126c7b9e4bc1fb99df",
+  "role_proxy_used": false,
+  "no_optimizer_updates": true,
+  "semantic_promotion": false,
+  "pretraining_contamination_possible": true,
+  "episodes": [
+    {
+      "label": "evidence-r2-public-chapters-r1-baseline-alice-ch1",
+      "trace_id": "dd9cf437369e4a42924f7b7275d2cbc7",
+      "trace_sha256": "99dc01db8d168fc17efdf0a942faa37ba848666d1a74635f9f0e8b8628617c41",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_words": 2165,
+      "notes_are_source_copy": true,
+      "summary": "Alice grew tired of sitting by her sister on the bank, peeping at her book, which had no pictures or conversations. A White Rabbit with pink eyes ran past, took a watch, and hurried down a rabbit-hole under the hedge. Alice followed, falling through a deep well into a hall lined with cupboards and book-shelves. She drank from a labelled bottle, shrinking to ten inches tall, then ate a small cake to grow larger. Alice found a golden key in a glass table, opened a small door into a garden, and escaped. She grew large enough to reach the key, then grew too small to climb the table leg. Alice finished a mixed-flavoured custard-like drink, then ate a small cake, remaining ten inches tall. She set to work, finished the cake, and the task ended.\n",
+      "metrics": {
+        "summary_text_bullet_count": 0.0,
+        "summary_text_concise": 0.0,
+        "summary_text_not_source_copy": 0.0,
+        "notes_source_id_presence": 1.0,
+        "notes_words": 2165.0,
+        "summary_words": 0.0
+      },
+      "exports_match_trace": true
+    },
+    {
+      "label": "evidence-r2-public-chapters-r1-baseline-bennett-ch1",
+      "trace_id": "09ab197e348c43309b079f6c40ffb8b2",
+      "trace_sha256": "50fc2440d8ace71c734f6e8d0166fcc54c9dbd3ec0d07b28840f3498a02b42e0",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_words": 918,
+      "notes_are_source_copy": true,
+      "summary": "* People waste their time frittering away income instead of spending it wisely.\n* Time cannot be borrowed from the future; each hour must be used for health, pleasure, money, content, respect, or the evolution of the soul.\n* Money is far more common than time; the real problem is managing time, not accumulating wealth.\n* No one receives more or less than they give; the supply of time is guaranteed but cruelly restricted.\n* We never shall have any more time; the only choice is how to spend the time we have.\n",
+      "metrics": {
+        "summary_text_bullet_count": 1.0,
+        "summary_text_concise": 1.0,
+        "summary_text_not_source_copy": 1.0,
+        "notes_source_id_presence": 1.0,
+        "notes_words": 918.0,
+        "summary_words": 88.0
+      },
+      "exports_match_trace": true
+    },
+    {
+      "label": "evidence-r2-public-chapters-r1-candidate-alice-ch1",
+      "trace_id": "cacab695c0ec41a58bb5f9a738275b15",
+      "trace_sha256": "c5f7af1e58990f19433ded52ededf1cfd4c50536c3c1127e5881ba05d84b4850",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_words": 2165,
+      "notes_are_source_copy": true,
+      "summary": "Alice grew tired of sitting by her sister on the bank with no pictures or conversations in her book.\nA White Rabbit with pink eyes ran past her while she considered making a daisy-chain.\nThe Rabbit took a watch and hurried on, prompting Alice to chase it down a rabbit-hole.\nAlice fell through a deep well filled with cupboards and book-shelves.\nShe drank from a labelled \"DRINK ME\" bottle, which was not poison.\nAfter eating a small cake, Alice remained the same size but reached the garden.\nAlice encountered locked doors in the Rabbit's hall, then found a small unlocked door after trying a curtain.\nAlice found a tiny golden key on a three-legged glass table, which fit the small door.\nThe garden contained bright flowers and cool fountains, but Alice could not get through the doorway without her shoulders.\nAlice grew to ten inches after drinking the bottle, then shrank back to her original size after finishing the bottle.\nAlice ate a small cake, then set to work finishing it off.",
+      "metrics": {
+        "summary_text_bullet_count": 0.0,
+        "summary_text_concise": 0.0,
+        "summary_text_not_source_copy": 0.0,
+        "notes_source_id_presence": 1.0,
+        "notes_words": 2165.0,
+        "summary_words": 0.0
+      },
+      "exports_match_trace": true
+    },
+    {
+      "label": "evidence-r2-public-chapters-r1-candidate-bennett-ch1",
+      "trace_id": "f7022f23f4384e74a40b67e7ae372183",
+      "trace_sha256": "3e3ecbd216751278501cd8d680e26bdb8ca343f2121fb7984351998c9e572227",
+      "stop_condition": "max_turns",
+      "errors": [],
+      "call_errors": [],
+      "repairs": [],
+      "notes_words": 0,
+      "notes_are_source_copy": false,
+      "summary": null,
+      "metrics": {
+        "summary_text_bullet_count": 0.0,
+        "summary_text_concise": 0.0,
+        "summary_text_not_source_copy": 0.0,
+        "notes_source_id_presence": 0.0,
+        "notes_words": 0.0,
+        "summary_words": 0.0
+      },
+      "exports_match_trace": true
+    }
+  ]
+}

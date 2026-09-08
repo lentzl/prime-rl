@@ -150,3 +150,27 @@ are healthy, using about 8.6 GiB per GPU. Driver selects `alice-ch1 bennett-ch1`
 one frozen model per GPU, four episodes total. Both native config dry-runs,
 forty-six local focused tests, Ruff and shell syntax checks passed. No host tests
 were run beside live work. Results are pending; no success claim from startup.
+
+## 2026-09-08 07:40 UTC
+
+Public-chapter screen finished with four error-free native episodes and unchanged
+R1/R2 hashes. `public-chapters-r1-results.json` records full outputs, native trace
+hashes and verified exports. Both Alice runs and R1's Bennett run copied the
+entire source into notes. R1 Alice produced prose and invented escape into the
+garden, reordered events and contradictory size changes. R2 Alice produced
+eleven unmarked lines with an invented garden entry and incorrect growth/shrink
+sequence. R1 Bennett produced five bullets but changed equal daily time into
+“No one receives more or less than they give.” R2 Bennett attempted procedural
+actor extraction with reversed enumeration variables, repeated failed repairs,
+and hit max turns without notes. No dependable chapter output or promotion.
+
+This identifies realization errors even when source information is fully present,
+plus a note-selection/programming problem. Before another tiny authored-data
+update, compare a pinned published upstream Qwen reference under the same native
+workflow. The reference is diagnostic, not a reset of the acquired lineage; exact
+ancestor identity is not established. Upstream repository revision
+`15852e8c16360a2fea060d615a32b45270f8a8fc`, published weight SHA-256
+`aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1`.
+Preparation preserves original configuration and weight bytes, verifies the hash,
+and records zero optimizer updates. Local metadata/free-space dry-run and Ruff
+passed. No reference download or evaluation is claimed by this entry.
