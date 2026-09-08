@@ -51,6 +51,10 @@ DATASET_CONTRACTS = {
         "child",
         "grounded_english_chapter_summary_scaffold_aligned_commit_revision",
     ),
+    "qwen35-2b-document-summary-margin-revision-sft/v4": (
+        "child",
+        "grounded_english_chapter_summary_on_policy_margin_commit_revision",
+    ),
     "qwen35-2b-document-coordinator-fanin-sft/v1": (
         "coordinator",
         "grounded_document_coordinator_spawn_partial_yield_fanin",
@@ -162,6 +166,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-summary-text-revision-sft/v1": False,
     "qwen35-2b-document-summary-live-revision-sft/v2": False,
     "qwen35-2b-document-summary-commit-revision-sft/v3": False,
+    "qwen35-2b-document-summary-margin-revision-sft/v4": False,
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
     "qwen35-2b-document-child-cleanup-sft/v1": True,
@@ -193,6 +198,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
     "qwen35-2b-document-summary-live-revision-sft/v2": 12,
     "qwen35-2b-document-summary-commit-revision-sft/v3": 12,
+    "qwen35-2b-document-summary-margin-revision-sft/v4": 12,
     "qwen35-2b-document-manager-admission-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
@@ -350,6 +356,41 @@ def _write_once(path: Path, content: str) -> None:
     path.write_text(content)
 
 
+def _valid_margin_revision_manifest(manifest: dict[str, Any]) -> bool:
+    records = manifest.get("case_records")
+    if not isinstance(records, list) or len(records) != 12:
+        return False
+    expected_targets: dict[str, int] = {}
+    repetitions: dict[str, set[int]] = {}
+    for record in records:
+        if not isinstance(record, dict):
+            return False
+        chapter_id = record.get("chapter_id")
+        repetition = record.get("repetition")
+        word_budget = record.get("word_budget")
+        if (
+            chapter_id not in {"scope", "operations", "exceptions"}
+            or not isinstance(repetition, int)
+            or not isinstance(word_budget, int)
+        ):
+            return False
+        target = max(0, word_budget - 3)
+        if chapter_id in expected_targets and expected_targets[chapter_id] != target:
+            return False
+        expected_targets[chapter_id] = target
+        repetitions.setdefault(chapter_id, set()).add(repetition)
+    source_sha = manifest.get("on_policy_source_model_sha256")
+    return (
+        repetitions == {chapter_id: set(range(4)) for chapter_id in expected_targets}
+        and set(expected_targets) == {"scope", "operations", "exceptions"}
+        and manifest.get("feedback_target_words_by_chapter") == expected_targets
+        and isinstance(manifest.get("on_policy_source_model"), str)
+        and isinstance(source_sha, str)
+        and len(source_sha) == 64
+        and all(character in "0123456789abcdef" for character in source_sha)
+    )
+
+
 def _validated_dataset(path: Path) -> dict[str, Any]:
     manifest_path = path / "MANIFEST.json"
     parquet = path / "train.parquet"
@@ -393,6 +434,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             in {
                 "qwen35-2b-document-summary-live-revision-sft/v2",
                 "qwen35-2b-document-summary-commit-revision-sft/v3",
+                "qwen35-2b-document-summary-margin-revision-sft/v4",
             }
             and (
                 manifest.get("live_revision_role_sequence")
@@ -420,7 +462,10 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                 is not True
                 or (
                     schema_version
-                    == "qwen35-2b-document-summary-commit-revision-sft/v3"
+                    in {
+                        "qwen35-2b-document-summary-commit-revision-sft/v3",
+                        "qwen35-2b-document-summary-margin-revision-sft/v4",
+                    }
                     and (
                         manifest.get("renderer_enable_thinking") is not False
                         or manifest.get("observed_live_draft_context") is not True
@@ -430,6 +475,22 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                             "live_prior_assistant_reasoning_stripped_by_scaffold"
                         )
                         is not True
+                    )
+                )
+                or (
+                    schema_version
+                    == "qwen35-2b-document-summary-margin-revision-sft/v4"
+                    and (
+                        manifest.get("feedback_contract")
+                        != "commit_once_with_three_word_safety_margin_v1"
+                        or manifest.get("feedback_safety_margin_words") != 3
+                        or manifest.get(
+                            "observed_current_revision_outputs_trainable"
+                        )
+                        is not False
+                        or manifest.get("on_policy_development_failures_only")
+                        is not True
+                        or not _valid_margin_revision_manifest(manifest)
                     )
                 )
             )
@@ -556,9 +617,10 @@ def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, 
         raise ValueError(f"missing live revision renderer audit: {audit_path}")
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     schema_version = dataset["schema_version"]
-    commit_revision = (
-        schema_version == "qwen35-2b-document-summary-commit-revision-sft/v3"
-    )
+    commit_revision = schema_version in {
+        "qwen35-2b-document-summary-commit-revision-sft/v3",
+        "qwen35-2b-document-summary-margin-revision-sft/v4",
+    }
     expected_mode = not commit_revision
     records = audit.get("chapters") if commit_revision else audit.get("modes")
     selected = next(
@@ -570,10 +632,16 @@ def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, 
         ),
         None,
     )
-    expected_audit_schema = (
-        "qwen35-2b-document-summary-commit-revision-renderer-audit/v3"
-        if commit_revision
-        else "qwen35-2b-document-summary-live-revision-renderer-audit/v2"
+    expected_audit_schema = {
+        "qwen35-2b-document-summary-commit-revision-sft/v3": (
+            "qwen35-2b-document-summary-commit-revision-renderer-audit/v3"
+        ),
+        "qwen35-2b-document-summary-margin-revision-sft/v4": (
+            "qwen35-2b-document-summary-margin-revision-renderer-audit/v4"
+        ),
+    }.get(
+        schema_version,
+        "qwen35-2b-document-summary-live-revision-renderer-audit/v2",
     )
     exact_history = (
         len(records or []) == 3
@@ -602,6 +670,13 @@ def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, 
         != sha256_file(path / "MANIFEST.json")
         or audit.get("dataset_parquet_sha256") != sha256_file(path / "train.parquet")
         or audit.get("selected_enable_thinking") is not expected_mode
+        or (
+            schema_version == "qwen35-2b-document-summary-margin-revision-sft/v4"
+            and (
+                audit.get("feedback_safety_margin_words") != 3
+                or audit.get("on_policy_margin_prefix_verified") is not True
+            )
+        )
         or audit.get("cuda_initialized") is not False
         or (
             not commit_revision
@@ -650,10 +725,17 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     source_sha = sha256_file(source_weight)
     dataset_dir = args.dataset_dir.resolve()
     dataset = _validated_dataset(dataset_dir)
+    if (
+        dataset["schema_version"]
+        == "qwen35-2b-document-summary-margin-revision-sft/v4"
+        and dataset["on_policy_source_model_sha256"] != source_sha
+    ):
+        raise ValueError("margin revision dataset does not match its source checkpoint")
     renderer_audit = None
     if dataset["schema_version"] in {
         "qwen35-2b-document-summary-live-revision-sft/v2",
         "qwen35-2b-document-summary-commit-revision-sft/v3",
+        "qwen35-2b-document-summary-margin-revision-sft/v4",
     }:
         renderer_audit = _validated_renderer_audit(dataset_dir, dataset)
     output_root = args.output_root.resolve()

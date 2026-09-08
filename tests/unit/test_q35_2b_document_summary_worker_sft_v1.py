@@ -125,6 +125,24 @@ def _commit_revision_module():
         sys.path.remove(str(scripts))
 
 
+def _margin_revision_module():
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "export_q35_2b_document_summary_margin_revision_sft_v4",
+            scripts
+            / "export_q35_2b_document_summary_margin_revision_sft_v4.py",
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(scripts))
+
+
 def _source_trace(
     tmp_path: Path, task_type: str = "DocumentSummaryWorkerTask"
 ) -> Path:
@@ -233,6 +251,81 @@ def _commit_revision_traces(tmp_path: Path) -> list[Path]:
             "tools": tools,
         }
         path = tmp_path / f"{chapter_id}.jsonl"
+        path.write_text(json.dumps({"traces": [trace]}) + "\n")
+        paths.append(path)
+    return paths
+
+
+def _margin_revision_traces(tmp_path: Path) -> list[Path]:
+    module = _margin_revision_module()
+    fixture = module._load_fixture_module()
+    document, _ = fixture.build_fixture()
+    drafts = _text_revision_module().DRAFTS
+    tools = [
+        {
+            "name": "ipython",
+            "description": "execute code",
+            "parameters": {
+                "type": "object",
+                "required": ["code"],
+                "properties": {"code": {"type": "string"}},
+            },
+            "strict": False,
+        }
+    ]
+    paths = []
+    for chapter in document["chapters"]:
+        chapter_id = chapter["id"]
+        draft = drafts[chapter_id]
+        budget = int(
+            sum(len(row["text"].split()) for row in chapter["paragraphs"])
+            * 0.8
+        )
+        trace = {
+            "id": f"observed-{chapter_id}-margin-revision",
+            "task": {"type": "DocumentSummaryTextTask", "data": {}},
+            "nodes": [
+                {
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": "Prime Agent runtime contract",
+                    },
+                },
+                {
+                    "parent": 0,
+                    "message": {
+                        "role": "user",
+                        "content": fixture.render_text_summary_prompt(chapter),
+                    },
+                },
+                {
+                    "parent": 1,
+                    "message": {
+                        "role": "assistant",
+                        "content": draft,
+                        "reasoning_content": "untrained first-turn reasoning",
+                    },
+                },
+                {
+                    "parent": 2,
+                    "message": {
+                        "role": "user",
+                        "content": module._expected_feedback(
+                            fixture=fixture,
+                            draft=draft,
+                            word_budget=budget,
+                        ),
+                    },
+                },
+                {
+                    "parent": 3,
+                    "message": {"role": "assistant", "content": draft},
+                },
+            ],
+            "tools": tools,
+        }
+        path = tmp_path / f"{chapter_id}-margin.jsonl"
         path.write_text(json.dumps({"traces": [trace]}) + "\n")
         paths.append(path)
     return paths
@@ -641,6 +734,55 @@ def test_training_runner_accepts_non_thinking_commit_revision_contract() -> None
     assert "enable_thinking = false" in config
 
 
+def test_margin_revision_export_uses_current_scaffold_and_source_checkpoint(
+    tmp_path: Path,
+) -> None:
+    module = _margin_revision_module()
+    source_model = tmp_path / "source-model"
+    source_model.mkdir()
+    (source_model / "model.safetensors").write_bytes(b"current-development-model")
+    (source_model / "STABLE").write_text("stable\n")
+    output = tmp_path / "margin-revision-dataset"
+    manifest = module.export(
+        traces=_margin_revision_traces(tmp_path),
+        source_model=source_model,
+        output_dir=output,
+    )
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["schema_version"] == module.SCHEMA_VERSION
+    assert manifest["rows"] == 12
+    assert manifest["feedback_safety_margin_words"] == 3
+    assert manifest["feedback_contract"] == (
+        "commit_once_with_three_word_safety_margin_v1"
+    )
+    assert manifest["observed_current_revision_outputs_trainable"] is False
+    assert manifest["on_policy_development_failures_only"] is True
+    assert len(manifest["on_policy_source_model_sha256"]) == 64
+    assert _runner_module()._validated_dataset(output) == manifest
+    for row in rows:
+        messages = row["messages"]
+        assert messages[2]["trainable"] is False
+        assert messages[4]["trainable"] is True
+        assert "Leave a three-word safety margin" in messages[3]["content"]
+        chapter_id = row["family"].removeprefix("summary_margin_revision_")
+        target = manifest["feedback_target_words_by_chapter"][chapter_id]
+        assert f"return no more than {target} words" in messages[3]["content"]
+
+
+def test_training_runner_accepts_margin_revision_contract() -> None:
+    module = _runner_module()
+    schema = "qwen35-2b-document-summary-margin-revision-sft/v4"
+
+    assert module.DATASET_CONTRACTS[schema] == (
+        "child",
+        "grounded_english_chapter_summary_on_policy_margin_commit_revision",
+    )
+    assert module.DATASET_ANSWER_FREE[schema] is False
+    assert module.DATASET_ROWS[schema] == 12
+    assert module.DATASET_BATCH_SIZES[schema] == 12
+
+
 def test_live_revision_training_requires_a_matching_renderer_audit(
     tmp_path: Path,
 ) -> None:
@@ -712,6 +854,18 @@ def test_commit_revision_renderer_audit_requires_exact_stripped_live_prefix() ->
     assert '"selected_enable_thinking": False' in audit
 
 
+def test_margin_revision_renderer_audit_uses_shared_exact_prefix_checks() -> None:
+    audit = (
+        Path(__file__).parents[2]
+        / "scripts/audit_q35_2b_document_summary_margin_revision_renderer_v4.py"
+    ).read_text()
+
+    assert "audit_commit_revision" in audit
+    assert "observed_cases_fn=_observed_cases" in audit
+    assert 'family_prefix="summary_margin_revision"' in audit
+    assert 'result["on_policy_margin_prefix_verified"] = True' in audit
+
+
 def test_commit_revision_training_wrapper_is_bounded_and_non_thinking() -> None:
     wrapper = (
         Path(__file__).parents[2]
@@ -724,6 +878,21 @@ def test_commit_revision_training_wrapper_is_bounded_and_non_thinking() -> None:
     assert wrapper.count('--traces "$') == 6
     assert "RENDERER-AUDIT.json" in wrapper
     assert 'export PYTHONPATH="$root/src:$root/scripts' in wrapper
+
+
+def test_margin_revision_training_wrapper_uses_four_bounded_updates() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_margin_revision_sft_v4.sh"
+    ).read_text()
+
+    assert "optimizer_updates=${6:-4}" in wrapper
+    assert "--learning-rate 2e-7" in wrapper
+    assert '--optimizer-updates "$optimizer_updates"' in wrapper
+    assert "--enable-thinking" not in wrapper
+    assert wrapper.count('--traces "$') == 6
+    assert '--source-model "$source_model"' in wrapper
+    assert "RENDERER-AUDIT.json" in wrapper
 
 
 def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:

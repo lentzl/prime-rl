@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import tempfile
+from collections.abc import Callable
 from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
@@ -84,6 +85,7 @@ def _audit_row(
     row: dict[str, Any],
     observed: dict[str, Any],
     tokenizer: Any,
+    family_prefix: str = "summary_commit_revision",
 ) -> dict[str, Any]:
     renderer = Qwen35Renderer(
         tokenizer, Qwen35RendererConfig(enable_thinking=False)
@@ -151,7 +153,7 @@ def _audit_row(
     if not trainable_ids or len(sample["input_ids"]) >= 16384:
         raise ValueError("invalid commit completion length")
     return {
-        "chapter_id": row["family"].removeprefix("summary_commit_revision_"),
+        "chapter_id": row["family"].removeprefix(f"{family_prefix}_"),
         "enable_thinking": False,
         "full_tokens": len(full_ids),
         "generation_prompt_tokens": len(prompt_ids),
@@ -170,19 +172,29 @@ def _audit_row(
 
 
 def audit(
-    *, traces: list[Path], tokenizer_path: Path, dataset_dir: Path | None = None
+    *,
+    traces: list[Path],
+    tokenizer_path: Path,
+    dataset_dir: Path | None = None,
+    observed_cases_fn: Callable[
+        ..., tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]
+    ] = _observed_cases,
+    export_fn: Callable[..., dict[str, Any]] = export,
+    audit_schema_version: str = "qwen35-2b-document-summary-commit-revision-renderer-audit/v3",
+    family_prefix: str = "summary_commit_revision",
+    temporary_prefix: str = "summary-commit-revision-audit-",
 ) -> dict[str, Any]:
     if torch.cuda.is_initialized():
         raise RuntimeError("renderer audit must begin before CUDA initialization")
     fixture = _load_fixture_module()
     document, _ = fixture.build_fixture()
     chapters = {chapter["id"]: chapter for chapter in document["chapters"]}
-    observed, _ = _observed_cases(
+    observed, _ = observed_cases_fn(
         traces=traces, fixture=fixture, chapters=chapters
     )
     temporary = dataset_dir is None
     context = (
-        tempfile.TemporaryDirectory(prefix="summary-commit-revision-audit-")
+        tempfile.TemporaryDirectory(prefix=temporary_prefix)
         if temporary
         else nullcontext(None)
     )
@@ -191,7 +203,7 @@ def audit(
             Path(tmp) / "dataset" if temporary else dataset_dir.resolve()
         )
         if temporary:
-            manifest = export(traces=traces, output_dir=active_dataset_dir)
+            manifest = export_fn(traces=traces, output_dir=active_dataset_dir)
         else:
             manifest = json.loads(
                 (active_dataset_dir / "MANIFEST.json").read_text(encoding="utf-8")
@@ -205,11 +217,14 @@ def audit(
             row = next(
                 row
                 for row in rows
-                if row["family"] == f"summary_commit_revision_{chapter_id}"
+                if row["family"] == f"{family_prefix}_{chapter_id}"
             )
             modes.append(
                 _audit_row(
-                    row=row, observed=observed[chapter_id], tokenizer=tokenizer
+                    row=row,
+                    observed=observed[chapter_id],
+                    tokenizer=tokenizer,
+                    family_prefix=family_prefix,
                 )
             )
         manifest_sha256 = hashlib.sha256(
@@ -221,7 +236,7 @@ def audit(
     if torch.cuda.is_initialized():
         raise RuntimeError("renderer audit initialized CUDA")
     return {
-        "schema_version": "qwen35-2b-document-summary-commit-revision-renderer-audit/v3",
+        "schema_version": audit_schema_version,
         "status": "complete",
         "traces": [str(path.resolve()) for path in traces],
         "tokenizer": str(tokenizer_path.resolve()),

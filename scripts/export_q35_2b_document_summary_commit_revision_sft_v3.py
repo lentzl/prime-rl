@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +61,11 @@ def _expected_feedback(*, fixture: Any, draft: str, word_budget: int) -> str:
 
 
 def _observed_cases(
-    *, traces: list[Path], fixture: Any, chapters: dict[str, dict[str, Any]]
+    *,
+    traces: list[Path],
+    fixture: Any,
+    chapters: dict[str, dict[str, Any]],
+    expected_feedback_builder: Callable[..., str] = _expected_feedback,
 ) -> tuple[dict[str, dict[str, Any]], list[dict[str, Any]]]:
     cases: dict[str, dict[str, Any]] = {}
     evidence: list[dict[str, Any]] = []
@@ -101,7 +106,7 @@ def _observed_cases(
                     )
                     word_budget = int(source_words * 0.8)
                     feedback = _content_text(raw_messages[3].get("content"))
-                    expected_feedback = _expected_feedback(
+                    expected_feedback = expected_feedback_builder(
                         fixture=fixture, draft=draft, word_budget=word_budget
                     )
                     if feedback != expected_feedback:
@@ -164,7 +169,18 @@ def _observed_cases(
     return cases, sorted(evidence, key=lambda row: CHAPTER_ORDER.index(row["chapter_id"]))
 
 
-def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
+def export(
+    *,
+    traces: list[Path],
+    output_dir: Path,
+    expected_feedback_builder: Callable[..., str] = _expected_feedback,
+    schema_version: str = SCHEMA_VERSION,
+    objective: str = OBJECTIVE,
+    task_prefix: str = "summary-commit-revision",
+    trace_prefix: str = "summary-commit-revision-observed",
+    family_prefix: str = "summary_commit_revision",
+    manifest_extra: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     if output_dir.exists():
         raise FileExistsError(f"refusing to overwrite commit revision SFT: {output_dir}")
     fixture = _load_fixture_module()
@@ -173,7 +189,10 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
         raise ValueError("summary commit revision development document differs")
     chapters = {chapter["id"]: chapter for chapter in document["chapters"]}
     observed, evidence = _observed_cases(
-        traces=traces, fixture=fixture, chapters=chapters
+        traces=traces,
+        fixture=fixture,
+        chapters=chapters,
+        expected_feedback_builder=expected_feedback_builder,
     )
 
     rows: list[dict[str, Any]] = []
@@ -199,11 +218,11 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
                 {
                     "messages": messages,
                     "tools": serialized_tools,
-                    "task_key": f"summary-commit-revision-{chapter_id}-repeat-{repetition:02d}",
-                    "trace_id": f"summary-commit-revision-observed:{chapter_id}:{repetition:02d}",
-                    "family": f"summary_commit_revision_{chapter_id}",
+                    "task_key": f"{task_prefix}-{chapter_id}-repeat-{repetition:02d}",
+                    "trace_id": f"{trace_prefix}:{chapter_id}:{repetition:02d}",
+                    "family": f"{family_prefix}_{chapter_id}",
                     "role": "child",
-                    "objective": OBJECTIVE,
+                    "objective": objective,
                     "source_trace": next(
                         row["path"] for row in evidence if row["chapter_id"] == chapter_id
                     ),
@@ -236,10 +255,10 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
     parquet = output_dir / "train.parquet"
     Dataset.from_list(rows).to_parquet(str(parquet))
     manifest = {
-        "schema_version": SCHEMA_VERSION,
+        "schema_version": schema_version,
         "status": "complete",
         "role": "child",
-        "objective": OBJECTIVE,
+        "objective": objective,
         "rows": len(rows),
         "family_counts": family_counts,
         "task_keys": [row["task_key"] for row in rows],
@@ -281,6 +300,13 @@ def export(*, traces: list[Path], output_dir: Path) -> dict[str, Any]:
         "conversation_sha256_by_chapter": conversation_hashes,
         "dataset": {"path": parquet.name, "sha256": sha256_file(parquet)},
     }
+    if manifest_extra:
+        overlap = set(manifest).intersection(manifest_extra)
+        if overlap:
+            raise ValueError(
+                f"summary commit revision manifest extras collide: {sorted(overlap)}"
+            )
+        manifest.update(manifest_extra)
     (output_dir / "MANIFEST.json").write_text(
         json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8"
     )
