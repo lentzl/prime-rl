@@ -65,14 +65,34 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 raise ValueError("case order differs from training rows")
             verify_file_observations(row, case, Path(temporary) / case["slug"])
             messages, tools = _renderer_messages(row["messages"]), _renderer_tools(row["tools"])
-            if [m["role"] for m in messages] != ["user", "user", "assistant", "tool", "assistant", "tool", "assistant"]:
+            repair = case["family"] == "format_repair"
+            roles = ["user", "user", "assistant", "tool"]
+            if repair:
+                roles += ["assistant", "tool", "assistant", "user"]
+            roles += ["assistant", "tool", "assistant"]
+            if [m["role"] for m in messages] != roles:
                 raise ValueError("not a direct read/write/stop episode")
+            masked_prefix = {4, 6} if repair else set()
+            if any(
+                m.get("trainable") is not (i not in masked_prefix)
+                for i, m in enumerate(row["messages"]) if m["role"] == "assistant"
+            ):
+                raise ValueError("incorrect draft/stop masking or missing positive action supervision")
             full = renderer.render(messages, tools=tools)
             ids = list(full.token_ids)
             sample = next(iter(SFTDataset(Dataset.from_list([row]), renderer, shuffle=False, seq_len=16384)))
             if sample["input_ids"] != ids[:-1] or sample["target_ids"] != ids[1:] or len(ids) > 16384:
                 raise ValueError(f"truncated or changed training sequence: {case['slug']}: {len(ids)}")
-            expected = [bool(x) for x in full.sampled_mask[1:]]
+            expected = [
+                bool(mask) and index not in masked_prefix
+                for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True)
+            ]
+            masked_prefix_tokens = sum(
+                bool(mask) and index in masked_prefix
+                for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True)
+            )
+            if repair and masked_prefix_tokens == 0:
+                raise ValueError("incorrect draft context has no renderer-sampled tokens to mask")
             if sample["loss_mask"] != expected or not any(expected):
                 raise ValueError("loss mask differs from renderer-sampled assistant tokens")
             if any(
@@ -80,6 +100,9 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 for mask, index in zip(sample["loss_mask"], full.message_indices[1:], strict=True)
             ):
                 raise ValueError("source or task text contributes to loss")
+            if any(mask and index in masked_prefix for mask, index in
+                   zip(sample["loss_mask"], full.message_indices[1:], strict=True)):
+                raise ValueError("incorrect draft or premature stop contributes to loss")
             supervised = [token for token, mask in zip(sample["target_ids"], expected, strict=True) if mask]
             decoded = tokenizer.decode(supervised)
             if "Done." not in decoded or "summary_text" not in decoded or "read_text" not in decoded:
@@ -92,6 +115,9 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "file_observations_reproduced": True,
                     "truncated": False,
                     "source_or_user_supervised_tokens": 0,
+                    "incorrect_prefix_supervised_tokens": 0,
+                    "incorrect_prefix_context_tokens": masked_prefix_tokens,
+                    "format_repair": repair,
                 }
             )
     result = {

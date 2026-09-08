@@ -446,12 +446,23 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     if schema_version == DIRECT_SUMMARY_SCHEMA:
         cases = json.loads((path / "CASES.json").read_text())
         expected_rows = len(cases)
+        base_cases = {c["slug"]: c for c in cases if c["family"] != "format_repair"}
+        repairs = [c for c in cases if c["family"] == "format_repair"]
         family_counts_valid = (
             family_counts == dict(Counter(c["family"] for c in cases))
-            and set(family_counts) == {"retained_train", "public_chapter"}
+            and set(family_counts) == ({"retained_train", "public_chapter", "format_repair"}
+                                       if repairs else {"retained_train", "public_chapter"})
             and family_counts["retained_train"] == 20
             and family_counts["public_chapter"] >= 20
             and len({c["slug"] for c in cases}) == expected_rows
+            and manifest.get("format_repair_episodes", 0) == len(repairs)
+            and (not repairs or (
+                len(repairs) == len(base_cases)
+                and manifest.get("incorrect_draft_and_stop_masked") is True
+                and {c.get("base_slug") for c in repairs} == set(base_cases)
+                and all(c["source"] == base_cases[c["base_slug"]]["source"]
+                        and c["summary"] == base_cases[c["base_slug"]]["summary"] for c in repairs)
+            ))
         )
         if (manifest.get("direct_summary") is not True or manifest.get("notes_stage") is not False
                 or manifest.get("assistant_only_loss") is not True
@@ -767,6 +778,13 @@ def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[st
                    or r.get("source_or_user_supervised_tokens") != 0
                    or not 0 < r.get("supervised_tokens", 0) < r.get("tokens", 0) <= 16384 for r in records)):
         raise ValueError("invalid direct-summary renderer audit")
+    by_slug = {r["slug"]: r for r in records}
+    if any(c["family"] == "format_repair" and (
+            by_slug[c["slug"]].get("format_repair") is not True
+            or by_slug[c["slug"]].get("incorrect_prefix_supervised_tokens") != 0
+            or by_slug[c["slug"]].get("incorrect_prefix_context_tokens", 0) <= 0
+    ) for c in cases):
+        raise ValueError("invalid direct-summary incorrect-prefix loss mask audit")
     return audit
 
 

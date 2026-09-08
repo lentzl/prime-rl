@@ -304,6 +304,19 @@ source checkpoint's tokenizer before launch. It replays teacher file operations,
 checks complete untruncated trainer sequences, and verifies assistant-only loss.
 The training wrapper requires the matching `RENDERER-AUDIT.json`, including
 dataset and tokenizer hashes. Format validation alone is not semantic admission.
+For correction-response training, `--include-format-repairs` appends one authored
+repair episode per TRAIN chapter while retaining the base episodes unchanged.
+The initial prose copy and premature Done are fixed context with
+`trainable=false`; the useful source read, corrected reviewed bullets and final
+stop are supervised. The correction text is the observed model-visible native
+format feedback, not a raw gate diagnostic. Replay all file observations and use
+the real trainer/tokenizer audit to verify zero loss on the incorrect prefix,
+user/source text and tools, with no truncation. Never infer masking from parquet
+annotations alone or treat these authored drafts as on-policy model failures.
+For local exporters using an isolated taskset runtime, invoke
+`uv run python /absolute/path/to/script.py`. Passing the script directly to
+`uv run` can rediscover its enclosing workspace and resolve unrelated,
+incompatible environment dependencies instead of using the selected runtime.
 The document training wrapper accepts a positive explicit update count. Use that
 per-run count and timeout for bounded reassessment; there is no campaign-wide
 GPU-hour or eight-update quota on the Owner's existing allocation.

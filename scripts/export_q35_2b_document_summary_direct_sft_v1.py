@@ -87,7 +87,21 @@ def _chapters(source_dir: Path, teacher_path: Path, teacher_additions: Path | No
     return [c for pair in zip_longest(retained, public) for c in pair if c is not None]
 
 
-def _messages(context, original_budget, chapter):
+def _format_repair_feedback(trace):
+    feedback = {
+        _wire_message(node["message"])["content"]
+        for node in trace["nodes"]
+        if node["message"]["role"] == "user"
+        and _wire_message(node["message"])["content"].startswith(
+            "Chapter summarization: next file step.\nRewrite summary.md as only 3-5 Markdown bullet lines,"
+        )
+    }
+    if len(feedback) != 1:
+        raise ValueError("need one distinct observed model-visible bullet-rewrite instruction")
+    return feedback.pop()
+
+
+def _messages(context, original_budget, chapter, repair_feedback=None):
     paragraphs = chapter["paragraphs"]
     source = "\n\n".join(f"[chapter-p{i:03d}] {p['text']}" for i, p in enumerate(paragraphs, 1)) + "\n"
     summary = chapter["summary"]
@@ -104,25 +118,46 @@ def _messages(context, original_budget, chapter):
             "Read the complete chapter before choosing its main points.",
         ),
         _result("read-source", repr(source)),
+    ]
+    if repair_feedback is not None:
+        draft = " ".join(" ".join(p["text"] for p in paragraphs).split()[:350]) + "\n"
+        draft_action = _action(
+            "write-prose-draft",
+            f"draft_text = {draft!r}\nPath('{ROOT}/summary.md').write_text(draft_text, encoding='utf-8')",
+            "Write a prose draft before returning.",
+        )
+        draft_done = _done()
+        draft_action["trainable"] = draft_done["trainable"] = False
+        messages += [
+            draft_action,
+            _result("write-prose-draft", str(len(draft))),
+            draft_done,
+            {"role": "user", "content": repair_feedback},
+        ]
+    messages += [
         _action(
             "write-summary",
             f"summary_text = {summary!r}\nPath('{ROOT}/summary.md').write_text(summary_text, encoding='utf-8')",
-            "Select the main ideas or events, retaining essential qualifications and chronology. Keep possibilities distinct from actual events, use only this chapter, and write concise English bullets.",
+            (
+                "Replace the prose draft with the chapter's key points, not paragraph-by-paragraph copying. "
+                if repair_feedback is not None else ""
+            ) + "Select the main ideas or events, retaining essential qualifications and chronology. Keep possibilities distinct from actual events, use only this chapter, and write concise English bullets.",
         ),
         _result("write-summary", str(len(summary))),
         _done(),
     ]
     for message in messages:
         if message["role"] == "assistant":
-            message["trainable"] = True
+            message.setdefault("trainable", True)
     return messages, source
 
 
 def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path,
-           teacher_additions: Path | None = None):
+           teacher_additions: Path | None = None, include_format_repairs: bool = False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     trace, context, original_budget = _context(trace_path)
+    repair_feedback = _format_repair_feedback(trace) if include_format_repairs else None
     fixture = _load_fixture_module()
     excluded = {
         p["text"].strip()
@@ -170,7 +205,21 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 "summary": summary,
             }
         )
-    if len({r["task_key"] for r in rows}) != len(chapters):
+    if include_format_repairs:
+        for chapter, base_case in zip(chapters, list(cases), strict=True):
+            slug = f"{chapter['slug']}-format-repair"
+            messages, source = _messages(context, original_budget, chapter, repair_feedback)
+            rows.append({
+                "messages": messages,
+                "tools": json.dumps(trace["tools"], sort_keys=True),
+                "task_key": f"summary-direct-{slug}",
+                "trace_id": f"summary-direct-authored:{slug}",
+                "family": "format_repair",
+                "role": "child",
+                "objective": OBJECTIVE,
+            })
+            cases.append(dict(base_case, slug=slug, base_slug=chapter["slug"], family="format_repair"))
+    if len({r["task_key"] for r in rows}) != len(rows):
         raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
     parquet = output_dir / "train.parquet"
@@ -193,6 +242,12 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         "independent_human_gold": False,
         "teacher_tool_results": "regenerated_from_authored_file_contents",
         "assistant_only_loss": True,
+        "format_repair_episodes": len(chapters) if include_format_repairs else 0,
+        "incorrect_draft_and_stop_masked": include_format_repairs,
+        "format_repair_feedback_sha256": (
+            hashlib.sha256(repair_feedback.encode()).hexdigest() if repair_feedback is not None else None
+        ),
+        "format_repair_draft": "first_350_source_words_as_unmarked_prose" if include_format_repairs else None,
         "context_trace": {"path": str(trace_path), "sha256": sha256_file(trace_path), "trace_id": trace["id"]},
         "source_manifest_sha256": sha256_file(source_dir / "SOURCES.json"),
         "teacher_labels_sha256": sha256_file(teacher_path),
@@ -214,6 +269,7 @@ if __name__ == "__main__":
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--teacher-labels", type=Path, required=True)
     parser.add_argument("--teacher-additions", type=Path)
+    parser.add_argument("--include-format-repairs", action="store_true")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -223,6 +279,7 @@ if __name__ == "__main__":
                 source_dir=args.source_dir,
                 teacher_path=args.teacher_labels,
                 teacher_additions=args.teacher_additions,
+                include_format_repairs=args.include_format_repairs,
                 output_dir=args.output_dir,
             ),
             indent=2,

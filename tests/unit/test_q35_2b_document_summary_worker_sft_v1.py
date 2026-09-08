@@ -84,6 +84,48 @@ def test_direct_teacher_export_preserves_read_write_stop_and_rejects_source_chan
     assert expanded_manifest["family_counts"] == {"retained_train": 20, "public_chapter": 24}
     assert len(Dataset.from_parquet(str(expanded / "train.parquet"))) == 44
     assert _validated_dataset(expanded) == expanded_manifest
+    feedback = (
+        "Chapter summarization: next file step.\nRewrite summary.md as only 3-5 Markdown bullet lines, "
+        "without headings or paragraph-by-paragraph records. Summarize the chapter's key points."
+    )
+    trace["nodes"].extend([{"message": {"role": "user", "content": feedback}}] * 2)
+    trace_path.write_text(json.dumps({"traces": [trace]}))
+    repaired = tmp_path / "repairs"
+    repair_manifest = export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher,
+                             teacher_additions=extra_teacher, output_dir=repaired, include_format_repairs=True)
+    repair_rows = Dataset.from_parquet(str(repaired / "train.parquet"))
+    repair_cases = json.loads((repaired / "CASES.json").read_text())
+    assert repair_manifest["rows"] == 88
+    assert repair_manifest["family_counts"] == {"retained_train": 20, "public_chapter": 24, "format_repair": 44}
+    assert _validated_dataset(repaired) == repair_manifest
+    assert repair_cases[:44] == json.loads((expanded / "CASES.json").read_text())
+    assert list(repair_rows)[:44] == list(Dataset.from_parquet(str(expanded / "train.parquet")))
+    for row, case, original in zip(list(repair_rows)[44:], repair_cases[44:], repair_cases[:44], strict=True):
+        messages = row["messages"]
+        assert case["base_slug"] == original["slug"]
+        assert case["source"] == original["source"] and case["summary"] == original["summary"]
+        assert [m["trainable"] for m in messages if m["role"] == "assistant"] == [True, False, False, True, True]
+        assert messages[7]["content"] == feedback
+        workspace = tmp_path / case["slug"]
+        workspace.mkdir()
+        (workspace / "source.md").write_text(case["source"])
+        scope, observed = {}, {}
+        for message in messages:
+            for call in message.get("tool_calls") or []:
+                code = json.loads(call["function"]["arguments"])["code"].replace(ROOT, str(workspace))
+                program = ast.parse(code)
+                exec(compile(ast.Module(body=program.body[:-1], type_ignores=[]), "teacher", "exec"), scope)
+                value = eval(compile(ast.Expression(program.body[-1].value), "teacher", "eval"), scope)
+                observed[call["id"]] = repr(value)
+            if message["role"] == "tool":
+                assert message["content"] == observed[message["tool_call_id"]]
+        assert (workspace / "summary.md").read_text() == case["summary"]
+        assert (workspace / "source.md").read_text() == case["source"]
+        assert not (workspace / "notes.md").exists()
+    repair_manifest["incorrect_draft_and_stop_masked"] = False
+    (repaired / "MANIFEST.json").write_text(json.dumps(repair_manifest))
+    with pytest.raises(ValueError, match="invalid document decision"):
+        _validated_dataset(repaired)
     expanded_manifest["rows"] = 40
     (expanded / "MANIFEST.json").write_text(json.dumps(expanded_manifest))
     with pytest.raises(ValueError, match="invalid document decision"):
