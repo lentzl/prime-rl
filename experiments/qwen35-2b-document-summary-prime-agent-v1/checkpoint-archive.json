@@ -11,6 +11,18 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-worker-sft-v1/h176-summary-worker-sft12-step8-v1/weights/step_8/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-worker-sft-v1/h176-summary-worker-sft12-step8-v1/weights/step_8/model.safetensors",
+      "sha256": "2f019993a1e451cfee81840c108e487f3912063107be28293f175b7b3beae725",
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "full_copy_checksum_comparison": "no file-content differences; directory timestamps differ",
+      "training_receipt_archived": "q35-2b-document-summary-worker-sft-v1/h176-summary-worker-sft12-step8-v1/TRAINING-RECEIPT.json",
+      "remote_removal_scope": "model.safetensors only; older terminal-worker experiment, not R3/R2 or a live evaluation input",
+      "remote_removal_status": "pending_until_live_evaluation_drains",
+      "verified_utc": "2026-09-08 09:53 UTC"
+    },
+    {
       "source": "/home/ubuntu/rlm/models/qwen35-2b-upstream-reference-15852e8/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/qwen35-2b-upstream-reference-15852e8/model.safetensors",
       "sha256": "aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1",
