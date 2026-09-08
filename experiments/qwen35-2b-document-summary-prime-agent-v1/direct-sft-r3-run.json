@@ -46,5 +46,6 @@
   },
   "rationale": "Build on R2 with direct native read/write/stop episodes, retain earlier TRAIN material, and add substantially longer narrative and expository chapters. Reassess after 32 updates rather than repeat allowance-only inference comparisons.",
   "semantic_promotion": false,
-  "next_evaluation": "Frozen R2 versus resulting candidate, direct chapter summaries; inspect main-point coverage, factual fidelity, qualifications, chronology, completion and format separately. Existing public evaluation books excluded as TRAIN sources, but pretraining and incidental phrase overlap remain possible."
+  "next_probe_names": ["direct-alice-ch1", "direct-bennett-ch1", "direct-city-shade", "direct-evening-access"],
+  "next_evaluation": "Frozen R2 versus resulting candidate, four direct chapter summaries per model; inspect main-point coverage, factual fidelity, qualifications, chronology, completion and format separately. Alice, Bennett and city-shade are development-exposed; evening-access was authored prospectively after TRAIN froze. Existing evaluation sources are excluded from TRAIN, but pretraining and incidental phrase overlap remain possible."
 }
