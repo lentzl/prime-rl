@@ -13,7 +13,7 @@ from document_summary_evidence_training_v1 import training_chapters
 from export_q35_2b_document_decision_sft_v1 import _wire_message, sha256_file
 from export_q35_2b_document_summary_live_revision_sft_v2 import _load_fixture_module
 
-SCHEMA_VERSION = "qwen35-2b-document-summary-evidence-sft/v1"
+SCHEMA_VERSION = "qwen35-2b-document-summary-evidence-sft/v2"
 OBJECTIVE = "grounded_english_source_notes_summary_episode"
 ROOT = "/workspace/document-summary-v1"
 
@@ -130,6 +130,8 @@ def export(*, trace_path: Path, output_dir: Path):
         for chapter in document["chapters"]
         for paragraph in chapter["paragraphs"]
     }
+    transfer_source = Path(__file__).parents[1] / "experiments/qwen35-2b-document-summary-prime-agent-v1/chapter-probes/city-shade.md"
+    excluded_sources.update(transfer_source.read_text().strip().split("\n\n"))
     for chapter in training_chapters():
         if any(p["text"] in excluded_sources for p in chapter["paragraphs"]):
             raise ValueError("training source overlaps the Northstar/Cedar probes")
@@ -171,8 +173,8 @@ def export(*, trace_path: Path, output_dir: Path):
                 "summary_words": sum(len(b.split()) for b in bullets),
             }
         )
-    if len(rows) != 32 or len({r["task_key"] for r in rows}) != 32:
-        raise ValueError("expected two TRAIN phases for each of sixteen documents")
+    if len(rows) != 40 or len({r["task_key"] for r in rows}) != 40:
+        raise ValueError("expected two TRAIN phases for each of twenty documents")
     output_dir.mkdir(parents=True)
     parquet = output_dir / "train.parquet"
     Dataset.from_list(rows).to_parquet(str(parquet))
@@ -198,11 +200,13 @@ def export(*, trace_path: Path, output_dir: Path):
         "teacher_tool_results": "regenerated_from_authored_file_contents",
         "teacher_notes_training_only": True,
         "prior_phase_assistant_messages_trainable": False,
-        "phase_counts": {"extraction": 16, "realization": 16},
+        "phase_counts": {"extraction": 20, "realization": 20},
         "renderer_enable_thinking": True,
-        "distinct_documents": 16,
+        "distinct_documents": 20,
         "previous_training_sources_reused": 12,
         "new_contrast_documents": 4,
+        "new_expository_documents": 4,
+        "city_shade_source_text_excluded": True,
         "development_and_cedar_source_text_excluded": True,
         "broad_skill_claim": False,
         "dataset": {"path": parquet.name, "sha256": sha256_file(parquet)},

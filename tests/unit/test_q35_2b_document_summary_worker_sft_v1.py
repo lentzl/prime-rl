@@ -16,7 +16,8 @@ def test_evidence_teacher_episodes_reproduce_their_file_observations(tmp_path: P
     finally:
         sys.path.remove(str(scripts))
     chapters = training_chapters()
-    assert len(chapters) == len({c["slug"] for c in chapters}) == 16
+    assert len(chapters) == len({c["slug"] for c in chapters}) == 20
+    assert sum(c["family"] == "expository" for c in chapters) == 4
     context = [{"role": "user", "content": "Prime Agent runtime"}, {"role": "user", "content": "Read source.md and write notes.md."}]
     feedback = {"role": "user", "content": "Your notes are now saved; at most 68 total words."}
     clean_feedback = {"role": "user", "content": "Chapter summarization: next file step.\n" + feedback["content"]}

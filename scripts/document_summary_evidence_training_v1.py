@@ -305,9 +305,107 @@ SENSOR_SOURCE = (
     "Dispatch may resume only after a technician confirms network recovery and the shift supervisor records authorization to restart in the log.",
 )
 
+# Original synthetic explanatory chapters, separate from all evaluation sources.
+EXPOSITORY_CHAPTERS = {
+    "ferry-survey": (
+        (
+            "A fictional harbor survey compared passenger reports during four weeks before a timetable change and four weeks afterward. Reported waiting times fell after the change, but the later period also had fewer storms. The comparison therefore did not isolate the effect of the new timetable from the effect of better weather.",
+            "Four-week before/after passenger reports show shorter waits; fewer later storms confound the timetable effect.",
+            "Reported waits fell after the timetable change, but better weather prevents isolating its effect.",
+        ),
+        (
+            "The survey asked passengers who had already boarded a ferry. It did not reach people who abandoned a trip or chose another route because they expected a long wait. The authors warned that satisfaction among current passengers could improve even while the experience of people excluded from the survey remained unchanged.",
+            "Only boarded passengers were surveyed; abandoned trips and alternative-route users are excluded, limiting satisfaction claims.",
+            "Surveying only boarded passengers excludes abandoned trips and alternative-route users, limiting satisfaction claims.",
+        ),
+        (
+            "Morning passengers reported more reliable connections with the local bus, while evening passengers still described missed connections. Combining all responses into one average hid that difference. The authors proposed reporting results separately by time of day before deciding whether the new service helped the travelers with the least flexible schedules.",
+            "Morning bus connections improved; evening misses persisted. Report by time of day before judging benefits to inflexible travelers.",
+            "Morning bus connections improved while evening problems persisted; separate time-of-day results before judging who benefited.",
+        ),
+        (
+            "The harbor team planned another survey during a stormier month and wanted to contact people who had stopped using the ferry. This was a proposal for better evidence, not a decision to reverse the timetable. No conclusion about ticket revenue was possible because the survey did not collect sales records.",
+            "Propose stormier-month and former-user surveys, not timetable reversal; no revenue conclusion without sales data.",
+            "Survey stormier months and former users; no timetable reversal or revenue conclusion follows from these data.",
+        ),
+    ),
+    "oral-history": (
+        (
+            "A fictional town archive collected interviews about the closure of an old market. Interviews conducted decades afterward often described the market as the center of neighborhood life. The curator treated these recollections as evidence of remembered experience, not as a complete register of who used the market or how frequently they visited.",
+            "Decades-later market interviews document remembered experience, not a complete visitor or frequency register.",
+            "Market interviews reveal remembered experience, not complete visitor numbers or attendance frequency.",
+        ),
+        (
+            "Contemporary photographs showed a crowded square on several festival days. Those images supported the claim that the market could attract large gatherings, but not that it was equally crowded on ordinary weekdays. The dates and occasions attached to each image mattered as much as the visible number of people.",
+            "Festival photographs establish occasional crowds, not ordinary weekday attendance; preserve dates and occasions.",
+            "Festival photographs show occasional crowds, not typical weekdays; dates and occasions are essential context.",
+        ),
+        (
+            "Shop ledgers and personal letters sometimes contradicted the interviews. Rather than deleting conflicting accounts, the curator displayed them together and explained what each source could establish. Agreement between two later interviews was not automatically independent confirmation, since both speakers might have repeated the same published local history.",
+            "Retain and explain conflicting ledgers, letters and interviews; later interviews sharing one published source are not independent confirmation.",
+            "Explain conflicting sources together; interviews repeating one published history do not independently confirm it.",
+        ),
+        (
+            "The exhibition separated established dates from uncertain explanations for the closure. Visitors were invited to contribute additional documents, but contributions would be cataloged with their origin before being used. New evidence could alter the explanation without requiring the archive to pretend that the earlier uncertainty had never existed.",
+            "Separate established dates from uncertain causes; catalog origins of new documents and preserve the record of earlier uncertainty.",
+            "Distinguish dates from uncertain causes; record new evidence's origins and retain earlier uncertainty when explanations change.",
+        ),
+    ),
+    "repair-workshop": (
+        (
+            "In a fictional community workshop, volunteers logged fifty household items brought for repair over a month. Thirty items worked when their owners collected them. The organizers called this a collection-day result, not a long-term success rate, because they had not yet checked whether those items were still working several months later.",
+            "Thirty of fifty items worked at collection; without later checks this is not a long-term repair success rate.",
+            "Thirty of fifty items worked at collection, but long-term repair success was not measured.",
+        ),
+        (
+            "Some unrepaired items needed parts that were unavailable locally, while others could not be opened without damage. The log distinguished these reasons from cases in which no volunteer had the relevant expertise. Calling every unfinished repair a skills failure would therefore misdescribe both the work and the resources the workshop needed.",
+            "Separate missing parts, destructive access and missing expertise; unfinished repairs do not all indicate a skills failure.",
+            "Distinguish unavailable parts, destructive access and missing expertise instead of treating every unfinished repair as a skills failure.",
+        ),
+        (
+            "Owners who completed a feedback card often valued learning how their items worked, even when a repair was unsuccessful. However, filling out the card was optional. The organizers could report what respondents valued but could not assume that silent participants shared the same opinion or had received the same explanation.",
+            "Optional feedback respondents valued learning even after failed repairs; do not generalize to silent participants.",
+            "Respondents valued learning despite failed repairs, but optional feedback cannot represent silent participants.",
+        ),
+        (
+            "For the following month, the workshop proposed a parts-sharing shelf and a scheduled expert session. It also planned to contact consenting owners after three months. These were responses to different gaps: supplies, expertise and durability evidence. The plan did not promise that every item would become repairable or that all owners would answer the follow-up.",
+            "Parts shelf, expert session and consenting-owner three-month follow-up address supply, expertise and durability gaps; no universal success or response guarantee.",
+            "Plan shared parts, expert sessions and consenting-owner three-month follow-up without promising universal repair or response.",
+        ),
+    ),
+    "water-meter-trial": (
+        (
+            "A fictional housing cooperative tested weekly water-use statements in two buildings for six weeks. Their recorded use fell compared with the preceding six weeks. Another building without statements also used less water during the same period. The report therefore distinguished the decline within the trial buildings from evidence that statements caused the decline.",
+            "Trial buildings used less water over six weeks, but an untreated building also declined; the statements' causal effect is not established.",
+            "Water use fell in trial and untreated buildings, so the statements' causal effect remains unestablished.",
+        ),
+        (
+            "The readings came from building-level meters rather than individual apartments. They included water used in shared spaces and could also reflect leaks. Although the statements divided totals by occupied apartments to make buildings easier to compare, this calculation did not reveal how much water any particular household had used.",
+            "Building meters include shared use and possible leaks; totals per occupied apartment do not measure individual household use.",
+            "Building totals include shared use and possible leaks; apartment averages do not identify household consumption.",
+        ),
+        (
+            "Residents asked for clearer explanations of unusual weekly increases. The maintenance team proposed annotating known repairs and changes in occupancy alongside the readings. Such annotations would help interpret the totals, but an unexplained increase would still be a question to investigate rather than proof that residents had ignored the statements.",
+            "Annotate repairs and occupancy changes; unexplained increases warrant investigation, not accusations that residents ignored statements.",
+            "Annotate repairs and occupancy; unexplained increases require investigation, not assumptions about residents' behavior.",
+        ),
+        (
+            "The cooperative planned a longer comparison with additional buildings before deciding whether to continue the statements. It also wanted to record the staff time needed to prepare them. Lower water use alone would not establish that the reporting process was worthwhile if its costs and residents' understanding remained unknown.",
+            "Plan longer, broader comparison and staff-time measurement; assess costs and residents' understanding before judging reporting worthwhile.",
+            "Extend comparisons and measure staff time, costs and residents' understanding before judging the statements worthwhile.",
+        ),
+    ),
+}
+
 
 def training_chapters():
     chapters = [dict(row) for row in TRAINING_CHAPTERS]
+    for slug, records in EXPOSITORY_CHAPTERS.items():
+        chapters.append({
+            "slug": slug, "family": "expository",
+            "paragraphs": [{"id": f"{slug}-p{i:02d}", "text": record[0]}
+                           for i, record in enumerate(records, 1)],
+        })
     for slug, paragraphs in {
         "permit-additional": (
             "The duty planner approves routine delivery permits. A permit for a hazardous load also requires approval from the safety manager.",
@@ -334,7 +432,10 @@ def training_chapters():
             }
         )
     for chapter in chapters:
-        records = TEACHER_RECORDS[chapter["slug"]]
+        records = (
+            tuple((note, bullet) for _, note, bullet in EXPOSITORY_CHAPTERS[chapter["slug"]])
+            if chapter["slug"] in EXPOSITORY_CHAPTERS else TEACHER_RECORDS[chapter["slug"]]
+        )
         chapter["notes"] = (
             "\n".join(
                 f"[{source['id']}] {note}" for source, (note, _) in zip(chapter["paragraphs"], records, strict=True)
