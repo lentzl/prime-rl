@@ -268,6 +268,12 @@ For multi-node runs, trainer and inference processes are on separate nodes — u
 
 ### Dual-dense SPADE coevolution loop
 
+For terminal document-summary comparisons, the paired summary evaluation driver
+can reuse the two frozen engines while running one model per GPU concurrently.
+Its receipt explicitly records direct engine routing, not owner/child delegation
+or role-proxy behavior. Inspect all four episode traces and checkpoint hashes;
+driver completion and file-presence rewards do not establish semantic utility.
+
 For `run_q35_2b_spade_dual_dense_autonomous_v1.py --coevolution`, treat a
 generated batch as complete only when all of these exist and agree:
 
