@@ -11,6 +11,18 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/models/qwen35-2b-upstream-reference-15852e8/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/qwen35-2b-upstream-reference-15852e8/model.safetensors",
+      "sha256": "aa33250c4fc64891ddfaba3a314fd9542ea371843c387178b425fbcc5ed680b1",
+      "local_and_remote_hashes_matched": true,
+      "complete_model_directory_copied": true,
+      "full_copy_checksum_comparison": "no file-content differences; directory timestamps differ",
+      "remote_removal_scope": "model.safetensors only; upstream diagnostic reference, not a trained frontier checkpoint",
+      "remote_removal_status": "removed_after_verification",
+      "no_active_gpu_process_at_removal": true,
+      "host_free_space_after_removal": "7.3 GiB reported by df -h"
+    },
+    {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-margin-revision-sft-v6/h176-summary-margin-revision-sft12-step4-lr1e6-r1-v6/weights/step_4/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-margin-revision-sft-v6/h176-summary-margin-revision-sft12-step4-lr1e6-r1-v6/weights/step_4/model.safetensors",
       "sha256": "a4a310427ee66253fe7424873c855f5a3b8a46e6c5001310a7aa385157feaa86",

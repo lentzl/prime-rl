@@ -1,0 +1,230 @@
+{
+  "comparison": "Published upstream reference vs R2, direct chapters with wider correction allowance and ACP stop preservation",
+  "code_commit": "16aa01ba68e8d22ca95bd1041571b47b28afdaa0",
+  "verifiers_commit": "3957bdb4400565e55fd9e4c362c44ef59739f96f",
+  "no_optimizer_updates": true,
+  "role_proxy_used": false,
+  "semantic_promotion": false,
+  "interpretation": [
+    "R2 Alice reaches native end_turn and saves structurally valid bullets, but invents eating a marmalade jar, hiding the key and entering the garden. More correction room does not make this artifact factually reliable.",
+    "R2 Bennett reaches outer max_turns after two format continuations, retaining a short unmarked paragraph. Upstream Alice reaches max_output_tokens and retains unmarked prose; these are truncated outcomes, not clean completions.",
+    "Upstream Bennett reaches native end_turn with five bullets. It preserves equal time distribution and time's importance, but gives disproportionate space to opening anecdotes, overinterprets spending on luxuries, and omits the central no-more-time conclusion and future-borrowing distinction. Partial utility, not full chapter coverage.",
+    "The ACP fix transmits end_turn on native completions. Outer-intercepted limits can terminate before an ACP response; null native_acp_stops in those cases is expected, not a clean native end_turn.",
+    "Source task contract, frozen weights and sampling settings are unchanged, but fresh sessions include different session context and trajectories can diverge before limits. Do not attribute each content difference causally to the allowance change.",
+    "Next work is grounded direct-summary supervision on substantially longer varied TRAIN chapters, not further allowance increases or promotion from file/format scores."
+  ],
+  "episodes": [
+    {
+      "label": "upstream-vs-r2-direct-public-chapters-r2-baseline-direct-alice-ch1",
+      "trace_sha256": "f984e8c98a32c086ab6190ea2defb626d113255e87d3e24e99ccc6ad8976bc21",
+      "trace_id": "bc48217efba44aff969935b0c16c7793",
+      "stop_condition": "max_output_tokens",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": null,
+      "summary": "Alice falls through a rabbit-hole into a well filled with cupboards and bookshelves. She wonders if she'll fall through the earth and encounters a White Rabbit. She finds a little three-legged glass table with a golden key and a little door behind a curtain. The door leads to a small garden. She finds a bottle labeled \"DRINK ME\" on the table, tastes it, and finishes it. She shrinks to 10 inches tall. She tries to reach the key but can't. She finds a small cake labeled \"EAT ME\" under the table, eats it, and remains the same size.",
+      "feedbacks": 0,
+      "repairs": [],
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 0
+      },
+      "timing": {
+        "start": 1788855883.7395766,
+        "boot": {
+          "start": 1788855883.7398968,
+          "end": 1788855884.2290773
+        },
+        "setup": {
+          "start": 1788855884.2290773,
+          "end": 1788855887.6309965
+        },
+        "agent": {
+          "start": 1788855887.6309965,
+          "end": 1788856130.2072506,
+          "model": {
+            "duration": 223.71197199821472
+          },
+          "harness": {
+            "duration": 18.86428213119507
+          }
+        },
+        "finalize": {
+          "start": 1788856130.2073033,
+          "end": 1788856130.4695585
+        },
+        "scoring": {
+          "start": 1788856130.4695585,
+          "end": 1788856130.4731355
+        }
+      },
+      "prompt_tokens": 268011,
+      "output_tokens": 6343,
+      "exports_match_trace": true
+    },
+    {
+      "label": "upstream-vs-r2-direct-public-chapters-r2-baseline-direct-bennett-ch1",
+      "trace_sha256": "e5655b425d074abc70eb38f611a32837014085722bbb7e219edebefe7d4cf06b",
+      "trace_id": "f22ce1a7481045748181567f8d511fa1",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": [
+        "end_turn"
+      ],
+      "summary": "\n- The narrator observes a man with a half-empty flat, new suit, old hat, and magnificently dressed but frugal spending habits who wastes his income on trivial luxuries like cut glass and Turkish coffee.\n- The narrator criticizes the public's obsession with money management, noting that newspapers focus on \"How to live on eight shillings a week\" rather than \"How to live on twenty-four hours a day.\"\n- Philosophers have explained space but not time; time is described as the \"inexplicable raw material of everything\" and the \"most precious of possessions\" that cannot be stolen.\n- Time is unstealable and equally distributed to all people, with no aristocracy of wealth or intellect—genius is never rewarded by extra time, and there is no punishment for waste.\n- The narrator concludes that money is just about the commonest thing there is, encumbering the earth in gross heaps, while time is the real resource that determines happiness and the evolution of the soul.\n",
+      "feedbacks": 0,
+      "repairs": [],
+      "metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 1,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 155
+      },
+      "timing": {
+        "start": 1788856133.4922965,
+        "boot": {
+          "start": 1788856133.492681,
+          "end": 1788856133.9462357
+        },
+        "setup": {
+          "start": 1788856133.9462357,
+          "end": 1788856137.4770586
+        },
+        "agent": {
+          "start": 1788856137.4770586,
+          "end": 1788856170.1289146,
+          "model": {
+            "duration": 28.42523193359375
+          },
+          "harness": {
+            "duration": 4.226624011993408
+          }
+        },
+        "finalize": {
+          "start": 1788856170.1289454,
+          "end": 1788856170.4024734
+        },
+        "scoring": {
+          "start": 1788856170.4024734,
+          "end": 1788856170.4048996
+        }
+      },
+      "prompt_tokens": 22950,
+      "output_tokens": 816,
+      "exports_match_trace": true
+    },
+    {
+      "label": "upstream-vs-r2-direct-public-chapters-r2-candidate-direct-alice-ch1",
+      "trace_sha256": "b369ec1a8f623d9ee154e7fa2025c9a9464f251b5aa3b4b5d723d58ba95df4ae",
+      "trace_id": "5c894fb5fca34b448c6410b0fd4525aa",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": [
+        "end_turn"
+      ],
+      "summary": "* Alice grew tired of sitting by her sister on the bank and considered whether making a daisy-chain was worth getting up and picking the daisies.\n* A White Rabbit with pink eyes ran past, took a watch, and hurried on; Alice followed, chasing it down a rabbit-hole under a hedge.\n* The hole went straight like a tunnel, then dipped down into a deep well filled with cupboards and bookshelves.\n* Alice ate a labelled orange marmalade jar, drank from a bottle marked \"DRINK ME\" that made her shrink to ten inches.\n* She ate a \"EAT ME\" cake, could not reach the tiny golden key on a glass table, hid the key, opened a small door into a garden, and continued onward.\n",
+      "feedbacks": 2,
+      "repairs": [],
+      "metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 1,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 119
+      },
+      "timing": {
+        "start": 1788855883.7613642,
+        "boot": {
+          "start": 1788855883.7616582,
+          "end": 1788855884.229947
+        },
+        "setup": {
+          "start": 1788855884.229947,
+          "end": 1788855887.631988
+        },
+        "agent": {
+          "start": 1788855887.631988,
+          "end": 1788855933.117647,
+          "model": {
+            "duration": 41.04381513595581
+          },
+          "harness": {
+            "duration": 4.441843748092651
+          }
+        },
+        "finalize": {
+          "start": 1788855933.1176696,
+          "end": 1788855933.3965461
+        },
+        "scoring": {
+          "start": 1788855933.3965461,
+          "end": 1788855933.4001834
+        }
+      },
+      "prompt_tokens": 74181,
+      "output_tokens": 1126,
+      "exports_match_trace": true
+    },
+    {
+      "label": "upstream-vs-r2-direct-public-chapters-r2-candidate-direct-bennett-ch1",
+      "trace_sha256": "de829d71427e8412f0cfe4be9f69cc3e6a92ef9c767fb4ae87b99714bc970bd4",
+      "trace_id": "9069b624e14e4605a262f9e3e6255fee",
+      "stop_condition": "max_turns",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": null,
+      "summary": "The narrator criticizes people who waste their time instead of managing it. Time is more valuable than money. Time cannot be stolen or given away. Happiness depends on how well time is managed. ",
+      "feedbacks": 2,
+      "repairs": [],
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 0
+      },
+      "timing": {
+        "start": 1788855936.590872,
+        "boot": {
+          "start": 1788855936.5912366,
+          "end": 1788855937.0672479
+        },
+        "setup": {
+          "start": 1788855937.0672479,
+          "end": 1788855940.389096
+        },
+        "agent": {
+          "start": 1788855940.389096,
+          "end": 1788856124.6639671,
+          "model": {
+            "duration": 122.81276440620422
+          },
+          "harness": {
+            "duration": 61.462106704711914
+          }
+        },
+        "finalize": {
+          "start": 1788856124.664004,
+          "end": 1788856124.9341533
+        },
+        "scoring": {
+          "start": 1788856124.9341533,
+          "end": 1788856124.9367793
+        }
+      },
+      "prompt_tokens": 239672,
+      "output_tokens": 3405,
+      "exports_match_trace": true
+    }
+  ]
+}
