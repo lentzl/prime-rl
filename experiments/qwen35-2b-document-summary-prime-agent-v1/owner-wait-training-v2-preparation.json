@@ -1,5 +1,17 @@
 {
-  "status": "prepared_file_replayed_real_renderer_audit_pending",
+  "status": "prepared_and_real_renderer_audited",
+  "real_renderer_audit": {
+    "verified_utc": "2026-09-08 16:25 UTC",
+    "sha256": "6f4e56516ffb887733f35e99fd9f625d2fb55a247f9c0054ff871c30313fc702",
+    "tokenizer_parent": "owner R1",
+    "rows": 84,
+    "sequence_tokens": 529229,
+    "maximum_sequence_tokens": 8364,
+    "supervised_tokens": 31372,
+    "masked_incorrect_prefix_tokens": 1272,
+    "truncation_or_source_user_tool_incorrect_action_loss": false,
+    "cuda_initialized": false
+  },
   "prepared_utc": "2026-09-08 16:17 UTC",
   "purpose": "Teach the current acquired owner to yield instead of polling persistent handles, then retain matching receipts and assemble unchanged chapter summaries.",
   "next_owner_parent": {
@@ -32,9 +44,9 @@
     "existing_training_wrapper_tests_passed": 18,
     "scoped_lint": "passed",
     "training_skill_validation": "passed",
-    "real_trainer_tokenizer_mask_audit": "pending idle host; local annotation checks are not token-loss proof"
+    "real_trainer_tokenizer_mask_audit": "completed at the idle boundary; see real_renderer_audit"
   },
   "training_launched": false,
   "semantic_or_native_capability_promotion": false,
-  "next": "At the normal idle boundary, sync published code and audit with the current owner tokenizer. Continue the owner from R1, worker from valid completed R8. Use the combined native system again after the targeted role updates."
+  "next": "Continue the owner from R1, worker from valid completed R8. Use the combined native system again after the targeted role updates."
 }

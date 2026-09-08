@@ -20,8 +20,14 @@
       "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Training receipt copied separately.",
       "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r6/TRAINING-RECEIPT.json",
       "archive_verified_utc": "2026-09-08 16:17 UTC",
-      "remote_removal_status": "not_removed; R8 still training",
-      "remote_removal_scope": "No deletion authorized by this record; recheck references and GPU drain at the next normal boundary."
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "remote_removal_scope": "Only the exact R6 model.safetensors; complete local archive is recoverable. R7/R8/e33/owner R1 and all run evidence remain on-host.",
+      "state_references": "Only completed R6 receipt and historical R7 source config/receipt; R8 and both data audits had exited before removal.",
+      "no_active_gpu_process_at_removal": true,
+      "local_and_remote_hashes_rechecked_before_removal": true,
+      "removal_time_utc": "2026-09-08 16:26:39 UTC",
+      "removal_verified_utc": "2026-09-08 16:27:17 UTC",
+      "host_free_space_after_removal": "7.1 GiB reported by df -h"
     },
     {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-repair-step128-r5/weights/step_128/model.safetensors",

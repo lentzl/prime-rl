@@ -1,5 +1,19 @@
 {
-  "status": "local_preparation_complete_real_trainer_audit_pending",
+  "real_renderer_audit": {
+    "verified_utc": "2026-09-08 16:26 UTC",
+    "sha256": "ed59022469e8cec15b8dc0d50ea5a621ec188fcd806563bfa6235f8c92503f62",
+    "tokenizer_parent": "completed worker R8",
+    "worker_parent_weight_sha256": "c481f2510fff862ece5ccbd33794b0029884f9125774cc755403a0b84d69e90f",
+    "rows": 191,
+    "sequence_tokens": 1331192,
+    "maximum_sequence_tokens": 13891,
+    "supervised_tokens": 72808,
+    "masked_incorrect_prefix_tokens": 24930,
+    "truncation_or_source_user_tool_incorrect_action_loss": false,
+    "cuda_initialized": false,
+    "note": "Initial invocation stopped at argument parsing (--tokenizer-path instead of --tokenizer), without a data audit or weight update. Corrected invocation completed all checks; receipt delivery remains explicitly stubbed."
+  },
+  "status": "prepared_and_real_renderer_audited_not_yet_trained",
   "dataset_name": "r9-native-child",
   "local_path": "outputs/summary-direct-sft-r9-native-child",
   "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r9-native-child",
@@ -72,7 +86,7 @@
     "scoped_ruff_passed": true,
     "modified_skills_validated": true,
     "test_runner_note": "Initial isolated invocation lacked pytest; pytest-only rerun lacked the async plugin. Supplying pytest and pytest-asyncio ran all 47 task checks successfully. No live-host tests or environment edits.",
-    "real_tokenizer_and_loss_audit": false,
+    "real_tokenizer_and_loss_audit": true,
     "live_child_execution_verified": false
   },
   "implementation_sha256": {
@@ -80,7 +94,7 @@
     "auditor": "93aa7f2358c94a347f9f5e594065431fd2eae157da363929ef4ec4c363ff95a4",
     "training_wrapper": "d2472a181862f9ffe0434f60f14518ca0a2fcef96f85815ed00596efa7b7e0f0"
   },
-  "next_boundary": {
+  "preparation_time_observation": {
     "active_training": "h176-summary-direct-chapters-step128-r8",
     "wrapper_pid": 2620867,
     "completion_observer_tool_session": 82187,
@@ -91,12 +105,13 @@
     "live_host_code_unchanged": "8590c4c519567d261efd57cced918c3efb0fb66b / 077c030f3d20a34364401d3d2d089422c059dd7a",
     "next_worker_parent": "Valid completed R8 descendant by default; not a reset to R7 or vanilla.",
     "next_owner_parent": "Owner R1 remains the current owner frontier.",
-    "remaining_before_training": [
+    "remaining_at_preparation_time": [
       "Verify current R8 terminal receipt and process/GPU drain.",
       "At that idle boundary sync the published code, then perform the real complete-sequence and loss-mask audit using the next parent tokenizer.",
       "Confirm room for the next output; R6 archive is copying, but no R6 host deletion or verified-copy claim yet."
     ],
     "semantic_admission_threshold": false,
     "r9_training_launched": false
-  }
+  },
+  "current_next": "R8 completion and full loss/checkpoint validation are verified. Published code was synced at the idle boundary and R9 passed the real R8-tokenizer audit. Owner R2 waiting training is the next scheduled update; R9 worker learning follows from R8 before the next native combined-system trial. R6's exact remote weight was removed only after verified full archival and idle reference checks; sufficient output room must be checked again at the next launch."
 }

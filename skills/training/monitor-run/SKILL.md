@@ -313,8 +313,10 @@ part heading can fall between the chapter's final prose and the next chapter
 marker (for example, Treasure Island VI/VII); omit that transition heading,
 preserve the complete prose, and verify earlier chapter files remain unchanged.
 Run `audit_q35_2b_document_summary_direct_sft_v1.py` against the
-source checkpoint's tokenizer before launch. It replays teacher file operations,
-checks complete untruncated trainer sequences, and verifies assistant-only loss.
+source checkpoint's tokenizer before launch. Pass it with `--tokenizer`; the
+separate owner audit uses `--tokenizer-path`. The audit replays teacher file
+operations, checks complete untruncated trainer sequences, and verifies
+assistant-only loss.
 The training wrapper requires the matching `RENDERER-AUDIT.json`, including
 dataset and tokenizer hashes. Format validation alone is not semantic admission.
 For correction-response training, `--include-format-repairs` appends one authored
