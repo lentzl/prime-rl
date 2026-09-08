@@ -47,3 +47,20 @@ Run `h176-summary-evidence-expository-step16-r2a` is progressing under code
 device memory in the read-only check. No evaluation or repository test is being
 run alongside the trainer. Inspect final loss/stability and stable export before
 starting the matched postflight.
+
+## 2026-09-08 06:55 UTC
+
+All sixteen updates and the stable export completed. Final loss 0.4023674,
+NaNs zero, final gradient norm 22.5, final step 23.4 seconds; peak allocation
+11.2 GiB per device. New checkpoint:
+`/home/ubuntu/rlm/outputs/q35-2b-document-summary-evidence-sft-v2/h176-summary-evidence-expository-step16-r2a/weights/step_16`,
+SHA-256 `da1ec708bf191313797c97f5e729baeef57deffae294b90901eb6a8fafe7691d`.
+The complete training receipt matches source and dataset hashes. Its generic
+renderer-audit field is null; the actual separate audit is preserved in
+`evidence-sft-r2-renderer-audit.json`. No semantic or promotion claim follows.
+
+Next matched postflight: R1 versus R2, exceptions plus now-development-exposed
+city-shade, fixed Verifiers `53efed80`, same runtime/sampling, one model per GPU.
+Only artifact export and the empty-routing-log receipt fix changed in the
+launcher. Host free space is 3.2 GiB; this permits the no-update comparison but
+must be addressed under retention rules before another weight checkpoint.
