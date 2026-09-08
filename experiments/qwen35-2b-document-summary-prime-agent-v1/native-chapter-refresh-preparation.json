@@ -1,5 +1,17 @@
 {
-  "status": "prepared_file_replayed_real_renderer_audit_pending",
+  "status": "real_renderer_audited_and_worker_r9_launched",
+  "real_renderer_audit": {
+    "verified_utc": "2026-09-08 16:57 UTC",
+    "sha256": "6fad84bbacf4daf3a4fda245d60db6fb0b7eea73979c968f13f34bf6aa3ba613",
+    "tokenizer_parent": "completed worker R8",
+    "rows": 208,
+    "sequence_tokens": 1477596,
+    "maximum_sequence_tokens": 13891,
+    "supervised_tokens": 80346,
+    "masked_incorrect_prefix_tokens": 28180,
+    "truncation_or_source_user_tool_incorrect_action_loss": false,
+    "cuda_initialized": false
+  },
   "prepared_utc": "2026-09-08 16:42 UTC",
   "scope": "Refreshed next-worker curriculum within the existing English summarization campaign; not a separate mandatory training block.",
   "intended_worker_parent": {
@@ -7,7 +19,7 @@
     "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128",
     "sha256": "c481f2510fff862ece5ccbd33794b0029884f9125774cc755403a0b84d69e90f"
   },
-  "next_run_plan": "After owner R2 finishes and the host is idle, audit this refreshed mixture with R8's tokenizer. Use it for the next worker R9 update from R8, then inspect the combined native owner/worker system. The prior 191-row preparation remains preserved; no separate update is required merely for each dataset revision. No training configuration or launch yet.",
+  "next_run_plan": "Owner R2 completed and the R8-tokenizer audit passed at the idle boundary. Worker R9 launched from R8 on this refreshed mixture at 2026-09-08 16:59:27 UTC; see direct-sft-r9-run.json. After valid completion, inspect the combined native owner R2/worker R9 system. The prior 191-row preparation remains preserved; no separate update is required merely for each dataset revision.",
   "dataset": {
     "local_path": "outputs/summary-direct-sft-r10-chapters",
     "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r10-chapters",
@@ -56,9 +68,9 @@
     "dataset_validator": "passed",
     "actual_file_observation_replays": 208,
     "mask_annotations": "All format/semantic incorrect draft and premature stop messages masked at indices 4 and 6; native repeated-write corrections at index 6. Positive actions remain trainable.",
-    "real_tokenizer_loss_and_context_audit": "pending; local annotation checks are not token-loss proof",
+    "real_tokenizer_loss_and_context_audit": "completed at the idle boundary with R8 tokenizer; see real_renderer_audit",
     "native_receipts": "Explicit scripted queued stubs, not live delivery or student capability"
   },
-  "training_launched": false,
+  "training_launched": true,
   "semantic_promotion": false
 }

@@ -11,6 +11,19 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128/model.safetensors",
+      "sha256": "c481f2510fff862ece5ccbd33794b0029884f9125774cc755403a0b84d69e90f",
+      "bytes": 4426558864,
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Training receipt copied separately and compared byte-for-byte.",
+      "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/TRAINING-RECEIPT.json",
+      "archive_verified_utc": "2026-09-08 17:17 UTC",
+      "remote_removal_status": "not_removed; active R9 source",
+      "remote_removal_scope": "Retained on-host. No removal authorized beside live training; recheck references and recovery at a normal idle boundary if space is needed."
+    },
+    {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-semantic-repair-step128-r7/weights/step_128/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-semantic-repair-step128-r7/weights/step_128/model.safetensors",
       "sha256": "2c7a1c74e8a346bc21b7d27d03bb63f3bb4101826aeccd2c6ebc16adcd454718",
@@ -20,8 +33,14 @@
       "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Training receipt copied separately and compared byte-for-byte.",
       "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-semantic-repair-step128-r7/TRAINING-RECEIPT.json",
       "archive_verified_utc": "2026-09-08 16:46 UTC",
-      "remote_removal_status": "not_removed; owner R2 still training",
-      "remote_removal_scope": "Retained on-host. Recheck active references and GPU drain at the next normal boundary before any removal."
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "remote_removal_scope": "Only the exact R7 model.safetensors; the complete local archive is recoverable. R8/e33/owner R1/owner R2 and all run evidence remain on-host.",
+      "state_references": "Only its completed receipt and the historical R8 source config/receipt. Owner R2 and the refreshed data audit had exited before removal.",
+      "no_active_gpu_process_at_removal": true,
+      "local_and_remote_hashes_rechecked_before_removal": true,
+      "removal_time_utc": "2026-09-08 16:58:28 UTC",
+      "removal_verified_utc": "2026-09-08 16:58:48 UTC",
+      "host_free_space_after_removal": "7.0 GiB reported by df -h"
     },
     {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r6/weights/step_128/model.safetensors",

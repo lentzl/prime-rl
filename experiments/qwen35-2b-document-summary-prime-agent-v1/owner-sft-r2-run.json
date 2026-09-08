@@ -1,5 +1,20 @@
 {
-  "status": "training_started_first_update_verified",
+  "status": "complete_verified_training_frontier_not_capability_promotion",
+  "completion": {
+    "trainer_finished_at_utc": "2026-09-08 16:54:25 UTC",
+    "process_and_gpu_drain_verified_at_utc": "2026-09-08 16:54:54 UTC",
+    "ordered_finite_loss_records": 64,
+    "finite_gradient_records": 64,
+    "all_recorded_loss_nan_counts_zero": true,
+    "last_loss": 0.0004210296319797635,
+    "last_gradient_norm": 0.306640625,
+    "stable_checkpoint": true,
+    "output_weight_sha256": "a1bf59637b0f52a5f5bb6408fa95792acff5c419de8c85dd7da824db895b6bfb",
+    "weight_hash_independently_verified": true,
+    "receipt_sha256": "c84ac54eeab9712d10231a73bad572bbe3e7dc608b485719e2a413c3f844a331",
+    "logs_metrics_configs_receipt_copied_locally": true,
+    "native_behavior_evaluated": false
+  },
   "run_name": "e33-summary-owner-wait-step64-r2",
   "code_commit": "0e9bc1fddcc2e6085ca9109538810e7acdde5820",
   "verifiers_commit": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1",
@@ -59,7 +74,7 @@
   },
   "output_model_path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2/weights/step_64",
   "rationale": "Continue R1 with targeted passive-turn-ending corrections in real owner context, while rehearsing exact delegation, receipt validation, unchanged assembly and foundational role decisions. Wrong finite polling analogues are masked, not reinforced. Sixty-four further updates provide a focused block at the existing learning rate; semantic admission is not a prerequisite.",
-  "next": "After completion, validate loss/checkpoint/process drain and audit the refreshed 208-row mixture with R8's tokenizer. Continue worker R9 from valid completed R8 on that refreshed native-child/chapter corpus; see native-chapter-refresh-preparation.json. This supersedes the earlier 191-row mixture as the intended next dataset, not an already launched run. Verify storage room and use the combined native Prime Agent system again after both role updates.",
+  "next": "Completion and checkpoint verified; refreshed 208-row mixture audited with R8 tokenizer at the idle boundary. Worker R9 launched from R8 at 2026-09-08 16:59:27 UTC; see direct-sft-r9-run.json. After its valid completion, evaluate this owner R2 with worker R9 in the native Prime Agent system on the same Alice/Bennett development chapters, including actual receipts, assembled artifact and semantic review.",
   "semantic_promotion": false,
   "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 0e9bc1fddcc2e6085ca9109538810e7acdde5820 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2 && date -u && PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python scripts/run_q35_2b_document_decision_sft_v1.py --source-model /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-native-step64-r1/weights/step_64 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r2-wait --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1 --run-name e33-summary-owner-wait-step64-r2 --learning-rate 1e-6 --optimizer-updates 64 --checkpoint-interval 64 --enable-thinking --timeout 7200"
 }

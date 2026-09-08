@@ -1,0 +1,87 @@
+{
+  "status": "live_training_not_capability_promotion",
+  "run_name": "h176-summary-native-chapters-step128-r9",
+  "frozen_code": {
+    "prime_rl": "c3a8cc9ccd35ccacf82c8ec4392fddd34e3aec7f",
+    "verifiers": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1"
+  },
+  "source": {
+    "name": "R8 experimental frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128",
+    "sha256": "c481f2510fff862ece5ccbd33794b0029884f9125774cc755403a0b84d69e90f"
+  },
+  "dataset": {
+    "preparation": "native-chapter-refresh-preparation.json",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r10-chapters",
+    "local_path": "outputs/summary-direct-sft-r10-chapters",
+    "rows": 208,
+    "family_counts": {
+      "retained_train": 20,
+      "public_chapter": 36,
+      "format_repair": 56,
+      "semantic_repair": 18,
+      "native_child": 56,
+      "native_count_repair": 22
+    },
+    "manifest_sha256": "87a01b3cff5fc924a018826a838c33f566d71f852e4c62b1927127a774b6f937",
+    "cases_sha256": "2bf368472224aa365ac7775942b5040dcc32662dcc43ce5c612fa7fa9222a190",
+    "parquet_sha256": "3a9d3db0dfd3c11914ec4764a458a9025bc9c1f0e5994a2ac65fc5a77fbce745",
+    "renderer_audit_sha256": "6fad84bbacf4daf3a4fda245d60db6fb0b7eea73979c968f13f34bf6aa3ba613",
+    "audit_tokens": 1477596,
+    "audit_max_tokens": 13891,
+    "audit_supervised_tokens": 80346,
+    "audit_masked_incorrect_prefix_tokens": 28180,
+    "audit_truncation_or_source_user_tool_incorrect_action_loss": false,
+    "evaluation_sources_added": false,
+    "scripted_receipts_not_live_delivery": true
+  },
+  "training": {
+    "optimizer_updates": 128,
+    "checkpoint_interval": 128,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "sequence_length": 16384,
+    "fresh_optimizer": true,
+    "exact_training_resume": false,
+    "full_dense": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "renderer_enable_thinking": true,
+    "optimizer_cpu_offload": true,
+    "gradient_clip_max_norm": 1,
+    "gpus": 2,
+    "run_timeout_seconds": 7200,
+    "campaign_gpu_hour_cap": null,
+    "config_sha256": "640f17053b5d1bba59853755314662f2d7a61a4ec2960db168ff45c59f82c570",
+    "resolved_sft_json_sha256": "4be01e855c08274de6c09db6d5aa329963c6c0f005ff8fe6f2291c2e8a47e2a8"
+  },
+  "launch_time_utc": "2026-09-08 16:59:27 UTC",
+  "training_loop_started_at_utc": "2026-09-08 17:00:10 UTC",
+  "latest_observation": {
+    "metrics_through_utc": "2026-09-08 17:10:42 UTC",
+    "live_wrapper_verified_utc": "2026-09-08 17:09:37 UTC",
+    "wrapper_pid": 2622979,
+    "trainer_rank_pids": [
+      2623033,
+      2623034
+    ],
+    "ordered_finite_loss_records": 26,
+    "ordered_finite_gradient_records": 26,
+    "all_recorded_loss_nan_counts_zero": true,
+    "last_loss": 0.8173229694366455,
+    "last_gradient_norm": 41.25,
+    "maximum_observed_gradient_norm": 330,
+    "gradient_note": "Finite pre-clipping gradient peak at step 9; existing max_norm=1 unchanged. Later norm 41.25 at step 26. Not evidence of behavioral collapse or semantic utility.",
+    "gpu_utilization_percent": [
+      100,
+      100
+    ],
+    "gpu_memory_mib_each": 11922,
+    "free_checkpoint_disk": "7.0 GiB"
+  },
+  "rationale": "Continue R8 on source-reviewed chapter diversity plus targeted native child read/write/parent-receipt/stop and character-count corrections, with existing direct/format/semantic rehearsal. The refreshed 208-row data supersedes the 191-row preparation prospectively; a dataset version is not a mandatory separate update.",
+  "next": "After validated completion and GPU/process drain, run owner R2 with worker R9 through smoke-owner-direct.toml on the existing Alice/Bennett development chapters. Inspect actual native delegation, waiting, matching received receipts, assembly, stopping and source-grounded summary quality. Do not require another training-only block or worker perfection first. Both weights and role-aware scaffold changed, so this is a whole-system comparison, not an isolated weights ablation.",
+  "semantic_promotion": false,
+  "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = c3a8cc9ccd35ccacf82c8ec4392fddd34e3aec7f && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-native-chapters-step128-r9 && date -u && PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python scripts/run_q35_2b_document_decision_sft_v1.py --source-model /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r10-chapters --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-direct-sft-v1 --run-name h176-summary-native-chapters-step128-r9 --learning-rate 1e-6 --optimizer-updates 128 --checkpoint-interval 128 --enable-thinking --timeout 7200"
+}
