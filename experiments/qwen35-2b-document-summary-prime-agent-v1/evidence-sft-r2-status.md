@@ -174,3 +174,36 @@ ancestor identity is not established. Upstream repository revision
 Preparation preserves original configuration and weight bytes, verifies the hash,
 and records zero optimizer updates. Local metadata/free-space dry-run and Ruff
 passed. No reference download or evaluation is claimed by this entry.
+
+## 2026-09-08 07:48 UTC
+
+The pinned upstream reference downloaded and passed its published weight hash
+check. Its original configuration is unchanged; `REFERENCE.json` records every
+staged file hash and zero optimizer updates. A verified archive of superseded
+commit-revision v5 freed 4.1 GiB first; only that remote weight file was removed,
+and full local file checksums matched. Current models and all remote receipts/logs
+remain. Host now has approximately 3 GiB free after staging the reference.
+
+Run `upstream-vs-r2-public-chapters-r1` was dispatched through the visible Launcher
+after successful reference preparation. It uses the existing paired driver on
+both public chapters: upstream versus R2, one model per GPU. Remote evaluation
+code is `c162799ca`, Verifiers `3321579b`. The local publication of `5ed1062e`
+was still pending, so the already-committed preparation script was transferred
+as `/home/ubuntu/rlm/artifacts/prepare-q35-upstream-reference-5ed1062e.py` and its
+SHA-256 verified on both machines:
+`6890a46705398dfd7f7d99b9d3a2f99e66af9dfc941d026a498d68296817f2cf`.
+No live checkout was modified to bypass publication. Both inference engines
+loaded. The chat-template file hashes match; tokenizer file serialization hashes
+differ and are being checked for semantic rather than cosmetic differences.
+Results are pending; no diagnostic or promotion verdict follows from startup.
+
+## 2026-09-08 07:50 UTC
+
+Both engines are generating concurrently at approximately 27% utilization and
+8.6 GiB per GPU. The tokenizer files differ in serialized fields, but actual
+token IDs match on both complete chapters, a special-token/tool-protocol sample,
+and twenty native Alice trace message contents (23 samples total). Bennett is
+1,168 tokens and Alice 2,661 under either tokenizer. This rules out input-token
+differences on the checked text, not every possible tokenizer behavior.
+Publication of `5ed1062e` has now completed; the running checkout remains pinned
+to `c162799ca` and must not be updated during evaluation.
