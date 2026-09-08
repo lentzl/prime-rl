@@ -1,4 +1,5 @@
 {
+  "prospective_curriculum_refresh": "The next worker update is now planned to use the 208-row refresh in native-chapter-refresh-preparation.json, preserving these 191 rows exactly. The refresh needs its own real R8-tokenizer audit at the idle boundary. This artifact remains an audited preparation, not a trained model or mandatory separate update.",
   "real_renderer_audit": {
     "verified_utc": "2026-09-08 16:26 UTC",
     "sha256": "ed59022469e8cec15b8dc0d50ea5a621ec188fcd806563bfa6235f8c92503f62",

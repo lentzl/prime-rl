@@ -1,0 +1,64 @@
+{
+  "status": "prepared_file_replayed_real_renderer_audit_pending",
+  "prepared_utc": "2026-09-08 16:42 UTC",
+  "scope": "Refreshed next-worker curriculum within the existing English summarization campaign; not a separate mandatory training block.",
+  "intended_worker_parent": {
+    "name": "completed worker R8",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128",
+    "sha256": "c481f2510fff862ece5ccbd33794b0029884f9125774cc755403a0b84d69e90f"
+  },
+  "next_run_plan": "After owner R2 finishes and the host is idle, audit this refreshed mixture with R8's tokenizer. Use it for the next worker R9 update from R8, then inspect the combined native owner/worker system. The prior 191-row preparation remains preserved; no separate update is required merely for each dataset revision. No training configuration or launch yet.",
+  "dataset": {
+    "local_path": "outputs/summary-direct-sft-r10-chapters",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r10-chapters",
+    "artifact_name_is_not_a_completed_training_run": true,
+    "rows": 208,
+    "family_counts": {"retained_train": 20, "public_chapter": 36, "format_repair": 56, "semantic_repair": 18, "native_child": 56, "native_count_repair": 22},
+    "manifest_sha256": "87a01b3cff5fc924a018826a838c33f566d71f852e4c62b1927127a774b6f937",
+    "cases_sha256": "2bf368472224aa365ac7775942b5040dcc32662dcc43ce5c612fa7fa9222a190",
+    "parquet_sha256": "3a9d3db0dfd3c11914ec4764a458a9025bc9c1f0e5994a2ac65fc5a77fbce745",
+    "prior_191_rows_and_cases_preserved_exactly": true,
+    "new_examples": "Four direct, four format corrections, four semantic corrections, four native-child read/write/receipt/stop episodes and one native character-count repair.",
+    "new_source_chapters": [
+      {"slug": "time-machine-ch08", "source_words": 4181, "teaching": "Observed shafts and creatures versus provisional social theory and suspected theft; actual rescue by the correct actor."},
+      {"slug": "treasure-island-ch08", "source_words": 1764, "teaching": "Failed pursuit versus capture; a character's trust versus established innocence; planned ship visit versus voyage."},
+      {"slug": "flatland-ch20", "source_words": 1114, "teaching": "Cover story versus fact; dreamed encounters versus waking observation; failed teaching versus persuasion."},
+      {"slug": "how-we-think-ch12", "source_words": 3655, "teaching": "Purposeful selection and testing versus unthinking imitation; activity does not automatically guarantee intellectual growth; main argument beyond examples."}
+    ],
+    "new_source_words": 10714,
+    "public_source_chapters": 36,
+    "public_source_words": 95069,
+    "new_books_or_genres_claimed": false,
+    "evaluation_sources_added": false,
+    "pretraining_contamination_possible": true,
+    "authorship": "Assistant-authored after reading and checking all four complete source chapters; not independent human gold or student-generated success. Wrong semantic drafts are deliberately authored and masked; positive continuations restore reviewed summaries."
+  },
+  "reproduction": {
+    "source_preparer": "scripts/prepare_document_summary_public_chapters_v1.py --additional-chapters-per-book 4",
+    "raw_source_dir": "outputs/summary-public-training-sources",
+    "source_dir": "outputs/summary-public-training-chapters-r5",
+    "source_manifest_sha256": "e2eed260b2e0fe651b4e16f27345352541f66f88e744f4599cfe7eddf8ce59ff",
+    "original_teacher": "public-chapter-teacher-v1.json",
+    "teacher_additions": "public-chapter-teacher-r5-additions.json",
+    "teacher_additions_sha256": "f8c8787c974c6082848a8a3432f7536458032fa152d796465789e056cf42690f",
+    "semantic_repairs": "semantic-repairs-r2.json",
+    "semantic_repairs_sha256": "3c9e2b8383ce95c8c549cd242aa732becb85f12546d7a6236d1693c763527234",
+    "direct_context_trace_sha256": "b369ec1a8f623d9ee154e7fa2025c9a9464f251b5aa3b4b5d723d58ba95df4ae",
+    "native_child_context_trace_sha256": "c5c53f7df756406e08dd78b23b6612f020bc47d1063eb90266f5a4e8e31242ad",
+    "export_flags": ["--include-format-repairs", "--semantic-repairs", "--native-child-trace"],
+    "runtime_prefix_only_from_evaluation_traces": true
+  },
+  "local_checks": {
+    "prior_source_files_and_chapter_metadata_unchanged": 32,
+    "all_new_sources_read_and_both_boundaries_inspected": true,
+    "prior_added_teacher_targets_preserved": 12,
+    "prior_semantic_repair_cases_preserved": 14,
+    "dataset_validator": "passed",
+    "actual_file_observation_replays": 208,
+    "mask_annotations": "All format/semantic incorrect draft and premature stop messages masked at indices 4 and 6; native repeated-write corrections at index 6. Positive actions remain trainable.",
+    "real_tokenizer_loss_and_context_audit": "pending; local annotation checks are not token-loss proof",
+    "native_receipts": "Explicit scripted queued stubs, not live delivery or student capability"
+  },
+  "training_launched": false,
+  "semantic_promotion": false
+}

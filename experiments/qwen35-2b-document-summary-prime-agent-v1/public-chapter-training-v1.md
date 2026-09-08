@@ -131,8 +131,9 @@ user, tool or incorrect-prefix loss; no truncation or CUDA initialization.
 Audit SHA256: `4d0a45a0b010e71ce3df530e4ea81e6c532e217c859dedfe4709625d24597452`.
 The data and audit are copied to the host's separate
 `/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r8-chapters` directory
-with matching hashes. No R8 training has been launched; native owner/R7
-integration remains the immediate next trial.
+with matching hashes. R8 subsequently completed 128 updates with a verified
+checkpoint; see `direct-sft-r8-run.json`. The native owner/R7 trial is reviewed
+in `owner-r1-r7-direct-public-r1-results.json`.
 
 Prepared manifest SHA256:
 `55f149075867300b94cbc8244912d96520385975e0e3494a6e28cf5413227b63`.
@@ -140,3 +141,36 @@ Parquet SHA256:
 `227b92714d1d0cf3dcc6aad30f3d571d8a3d4f0b278088f88a21056286318fea`.
 Cases SHA256:
 `303fe60afbce2219b09365b03e633ce146c59de1f403cab2f4b668d8fed16d25`.
+
+## Chapter and semantic refresh prepared during owner R2
+
+Four further complete TRAIN chapters add 10,714 source words: Time Machine 8,
+Treasure Island 8, Flatland 20 and How We Think 12. All four chapters were read
+and their boundaries checked before authoring and reviewing the summaries.
+The 36 public chapters now total 95,069 words. This expands material and
+relationships within the same four books, not the number of books or genres.
+
+The lessons preserve provisional theories, actual versus suspected actions,
+character confidence versus verified innocence, dreams versus waking events,
+and the qualifications of an educational argument. Each new chapter also has
+an explicitly authored wrong-but-format-valid draft and a source-checked
+correction; wrong drafts and premature stops remain masked from target loss.
+These are teaching examples, not sampled student trajectories or human gold.
+
+`public-chapter-teacher-r5-additions.json` preserves the earlier 12 added
+targets and adds four. `semantic-repairs-r2.json` preserves the earlier 14
+repairs and adds four. All 32 previous source files and their metadata are
+unchanged. Source files are in `outputs/summary-public-training-chapters-r5/`.
+
+The refreshed `outputs/summary-direct-sft-r10-chapters/` contains 208 episodes,
+including every one of the previous 191 rows and case records unchanged.
+The 17 additions cover direct writing, format and semantic correction, native
+child completion and one further character-count correction. All file episodes
+replay and mask annotations pass. The real complete-sequence/token-loss audit
+awaits the next idle boundary; no new weight update or capability gain is claimed.
+
+The next worker R9 update can use this refreshed mixture from completed R8,
+after that audit, then return to the combined native system. The artifact's
+`r10` name is a dataset version, not a requirement for an additional training
+run. This prospective curriculum choice does not change the live owner R2 run.
+Detailed preparation and hashes: `native-chapter-refresh-preparation.json`.
