@@ -1,0 +1,76 @@
+{
+  "status": "local_scripted_replay_complete_real_trainer_audit_pending",
+  "date": "2026-09-08",
+  "dataset_directory": "outputs/summary-owner-sft-r1-v3",
+  "source_owner": {
+    "name": "adaptive-core-v1-e33 current acquired owner frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "new_owner_training_launched": false
+  },
+  "rows": 72,
+  "owner_episodes": 24,
+  "owner_documents": 12,
+  "chapter_counts": [1, 2, 3, 4],
+  "rehearsal_rows": 48,
+  "family_counts": {
+    "owner_delegation_fanin": 12,
+    "owner_schema_receipt_repair": 12,
+    "adaptive_solve_owned": 16,
+    "adaptive_delegate_terminal": 16,
+    "adaptive_delegate_coordinator": 16
+  },
+  "teaching": [
+    "Read and display the actual index before constructing delegation code.",
+    "Use the ordered chapters list and each job's exact worker name and complete prompt; retain all native handles.",
+    "Recover from a wrong entries lookup without repeating it; the wrong assistant action is masked.",
+    "Yield after admission and partial fan-in without polling, respawning or replacing missing child summaries.",
+    "Reject a wrong-path receipt, retain valid receipts in persistent state, and accept only matching chapter/path pairs.",
+    "After all matching receipts, read only assigned child summaries, assemble their wording unchanged in index order and stop.",
+    "Rehearse acquired solve-owned, delegate-terminal and delegate-coordinator decisions at root and non-root scopes."
+  ],
+  "provenance": {
+    "runtime_trace_usage": "Observed native owner runtime prefix and IPython schema only; no evaluation source chapter or output used.",
+    "runtime_trace_sha256": "48741afdbcda0242d7f646be426360006e84973b8e8d671afc15a72b6da3d04d",
+    "source_material": "Existing reviewed retained TRAIN chapters and their existing summaries from R7 CASES.json; no new semantic targets.",
+    "handoffs": "Authored/scripted receipts and child-file availability; not on-policy replay or observed successful native children.",
+    "admission_replay": "Declared async stub checks exact names/prompts and retained handles; it does not verify live native spawning.",
+    "tool_observations": "Teacher cells explicitly print JSON or counts. Local replay captures their exact stdout, avoiding dependence on IPython's pretty-printer.",
+    "error_observation": "The authored masked wrong lookup catches its KeyError and prints it. This produces exact replayable stdout, not a copied or fabricated native stack trace.",
+    "rehearsal": "All 48 original adaptive-action48-nonroot-first-v3 rows preserved across every original field, after stripping Arrow-added nulls."
+  },
+  "checks": {
+    "scripted_owner_file_episodes_replayed": 24,
+    "retained_role_rows_preserved": 48,
+    "masked_incorrect_lookup_annotations": 12,
+    "actual_training_wrapper_dataset_validation": "passed",
+    "negative_replays_rejected": ["shortened worker prompt", "duplicate spawn", "discarded handles", "accepted wrong receipt", "changed assembly heading", "owner source read"],
+    "existing_training_wrapper_tests": "18 passed",
+    "scoped_ruff": "passed",
+    "real_trainer_tokenizer_audit": "pending idle host; no token-mask or context-length success claimed",
+    "live_native_delegation": "not yet demonstrated"
+  },
+  "hashes": {
+    "manifest": "a38e440a2aece425f6ba42ff35a47805b8bdc6046095c02b95c88490572dc791",
+    "cases": "4416e53147087c850a210a204008973e4b419ad87dbcdd0e5de47a4f54e8ee7a",
+    "parquet": "44b8e98902d3e4cbf6020843b9fa73687504b1d06a21c95a872a60399abb2fc3",
+    "rehearsal_source_parquet": "256328cbdb33dc8880370688e2c6f4256341f644757a9d9d033bb5febc74e12e"
+  },
+  "superseded_preparation": {
+    "directories": ["outputs/summary-owner-sft-r1", "outputs/summary-owner-sft-r1-v2"],
+    "reason": "First-row Arrow column selection dropped rehearsal-only metadata; v2 restored all fields. Final v3 prints explicit stdout rather than assuming Python repr matches IPython display formatting. No training used either preparation export.",
+    "training_updates": 0
+  },
+  "next_training_intent": {
+    "optimizer_updates": 64,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "sequence_length": 16384,
+    "thinking": true,
+    "full_dense": true,
+    "fresh_optimizer": true,
+    "exact_resume": false,
+    "rationale": "First meaningful native-owner workflow block with foundational rehearsal; continue from its valid descendant afterward. The block length is a reassessment point, not a campaign ceiling or semantic admission gate.",
+    "prerequisites": ["R7 completes and all GPU processes drain", "matching real trainer/e33-tokenizer audit passes", "existing-host disk space secured without deleting protected or live inputs"]
+  }
+}

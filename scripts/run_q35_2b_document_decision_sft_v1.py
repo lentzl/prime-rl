@@ -16,6 +16,7 @@ from export_q35_2b_document_decision_sft_v1 import sha256_file
 
 SCHEMA_VERSION = "qwen35-2b-document-decision-update/v1"
 DIRECT_SUMMARY_SCHEMA = "qwen35-2b-document-summary-direct-sft/v1"
+OWNER_SUMMARY_SCHEMA = "qwen35-2b-document-summary-owner-sft/v1"
 DATASET_CONTRACTS = {
     DIRECT_SUMMARY_SCHEMA: ("child", "grounded_english_direct_chapter_key_bullets"),
     "qwen35-2b-document-summary-evidence-sft/v2": (
@@ -237,6 +238,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-adaptive-cognition-sft/v3": 48,
 }
 DATASET_BATCH_SIZES = {
+    OWNER_SUMMARY_SCHEMA: 8,
     DIRECT_SUMMARY_SCHEMA: 8,
     "qwen35-2b-document-summary-evidence-sft/v1": 8,
     "qwen35-2b-document-summary-evidence-sft/v2": 8,
@@ -421,6 +423,10 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     parquet = path / "train.parquet"
     manifest = json.loads(manifest_path.read_text())
     schema_version = manifest.get("schema_version")
+    if schema_version == OWNER_SUMMARY_SCHEMA:
+        from audit_q35_2b_document_summary_owner_sft_v1 import validate_dataset
+
+        return validate_dataset(path)[0]
     contract = DATASET_CONTRACTS.get(schema_version)
     expected_family_count = {
         "qwen35-2b-document-summary-evidence-sft/v2": 8,
@@ -818,6 +824,36 @@ def _gpus_idle() -> bool:
     return not result.stdout.strip()
 
 
+def _validated_owner_summary_audit(path: Path, source_model: Path) -> dict[str, Any]:
+    audit = json.loads((path / "RENDERER-AUDIT.json").read_text())
+    manifest = json.loads((path / "MANIFEST.json").read_text())
+    rows = audit.get("rows", [])
+    if (audit.get("schema_version") != "qwen35-2b-document-summary-owner-renderer-audit/v1"
+            or audit.get("status") != "complete" or audit.get("dataset_schema_version") != OWNER_SUMMARY_SCHEMA
+            or audit.get("dataset_manifest_sha256") != sha256_file(path / "MANIFEST.json")
+            or audit.get("dataset_parquet_sha256") != sha256_file(path / "train.parquet")
+            or audit.get("tokenizer_sha256") != sha256_file(source_model / "tokenizer.json")
+            or audit.get("selected_enable_thinking") is not True or audit.get("seq_len") != 16384
+            or audit.get("cuda_initialized") is not False
+            or [row.get("task_key") for row in rows] != manifest["task_keys"]
+            or Counter(row.get("family") for row in rows) != manifest["family_counts"]
+            or any(row.get("truncated") is not False or not 0 < row.get("tokens", 0) <= 16384
+                   or row.get("supervised_tokens", 0) <= 0
+                   or row.get("source_or_user_supervised_tokens") != 0
+                   or row.get("incorrect_prefix_supervised_tokens") != 0
+                   or (row.get("family", "").startswith("owner_") and (
+                       row.get("scripted_file_observations_reproduced") is not True
+                       or row.get("admission_stub_only") is not True
+                       or row.get("native_child_execution_verified") is not False))
+                   or (row.get("family", "").startswith("adaptive_")
+                       and row.get("rehearsal_preserved") is not True)
+                   or (row.get("family") == "owner_schema_receipt_repair"
+                       and row.get("incorrect_prefix_context_tokens", 0) <= 0)
+                   for row in rows)):
+        raise ValueError("invalid owner/rehearsal renderer and scripted-observation audit")
+    return audit
+
+
 def run(args: argparse.Namespace) -> dict[str, Any]:
     source_model = args.source_model.resolve()
     source_weight = source_model / "model.safetensors"
@@ -831,6 +867,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     if (
         dataset["schema_version"] in {
             DIRECT_SUMMARY_SCHEMA,
+            OWNER_SUMMARY_SCHEMA,
             "qwen35-2b-document-summary-evidence-sft/v1",
             "qwen35-2b-document-summary-evidence-sft/v2",
         }
@@ -846,6 +883,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     renderer_audit = None
     if dataset["schema_version"] == DIRECT_SUMMARY_SCHEMA:
         renderer_audit = _validated_direct_summary_audit(dataset_dir, source_model)
+    elif dataset["schema_version"] == OWNER_SUMMARY_SCHEMA:
+        renderer_audit = _validated_owner_summary_audit(dataset_dir, source_model)
     if dataset["schema_version"] in {
         "qwen35-2b-document-summary-live-revision-sft/v2",
         "qwen35-2b-document-summary-commit-revision-sft/v3",

@@ -335,6 +335,22 @@ gate. Record that distinction; a format gate does not supply factual review.
 Both the draft and premature stop are masked. The real trainer audit covers
 `semantic_repair` as well as `format_repair`; annotation checks and file replay
 are preparation, not substitutes for verifying token loss and truncation.
+For native owner acquisition, `export_q35_2b_document_summary_owner_sft_v1.py`
+combines TRAIN-only scripted index/delegation/receipt/assembly episodes with the
+acquired 48-row role-decision rehearsal. Its runtime trace supplies only the
+owner prompt prefix and IPython schema, not evaluation chapter contents or
+successful child experience. Wrong index lookups are masked context; receipt
+validation, passive yielding and unchanged index-order assembly are supervised.
+Use explicitly printed results for these teacher cells so replayed stdout is
+exact without assuming Python repr matches IPython's object pretty-printer.
+Keep all original rehearsal fields when forming a mixed Arrow dataset: building
+from the first row's keys alone silently drops fields unique to the other family.
+The owner audit replays actual file I/O with an explicitly declared admission
+stub, verifies preserved rehearsal and the real trainer/tokenizer's complete
+sequences and loss masks. Stubbed admission is not evidence of live delegation.
+The existing training wrapper requires this matching audit before an owner update.
+Run it only while the GPU host is idle, then continue from the current acquired
+owner descendant; keep the worker weights and semantic promotion separate.
 For local exporters using an isolated taskset runtime, invoke
 `uv run python /absolute/path/to/script.py`. Passing the script directly to
 `uv run` can rediscover its enclosing workspace and resolve unrelated,
