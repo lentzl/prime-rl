@@ -1,5 +1,16 @@
 {
-  "status": "prepared_not_yet_launched",
+  "status": "running_step_7_of_32",
+  "launch_code_commit": "049cb8a1d0691d7f8283875fd040b5ab811f912f",
+  "launch_time_utc": "2026-09-08 09:11 UTC",
+  "observed_progress": {
+    "step": 7,
+    "loss_mean": 1.0647215843200684,
+    "loss_nan_count": 0,
+    "gradient_norm": 36.5,
+    "step_seconds": 24.498842827044427,
+    "gpu_utilization_percent": [100, 100],
+    "gpu_memory_mib": [11922, 11922]
+  },
   "run_name": "h176-summary-direct-chapters-step32-r3",
   "source": {
     "name": "R2",
@@ -10,6 +21,8 @@
     "path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r1",
     "schema": "qwen35-2b-document-summary-direct-sft/v1",
     "parquet_sha256": "b8cedd9df15ed9cd561e3606745a58e9fa01a28b64ef0cdde2ef62fbb22d6247",
+    "manifest_sha256": "be13209aa8406e1e9f4255a41c72c782cc57ffbbd446dfa906f061c71ae9249a",
+    "renderer_audit_sha256": "34a0e33088fd369cc6ce805d98663b57cc212510d1c7665ef322e91c688c3673",
     "rows": 40,
     "retained_train_cases": 20,
     "public_chapters": 20,
