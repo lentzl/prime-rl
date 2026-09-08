@@ -336,6 +336,9 @@ do not turn those checks into an admission gate for every next update. Numerical
 corruption, invalid data or broken infrastructure remain reasons to repair the
 run. Behavioral regression alone is evidence to investigate, not an automatic
 rollback or campaign stop. Never change numerical dtype settings implicitly.
+The [standing domain-training charter](../../../docs/continual-domain-training-charter.md)
+also distinguishes an evolving curated mixture from obligatory append-only data
+growth and describes recovery and optimizer continuity at practical boundaries.
 
 For `run_q35_2b_spade_dual_dense_autonomous_v1.py --coevolution`, treat a
 generated batch as complete only when all of these exist and agree:
@@ -556,3 +559,8 @@ that ref to the existing campaign branch, or create and verify an incremental
 bundle from the GPU checkout's exact head before transferring it. Fast-forward
 only, verify both commit IDs, and keep live GPU checkouts unchanged. This
 preserves original commits; do not present an uncommitted file copy as a commit.
+For an incoming collaborator commit, the same isolated repository can fetch the
+specific branch with `--no-tags` and `GIT_OBJECT_DIRECTORY` pointing to the
+existing object store. Inspect the fetched commit and merge it normally in the
+local checkout before publishing; never force-push over concurrent work or sync
+the live GPU checkout merely to resolve a publishing divergence.
