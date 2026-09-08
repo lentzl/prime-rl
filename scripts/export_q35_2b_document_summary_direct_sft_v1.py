@@ -150,13 +150,15 @@ def _chapters(source_dir: Path, teacher_path: Path, teacher_additions: Path | No
         raise ValueError("incomplete reviewed teacher labels")
     labels = {"chapters": [c for s in label_sets for c in s["chapters"]]}
     source_rows = {c["slug"]: c for c in manifest["chapters"]}
+    book_ids = {b["ebook"] for b in manifest["books"]}
     if (
         manifest.get("split") != "TRAIN"
         or len(source_rows) < 20
         or len(source_rows) != len(manifest["chapters"])
         or len(labels["chapters"]) != len(source_rows)
         or {c["slug"] for c in labels["chapters"]} != set(source_rows)
-        or {b["ebook"] for b in manifest["books"]} != {35, 120, 97, 37423}
+        or not {35, 120, 97, 37423} <= book_ids <= {35, 120, 97, 37423, 769}
+        or len(book_ids) != len(manifest["books"])
     ):
         raise ValueError("incomplete reviewed public TRAIN corpus")
     public = []

@@ -56,24 +56,33 @@ BOOKS = (
     ),
 )
 
+BOOK_OF_TEA = (
+    769, "book-of-tea", "The Book of Tea", "Kakuzo Okakura", "1906", "1913",
+    "a7464287f9b431a55ff50d05e48dec31db050eb4a88554425961c6699ea6fcd7",
+    r"^[IVX]+\. [^\n]+\n", (1, 2),
+)
 
-def prepare(raw_dir: Path, output_dir: Path, *, additional_chapters_per_book: int = 0) -> dict:
+
+def prepare(raw_dir: Path, output_dir: Path, *, additional_chapters_per_book: int = 0,
+            include_book_of_tea: bool = False) -> dict:
     if output_dir.exists():
         raise FileExistsError(output_dir)
     if additional_chapters_per_book < 0:
         raise ValueError("additional chapter count must be nonnegative")
     chapters, books = [], []
-    for ebook, slug, title, author, year, died, expected_hash, pattern, selected in BOOKS:
+    selected_books = (*BOOKS, BOOK_OF_TEA) if include_book_of_tea else BOOKS
+    for ebook, slug, title, author, year, died, expected_hash, pattern, selected in selected_books:
         raw = (raw_dir / f"pg{ebook}.txt").read_bytes()
         digest = hashlib.sha256(raw).hexdigest()
         if digest != expected_hash:
             raise ValueError(f"source changed: {slug}: {digest}")
         text = raw.decode("utf-8-sig").replace("\r\n", "\n")
         boundaries = list(re.finditer(pattern, text, re.MULTILINE))
-        expected_count = {35: 16, 120: 34, 97: 22, 37423: 16}[ebook]
+        expected_count = {35: 16, 120: 34, 97: 22, 37423: 16, 769: 7}[ebook]
         if len(boundaries) != expected_count:
             raise ValueError(f"unexpected chapter boundaries: {slug}: {len(boundaries)}")
-        selected = (*selected, *range(max(selected) + 1, max(selected) + 1 + additional_chapters_per_book))
+        if ebook != 769:
+            selected = (*selected, *range(max(selected) + 1, max(selected) + 1 + additional_chapters_per_book))
         if max(selected) >= len(boundaries):
             raise ValueError(f"selected chapter lacks a following boundary: {slug}")
         for number in selected:
@@ -137,8 +146,10 @@ if __name__ == "__main__":
     parser.add_argument("--raw-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--additional-chapters-per-book", type=int, default=0)
+    parser.add_argument("--include-book-of-tea", action="store_true", help="Add complete TRAIN chapters I and II.")
     args = parser.parse_args()
-    result = prepare(args.raw_dir, args.output_dir, additional_chapters_per_book=args.additional_chapters_per_book)
+    result = prepare(args.raw_dir, args.output_dir, additional_chapters_per_book=args.additional_chapters_per_book,
+                     include_book_of_tea=args.include_book_of_tea)
     print(
         json.dumps({"chapters": len(result["chapters"]), "words": sum(c["source_words"] for c in result["chapters"])})
     )

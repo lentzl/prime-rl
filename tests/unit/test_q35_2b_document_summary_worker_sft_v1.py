@@ -15,7 +15,7 @@ def test_direct_teacher_export_preserves_read_write_stop_and_rejects_source_chan
     scripts = Path(__file__).parents[2] / "scripts"
     sys.path.insert(0, str(scripts))
     try:
-        from export_q35_2b_document_summary_direct_sft_v1 import ROOT, export
+        from export_q35_2b_document_summary_direct_sft_v1 import ROOT, _chapters, export
         from run_q35_2b_document_decision_sft_v1 import _validated_dataset
     finally:
         sys.path.remove(str(scripts))
@@ -84,6 +84,17 @@ def test_direct_teacher_export_preserves_read_write_stop_and_rejects_source_chan
     assert expanded_manifest["family_counts"] == {"retained_train": 20, "public_chapter": 24}
     assert len(Dataset.from_parquet(str(expanded / "train.parquet"))) == 44
     assert _validated_dataset(expanded) == expanded_manifest
+    source_manifest = json.loads((source_dir / "SOURCES.json").read_text())
+    source_manifest["books"].append({"ebook": 769})
+    (source_dir / "SOURCES.json").write_text(json.dumps(source_manifest))
+    assert len(_chapters(source_dir, teacher, extra_teacher)) == 44
+    for excluded_book in (11, 2274, 37134, 999999, 35):
+        source_manifest["books"][-1] = {"ebook": excluded_book}
+        (source_dir / "SOURCES.json").write_text(json.dumps(source_manifest))
+        with pytest.raises(ValueError, match="incomplete reviewed public TRAIN corpus"):
+            _chapters(source_dir, teacher, extra_teacher)
+    source_manifest["books"].pop()
+    (source_dir / "SOURCES.json").write_text(json.dumps(source_manifest))
     feedback = (
         "Chapter summarization: next file step.\nRewrite summary.md as only 3-5 Markdown bullet lines, "
         "without headings or paragraph-by-paragraph records. Summarize the chapter's key points."
@@ -1111,12 +1122,20 @@ def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
     assert '--optimizer-updates "$optimizer_updates"' in wrapper
 
 
-def test_summary_worker_smoke_routes_depth_zero_to_worker_checkpoint() -> None:
+def test_summary_smoke_routes_depth_zero_by_task_mode() -> None:
+    import subprocess
+
     wrapper = (
         Path(__file__).parents[2]
         / "scripts/run_q35_2b_document_summary_smoke_v1.sh"
     ).read_text()
 
-    assert '"$worker_model" "$worker_model" "$label" "$revision"' in wrapper
-    assert '"$owner_model" "$worker_model" "$label" "$revision"' not in wrapper
+    selection = 'case "$mode" in\n' + wrapper.split('case "$mode" in\n', 1)[1].split("\nesac", 1)[0] + "\nesac"
+    program = 'owner_model=owner-checkpoint; worker_model=worker-checkpoint; mode=$1\n' + selection + '\nprintf "%s" "$root_model"'
+    for mode in ("owner", "owner_direct", "worker_probe", "text_probe", "evidence_probe", "direct_probe"):
+        result = subprocess.run(["bash", "-c", program, "routing-test", mode], capture_output=True, text=True, check=True)
+        assert result.stdout == ("owner-checkpoint" if mode.startswith("owner") else "worker-checkpoint")
+    invalid = subprocess.run(["bash", "-c", program, "routing-test", "invalid"], capture_output=True, text=True)
+    assert invalid.returncode != 0 and "unsupported document summary mode" in invalid.stderr
+    assert '"$root_model" "$worker_model" "$label" "$revision"' in wrapper
     assert "depth_zero_routed_model=%s" in wrapper

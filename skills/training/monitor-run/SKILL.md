@@ -303,9 +303,15 @@ For direct-summary SFT, export the observed direct runtime/task prefix with
 continuation. Interleave the 20 retained TRAIN cases with reviewed public
 chapters. The source preparer accepts `--additional-chapters-per-book`, and the
 exporter accepts a separately reviewed `--teacher-additions` file so the corpus
-can grow without overwriting the earlier labels. Counts derive from the source
+can grow without overwriting the earlier `--teacher-labels` file; do not abbreviate
+that flag to `--teacher`, which is ambiguous. Counts derive from the source
 and case manifests rather than requiring exactly 40 episodes. Preserve the
 earlier data and exclude all evaluation chapters, including prospective ones.
+The optional `--include-book-of-tea` adds its pinned complete chapters I and II
+without changing the original four-book selection. Review them as authored
+cultural/historical arguments, distinguishing quoted stereotypes, myths and
+the author's judgments from established events. The exporter permits only the
+explicit TRAIN book allowlist and rejects duplicate or evaluation book IDs.
 The direct exporter excludes numbered chapter probe files (`*-ch[0-9]*.md`),
 not only first chapters; keep new probe books outside the TRAIN source list.
 When extending the public TRAIN corpus, inspect both chapter boundaries. A new

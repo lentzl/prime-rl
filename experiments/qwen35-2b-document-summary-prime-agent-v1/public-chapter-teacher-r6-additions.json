@@ -1,0 +1,300 @@
+{
+  "schema_version": "document-summary-public-teacher/v1",
+  "status": "complete_18_of_18_source_reviewed",
+  "authorship": "Assistant-authored after reading each complete source chapter; not independent human gold or model replay.",
+  "split": "TRAIN only; never model-visible in evaluation.",
+  "chapters": [
+    {
+      "slug": "time-machine-ch05",
+      "bullets": [
+        "The Time Traveller meets gentle, fearless inhabitants of the distant future and removes his machine's operating levers before their curiosity can set it in motion.",
+        "Their childlike responses disappoint his expectation of intellectually advanced descendants; they welcome him with flowers and lead him into a vast, richly decorated but deteriorating building.",
+        "He joins a communal fruit meal and observes the inhabitants' delicate appearance and worn surroundings; he reports that fruit is their sole diet.",
+        "He begins learning their language through gestures and naming objects, acquiring some nouns, pronouns and a verb, but his hosts tire quickly, forcing him to accept brief lessons."
+      ],
+      "review_points": [
+        "The machine is left outside after he pockets its levers; do not import its later disappearance.",
+        "Attribute disappointment and judgments of intelligence to the Traveller; he has not established a social or evolutionary explanation.",
+        "Language learning begins and remains limited; do not claim fluent communication or supply later names and discoveries."
+      ]
+    },
+    {
+      "slug": "treasure-island-ch05",
+      "bullets": [
+        "From hiding, Jim watches Pew's band ransack the Admiral Benbow, discover Bill dead, and search unsuccessfully for an item they value more than the remaining money.",
+        "Pew insists on continuing despite warning signals, quarrels with his companions, and is abandoned when approaching horses and a pistol shot send the band fleeing.",
+        "The bewildered Pew runs under a revenue officer's horse and is killed despite the rider's attempt to avoid him; the officers' arrival saves Jim and his mother.",
+        "Jim's mother recovers, but the raiders escape by lugger and leave the inn badly damaged, taking the captain's money and some till silver.",
+        "Jim tells Supervisor Dance that he believes he holds the sought-after item, asks to place it safely with Dr. Livesey, and rides with the officers toward the doctor's house."
+      ],
+      "review_points": [
+        "Do not identify or open the item as a treasure map; the chapter ends with the journey to Livesey.",
+        "Pew's death is an accident during the flight, not an intentional execution or a shooting.",
+        "The raiders are not captured, and the money and damage are not recovered. Jim's mother survives."
+      ]
+    },
+    {
+      "slug": "flatland-ch17",
+      "bullets": [
+        "The Square attacks the Sphere, who evades contact by moving out of Flatland's plane and decides that demonstrations must replace unsuccessful verbal persuasion.",
+        "To demonstrate access from a third dimension, the Sphere removes an account tablet from a locked cupboard without moving its doors; the Square verifies that the tablet is missing and then reappears outside.",
+        "The Sphere describes seeing inside neighboring buildings and painfully touches the Square's interior, explaining these feats through movement above and below the plane.",
+        "Still treating the visitor as a dangerous magician, the Square attacks again and calls for help rather than accepting the explanation.",
+        "Unwilling to let the approaching wife witness the encounter, the Sphere warns the Square and finally declares that he has forced him out of the plane; the next world's sights are not yet described."
+      ],
+      "review_points": [
+        "Distinguish the demonstrated cupboard access from the Square's continued disbelief.",
+        "The interior touch causes pain, not death or established serious injury.",
+        "Do not import the ensuing tour or claim that the Square already understands three-dimensional space."
+      ]
+    },
+    {
+      "slug": "how-we-think-ch09",
+      "bullets": [
+        "Dewey identifies understanding with grasping meaning: reflection uses familiar meanings to interpret puzzling situations, while new knowledge exposes further problems in a continuing interaction between direct and indirect understanding.",
+        "Stable meanings develop chiefly through practical activity and habitual responses, not passive sensation alone; using objects and sounds makes distinctions definite and creates expectations of their consequences.",
+        "Concepts are standardized meanings used to identify unfamiliar things, supplement observation and organize knowledge. They develop through applying and revising expectations, not merely collecting shared traits; their generality lies in use across cases.",
+        "Vague or ambiguous meanings obstruct testing and invite misunderstanding. Definition clarifies a meaning's intension, while classification establishes its extension; together they make meanings definite and organize the objects to which they apply.",
+        "Dewey distinguishes definitions through direct experience, explanation using familiar meanings, and scientific causal relationships. Explanations should lead back to experience, while causal definitions explain production and interaction rather than merely listing observable or useful qualities."
+      ],
+      "review_points": [
+        "Preserve the chapter's argument about acquired meaning and concepts, not a catalog of its paper, stone, dog, comet or metal examples.",
+        "Direct and indirect understanding support one another; the author does not reject familiarity or practical activity in favor of abstract reasoning alone.",
+        "Concept generality is application, not a residue of common features. Keep intension distinct from extension.",
+        "Attribute the theoretical claims to Dewey; do not present the historical chemical definition of metal as contemporary scientific guidance."
+      ]
+    },
+    {
+      "slug": "time-machine-ch06",
+      "bullets": [
+        "After his hosts lose interest, the Time Traveller explores the future landscape, observing ruined grandeur, palace-like buildings and garden-like surroundings before surveying the Thames valley alone at sunset.",
+        "He interprets the absence of small houses and the inhabitants' similar appearance as signs of communal life and diminished family and sex distinctions; these are his inferences, not an established account of their society.",
+        "He theorizes that humanity's conquest of nature eliminated hardship and struggle, making physical strength and intellectual energy unnecessary and eventually producing the delicate, incurious people and declining artistic activity he sees.",
+        "He speculates that excessive population control explains abandoned buildings. Looking back, however, he explicitly describes his apparently complete explanation as only a partial understanding and a plausible but wrong theory."
+      ],
+      "review_points": [
+        "Keep direct observations separate from the Traveller's causal, social and evolutionary explanations. The chapter itself repeatedly warns that his interpretation is incomplete or wrong.",
+        "The imagined elimination of hardship is the Traveller's theory, not an independently established historical account or the summarizer's endorsement of his gender or evolutionary claims.",
+        "Preserve the contrast between material abundance and apparent decline; do not substitute a list of plants, buildings or colors for the argument.",
+        "No missing-machine discovery, named underground society or later revelation occurs within this chapter."
+      ]
+    },
+    {
+      "slug": "treasure-island-ch06",
+      "bullets": [
+        "Jim and Dance find Dr. Livesey at Squire Trelawney's hall, where Dance recounts the raid and Jim hands over the oilskin packet the raiders wanted.",
+        "After Dance leaves, they open the packet and find an account book and sealed paper. Trelawney and Livesey interpret the book's dated sums and crosses as records of Bones's shares of plunder.",
+        "The sealed paper contains an island map marking the main treasure, with further directions for treasure, silver and arms; its discovery turns their suspicions into a plan to seek Flint's hoard.",
+        "Trelawney proposes fitting out a ship in Bristol, taking Jim as cabin-boy and Livesey as doctor. His confident predictions of a quick, easy voyage remain plans, not an expedition already completed.",
+        "Livesey warns that the raiders also seek the treasure and that Trelawney talks too freely. He insists on secrecy and travelling with companions until they sail; Trelawney promises silence."
+      ],
+      "review_points": [
+        "The packet is opened and the map discovered in this chapter, unlike chapter V. The ship is not yet obtained, the voyage has not begun, and treasure is not recovered.",
+        "The account book's interpretation belongs to Trelawney and Livesey; do not equate its growing money entries with a verified amount of treasure awaiting them.",
+        "The written directions distinguish the main treasure, bar silver and arms; do not merge every cache into the same location or invent recovered quantities.",
+        "The closing promise of silence is not proof that secrecy is maintained later. Omit the next part's heading from the chapter source."
+      ]
+    },
+    {
+      "slug": "flatland-ch18",
+      "bullets": [
+        "Initially terrified on entering Spaceland, the Square learns to look steadily at the Sphere. He mistakes its visible surface for its interior, and the Sphere explains that the Square still cannot see its internal organs.",
+        "From above Flatland, the Square directly sees his home, its occupants and contents, then an expanding view of the city and earth's interior. He cannot descend to comfort his worried wife.",
+        "The Square equates this enlarged vision with divinity, but the Sphere objects that even Spaceland criminals possess it: greater visual access does not itself make anyone more just, merciful or loving.",
+        "They observe Flatland's council renewing its millennial policy of suppressing claims about other worlds through punishments determined by rank. The Sphere warns the Square of the danger, then appears before the council and evades its guards.",
+        "The council president conceals the visit and earlier similar incidents, orders the policemen arrested and gagged, and condemns the Square's brother to perpetual imprisonment for secrecy. The Square witnesses the meeting but does not yet address the council."
+      ],
+      "review_points": [
+        "The Square sees interiors of two-dimensional Flatland objects, not the interior of the three-dimensional Sphere. Do not generalize his new vision to unrestricted knowledge of every world.",
+        "The Sphere challenges the Square's inference from sight to divine or moral superiority; report that distinction rather than endorsing the Square's hierarchy of genders or shapes.",
+        "His wife's distress is observed, not resolved in this chapter. The Square's own imprisonment or public teaching occurs later, not here.",
+        "The president's order against the guards implies a dire fate but does not explicitly narrate their execution. The brother's perpetual imprisonment is explicitly pronounced.",
+        "The source is the complete plain-text chapter with its illustration placeholder; no additional claims were taken from an unavailable drawing."
+      ]
+    },
+    {
+      "slug": "how-we-think-ch10",
+      "bullets": [
+        "Dewey rejects identifying concrete learning with physical objects and abstract learning with thought alone. Concrete meanings are directly familiar, while unfamiliar meanings require connections; the distinction depends partly on the learner's experience and practical concerns.",
+        "Beginning with the concrete means engaging in purposeful activities that require intelligent adaptation. Merely displaying objects or multiplying sensations does not educate unless learners grasp meanings and relationships through their use.",
+        "Education should gradually extend interest from an activity's immediate results to its objects, properties, causes and relations, eventually fostering inquiry and enjoyment of thinking for their own sake.",
+        "Theoretical inquiry broadens practical life beyond routine, but abstract thinking is an additional educational end, not a replacement for practical judgment or an inherently superior kind of thought.",
+        "Teaching should develop both capacities while respecting individual dispositions: encourage intellectual curiosity within practical work and meaningful applications for abstract thinkers, seeking a balanced interaction rather than forcing everyone into one pattern."
+      ],
+      "review_points": [
+        "Concrete does not simply mean tangible and abstract does not mean thinking without objects; familiar technical concepts can be concrete to an expert.",
+        "Preserve the progression from meaningful activity through wider inquiry to intrinsic interest in thought, not a catalog of beans, boats, cooking or other illustrations.",
+        "Theoretical thinking is an end, not the sole end. Practical capacity must not be weakened or replaced in developing abstraction.",
+        "Individual differences call for adapting the balance and broadening strengths, not assigning people permanently to an exclusive practical or theoretical category.",
+        "Attribute these educational and psychological positions to Dewey, not to contemporary experimental proof or instructions for this training system."
+      ]
+    },
+    {
+      "slug": "time-machine-ch07",
+      "bullets": [
+        "The Time Traveller discovers that his machine has disappeared and panics at the prospect of being stranded. His frantic search and angry questioning of the inhabitants accomplish nothing.",
+        "Because he removed its operating levers, he reasons that the machine could not have travelled through time. Ground marks and the Sphinx's hollow bronze pedestal lead him to infer that it is hidden inside, without confirming who moved it.",
+        "The inhabitants react with horror or offense when he asks them to open the pedestal. Attempts to compel help and break through its panels fail; he neither opens it nor recovers the machine.",
+        "Regaining composure, he decides that patient observation and learning the world's ways offer better prospects than violence, obsessive watching or hasty explanations. Building another machine remains only a possible last resort.",
+        "Over the following days, relations with the inhabitants improve as he avoids pursuing them. He explores and learns some language but still communicates only simple propositions, setting the machine's mystery aside while staying near his arrival point."
+      ],
+      "review_points": [
+        "The disappearance is observed; concealment inside the pedestal is the Traveller's inference, not a recovered or directly sighted machine.",
+        "Keep the missing levers' time-travel restriction distinct from physical movement in space. No culprits or later revelations are identified in this chapter.",
+        "Neither force, hammering nor questioning succeeds; calm study replaces the immediate recovery attempt.",
+        "His possible reconstruction plan is conditional, not a machine built or a successful return. Language learning remains limited."
+      ]
+    },
+    {
+      "slug": "treasure-island-ch07",
+      "bullets": [
+        "Preparations take longer than expected. While Jim waits with Redruth, Trelawney writes from Bristol that the Hispaniola has been bought and fitted, and that Long John Silver, hired as cook, has helped recruit the crew.",
+        "Trelawney praises Silver and the assembled sailors, but Jim notices that the letter reveals another failure of secrecy: people in Bristol have learned that the expedition seeks treasure.",
+        "Before leaving, Jim visits his mother at the repaired Admiral Benbow. Seeing the apprentice who will replace him brings home the sadness of departure alongside his excitement about the adventure.",
+        "Jim says farewell and travels with Redruth to Bristol, where the ships, sailors and dockside activity intensify his anticipation of going to sea.",
+        "They meet Trelawney, who reports that Livesey has arrived and announces departure for the following day. The ship and crew are ready, but the voyage and Jim's imagined island adventures have not yet begun."
+      ],
+      "review_points": [
+        "Trelawney's enthusiastic judgments of Silver, Blandly and the crew are his opinions, not demonstrated trustworthiness or proof of later events.",
+        "Jim's opening island explorations, battles and dangerous animals are fantasies, not experiences on the actual expedition.",
+        "Contrast the earlier secrecy promise with the disclosure evident in the letter; do not claim that the whole crew has already mutinied or revealed a plot.",
+        "The chapter ends in Bristol with sailing announced for tomorrow, not at sea or on the treasure island.",
+        "The mother is alive and the inn repaired; Jim's sadness concerns leaving home, not her death."
+      ]
+    },
+    {
+      "slug": "flatland-ch19",
+      "bullets": [
+        "Still dependent on the Sphere's movement, the Square cannot intervene for his imprisoned brother. The Sphere then constructs a cube from stacked squares and uses touch, lighting and perspective to teach him to distinguish planes from solids.",
+        "The Square extends his teacher's dimensional analogy and asks to visit a fourth dimension, where he imagines viewing the Sphere's interior. The Sphere says he cannot provide this view and denies that such a realm exists.",
+        "Arguing by analogy, the Square proposes that a moving cube would produce a four-dimensional figure with sixteen vertices and eight bounding cubes. These are conjectured extensions, not an object or world he has observed.",
+        "The Sphere acknowledges disputed reports of mysterious appearances in Spaceland but offers no confirmation of a fourth dimension. The Square treats the reports as support and presses for still higher dimensions despite repeated commands to stop.",
+        "The encounter ends with the Square violently descending to Flatland and awakening in his study. His vision of higher dimensions remains an aspiration; the chapter does not depict a journey beyond Spaceland."
+      ],
+      "review_points": [
+        "The cube is demonstrated and touched; the four-dimensional figure is argued for, not physically constructed or visited.",
+        "Preserve sixteen vertices and eight bounding cubes without swapping their roles or converting the fourth dimension into elapsed time.",
+        "The Sphere's refusal contrasts with his earlier challenge to the Square's narrow outlook. Disputed appearances are not verified higher-dimensional visitors.",
+        "The Square's initial inability to move independently prevents intervention for his brother. Do not claim a rescue.",
+        "Return is abrupt and unwanted, not the successful fulfillment of the Square's proposed higher-dimensional tour."
+      ]
+    },
+    {
+      "slug": "how-we-think-ch11",
+      "bullets": [
+        "Dewey contrasts empirical inference from recurring associations with scientific understanding of connections. Habit-based predictions can be practically accurate and supply material for science without explaining why events occur.",
+        "He argues that reliance on past conjunctions cannot reliably separate correct conclusions from coincidences, struggles with novel conditions, and encourages selective confirmation, invented explanations and authoritative dogma that obstruct further inquiry.",
+        "Scientific inquiry analyzes a complex event by comparing differing conditions and, more actively, deliberately varying them under a hypothesis. Experiment creates informative cases rather than depending entirely on circumstances supplied by chance.",
+        "Using the pump example, Dewey links analysis of specific conditions with synthesis under wider principles. Identifying measurable air pressure improves explanatory precision, while connecting it with familiar forces helps interpret and predict unfamiliar cases.",
+        "Scientific thought must look beyond immediately striking sensations and habitual responses to less obvious but consequential relationships. Dewey presents education as enlarging experience through reflection and preserving an experimental outlook, not abandoning experience for thought."
+      ],
+      "review_points": [
+        "Empirical does not mean uniformly false or useless: the opening section grants practical accuracy and its contribution to scientific knowledge.",
+        "Temporal succession is not sufficient evidence of causation. Preserve the chapter's criticism of that inference rather than endorsing the historical superstition examples.",
+        "Scientific observation and active experiment are related but distinct; deliberately varying conditions is what makes the latter active.",
+        "Analysis and synthesis complement one another: specific discriminations improve precision, general connections support transfer to novel circumstances.",
+        "The closing educational argument treats reflective experience as growing, not as something reason must discard. Attribute these philosophical claims to Dewey rather than modern experimental validation.",
+        "Do not replace the chapter's argument with an exhaustive list of pumps, eclipses, remedies, lenses and water wheels."
+      ]
+    },
+    {
+      "slug": "time-machine-ch08",
+      "bullets": [
+        "The Time Traveller finds engine sounds and air currents in deep shafts, but no visible industry to explain the inhabitants' manufactured goods; these puzzles undermine his picture of an automatically maintained paradise.",
+        "He rescues Weena from drowning when her companions do nothing, forming a comforting friendship. Her intense fear of darkness and the inhabitants' communal nighttime sleeping reveal that danger has not disappeared.",
+        "After uncertain sightings of pale figures, he follows a white creature to a shaft and sees it climbing down. He recognizes another human lineage, the subterranean Morlocks, alongside the surface-dwelling Eloi.",
+        "He proposes that class division separated underground workers from privileged surface dwellers, with subterranean labor supporting the Eloi. He explicitly treats this social and evolutionary explanation as provisional and possibly wrong.",
+        "He suspects the Morlocks took his machine, but their motive, the Eloi's inability to return it and their fear of darkness remain unresolved. His questions distress Weena, and he abandons the interrogation."
+      ],
+      "review_points": [
+        "The rescue is actually performed by the Traveller; the bystanders do not save Weena. Their friendship matters, not only the economic speculation.",
+        "Attribute the class-origin and labor-support explanation to the Traveller rather than certify it as the future's established history. He calls the sanitation explanation wrong and qualifies the later theory too.",
+        "He sees a creature descending but does not himself descend in this chapter. Suspected machine theft is not recovered machinery, confirmed motive or completed rescue from the underworld.",
+        "Do not import later revelations about the Morlocks' diet or Weena's fate, or reproduce the narrator's racial comparisons as explanatory truth."
+      ]
+    },
+    {
+      "slug": "treasure-island-ch08",
+      "bullets": [
+        "Jim carries Trelawney's note to the Spy-glass and meets Long John Silver. The cheerful, capable landlord initially dispels Jim's fear that he might be the one-legged sailor associated with the old captain.",
+        "Jim recognizes Black Dog among the customers as the man flees. Silver sends Harry and Ben after him and questions Morgan, but the pursuers lose Black Dog in the crowd.",
+        "Finding Black Dog renews Jim's suspicions, yet Silver's apparent indignation, explanations and shared laughter persuade him of Silver's innocence; Jim's confidence is not proof that his judgment is correct.",
+        "On their walk back, Silver wins Jim over further with knowledgeable descriptions of ships and seafaring. At the inn he recounts the encounter accurately, with Jim corroborating his account.",
+        "Livesey and Trelawney regret Black Dog's escape and praise Silver. Trelawney orders everyone aboard that afternoon, and the gentlemen invite Jim to inspect the ship; the voyage has not yet begun."
+      ],
+      "review_points": [
+        "Jim identifies Black Dog; Silver does not capture him or personally run after him. Harry and Ben return without the fugitive.",
+        "Preserve the difference between Jim being convinced of Silver's innocence and the narrator establishing innocence. Do not add later mutiny revelations.",
+        "An accurately recounted encounter is compatible with Jim's potentially mistaken trust; do not rewrite the report as a proved confession or lie.",
+        "The chapter ends with an invitation to see the ship. Going to sea and recovering treasure are not completed within it."
+      ]
+    },
+    {
+      "slug": "flatland-ch20",
+      "bullets": [
+        "Back in Flatland, the Square conceals his experiences from his wife with an invented story about falling into the cellar. She thinks he needs rest, and he withdraws to reflect.",
+        "He struggles to reconstruct the third dimension, repeating 'Upward, yet not Northward' as a clue before falling asleep.",
+        "In a dream, the Sphere leads him to Pointland, whose solitary, dimensionless inhabitant cannot conceive of anything beyond itself. The Sphere presents its complete self-satisfaction as a warning against complacency.",
+        "The Square tries to explain the Point's limitations, but the Point interprets the outside voice as its own creative thought and becomes more self-satisfied; the attempted teaching fails.",
+        "Still within the dream, the Sphere acknowledges his earlier resistance to higher dimensions, encourages aspiration and shows higher-dimensional constructions by analogy. This is a vision, not a newly verified waking journey."
+      ],
+      "review_points": [
+        "The Sphere's renewed instruction and admission of error occur in the explicitly introduced dream; do not silently convert the vision into waking observation.",
+        "The Point hears the Square's challenge but cannot recognize another speaker. It is not persuaded or rescued from its self-satisfaction.",
+        "The cellar accident is the Square's cover story, not the actual cause of his dimensional experience.",
+        "The chapter ends within the dream's analogical teaching, before the later attempt to instruct the grandson. Do not endorse the narrator's gender hierarchy."
+      ]
+    },
+    {
+      "slug": "how-we-think-ch12",
+      "bullets": [
+        "Dewey treats infants' bodily mastery as rudimentary thinking: successful coordination develops through observing, selecting and organizing movements toward an end, not instinct alone. Social interaction and speech greatly extend the problems and possibilities of this learning.",
+        "Adult activities provide rich stimuli, but children's learning is not mere copying. Pursuing their own purposes, they observe others, try selected means and adjust them through results; resemblance to an adult's action does not establish imitation as the cause.",
+        "Play develops connected meanings by letting things represent other things. A work attitude gradually adds concern for fitting those meanings to actual materials and coherent outcomes; purposeful activity need not lose freedom or enjoyment.",
+        "He rejects equating imagination with arbitrary make-believe or useful activity with burdensome labor. Familiar practical occupations can expand children's experience imaginatively, whereas symbols beyond their experience may produce only passing excitement.",
+        "Schools should organize constructive occupations around reflective problems and experiments that build scientific knowledge. Mere manipulation or dictated routines do not guarantee intellectual growth; the educational aim is to turn routine experience into intelligent inquiry."
+      ],
+      "review_points": [
+        "Retain the main progression from bodily and social activity through play/work attitudes to organized inquiry, rather than summarize only the infant or toy examples.",
+        "Resemblance to adults' actions is the outcome being explained, not evidence that unthinking imitation caused learning.",
+        "Work is defined as a purposeful mental attitude, not necessarily externally imposed labor; Dewey rejects a sharp opposition between enjoyable process and useful product.",
+        "Gardening, crafts or other manual activity do not automatically train thinking. Their organization around reflective problems and experimentation is the qualification.",
+        "Attribute these historical educational arguments to Dewey; the summary is not contemporary developmental or medical guidance."
+      ]
+    },
+    {
+      "slug": "book-of-tea-ch01",
+      "bullets": [
+        "Okakura presents Teaism as appreciation of beauty within imperfect everyday life. It combines aesthetics with ethical, religious and social attitudes, valuing simplicity, harmony and proportion rather than merely an agreeable drink.",
+        "He describes tea's influence across Japanese arts and social classes, contrasting Western neglect of peaceful cultural achievements with recognition of military power to challenge prevailing measures of civilization.",
+        "He criticizes caricatures on both sides and superficial imitation of Western customs, urging reciprocal understanding and complementary strengths rather than continued contempt between East and West.",
+        "His account of tea's European adoption connects trade, initial expense and opposition, literary enthusiasm and taxation. Its widespread acceptance provides an existing shared practice despite deeper cultural misunderstandings.",
+        "Against competitive pursuit of wealth and power, he proposes humility, humor and appreciation of imperfection as grounds for mutual consolation. The closing myth of a damaged heaven illustrates humanity's divisions rather than reporting a historical event."
+      ],
+      "review_points": [
+        "Summarize Okakura's cultural argument, not only the drink's chronology or a list of writers. Claims about national attitudes remain the author's generalizations.",
+        "The text condemns reciprocal caricatures and calls for mutual learning; it does not establish intrinsic racial superiority or endorse the stereotypes it quotes.",
+        "Tea spreads despite opposition and high initial cost. The source links it to American independence rhetorically; do not reduce that history to a proved single cause.",
+        "The Niuka story is explicitly introduced as a Taoist tale, then used as an analogy for the modern world's divisions; it is not literal observed history.",
+        "Stop at the end of chapter I, before chapter II's three schools and brewing methods."
+      ]
+    },
+    {
+      "slug": "book-of-tea-ch02",
+      "bullets": [
+        "Okakura treats tea-making as an art requiring sensitivity to each preparation, not one perfect recipe. He links boiled cake-tea, whipped powdered tea and steeped leaf-tea respectively to China's Tang, Sung and Ming periods.",
+        "Luwuh's Chaking codified Tang tea preparation and equipment while expressing harmony through the tea service. His refined method removed other additions but retained salt, with careful attention to water and boiling.",
+        "Sung practice whisked powdered leaves in hot water and discarded salt. Okakura associates this school with valuing process and self-realization; a shared-bowl Zen ritual later developed into Japan's tea ceremony.",
+        "He attributes China's shift away from earlier tea ideals to conquest and cultural disruption, and explains Europe's unfamiliarity with older methods by its encountering tea near the end of the Ming period.",
+        "Japan adopted all three forms, retaining powdered tea's ceremonial prestige after steeped tea became usual for everyday drinking. He presents the ceremony as a shared art of life, coordinating simple movements, surroundings and artistic appreciation into an experience of harmony."
+      ],
+      "review_points": [
+        "Keep the ordered mappings intact: Tang boiled cake, Sung whisked powder, Ming steeped leaves. These are preparations and associated historical ideals, not three interchangeable recipes.",
+        "Luwuh retains salt in the Tang method; the Sung school removes it. Do not move the removal earlier or claim that all additives survived unchanged.",
+        "The author distinguishes symbolizing harmony from valuing process and self-realization. His historical and national judgments remain attributed rather than independently established facts.",
+        "Powdered tea retains its ceremonial position in Japan even after steeped tea replaces it in ordinary consumption; replacement is not universal disappearance.",
+        "The final paragraph describes harmony and Teaism's philosophical connection, not the detailed religious exposition of the following chapter."
+      ]
+    }
+  ]
+}

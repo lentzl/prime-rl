@@ -1,0 +1,90 @@
+{
+  "status": "prepared_not_scheduled_pending_native_owner_r2_worker_r9_trial",
+  "prepared_utc": "2026-09-08 17:35 UTC",
+  "scope": "Broaden English chapter-summary teaching to a fifth book while R9 trains. This preparation neither changes the live run nor inserts another training block before its combined native trial.",
+  "source": {
+    "title": "The Book of Tea",
+    "author": "Kakuzo Okakura",
+    "publication_year": 1906,
+    "author_death_year": 1913,
+    "url": "https://www.gutenberg.org/ebooks/769",
+    "raw_path": "outputs/summary-public-training-sources/pg769.txt",
+    "raw_sha256": "a7464287f9b431a55ff50d05e48dec31db050eb4a88554425961c6699ea6fcd7",
+    "copyright_catalog": "Public domain in the USA; full original license retained with raw text",
+    "chapters": [
+      {
+        "slug": "book-of-tea-ch01",
+        "heading": "I. The Cup of Humanity",
+        "words": 2349,
+        "sha256": "185b217f3399d928491a7731e529a90de9b130ebc826dda46005ec4bb263ec92",
+        "teaching": "Main cultural argument rather than details alone; reciprocal understanding versus quoted stereotypes; myth as analogy rather than literal history."
+      },
+      {
+        "slug": "book-of-tea-ch02",
+        "heading": "II. The Schools of Tea.",
+        "words": 2535,
+        "sha256": "cb60cfb3ce316dcb1c912c80133ba1745b3cb23d80f0e35fa847796a17ebe1b4",
+        "teaching": "Ordered period/preparation mappings; the stage at which salt is removed; ceremonial retention despite replacement in ordinary consumption; attributed historical interpretations."
+      }
+    ],
+    "all_complete_sources_read_and_both_boundaries_inspected": true,
+    "new_source_words": 4884,
+    "new_summary_words": 315,
+    "prior_36_chapter_files_and_metadata_exactly_preserved": true,
+    "total_public_chapters": 38,
+    "total_public_source_words": 99953,
+    "public_books": 5,
+    "pretraining_contamination_possible": true
+  },
+  "dataset": {
+    "local_path": "outputs/summary-direct-sft-r11-tea",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r11-tea",
+    "rows": 216,
+    "family_counts": {
+      "retained_train": 20,
+      "public_chapter": 38,
+      "format_repair": 58,
+      "semantic_repair": 20,
+      "native_child": 58,
+      "native_count_repair": 22
+    },
+    "previous_208_rows_and_cases_exactly_preserved_by_identity": true,
+    "new_examples": "Two direct, two format repair, two semantic repair and two native child episodes. No additional count-repair rows are generated for these longer sources.",
+    "manifest_sha256": "67cbdb687053e05a916a3cb620d978ca8b9098a111015eb4a6db936461f8fbf8",
+    "cases_sha256": "4e51f9f4a881d399b137178a532b7966fbebc101d0c3b88bc0152e0f6d880d01",
+    "parquet_sha256": "a497d3761d506aee92680f7e4cf160c0130292434ab874f965ac408a154ec4e8",
+    "evaluation_sources_added": false,
+    "authorship": "Assistant-authored after complete source review, not independent human gold or student-generated success. Semantic incorrect drafts and premature stops are masked; native sends use explicitly scripted queued observations, not live delivery."
+  },
+  "reproduction": {
+    "source_preparer": "scripts/prepare_document_summary_public_chapters_v1.py --additional-chapters-per-book 4 --include-book-of-tea",
+    "source_dir": "outputs/summary-public-training-chapters-r6-tea",
+    "source_manifest_sha256": "e2a02414c88e38f38ed646ab789680d2ae9a6e498683ff7ce7e23f6243b333ed",
+    "teacher_labels": "public-chapter-teacher-v1.json",
+    "teacher_additions": "public-chapter-teacher-r6-additions.json",
+    "teacher_additions_sha256": "d60f89d443bec5f7e3a32b1d70dff15ae9da581974b08bd46786169c75d9f5e8",
+    "semantic_repairs": "semantic-repairs-r3.json",
+    "semantic_repairs_sha256": "4dd971301500f5f98cc279e270245f7e8fa57d44b77f6ccd31d35e59587c32f5",
+    "export_flags": [
+      "--teacher-labels",
+      "--teacher-additions",
+      "--include-format-repairs",
+      "--semantic-repairs",
+      "--native-child-trace"
+    ],
+    "runtime_contexts": "Same direct/native interface traces as the preceding 208-row preparation; runtime prefixes only, no evaluation chapter targets."
+  },
+  "checks": {
+    "actual_file_observation_replays": 216,
+    "incorrect_prefix_annotations_verified": true,
+    "prior_added_teacher_targets_preserved": 16,
+    "prior_semantic_repair_cases_preserved": 18,
+    "worker_sft_tests": "29 passed; includes added/duplicate/disallowed book checks and current owner-versus-worker mode selection",
+    "ruff": "passed",
+    "training_skill_validation": "passed",
+    "real_tokenizer_loss_and_context_audit": "Pending a later idle boundary with the selected training parent's tokenizer; not performed beside R9."
+  },
+  "next": "Complete R9 and run the planned combined owner R2/worker R9 native trial first. Its observations should guide the next curriculum mixture and update; this exported revision is available material, not a mandatory separate run or a fixed future update count.",
+  "training_launched": false,
+  "semantic_promotion": false
+}
