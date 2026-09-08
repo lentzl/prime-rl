@@ -20,8 +20,14 @@
       "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Training receipt copied separately.",
       "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step64-r4/TRAINING-RECEIPT.json",
       "archive_verified_utc": "2026-09-08 14:11 UTC",
-      "remote_removal_status": "not_removed_verified_archive_ready",
-      "remote_removal_scope": "None yet. Any removal waits for R7 completion, process drain and current reference checks. R5/R6/R7 and the e33 owner are not removal targets."
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "remote_removal_scope": "Only the exact R4 model.safetensors; full local archive is recoverable. R5/R6/R7 and the e33 owner remain on-host.",
+      "local_and_remote_hashes_rechecked_before_removal": true,
+      "state_references": "Only the completed R4 run and the historical R5 source configuration/receipt; no active GPU jobs.",
+      "no_active_gpu_process_at_removal": true,
+      "removal_time_utc": "2026-09-08 14:33:19 UTC",
+      "removal_verified_utc": "2026-09-08 14:33:42 UTC",
+      "host_free_space_after_removal": "7.1 GiB reported by df -h"
     },
     {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step32-r3/weights/step_32/model.safetensors",

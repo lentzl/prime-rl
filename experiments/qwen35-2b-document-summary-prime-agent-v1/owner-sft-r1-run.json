@@ -1,0 +1,64 @@
+{
+  "status": "running_optimizer_updates_verified",
+  "run_name": "e33-summary-owner-native-step64-r1",
+  "code_commit": "8590c4c519567d261efd57cced918c3efb0fb66b",
+  "verifiers_commit": "077c030f3d20a34364401d3d2d089422c059dd7a",
+  "launch_time_utc": "2026-09-08 14:34:38 UTC",
+  "training_loop_started_at_utc": "2026-09-08 14:35:24 UTC",
+  "initial_observation": {
+    "time_utc": "2026-09-08 14:36:00 UTC",
+    "wrapper_pid": 2615150,
+    "trainer_rank_pids": [2615219, 2615220],
+    "optimizer_updates_completed": 1,
+    "displayed_first_loss": 0.9187,
+    "displayed_first_gradient_norm": 102.5,
+    "config_sha256": "fcf0b866dd66434fc20eb3c7f0a894699981edfbc9f6c7ab47994517b6b73d16"
+  },
+  "source": {
+    "name": "adaptive-core-v1-e33 current acquired owner frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
+    "sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47"
+  },
+  "dataset": {
+    "preparation": "owner-training-v1-preparation.json",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r1",
+    "rows": 72,
+    "owner_scripted_episodes": 24,
+    "original_role_rehearsal_rows": 48,
+    "manifest_sha256": "a38e440a2aece425f6ba42ff35a47805b8bdc6046095c02b95c88490572dc791",
+    "parquet_sha256": "44b8e98902d3e4cbf6020843b9fa73687504b1d06a21c95a872a60399abb2fc3",
+    "renderer_audit_sha256": "b3633b602243c2667ba5db69dfc65464e1c5024e8b54d19eb7ca0b30944a4dbc",
+    "authored_handoffs_not_live_children": true,
+    "evaluation_sources_added": false
+  },
+  "training": {
+    "optimizer_updates": 64,
+    "checkpoint_interval": 64,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "sequence_length": 16384,
+    "micro_batch_size": 1,
+    "full_dense": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "renderer_enable_thinking": true,
+    "fresh_optimizer": true,
+    "exact_resume": false,
+    "gpus": 2,
+    "run_timeout_seconds": 7200,
+    "campaign_gpu_hour_cap": null
+  },
+  "output_model_path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-native-step64-r1/weights/step_64",
+  "rationale": "Teach the observed native owner failure boundary using complete index/delegation/yield/receipt/assembly episodes with foundational rehearsal. Continue this role from its latest valid descendant; no reset of the worker, semantic admission gate or new harness.",
+  "next_integration": {
+    "mode": "owner_direct",
+    "config": "smoke-owner-direct.toml",
+    "worker_path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-semantic-repair-step128-r7/weights/step_128",
+    "worker_sha256": "2c7a1c74e8a346bc21b7d27d03bb63f3bb4101826aeccd2c6ebc16adcd454718",
+    "inspect": "Actual native chapter admissions, retained handles, source access, passive waiting, matching receipts, unchanged assembly, and source-grounded chapter summaries. Auxiliary refine routes are not chapter workers.",
+    "development_sources_train_excluded": true,
+    "live_success_claimed": false
+  },
+  "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 8590c4c519567d261efd57cced918c3efb0fb66b && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 077c030f3d20a34364401d3d2d089422c059dd7a && test ! -e /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-native-step64-r1 && PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python scripts/run_q35_2b_document_decision_sft_v1.py --source-model /home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r1 --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1 --run-name e33-summary-owner-native-step64-r1 --learning-rate 1e-6 --optimizer-updates 64 --checkpoint-interval 64 --enable-thinking --timeout 7200",
+  "semantic_promotion": false
+}

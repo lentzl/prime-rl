@@ -349,6 +349,11 @@ The owner audit replays actual file I/O with an explicitly declared admission
 stub, verifies preserved rehearsal and the real trainer/tokenizer's complete
 sequences and loss masks. Stubbed admission is not evidence of live delegation.
 The existing training wrapper requires this matching audit before an owner update.
+The owner exporter, audit and training-wrapper validation import the summary
+taskset. When using the shared host environment with `--no-sync`, include both
+the checkout's `deps/verifiers/environments/document_summary_v1` and
+`deps/verifiers` in `PYTHONPATH`; the former package is not necessarily installed
+in that environment. Do not modify the environment while training is live.
 Run it only while the GPU host is idle, then continue from the current acquired
 owner descendant; keep the worker weights and semantic promotion separate.
 For local exporters using an isolated taskset runtime, invoke

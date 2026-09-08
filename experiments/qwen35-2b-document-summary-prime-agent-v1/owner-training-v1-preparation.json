@@ -1,17 +1,34 @@
 {
-  "status": "local_scripted_replay_complete_real_trainer_audit_pending",
+  "status": "real_trainer_audit_complete_owner_training_started",
+  "run_record": "owner-sft-r1-run.json",
   "date": "2026-09-08",
   "dataset_directory": "outputs/summary-owner-sft-r1-v3",
   "host_dataset_directory": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r1",
   "host_rehearsal_directory": "/home/ubuntu/rlm/data/q35-2b-summary-owner-role-rehearsal-v1",
   "host_copy_hashes_verified": true,
-  "host_code_synchronized": false,
+  "host_code_synchronized": true,
+  "host_code_commit": "8590c4c519567d261efd57cced918c3efb0fb66b",
+  "host_verifiers_commit": "077c030f3d20a34364401d3d2d089422c059dd7a",
+  "real_trainer_audit": {
+    "completed_utc": "2026-09-08 14:32 UTC",
+    "sha256": "b3633b602243c2667ba5db69dfc65464e1c5024e8b54d19eb7ca0b30944a4dbc",
+    "sequence_tokens": 440238,
+    "maximum_sequence_tokens": 8183,
+    "supervised_tokens": 22381,
+    "masked_incorrect_prefix_tokens": 636,
+    "source_or_user_supervised_tokens": 0,
+    "incorrect_prefix_supervised_tokens": 0,
+    "truncated_sequences": 0,
+    "cuda_initialized": false,
+    "tokenizer_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "environment_correction": "Initial invocation failed before auditing because document_summary_v1 was absent from the shared environment import path. Added this checkout's summary environment package and Verifiers to PYTHONPATH, then audited successfully. No environment edits or model updates in either invocation."
+  },
   "preparation_code_commit": "1976742e2ba4f27cd6474a25efa44d5c6ca5f018",
   "source_owner": {
     "name": "adaptive-core-v1-e33 current acquired owner frontier",
     "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
     "sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
-    "new_owner_training_launched": false
+    "new_owner_training_launched": true
   },
   "rows": 72,
   "owner_episodes": 24,
@@ -52,7 +69,7 @@
     "negative_replays_rejected": ["shortened worker prompt", "duplicate spawn", "discarded handles", "accepted wrong receipt", "changed assembly heading", "owner source read"],
     "existing_training_wrapper_tests": "18 passed",
     "scoped_ruff": "passed",
-    "real_trainer_tokenizer_audit": "pending idle host; no token-mask or context-length success claimed",
+    "real_trainer_tokenizer_audit": "passed on idle host; all 72 complete sequences, positive assistant actions and masks verified",
     "live_native_delegation": "not yet demonstrated"
   },
   "hashes": {

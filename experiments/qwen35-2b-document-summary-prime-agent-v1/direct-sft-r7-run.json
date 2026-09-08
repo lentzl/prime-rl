@@ -1,5 +1,22 @@
 {
-  "status": "running_optimizer_updates_verified",
+  "status": "complete_verified_training_frontier_not_semantic_promotion",
+  "completion": {
+    "trainer_finished_at_utc": "2026-09-08 14:28:08 UTC",
+    "wrapper_and_gpu_drain_verified_at_utc": "2026-09-08 14:28:46 UTC",
+    "ordered_loss_records": 128,
+    "all_recorded_losses_finite": true,
+    "all_recorded_loss_nan_counts_zero": true,
+    "last_loss": 0.490726500749588,
+    "last_gradient_norm": 27.75,
+    "stable_checkpoint": true,
+    "output_model_path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-semantic-repair-step128-r7/weights/step_128",
+    "output_weight_sha256": "2c7a1c74e8a346bc21b7d27d03bb63f3bb4101826aeccd2c6ebc16adcd454718",
+    "weight_hash_independently_verified": true,
+    "receipt_sha256": "5b9a8dc02186c4b85718334ea91dd77aea501d62027adb849ce755f6fce182e2",
+    "local_receipt": "outputs/summary-direct-sft-r7/h176-summary-semantic-repair-step128-r7-receipt.json",
+    "logs_metrics_configs_copied_locally": true,
+    "semantic_outputs_reviewed": false
+  },
   "run_name": "h176-summary-semantic-repair-step128-r7",
   "code_commit": "070ead308cd30cda5740145040bf8737466dc8a6",
   "verifiers_commit": "04ae46810fcf814b12e5b087d8f57a4f03c75064",
