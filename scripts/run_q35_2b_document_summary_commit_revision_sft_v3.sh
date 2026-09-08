@@ -30,6 +30,7 @@ done
 
 cd "$root"
 export UV_PROJECT_ENVIRONMENT=${UV_PROJECT_ENVIRONMENT:-/home/ubuntu/rlm/prime-rl/.venv}
+export PYTHONPATH="$root/src:$root/scripts${PYTHONPATH:+:$PYTHONPATH}"
 if [[ ! -e "$dataset_dir" ]]; then
   "$python_bin" scripts/export_q35_2b_document_summary_commit_revision_sft_v3.py \
     --traces "$scope_trace" \

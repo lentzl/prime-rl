@@ -683,6 +683,7 @@ def test_live_revision_training_wrapper_is_bounded_and_thinking_explicit() -> No
     assert '--optimizer-updates "$optimizer_updates"' in wrapper
     assert "--enable-thinking" in wrapper
     assert "RENDERER-AUDIT.json" in wrapper
+    assert 'export PYTHONPATH="$root/src:$root/scripts' in wrapper
 
 
 def test_live_revision_renderer_audit_checks_exact_completion_suffix() -> None:
@@ -722,6 +723,7 @@ def test_commit_revision_training_wrapper_is_bounded_and_non_thinking() -> None:
     assert "--enable-thinking" not in wrapper
     assert wrapper.count('--traces "$') == 6
     assert "RENDERER-AUDIT.json" in wrapper
+    assert 'export PYTHONPATH="$root/src:$root/scripts' in wrapper
 
 
 def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
