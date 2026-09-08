@@ -1,40 +1,53 @@
-# Prime Agent document summarization v1
+# English chapter summarization with Prime Agent
 
-This is an applied capability check, not a training campaign. It asks the existing
-terminal-worker lineage to summarize English chapters into concise, grounded bullet
-points through the native Prime Agent harness.
+The current learning path is source → worker-authored, source-linked notes →
+English key bullets, within one persistent Prime Agent/IPython session. It reuses
+the existing worker lineage and runtime. The broader goal includes integrating
+the useful worker into the existing task-owner/delegation path; that integration
+is not established by a terminal-worker test.
 
-The first run uses `smoke-worker.toml`: one chapter, one depth-zero worker, one typed
-JSON artifact. It measures whether the current H176 worker can preserve important
-facts, cite source paragraph IDs, and compress the source without copying it. No
-weights are updated.
+## Ordinary chapter input
 
-The initial unscaffolded probe is retained as a diagnostic: H176 drafted a partial
-summary but repeatedly passed a path directly to `json.dump`, ignored the nested
-bullet schema, and never produced an artifact. The current contract adds only a
-generic correct JSON-file pattern and an explicit schema self-check. It does not
-expose hidden facts or reference wording. This second probe separates recoverable
-tool protocol from a real summarization weakness before we train anything.
+`smoke-evidence-city-shade.toml` demonstrates a UTF-8 chapter file via
+`env.taskset.chapter_path`. Paragraphs separated by blank lines receive source IDs
+for the episode. The worker authors notes, the workflow captures them, and the
+worker reads those notes to write 3–5 English bullets. No teacher notes or
+reference summaries are supplied at evaluation.
 
-Only after that isolation passes do we use `smoke.toml` to test the end-to-end owner
-workflow: the owner spawns three named Prime Agent children, receives their explicit
-reports, and assembles the chapter summaries. Each job embeds the full contract so
-the owner cannot accidentally weaken it while delegating.
+With a model endpoint already running, use the native evaluation entry point
+from the repository root and override the source path as needed:
 
-The scorer checks artifact structure, paragraph grounding, concision, source-copying,
-and hidden decision-relevant fact coverage. Hidden facts are evaluator-only and are
-not written into the runtime.
+```bash
+uv run eval @ experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-evidence-city-shade.toml \
+  --env.taskset.chapter-path /absolute/path/to/chapter.md \
+  --model MODEL_NAME --client.base-url http://127.0.0.1:8102/v1
+```
 
-The existing baked Prime Agent runtime image is reused because summarization needs no
-new runtime dependency. Training is justified only by the first demonstrated weak
-role: worker summarization if the direct probe fails; delegation or fan-in if the
-worker passes but the owner workflow fails.
+The existing summary evaluation driver also extracts exact captured source,
+notes, captured notes and summary text into `document/artifacts/*.md` when each
+is present. Missing output remains missing; the exporter does not fill it in.
+These are model-produced diagnostic artifacts, not certified summaries. Full
+calls, errors and lifecycle information remain in the native trace.
 
-Both direct H176 probes failed before producing an artifact. The first drafted a
-partial three-string summary and then repeated an invalid `json.dump` call. The
-protocol-scaffolded rerun still confused input and output paths, used the document ID
-as the worker ID, created empty bullet objects, and repeated the same write error.
-This isolates the next intervention to the worker. The bounded adaptation uses 12
-authored English chapters (four planning, four operations, four safety), two full-
-dense updates at 1e-6, and a Prime Agent read/write trajectory. The Northstar probe
-document and its reference wording are excluded from training.
+## Training and interpretation
+
+Evidence curriculum R2 retains the sixteen earlier source cases and adds four
+longer synthetic explanatory chapters. Forty extraction/realization phase
+samples teach faithful selection and file persistence using the current
+model-visible stage feedback. Only current-phase assistant messages receive
+loss. Teacher content is authored TRAIN supervision, not native policy replay.
+City-shade, Northstar and Cedar evaluation source texts are excluded.
+
+File presence, paragraph IDs, bullet format and length are structural checks.
+The fixed-fixture keyword metric is only a proxy; unrestricted chapter files
+have no fabricated semantic score. Review actual source → notes and notes →
+summary relationships before claiming useful fidelity. Current checkpoints are
+experimental; falling training loss does not imply promotion.
+
+Use the existing two-GPU allocation efficiently, including matched models on
+separate GPUs. Explicit run bounds protect against runaway experiments; cumulative
+GPU-hour totals are not permission gates. No new rental, paid service, storage
+purchase or rental extension is implied.
+
+Current evidence: `paired-r3-results.json`, `paired-r3-status.md`, and
+`evidence-sft-r2-status.md`. Earlier experiment records remain preserved.

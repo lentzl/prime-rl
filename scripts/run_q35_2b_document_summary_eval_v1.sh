@@ -51,3 +51,13 @@ mkdir -p "$run_output"
   "$run_output/document-summary" \
   --expected-count 1 \
   --json >"$run_output/SUMMARY.json"
+
+trace_path=$run_output/document-summary/traces.jsonl
+for artifact in source notes extracted_notes summary; do
+  key=evidence_$artifact
+  selector='.traces[] | select(.task.type == "DocumentSummaryEvidenceTask") | .info[$key] | select(type == "string" and length > 0)'
+  if jq -e --arg key "$key" "$selector" "$trace_path" >/dev/null; then
+    mkdir -p "$run_output/artifacts"
+    jq -j --arg key "$key" "$selector" "$trace_path" >"$run_output/artifacts/$artifact.md"
+  fi
+done

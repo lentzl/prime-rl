@@ -276,6 +276,9 @@ driver completion and file-presence rewards do not establish semantic utility.
 Initialize the routing audit as an empty event log before starting the proxy:
 direct-engine runs legitimately leave it empty, and final receipt hashing must
 not fail solely because no role-routing event was emitted.
+The summary evaluation driver exports exact evidence-workflow text to its
+`document/artifacts` directory. Missing files remain absent; readable exports are
+diagnostic artifacts and do not change the native trace or semantic verdict.
 When exporting teacher episodes from intercepted traces, select the recorded
 model-visible continuation rather than its raw pre-interception sibling. Record
 the feedback style in the dataset manifest so later scaffold changes do not

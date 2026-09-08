@@ -38,3 +38,12 @@ config builder and native dry-run accepted sixteen. That duplicate check is now
 corrected. Preserve the preflight-only `...-r2` directory; execute under fresh
 run name `h176-summary-evidence-expository-step16-r2a` with the same dataset,
 source model, sixteen updates and numerical settings.
+
+## 2026-09-08 06:50 UTC
+
+Run `h176-summary-evidence-expository-step16-r2a` is progressing under code
+`5c9b740ba`. Both ranks initialized at 06:47 UTC; update 5 completed at about
+23.9 seconds per step. Both GPUs showed 94% utilization and roughly 11.6 GiB
+device memory in the read-only check. No evaluation or repository test is being
+run alongside the trainer. Inspect final loss/stability and stable export before
+starting the matched postflight.
