@@ -1,0 +1,587 @@
+{
+  "status": "passed",
+  "dataset_sha256": "c99ac5fc2fa3ae6a7ea5a1805400328e52d3a8125603c9ac1dcde9815172a1d2",
+  "rows": [
+    {
+      "task_key": "summary-evidence-clinic-pilot-extraction",
+      "phase": "extraction",
+      "tokens": 4774,
+      "trainable_tokens": 264,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 180,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-clinic-pilot-realization",
+      "phase": "realization",
+      "tokens": 5251,
+      "trainable_tokens": 222,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 139,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-library-scan-extraction",
+      "phase": "extraction",
+      "tokens": 4774,
+      "trainable_tokens": 266,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 182,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-library-scan-realization",
+      "phase": "realization",
+      "tokens": 5256,
+      "trainable_tokens": 225,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 142,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-vendor-onboarding-extraction",
+      "phase": "extraction",
+      "tokens": 4767,
+      "trainable_tokens": 263,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 179,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-vendor-onboarding-realization",
+      "phase": "realization",
+      "tokens": 5237,
+      "trainable_tokens": 216,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 133,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-regional-launch-extraction",
+      "phase": "extraction",
+      "tokens": 4802,
+      "trainable_tokens": 279,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 195,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-regional-launch-realization",
+      "phase": "realization",
+      "tokens": 5314,
+      "trainable_tokens": 242,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 159,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-incident-response-extraction",
+      "phase": "extraction",
+      "tokens": 4752,
+      "trainable_tokens": 253,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 169,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-incident-response-realization",
+      "phase": "realization",
+      "tokens": 5213,
+      "trainable_tokens": 217,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 134,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-warehouse-dispatch-extraction",
+      "phase": "extraction",
+      "tokens": 4763,
+      "trainable_tokens": 260,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 176,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-warehouse-dispatch-realization",
+      "phase": "realization",
+      "tokens": 5232,
+      "trainable_tokens": 218,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 135,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-refund-review-extraction",
+      "phase": "extraction",
+      "tokens": 4746,
+      "trainable_tokens": 252,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 168,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-refund-review-realization",
+      "phase": "realization",
+      "tokens": 5204,
+      "trainable_tokens": 215,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 132,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-research-review-extraction",
+      "phase": "extraction",
+      "tokens": 4743,
+      "trainable_tokens": 251,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 167,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-research-review-realization",
+      "phase": "realization",
+      "tokens": 5194,
+      "trainable_tokens": 209,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 126,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-retention-policy-extraction",
+      "phase": "extraction",
+      "tokens": 4755,
+      "trainable_tokens": 258,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 174,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-retention-policy-realization",
+      "phase": "realization",
+      "tokens": 5220,
+      "trainable_tokens": 216,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 133,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-lab-access-extraction",
+      "phase": "extraction",
+      "tokens": 4750,
+      "trainable_tokens": 256,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 172,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-lab-access-realization",
+      "phase": "realization",
+      "tokens": 5216,
+      "trainable_tokens": 219,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 136,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-account-reconcile-extraction",
+      "phase": "extraction",
+      "tokens": 4768,
+      "trainable_tokens": 265,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 181,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-account-reconcile-realization",
+      "phase": "realization",
+      "tokens": 5246,
+      "trainable_tokens": 222,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 139,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-publication-fix-extraction",
+      "phase": "extraction",
+      "tokens": 4748,
+      "trainable_tokens": 254,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 170,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-publication-fix-realization",
+      "phase": "realization",
+      "tokens": 5209,
+      "trainable_tokens": 216,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 133,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-additional-extraction",
+      "phase": "extraction",
+      "tokens": 4791,
+      "trainable_tokens": 265,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 181,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-additional-realization",
+      "phase": "realization",
+      "tokens": 5272,
+      "trainable_tokens": 225,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 142,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-exclusive-extraction",
+      "phase": "extraction",
+      "tokens": 4791,
+      "trainable_tokens": 265,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 181,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-exclusive-realization",
+      "phase": "realization",
+      "tokens": 5276,
+      "trainable_tokens": 229,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 146,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-consecutive-extraction",
+      "phase": "extraction",
+      "tokens": 4803,
+      "trainable_tokens": 277,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 193,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-consecutive-realization",
+      "phase": "realization",
+      "tokens": 5299,
+      "trainable_tokens": 228,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 145,
+        "11": 0,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-single-extraction",
+      "phase": "extraction",
+      "tokens": 4793,
+      "trainable_tokens": 271,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 68,
+        "3": 0,
+        "4": 187,
+        "5": 0,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-single-realization",
+      "phase": "realization",
+      "tokens": 5284,
+      "trainable_tokens": 229,
+      "trainable_by_message": {
+        "0": 0,
+        "1": 0,
+        "2": 0,
+        "3": 0,
+        "4": 0,
+        "5": 0,
+        "6": 0,
+        "7": 0,
+        "8": 67,
+        "9": 0,
+        "10": 146,
+        "11": 0,
+        "12": 16
+      }
+    }
+  ],
+  "no_truncation": true,
+  "only_current_phase_assistant_tokens_supervised": true,
+  "prior_phase_assistant_trainable_tokens": 0,
+  "cuda_initialized": false,
+  "renderer_enable_thinking": true
+}
