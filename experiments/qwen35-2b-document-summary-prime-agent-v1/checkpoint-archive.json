@@ -19,7 +19,9 @@
       "full_copy_checksum_comparison": "no file-content differences; directory timestamps differ",
       "training_receipt_archived": "q35-2b-document-summary-worker-sft-v1/h176-summary-worker-sft12-step8-v1/TRAINING-RECEIPT.json",
       "remote_removal_scope": "model.safetensors only; older terminal-worker experiment, not R3/R2 or a live evaluation input",
-      "remote_removal_status": "pending_until_live_evaluation_drains",
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "no_active_gpu_process_at_removal": true,
+      "host_free_space_after_removal": "7.2 GiB reported by df -h",
       "verified_utc": "2026-09-08 09:53 UTC"
     },
     {

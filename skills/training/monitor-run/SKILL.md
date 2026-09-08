@@ -523,3 +523,15 @@ after that exact action has terminated. Every removal
 must be recorded as `runtime_containers_pruned` in the hash-chained event log.
 Never infer cleanup scope from age alone and never remove a pre-existing or
 in-flight container.
+
+### Publishing code when local Git ref scans stall
+
+If a push or bundle stalls while enumerating local refs, inspect its exact
+process before retrying. A temporary bare repository can reuse the existing
+object store through `GIT_ALTERNATE_OBJECT_DIRECTORIES`, hold only a transfer
+branch pointing to the exact committed head, and use
+`-c core.alternateRefsCommand=true` to avoid enumerating the source refs. Push
+that ref to the existing campaign branch, or create and verify an incremental
+bundle from the GPU checkout's exact head before transferring it. Fast-forward
+only, verify both commit IDs, and keep live GPU checkouts unchanged. This
+preserves original commits; do not present an uncommitted file copy as a commit.

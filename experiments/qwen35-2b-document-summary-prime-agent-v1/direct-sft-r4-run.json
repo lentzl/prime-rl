@@ -1,5 +1,9 @@
 {
-  "status": "dataset_exported_pending_renderer_audit_and_gpu_lane",
+  "status": "launched_trainer_startup",
+  "launch_time_utc": "2026-09-08 10:04 UTC",
+  "launch_code_commit": "676336da6b9ee1e7e5b5836eaf3e74863c471825",
+  "verifiers_commit": "3957bdb4400565e55fd9e4c362c44ef59739f96f",
+  "wrapper_pid": 2583179,
   "run_name": "h176-summary-direct-chapters-step64-r4",
   "source": {
     "name": "R3 experimental frontier",
@@ -23,7 +27,13 @@
     "teacher_additions": "public-chapter-teacher-r2-additions.json",
     "teacher_additions_sha256": "c549e6cbae905f83868ed275a603e2973a3fd633626dab88e93a07df50bfd1e8",
     "authorship": "Assistant-authored after complete source reading; not independent human gold or native policy replay",
-    "renderer_audit": "pending; run with R3 tokenizer after the live evaluation drains"
+    "renderer_audit": "complete; real trainer and R3 tokenizer, all teacher file observations reproduced",
+    "renderer_audit_sha256": "ea25f7ee20ad7f2c23e1a93e158d90080586b21b4223bcc756a49fc359e01bad",
+    "sequence_tokens": 301722,
+    "supervised_tokens": 12873,
+    "maximum_sequence_tokens": 13261,
+    "truncated_rows": 0,
+    "source_or_user_supervised_tokens": 0
   },
   "planned_training": {
     "optimizer_updates": 64,
@@ -38,6 +48,7 @@
   },
   "rationale": "Continue learning from R3 rather than impose an evaluation pass threshold. Retain all earlier supervision, add four complete chapters with new chronology and conceptual-compression examples, and train for a larger 64-update block. Inspect regressions separately; behavioral collapse risk is explicitly accepted by the Owner.",
   "semantic_promotion": false,
-  "remaining_launch_conditions": ["complete input/loss-boundary audit", "current paired evaluation terminal and GPU lane free", "recoverable archive verified and enough host disk for the next full checkpoint"],
+  "remaining_launch_conditions": [],
+  "next_check": "Confirm first optimizer step, resolved configuration and GPU health; preserve unique run label on failure.",
   "capability_threshold_required_before_training": false
 }
