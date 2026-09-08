@@ -198,10 +198,13 @@ not `operations` or `exceptions`:
 | exceptions | 78 | 4 | 0.75 | 0 | 0 | It omitted the outage condition and remained above the 68-word limit. |
 
 This is `1/3` full development passes after twelve bounded updates. The
-revision turn itself is now reliable at the interface level: it returns a
+current trained-model-plus-scaffold revision path is reliable in these probes: it returns a
 direct bullet answer, does not call IPython, and does not fall into the earlier
 empty/repetitive loop. The residual error is a content-planning tradeoff: the
-model shortens by deleting obligations or fails to shorten enough.
+model shortens by deleting obligations or fails to shorten enough. This does not
+show that weights alone learned interface selection: the commit scaffold disables
+thinking, removes tools, caps output and clears historical reasoning fields.
+Extraction versus realization remains a hypothesis until intermediate notes are inspected.
 
 ## Reserved confirmation result
 
@@ -241,9 +244,12 @@ The exact final confirmation outputs were:
 ```
 
 The final checkpoint therefore has `0/3` full confirmation passes. It improves
-fact coverage on two chapters relative to the older pre-margin checkpoint, but
+keyword-group proxy scores on two chapters relative to the older pre-margin checkpoint, but
 that comparison measures the cumulative margin curriculum rather than the last
 four updates alone. It is limited transfer evidence, not promotion evidence.
+All coverage numbers above retain their historical values and denote keyword-group
+matches, not percentages of all factual content. Cedar has now informed development
+and is no longer fresh confirmation for subsequent experiments.
 
 The bounded revision line stops here. More repetition of these three
 development targets would increase fitting pressure without resolving the
