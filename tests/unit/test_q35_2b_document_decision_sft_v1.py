@@ -324,7 +324,7 @@ def test_document_decision_export_is_balanced_and_preserves_failed_prefixes(tmp_
     assert manifest["tool_call_format"] == "openai_function_v1"
 
 
-def test_document_decision_training_is_one_full_dense_update() -> None:
+def test_document_decision_training_respects_explicit_full_dense_update_count() -> None:
     module = _module("run_q35_2b_document_decision_sft_v1")
     config = module.training_config(
         run_name="test",
@@ -332,10 +332,10 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
         dataset_dir=Path("/data/decision"),
         output_root=Path("/outputs"),
         learning_rate=2e-6,
-        optimizer_updates=8,
+        optimizer_updates=16,
     )
 
-    assert "max_steps = 8" in config
+    assert "max_steps = 16" in config
     assert "interval = 1" in config
     assert "gpus_per_node = 2" in config
     assert "batch_size = 12" in config

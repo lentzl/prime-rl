@@ -1,0 +1,532 @@
+{
+  "run": "evidence-sft-r1-paired-file-recovery-r3",
+  "code": "01b28db23",
+  "verifiers": "53efed80",
+  "routing": "native Prime Agent, direct engines, one frozen model per GPU; no role proxy or delegated owner claim",
+  "baseline_sha256": "2a8575a01814af2cd4914f9984d0001d909f89c1414534e90220b476df64b28c",
+  "candidate_sha256": "b8cd9656a6b61b23386bd50a24aac47a5175d565bbbc9b8ed80ba91d9dfc7202",
+  "weights_unchanged": true,
+  "semantic_verdict": "Neither model passes either chapter in full; no promotion",
+  "records": [
+    {
+      "arm": "baseline-exceptions",
+      "trace_sha256": "88daa54598350b0148438bc2878ab1eed57bca469dc8b152addb4e132515ab2f",
+      "id": "16aeba344f3145b4ac0ee1fcb4d62148",
+      "stop_condition": "agent_completed",
+      "is_completed": true,
+      "ok": true,
+      "errors": [],
+      "rewards": {
+        "evidence_artifact_completion": {
+          "score": 1,
+          "weight": 1
+        }
+      },
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "summary_keyword_group_proxy": 0,
+        "notes_keyword_group_proxy": 1,
+        "notes_source_id_presence": 1,
+        "notes_words": 72,
+        "summary_words": 0
+      },
+      "info": {
+        "evidence_feedback_rewrites": 1,
+        "evidence_source": "[exceptions-p01] During a ticket-system outage, agents keep an offline log with ticket identifiers and timestamps. After recovery, they import the log without overwriting newer ticket activity.\n\n[exceptions-p02] Suspected duplicates are marked as related and both records are retained until a reviewer decides whether a merge is safe.\n\n[exceptions-p03] The weekly review compares ticket-system counts with offline-log counts. Any difference remains explicitly unresolved until its cause is documented.\n\n[exceptions-p04] The support lead approves routine corrections. Deleting a record or changing a customer-visible deadline also requires approval from the operations manager.\n",
+        "evidence_notes": "[exceptions-p01] Ticket-system outage: agents keep offline log with ticket identifiers and timestamps; after recovery, import log without overwriting newer activity.\n[exceptions-p02] Suspected duplicates: marked as related, both records retained until reviewer decides whether merge is safe.\n[exceptions-p03] Weekly review: compares ticket-system counts with offline-log counts; any difference remains explicitly unresolved until cause documented.\n[exceptions-p04] Support lead approves routine corrections; deleting a record or changing a customer-visible deadline requires approval from operations manager.\n",
+        "evidence_extracted_notes": "[exceptions-p01] Ticket-system outage: agents keep offline log with ticket identifiers and timestamps; after recovery, import log without overwriting newer activity.\n[exceptions-p02] Suspected duplicates: marked as related, both records retained until reviewer decides whether merge is safe.\n[exceptions-p03] Weekly review: compares ticket-system counts with offline-log counts; any difference remains explicitly unresolved until cause documented.\n[exceptions-p04] Support lead approves routine corrections; deleting a record or changing a customer-visible deadline requires approval from operations manager.\n",
+        "evidence_summary": "\n[exceptions-p01] Ticket-system outage: import log without overwriting after recovery.\n[exceptions-p02] Suspected duplicates: retain both records until reviewer decides merge safe.\n[exceptions-p03] Weekly review: unresolved difference until cause documented.\n[exceptions-p04] Support lead approves corrections; operations manager required for deadline changes.\n"
+      },
+      "timing": {
+        "start": 1788848934.9141746,
+        "boot": {
+          "start": 1788848934.9144773,
+          "end": 1788848935.4236577
+        },
+        "setup": {
+          "start": 1788848935.4236577,
+          "end": 1788848938.9224427
+        },
+        "agent": {
+          "start": 1788848938.9224427,
+          "end": 1788848967.0061889,
+          "model": {
+            "duration": 23.386109828948975
+          },
+          "harness": {
+            "duration": 4.697636365890503
+          }
+        },
+        "finalize": {
+          "start": 1788848967.006219,
+          "end": 1788848967.2771742
+        },
+        "scoring": {
+          "start": 1788848967.2771742,
+          "end": 1788848967.2787573
+        }
+      },
+      "calls": [
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4357,
+            "completion_tokens": 83
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4467,
+            "completion_tokens": 60
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4674,
+            "completion_tokens": 211
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 4903,
+            "completion_tokens": 20
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4961,
+            "completion_tokens": 84
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 5203,
+            "completion_tokens": 154
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 5375,
+            "completion_tokens": 8
+          }
+        }
+      ]
+    },
+    {
+      "arm": "candidate-exceptions",
+      "trace_sha256": "b839196f40849dc103d0db42d8be2cefcdd16e6e6adc9b6d1b558687483784f5",
+      "id": "22c9675cdbab4d3f88b1af64bca641e8",
+      "stop_condition": "agent_completed",
+      "is_completed": true,
+      "ok": true,
+      "errors": [],
+      "rewards": {
+        "evidence_artifact_completion": {
+          "score": 1,
+          "weight": 1
+        }
+      },
+      "metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 1,
+        "summary_text_not_source_copy": 1,
+        "summary_keyword_group_proxy": 0.75,
+        "notes_keyword_group_proxy": 1,
+        "notes_source_id_presence": 1,
+        "notes_words": 71,
+        "summary_words": 54
+      },
+      "info": {
+        "evidence_feedback_rewrites": 2,
+        "evidence_source": "[exceptions-p01] During a ticket-system outage, agents keep an offline log with ticket identifiers and timestamps. After recovery, they import the log without overwriting newer ticket activity.\n\n[exceptions-p02] Suspected duplicates are marked as related and both records are retained until a reviewer decides whether a merge is safe.\n\n[exceptions-p03] The weekly review compares ticket-system counts with offline-log counts. Any difference remains explicitly unresolved until its cause is documented.\n\n[exceptions-p04] The support lead approves routine corrections. Deleting a record or changing a customer-visible deadline also requires approval from the operations manager.\n",
+        "evidence_notes": "[exceptions-p01] Ticket-system outage: agents keep offline log with ticket identifiers and timestamps; after recovery, import log without overwriting newer activity.\n[exceptions-p02] Suspected duplicates: mark as related, retain both records until reviewer decides whether merge is safe.\n[exceptions-p03] Weekly review: compare ticket-system counts with offline-log counts; any difference remains unresolved until cause documented.\n[exceptions-p04] Support lead approves routine corrections; deleting a record or changing a customer-visible deadline requires approval from operations manager.\n",
+        "evidence_extracted_notes": "[exceptions-p01] Ticket-system outage: agents keep offline log with ticket identifiers and timestamps; after recovery, import log without overwriting newer activity.\n[exceptions-p02] Suspected duplicates: mark as related, retain both records until reviewer decides whether merge is safe.\n[exceptions-p03] Weekly review: compare ticket-system counts with offline-log counts; any difference remains unresolved until cause documented.\n[exceptions-p04] Support lead approves routine corrections; deleting a record or changing a customer-visible deadline requires approval from operations manager.\n",
+        "evidence_summary": "* Ticket-system outage: import offline log without overwriting newer activity.\n* Suspected duplicates: mark related, retain both records until reviewer decides merge is safe.\n* Weekly review: compare ticket-system counts with offline-log counts; any difference remains unresolved until cause documented.\n* Support lead approves routine corrections; deleting a record or changing a customer-visible deadline requires operations manager approval.\n"
+      },
+      "timing": {
+        "start": 1788848934.9292223,
+        "boot": {
+          "start": 1788848934.9295394,
+          "end": 1788848935.4223504
+        },
+        "setup": {
+          "start": 1788848935.4223504,
+          "end": 1788848938.9213629
+        },
+        "agent": {
+          "start": 1788848938.9213629,
+          "end": 1788848988.5392842,
+          "model": {
+            "duration": 44.9662663936615
+          },
+          "harness": {
+            "duration": 4.651654958724976
+          }
+        },
+        "finalize": {
+          "start": 1788848988.5393198,
+          "end": 1788848988.8373744
+        },
+        "scoring": {
+          "start": 1788848988.8373744,
+          "end": 1788848988.840348
+        }
+      },
+      "calls": [
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4363,
+            "completion_tokens": 101
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4611,
+            "completion_tokens": 204
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 5022,
+            "completion_tokens": 167
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 5203,
+            "completion_tokens": 13
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 5193,
+            "completion_tokens": 215
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 5748,
+            "completion_tokens": 200
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 5966,
+            "completion_tokens": 18
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 6072,
+            "completion_tokens": 156
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 6559,
+            "completion_tokens": 148
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 6725,
+            "completion_tokens": 8
+          }
+        }
+      ]
+    },
+    {
+      "arm": "baseline-city-shade",
+      "trace_sha256": "67209e9381c6ff8ae0ad970a48cc5b2165e4b2b954aa3640381eb9a49ea661c6",
+      "id": "56fc018b3d7647459df954c11bb00e1c",
+      "stop_condition": "agent_completed",
+      "is_completed": true,
+      "ok": true,
+      "errors": [],
+      "rewards": {
+        "evidence_artifact_completion": {
+          "score": 0,
+          "weight": 1
+        }
+      },
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 0
+      },
+      "info": {
+        "evidence_feedback_rewrites": 3,
+        "repeated_ipython_no_progress_feedback_count": 1,
+        "evidence_source": "[chapter-p001] In a fictional study of summer heat in Bellwick, researchers compared twelve streets with mature trees and twelve nearby streets without them. Sensors recorded air temperature at pedestrian height between noon and six in the evening on ten dry days. The shaded streets were cooler on average, but the difference was largest late in the afternoon. These measurements describe the sampled streets and weather; they do not establish how much planting a new tree would immediately cool another neighborhood.\n\n[chapter-p002] Shade reduces the sunlight absorbed by pavement and by people standing beneath the canopy. Trees also release water vapor through their leaves, which can cool the surrounding air. These mechanisms are related but not interchangeable: an awning can provide shade without releasing water, while a tree with sparse foliage may release water without providing much shelter from direct sun. The study did not separately measure the contribution of either mechanism.\n\n[chapter-p003] Tree cover was unevenly distributed. Older residential streets had wider planting strips and more mature canopies, while several shopping streets had narrow sidewalks and dense underground utilities. Researchers also found that some of the hottest blocks contained the busiest bus stops. Counting trees across an entire district therefore concealed differences in where people actually waited or walked. The authors suggested measuring shade along common routes, not merely reporting a district-wide tree total.\n\n[chapter-p004] Planting was only the start of the proposed response. Young trees would need watering and maintenance before they could provide substantial shade, and some sites could not accommodate their roots. At those sites, temporary shade structures were proposed while planners investigated longer-term options. This was not a recommendation to replace existing mature trees with structures. The report also warned that choosing one fast-growing species everywhere could leave the whole planting program vulnerable to the same pest.\n\n[chapter-p005] The authors described the findings as an initial local comparison, not a forecast. They had not measured winter conditions, unusually humid days, indoor temperatures, or health outcomes. They proposed repeating the measurements in another summer and including observations of how people used the shaded routes. Even if later measurements confirmed cooler air, whether a particular intervention improved residents' daily experience would still depend on access, maintenance, and where the shade fell.\n",
+        "evidence_notes": "[chapter-p001] In a fictional study of summer heat in Bellwick, researchers compared twelve streets with mature trees and twelve nearby streets without them. Sensors recorded air temperature at pedestrian height between noon and six in the evening on ten dry days. The shaded streets were cooler on average, but the difference was largest late in the afternoon. These measurements describe the sampled streets and weather; they do not establish how much planting a new tree would immediately cool another neighborhood.",
+        "evidence_extracted_notes": null,
+        "evidence_extracted_notes_error": "read '/workspace/document-summary-v1/notes-extracted.md': head: cannot open '/workspace/document-summary-v1/notes-extracted.md' for reading: No such file or directory",
+        "evidence_summary": null,
+        "evidence_summary_error": "read '/workspace/document-summary-v1/summary.md': head: cannot open '/workspace/document-summary-v1/summary.md' for reading: No such file or directory"
+      },
+      "timing": {
+        "start": 1788848970.1973615,
+        "boot": {
+          "start": 1788848970.197685,
+          "end": 1788848970.6856923
+        },
+        "setup": {
+          "start": 1788848970.6856923,
+          "end": 1788848973.9811487
+        },
+        "agent": {
+          "start": 1788848973.9811487,
+          "end": 1788849006.611997,
+          "model": {
+            "duration": 27.843233585357666
+          },
+          "harness": {
+            "duration": 4.787614583969116
+          }
+        },
+        "finalize": {
+          "start": 1788849006.6120281,
+          "end": 1788849006.884384
+        },
+        "scoring": {
+          "start": 1788849006.884384,
+          "end": 1788849006.8857844
+        }
+      },
+      "calls": [
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4360,
+            "completion_tokens": 83
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4470,
+            "completion_tokens": 60
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 5007,
+            "completion_tokens": 119
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 5235,
+            "completion_tokens": 126
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 5475,
+            "completion_tokens": 34
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 5489,
+            "completion_tokens": 72
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 6196,
+            "completion_tokens": 58
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 6233,
+            "completion_tokens": 71
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 6322,
+            "completion_tokens": 39
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 6397,
+            "completion_tokens": 24
+          }
+        },
+        {
+          "finish_reason": "stop",
+          "usage": {
+            "prompt_tokens": 6558,
+            "completion_tokens": 23
+          }
+        }
+      ]
+    },
+    {
+      "arm": "candidate-city-shade",
+      "trace_sha256": "ff2bda146ceffae7451d23c3a60f76f299ca17c09061fa3edc2a28f4ee61a913",
+      "id": "796659acbce54795a344281de9238c9c",
+      "stop_condition": "max_total_tokens",
+      "is_completed": true,
+      "ok": true,
+      "errors": [],
+      "rewards": {
+        "evidence_artifact_completion": {
+          "score": 0,
+          "weight": 1
+        }
+      },
+      "metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 0
+      },
+      "info": {
+        "repeated_ipython_failure_feedback_count": 2,
+        "evidence_source": "[chapter-p001] In a fictional study of summer heat in Bellwick, researchers compared twelve streets with mature trees and twelve nearby streets without them. Sensors recorded air temperature at pedestrian height between noon and six in the evening on ten dry days. The shaded streets were cooler on average, but the difference was largest late in the afternoon. These measurements describe the sampled streets and weather; they do not establish how much planting a new tree would immediately cool another neighborhood.\n\n[chapter-p002] Shade reduces the sunlight absorbed by pavement and by people standing beneath the canopy. Trees also release water vapor through their leaves, which can cool the surrounding air. These mechanisms are related but not interchangeable: an awning can provide shade without releasing water, while a tree with sparse foliage may release water without providing much shelter from direct sun. The study did not separately measure the contribution of either mechanism.\n\n[chapter-p003] Tree cover was unevenly distributed. Older residential streets had wider planting strips and more mature canopies, while several shopping streets had narrow sidewalks and dense underground utilities. Researchers also found that some of the hottest blocks contained the busiest bus stops. Counting trees across an entire district therefore concealed differences in where people actually waited or walked. The authors suggested measuring shade along common routes, not merely reporting a district-wide tree total.\n\n[chapter-p004] Planting was only the start of the proposed response. Young trees would need watering and maintenance before they could provide substantial shade, and some sites could not accommodate their roots. At those sites, temporary shade structures were proposed while planners investigated longer-term options. This was not a recommendation to replace existing mature trees with structures. The report also warned that choosing one fast-growing species everywhere could leave the whole planting program vulnerable to the same pest.\n\n[chapter-p005] The authors described the findings as an initial local comparison, not a forecast. They had not measured winter conditions, unusually humid days, indoor temperatures, or health outcomes. They proposed repeating the measurements in another summer and including observations of how people used the shaded routes. Even if later measurements confirmed cooler air, whether a particular intervention improved residents' daily experience would still depend on access, maintenance, and where the shade fell.\n",
+        "evidence_notes": null,
+        "evidence_notes_error": "read '/workspace/document-summary-v1/notes.md': head: cannot open '/workspace/document-summary-v1/notes.md' for reading: No such file or directory",
+        "evidence_extracted_notes": null,
+        "evidence_extracted_notes_error": "read '/workspace/document-summary-v1/notes-extracted.md': head: cannot open '/workspace/document-summary-v1/notes-extracted.md' for reading: No such file or directory",
+        "evidence_summary": null,
+        "evidence_summary_error": "read '/workspace/document-summary-v1/summary.md': head: cannot open '/workspace/document-summary-v1/summary.md' for reading: No such file or directory"
+      },
+      "timing": {
+        "start": 1788848992.133616,
+        "boot": {
+          "start": 1788848992.133948,
+          "end": 1788848992.6249998
+        },
+        "setup": {
+          "start": 1788848992.6249998,
+          "end": 1788848996.2671568
+        },
+        "agent": {
+          "start": 1788848996.2671568,
+          "end": 1788849346.280664,
+          "model": {
+            "duration": 331.35245847702026
+          },
+          "harness": {
+            "duration": 18.661048650741577
+          }
+        },
+        "finalize": {
+          "start": 1788849346.2807002,
+          "end": 1788849346.562958
+        },
+        "scoring": {
+          "start": 1788849346.562958,
+          "end": 1788849346.5649955
+        }
+      },
+      "calls": [
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4359,
+            "completion_tokens": 108
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 4944,
+            "completion_tokens": 8192
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 21404,
+            "completion_tokens": 509
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 21927,
+            "completion_tokens": 135
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 22112,
+            "completion_tokens": 125
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 22417,
+            "completion_tokens": 126
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 22464,
+            "completion_tokens": 112
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 22627,
+            "completion_tokens": 112
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 22920,
+            "completion_tokens": 126
+          }
+        },
+        {
+          "finish_reason": "tool_calls",
+          "usage": {
+            "prompt_tokens": 22967,
+            "completion_tokens": 126
+          }
+        }
+      ]
+    }
+  ]
+}

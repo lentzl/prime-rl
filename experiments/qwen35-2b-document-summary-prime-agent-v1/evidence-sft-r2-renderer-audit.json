@@ -1,0 +1,415 @@
+{
+  "status": "passed",
+  "dataset_schema": "qwen35-2b-document-summary-evidence-sft/v2",
+  "dataset_sha256": "7b4de4b7e8ee3b4ecf2707eb417abe6db96c051bd7a19879b3705a9b09579256",
+  "tokenizer": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-evidence-sft-v1/h176-summary-evidence-sft-step4-r1/weights/step_4",
+  "thinking": true,
+  "seq_len": 16384,
+  "cuda_initialized": false,
+  "current_phase_only": true,
+  "untruncated": true,
+  "total_rendered_tokens": 201459,
+  "supervised_tokens": 9815,
+  "rows": [
+    {
+      "task_key": "summary-evidence-clinic-pilot-extraction",
+      "tokens": 4770,
+      "supervised": 264,
+      "active_messages": {
+        "2": 68,
+        "4": 180,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-clinic-pilot-realization",
+      "tokens": 5239,
+      "supervised": 222,
+      "active_messages": {
+        "8": 67,
+        "10": 139,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-library-scan-extraction",
+      "tokens": 4770,
+      "supervised": 266,
+      "active_messages": {
+        "2": 68,
+        "4": 182,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-library-scan-realization",
+      "tokens": 5244,
+      "supervised": 225,
+      "active_messages": {
+        "8": 67,
+        "10": 142,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-vendor-onboarding-extraction",
+      "tokens": 4763,
+      "supervised": 263,
+      "active_messages": {
+        "2": 68,
+        "4": 179,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-vendor-onboarding-realization",
+      "tokens": 5225,
+      "supervised": 216,
+      "active_messages": {
+        "8": 67,
+        "10": 133,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-regional-launch-extraction",
+      "tokens": 4798,
+      "supervised": 279,
+      "active_messages": {
+        "2": 68,
+        "4": 195,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-regional-launch-realization",
+      "tokens": 5302,
+      "supervised": 242,
+      "active_messages": {
+        "8": 67,
+        "10": 159,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-incident-response-extraction",
+      "tokens": 4748,
+      "supervised": 253,
+      "active_messages": {
+        "2": 68,
+        "4": 169,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-incident-response-realization",
+      "tokens": 5201,
+      "supervised": 217,
+      "active_messages": {
+        "8": 67,
+        "10": 134,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-warehouse-dispatch-extraction",
+      "tokens": 4759,
+      "supervised": 260,
+      "active_messages": {
+        "2": 68,
+        "4": 176,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-warehouse-dispatch-realization",
+      "tokens": 5220,
+      "supervised": 218,
+      "active_messages": {
+        "8": 67,
+        "10": 135,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-refund-review-extraction",
+      "tokens": 4742,
+      "supervised": 252,
+      "active_messages": {
+        "2": 68,
+        "4": 168,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-refund-review-realization",
+      "tokens": 5192,
+      "supervised": 215,
+      "active_messages": {
+        "8": 67,
+        "10": 132,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-research-review-extraction",
+      "tokens": 4739,
+      "supervised": 251,
+      "active_messages": {
+        "2": 68,
+        "4": 167,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-research-review-realization",
+      "tokens": 5182,
+      "supervised": 209,
+      "active_messages": {
+        "8": 67,
+        "10": 126,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-retention-policy-extraction",
+      "tokens": 4751,
+      "supervised": 258,
+      "active_messages": {
+        "2": 68,
+        "4": 174,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-retention-policy-realization",
+      "tokens": 5208,
+      "supervised": 216,
+      "active_messages": {
+        "8": 67,
+        "10": 133,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-lab-access-extraction",
+      "tokens": 4746,
+      "supervised": 256,
+      "active_messages": {
+        "2": 68,
+        "4": 172,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-lab-access-realization",
+      "tokens": 5204,
+      "supervised": 219,
+      "active_messages": {
+        "8": 67,
+        "10": 136,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-account-reconcile-extraction",
+      "tokens": 4764,
+      "supervised": 265,
+      "active_messages": {
+        "2": 68,
+        "4": 181,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-account-reconcile-realization",
+      "tokens": 5234,
+      "supervised": 222,
+      "active_messages": {
+        "8": 67,
+        "10": 139,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-publication-fix-extraction",
+      "tokens": 4744,
+      "supervised": 254,
+      "active_messages": {
+        "2": 68,
+        "4": 170,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-publication-fix-realization",
+      "tokens": 5197,
+      "supervised": 216,
+      "active_messages": {
+        "8": 67,
+        "10": 133,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-ferry-survey-extraction",
+      "tokens": 4930,
+      "supervised": 281,
+      "active_messages": {
+        "2": 68,
+        "4": 197,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-ferry-survey-realization",
+      "tokens": 5431,
+      "supervised": 236,
+      "active_messages": {
+        "8": 67,
+        "10": 153,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-oral-history-extraction",
+      "tokens": 4913,
+      "supervised": 271,
+      "active_messages": {
+        "2": 68,
+        "4": 187,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-oral-history-realization",
+      "tokens": 5399,
+      "supervised": 231,
+      "active_messages": {
+        "8": 67,
+        "10": 148,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-repair-workshop-extraction",
+      "tokens": 4948,
+      "supervised": 283,
+      "active_messages": {
+        "2": 68,
+        "4": 199,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-repair-workshop-realization",
+      "tokens": 5453,
+      "supervised": 238,
+      "active_messages": {
+        "8": 67,
+        "10": 155,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-water-meter-trial-extraction",
+      "tokens": 4943,
+      "supervised": 289,
+      "active_messages": {
+        "2": 68,
+        "4": 205,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-water-meter-trial-realization",
+      "tokens": 5455,
+      "supervised": 239,
+      "active_messages": {
+        "8": 67,
+        "10": 156,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-additional-extraction",
+      "tokens": 4787,
+      "supervised": 265,
+      "active_messages": {
+        "2": 68,
+        "4": 181,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-additional-realization",
+      "tokens": 5260,
+      "supervised": 225,
+      "active_messages": {
+        "8": 67,
+        "10": 142,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-exclusive-extraction",
+      "tokens": 4787,
+      "supervised": 265,
+      "active_messages": {
+        "2": 68,
+        "4": 181,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-permit-exclusive-realization",
+      "tokens": 5264,
+      "supervised": 229,
+      "active_messages": {
+        "8": 67,
+        "10": 146,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-consecutive-extraction",
+      "tokens": 4799,
+      "supervised": 277,
+      "active_messages": {
+        "2": 68,
+        "4": 193,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-consecutive-realization",
+      "tokens": 5287,
+      "supervised": 228,
+      "active_messages": {
+        "8": 67,
+        "10": 145,
+        "12": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-single-extraction",
+      "tokens": 4789,
+      "supervised": 271,
+      "active_messages": {
+        "2": 68,
+        "4": 187,
+        "6": 16
+      }
+    },
+    {
+      "task_key": "summary-evidence-sensor-single-realization",
+      "tokens": 5272,
+      "supervised": 229,
+      "active_messages": {
+        "8": 67,
+        "10": 146,
+        "12": 16
+      }
+    }
+  ]
+}

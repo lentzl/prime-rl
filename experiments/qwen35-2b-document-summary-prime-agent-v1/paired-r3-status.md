@@ -36,3 +36,19 @@ the actual model-visible file-step continuation, parquet SHA-256
 `4aedb52cfa378d01ff891dc13e8785a81b08a9a22797a083f29bd51742b5a58a`.
 These remain authored teacher episodes, not replay of the failed model's content.
 Focused exporter tests: 28 passed; Ruff passed. No new optimizer update yet.
+
+## 2026-09-08 06:43 UTC
+
+All four episodes and the paired no-update receipt are complete. Both hashes
+match their starting checkpoints. Candidate city-shade ended at
+`max_total_tokens`, ten model calls, no notes or summary. Its second call spent
+8,192 output tokens on a repetitive keyword-extraction program; subsequent
+syntax-error repair attempts also failed. Captured provider errors are empty.
+This is a behavioral/token-bound failure, not evidence that a 2B model cannot
+summarize longer text. Neither arm passes the new chapter; no promotion.
+
+Next is continued training from R1 on twenty source cases: the previous sixteen
+plus four longer synthetic expository chapters. City-shade and all Northstar/
+Cedar sources remain excluded. The matched evaluation scaffold stays frozen at
+Verifiers `53efed80`. Sixteen explicit updates replace the earlier four-update
+dose; this is a new bounded run, not an arbitrary campaign quota.
