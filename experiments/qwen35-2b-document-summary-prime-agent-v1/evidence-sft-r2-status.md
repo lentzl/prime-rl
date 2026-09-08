@@ -29,3 +29,12 @@ creation and concise realization on ordinary prose. Inspect training health,
 then compare R1 and R2 under the same native Prime Agent scaffold. Do not infer
 semantic utility from loss or artifact presence. No checkpoint promotion;
 broader fresh-document evaluation and task-owner integration remain unfinished.
+
+## 2026-09-08 06:44 UTC
+
+The launch stopped at argument validation before any training process or update:
+an additional CLI check still imposed the old eight-update maximum, although the
+config builder and native dry-run accepted sixteen. That duplicate check is now
+corrected. Preserve the preflight-only `...-r2` directory; execute under fresh
+run name `h176-summary-evidence-expository-step16-r2a` with the same dataset,
+source model, sixteen updates and numerical settings.

@@ -868,7 +868,7 @@ def main() -> None:
     args = parser.parse_args()
     if (
         not 0 < args.learning_rate <= 1e-4
-        or not 1 <= args.optimizer_updates <= 8
+        or args.optimizer_updates < 1
         or not 1 <= args.checkpoint_interval <= args.optimizer_updates
         or args.optimizer_updates % args.checkpoint_interval
     ):

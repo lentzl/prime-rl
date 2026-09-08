@@ -52,3 +52,9 @@ plus four longer synthetic expository chapters. City-shade and all Northstar/
 Cedar sources remain excluded. The matched evaluation scaffold stays frozen at
 Verifiers `53efed80`. Sixteen explicit updates replace the earlier four-update
 dose; this is a new bounded run, not an arbitrary campaign quota.
+
+Wrapper caveat: the paired driver completed its four traces and unchanged-weight
+receipt, then the enclosing role-oriented launcher failed its final hash command
+because a deliberately bypassed proxy had emitted no routing log. The engines
+were cleaned up. This post-evaluation receipt issue does not turn the completed
+terminal-worker traces into delegation evidence; keep the outer failure visible.
