@@ -1,0 +1,59 @@
+{
+  "status": "complete_failed_before_delegation",
+  "run_name": "owner-r4-r9-direct-public-yield-r2",
+  "launched_at_utc": "2026-09-08 20:41:27 UTC",
+  "agent_ended_at_utc": "2026-09-08 20:45:47 UTC",
+  "wrapper_and_gpu_drained_verified_at_utc": "2026-09-08 20:47:54 UTC",
+  "owner": {"name": "R4", "sha256": "72e72675f1f2f5ea8a8cea2f7e41e2ea7acb3e8bc1b39a33ee17bba2c48bb7dc"},
+  "worker": {"name": "R9", "sha256": "07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3"},
+  "both_weights_unchanged": true,
+  "code": {
+    "repository": "76e41831a5021cdbb04b0de8a6dfe5b2242a655b",
+    "verifiers": "0b8b041ac5ddc1d9be99c1c740d9d5d460d686a2",
+    "taskset_sha256": "be254b0fe2517b477fa1bdf97147f5fae38a1965ad781ec13ec804a69b3e36dd",
+    "changes": "Only two owner-facing string constants changed: task prompt and role recovery feedback. They explicitly describe ordinary assistant text with no tool call for yielding and persistent per-worker receipt storage. Executable logic, worker instructions, scoring and tool interfaces unchanged.",
+    "validation": "47 existing taskset checks and touched-file Ruff passed; host configuration dry-run and AST-only-string-change audit passed before launch. Main commit used inspected staged tree and guarded update-ref after its own cloud-file-stalled commit process was terminated; commit hooks were not claimed."
+  },
+  "comparison": "Same R4/R9 weights, Alice/Bennett development chapters, Prime Agent runtime, sampling and limits as owner-r4-r9-direct-public-r1. Changed prompt is a scaffold intervention, not a weight update; single-trial sensitivity does not isolate a particular new sentence.",
+  "result": {
+    "stop_condition": "max_turns",
+    "artifact_reward": 0,
+    "envelope_and_trace_ok": true,
+    "envelope_trace_and_nested_call_errors": 0,
+    "owner_session_calls": 30,
+    "unscoped_automatic_refinement_calls": 2,
+    "native_chapter_child_calls": 0,
+    "policy_routes": {"R4_coordinator": 30, "R9_worker_for_unscoped_refinement": 2},
+    "all_32_upstream_routes_http_200": true,
+    "native_ipython_results": {"error": 5, "ok": 25},
+    "no_progress_feedback_rewrites": 22,
+    "index_file_read": true,
+    "ordered_chapter_jobs_displayed": false,
+    "children_launched": 0,
+    "receipts_received_or_stored": 0,
+    "summary_files_written": 0,
+    "document_assembled": false
+  },
+  "diagnosis": [
+    "First action contains invalid spaced variable names. It then recovers missing json and document_path definitions, reads the index, but counts the three top-level dictionary keys instead of the two chapter jobs.",
+    "After successful scalar results it repeatedly claims the previous syntax error persists. The finalized model-visible trace includes the new recovery feedback; native session logs alone omit those interception rewrites.",
+    "Two unscoped automatic refinement calls repeat the stale variable-error diagnosis and propose a document-indexing skill containing invalid spaced variable names and the incorrect three-chapter expectation. Routing sends these two calls to R9; the 30 owner-session calls use R4. These are auxiliary review calls, not native chapter children or successful recovery evidence.",
+    "Native 400 rollout-stopped messages occur after the max-turn boundary. They are not failed upstream model requests or a provider outage.",
+    "Because delegation was never reached, this run cannot establish whether the explicit waiting instructions improve receipt handling. It also provides no new evidence about worker summary quality."
+  ],
+  "evidence": {
+    "local_path": "outputs/summary-owner-r4-r9-yield-r2/owner-r4-r9-direct-public-yield-r2",
+    "trace_sha256": "31c2f59950b7f4a44c7333ac2696a1312721fee4f174894a79efe6dd164c4d2d",
+    "routing_sha256": "4ec6f908b66a748d62ef607e0519c4ff7e9050497102dc9da1115328bc9a5467",
+    "summary_sha256": "3f1c201f016879a33e59ba1238a896119a10c8f57e268572ac08fe4737e740ad",
+    "native_capture_path": "outputs/summary-owner-r4-r9-yield-r2/native-live-capture",
+    "native_capture_manifest_sha256": "836930f616e92db6ce827d01bba5ff34fed0f8d81c841a83c798707270dce5d4",
+    "native_capture_verified_files": 141,
+    "native_capture_verified_bytes": 1852337,
+    "native_capture_coverage": "Latest live snapshots, including owner messages through the final max-turn rejection, automatic-refinement artifacts and runtime metadata; not a claim that every lifecycle event was captured. Finalized intercepted trace preserved separately.",
+    "runtime_id": "5c401ec98354770958ef2625bd4edd6eee8799e477b14e6bb8f74d19226b32c6",
+    "preexisting_12_containers_preserved": true
+  },
+  "semantic_promotion": false,
+  "next": "Preserve R4/R9 frontiers and this failed trial. Isolate recovery feedback at the actual waiting boundary using the earlier task prompt that reached delegation; ensure waiting advice is conditional on all jobs having been launched. Do not add more startup instructions to compensate for every error. Subsequent owner training should strengthen observation-based recovery, correct dictionary/list indexing and persistent fan-in using TRAIN-only executable targets with wrong actions masked. Audited worker native self-review data remains ready but untrained pending recoverable storage; no HF upload or checkpoint deletion is authorized by the prior status question."
+}
