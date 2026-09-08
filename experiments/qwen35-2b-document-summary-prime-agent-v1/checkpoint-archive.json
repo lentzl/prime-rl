@@ -11,6 +11,22 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-live-revision-sft-v2/h176-summary-live-revision-sft12-step1-v2/weights/step_1/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-live-revision-sft-v2/h176-summary-live-revision-sft12-step1-v2/weights/step_1/model.safetensors",
+      "sha256": "3f712af3fce69d2feb6ef7c6fa7bbfc6962d9f167592e70c9269b6cc545f03ff",
+      "bytes": 4426558864,
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "full_copy_checksum_comparison": "no file-content differences; directory timestamps differ",
+      "training_receipt_archived": "q35-2b-document-summary-live-revision-sft-v2/h176-summary-live-revision-sft12-step1-v2/TRAINING-RECEIPT.json",
+      "remote_removal_scope": "model.safetensors only; old one-update revision experiment, not R4/R3 or a live evaluation input",
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "state_references": "only its completed receipt and the historical v3 source receipt; no active GPU processes",
+      "no_active_gpu_process_at_removal": true,
+      "host_free_space_after_removal": "7.2 GiB reported by df -h",
+      "removal_verified_utc": "2026-09-08 10:59 UTC"
+    },
+    {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-worker-sft-v1/h176-summary-worker-sft12-step8-v1/weights/step_8/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-worker-sft-v1/h176-summary-worker-sft12-step8-v1/weights/step_8/model.safetensors",
       "sha256": "2f019993a1e451cfee81840c108e487f3912063107be28293f175b7b3beae725",

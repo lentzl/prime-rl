@@ -1,0 +1,63 @@
+{
+  "status": "launched_trainer_startup",
+  "launch_time_utc": "2026-09-08 11:00 UTC",
+  "run_name": "h176-summary-direct-repair-step128-r5",
+  "code_commit": "4b43ee641859fb8a88150add195e99683c83d23d",
+  "verifiers_commit": "0de7aa77548c0c4c7c2a61c6cdb4dfd16d13be33",
+  "source": {
+    "name": "R4 experimental frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step64-r4/weights/step_64",
+    "sha256": "32e40abcaf2352f47039830f57440eba002c5bf61dfc9f354c3cfde6d4dddf54"
+  },
+  "dataset": {
+    "local_path": "outputs/summary-direct-sft-r3-repairs",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r3-repairs",
+    "manifest_sha256": "2428e31c46c2c23b7af99ab1875828c533ab6357cb66cb8416db9e3848fc6bf8",
+    "parquet_sha256": "cb572f23f5caf1d6b9d43e20a57cadedbf67a39991e389b12a09f3e97111f043",
+    "cases_sha256": "87d99810f979725fb267d1e01f01c874d94f34ec5f93721043fad6f95ca55552",
+    "rows": 88,
+    "family_counts": {"retained_train": 20, "public_chapter": 24, "format_repair": 44},
+    "all_44_previous_cases_and_complete_rows_preserved_exactly": true,
+    "new_unique_chapters": 0,
+    "new_semantic_teacher_labels": 0,
+    "repair_targets": "reuse the reviewed source-grounded summary of each base TRAIN chapter",
+    "repair_context": "authored first-350-source-word prose copy and premature Done; both assistant messages trainable=false",
+    "repair_feedback": "distinct observed model-visible native 3-5-bullet correction; not raw gate framing",
+    "repair_feedback_sha256": "6c16a1998cdea4fc4bd61a89268fee8f7b56ef63399a06cfa6d30f2449688894",
+    "on_policy_replay": false,
+    "independent_human_gold": false,
+    "evaluation_sources_added": false
+  },
+  "renderer_audit": {
+    "status": "complete_real_trainer_and_R4_tokenizer",
+    "sha256": "1113fe8d86db4d05fe2bf866ea039422e4f4e4414c0211102cfa29ed1de80173",
+    "rows": 88,
+    "sequence_tokens": 623550,
+    "supervised_tokens": 25878,
+    "maximum_sequence_tokens": 13891,
+    "truncated_rows": 0,
+    "masked_incorrect_prefix_tokens": 15238,
+    "incorrect_prefix_supervised_tokens": 0,
+    "source_or_user_supervised_tokens": 0,
+    "file_observations_reproduced": true,
+    "cuda_initialized": false
+  },
+  "planned_training": {
+    "optimizer_updates": 128,
+    "checkpoint_interval": 128,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "sequence_length": 16384,
+    "fresh_optimizer": true,
+    "full_dense": true,
+    "renderer_enable_thinking": true,
+    "gpus": 2,
+    "run_timeout_seconds": 7200,
+    "campaign_gpu_hour_cap": null
+  },
+  "rationale": "Continue from R4's concrete gains in source coverage and numerical units while teaching correction response and stopping. Preserve earlier successful episodes; do not train incorrect drafts as successful outputs. Behavioral regressions remain diagnostic, not an automatic rollback or a bar to further updates.",
+  "validation": {"focused_tests_passed": 47, "ruff": "passed", "wrapper_dataset_and_audit_validation": "passed on the drained host with R4 tokenizer"},
+  "semantic_promotion": false,
+  "capability_threshold_required_before_training": false,
+  "remaining_launch_conditions": []
+}
