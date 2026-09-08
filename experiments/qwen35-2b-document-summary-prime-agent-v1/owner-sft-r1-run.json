@@ -1,5 +1,20 @@
 {
-  "status": "running_optimizer_updates_verified",
+  "status": "complete_verified_training_frontier_not_capability_promotion",
+  "completion": {
+    "trainer_finished_at_utc": "2026-09-08 15:01:01 UTC",
+    "process_and_gpu_drain_verified_at_utc": "2026-09-08 15:02:22 UTC",
+    "ordered_finite_loss_records": 64,
+    "finite_gradient_records": 64,
+    "all_recorded_loss_nan_counts_zero": true,
+    "last_loss": 0.002120483899489045,
+    "last_gradient_norm": 3.15625,
+    "stable_checkpoint": true,
+    "output_weight_sha256": "d0968efdea5c9ed759b0caa81f7b146cf74c11935baff5c61d7a66294963104f",
+    "weight_hash_independently_verified": true,
+    "receipt_sha256": "5221d3f4b7a0eb60a935397e151fb2341ae3625cc64a70adad24fdb9c12e697b",
+    "logs_metrics_configs_receipt_copied_locally": true,
+    "native_behavior_evaluated": false
+  },
   "run_name": "e33-summary-owner-native-step64-r1",
   "code_commit": "8590c4c519567d261efd57cced918c3efb0fb66b",
   "verifiers_commit": "077c030f3d20a34364401d3d2d089422c059dd7a",

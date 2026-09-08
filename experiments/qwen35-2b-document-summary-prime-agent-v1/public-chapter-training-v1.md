@@ -124,8 +124,15 @@ Existing dataset validation, source hashes, summary constraints and mask
 annotations pass. The existing file-observation replay function reproduces all
 118 teacher file operations and Python result observations. These are local
 preparation checks, not the real trainer/tokenizer audit or live native results.
-That audit remains pending an idle boundary, using R7's tokenizer. No R8 training
-has been launched; native owner/R7 integration remains the immediate next trial.
+The real R7-tokenizer/trainer audit subsequently passed on the idle host after
+owner R1 completion: all 118 sequences, 839,107 tokens, maximum 13,891, 35,817
+supervised tokens and 21,524 incorrect-prefix context tokens masked. No source,
+user, tool or incorrect-prefix loss; no truncation or CUDA initialization.
+Audit SHA256: `4d0a45a0b010e71ce3df530e4ea81e6c532e217c859dedfe4709625d24597452`.
+The data and audit are copied to the host's separate
+`/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r8-chapters` directory
+with matching hashes. No R8 training has been launched; native owner/R7
+integration remains the immediate next trial.
 
 Prepared manifest SHA256:
 `55f149075867300b94cbc8244912d96520385975e0e3494a6e28cf5413227b63`.
