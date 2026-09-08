@@ -271,7 +271,9 @@ For multi-node runs, trainer and inference processes are on separate nodes — u
 For terminal document-summary comparisons, the paired summary evaluation driver
 can reuse the two frozen engines while running one model per GPU concurrently.
 Its receipt explicitly records direct engine routing, not owner/child delegation
-or role-proxy behavior. Inspect all four episode traces and checkpoint hashes;
+or role-proxy behavior. `DOCUMENT_SUMMARY_PROBES` selects space-separated existing
+probe config names; defaults are `exceptions city-shade`. Inspect every episode
+in the receipt's declared probe list and both checkpoint hashes;
 driver completion and file-presence rewards do not establish semantic utility.
 Initialize the routing audit as an empty event log before starting the proxy:
 direct-engine runs legitimately leave it empty, and final receipt hashing must

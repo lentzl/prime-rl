@@ -132,6 +132,8 @@ def export(*, trace_path: Path, output_dir: Path):
     }
     transfer_source = Path(__file__).parents[1] / "experiments/qwen35-2b-document-summary-prime-agent-v1/chapter-probes/city-shade.md"
     excluded_sources.update(transfer_source.read_text().strip().split("\n\n"))
+    for public_chapter in transfer_source.parent.glob("*-ch1.md"):
+        excluded_sources.update(public_chapter.read_text().strip().split("\n\n"))
     for chapter in training_chapters():
         if any(p["text"] in excluded_sources for p in chapter["paragraphs"]):
             raise ValueError("training source overlaps the Northstar/Cedar probes")

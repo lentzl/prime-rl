@@ -7,6 +7,11 @@ label=${2:?paired evaluation label required}
 baseline=${DOCUMENT_SUMMARY_BASELINE_MODEL:?baseline checkpoint required}
 candidate=${DOCUMENT_SUMMARY_CANDIDATE_MODEL:?candidate checkpoint required}
 output_root=${QWEN38_QUALIFICATION_OUTPUT_ROOT:?evaluation output root required}
+read -r -a probes <<<"${DOCUMENT_SUMMARY_PROBES:-exceptions city-shade}"
+test "${#probes[@]}" -gt 0
+for probe in "${probes[@]}"; do
+  [[ "$probe" =~ ^[a-z0-9-]+$ ]] && test -f "$root/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-evidence-$probe.toml"
+done
 receipt=$output_root/$label/PAIRED-TERMINAL-RECEIPT.txt
 test ! -e "$receipt"
 
@@ -15,7 +20,7 @@ candidate_before=$(sha256sum "$candidate/model.safetensors" | awk '{print $1}')
 
 run_arm() {
   local arm=$1 model=$2 port=$3 probe
-  for probe in exceptions city-shade; do
+  for probe in "${probes[@]}"; do
     DOCUMENT_SUMMARY_CONFIG="$root/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-evidence-$probe.toml" \
     EVAL_CLIENT_BASE_URL="http://127.0.0.1:$port/v1" \
       bash "$root/scripts/run_q35_2b_document_summary_eval_v1.sh" "$model" "$label-$arm-$probe"
@@ -40,5 +45,5 @@ test "$candidate_before" = "$candidate_after"
   printf 'role_proxy_used=false\n'
   printf 'baseline_model=%s\nbaseline_sha256=%s\n' "$baseline" "$baseline_after"
   printf 'candidate_model=%s\ncandidate_sha256=%s\n' "$candidate" "$candidate_after"
-  printf 'episodes=4\nsemantic_review=separate\n'
+  printf 'probes=%s\nepisodes=%s\nsemantic_review=separate\n' "${probes[*]}" "$((${#probes[@]} * 2))"
 } >"$receipt"

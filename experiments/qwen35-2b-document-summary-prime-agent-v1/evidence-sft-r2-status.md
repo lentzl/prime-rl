@@ -107,3 +107,37 @@ engines loaded their checkpoints and returned healthy responses; approximately
 8.6 GiB is allocated per GPU. The paired evaluator is starting the two chapter
 arms. Results are pending; startup is not a utility result. Existing R1/R2
 weights and sampling are unchanged. No additional infrastructure was acquired.
+
+## 2026-09-08 07:24 UTC
+
+The syntax-repair comparison completed, four episodes and unchanged checkpoints,
+with zero captured provider/task errors. Exact text exports are verified against
+the native traces. See `literal-write-repair-r1-results.json`.
+
+- R1 exceptions: followed two literal corrections and saved four bullets. Still
+  lost the additional approval relation, identifiers/timestamps and merge-safety
+  qualifier; incorrectly described importing as restoring the ticket system.
+- R2 exceptions: received the exact correction but treated the suggestion as
+  already executed, attempted nonexistent parent sends, and hit max turns with
+  no notes. Do not describe suggested code as successful tool repair.
+- R1 city-shade: saved only paragraph one, hit max turns, no summary.
+- R2 city-shade: completed natively with no literal repair firing. Saved extensive
+  notes and five bullets (96 words), retaining the main finding, local-comparison
+  qualification and dependence on access/maintenance/location. Lost independent
+  mechanism measurement limits, the recommendation for route-based measurement,
+  temporary-structure/mature-tree distinction, diversity risk and repeat-study
+  proposal. Notes retained most of these, locating the main loss in realization.
+
+Trajectories varied before any interception, despite fixed sampling settings;
+the completed longer output cannot be attributed to a repair that never fired.
+This is partial applied progress, not dependable summarization or promotion.
+
+Next screen uses the same R1/R2 models, native workflow and sampling on two
+complete public chapters: Bennett Chapter I (907 words) and Carroll Chapter I
+(2,141 words). Both source texts, exact retrieval/normalization provenance and
+pre-run semantic review points are in `chapter-probes/`. They are excluded from
+the training exporter; possible pretraining familiarity remains explicit.
+Use `DOCUMENT_SUMMARY_PROBES='alice-ch1 bennett-ch1'` with the existing paired
+driver. No new harness or optimizer update. Assess end-to-end usefulness and
+whether the all-paragraph-ID notes contract creates avoidable bookkeeping on
+long prose. Existing task-owner integration remains unfinished.

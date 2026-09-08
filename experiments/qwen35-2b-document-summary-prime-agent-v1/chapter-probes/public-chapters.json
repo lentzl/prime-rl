@@ -1,0 +1,29 @@
+{
+  "retrieved_at": "2026-09-08",
+  "purpose": "real complete chapter development evaluation, not training",
+  "normalization": "UTF-8, CRLF to LF, unwrap lines inside paragraphs, omit chapter headings and decorative star separators; preserve chapter prose",
+  "license_url": "https://www.gutenberg.org/policy/license.html",
+  "pretraining_contamination": "Possible: well-known public books; no unseen-pretraining or generalization proof claim.",
+  "chapters": [
+    {
+      "slug": "alice-ch1",
+      "url": "https://www.gutenberg.org/ebooks/11.txt.utf-8",
+      "full_book_sha256": "01b38ea4c710a84bc18d0bd41271a5a1a92b94e97b2812f4dece97d4a694725e",
+      "words": 2141,
+      "paragraphs": 24,
+      "start_marker": "CHAPTER I.\nDown the Rabbit-Hole",
+      "end_marker": "\nCHAPTER II.",
+      "file_sha256": "b68f632dec1fea26b53535ce841e8a92647056d3fb8a9ea854a49c108ad9ce24"
+    },
+    {
+      "slug": "bennett-ch1",
+      "url": "https://www.gutenberg.org/ebooks/2274.txt.utf-8",
+      "full_book_sha256": "9b82d3168c476d0b5238768555ebd50a3cc7bbf199927e6f065d35a650ebfa16",
+      "words": 907,
+      "paragraphs": 11,
+      "start_marker": "\nI\n\nTHE DAILY MIRACLE",
+      "end_marker": "\nII\n\nTHE DESIRE TO EXCEED",
+      "file_sha256": "3d55072076fb18140c6ad411c80c5071c7fe350eff031e3bfe2296631146a449"
+    }
+  ]
+}
