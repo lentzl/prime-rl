@@ -360,6 +360,13 @@ Check native-role context, source/target preservation and incorrect-retry loss
 masks in the real trainer audit before the next update. Native session logs can
 omit model-facing interception rewrites, so inspect the finalized trace as well
 when diagnosing whether recovery feedback reached a child.
+For native source-copy or semantic failures, `--include-native-revisions` adds
+authored self-review before the receipt: masked incorrect draft write, actual
+saved-draft read, reviewed correction, then one send and stop. It reuses existing
+TRAIN summaries and semantic-repair specifications, not evaluation answers or an
+invented native semantic gate. Verify both writes and the intervening read in
+file replay, and correction reasoning plus zero incorrect-draft loss with the
+real tokenizer audit. These variants add a teaching boundary, not new documents.
 For native owner acquisition, `export_q35_2b_document_summary_owner_sft_v1.py`
 combines TRAIN-only scripted index/delegation/receipt/assembly episodes with the
 acquired 48-row role-decision rehearsal. Its runtime trace supplies only the

@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 from datasets import Dataset
 from export_q35_2b_document_decision_sft_v1 import sha256_file
-from export_q35_2b_document_summary_direct_sft_v1 import NATIVE_FAMILIES, SCHEMA_VERSION
+from export_q35_2b_document_summary_direct_sft_v1 import NATIVE_FAMILIES, NATIVE_REVISION_FAMILIES, SCHEMA_VERSION
 from export_q35_2b_document_summary_evidence_sft_v1 import ROOT
 
 
@@ -25,6 +25,17 @@ async def _verify_native_file_observations(row, case, workspace):
     from document_summary_v1.taskset import MARKDOWN_CHILD_RECOVERY_FEEDBACK
 
     job = case["native_job"]
+    revision = case["family"] in NATIVE_REVISION_FAMILIES
+    masked = [4] if revision else ([6] if case["family"] == "native_count_repair" else [])
+    if (case["masked_message_indices"] != masked
+            or any(message.get("trainable") is not (index not in masked)
+                   for index, message in enumerate(row["messages"]) if message["role"] == "assistant")):
+        raise ValueError("native incorrect-context mask differs from its teaching boundary")
+    if revision and (
+            case.get("revision_provenance") != "authored_self_review_before_receipt_not_native_gate_feedback"
+            or row["messages"][8].get("reasoning_content") != case["correction_reasoning"]
+            or case["incorrect_draft"] == case["summary"]):
+        raise ValueError("native revision provenance or reviewed target differs")
     if ("\nRecursive agent depth: 1\n" not in row["messages"][0]["content"]
             or row["messages"][1]["content"] != "[task from parent]\n\n" + job["prompt"]):
         raise ValueError("native child runtime or assignment differs from the declared job")
@@ -70,9 +81,11 @@ async def _verify_native_file_observations(row, case, workspace):
             if call["id"] == "repeat-write":
                 observed = observed.rstrip() + "\n\n" + MARKDOWN_CHILD_RECOVERY_FEEDBACK
             observations[call["id"]] = observed
+            if call["id"] == "write-summary-draft" and summary_path.read_text() != case["incorrect_draft"]:
+                raise ValueError("native draft differs from the declared incorrect context")
         if message["role"] == "tool" and observations[message["tool_call_id"]] != message["content"]:
             raise ValueError("native child scripted observation differs from execution")
-    expected_writes = 2 if case["family"] == "native_count_repair" else 1
+    expected_writes = 2 if case["family"] in NATIVE_REVISION_FAMILIES | {"native_count_repair"} else 1
     if (len(sent) != 1 or writes != expected_writes or summary_path.read_text() != case["summary"]
             or source_path.read_text() != case["source"]
             or set(p for p in workspace.rglob('*') if p.is_file()) != {source_path, summary_path}):
@@ -138,18 +151,19 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             repair = case["family"] in {"format_repair", "semantic_repair"}
             native = case["family"] in NATIVE_FAMILIES
             count_repair = case["family"] == "native_count_repair"
+            native_revision = case["family"] in NATIVE_REVISION_FAMILIES
             roles = ["user", "user", "assistant", "tool"]
             if repair:
                 roles += ["assistant", "tool", "assistant", "user"]
             roles += ["assistant", "tool", "assistant"]
             if native:
-                roles = ["user", "user"] + ["assistant", "tool"] * (5 if count_repair else 3) + ["assistant"]
+                roles = ["user", "user"] + ["assistant", "tool"] * (5 if count_repair or native_revision else 3) + ["assistant"]
             if [m["role"] for m in messages] != roles:
                 raise ValueError("not the declared read/write/report/stop episode")
-            if (case["family"] == "semantic_repair"
+            if ((case["family"] == "semantic_repair" or native_revision)
                     and row["messages"][8]["reasoning_content"] != case["correction_reasoning"]):
                 raise ValueError("semantic correction reasoning differs from reviewed target")
-            masked_prefix = {6} if count_repair else ({4, 6} if repair else set())
+            masked_prefix = {4} if native_revision else ({6} if count_repair else ({4, 6} if repair else set()))
             if native and case["masked_message_indices"] != sorted(masked_prefix):
                 raise ValueError("native retry mask annotation differs from its episode")
             if any(
@@ -170,7 +184,7 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 bool(mask) and index in masked_prefix
                 for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True)
             )
-            if (repair or count_repair) and masked_prefix_tokens == 0:
+            if (repair or count_repair or native_revision) and masked_prefix_tokens == 0:
                 raise ValueError("incorrect draft context has no renderer-sampled tokens to mask")
             if sample["loss_mask"] != expected or not any(expected):
                 raise ValueError("loss mask differs from renderer-sampled assistant tokens")
@@ -188,6 +202,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 raise ValueError("training omits one of read/write/stop actions")
             if native and ("agent_message.send" not in decoded or "receiver_role" not in decoded):
                 raise ValueError("native child training omits its parent receipt")
+            if native_revision and case["correction_reasoning"] not in decoded:
+                raise ValueError("native self-review correction reasoning is absent from supervised tokens")
             records.append(
                 {
                     "slug": case["slug"],
@@ -202,6 +218,9 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "semantic_repair": case["family"] == "semantic_repair",
                     "native_child": native,
                     "native_count_repair": count_repair,
+                    "native_format_repair": case["family"] == "native_format_repair",
+                    "native_semantic_repair": case["family"] == "native_semantic_repair",
+                    "native_revision_reasoning_supervised": native_revision,
                     "receipt_send_stub_only": native,
                     "native_child_execution_verified": False,
                 }

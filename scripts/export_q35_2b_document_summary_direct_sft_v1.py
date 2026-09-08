@@ -20,7 +20,8 @@ from export_q35_2b_document_summary_live_revision_sft_v2 import _load_fixture_mo
 SCHEMA_VERSION = "qwen35-2b-document-summary-direct-sft/v1"
 OBJECTIVE = "grounded_english_direct_chapter_key_bullets"
 REPO = Path(__file__).resolve().parents[1]
-NATIVE_FAMILIES = {"native_child", "native_count_repair"}
+NATIVE_REVISION_FAMILIES = {"native_format_repair", "native_semantic_repair"}
+NATIVE_FAMILIES = {"native_child", "native_count_repair"} | NATIVE_REVISION_FAMILIES
 
 
 def _native_context(path):
@@ -58,7 +59,8 @@ def _native_context(path):
     raise ValueError("no observed depth-one child runtime prefix")
 
 
-def _native_messages(runtime, chapter, base_case, index, *, count_repair=False):
+def _native_messages(runtime, chapter, base_case, index, *, count_repair=False,
+                     revision_kind=None, repair_draft=None, repair_reasoning=None):
     from document_summary_v1.taskset import MARKDOWN_CHILD_RECOVERY_FEEDBACK, _markdown_jobs
     from export_q35_2b_document_summary_owner_sft_v1 import _reply, _tool
 
@@ -69,6 +71,10 @@ def _native_messages(runtime, chapter, base_case, index, *, count_repair=False):
     summary, source = chapter["summary"], base_case["source"]
     budget = int(sum(len(p["text"].split()) for p in chapter["paragraphs"]) * 0.8)
     words = sum(len(line[2:].split()) for line in summary.splitlines())
+    if revision_kind is not None and (
+            revision_kind not in NATIVE_REVISION_FAMILIES or count_repair
+            or not repair_draft or repair_draft == summary or not repair_reasoning):
+        raise ValueError("native revision needs a distinct draft and reviewed correction, without a count repair")
     if count_repair and not words <= budget < len(summary):
         raise ValueError("count correction needs a valid word count exceeding the allowance only in characters")
     write_code = (f"summary_text = {summary!r}\ncharacters_written = "
@@ -79,8 +85,22 @@ def _native_messages(runtime, chapter, base_case, index, *, count_repair=False):
               f"source_text = Path({job['source_path']!r}).read_text(encoding='utf-8')\n"
               "print(source_text, end='')", "Read the complete assigned source before selecting the key points."),
         _result("read-source", source),
+    ]
+    if revision_kind is not None:
+        messages += [
+            _tool("write-summary-draft", f"draft_text = {repair_draft!r}\n"
+                  f"print(Path({job['summary_path']!r}).write_text(draft_text, encoding='utf-8'))",
+                  "Save this draft as the chapter summary.", trainable=False),
+            _result("write-summary-draft", str(len(repair_draft)) + "\n"),
+            _tool("read-saved-draft", f"saved_draft = Path({job['summary_path']!r}).read_text(encoding='utf-8')\n"
+                  "print(saved_draft, end='')",
+                  "Before reporting completion, inspect what was saved against the complete source already read. "
+                  "A successful write does not establish useful key bullets or factual coverage."),
+            _result("read-saved-draft", repair_draft),
+        ]
+    messages += [
         _tool("write-summary", write_code,
-              "Select the main ideas from this chapter, preserve qualifications and event order, "
+              repair_reasoning or "Select the main ideas from this chapter, preserve qualifications and event order, "
               "and write 3-5 concise English bullets. Do not supply events or conclusions from outside the source."),
         _result("write-summary", str(len(summary)) + "\n"),
     ]
@@ -106,12 +126,15 @@ def _native_messages(runtime, chapter, base_case, index, *, count_repair=False):
         _reply("Done.", "The native send succeeded and queued the receipt. That does not prove the owner "
                "has consumed it. My assigned work is finished; stop without resending, polling or rewriting."),
     ]
-    family = "native_count_repair" if count_repair else "native_child"
+    family = revision_kind or ("native_count_repair" if count_repair else "native_child")
     case = dict(base_case, slug=f"{chapter['slug']}-{family.replace('_', '-')}",
                 base_slug=chapter["slug"], family=family, native_job=job,
                 word_budget=budget, summary_word_count=words,
                 receipt_observation="scripted_queued_status_not_live_delivery",
-                masked_message_indices=[6] if count_repair else [])
+                masked_message_indices=[4] if revision_kind else ([6] if count_repair else []))
+    if revision_kind is not None:
+        case.update(incorrect_draft=repair_draft, correction_reasoning=repair_reasoning,
+                    revision_provenance="authored_self_review_before_receipt_not_native_gate_feedback")
     return messages, case
 
 
@@ -290,9 +313,12 @@ def _semantic_repairs(path, chapters, cases):
 
 def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path,
            teacher_additions: Path | None = None, include_format_repairs: bool = False,
-           semantic_repairs: Path | None = None, native_child_trace: Path | None = None):
+           semantic_repairs: Path | None = None, native_child_trace: Path | None = None,
+           include_native_revisions: bool = False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
+    if include_native_revisions and native_child_trace is None:
+        raise ValueError("native revisions require the observed child interface")
     trace, context, original_budget = _context(trace_path)
     repair_feedback = _format_repair_feedback(trace) if include_format_repairs else None
     fixture = _load_fixture_module()
@@ -388,6 +414,30 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                     "family": case["family"], "role": "child", "objective": OBJECTIVE,
                 })
                 cases.append(case)
+        if include_native_revisions:
+            native_revisions = [
+                (chapter, base_case,
+                 " ".join(" ".join(p["text"] for p in chapter["paragraphs"]).split()[:350]) + "\n",
+                 "The saved prose copies source text instead of selecting the chapter's key points. "
+                 "Use the complete source, not just its opening; preserve main conclusions or event order and "
+                 "essential qualifications. Replace it with 3-5 concise, source-grounded English bullets.",
+                 "native_format_repair")
+                for chapter, base_case in zip(chapters, base_cases, strict=True)
+            ]
+            native_revisions += [(chapter, base_case, draft, reasoning, "native_semantic_repair")
+                                 for chapter, base_case, draft, _, reasoning in reviewed_repairs]
+            indices = {chapter["slug"]: index for index, chapter in enumerate(chapters)}
+            for chapter, base_case, draft, reasoning, family in native_revisions:
+                messages, case = _native_messages(
+                    runtime, chapter, base_case, indices[chapter["slug"]],
+                    revision_kind=family, repair_draft=draft, repair_reasoning=reasoning)
+                rows.append({
+                    "messages": messages, "tools": json.dumps(native_tools, sort_keys=True),
+                    "task_key": f"summary-direct-{case['slug']}",
+                    "trace_id": f"summary-direct-authored:{case['slug']}",
+                    "family": family, "role": "child", "objective": OBJECTIVE,
+                })
+                cases.append(case)
     if len({r["task_key"] for r in rows}) != len(rows):
         raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
@@ -442,6 +492,13 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
             native_count_repair_feedback="current_task_interception_feedback_after_repeated_success",
             incorrect_native_retry_masked=True,
         )
+        if include_native_revisions:
+            manifest.update(
+                native_format_repair_episodes=len(chapters),
+                native_semantic_repair_episodes=len(reviewed_repairs),
+                native_revision_provenance="authored_self_review_before_receipt_not_native_gate_feedback",
+                incorrect_native_draft_masked=True,
+            )
     (output_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
 
@@ -455,6 +512,7 @@ if __name__ == "__main__":
     parser.add_argument("--include-format-repairs", action="store_true")
     parser.add_argument("--semantic-repairs", type=Path)
     parser.add_argument("--native-child-trace", type=Path)
+    parser.add_argument("--include-native-revisions", action="store_true")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -467,6 +525,7 @@ if __name__ == "__main__":
                 include_format_repairs=args.include_format_repairs,
                 semantic_repairs=args.semantic_repairs,
                 native_child_trace=args.native_child_trace,
+                include_native_revisions=args.include_native_revisions,
                 output_dir=args.output_dir,
             ),
             indent=2,
