@@ -65,7 +65,7 @@ def _context(path):
     return [runtime, {"role": "user", "content": task.data.prompt}], trace["tools"]
 
 
-def _case(chapters, document_number, repair, *, wait_repair=False):
+def _case(chapters, document_number, repair, *, wait_repair=False, start_repair=False):
     count = 1 + document_number % 4
     selected = [chapters[(document_number * 3 + i) % len(chapters)] for i in range(count)]
     if document_number % 2:
@@ -90,8 +90,8 @@ def _case(chapters, document_number, repair, *, wait_repair=False):
             }, "valid": False})
         deliveries.append({"worker": worker, "payload": payload, "valid": True})
     return {
-        "task_key": f"{document['document_id']}:{'wait-repair' if wait_repair else 'repair' if repair else 'clean'}",
-        "family": ("owner_wait_repair" if wait_repair else
+        "task_key": f"{document['document_id']}:{'start-repair' if start_repair else 'wait-repair' if wait_repair else 'repair' if repair else 'clean'}",
+        "family": ("owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
                    "owner_schema_receipt_repair" if repair else "owner_delegation_fanin"),
         "index": index, "schema_repair": repair, "deliveries": deliveries,
         "wait_repair": wait_repair,
@@ -99,6 +99,8 @@ def _case(chapters, document_number, repair, *, wait_repair=False):
         "chapters": selected,
         "summaries": {worker: c["summary"] for worker, c in zip(jobs, selected, strict=True)},
         "authorship": "scripted_training_episode_not_on_policy_or_observed_child_execution",
+        **({"start_repair": "repetition" if document_number % 2 == 0 else "premature_wait"}
+           if start_repair else {}),
     }
 
 
@@ -114,9 +116,23 @@ def _poll_handles(names):
 
 def _messages(context, case):
     messages = copy.deepcopy(context)
+    start_repair = case.get("start_repair")
+    if start_repair:
+        incorrect = _reply(
+            "" if start_repair == "repetition" else "Waiting for the chapter workers' receipts.",
+            "Do not wait inside an IPython sleep loop.\n" * 3
+            if start_repair == "repetition" else "The children will send their results; wait now.",
+        )
+        incorrect["trainable"] = False
+        messages += [incorrect, {"role": "user", "content":
+            "No tool action has run and no child has been started. Continue the original task "
+            "from this state. Repeating a rule or declaring that you are waiting does not "
+            "perform an action. The task is unfinished; do not inspect or change its completion gate."}]
     messages += [
         _tool("read-index", f"import json\nfrom pathlib import Path\n"
               f"index = json.loads(Path({INDEX_PATH!r}).read_text(encoding='utf-8'))\nprint(json.dumps(index, indent=2))",
+              ("No index or child handle exists yet. Read the index now; waiting belongs after admission. "
+               if start_repair else "") +
               "Read and display the index before using its fields. The source chapters belong to children."),
         _result("read-index", json.dumps(case["index"], indent=2) + "\n"),
     ]
@@ -201,7 +217,7 @@ def _messages(context, case):
 
 
 def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_dir: Path,
-           *, include_wait_repairs=False):
+           *, include_wait_repairs=False, include_start_repairs=False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     context, tools = _context(runtime_trace)
@@ -222,6 +238,8 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
     cases = [_case(chapters, i, repair) for i in range(12) for repair in (False, True)]
     if include_wait_repairs:
         cases += [_case(chapters, i, False, wait_repair=True) for i in range(12)]
+    if include_start_repairs:
+        cases += [_case(chapters, i, False, start_repair=True) for i in range(12, 24)]
     owner_rows = [{"messages": _messages(context, c), "tools": json.dumps(tools),
                    "task_key": c["task_key"], "trace_id": c["task_key"], "family": c["family"],
                    "role": "coordinator", "objective": OBJECTIVE} for c in cases]
@@ -243,6 +261,11 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         "incorrect_wait_action_masked": include_wait_repairs,
         "wait_repair_context": ("authored_finite_two_poll_analogue_not_execution_of_observed_infinite_loop"
                                 if include_wait_repairs else None),
+        "start_repair_episodes": sum(bool(c.get("start_repair")) for c in cases),
+        "start_repair_context": ("authored_short_repetition_or_premature_wait_with_no_executed_action"
+                                 if include_start_repairs else None),
+        "start_repair_feedback": "authored_state_correction_not_native_gate_feedback" if include_start_repairs else None,
+        "incorrect_start_response_masked": include_start_repairs,
         "runtime_context": {"path": str(runtime_trace.resolve()), "sha256": sha256_file(runtime_trace),
                             "usage": "runtime prefix and tool schema only; no evaluation sources or outputs"},
         "training_source": {"path": str(training_dir.resolve()),
@@ -263,6 +286,8 @@ if __name__ == "__main__":
     for name in ("runtime-trace", "training-dir", "rehearsal-dir", "output-dir"):
         parser.add_argument(f"--{name}", type=Path, required=True)
     parser.add_argument("--include-wait-repairs", action="store_true")
+    parser.add_argument("--include-start-repairs", action="store_true")
     args = parser.parse_args()
     print(json.dumps(export(args.runtime_trace, args.training_dir, args.rehearsal_dir, args.output_dir,
-                            include_wait_repairs=args.include_wait_repairs), indent=2))
+                            include_wait_repairs=args.include_wait_repairs,
+                            include_start_repairs=args.include_start_repairs), indent=2))

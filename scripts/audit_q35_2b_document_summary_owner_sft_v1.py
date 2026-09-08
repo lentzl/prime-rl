@@ -37,8 +37,15 @@ def validate_dataset(path):
     cases = json.loads((path / "CASES.json").read_text())
     owner_counts = Counter(c["family"] for c in cases)
     wait_count = owner_counts.get("owner_wait_repair", 0)
+    start_count = owner_counts.get("owner_start_repair", 0)
     if (not cases or set(owner_counts) - {
-            "owner_delegation_fanin", "owner_schema_receipt_repair", "owner_wait_repair"}
+            "owner_delegation_fanin", "owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair"}
+            or (start_count and (
+                manifest.get("start_repair_episodes") != start_count
+                or manifest.get("incorrect_start_response_masked") is not True
+                or manifest.get("start_repair_context") !=
+                "authored_short_repetition_or_premature_wait_with_no_executed_action"
+                or manifest.get("start_repair_feedback") != "authored_state_correction_not_native_gate_feedback"))
             or (wait_count and (
                 manifest.get("wait_repair_episodes") != wait_count
                 or manifest.get("incorrect_wait_action_masked") is not True
@@ -83,10 +90,15 @@ def verify_masks(row, case):
     if case is not None:
         schema_repair = case["schema_repair"]
         wait_repair = case.get("wait_repair", False)
-        family = ("owner_wait_repair" if wait_repair else
+        start_repair = case.get("start_repair")
+        family = ("owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
                   "owner_schema_receipt_repair" if schema_repair else "owner_delegation_fanin")
-        if case["family"] != family or (wait_repair and schema_repair):
+        if case["family"] != family or sum(map(bool, (wait_repair, schema_repair, start_repair))) > 1:
             raise ValueError("inconsistent owner repair family")
+        if start_repair:
+            if start_repair not in ("repetition", "premature_wait"):
+                raise ValueError("invalid start-repair boundary")
+            expected = {2}
         if schema_repair:
             expected = {4}
         if wait_repair:

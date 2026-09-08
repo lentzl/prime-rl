@@ -20,7 +20,9 @@
       "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Training receipt copied separately and compared byte-for-byte.",
       "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/TRAINING-RECEIPT.json",
       "archive_verified_utc": "2026-09-08 17:17 UTC",
-      "remote_removal_status": "not_removed; active R9 source",
+      "fresh_recovery_recheck": "After the R2/R9 trial, local stat showed an iCloud dataless placeholder and a fresh shasum read returned the empty-content digest, not the historical verified weight hash. Remote R8 still matches c481f251. Do not remove the remote weight based on the historical local check.",
+      "replacement_archive_in_progress": "/Users/ilkkalehto/.local/share/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8",
+      "remote_removal_status": "not_removed; fresh non-iCloud recovery verification pending",
       "remote_removal_scope": "Retained on-host. No removal authorized beside live training; recheck references and recovery at a normal idle boundary if space is needed."
     },
     {

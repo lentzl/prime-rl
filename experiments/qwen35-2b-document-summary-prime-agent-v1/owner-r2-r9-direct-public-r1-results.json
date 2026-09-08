@@ -1,5 +1,5 @@
 {
-  "status": "launched_startup_not_a_completed_native_episode",
+  "status": "completed_budget_stopped_owner_regression_no_valid_chapter_assignment",
   "run_name": "owner-r2-r9-direct-public-r1",
   "frozen_code": {
     "prime_rl": "c3a8cc9ccd35ccacf82c8ec4392fddd34e3aec7f",
@@ -31,25 +31,51 @@
     "inherited_DUAL_flags_cleared": true,
     "expected_depth_zero_role": "owner R2",
     "expected_child_role": "worker R9",
-    "actual_native_routes_verified": false
+    "actual_native_routes_verified": true,
+    "completed_model_calls": 32,
+    "owner_completed_calls": 22,
+    "child_completed_calls": 10,
+    "successful_routed_responses": 32,
+    "stop_condition": "max_turns",
+    "trace_errors": [],
+    "nested_call_error": "The final child stream ended with ClientConnectionResetError: Cannot write to closing transport. This is separate from the earlier observed owner/task failures; the envelope's empty errors list is not an error-free native execution claim.",
+    "first_owner_response": {"finish_reason": "length", "completion_tokens": 8192, "duration_seconds": 274.618, "tool_calls": 0},
+    "agent_duration_seconds": 455.9776711463928,
+    "timing_caution": "Concurrent model durations exhaust the aggregate agent duration; its derived zero harness time is not a useful overhead measurement.",
+    "process_and_gpu_drain_verified_at_utc": "2026-09-08 18:09:15 UTC"
   },
   "evidence": {
     "host_result": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r2-r9-direct-public-r1",
-    "local_result": "outputs/summary-owner-r2-r9/owner-r2-r9-direct-public-r1"
+    "local_result": "outputs/summary-owner-r2-r9/owner-r2-r9-direct-public-r1",
+    "trace_sha256": "2d46539a0a435a7205c01721d1778bc7764eb81c12e7bbe62a78ec7c1d6708dd",
+    "receipt_sha256": "df363356ea8b4cafec4f50ba2df4041f7a2a2d82d64a49b05d606705695c82b6",
+    "routing_sha256": "94835e80b96c0eb5e97573fa90599b15e23f8670899562fdf056a87900601cff",
+    "summary_sha256": "3f1c201f016879a33e59ba1238a896119a10c8f57e268572ac08fe4737e740ad",
+    "handoffs_sha256": "2f63c04e4daa42eb0e48808c86431d677751c3187745eba2376daa540b6eb68c",
+    "native_session_preservation": "Root JSONL snapshot at 18:03 is partial. Final intercepted trace contains both root and child model/action branches, including rewrites. The runtime container was already removed by lifecycle cleanup when final native-session recovery was attempted; no complete child-native JSONL is claimed."
   },
   "comparison": {
     "previous": "owner-r1-r7-direct-public-r1-results.json",
     "same_development_chapters_and_sampling": true,
     "confound": "Both role weights and role-aware task/recovery wording changed since owner R1/R7. Whole-system comparison, not isolated weight attribution."
   },
-  "review_pending": [
-    "Actual owner delegation and retained handles",
-    "Turn ending instead of blocking polling, with accumulated receipts preserved",
-    "Child source read, faithful bullets, saved files, exact parent send and stopping",
-    "Separate queued sends, owner-visible received messages and owner processing",
-    "Unchanged index-order assembly and full source-based semantic review",
-    "Errors, native stop reason and resource timing"
-  ],
+  "observed_behavior": {
+    "owner_index_reads": 0,
+    "correctly_named_chapter_admissions": 0,
+    "unrelated_child_admissions": 1,
+    "retained_assignment_handles": 0,
+    "chapter_source_reads": 0,
+    "chapter_summary_files": 0,
+    "queued_matching_receipts": 0,
+    "owner_received_matching_receipts": 0,
+    "owner_processed_matching_receipts": 0,
+    "assembled_document": false,
+    "artifact_reward": 0.0,
+    "owner_failure": "First response repeats the prohibition on IPython sleep loops until its length limit without an action. After completion feedback, owner spawns an unnamed unrelated child instructed to inspect completion_gate.py and assemble. It never reads the index or retains the spawn handle, then alternates nonexistent observation API, undefined handle and invalid polling-loop repairs despite 15 injected recovery messages.",
+    "child_failure": "R9 receives the owner's invalid gate-inspection/assembly assignment, reads completion_gate.py, mistakes reading code for defining its variables, and attempts assembly with undefined or missing summaries. Placeholder proposals do not yield saved files. No valid chapter task reaches R9.",
+    "worker_semantic_assessment": "Not measured: no assigned chapter source was read and no chapter summary exists. This trial cannot establish improvement or regression in R9 chapter summarization."
+  },
+  "next": "Repair forward from owner R2 with explicit task-start and repetition-recovery lessons, retaining source-checked owner handoff/assembly and acquired role rehearsal. Inspect training masks and actual replay before a shorter lower-rate block; then retry the whole native task with worker R9 fixed. No rollback, worker downgrade or semantic promotion follows from this single mixed-system trial.",
   "semantic_promotion": false,
   "launch_command": "( for summary_flag in ${!DUAL_@}; do unset \"$summary_flag\"; done; cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = c3a8cc9ccd35ccacf82c8ec4392fddd34e3aec7f && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && date -u && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test ! -e /home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r2-r9-direct-public-r1 && UV_BIN=/home/ubuntu/.local/bin/uv UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv INFERENCE_BIN=/home/ubuntu/rlm/prime-rl/.venv/bin/inference PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers DOCUMENT_SUMMARY_CONFIG=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml scripts/run_q35_2b_document_summary_smoke_v1.sh /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2/weights/step_64 /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-native-chapters-step128-r9/weights/step_128 owner-r2-r9-direct-public-r1 owner-r2-worker-r9-native-corrections )"
 }

@@ -291,6 +291,10 @@ or changing the chapter task; measure actual throughput and timeout effects.
 Initialize the routing audit as an empty event log before starting the proxy:
 direct-engine runs legitimately leave it empty, and final receipt hashing must
 not fail solely because no role-routing event was emitted.
+The role proxy records a forwarded request after its upstream response returns.
+An empty routing log during generation does not prove no model call was issued.
+Check the engine's running requests/token throughput and native processes;
+the evaluator's last installation log can remain unchanged during live generation.
 The summary evaluation driver exports exact evidence-workflow text to its
 `document/artifacts` directory. Missing files remain absent; readable exports are
 diagnostic artifacts and do not change the native trace or semantic verdict.
@@ -378,6 +382,13 @@ The owner audit replays actual file I/O with an explicitly declared admission
 stub, verifies preserved rehearsal and the real trainer/tokenizer's complete
 sequences and loss masks. Stubbed admission is not evidence of live delegation.
 The existing training wrapper requires this matching audit before an owner update.
+For owner task-start failures, `--include-start-repairs` adds authored short
+repetition and premature-wait contexts before any tool action. Mask the entire
+incorrect assistant response, then teach index reading and the complete existing
+handoff sequence. These are TRAIN-only corrective analogues, not native successes
+or copied evaluation output. A routed child request alone does not establish a
+valid chapter assignment: inspect its actual name and prompt before attributing
+missing summaries to the worker's summarization ability.
 The owner and native-child exporters/audits import the summary
 taskset. When using the shared host environment with `--no-sync`, include both
 the checkout's `deps/verifiers/environments/document_summary_v1` and
