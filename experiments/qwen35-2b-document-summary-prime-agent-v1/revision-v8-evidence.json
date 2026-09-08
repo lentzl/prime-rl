@@ -1,0 +1,234 @@
+{
+  "schema_version": "qwen35-2b-document-summary-live-revision-evidence/v1",
+  "status": "bounded_revision_line_stopped_no_promotion",
+  "repository": {
+    "branch": "exp/document-summary-live-revision-v2",
+    "evaluation_surface_commit": "87102a7861ba8d1e6356ed9c31eed18befe9abd2",
+    "verifiers_commit": "d0e515003e5cab57137d1fbed52553a51f9c51c8"
+  },
+  "training": {
+    "starting_checkpoint": {
+      "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-margin-revision-sft-v4/h176-summary-margin-revision-sft12-step4-v4/weights/step_4",
+      "model_sha256": "5abbd2b43f8748cd17192a0dca1e7efbd3eb2a195acd87db818cac19bee46a4e"
+    },
+    "bounded_rounds": [
+      {
+        "run": "h176-summary-margin-revision-sft12-step4-lr1e6-r1-v6",
+        "updates": 4,
+        "learning_rate": 1e-06,
+        "dataset_manifest_sha256": "adc909fdd419d59a2ade076ab81f68eddee744f617012519304db39d6decd2b3",
+        "dataset_parquet_sha256": "70ef4ed550c9b1e31ad554dca5d635dd600158c6887259dbfe3e2e7c8a082544",
+        "loss_by_step": [
+          1.0438343286514282,
+          0.9527638554573059,
+          0.8748756647109985,
+          0.810570240020752
+        ],
+        "model_sha256": "a4a310427ee66253fe7424873c855f5a3b8a46e6c5001310a7aa385157feaa86"
+      },
+      {
+        "run": "h176-summary-margin-revision-sft12-step4-lr1e6-r2-v7",
+        "updates": 4,
+        "learning_rate": 1e-06,
+        "dataset_manifest_sha256": "5139ce6367ca282433851f614a7236de9f17586d37eb86f1dd6cfda180d446ba",
+        "dataset_parquet_sha256": "f191130cc44c05257aea41fa97deb7b2994c4993c62d2b2573263738bda2d4f8",
+        "loss_by_step": [
+          0.7229561805725098,
+          0.6647576093673706,
+          0.6157150268554688,
+          0.5665163993835449
+        ],
+        "model_sha256": "dc57301c48fdeb9191fea5bc810134e1a05d489ec936e5f4aaf464617c1017b8"
+      },
+      {
+        "run": "h176-summary-margin-revision-sft12-step4-lr1e6-r3-v8",
+        "updates": 4,
+        "learning_rate": 1e-06,
+        "dataset_manifest_sha256": "1608f7e3dbee7572d870022e31fbeb344f6d22ca765bd5707b1eee2c3b17c50b",
+        "dataset_parquet_sha256": "d504a659554229dbf8366c991aca0f9ac70e30d1a6536d8d26f7af896df15c09",
+        "renderer_audit_sha256": "6631da3207a84f482d58ed76f2ed29894c439a3cc5e647a21083e125564322da",
+        "loss_by_step": [
+          0.5819992423057556,
+          0.5319216251373291,
+          0.490266352891922,
+          0.4503864347934723
+        ],
+        "gradient_norm_by_step": [
+          42.25,
+          40.0,
+          38.25,
+          37.0
+        ],
+        "nan_count_by_step": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "model_sha256": "2a8575a01814af2cd4914f9984d0001d909f89c1414534e90220b476df64b28c"
+      }
+    ],
+    "total_updates_from_starting_checkpoint": 12,
+    "final_round_contract": {
+      "rows": 12,
+      "distinct_conversation_payloads": 3,
+      "on_policy_source_model_sha256": "dc57301c48fdeb9191fea5bc810134e1a05d489ec936e5f4aaf464617c1017b8",
+      "prior_assistant_draft_trainable": false,
+      "corrected_assistant_target_trainable": true,
+      "observed_revision_outputs_trainable": false,
+      "prime_agent_tools_available_on_initial_turn": true,
+      "tools_removed_on_revision_turn": true,
+      "broad_skill_claim": false
+    }
+  },
+  "development_results": [
+    {
+      "chapter": "scope",
+      "trace_sha256": "0ee681008863d1ff488f404cec2a62402152db563389bbd493c9858576331ee4",
+      "trace_id": "d424823cc81548f39102f58d8785dbc6",
+      "reward": 1.0,
+      "bullet_count_score": 1.0,
+      "concise_score": 1.0,
+      "noncopy_score": 1.0,
+      "fact_coverage": 1.0,
+      "final_words": 76,
+      "full_pass": true,
+      "remaining_defects": []
+    },
+    {
+      "chapter": "operations",
+      "trace_sha256": "2f4827623821959d536476bd0867e42a8772e67f55a059fc67e6a9f460e36f65",
+      "trace_id": "cb52bc51ec5e4ef5816706273b291442",
+      "reward": 0.0,
+      "bullet_count_score": 1.0,
+      "concise_score": 1.0,
+      "noncopy_score": 1.0,
+      "fact_coverage": 0.5,
+      "final_words": 67,
+      "full_pass": false,
+      "remaining_defects": [
+        "P0 paging is no longer explicit about being immediate",
+        "handoff omits ticket identifier",
+        "handoff omits last completed action",
+        "handoff omits next required action"
+      ]
+    },
+    {
+      "chapter": "exceptions",
+      "trace_sha256": "89cdf482ce16814c75ba0d063eec81a645cf0a716a463d45f6c3f309d31798f9",
+      "trace_id": "f0ddcde8e74440d79bed1c509350ef62",
+      "reward": 0.0,
+      "bullet_count_score": 1.0,
+      "concise_score": 0.0,
+      "noncopy_score": 1.0,
+      "fact_coverage": 0.75,
+      "final_words": 78,
+      "full_pass": false,
+      "remaining_defects": [
+        "offline-log rule omits that it applies during a ticket-system outage",
+        "summary remains above the 68-word budget"
+      ]
+    }
+  ],
+  "confirmation": {
+    "document": "cedar-facilities-handbook-confirmation-v1",
+    "sampling_seed": 20260908,
+    "candidate_model_sha256": "2a8575a01814af2cd4914f9984d0001d909f89c1414534e90220b476df64b28c",
+    "baseline_model_sha256": "5abbd2b43f8748cd17192a0dca1e7efbd3eb2a195acd87db818cac19bee46a4e",
+    "comparison_scope": "cumulative_margin_curriculum_effect_not_single_round_attribution",
+    "results": [
+      {
+        "chapter": "intake",
+        "budget_words": 71,
+        "baseline": {
+          "trace_sha256": "a19e1f83a431e856127117e14acfb6c9480e1aef704e4aaf77bedf54cd2230c3",
+          "trace_id": "bf0ee0d67ed94574af488a6a80b846b9",
+          "reward": 0.0,
+          "fact_coverage": 0.4,
+          "concise_score": 1.0,
+          "final_words": 54,
+          "full_pass": false
+        },
+        "candidate": {
+          "trace_sha256": "ec3b615c616da5d18dfa6b0722d21f470494f1602adbad5a15d630410a8daacc",
+          "trace_id": "c03aba66c17743249a19396f917aa8e6",
+          "reward": 0.0,
+          "fact_coverage": 0.8,
+          "concise_score": 1.0,
+          "final_words": 55,
+          "full_pass": false,
+          "remaining_defects": [
+            "urgent hazard rule omits filing the ticket within thirty minutes"
+          ]
+        }
+      },
+      {
+        "chapter": "completion",
+        "budget_words": 63,
+        "baseline": {
+          "trace_sha256": "9451e667e7bbb55112a0b6f9df27366f0ac7304d49e732e4ff0419e575fd76f1",
+          "trace_id": "582345109e174cd4b9ff3322160f2030",
+          "reward": 0.0,
+          "fact_coverage": 0.4,
+          "concise_score": 0.0,
+          "final_words": 68,
+          "full_pass": false
+        },
+        "candidate": {
+          "trace_sha256": "95c143d4cecf84589e23ead00fd78289fc48c39634579d45e831ba3353258fb3",
+          "trace_id": "33b6d787ee6a412398956f37604c42a9",
+          "reward": 0.0,
+          "fact_coverage": 0.4,
+          "concise_score": 0.0,
+          "final_words": 67,
+          "full_pass": false,
+          "remaining_defects": [
+            "borrowed part is not kept linked to donor equipment",
+            "technician is omitted as the actor who tests and records the measurement",
+            "final claim says four closure details although the source lists three",
+            "summary remains above the 63-word budget"
+          ]
+        }
+      },
+      {
+        "chapter": "audit",
+        "budget_words": 76,
+        "baseline": {
+          "trace_sha256": "6a763ee02dc3b2bcf9c8ff09314d89bc09ed5983814e311436e81c480a259162",
+          "trace_id": "b6dbd06080e14f05865a6ef8e2c84da6",
+          "reward": 0.0,
+          "fact_coverage": 0.6,
+          "concise_score": 0.0,
+          "final_words": 90,
+          "full_pass": false
+        },
+        "candidate": {
+          "trace_sha256": "e9c2c852ab3bcb9d1a70d32024911b26df2df4dbd9d7b3893c682bb8abf6d6bd",
+          "trace_id": "dbb328474db541eea9b1c9a1c5ba7ffd",
+          "reward": 0.0,
+          "fact_coverage": 0.8,
+          "concise_score": 0.0,
+          "final_words": 82,
+          "full_pass": false,
+          "remaining_defects": [
+            "paper-form rule omits that it applies during an outage",
+            "supervisor stamping no longer explicitly records the start time",
+            "summary remains above the 76-word budget"
+          ]
+        }
+      }
+    ],
+    "candidate_full_passes": 0,
+    "baseline_full_passes": 0,
+    "chapters_with_higher_candidate_coverage": 2,
+    "chapters_with_unchanged_candidate_coverage": 1
+  },
+  "decision": {
+    "promote": false,
+    "continue_same_document_revision_training": false,
+    "run_additional_optimizer_updates_before_redesign": false,
+    "reason": "After twelve bounded updates the candidate fully passes one of three development chapters and zero of three reserved confirmation chapters. The candidate shows partial cumulative transfer on two confirmation chapters but still trades compression against omitted obligations.",
+    "retained_capability": "The Prime Agent path reliably elicits direct bullet summaries and a second text-only revision without tool calls; the remaining failure is semantic planning under compression, not interface selection.",
+    "next_direction": "Keep Prime Agent as the harness and add the smallest evidence-plan-before-compression scaffold or curriculum representation: explicitly retain source obligations and qualifications, then realize the final concise bullets. Validate it without updating weights before considering a new training line."
+  }
+}
