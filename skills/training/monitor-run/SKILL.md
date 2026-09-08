@@ -647,12 +647,28 @@ in-flight container.
 
 ### Publishing code when local Git ref scans stall
 
+Use `GIT_OPTIONAL_LOCKS=0` for read-only status/diff checks on cloud-managed
+checkouts; an optional index refresh can hold `index.lock` while file reads stall.
+If a lock blocks publication, identify its owning process and wait for or resolve
+that exact operation. Never remove a lock while its owner is still live.
+
 Before deleting a remote checkpoint in favor of a local archive, repeat the
 local byte-count and content-hash checks. An iCloud `dataless` placeholder and a
 historical matching hash do not prove that recovery bytes are currently readable.
 If the fresh read fails, retain the remote checkpoint and verify a complete copy
 outside the cloud-managed folder before cleanup. Do not claim data loss merely
 from placeholder metadata.
+
+When local space is tight, stream a complete run and its standalone receipt into
+a compressed archive outside iCloud instead of retaining a second unpacked copy.
+Before remote cleanup, stream-decompress through the gzip checksum, compare the
+exact regular-file set and every content hash with the host, and check symlink
+targets. Hash the archive itself and record its recovery path. Do not confuse a
+completed transfer or successful archive listing with verified recovery bytes.
+An idle host can also perform CPU preparation when local source imports stall
+on cloud-file reads. Pin the same source/data hashes and exact script snapshot;
+keep that provenance distinct from a clean checkout, and never do this beside
+live training or inference. Preserve any partially completed local attempt.
 
 If a push or bundle stalls while enumerating local refs, inspect its exact
 process before retrying. A temporary bare repository can reuse the existing

@@ -11,6 +11,24 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2/weights/step_64/model.safetensors",
+      "archive": "/Users/ilkkalehto/.local/share/rlm/model-archive/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2.tar.gz",
+      "archive_sha256": "e4952910c231234396780167dd073af52dc8fad0413aee750527e238b85fe0d6",
+      "archive_bytes": 3518283226,
+      "sha256": "a1bf59637b0f52a5f5bb6408fa95792acff5c419de8c85dd7da824db895b6bfb",
+      "bytes": 4426558864,
+      "complete_run_and_receipt_archived": true,
+      "verification": "Compressed stream completed; gzip CRC checked through EOF, all 16 regular files independently hash-matched to the host, exact file set checked, logs/latest symlink target matched. Extracted model byte count and digest match. Archive has no dataless flag and is outside iCloud.",
+      "verification_record": "/Users/ilkkalehto/.local/share/rlm/model-archive/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-wait-step64-r2.verification.json",
+      "training_receipt_sha256": "c84ac54eeab9712d10231a73bad572bbe3e7dc608b485719e2a413c3f844a331",
+      "state_references": "Only completed R2 records and completed R3 source records. Current next-training parent is R3; no live GPU process at removal.",
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "remote_removal_scope": "Only exact R2 model.safetensors. All other host evidence, owner R1/R3 and worker R9 remain; complete R2 recovery retained.",
+      "removal_time_utc": "2026-09-08 19:37:25 UTC",
+      "removal_verified_utc": "2026-09-08 19:38:12 UTC",
+      "host_free_space_after_removal": "6.9 GiB"
+    },
+    {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r8/weights/step_128/model.safetensors",
       "sha256": "c481f2510fff862ece5ccbd33794b0029884f9125774cc755403a0b84d69e90f",

@@ -1,0 +1,126 @@
+{
+  "status": "training_live_first_29_updates_verified",
+  "latest_copied_metrics": {
+    "last_record_unix_seconds": 1788897093.508016,
+    "updates": 29,
+    "loss_and_gradient_records_ordered_and_finite": true,
+    "loss_nan_count": 0,
+    "latest_loss": 0.3722616732120514,
+    "latest_gradient_norm": 83.0,
+    "evidence": "outputs/summary-owner-sft-r4/run/metrics.jsonl"
+  },
+  "launch_time_utc": "2026-09-08 19:39:16 UTC",
+  "initial_progress": {
+    "verified_at_utc": "2026-09-08 19:41:33 UTC",
+    "updates": 3,
+    "latest_loss": 0.23610107600688934,
+    "latest_gradient_norm": 49.0,
+    "loss_nan_count": 0,
+    "first_three_displayed_losses_and_gradients_finite": true,
+    "gpu_utilization_percent": [100, 100],
+    "gpu_memory_mib_each": 11922,
+    "host_free_gib": 6.805988311767578,
+    "interpretation": "Optimizer activity only; native handle recovery remains unmeasured."
+  },
+  "run_name": "e33-summary-owner-handle-step64-r4",
+  "first_live_loop_verified_at_utc": "2026-09-08 19:40:13 UTC",
+  "training_loop_started_at_utc": "2026-09-08 19:40:01 UTC",
+  "processes": {
+    "uv_wrapper": 2631439,
+    "wrapper": 2631442,
+    "sft_uv": 2631466,
+    "torchrun": 2631495,
+    "trainer_ranks": [
+      2631502,
+      2631503
+    ]
+  },
+  "source": {
+    "name": "owner R3",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-start-step32-r3/weights/step_32",
+    "sha256": "3d5b1b89d3aeffe868d2df2b012054f6306d132cb35c878f816f9bfb93a1e5c2"
+  },
+  "worker_unchanged": {
+    "name": "R9",
+    "sha256": "07bb2f69b25d66715e515006f4373807e13f8f8d707c7ce03c48fec4339952b3"
+  },
+  "code": {
+    "repository_commit": "7045220dc7259b0e36152195a36eab1c7fdbe893",
+    "verifiers_commit": "1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1",
+    "synced_at_idle_utc": "2026-09-08 19:36:24 UTC",
+    "training_uses_clean_checkout_scripts": true,
+    "preparation_overlay": "/home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1/r4-execution-scripts",
+    "preparation_overlay_hashes_match_committed_training_scripts": true,
+    "script_sha256": {
+      "export_q35_2b_document_summary_owner_sft_v1.py": "27c033cd770eec854df4657a2cdc81776d849939c37c23cf02512a151ef27868",
+      "audit_q35_2b_document_summary_owner_sft_v1.py": "80902e20ae466b375966785050536683d4ccc166080e5d1fec7cc23654c2820e",
+      "run_q35_2b_document_decision_sft_v1.py": "1b340e2b01832917eefaddda8a248a5e410fdbde3b6fea610867b16f58a3eaaa"
+    }
+  },
+  "dataset": {
+    "path": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r4-handle",
+    "local_canonical_copy": "outputs/summary-owner-sft-r4-handle-host",
+    "rows": 612,
+    "owner_decision_prefixes": 564,
+    "full_teacher_episodes": 60,
+    "unchanged_rehearsal_rows": 48,
+    "prior_rows_preserved_all_fields": 504,
+    "prior_teacher_episodes_preserved": 48,
+    "new_handle_episodes": 12,
+    "new_handle_prefixes": 108,
+    "boundaries": {
+      "before_receipts": 6,
+      "last_receipt_arrived_but_unstored": 6
+    },
+    "failure_types": {
+      "join": 6,
+      "await": 6
+    },
+    "manifest_sha256": "95b25e7cac5f593d0d9f3cd2f88bab1e41c0c50d40a4d42d8e8b19670c898faf",
+    "cases_sha256": "f3e78bd438b21057ece849560016a78e3f15d80077b02c01e66e03e8cba7e822",
+    "parquet_sha256": "23bd736e1c15a4eb8b40c82ca567346785250efc78b1e1b160085acdb1ea9266",
+    "audit_sha256": "708ed75ac908e6df9d1ff660778faafc0a72d4a25af54f22df26748f552b3514",
+    "audit_completed_at_utc": "2026-09-08 19:29:33 UTC",
+    "sequence_tokens": 4031191,
+    "maximum_sequence_tokens": 8364,
+    "supervised_tokens": 62883,
+    "masked_incorrect_context_tokens": 14754,
+    "all_current_reasoning_supervised": true,
+    "wrong_action_history_source_and_tool_loss_zero": true,
+    "mask_mutations_rejected": 216,
+    "new_source_document_diversity": false,
+    "evaluation_chapters_or_outputs_added": false,
+    "authored_error_and_admission_provenance": "TRAIN-only handle misuse analogues; replayed exception type from declared admission stub, not native successful child trajectories or complete native tracebacks.",
+    "local_parallel_export": "outputs/summary-owner-sft-r4-handle eventually completed after iCloud imports stalled. CASES is byte-identical; local Arrow serialization and manifest path fields differ. The host-generated and audited dataset is canonical for this run."
+  },
+  "training": {
+    "optimizer_updates": 64,
+    "learning_rate": 5e-7,
+    "batch_size": 8,
+    "micro_batch_size": 1,
+    "packed_sequence_length": 16384,
+    "renderer_enable_thinking": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "fresh_optimizer": true,
+    "exact_resume": false,
+    "optimizer_cpu_offload": true,
+    "gpus": 2,
+    "timeout_seconds": 7200,
+    "campaign_gpu_hour_cap": null,
+    "rationale": "R3 recovered native task start and real receipt delivery but repeatedly misused handles. Continue cumulatively with explicit boundary corrections and twice the prior block's update count; no capability threshold or automatic rollback."
+  },
+  "validation": {
+    "dry_run_completed_at_utc": "2026-09-08 19:34:02 UTC",
+    "actual_wrapper_config_matches_prospective": true,
+    "config_sha256": "bc4ba64cb5c43c57ba86cf24f19966d08252c7e12588f99fc842036ea3decdf0",
+    "matching_audit_accepted_by_training_wrapper": true,
+    "existing_local_tests_passed": 47,
+    "ruff": "passed",
+    "skill_validation": "passed"
+  },
+  "storage": "Only redundant R2 host weight removed after complete compressed non-iCloud recovery verification; see checkpoint-archive.json. R1/R3/R9 and host evidence remain.",
+  "next": "After verified R4 completion, run the native R4/R9 task to inspect receipt storage, assigned-file reads, unchanged assembly and stopping; prepare the next worker's native semantic/bullet corrections from TRAIN sources during this run. No promotion from loss alone.",
+  "semantic_promotion": false,
+  "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 7045220dc7259b0e36152195a36eab1c7fdbe893 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 1c1c4d9e429d77afdd0cb5f97ed83f3992f408c1 && test -z \"$(nvidia-smi --query-compute-apps=pid --format=csv,noheader)\" && test \"$(df --output=avail -B1 /home/ubuntu/rlm | tail -n 1)\" -gt 5500000000 && test ! -e /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-handle-step64-r4 && date -u && PYTHONPATH=/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/scripts:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers/environments/document_summary_v1:/home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2/deps/verifiers UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python scripts/run_q35_2b_document_decision_sft_v1.py --repo /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 --source-model /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1/e33-summary-owner-start-step32-r3/weights/step_32 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r4-handle --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-owner-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-owner-sft-v1 --run-name e33-summary-owner-handle-step64-r4 --learning-rate 5e-7 --optimizer-updates 64 --checkpoint-interval 64 --enable-thinking --timeout 7200"
+}
