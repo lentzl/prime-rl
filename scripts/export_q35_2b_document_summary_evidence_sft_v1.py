@@ -137,17 +137,24 @@ def export(*, trace_path: Path, output_dir: Path):
             or any(b.casefold() == p["text"].casefold() for b in bullets for p in chapter["paragraphs"])
         ):
             raise ValueError(f"invalid summary length/format: {chapter['slug']}")
-        rows.append(
-            {
-                "messages": _messages(context, feedback, chapter, original_budget),
-                "tools": json.dumps(trace["tools"], sort_keys=True, separators=(",", ":")),
-                "task_key": f"summary-evidence-{chapter['slug']}",
-                "trace_id": f"summary-evidence-authored:{chapter['slug']}",
-                "family": f"summary_{chapter['family']}",
-                "role": "child",
-                "objective": OBJECTIVE,
-            }
-        )
+        episode = _messages(context, feedback, chapter, original_budget)
+        for phase in ("extraction", "realization"):
+            messages = copy.deepcopy(episode[:7] if phase == "extraction" else episode)
+            for index, message in enumerate(messages):
+                if message["role"] == "assistant":
+                    message["trainable"] = phase == "extraction" or index >= 8
+            rows.append(
+                {
+                    "messages": messages,
+                    "tools": json.dumps(trace["tools"], sort_keys=True, separators=(",", ":")),
+                    "task_key": f"summary-evidence-{chapter['slug']}-{phase}",
+                    "trace_id": f"summary-evidence-authored:{chapter['slug']}:{phase}",
+                    "phase": phase,
+                    "family": f"summary_{chapter['family']}",
+                    "role": "child",
+                    "objective": OBJECTIVE,
+                }
+            )
         cases.append(
             {
                 "document_id": chapter["slug"],
@@ -159,8 +166,8 @@ def export(*, trace_path: Path, output_dir: Path):
                 "summary_words": sum(len(b.split()) for b in bullets),
             }
         )
-    if len(rows) != 16 or len({r["task_key"] for r in rows}) != 16:
-        raise ValueError("expected sixteen distinct TRAIN documents")
+    if len(rows) != 32 or len({r["task_key"] for r in rows}) != 32:
+        raise ValueError("expected two TRAIN phases for each of sixteen documents")
     output_dir.mkdir(parents=True)
     parquet = output_dir / "train.parquet"
     Dataset.from_list(rows).to_parquet(str(parquet))
@@ -181,6 +188,8 @@ def export(*, trace_path: Path, output_dir: Path):
         "trajectory_kind": "authored_teacher_episode_not_on_policy_replay",
         "teacher_tool_results": "regenerated_from_authored_file_contents",
         "teacher_notes_training_only": True,
+        "prior_phase_assistant_messages_trainable": False,
+        "phase_counts": {"extraction": 16, "realization": 16},
         "renderer_enable_thinking": True,
         "distinct_documents": 16,
         "previous_training_sources_reused": 12,

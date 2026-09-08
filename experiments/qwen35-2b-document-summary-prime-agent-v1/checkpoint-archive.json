@@ -1,0 +1,29 @@
+{
+  "date": "2026-09-08",
+  "operation": "verified_local_archive_then_remove_remote_weight_file",
+  "reason": "free existing GPU-host storage for continued evidence curriculum; no additional service",
+  "retained_on_host": [
+    "protected lineages",
+    "pre-margin v4 comparison baseline",
+    "current v8 source candidate",
+    "all receipts/configs/traces"
+  ],
+  "files": [
+    {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-margin-revision-sft-v6/h176-summary-margin-revision-sft12-step4-lr1e6-r1-v6/weights/step_4/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-margin-revision-sft-v6/h176-summary-margin-revision-sft12-step4-lr1e6-r1-v6/weights/step_4/model.safetensors",
+      "sha256": "a4a310427ee66253fe7424873c855f5a3b8a46e6c5001310a7aa385157feaa86",
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "remote_removal_scope": "model.safetensors only"
+    },
+    {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-margin-revision-sft-v7/h176-summary-margin-revision-sft12-step4-lr1e6-r2-v7/weights/step_4/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-margin-revision-sft-v7/h176-summary-margin-revision-sft12-step4-lr1e6-r2-v7/weights/step_4/model.safetensors",
+      "sha256": "dc57301c48fdeb9191fea5bc810134e1a05d489ec936e5f4aaf464617c1017b8",
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "remote_removal_scope": "model.safetensors only"
+    }
+  ]
+}

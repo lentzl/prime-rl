@@ -199,7 +199,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-adaptive-cognition-sft/v3": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
-    "qwen35-2b-document-summary-evidence-sft/v1": 16,
+    "qwen35-2b-document-summary-evidence-sft/v1": 32,
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 24,
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
     "qwen35-2b-document-summary-live-revision-sft/v2": 12,
@@ -411,6 +411,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     schema_version = manifest.get("schema_version")
     contract = DATASET_CONTRACTS.get(schema_version)
     expected_family_count = {
+        "qwen35-2b-document-summary-evidence-sft/v1": 8,
         "qwen35-2b-document-utility-topology-sft/v1": 2,
         "qwen35-2b-document-hierarchy-remedial-sft/v1": 8,
         "qwen35-2b-document-utility-routed-sft/v1": 8,
