@@ -326,6 +326,15 @@ format feedback, not a raw gate diagnostic. Replay all file observations and use
 the real trainer/tokenizer audit to verify zero loss on the incorrect prefix,
 user/source text and tools, with no truncation. Never infer masking from parquet
 annotations alone or treat these authored drafts as on-policy model failures.
+For source-grounded semantic repairs, pass a reviewed TRAIN-only
+`--semantic-repairs` specification to the same exporter. It pins the existing
+chapter source, creates a format-valid but deliberately incorrect draft, and
+supervises the original reviewed summary with explicit correction reasoning.
+The revision request is authored user feedback, not an observed native semantic
+gate. Record that distinction; a format gate does not supply factual review.
+Both the draft and premature stop are masked. The real trainer audit covers
+`semantic_repair` as well as `format_repair`; annotation checks and file replay
+are preparation, not substitutes for verifying token loss and truncation.
 For local exporters using an isolated taskset runtime, invoke
 `uv run python /absolute/path/to/script.py`. Passing the script directly to
 `uv run` can rediscover its enclosing workspace and resolve unrelated,

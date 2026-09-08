@@ -79,6 +79,18 @@ correction opportunity on longer chapters; it is not a campaign resource quota.
 
 ## Training and interpretation
 
+`semantic-repairs-v1.json` specifies 14 authored correction states on existing
+TRAIN chapters. Each source is hash-pinned, each incorrect draft still satisfies
+the bullet contract, and each positive correction keeps the reviewed summary.
+The errors target quantities/units, negation, additional versus replacement
+requirements, causal inference, evidential independence and planned versus
+completed events. These are new teaching states, not additional source diversity
+or sampled student failures. The generic revision request is authored user
+feedback, not native gate feedback or an evaluation reference. The exporter masks
+the incorrect draft and premature stop; the real trainer audit must verify that
+masking and full context before use. The existing direct and format-repair rows
+remain unchanged in this prepared mixture.
+
 R3 completed 32 full-dense updates from R2 on 40 direct read/write/stop episodes:
 20 retained TRAIN cases and 20 complete public chapters. R4 preparation retains
 all 40 cases exactly and adds four reviewed chapters for 44 episodes; its planned

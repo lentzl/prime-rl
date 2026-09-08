@@ -65,7 +65,7 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 raise ValueError("case order differs from training rows")
             verify_file_observations(row, case, Path(temporary) / case["slug"])
             messages, tools = _renderer_messages(row["messages"]), _renderer_tools(row["tools"])
-            repair = case["family"] == "format_repair"
+            repair = case["family"] in {"format_repair", "semantic_repair"}
             roles = ["user", "user", "assistant", "tool"]
             if repair:
                 roles += ["assistant", "tool", "assistant", "user"]
@@ -117,7 +117,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "source_or_user_supervised_tokens": 0,
                     "incorrect_prefix_supervised_tokens": 0,
                     "incorrect_prefix_context_tokens": masked_prefix_tokens,
-                    "format_repair": repair,
+                    "format_repair": case["family"] == "format_repair",
+                    "semantic_repair": case["family"] == "semantic_repair",
                 }
             )
     result = {

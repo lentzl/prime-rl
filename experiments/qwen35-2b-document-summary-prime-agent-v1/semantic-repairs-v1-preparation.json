@@ -1,0 +1,38 @@
+{
+  "status": "local_export_and_file_replay_complete_real_trainer_audit_pending",
+  "date": "2026-09-08",
+  "proposed_continuation": "R6 descendant; no R7 launch or optimizer update claimed",
+  "rows": 110,
+  "retained_rows_unchanged_by_identity": 96,
+  "retained_cases_unchanged": 96,
+  "new_semantic_repair_rows": 14,
+  "unique_source_chapters": 48,
+  "new_source_chapters": 0,
+  "family_counts": {
+    "retained_train": 20,
+    "public_chapter": 28,
+    "format_repair": 48,
+    "semantic_repair": 14
+  },
+  "incorrect_prefix": "authored format-valid incorrect summary and premature Done, both trainable=false",
+  "supervised": "source read, source-grounded correction reasoning and full reviewed summary write, final stop",
+  "feedback": "authored user revision request; not an observed native semantic gate or a teacher answer supplied at evaluation",
+  "independent_human_gold": false,
+  "on_policy_replay": false,
+  "checks": {
+    "all_actual_teacher_file_observations_replayed": 110,
+    "old_rows_and_cases_exactly_preserved": true,
+    "semantic_prefix_annotations_checked": 14,
+    "invalid_specifications_rejected": ["source hash mismatch", "duplicate chapter", "unknown TRAIN chapter", "missing edit span", "unchanged draft", "format-invalid draft", "non-TRAIN split"],
+    "scoped_ruff": "passed",
+    "real_trainer_token_mask_and_context_audit": "pending idle host; not inferred from annotation checks"
+  },
+  "hashes": {
+    "semantic_specification": "694ac6a38b11cfd4a46ec4aa5e80f24e96ba53f1b61d4dd6db2e57450e785436",
+    "manifest": "6829739e58f0bfbb8747272e0625f8002bab58365f44e38c5c19ceb1c2bf990a",
+    "cases": "6278451d10f5ac3ccf3b72d50389520bab9e54846d3ce88b3002641b3e33d8fb",
+    "parquet": "ed6bdc28ea40380c8d337a7260404dd129e3e83746322969dfd3096159b7d6fe"
+  },
+  "data_directory": "outputs/summary-direct-sft-r7-semantic",
+  "interpretation": "Targeted practice on observed error classes using existing reviewed TRAIN sources. No broader semantic gain is claimed, and evaluation chapters remain excluded. Preserving the previous mixture is a rehearsal choice for this block, not an append-only requirement."
+}

@@ -101,7 +101,8 @@ def _format_repair_feedback(trace):
     return feedback.pop()
 
 
-def _messages(context, original_budget, chapter, repair_feedback=None):
+def _messages(context, original_budget, chapter, repair_feedback=None, *,
+              repair_draft=None, repair_reasoning=None):
     paragraphs = chapter["paragraphs"]
     source = "\n\n".join(f"[chapter-p{i:03d}] {p['text']}" for i, p in enumerate(paragraphs, 1)) + "\n"
     summary = chapter["summary"]
@@ -120,17 +121,19 @@ def _messages(context, original_budget, chapter, repair_feedback=None):
         _result("read-source", repr(source)),
     ]
     if repair_feedback is not None:
-        draft = " ".join(" ".join(p["text"] for p in paragraphs).split()[:350]) + "\n"
+        draft = (repair_draft if repair_draft is not None else
+                 " ".join(" ".join(p["text"] for p in paragraphs).split()[:350]) + "\n")
+        draft_call_id = "write-summary-draft" if repair_draft is not None else "write-prose-draft"
         draft_action = _action(
-            "write-prose-draft",
+            draft_call_id,
             f"draft_text = {draft!r}\nPath('{ROOT}/summary.md').write_text(draft_text, encoding='utf-8')",
-            "Write a prose draft before returning.",
+            "Write a draft before returning." if repair_draft is not None else "Write a prose draft before returning.",
         )
         draft_done = _done()
         draft_action["trainable"] = draft_done["trainable"] = False
         messages += [
             draft_action,
-            _result("write-prose-draft", str(len(draft))),
+            _result(draft_call_id, str(len(draft))),
             draft_done,
             {"role": "user", "content": repair_feedback},
         ]
@@ -138,7 +141,7 @@ def _messages(context, original_budget, chapter, repair_feedback=None):
         _action(
             "write-summary",
             f"summary_text = {summary!r}\nPath('{ROOT}/summary.md').write_text(summary_text, encoding='utf-8')",
-            (
+            repair_reasoning or (
                 "Replace the prose draft with the chapter's key points, not paragraph-by-paragraph copying. "
                 if repair_feedback is not None else ""
             ) + "Select the main ideas or events, retaining essential qualifications and chronology. Keep possibilities distinct from actual events, use only this chapter, and write concise English bullets.",
@@ -152,8 +155,47 @@ def _messages(context, original_budget, chapter, repair_feedback=None):
     return messages, source
 
 
+def _semantic_repairs(path, chapters, cases):
+    if path is None:
+        return []
+    specification = json.loads(path.read_text())
+    if (specification.get("schema_version") != "document-summary-semantic-repairs/v1"
+            or specification.get("split") != "TRAIN"
+            or specification.get("status") != "source_reviewed"
+            or not specification.get("feedback", "").strip()):
+        raise ValueError("semantic repairs need a reviewed TRAIN specification and explicit feedback")
+    by_slug = {chapter["slug"]: (chapter, case) for chapter, case in zip(chapters, cases, strict=True)}
+    repairs, seen = [], set()
+    for item in specification["cases"]:
+        slug = item["base_slug"]
+        if slug in seen or slug not in by_slug:
+            raise ValueError("semantic repair needs one distinct existing TRAIN chapter")
+        seen.add(slug)
+        chapter, case = by_slug[slug]
+        if item["source_sha256"] != case["source_sha256"] or not item["correction_reasoning"].strip():
+            raise ValueError(f"semantic repair source/review mismatch: {slug}")
+        draft = chapter["summary"]
+        for change in item["changes"]:
+            correct, incorrect = change["correct"], change["incorrect"]
+            if not correct or not incorrect or correct == incorrect or draft.count(correct) != 1:
+                raise ValueError(f"semantic draft edit must match exactly once: {slug}")
+            draft = draft.replace(correct, incorrect, 1)
+        lines = draft.splitlines()
+        counts = [len(line[2:].split()) for line in lines]
+        if (draft == chapter["summary"] or not 3 <= len(lines) <= 5
+                or not all(line.startswith("- ") for line in lines)
+                or not all(5 <= count <= 45 for count in counts)
+                or sum(counts) > int(sum(len(p["text"].split()) for p in chapter["paragraphs"]) * 0.8)):
+            raise ValueError(f"semantic draft must be changed but format-valid: {slug}")
+        repairs.append((chapter, case, draft, specification["feedback"], item["correction_reasoning"]))
+    if not repairs:
+        raise ValueError("semantic repair specification contains no cases")
+    return repairs
+
+
 def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path,
-           teacher_additions: Path | None = None, include_format_repairs: bool = False):
+           teacher_additions: Path | None = None, include_format_repairs: bool = False,
+           semantic_repairs: Path | None = None):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     trace, context, original_budget = _context(trace_path)
@@ -205,6 +247,7 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 "summary": summary,
             }
         )
+    reviewed_repairs = _semantic_repairs(semantic_repairs, chapters, cases)
     if include_format_repairs:
         for chapter, base_case in zip(chapters, list(cases), strict=True):
             slug = f"{chapter['slug']}-format-repair"
@@ -219,6 +262,20 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 "objective": OBJECTIVE,
             })
             cases.append(dict(base_case, slug=slug, base_slug=chapter["slug"], family="format_repair"))
+    for chapter, base_case, draft, feedback, reasoning in reviewed_repairs:
+        slug = f"{chapter['slug']}-semantic-repair"
+        messages, source = _messages(context, original_budget, chapter, feedback,
+                                     repair_draft=draft, repair_reasoning=reasoning)
+        rows.append({
+            "messages": messages,
+            "tools": json.dumps(trace["tools"], sort_keys=True),
+            "task_key": f"summary-direct-{slug}",
+            "trace_id": f"summary-direct-authored:{slug}",
+            "family": "semantic_repair", "role": "child", "objective": OBJECTIVE,
+        })
+        cases.append(dict(base_case, slug=slug, base_slug=chapter["slug"], family="semantic_repair",
+                          incorrect_draft=draft, correction_reasoning=reasoning,
+                          feedback_kind="authored_user_revision_request_not_native_gate_feedback"))
     if len({r["task_key"] for r in rows}) != len(rows):
         raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
@@ -243,7 +300,12 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         "teacher_tool_results": "regenerated_from_authored_file_contents",
         "assistant_only_loss": True,
         "format_repair_episodes": len(chapters) if include_format_repairs else 0,
-        "incorrect_draft_and_stop_masked": include_format_repairs,
+        "incorrect_draft_and_stop_masked": include_format_repairs or bool(reviewed_repairs),
+        "semantic_repair_episodes": len(reviewed_repairs),
+        "semantic_repairs_sha256": None if semantic_repairs is None else sha256_file(semantic_repairs),
+        "semantic_repair_feedback_kind": (
+            "authored_user_revision_request_not_native_gate_feedback" if reviewed_repairs else None
+        ),
         "format_repair_feedback_sha256": (
             hashlib.sha256(repair_feedback.encode()).hexdigest() if repair_feedback is not None else None
         ),
@@ -270,6 +332,7 @@ if __name__ == "__main__":
     parser.add_argument("--teacher-labels", type=Path, required=True)
     parser.add_argument("--teacher-additions", type=Path)
     parser.add_argument("--include-format-repairs", action="store_true")
+    parser.add_argument("--semantic-repairs", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -280,6 +343,7 @@ if __name__ == "__main__":
                 teacher_path=args.teacher_labels,
                 teacher_additions=args.teacher_additions,
                 include_format_repairs=args.include_format_repairs,
+                semantic_repairs=args.semantic_repairs,
                 output_dir=args.output_dir,
             ),
             indent=2,
