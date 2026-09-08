@@ -1,0 +1,182 @@
+{
+  "status": "complete_reviewed_partial_integration_gain_not_semantic_promotion",
+  "run_name": "owner-r1-r7-direct-public-r1",
+  "frozen_code": {
+    "prime_rl": "8590c4c519567d261efd57cced918c3efb0fb66b",
+    "verifiers": "077c030f3d20a34364401d3d2d089422c059dd7a"
+  },
+  "models": {
+    "owner": {
+      "name": "e33-summary-owner-native-step64-r1",
+      "sha256": "d0968efdea5c9ed759b0caa81f7b146cf74c11935baff5c61d7a66294963104f"
+    },
+    "worker": {
+      "name": "h176-summary-semantic-repair-step128-r7",
+      "sha256": "2c7a1c74e8a346bc21b7d27d03bb63f3bb4101826aeccd2c6ebc16adcd454718"
+    },
+    "hashes_unchanged_through_smoke": true
+  },
+  "evaluation": {
+    "config": "smoke-owner-direct.toml",
+    "chapters": [
+      "alice-ch1",
+      "bennett-ch1"
+    ],
+    "split": "development_exposed_TRAIN_excluded",
+    "rollout_started_utc": "2026-09-08 15:06:40 UTC",
+    "rollout_finished_utc": "2026-09-08 15:25:47 UTC",
+    "wrapper_and_gpu_drain_verified_utc": "2026-09-08 15:27:43 UTC",
+    "episode_id": "609db931b5af44f197badb139df09fc8",
+    "trace_sha256": "c5c53f7df756406e08dd78b23b6612f020bc47d1063eb90266f5a4e8e31242ad",
+    "model_calls": 32,
+    "model_calls_by_native_session": {
+      "owner": 4,
+      "alice_child": 6,
+      "bennett_child": 22
+    },
+    "repeated_success_feedback_injections": 18,
+    "feedback_observation": "Finalized model-visible tool nodes contain the role-correct chapter-worker recovery feedback after repeated successful writes. It asks for key bullets, a single parent receipt and stopping; the model continues its character-count/word-count confusion despite that feedback. Native session files alone omit these interception rewrites.",
+    "trace_errors": [],
+    "call_errors": [],
+    "stop_condition": "max_turns",
+    "delegated_artifact_completion_score": 0,
+    "model_seconds": 315.1094744205475,
+    "harness_seconds": 826.896500825882,
+    "process_timeout_seconds": 1140,
+    "interpretation": "Turn-limit-stopped, not native end-turn completion. Child logs expose four later 400 max_turns errors not represented as provider failures in the finalized 32-call trace. Owner cell remains blocked until the process boundary; elapsed timing is consistent with that boundary, not a separate proven network fault."
+  },
+  "evidence": {
+    "local_result": "outputs/summary-owner-r1-r7/owner-r1-r7-direct-public-r1",
+    "host_result": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-r1-r7-direct-public-r1",
+    "smoke_receipt_sha256": "3f876cf1f331a28c584d6b036b53a38976fe216567bb4c0ad2c612394d369bf3",
+    "routing_audit_sha256": "de3d9da55b994c0b3824698841e6602358dddc2d1926b5584ed60d3345637764",
+    "live_snapshot": "live-observation-1522",
+    "snapshot_kind": "Read-only pre-cleanup native session/file copy; finalized Verifiers trace and exported chapter files are separately preserved.",
+    "owner_session_sha256": "04c7bd60e570d915c8dfe736ace33368e46f305226afb28c15be3e7a513ada24",
+    "alice_session_sha256": "443842b159453ca560f5d80942b41f1ad34d3cac69db098c76f53f4b8ad20387",
+    "bennett_session_sha256": "a26176e501bda4694950393a2c6dd53fc3ee50157b8fc9434c54274085a5bd86"
+  },
+  "owner": {
+    "correct_index_read": true,
+    "native_chapter_children": 2,
+    "exact_names_and_prompts": true,
+    "retained_handles": true,
+    "child_names": [
+      "chapter-001-summarizer",
+      "chapter-002-summarizer"
+    ],
+    "source_reads": 0,
+    "summary_reads": 0,
+    "assembly_writes": 0,
+    "receipts_consumed": 0,
+    "wrong_action": "waiting = sorted(handles.keys()); while waiting: sleep; waiting = sorted(handles.keys())",
+    "diagnosis": "The nonempty handle dictionary is never changed, so this IPython cell cannot finish. It prevents queued receipt processing and any further owner model decision.",
+    "initial_response": "An initial thinking-only malformed action-like response performs no tool operation; subsequent index read and delegation are real."
+  },
+  "children": [
+    {
+      "chapter": "alice-ch1",
+      "worker": "chapter-001-summarizer",
+      "native_child_id": "sub-6989cd3d",
+      "source_read": true,
+      "successful_summary_writes": 1,
+      "failed_actions": [
+        "edit on nonexistent output file",
+        "receipt send before importing json"
+      ],
+      "successful_parent_sends": 1,
+      "parent_send_status": "queued",
+      "receipt_message_id": "agentmsg_7c59e219-cfbc-4fd6-81a7-d09aa6f63601",
+      "receipt_consumed_by_owner": false,
+      "native_child_stop": "stop",
+      "summary_sha256": "1da7575b27ddd2e067f0820b360b271b45a86be602a50d25eb0f79996f869a9d",
+      "summary_characters": 1171,
+      "summary_utf8_bytes": 1171,
+      "summary_words": 208,
+      "format": "Four prose paragraphs, no Markdown bullets.",
+      "useful_content": [
+        "Rabbit pursuit and fall",
+        "Locked hall and key",
+        "Bottle-induced shrinking and unreachable key"
+      ],
+      "semantic_errors": [
+        {
+          "claim": "Alice enters the garden after finishing the cake.",
+          "source": "Chapter paragraphs 20-24 leave access unresolved and end when she finishes the cake.",
+          "kind": "invented completed event"
+        },
+        {
+          "claim": "Cake on the table.",
+          "source": "Paragraph 22 places the cake in a glass box under the table.",
+          "kind": "location"
+        },
+        {
+          "claim": "Small glass door.",
+          "source": "Paragraph 13 describes the table as glass, not the door.",
+          "kind": "attribute transfer"
+        },
+        {
+          "claim": "Finds bottle not poisonous.",
+          "source": "Paragraphs 16-17 establish only that it is not marked poison.",
+          "kind": "evidence overstatement"
+        }
+      ]
+    },
+    {
+      "chapter": "bennett-ch1",
+      "worker": "chapter-002-summarizer",
+      "native_child_id": "sub-9f08f1b1",
+      "source_read": true,
+      "successful_summary_writes": 21,
+      "distinct_written_texts": 2,
+      "successful_parent_sends": 0,
+      "native_child_stop": "four failed model attempts: 400 rollout stopped: max_turns",
+      "summary_sha256": "dd3959ba0be0809fcdb32da15a5354087d346b14b717500fe527e5fa49bfea14",
+      "summary_characters": 1036,
+      "summary_utf8_bytes": 1038,
+      "summary_words": 190,
+      "format": "Eleven unbulleted lines with an unmatched opening quotation mark.",
+      "diagnosis": "After an initial 1058-character write, the child mislabels the write return as bytes and compares it with a 725-word allowance. It writes the same 1036-character version twenty times while claiming further compression. The final draft is only 190 whitespace-delimited words; the number from write_text is not a word count.",
+      "useful_content": [
+        "Equal daily hours independent of wealth or intellect",
+        "Cannot borrow future time",
+        "Do not wait for more time",
+        "Happiness depends on time use"
+      ],
+      "semantic_errors": [
+        {
+          "claim": "You cannot live on a fixed income of money; you can only manage it or waste it.",
+          "source": "Paragraph 9 contrasts money income that can be increased with the restricted twenty-four-hour time income.",
+          "kind": "central contrast distorted"
+        },
+        {
+          "claim": "The man asks for dinner and the narrator wishes for half his income.",
+          "source": "Paragraphs 1-2 portray familiar criticism: the man invites you to dinner; the quoted critic wishes for half his income.",
+          "kind": "example and speaker distortion"
+        }
+      ]
+    }
+  ],
+  "comparison": {
+    "baseline": "owner-e33-r6-direct-public-r1-results.json",
+    "gain": "From no chapter children or files to two correctly admitted children, two child-authored files, and one successfully queued matching receipt.",
+    "not_claimed": [
+      "Reliable source-faithful summaries",
+      "Successful owner receipt consumption or assembly",
+      "Weight-only causal attribution"
+    ],
+    "confound": "The owner/worker weights and role-aware recovery/index prompt changed; report whole-system progress."
+  },
+  "next_learning": {
+    "worker_frontier": "R7; R8 continuation launched separately on the already audited 118-row corpus",
+    "owner_frontier": "Owner R1, not reset to e33",
+    "targets": [
+      "Native child context: grounded bullets, successful file write, exact parent receipt, stop",
+      "Interpret write_text return as characters, not words; do not retry a successful unchanged write",
+      "Owner: end the turn with retained handles instead of an in-cell sleep/poll loop",
+      "Continue source-grounded corrections for intended versus completed events and money/time contrasts using TRAIN-only analogues"
+    ],
+    "evaluation_outputs_trainable_as_positive": false,
+    "admission_gate_for_next_update": false
+  }
+}
