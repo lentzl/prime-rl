@@ -18,6 +18,7 @@ With a model endpoint already running, use the native evaluation entry point
 from the repository root and override the source path as needed:
 
 ```bash
+PYTHONPATH="$PWD/deps/verifiers/environments/document_summary_v1:$PWD/deps/verifiers" \
 uv run eval @ experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-evidence-city-shade.toml \
   --env.taskset.chapter-path /absolute/path/to/chapter.md \
   --model MODEL_NAME --client.base-url http://127.0.0.1:8102/v1
