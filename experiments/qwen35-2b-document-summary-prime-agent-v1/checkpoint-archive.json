@@ -11,6 +11,19 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step64-r4/weights/step_64/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step64-r4/weights/step_64/model.safetensors",
+      "sha256": "32e40abcaf2352f47039830f57440eba002c5bf61dfc9f354c3cfde6d4dddf54",
+      "bytes": 4426558864,
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Training receipt copied separately.",
+      "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step64-r4/TRAINING-RECEIPT.json",
+      "archive_verified_utc": "2026-09-08 14:11 UTC",
+      "remote_removal_status": "not_removed_verified_archive_ready",
+      "remote_removal_scope": "None yet. Any removal waits for R7 completion, process drain and current reference checks. R5/R6/R7 and the e33 owner are not removal targets."
+    },
+    {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step32-r3/weights/step_32/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step32-r3/weights/step_32/model.safetensors",
       "sha256": "3ab27f94a04e66c8f9cca67fd4f2d08125ece41d2829592bc6b822bd7456e626",

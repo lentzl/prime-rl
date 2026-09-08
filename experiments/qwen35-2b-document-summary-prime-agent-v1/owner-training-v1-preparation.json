@@ -2,6 +2,11 @@
   "status": "local_scripted_replay_complete_real_trainer_audit_pending",
   "date": "2026-09-08",
   "dataset_directory": "outputs/summary-owner-sft-r1-v3",
+  "host_dataset_directory": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r1",
+  "host_rehearsal_directory": "/home/ubuntu/rlm/data/q35-2b-summary-owner-role-rehearsal-v1",
+  "host_copy_hashes_verified": true,
+  "host_code_synchronized": false,
+  "preparation_code_commit": "1976742e2ba4f27cd6474a25efa44d5c6ca5f018",
   "source_owner": {
     "name": "adaptive-core-v1-e33 current acquired owner frontier",
     "path": "/home/ubuntu/rlm/outputs/q35-2b-adaptive-cognition-sft-v1/c54-step8-action4-adaptive-nonroot-step2-v4/weights/step_2",
