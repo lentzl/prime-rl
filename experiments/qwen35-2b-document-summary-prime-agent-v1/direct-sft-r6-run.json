@@ -1,0 +1,91 @@
+{
+  "status": "training",
+  "run_name": "h176-summary-direct-chapters-step128-r6",
+  "code_commit": "0fcc3a240d7713c2136bda17ade424f08efad8d7",
+  "verifiers_commit": "0de7aa77548c0c4c7c2a61c6cdb4dfd16d13be33",
+  "source": {
+    "name": "R5 experimental frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-repair-step128-r5/weights/step_128",
+    "sha256": "a4a6540656b4d17d1407674e9951986f46e26289a96702a25f1b2ea34445140f"
+  },
+  "dataset": {
+    "local_path": "outputs/summary-direct-sft-r4-chapters",
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r4-chapters",
+    "manifest_sha256": "6da5bead966ba038bc02cecff87e2388ad23f96df221035238bafe684087f5f5",
+    "parquet_sha256": "339bd4238137b136cfe998b7bd9e0c56b91da6b3a7740d089a275010a03a58dc",
+    "rows": 96,
+    "family_counts": {
+      "retained_train": 20,
+      "public_chapter": 28,
+      "format_repair": 48
+    },
+    "unique_train_chapters": 48,
+    "previous_rows_preserved_exactly": 88,
+    "new_chapters": [
+      "time-machine-ch06",
+      "treasure-island-ch06",
+      "flatland-ch18",
+      "how-we-think-ch10"
+    ],
+    "new_source_words": 8507,
+    "new_semantic_labels": 4,
+    "repair_context": "Authored poor prose and premature Done are masked; source reads, reviewed replacement bullets and stopping are supervised.",
+    "on_policy_replay": false,
+    "independent_human_gold": false,
+    "evaluation_sources_added": false
+  },
+  "renderer_audit": {
+    "status": "complete_real_trainer_and_R5_tokenizer",
+    "sha256": "0dcfbf87fca0b1efd494eff4ead96d195ecd3b63af92156c27e28755953a442f",
+    "rows": 96,
+    "sequence_tokens": 688002,
+    "maximum_sequence_tokens": 13891,
+    "supervised_tokens": 28834,
+    "masked_incorrect_prefix_tokens": 17232,
+    "truncated_rows": 0,
+    "source_or_user_supervised_tokens": 0,
+    "incorrect_prefix_supervised_tokens": 0,
+    "file_observations_reproduced": true,
+    "cuda_initialized": false
+  },
+  "planned_training": {
+    "optimizer_updates": 128,
+    "checkpoint_interval": 128,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "sequence_length": 16384,
+    "fresh_optimizer": true,
+    "exact_training_resume": false,
+    "full_dense": true,
+    "renderer_enable_thinking": true,
+    "gpus": 2,
+    "run_timeout_seconds": 7200,
+    "campaign_gpu_hour_cap": null
+  },
+  "rationale": [
+    "Continue from R5 despite mixed development results. Rehearse grounded direct writing and correction while adding whole chapters that teach conjecture versus observation, planned versus completed action, visual knowledge versus moral claims, and theory complementing practice.",
+    "Keep the previous meaningful 128-update exposure rather than automatically doubling it. This is a next learning block, not certification; numerical health and source-grounded behavior guide subsequent mixture changes.",
+    "Retention of the previous 88 rows is deliberate rehearsal, not an append-only corpus requirement. Corrected student states, quantitative fidelity and return to task-owner integration remain follow-on work.",
+    "Weights-only continuation uses a fresh optimizer under actual host disk constraints. Do not present it as exact training-state resumption."
+  ],
+  "semantic_promotion": false,
+  "capability_threshold_required_before_training": false,
+  "remaining_launch_conditions": [],
+  "launch_time_utc": "2026-09-08 12:23:43 UTC",
+  "training_loop_started_at_utc": "2026-09-08 12:24:26 UTC",
+  "latest_observation": {
+    "time_utc": "2026-09-08 12:25:41 UTC",
+    "wrapper_pid": 2610853,
+    "trainer_rank_pids": [
+      2610912,
+      2610913
+    ],
+    "optimizer_updates_completed": 2,
+    "last_loss": 0.5645869374275208,
+    "recorded_nan_count": 0,
+    "gpu_memory_mib_each": 11900,
+    "free_checkpoint_disk_gib": 7.124359130859375
+  },
+  "semantic_review": "direct-r4-vs-r5-five-chapters-results.json",
+  "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 0fcc3a240d7713c2136bda17ade424f08efad8d7 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 0de7aa77548c0c4c7c2a61c6cdb4dfd16d13be33 && UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python scripts/run_q35_2b_document_decision_sft_v1.py --source-model /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-repair-step128-r5/weights/step_128 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r4-chapters --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-direct-sft-v1 --run-name h176-summary-direct-chapters-step128-r6 --learning-rate 1e-6 --optimizer-updates 128 --checkpoint-interval 128 --enable-thinking --timeout 7200"
+}

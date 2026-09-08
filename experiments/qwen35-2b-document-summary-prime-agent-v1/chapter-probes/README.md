@@ -109,3 +109,11 @@ grouping. A five-bullet opening-only summary is incomplete. Walking tours,
 Macbeth, concerts and other quoted passages illustrate writing principles;
 their events must not replace the chapter's main ideas. Record useful partial
 gains and particular omissions/errors separately from the mechanical score.
+
+First inspected comparison: `r4-vs-r5-direct-five-chapters-r1` on 8 September
+2026. The probe is now development-exposed, while remaining excluded from TRAIN.
+R4 produced four concise bullets with important qualifications omitted; R5
+produced inspectable partial drafts before an ACP EOF/connection-reset failure
+near its process boundary. That incomplete episode is not a clean semantic
+comparison. Preserve the original trace and consult
+`../direct-r4-vs-r5-five-chapters-results.json` for the separate content review.

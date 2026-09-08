@@ -78,11 +78,13 @@ the subsequent part heading; this was corrected before dataset export, while
 preserving the complete chapter ending. No training used the initial extraction.
 
 The export passes the existing dataset validator, hashes, bullet constraints
-and explicit message-mask checks. The real trainer/tokenizer audit remains
-pending the idle host and the next source checkpoint; preparation is not a
-claim of completed training or proven model improvement. Alice, Bennett,
-Strunk and synthetic evaluation chapters remain excluded from TRAIN. The
-prospective Strunk probe adds no teacher targets to this block.
+and explicit message-mask checks. The real R5-tokenizer/trainer audit also
+passed on the idle host: all 96 rows, 688,002 tokens, maximum 13,891, 28,834
+supervised tokens, no truncation or source/user/incorrect-prefix loss. R6 is
+training from R5 for another 128 updates; its first updates are verified, not
+a claim of completed training or model improvement. See
+`direct-sft-r6-run.json`. Alice, Bennett, Strunk and synthetic evaluation
+chapters remain excluded from TRAIN; the Strunk probe adds no teacher targets.
 
 The [standing charter](../../docs/continual-domain-training-charter.md) governs
 subsequent curation, updates and recovery; preserving this block does not

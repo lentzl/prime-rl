@@ -1,0 +1,473 @@
+{
+  "comparison": "Frozen R4 versus R5, five matched chapter tasks; four clean matched pairs and one incomplete candidate Strunk episode",
+  "run": "r4-vs-r5-direct-five-chapters-r1",
+  "status": "finished_with_one_harness_error",
+  "code_commit": "0fcc3a240d7713c2136bda17ade424f08efad8d7",
+  "verifiers_commit": "0de7aa77548c0c4c7c2a61c6cdb4dfd16d13be33",
+  "baseline_sha256": "32e40abcaf2352f47039830f57440eba002c5bf61dfc9f354c3cfde6d4dddf54",
+  "candidate_sha256": "a4a6540656b4d17d1407674e9951986f46e26289a96702a25f1b2ea34445140f",
+  "local_artifact_root": "outputs/summary-direct-sft-r5/evaluation",
+  "role_proxy_used": false,
+  "probe_concurrency_per_model": 2,
+  "no_optimizer_updates_during_comparison": true,
+  "semantic_promotion": false,
+  "paired_receipt": "outputs/summary-direct-sft-r5/evaluation/r4-vs-r5-direct-five-chapters-r1/PAIRED-TERMINAL-RECEIPT.txt",
+  "processes_drained_verified_utc": "2026-09-08 12:21:28 UTC",
+  "outcomes": {
+    "episodes": 10,
+    "clean_episodes": 9,
+    "clean_matched_pairs": 4,
+    "trace_errors": 1,
+    "call_errors": 1,
+    "native_end_turns": 4,
+    "outer_limit_stops": 5,
+    "baseline_development_format_passes": 1,
+    "candidate_development_format_passes": 2,
+    "development_denominator_per_arm": 4,
+    "prospective_strunk": "R4 format pass with semantic omissions; R5 harness-error episode, not a clean comparison",
+    "tool_execution_failures": "One R4 Alice FileNotFoundError; one R5 Alice SyntaxError. These are tool-result failures, distinct from trace/provider exceptions."
+  },
+  "matched_agent_config_without_model_and_endpoint": {
+    "harness": {
+      "id": "prime_agent",
+      "env": {
+        "RLM_MAX_DEPTH": "0",
+        "PRIME_AGENT_KERNEL_PYTHON": "/usr/local/bin/python"
+      },
+      "forward_env": [],
+      "tool_timeout": 600,
+      "skills": [],
+      "version": "0.7.2-beta.495.1.97b994c",
+      "autonomous": true,
+      "gates": [
+        "python /workspace/document-summary-v1/completion_gate.py"
+      ],
+      "autonomous_max_continuations": 6,
+      "autonomous_max_turns": 32,
+      "autonomous_max_tokens": 262144,
+      "autonomous_timeout_ms": 600000,
+      "process_timeout_ms": 540000
+    },
+    "runtime": {
+      "allow": [
+        "*"
+      ],
+      "block": [],
+      "type": "docker",
+      "image": "rlm-prime-agent-runtime:0.7.2-beta.495.1.97b994c-node22.19.0-document-translation-v1",
+      "workdir": "/app"
+    },
+    "client": {
+      "api_key_var": "PRIME_API_KEY",
+      "headers": {},
+      "type": "eval"
+    },
+    "sampling": {
+      "temperature": 0.2,
+      "top_p": 0.9,
+      "reasoning_effort": "high",
+      "max_tokens": 8192,
+      "seed": 20260907,
+      "top_k": 20,
+      "min_p": 0
+    },
+    "max_turns": 32,
+    "max_output_tokens": 32768,
+    "max_total_tokens": 262144,
+    "timeout": {
+      "setup": 300,
+      "rollout": 600,
+      "finalize": 60,
+      "scoring": 60
+    },
+    "retries": {
+      "max_retries": 0,
+      "include": [],
+      "exclude": []
+    }
+  },
+  "engine_settings": {
+    "dtype": "bfloat16",
+    "max_model_len": 32768,
+    "max_num_seqs": 8,
+    "kv_cache_memory_bytes": 4294967296,
+    "tensor_parallel_size": 1,
+    "language_model_only": true,
+    "enforce_eager": true,
+    "one_checkpoint_per_gpu": true
+  },
+  "interpretation": [
+    "R5 has no established overall semantic advantage. On the four clean development pairs it reaches the bullet shape twice versus R4 once, but R5 Alice invents garden entry and R5 evening-access distorts quantities. R5 Bennett loses format, while R5 city-shade replaces a useful imperfect draft with source copying.",
+    "The 44 authored repair sequences in R5 did not reliably teach source-grounded rewriting or stopping. R5 keeps some useful whole-chapter qualifications, but repeat-write loops remain and a formatting pass is insufficient evidence of applicable utility.",
+    "Inspect partial behavior separately: the source reads and some early content are useful, but errors, source copying, incorrect quantities and hallucinated suffixes must not become positive training targets.",
+    "The prospective Strunk pair is incomplete. R4 groups the whole chapter but omits important exceptions; R5's acknowledged early draft reverses a negation and lists eleven rules. The later harness/transport failure must not be pooled with clean semantic failures or treated as evidence that R5 cannot summarize the chapter.",
+    "Every paired source hash and task key matches, and resolved agent settings match after excluding the necessary model/endpoint difference. Nine final source/summary exports match trace.info byte-for-byte. R5 Strunk has no finalized export; its source identity is established from task data, not a claimed captured artifact.",
+    "This is one sample per checkpoint/task, with native per-session context. R4's outputs vary from the prior comparison despite matching task/sampling settings; do not infer a general success rate or causal gains from a handful of drafts.",
+    "A read-only archive transfer overlapped part of the comparison. Runtime timing is not a clean weight-only efficiency measurement.",
+    "Proceed from R5 to the prepared 96-row, 128-update learning block. New whole chapters broaden relation/qualification teaching; targeted quantitative, negation and correction-state supervision plus actual owner/worker integration remain next work. No semantic admission gate or automatic rollback."
+  ],
+  "diagnostic_correction": {
+    "field": "summary_text_not_source_copy",
+    "affected_episode": "candidate-direct-city-shade",
+    "original_value": 1,
+    "corrected_value": 0,
+    "cause": "The prior exact-match diagnostic ignored source-ID-prefixed paragraph copies.",
+    "fix_verifiers_commit": "54652def5aa36a26abc2a36889d4c0a33765c876",
+    "original_traces_and_scores_preserved": true,
+    "live_comparison_unchanged": true,
+    "validation": "44 existing taskset tests passed; lint passed; actual R5 city-shade trace checks 1 -> 0 under corrected diagnostic. Aggregate completion reward is unchanged."
+  },
+  "episodes": [
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-baseline-direct-alice-ch1",
+      "trace_id": "af3ed92c0ba34e33a1e4f72f8de6fe71",
+      "trace_sha256": "321bfeaa36f7c1798b6277f13050d772c4310eb4b2c0f95914487a2b82ab391f",
+      "task_key": "a48c8c220cbc428cf9f1ab9f60c902515716d74fcf505f6b142599ffe5163fa3",
+      "source_sha256": "419a7a3a40ca0cc69d456cc306d4b59e5e5250033c4567866dee99ad68a88581",
+      "summary_sha256": "df0dc97cb6cdc5536696f8c05513a7b81d1151b74b1e245edd148d7c383a7773",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": [
+        "end_turn"
+      ],
+      "model_calls": 11,
+      "agent_seconds": 337.963,
+      "bullet_word_counts": [],
+      "all_nonblank_lines_are_bullets": false,
+      "repeated_no_progress_feedbacks": 1,
+      "gate_feedback_rewrites": 3,
+      "summary": "Alice is bored sitting by her sister and considers making a daisy-chain, but a White Rabbit with pink eyes runs past her. The Rabbit takes a watch and hurries away; Alice follows it through a rabbit-hole. The rabbit-hole goes straight down into a deep well filled with cupboards and bookshelves. Alice falls through the earth, wondering about her distance and location. She encounters the Antipathies, but does not ask for directions. She falls through again, emerges in a low hall with locked doors, and finds a tiny golden key behind a curtain. She opens a small door and enters a garden. She finds a bottle labeled \"DRINK ME\" on a glass table, realizes it is not poison, and drinks it. She shrinks to ten inches tall and enters the garden through the small door. She forgets the key, cannot reach it, and eats a \"EAT ME\" cake to grow back to her normal size.\n",
+      "exports_match_trace": true,
+      "format_reward": 0,
+      "original_metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 0
+      },
+      "semantic_review": "Prose, not key bullets. Invents an encounter with the Antipathies, repeated falls and garden entry (twice), places the key behind the curtain rather than on the glass table, and treats hoped-for cake growth as an accomplished return to normal size. The chapter ends after eating cake, before its effect. Native end_turn does not make the artifact correct. The trace also contains a failed attempt to read summary.md before it existed."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-baseline-direct-bennett-ch1",
+      "trace_id": "7d2bcdf23ef24fb28343501f694258f4",
+      "trace_sha256": "b72b81c117571e053d04e881f7ae1f3e35d40c8f8d4862ca1b1cbc060156423a",
+      "task_key": "10bc0f99d6566498cf8e359bc1d62e9297a438b04c56cf38117f1a7555812c97",
+      "source_sha256": "ee3d4438d938dc72008963b3e04e91f3786d8436d18f1c4405b0da4248d754fd",
+      "summary_sha256": "321d100bf30e05163f3c58765f7983110c8944c9653f710d926ee9af1f66fa52",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": [
+        "end_turn"
+      ],
+      "model_calls": 6,
+      "agent_seconds": 70.076,
+      "bullet_word_counts": [
+        26,
+        24,
+        21,
+        17,
+        23
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 1,
+      "gate_feedback_rewrites": 0,
+      "summary": "- A man wastes his income on trivialities, leaving his half-empty flat and old clothes. He cannot understand why he cannot enjoy his money, while others do.\n\n- Readers criticize the author's superior way of discussing money. Newspapers provoke correspondence about how to live on limited income, showing the interest they excite.\n\n- Time is more valuable than money. The supply of time is a daily miracle, and time cannot be taken from you.\n\n- Time is unstealable and equally distributed to everyone. No one receives more or less than you receive.\n\n- We never shall have any more time. The realization of this profound truth has led to the minute practical examination of daily time-expenditure.\n",
+      "exports_match_trace": true,
+      "format_reward": 1,
+      "original_metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 1,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 111
+      },
+      "semantic_review": "Five valid-length bullets and native end_turn, but two bullets emphasize introductory money anecdotes and one invents readers criticizing the author's superior style. The source instead says people commonly criticize others' money management. Duplicates time's unstealability, omits the explicit 24-hour allowance and inability to borrow future time, but retains equal allocation and the need to examine daily expenditure."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-baseline-direct-city-shade",
+      "trace_id": "257ee51c211848d18517bc3015d347c6",
+      "trace_sha256": "d273d4d74c339c1da74b167d1ce5671f4c7e043b2d22a2628979b75a1842b037",
+      "task_key": "2b707ca6ee91c4b4f8d6bae9b88c6f5a5a21081b3c6c9095ce244087c304dc3c",
+      "source_sha256": "ff090d26913e6f2b025396df4a44d69fdf7f6e7ab999e3f2335de1d975c7b297",
+      "summary_sha256": "98206eb5160abd50213ab10ccf99558645cbb682c964834b269d662fa372733a",
+      "stop_condition": "max_output_tokens",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": null,
+      "model_calls": 24,
+      "agent_seconds": 299.524,
+      "bullet_word_counts": [
+        25,
+        30,
+        31,
+        42,
+        58
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 20,
+      "gate_feedback_rewrites": 0,
+      "summary": "- Bellwick compared twelve tree-lined and twelve non-tree streets, measuring pedestrian temperatures on ten dry days. Shaded streets were cooler, but the difference peaked late afternoon.\n\n- Shade reduces pavement and person heat absorption; trees cool air through evaporation. These mechanisms are distinct: an awning provides shade without evaporation, and a sparse tree may evaporate without shading.\n\n- Older streets had wider planting and mature canopies; shopping streets had narrow sidewalks and dense utilities. Hotter blocks also had busier stops, meaning tree counts hid differences in where people walked.\n\n- Young trees need watering and maintenance before providing substantial shade. Some sites cannot accommodate roots, so temporary shade structures were proposed. The report warned against replacing mature trees with structures and cautioned that one fast-growing species could fail to the same pests.\n\n- The authors called the findings an initial local comparison, not a forecast. Winter conditions, humidity, indoor temperatures and health outcomes were not measured. The report proposed repeating measurements in another summer and including pedestrian route observations. Even if later measurements confirmed cooler air, whether an intervention improved residents' daily experience would depend on access, maintenance and shade location.\n",
+      "exports_match_trace": true,
+      "format_reward": 0,
+      "original_metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 186
+      },
+      "semantic_review": "Five bullets retain the two groups, observed cooling, distinct shade/evaporation mechanisms, unequal routes, care/root constraints, temporary shade, species risk, and limits/future work. Last bullet is over the 45-word allowance; ends on max_output_tokens after repeated successful writes. Omission of the explicitly unmeasured separate mechanism contributions and some overstrong 'warned against replacing' wording are qualifications; this is materially useful content, not a clean completion."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-baseline-direct-evening-access",
+      "trace_id": "88ee6bd6bc8946fa9510e6df66191e69",
+      "trace_sha256": "8a1cf6afe9b144e7bdd9af3247fe339daae813de753dc8d08638221ec3491159",
+      "task_key": "ea406db4d77784c28eec267027996522d6e0483499b022a012b2b46a0e64cac6",
+      "source_sha256": "bbfeac300cd3a4238bdff1f8a4b454648555ab284333aadf9ba07cd467347be2",
+      "summary_sha256": "7887b15d9097f987e4b580415d367c8024a94a3dd9897bf95037a0d8d9130ca5",
+      "stop_condition": "max_turns",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": null,
+      "model_calls": 32,
+      "agent_seconds": 248.849,
+      "bullet_word_counts": [
+        52,
+        41
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 23,
+      "gate_feedback_rewrites": 4,
+      "summary": "- The trial found that evening access increased weekly visits by 14 percent but lowered the average hourly rate. Evening opening did not cause the visit increase; the trial coincided with an examination period and new adult education class. The trial required 96 paid staff hours and ended with no committed replacement funding.\n\n- The review group recommended a conditional twelve-week test on one evening a week, pending step-free entrance and replacement funding. The trial demonstrated that evening opening could be delivered under temporary arrangements but did not settle which continuing arrangement should be adopted.",
+      "exports_match_trace": true,
+      "format_reward": 0,
+      "original_metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 93
+      },
+      "semantic_review": "Two bullets, the first over 45 words, with an outer max_turns stop. Correct 14 percent weekly increase and 96 paid staff hours, lower hourly rate, expired funding and conditional accessible next test. But says evening opening 'did not cause' the increase, converting absent causal identification into evidence of no effect; the opening phrase also implies causation. Omits feedback limitations, concrete entrance barriers and full ongoing costs. Mixed useful coverage, not reliable completion."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-baseline-direct-strunk-ch3",
+      "trace_id": "93d82111641e4d499ccff2e28b9b43ce",
+      "trace_sha256": "671f7da258ea37ba37bc5f600efe2a80c13af3682a5162919c7893836fbe9077",
+      "task_key": "b9887d284b5bfaca8a319e0060f1781bf94aa6a34307b137ec4757f4a143bf4a",
+      "source_sha256": "183a97c08df89b94bd2cf2db246929415376a1fa048a0429c1e841de64e29366",
+      "summary_sha256": "611e224839dd35ded03e7507dd1871abb6ad6a24e8823256be54ef25f7d91de0",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": [
+        "end_turn"
+      ],
+      "model_calls": 6,
+      "agent_seconds": 37.241,
+      "bullet_word_counts": [
+        35,
+        19,
+        20,
+        16
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 0,
+      "gate_feedback_rewrites": 1,
+      "summary": "\n- Each paragraph should be the unit of composition, with one paragraph per topic. Begin each paragraph with a topic sentence and end it in conformity with that beginning. Avoid ending with digressions or unimportant details.\n- Use the active voice for direct and vigorous writing. Express negatives in positive form. Use definite, specific, concrete language.\n- Omit needless words. Avoid loose sentences of two co-ordinate clauses. Express co-ordinate ideas in similar form. Keep related words together.\n- In summaries, keep to one tense. Place the emphatic words of a sentence at the end.\n",
+      "exports_match_trace": true,
+      "format_reward": 1,
+      "original_metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 1,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 90
+      },
+      "semantic_review": "Four concise bullets group principles from beginning, middle and end and avoid retelling illustrative stories. Useful topical compression, but broadens qualified advice into categorical rules: paragraph topic sentences, positive expression, avoidance of loose sentences, one tense and end emphasis lose their exceptions. In particular the source warns against a succession of loose sentences, not each such sentence. Omits useful passive voice, significant detail despite concision, and criticism as evidence-supported discussion distinct from summary. Native end_turn; not full qualification-preserving utility."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-candidate-direct-alice-ch1",
+      "trace_id": "09b965b1c1fe4d28b6771a80da3d5445",
+      "trace_sha256": "a61e1f5823b84e4cb495cda0f933e11f27c80890bd271556ad6db20267682819",
+      "task_key": "a48c8c220cbc428cf9f1ab9f60c902515716d74fcf505f6b142599ffe5163fa3",
+      "source_sha256": "419a7a3a40ca0cc69d456cc306d4b59e5e5250033c4567866dee99ad68a88581",
+      "summary_sha256": "d75f542979d99971f9cd1c770da0d568913e4cff99e9d5a9148639b6bff23219",
+      "stop_condition": "max_turns",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": null,
+      "model_calls": 32,
+      "agent_seconds": 245.873,
+      "bullet_word_counts": [
+        21,
+        16,
+        27,
+        17,
+        28
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 21,
+      "gate_feedback_rewrites": 3,
+      "summary": "- Alice is bored by her sister and considers making a daisy-chain, but a White Rabbit with a watch runs past her.\n- Alice follows the Rabbit through a rabbit-hole into a deep well filled with cupboards and bookshelves.\n- After falling, Alice wonders about her position in the earth and finds a small door in a glass table that she can open with a golden key.\n- Alice finds a bottle labeled 'DRINK ME' on the table, tastes it, and shrinks to ten inches.\n- She enters the garden through the door but forgets the key; she eats the 'cake' on the table to see if it makes her grow larger or smaller.",
+      "exports_match_trace": true,
+      "format_reward": 1,
+      "original_metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 1,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 109
+      },
+      "semantic_review": "Eventually writes five valid-length bullets, but still invents garden entry and puts a door in the glass table. Omits the crucial key-left-on-table and cannot-reach-it obstacle, and overweights the daisy-chain opening. Its first draft was prose; correction passes through a Python quoting error before successful bullet writing, then repeats writes until max_turns. A format pass is not semantic or stopping success."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-candidate-direct-bennett-ch1",
+      "trace_id": "1a92f2fdc3ef48deaeb892936ca4e457",
+      "trace_sha256": "caaa02317767b2416b9d6dd7b53551ea09da58e22cbc8ce6bac95df81256b067",
+      "task_key": "10bc0f99d6566498cf8e359bc1d62e9297a438b04c56cf38117f1a7555812c97",
+      "source_sha256": "ee3d4438d938dc72008963b3e04e91f3786d8436d18f1c4405b0da4248d754fd",
+      "summary_sha256": "5c41f439ec5d2858dff427e5d727e8f094da6ba0bed5b524b43be93a239d7694",
+      "stop_condition": "agent_completed",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": [
+        "end_turn"
+      ],
+      "model_calls": 10,
+      "agent_seconds": 45.689,
+      "bullet_word_counts": [
+        65
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 3,
+      "gate_feedback_rewrites": 3,
+      "summary": "- People waste time instead of managing it. Time is more valuable than money; the right use of time determines happiness. You cannot get into debt because time is not withdrawn. The realization that all time exists drives practical examination of daily time-expenditure. Even with a fixed income, people struggle to manage their time. The chapter argues that managing time is essential for a meaningful life.",
+      "exports_match_trace": true,
+      "format_reward": 0,
+      "original_metrics": {
+        "summary_text_bullet_count": 0,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 0,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 65
+      },
+      "semantic_review": "One 65-word bullet, despite three format-feedback events, then native end_turn. Focuses more on the main time-management argument than R4's anecdotes, but omits equal daily 24-hour allocation, inability to buy extra time, and allocation across life's needs. 'All time exists' distorts 'we already have all the time there is'; debt is incorrectly explained by time not being withdrawn rather than inability to borrow from the future. Not a useful completed chapter summary."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-candidate-direct-city-shade",
+      "trace_id": "55e376a90c9f46b8b3aee072f057f8bb",
+      "trace_sha256": "f50596e5ece4c292c93abce6d666f1c048ed613b592f916eb6a025dbe502cdc3",
+      "task_key": "2b707ca6ee91c4b4f8d6bae9b88c6f5a5a21081b3c6c9095ce244087c304dc3c",
+      "source_sha256": "ff090d26913e6f2b025396df4a44d69fdf7f6e7ab999e3f2335de1d975c7b297",
+      "summary_sha256": "486cf883c002e857b0b9d7a7e1b5ac962a119f7c3b3510eef6b8084349940c33",
+      "stop_condition": "max_turns",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": null,
+      "model_calls": 32,
+      "agent_seconds": 221.431,
+      "bullet_word_counts": [
+        80,
+        71,
+        73,
+        77,
+        72
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 22,
+      "gate_feedback_rewrites": 3,
+      "summary": "- [chapter-p001] In a fictional study of summer heat in Bellwick, researchers compared twelve streets with mature trees and twelve nearby streets without them. Sensors recorded air temperature at pedestrian height between noon and six in the evening on ten dry days. The shaded streets were cooler on average, but the difference was largest late in the afternoon. These measurements describe the sampled streets and weather; they do not establish how much planting a new tree would immediately cool another neighborhood.\n- [chapter-p002] Shade reduces the sunlight absorbed by pavement and by people standing beneath the canopy. Trees also release water vapor through their leaves, which can cool the surrounding air. These mechanisms are related but not interchangeable: an awning can provide shade without releasing water, while a tree with sparse foliage may release water without providing much shelter from direct sun. The study did not separately measure the contribution of either mechanism.\n- [chapter-p003] Tree cover was unevenly distributed. Older residential streets had wider planting strips and more mature canopies, while several shopping streets had narrow sidewalks and dense underground utilities. Researchers also found that some of the hottest blocks contained the busiest bus stops. Counting trees across an entire district therefore concealed differences in where people actually waited or walked. The authors suggested measuring shade along common routes, not merely reporting a district-wide tree total.\n- [chapter-p004] Planting was only the start of the proposed response. Young trees would need watering and maintenance before they could provide substantial shade, and some sites could not accommodate their roots. At those sites, temporary shade structures were proposed while planners investigated longer-term options. This was not a recommendation to replace existing mature trees with structures. The report also warned that choosing one fast-growing species everywhere could leave the whole planting program vulnerable to the same pest.\n- [chapter-p005] The authors described the findings as an initial local comparison, not a forecast. They had not measured winter conditions, unusually humid days, indoor temperatures, or health outcomes. They proposed repeating the measurements in another summer and including observations of how people used the shaded routes. Even if later measurements confirmed cooler air, whether a particular intervention improved residents' daily experience would still depend on access, maintenance, and where the shade fell.",
+      "exports_match_trace": true,
+      "format_reward": 0,
+      "original_metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 0,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 373
+      },
+      "semantic_review": "Initial authored prose contains useful route-access, maintenance and generalization content, but misstates an awning as shading 'without cooling' and does not clearly distinguish the mechanisms. In response to format feedback the model eventually runs a paragraph loop that prefixes every source paragraph with '- '. Final artifact copies all five annotated source paragraphs (373 words), not a synthesis. The component named summary_text_not_source_copy reports 1 despite this actual whole-source copy; the frozen aggregate remains 0 for concision. Stops on max_turns. Preserve the useful earlier content as diagnostic experience, not the final copying behavior as a successful target."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-candidate-direct-evening-access",
+      "trace_id": "2f82a1c66ffa475696c20c53db091516",
+      "trace_sha256": "4fc5d9d182a4d612ed1f9670e37eebe8a3a4b249191670eb74722a71e4068dd3",
+      "task_key": "ea406db4d77784c28eec267027996522d6e0483499b022a012b2b46a0e64cac6",
+      "source_sha256": "bbfeac300cd3a4238bdff1f8a4b454648555ab284333aadf9ba07cd467347be2",
+      "summary_sha256": "78b6cd7d702fce8cf946e1efa077b97c59bb4139da99e4ae7597e50e2d3ee9d1",
+      "stop_condition": "max_output_tokens",
+      "errors": [],
+      "call_errors": [],
+      "native_acp_stops": null,
+      "model_calls": 22,
+      "agent_seconds": 288.125,
+      "bullet_word_counts": [
+        34,
+        25,
+        39,
+        42,
+        40
+      ],
+      "all_nonblank_lines_are_bullets": true,
+      "repeated_no_progress_feedbacks": 13,
+      "gate_feedback_rewrites": 1,
+      "summary": "- The trial extended the reading room to four‑eight hours on Tuesdays and Thursdays for twelve weeks, raising weekly visits but lowering the average hourly rate; neither measure alone answers whether the extension was worthwhile.\n\n- Evening access increased visits overall but the trial coincided with an examination period and a new adult education class, and lacked a comparable unchanged‑hours site.\n\n- The trial required nine‑six paid staff hours and a temporary grant covering one‑thousand‑nine‑two staffing costs; the grant ended with the trial, leaving no committed replacement funding and identifying a financing question rather than concluding that evening opening is unaffordable.\n\n- After seven in the evening, the step‑free front entrance closed, leaving a three‑step side entrance with an unavailable recorded ramp; these reports do not measure how many stayed away and show why an extra hour is not always an extra accessible hour.\n\n- The review group recommended a conditional twelve‑week test on one evening a week, pending replacement funding and a reliable step‑free entrance; the next decision should consider who gains usable access, the full ongoing cost, and the strength of the evidence.",
+      "exports_match_trace": true,
+      "format_reward": 1,
+      "original_metrics": {
+        "summary_text_bullet_count": 1,
+        "summary_text_concise": 1,
+        "summary_text_not_source_copy": 1,
+        "notes_source_id_presence": 0,
+        "notes_words": 0,
+        "summary_words": 180
+      },
+      "semantic_review": "Eventually writes five valid-length bullets, preserving lower hourly rate, no comparison site, funding not proving unaffordability, concrete entrance steps, and the conditional further test. However, it distorts 48 weekly hours into 'four-eight hours on Tuesdays and Thursdays', 96 staff hours into 'nine-six', and 1,920 staffing costs into 'one-thousand-nine-two'. These appear in its initial prose already, not only after formatting. It says a 'recorded ramp' was unavailable although availability was unrecorded and intermittent; still implies evening access caused the increase. The early draft counts slips as visitors, and the final draft drops the feedback section. Repeats successful writes to max_output_tokens, so the shape gain is not a clean semantic improvement."
+    },
+    {
+      "label": "r4-vs-r5-direct-five-chapters-r1-candidate-direct-strunk-ch3",
+      "trace_id": "ce70e18878ea42b8b78d107502ae1e9a",
+      "trace_sha256": "229aaf8ddc976694b5d80e6845984721b194d176f484cac51d22fd1f7e9a3bf7",
+      "task_key": "b9887d284b5bfaca8a319e0060f1781bf94aa6a34307b137ec4757f4a143bf4a",
+      "source_sha256": "183a97c08df89b94bd2cf2db246929415376a1fa048a0429c1e841de64e29366",
+      "summary_sha256": null,
+      "stop_condition": "error",
+      "errors": [
+        {
+          "type": "HarnessError",
+          "message": "harness 'prime_agent': EOFError: ACP process closed its stdout"
+        }
+      ],
+      "call_errors": [
+        {
+          "type": "ClientConnectionResetError",
+          "message": "Cannot write to closing transport"
+        }
+      ],
+      "native_acp_stops": null,
+      "model_calls": 8,
+      "agent_seconds": 541.882,
+      "bullet_word_counts": [],
+      "all_nonblank_lines_are_bullets": null,
+      "repeated_no_progress_feedbacks": 0,
+      "gate_feedback_rewrites": 1,
+      "summary": null,
+      "exports_match_trace": null,
+      "format_reward": null,
+      "original_metrics": {},
+      "semantic_review": "No finalized artifact: the ACP process closed stdout with HarnessError after 541.882 seconds of agent time; the interrupted final model call records ClientConnectionResetError. This aligns with the configured 540-second process boundary, but the saved trace alone does not prove the process exit cause. Treat the episode as incomplete harness/transport evidence, not a zero-quality semantic comparison or training source. Earlier acknowledged file-write code produced eleven numbered rule summaries rather than 3-5 grouped key bullets. It preserves brief-topic/dialogue exceptions and present/past summary-tense allowances, but inverts 'never as a means of evasion' into 'Use not as a means of evasion', includes an illustrative punishment claim without its illustrative framing, loses other qualifications, and repeatedly expands/rewrites long literal drafts. Those are inspectable partial behaviors, not a certified final file."
+    }
+  ]
+}

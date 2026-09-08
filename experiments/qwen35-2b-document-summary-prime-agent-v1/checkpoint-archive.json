@@ -11,6 +11,22 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-text-revision-sft-v1/h176-summary-text-revision-sft12-step1-lr2e7-v1/weights/step_1/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-text-revision-sft-v1/h176-summary-text-revision-sft12-step1-lr2e7-v1/weights/step_1/model.safetensors",
+      "sha256": "ee35c11f278e931928fdb43c0b70a5af26b99a57c9e27a4cb1e08b1f4b5ed256",
+      "bytes": 4426558864,
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Extra local TRAINING-RECEIPT.json retained.",
+      "training_receipt_archived": "q35-2b-document-summary-text-revision-sft-v1/h176-summary-text-revision-sft12-step1-lr2e7-v1/TRAINING-RECEIPT.json",
+      "remote_removal_scope": "model.safetensors only; old one-update text-revision experiment, not R4/R5 or the next training input",
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "state_references": "Only its own completed training receipt; checked again after comparison drained.",
+      "no_active_gpu_process_at_removal": true,
+      "host_free_space_after_removal": "7.2 GiB reported by df -h",
+      "removal_verified_utc": "2026-09-08 12:23:11 UTC"
+    },
+    {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-live-revision-sft-v2/h176-summary-live-revision-sft12-step1-v2/weights/step_1/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-live-revision-sft-v2/h176-summary-live-revision-sft12-step1-v2/weights/step_1/model.safetensors",
       "sha256": "3f712af3fce69d2feb6ef7c6fa7bbfc6962d9f167592e70c9269b6cc545f03ff",

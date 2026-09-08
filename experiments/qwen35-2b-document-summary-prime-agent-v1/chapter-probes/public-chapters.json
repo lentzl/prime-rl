@@ -44,7 +44,10 @@
       "normalization": "UTF-8; CRLF to LF; omit only chapter III heading and boundary whitespace; preserve all rules 8-18, prose, examples, line breaks and indentation; chapter IV excluded",
       "split": "prospective evaluation relative to frozen R5 training data",
       "training_excluded": true,
-      "prior_campaign_evaluations": 0,
+      "prior_campaign_evaluations_at_preparation": 0,
+      "first_campaign_comparison": "r4-vs-r5-direct-five-chapters-r1",
+      "current_split": "development-exposed after first inspected R4/R5 outputs",
+      "first_comparison_outcome": "R4 finalized; R5 harness/transport error with inspected partial drafts, not a clean semantic pair",
       "review": "README.md#prospective-composition-chapter"
     }
   ]

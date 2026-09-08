@@ -105,5 +105,5 @@
     "wrapper_absent": true,
     "gpus_drained_at_verification": true
   },
-  "semantic_review": "pending matched R4/R5 native five-chapter evaluation"
+  "semantic_review": "direct-r4-vs-r5-five-chapters-results.json: nine clean episodes and one incomplete R5 Strunk harness/transport error; no semantic promotion"
 }
