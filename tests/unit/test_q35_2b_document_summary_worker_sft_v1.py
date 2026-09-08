@@ -12,13 +12,23 @@ def test_evidence_teacher_episodes_reproduce_their_file_observations(tmp_path: P
     sys.path.insert(0, str(scripts))
     try:
         from document_summary_evidence_training_v1 import training_chapters
-        from export_q35_2b_document_summary_evidence_sft_v1 import ROOT, _messages
+        from export_q35_2b_document_summary_evidence_sft_v1 import ROOT, _context, _messages
     finally:
         sys.path.remove(str(scripts))
     chapters = training_chapters()
     assert len(chapters) == len({c["slug"] for c in chapters}) == 16
     context = [{"role": "user", "content": "Prime Agent runtime"}, {"role": "user", "content": "Read source.md and write notes.md."}]
     feedback = {"role": "user", "content": "Your notes are now saved; at most 68 total words."}
+    clean_feedback = {"role": "user", "content": "Chapter summarization: next file step.\n" + feedback["content"]}
+    native_trace = tmp_path / "context.jsonl"
+    native_trace.write_text(json.dumps({"traces": [{
+        "task": {"type": "DocumentSummaryEvidenceTask"}, "errors": [],
+        "info": {"evidence_feedback_rewrites": 1}, "tools": [{"name": "ipython"}],
+        "nodes": [{"message": m} for m in [*context, clean_feedback, feedback]],
+    }]}))
+    _, extracted_context, extracted_feedback = _context(native_trace)
+    assert extracted_context == context
+    assert extracted_feedback == clean_feedback
     for chapter in chapters:
         workspace = tmp_path / chapter["slug"]
         workspace.mkdir()

@@ -38,6 +38,11 @@ def _context(trace_path):
     trace = traces[0]
     messages = [node["message"] for node in trace["nodes"]]
     feedback = [m for m in messages if m["role"] == "user" and "Your notes are now saved" in _text(m)]
+    model_visible = [m for m in feedback if _text(m).startswith("Chapter summarization: next file step.")]
+    if model_visible:
+        feedback = model_visible
+    elif trace.get("info", {}).get("evidence_feedback_rewrites"):
+        raise ValueError("rewritten model-visible continuation is absent from the trace")
     if len(feedback) != 1 or [tool["name"] for tool in trace["tools"]] != ["ipython"]:
         raise ValueError("missing native notes continuation or IPython schema")
     return trace, messages[:2], feedback[0]
@@ -184,6 +189,10 @@ def export(*, trace_path: Path, output_dir: Path):
         "authored_reference": True,
         "tool_call_format": "openai_function_v1",
         "native_prime_agent_context": True,
+        "continuation_style": (
+            "model_visible_file_step" if _text(feedback).startswith("Chapter summarization: next file step.")
+            else "historical_generic_gate"
+        ),
         "context_trace": {"path": str(trace_path), "sha256": sha256_file(trace_path), "trace_id": trace["id"]},
         "trajectory_kind": "authored_teacher_episode_not_on_policy_replay",
         "teacher_tool_results": "regenerated_from_authored_file_contents",

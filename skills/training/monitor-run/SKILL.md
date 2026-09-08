@@ -273,6 +273,10 @@ can reuse the two frozen engines while running one model per GPU concurrently.
 Its receipt explicitly records direct engine routing, not owner/child delegation
 or role-proxy behavior. Inspect all four episode traces and checkpoint hashes;
 driver completion and file-presence rewards do not establish semantic utility.
+When exporting teacher episodes from intercepted traces, select the recorded
+model-visible continuation rather than its raw pre-interception sibling. Record
+the feedback style in the dataset manifest so later scaffold changes do not
+silently leave supervision aligned to obsolete gate framing.
 
 For `run_q35_2b_spade_dual_dense_autonomous_v1.py --coevolution`, treat a
 generated batch as complete only when all of these exist and agree:
