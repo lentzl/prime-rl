@@ -14,7 +14,9 @@ from typing import Any
 from export_q35_2b_document_decision_sft_v1 import sha256_file
 
 SCHEMA_VERSION = "qwen35-2b-document-decision-update/v1"
+DIRECT_SUMMARY_SCHEMA = "qwen35-2b-document-summary-direct-sft/v1"
 DATASET_CONTRACTS = {
+    DIRECT_SUMMARY_SCHEMA: ("child", "grounded_english_direct_chapter_key_bullets"),
     "qwen35-2b-document-summary-evidence-sft/v2": (
         "child", "grounded_english_source_notes_summary_episode",
     ),
@@ -164,6 +166,7 @@ DATASET_CONTRACTS = {
     ),
 }
 DATASET_ANSWER_FREE = {
+    DIRECT_SUMMARY_SCHEMA: False,
     "qwen35-2b-document-summary-evidence-sft/v2": False,
     "qwen35-2b-document-summary-evidence-sft/v1": False,
     "qwen35-2b-document-decision-sft/v2": True,
@@ -203,6 +206,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-adaptive-cognition-sft/v3": True,
 }
 DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
+    DIRECT_SUMMARY_SCHEMA: 40,
     "qwen35-2b-document-summary-evidence-sft/v1": 32,
     "qwen35-2b-document-summary-evidence-sft/v2": 40,
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 24,
@@ -232,6 +236,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-adaptive-cognition-sft/v3": 48,
 }
 DATASET_BATCH_SIZES = {
+    DIRECT_SUMMARY_SCHEMA: 8,
     "qwen35-2b-document-summary-evidence-sft/v1": 8,
     "qwen35-2b-document-summary-evidence-sft/v2": 8,
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 12,
@@ -436,6 +441,13 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
     }.get(schema_version, 4)
     family_counts = manifest.get("family_counts", {})
     family_counts_valid = set(family_counts.values()) == {expected_family_count}
+    if schema_version == DIRECT_SUMMARY_SCHEMA:
+        family_counts_valid = family_counts == {"retained_train": 20, "public_chapter": 20}
+        if (manifest.get("direct_summary") is not True or manifest.get("notes_stage") is not False
+                or manifest.get("assistant_only_loss") is not True
+                or manifest.get("renderer_enable_thinking") is not True
+                or manifest.get("cases_sha256") != sha256_file(path / "CASES.json")):
+            raise ValueError("direct-summary dataset contract or case contents changed")
     if schema_version == (
         "qwen35-2b-document-utility-routed-causal-matched-consolidated-sft/v1"
     ):
@@ -727,6 +739,24 @@ def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, 
     return audit
 
 
+def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[str, Any]:
+    audit = json.loads((path / "RENDERER-AUDIT.json").read_text())
+    records = audit.get("rows", [])
+    if (audit.get("schema_version") != "qwen35-2b-document-summary-direct-renderer-audit/v1"
+            or audit.get("dataset_schema_version") != DIRECT_SUMMARY_SCHEMA
+            or audit.get("status") != "complete" or audit.get("selected_enable_thinking") is not True
+            or audit.get("seq_len") != 16384 or audit.get("cuda_initialized") is not False
+            or audit.get("dataset_manifest_sha256") != sha256_file(path / "MANIFEST.json")
+            or audit.get("dataset_parquet_sha256") != sha256_file(path / "train.parquet")
+            or audit.get("tokenizer_sha256") != sha256_file(tokenizer_path / "tokenizer.json")
+            or len(records) != 40 or len({r["slug"] for r in records}) != 40
+            or any(r.get("truncated") is not False or r.get("file_observations_reproduced") is not True
+                   or r.get("source_or_user_supervised_tokens") != 0
+                   or not 0 < r.get("supervised_tokens", 0) < r.get("tokens", 0) <= 16384 for r in records)):
+        raise ValueError("invalid direct-summary renderer audit")
+    return audit
+
+
 def _gpus_idle() -> bool:
     result = subprocess.run(
         [
@@ -753,6 +783,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     dataset = _validated_dataset(dataset_dir)
     if (
         dataset["schema_version"] in {
+            DIRECT_SUMMARY_SCHEMA,
             "qwen35-2b-document-summary-evidence-sft/v1",
             "qwen35-2b-document-summary-evidence-sft/v2",
         }
@@ -766,6 +797,8 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     ):
         raise ValueError("margin revision dataset does not match its source checkpoint")
     renderer_audit = None
+    if dataset["schema_version"] == DIRECT_SUMMARY_SCHEMA:
+        renderer_audit = _validated_direct_summary_audit(dataset_dir, source_model)
     if dataset["schema_version"] in {
         "qwen35-2b-document-summary-live-revision-sft/v2",
         "qwen35-2b-document-summary-commit-revision-sft/v3",

@@ -7,6 +7,75 @@ from pathlib import Path
 from datasets import Dataset
 
 
+def test_direct_teacher_export_preserves_read_write_stop_and_rejects_source_changes(tmp_path: Path) -> None:
+    import hashlib
+
+    import pytest
+
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        from export_q35_2b_document_summary_direct_sft_v1 import ROOT, export
+        from run_q35_2b_document_decision_sft_v1 import _validated_dataset
+    finally:
+        sys.path.remove(str(scripts))
+    source_dir = tmp_path / "sources"
+    source_dir.mkdir()
+    source = "A café serves local readers who discuss a different chapter at each weekly meeting. " * 12
+    labels, sources = [], []
+    for i in range(20):
+        slug = f"chapter-{i}"
+        (source_dir / f"{slug}.md").write_text(source)
+        sources.append({"slug": slug, "source_sha256": hashlib.sha256(source.encode()).hexdigest()})
+        labels.append({"slug": slug, "bullets": ["Local readers meet in a café.", "They discuss one chapter each week.",
+                                                "Each meeting considers a different chapter."], "review_points": ["No later events."]})
+    (source_dir / "SOURCES.json").write_text(json.dumps({"split": "TRAIN", "chapters": sources,
+                                                       "books": [{"ebook": n} for n in (35, 120, 97, 37423)]}))
+    teacher = tmp_path / "teacher.json"
+    teacher.write_text(json.dumps({"status": "complete_20_of_20_source_reviewed", "chapters": labels}))
+    prompt = "Read source.md; at most 8 total words. Write summary.md."
+    trace = {"id": "native-direct-context", "errors": [], "info": {"summary_workflow": "direct"},
+             "task": {"type": "DocumentSummaryEvidenceTask", "data": {"direct_summary": True,
+                      "prompt": prompt, "system_prompt": "terminal summarizer",
+                      "chapter": {"paragraphs": [{"text": "one two three four five six seven eight nine ten"}]}}},
+             "nodes": [{"message": {"role": "user", "content": "native runtime: terminal summarizer"}},
+                       {"message": {"role": "user", "content": [{"type": "text", "text": prompt}]}}],
+             "tools": [{"name": "ipython", "parameters": {"type": "object"}}]}
+    trace_path = tmp_path / "trace.jsonl"
+    trace_path.write_text(json.dumps({"traces": [trace]}))
+    output = tmp_path / "dataset"
+    manifest = export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher, output_dir=output)
+    assert manifest["rows"] == 40 and manifest["notes_stage"] is False
+    assert _validated_dataset(output) == manifest
+    cases = json.loads((output / "CASES.json").read_text())
+    for row, case in zip(Dataset.from_parquet(str(output / "train.parquet")), cases, strict=True):
+        workspace = tmp_path / case["slug"]
+        workspace.mkdir()
+        (workspace / "source.md").write_text(case["source"])
+        scope, observed = {}, {}
+        for message in row["messages"]:
+            if message["role"] == "assistant":
+                assert message["trainable"] is True
+            for call in message.get("tool_calls") or []:
+                code = json.loads(call["function"]["arguments"])["code"].replace(ROOT, str(workspace))
+                program = ast.parse(code)
+                exec(compile(ast.Module(body=program.body[:-1], type_ignores=[]), "teacher", "exec"), scope)
+                value = eval(compile(ast.Expression(program.body[-1].value), "teacher", "eval"), scope)
+                observed[call["id"]] = repr(value)
+            if message["role"] == "tool":
+                assert message["content"] == observed[message["tool_call_id"]]
+        assert (workspace / "summary.md").read_text() == case["summary"]
+        assert not (workspace / "notes.md").exists()
+        assert row["messages"][-1]["content"] == "Done."
+    (source_dir / "chapter-0.md").write_text("changed source")
+    with pytest.raises(ValueError, match="changed chapter"):
+        export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher, output_dir=tmp_path / "bad")
+    trace["task"]["data"]["direct_summary"] = False
+    trace_path.write_text(json.dumps({"traces": [trace]}))
+    with pytest.raises(ValueError, match="direct native"):
+        export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher, output_dir=tmp_path / "staged")
+
+
 def test_evidence_teacher_episodes_reproduce_their_file_observations(tmp_path: Path) -> None:
     scripts = Path(__file__).parents[2] / "scripts"
     sys.path.insert(0, str(scripts))

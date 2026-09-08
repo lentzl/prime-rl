@@ -285,6 +285,14 @@ When exporting teacher episodes from intercepted traces, select the recorded
 model-visible continuation rather than its raw pre-interception sibling. Record
 the feedback style in the dataset manifest so later scaffold changes do not
 silently leave supervision aligned to obsolete gate framing.
+For direct-summary SFT, export the observed direct runtime/task prefix with
+`export_q35_2b_document_summary_direct_sft_v1.py`; do not reuse the staged-notes
+continuation. The 40-row mix interleaves 20 retained TRAIN cases and 20 reviewed
+public chapters. Run `audit_q35_2b_document_summary_direct_sft_v1.py` against the
+source checkpoint's tokenizer before launch. It replays teacher file operations,
+checks complete untruncated trainer sequences, and verifies assistant-only loss.
+The training wrapper requires the matching `RENDERER-AUDIT.json`, including
+dataset and tokenizer hashes. Format validation alone is not semantic admission.
 The document training wrapper accepts a positive explicit update count. Use that
 per-run count and timeout for bounded reassessment; there is no campaign-wide
 GPU-hour or eight-update quota on the Owner's existing allocation.

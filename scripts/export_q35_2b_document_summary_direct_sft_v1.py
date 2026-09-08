@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+"""Build direct native-summary episodes from reviewed chapters and retained TRAIN cases."""
+
+from __future__ import annotations
+
+import argparse
+import copy
+import hashlib
+import json
+from pathlib import Path
+
+from datasets import Dataset
+from document_summary_evidence_training_v1 import training_chapters
+from export_q35_2b_document_decision_sft_v1 import _wire_message, sha256_file
+from export_q35_2b_document_summary_evidence_sft_v1 import ROOT, _action, _done, _result
+from export_q35_2b_document_summary_live_revision_sft_v2 import _load_fixture_module
+
+SCHEMA_VERSION = "qwen35-2b-document-summary-direct-sft/v1"
+OBJECTIVE = "grounded_english_direct_chapter_key_bullets"
+REPO = Path(__file__).resolve().parents[1]
+
+
+def _context(trace_path: Path):
+    traces = [
+        t for line in trace_path.read_text().splitlines() if line.strip() for t in json.loads(line).get("traces", [])
+    ]
+    if len(traces) != 1:
+        raise ValueError("need one observed native direct-summary trace")
+    trace = traces[0]
+    data = trace["task"]["data"]
+    context = [_wire_message(copy.deepcopy(n["message"])) for n in trace["nodes"][:2]]
+    if (
+        trace["task"]["type"] != "DocumentSummaryEvidenceTask"
+        or trace.get("errors")
+        or data.get("direct_summary") is not True
+        or trace.get("info", {}).get("summary_workflow") != "direct"
+        or [m["role"] for m in context] != ["user", "user"]
+        or [t["name"] for t in trace["tools"]] != ["ipython"]
+        or not context[1]["content"].startswith(data["prompt"])
+        or data["system_prompt"] not in context[0]["content"]
+    ):
+        raise ValueError("trace does not expose the direct native runtime and task context")
+    budget = int(sum(len(p["text"].split()) for p in data["chapter"]["paragraphs"]) * 0.8)
+    return trace, context, budget
+
+
+def _chapters(source_dir: Path, teacher_path: Path):
+    manifest = json.loads((source_dir / "SOURCES.json").read_text())
+    labels = json.loads(teacher_path.read_text())
+    source_rows = {c["slug"]: c for c in manifest["chapters"]}
+    if (
+        manifest.get("split") != "TRAIN"
+        or labels.get("status") != "complete_20_of_20_source_reviewed"
+        or len(source_rows) != 20
+        or len(labels["chapters"]) != 20
+        or {c["slug"] for c in labels["chapters"]} != set(source_rows)
+        or {b["ebook"] for b in manifest["books"]} != {35, 120, 97, 37423}
+    ):
+        raise ValueError("incomplete reviewed public TRAIN corpus")
+    public = []
+    for label in labels["chapters"]:
+        row = source_rows[label["slug"]]
+        raw = (source_dir / f"{label['slug']}.md").read_bytes()
+        if hashlib.sha256(raw).hexdigest() != row["source_sha256"] or not label["review_points"]:
+            raise ValueError(f"unreviewed or changed chapter: {label['slug']}")
+        public.append(
+            {
+                "slug": label["slug"],
+                "family": "public_chapter",
+                "source_sha256": row["source_sha256"],
+                "paragraphs": [{"text": p} for p in raw.decode().strip().split("\n\n")],
+                "summary": "\n".join(f"- {b}" for b in label["bullets"]) + "\n",
+            }
+        )
+    retained = [dict(c, family="retained_train") for c in training_chapters()]
+    if len(retained) != 20:
+        raise ValueError("expected twenty retained TRAIN cases")
+    return [c for pair in zip(retained, public, strict=True) for c in pair]
+
+
+def _messages(context, original_budget, chapter):
+    paragraphs = chapter["paragraphs"]
+    source = "\n\n".join(f"[chapter-p{i:03d}] {p['text']}" for i, p in enumerate(paragraphs, 1)) + "\n"
+    summary = chapter["summary"]
+    budget = int(sum(len(p["text"].split()) for p in paragraphs) * 0.8)
+    messages = copy.deepcopy(context)
+    old = f"at most {original_budget} total words"
+    if messages[1]["content"].count(old) != 1:
+        raise ValueError("observed prompt has no unique word allowance")
+    messages[1]["content"] = messages[1]["content"].replace(old, f"at most {budget} total words")
+    messages += [
+        _action(
+            "read-source",
+            f"from pathlib import Path\nsource_text = Path('{ROOT}/source.md').read_text(encoding='utf-8')\nsource_text",
+            "Read the complete chapter before choosing its main points.",
+        ),
+        _result("read-source", repr(source)),
+        _action(
+            "write-summary",
+            f"summary_text = {summary!r}\nPath('{ROOT}/summary.md').write_text(summary_text, encoding='utf-8')",
+            "Select the main ideas or events, retaining essential qualifications and chronology. Keep possibilities distinct from actual events, use only this chapter, and write concise English bullets.",
+        ),
+        _result("write-summary", str(len(summary))),
+        _done(),
+    ]
+    for message in messages:
+        if message["role"] == "assistant":
+            message["trainable"] = True
+    return messages, source
+
+
+def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path):
+    if output_dir.exists():
+        raise FileExistsError(output_dir)
+    trace, context, original_budget = _context(trace_path)
+    fixture = _load_fixture_module()
+    excluded = {
+        p["text"].strip()
+        for doc, _ in (fixture.build_fixture(), fixture.build_confirmation_fixture())
+        for chapter in doc["chapters"]
+        for p in chapter["paragraphs"]
+    }
+    probe_dir = REPO / "experiments/qwen35-2b-document-summary-prime-agent-v1/chapter-probes"
+    for path in [probe_dir / "city-shade.md", *probe_dir.glob("*-ch1.md")]:
+        excluded.update(path.read_text().strip().split("\n\n"))
+    rows, cases = [], []
+    for chapter in _chapters(source_dir, teacher_path):
+        paragraphs, summary = chapter["paragraphs"], chapter["summary"]
+        lines = summary.splitlines()
+        counts = [len(line[2:].split()) for line in lines]
+        if (
+            not 3 <= len(lines) <= 5
+            or not all(line.startswith("- ") for line in lines)
+            or not all(5 <= n <= 45 for n in counts)
+            or sum(counts) > int(sum(len(p["text"].split()) for p in paragraphs) * 0.8)
+            or any(p["text"].strip() in excluded for p in paragraphs)
+        ):
+            raise ValueError(f"invalid or evaluation-overlapping training case: {chapter['slug']}")
+        messages, source = _messages(context, original_budget, chapter)
+        if len(repr(source).encode()) >= 50 * 1024:
+            raise ValueError("source observation exceeds conservative native tool-output allowance")
+        rows.append(
+            {
+                "messages": messages,
+                "tools": json.dumps(trace["tools"], sort_keys=True),
+                "task_key": f"summary-direct-{chapter['slug']}",
+                "trace_id": f"summary-direct-authored:{chapter['slug']}",
+                "family": chapter["family"],
+                "role": "child",
+                "objective": OBJECTIVE,
+            }
+        )
+        cases.append(
+            {
+                "slug": chapter["slug"],
+                "family": chapter["family"],
+                "source": source,
+                "source_sha256": hashlib.sha256(source.encode()).hexdigest(),
+                "summary": summary,
+            }
+        )
+    if len(rows) != 40 or len({r["task_key"] for r in rows}) != 40:
+        raise ValueError("expected forty distinct direct-summary episodes")
+    output_dir.mkdir(parents=True)
+    parquet = output_dir / "train.parquet"
+    Dataset.from_list(rows).to_parquet(str(parquet))
+    (output_dir / "CASES.json").write_text(json.dumps(cases, indent=2, ensure_ascii=False) + "\n")
+    manifest = {
+        "schema_version": SCHEMA_VERSION,
+        "status": "complete",
+        "role": "child",
+        "objective": OBJECTIVE,
+        "rows": 40,
+        "family_counts": {"retained_train": 20, "public_chapter": 20},
+        "answer_free": False,
+        "tool_call_format": "openai_function_v1",
+        "renderer_enable_thinking": True,
+        "native_prime_agent_context": True,
+        "direct_summary": True,
+        "notes_stage": False,
+        "trajectory_kind": "authored_teacher_episode_not_on_policy_replay",
+        "independent_human_gold": False,
+        "teacher_tool_results": "regenerated_from_authored_file_contents",
+        "assistant_only_loss": True,
+        "context_trace": {"path": str(trace_path), "sha256": sha256_file(trace_path), "trace_id": trace["id"]},
+        "source_manifest_sha256": sha256_file(source_dir / "SOURCES.json"),
+        "teacher_labels_sha256": sha256_file(teacher_path),
+        "cases_sha256": sha256_file(output_dir / "CASES.json"),
+        "eval_books_excluded_as_sources": [11, 2274],
+        "incidental_overlap": "Dewey chapter 8 alludes to Alice's cake; no zero-phrase-overlap claim",
+        "pretraining_contamination_possible": True,
+        "broad_skill_claim": False,
+        "dataset": {"path": "train.parquet", "sha256": sha256_file(parquet)},
+    }
+    (output_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
+    return manifest
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--trace", type=Path, required=True)
+    parser.add_argument("--source-dir", type=Path, required=True)
+    parser.add_argument("--teacher-labels", type=Path, required=True)
+    parser.add_argument("--output-dir", type=Path, required=True)
+    args = parser.parse_args()
+    print(
+        json.dumps(
+            export(
+                trace_path=args.trace,
+                source_dir=args.source_dir,
+                teacher_path=args.teacher_labels,
+                output_dir=args.output_dir,
+            ),
+            indent=2,
+        )
+    )

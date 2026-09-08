@@ -1,0 +1,37 @@
+{
+  "status": "prepared_not_yet_launched",
+  "run_name": "h176-summary-direct-chapters-step32-r3",
+  "source": {
+    "name": "R2",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-evidence-sft-v2/h176-summary-evidence-expository-step16-r2a/weights/step_16",
+    "sha256": "da1ec708bf191313797c97f5e729baeef57deffae294b90901eb6a8fafe7691d"
+  },
+  "dataset": {
+    "path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r1",
+    "schema": "qwen35-2b-document-summary-direct-sft/v1",
+    "parquet_sha256": "b8cedd9df15ed9cd561e3606745a58e9fa01a28b64ef0cdde2ef62fbb22d6247",
+    "rows": 40,
+    "retained_train_cases": 20,
+    "public_chapters": 20,
+    "sequence_tokens": 268769,
+    "supervised_tokens": 11502,
+    "maximum_sequence_tokens": 13261,
+    "all_teacher_file_observations_reproduced": true,
+    "truncated_rows": 0,
+    "source_or_user_supervised_tokens": 0
+  },
+  "training": {
+    "optimizer_updates": 32,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "sequence_length": 16384,
+    "checkpoint_interval": 32,
+    "fresh_optimizer": true,
+    "full_dense": true,
+    "renderer_enable_thinking": true,
+    "gpus": 2
+  },
+  "rationale": "Build on R2 with direct native read/write/stop episodes, retain earlier TRAIN material, and add substantially longer narrative and expository chapters. Reassess after 32 updates rather than repeat allowance-only inference comparisons.",
+  "semantic_promotion": false,
+  "next_evaluation": "Frozen R2 versus resulting candidate, direct chapter summaries; inspect main-point coverage, factual fidelity, qualifications, chronology, completion and format separately. Existing public evaluation books excluded as TRAIN sources, but pretraining and incidental phrase overlap remain possible."
+}
