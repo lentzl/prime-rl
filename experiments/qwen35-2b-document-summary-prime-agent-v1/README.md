@@ -46,6 +46,14 @@ key-bullet summaries in that four-episode screen; the upstream Bennett output
 was a paragraph-by-paragraph obligation report. This cautions against attributing
 the failures to training alone. The reference is not a proven exact ancestor.
 
+`direct-public-chapters-r1-results.json` records the first direct comparison:
+all four episodes save summary text, but factual inventions/reversals and format
+failures remain. Native ACP stopping reasons must be retained: visible text is
+not evidence that the autonomous correction allowance remained available.
+The direct configs allow 32 turns and 262,144 cumulative tokens while retaining
+the existing 10-minute episode timeout and output ceiling. This allows a bounded
+correction opportunity on longer chapters; it is not a campaign resource quota.
+
 ## Training and interpretation
 
 Evidence curriculum R2 retains the sixteen earlier source cases and adds four

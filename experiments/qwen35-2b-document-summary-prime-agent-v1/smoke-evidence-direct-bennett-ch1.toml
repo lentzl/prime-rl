@@ -19,9 +19,9 @@ mode = "direct_probe"
 chapter_path = "experiments/qwen35-2b-document-summary-prime-agent-v1/chapter-probes/bennett-ch1.md"
 
 [env.agent]
-max_turns = 16
+max_turns = 32
 max_output_tokens = 32768
-max_total_tokens = 65536
+max_total_tokens = 262144
 
 [env.agent.harness]
 id = "prime_agent"
@@ -29,8 +29,8 @@ version = "0.7.2-beta.495.1.97b994c"
 autonomous = true
 gates = ["python /workspace/document-summary-v1/completion_gate.py"]
 autonomous_max_continuations = 6
-autonomous_max_turns = 16
-autonomous_max_tokens = 65536
+autonomous_max_turns = 32
+autonomous_max_tokens = 262144
 autonomous_timeout_ms = 600000
 process_timeout_ms = 540000
 
