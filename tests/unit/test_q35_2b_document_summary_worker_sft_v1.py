@@ -899,6 +899,7 @@ def test_margin_revision_training_wrapper_uses_four_bounded_updates() -> None:
     assert "learning_rate=${7:-2e-7}" in wrapper
     assert '--learning-rate "$learning_rate"' in wrapper
     assert '--optimizer-updates "$optimizer_updates"' in wrapper
+    assert '--checkpoint-interval "$optimizer_updates"' in wrapper
     assert "--enable-thinking" not in wrapper
     assert wrapper.count('--traces "$') == 6
     assert '--source-model "$source_model"' in wrapper

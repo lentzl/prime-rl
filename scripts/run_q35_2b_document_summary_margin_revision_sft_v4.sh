@@ -64,4 +64,5 @@ mkdir -p "$state_dir"
   --run-name "$run_name" \
   --learning-rate "$learning_rate" \
   --optimizer-updates "$optimizer_updates" \
+  --checkpoint-interval "$optimizer_updates" \
   --timeout 3600

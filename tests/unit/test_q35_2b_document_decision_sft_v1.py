@@ -336,6 +336,7 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
     )
 
     assert "max_steps = 8" in config
+    assert "interval = 1" in config
     assert "gpus_per_node = 2" in config
     assert "batch_size = 12" in config
     assert "micro_batch_size = 1" in config
@@ -355,6 +356,22 @@ def test_document_decision_training_is_one_full_dense_update() -> None:
         "grounded_document_coordinator_spawn_partial_yield_fanin",
     )
     assert module.DATASET_ANSWER_FREE["qwen35-2b-document-coordinator-fanin-sft/v1"] is False
+
+
+def test_document_decision_training_can_checkpoint_only_at_terminal_update() -> None:
+    module = _module("run_q35_2b_document_decision_sft_v1")
+    config = module.training_config(
+        run_name="test",
+        model_path=Path("/models/c177"),
+        dataset_dir=Path("/data/decision"),
+        output_root=Path("/outputs"),
+        learning_rate=1e-6,
+        optimizer_updates=4,
+        checkpoint_interval=4,
+    )
+
+    assert "max_steps = 4" in config
+    assert "interval = 4" in config
 
 
 def test_dual_policy_launcher_exposes_inference_sibling_binaries() -> None:

@@ -260,11 +260,16 @@ def training_config(
     output_root: Path,
     learning_rate: float,
     optimizer_updates: int = 1,
+    checkpoint_interval: int = 1,
     batch_size: int = 12,
     enable_thinking: bool = False,
 ) -> str:
     if not 1 <= optimizer_updates <= 8:
         raise ValueError("document decision bootstrap requires one to eight updates")
+    if not 1 <= checkpoint_interval <= optimizer_updates:
+        raise ValueError("checkpoint interval must end within the bounded update run")
+    if optimizer_updates % checkpoint_interval:
+        raise ValueError("checkpoint interval must divide the bounded update run")
     if batch_size not in {4, 6, 8, 12, 16}:
         raise ValueError(
             "document decision bootstrap batch size must be 4, 6, 8, 12, or 16"
@@ -335,7 +340,7 @@ betas2 = 0.999
 type = "constant"
 
 [ckpt]
-interval = 1
+interval = {checkpoint_interval}
 keep_last = 1
 weights_only = true
 
@@ -754,6 +759,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
         output_root=output_root,
         learning_rate=args.learning_rate,
         optimizer_updates=args.optimizer_updates,
+        checkpoint_interval=args.checkpoint_interval,
         batch_size=DATASET_BATCH_SIZES.get(dataset["schema_version"], dataset["rows"]),
         enable_thinking=args.enable_thinking,
     )
@@ -808,6 +814,7 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
             "config_path": str(config_path),
             "config_sha256": sha256_file(config_path),
             "learning_rate": args.learning_rate,
+            "checkpoint_interval": args.checkpoint_interval,
             "loss_mean": metrics["loss/mean"],
             "loss_nan_count": metrics["loss/nan_count"],
             "gradient_norm": metrics["optim/grad_norm"],
@@ -831,11 +838,17 @@ def main() -> None:
     parser.add_argument("--run-name", required=True)
     parser.add_argument("--learning-rate", type=float, default=2e-6)
     parser.add_argument("--optimizer-updates", type=int, default=1)
+    parser.add_argument("--checkpoint-interval", type=int, default=1)
     parser.add_argument("--enable-thinking", action="store_true")
     parser.add_argument("--timeout", type=int, default=3600)
     parser.add_argument("--uv-bin", type=Path, default=Path("/home/ubuntu/.local/bin/uv"))
     args = parser.parse_args()
-    if not 0 < args.learning_rate <= 1e-4 or not 1 <= args.optimizer_updates <= 8:
+    if (
+        not 0 < args.learning_rate <= 1e-4
+        or not 1 <= args.optimizer_updates <= 8
+        or not 1 <= args.checkpoint_interval <= args.optimizer_updates
+        or args.optimizer_updates % args.checkpoint_interval
+    ):
         parser.error("learning rate or optimizer update count is outside the bounded range")
     print(json.dumps(run(args), indent=2, sort_keys=True))
 
