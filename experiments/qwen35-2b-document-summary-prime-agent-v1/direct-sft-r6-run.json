@@ -1,5 +1,5 @@
 {
-  "status": "training",
+  "status": "complete_weight_update_semantic_review_pending",
   "run_name": "h176-summary-direct-chapters-step128-r6",
   "code_commit": "0fcc3a240d7713c2136bda17ade424f08efad8d7",
   "verifiers_commit": "0de7aa77548c0c4c7c2a61c6cdb4dfd16d13be33",
@@ -73,7 +73,7 @@
   "remaining_launch_conditions": [],
   "launch_time_utc": "2026-09-08 12:23:43 UTC",
   "training_loop_started_at_utc": "2026-09-08 12:24:26 UTC",
-  "latest_observation": {
+  "launch_observation": {
     "time_utc": "2026-09-08 12:25:41 UTC",
     "wrapper_pid": 2610853,
     "trainer_rank_pids": [
@@ -85,6 +85,23 @@
     "recorded_nan_count": 0,
     "gpu_memory_mib_each": 11900,
     "free_checkpoint_disk_gib": 7.124359130859375
+  },
+  "completion": {
+    "verified_at_utc": "2026-09-08 13:18 UTC",
+    "optimizer_updates_completed": 128,
+    "all_128_loss_records_finite": true,
+    "recorded_nan_total": 0,
+    "final_loss": 0.5366880297660828,
+    "final_gradient_norm": 31.5,
+    "wrapper_and_trainer_ranks_exited": true,
+    "gpu_processes_drained": true,
+    "checkpoint_stable": true,
+    "checkpoint_path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r6/weights/step_128",
+    "checkpoint_sha256": "a3ca3cbc99b24e62da3bd8e7a723799706b1dbcfb54cb6ca820347ce7851ab27",
+    "independent_checkpoint_hash_matches_receipt": true,
+    "receipt_sha256": "11ce27dab3e6d073b64b4731705531343780f8a4c80c87930f16952aa3bbdec0",
+    "training_records_copied_locally": true,
+    "interpretation": "R6 is the valid cumulative training frontier, not a certified useful summarizer. Weights-only continuation used a fresh optimizer, not exact state resumption."
   },
   "semantic_review": "direct-r4-vs-r5-five-chapters-results.json",
   "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 0fcc3a240d7713c2136bda17ade424f08efad8d7 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 0de7aa77548c0c4c7c2a61c6cdb4dfd16d13be33 && UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python scripts/run_q35_2b_document_decision_sft_v1.py --source-model /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-repair-step128-r5/weights/step_128 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r4-chapters --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-direct-sft-v1 --run-name h176-summary-direct-chapters-step128-r6 --learning-rate 1e-6 --optimizer-updates 128 --checkpoint-interval 128 --enable-thinking --timeout 7200"

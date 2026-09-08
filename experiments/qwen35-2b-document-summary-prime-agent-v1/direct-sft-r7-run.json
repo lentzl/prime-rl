@@ -1,0 +1,76 @@
+{
+  "status": "running_optimizer_updates_verified",
+  "run_name": "h176-summary-semantic-repair-step128-r7",
+  "code_commit": "070ead308cd30cda5740145040bf8737466dc8a6",
+  "verifiers_commit": "04ae46810fcf814b12e5b087d8f57a4f03c75064",
+  "source": {
+    "name": "R6 experimental frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r6/weights/step_128",
+    "sha256": "a3ca3cbc99b24e62da3bd8e7a723799706b1dbcfb54cb6ca820347ce7851ab27"
+  },
+  "dataset": {
+    "host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r7-semantic",
+    "local_path": "outputs/summary-direct-sft-r7-semantic",
+    "rows": 110,
+    "family_counts": {
+      "retained_train": 20,
+      "public_chapter": 28,
+      "format_repair": 48,
+      "semantic_repair": 14
+    },
+    "previous_rows_preserved_exactly": 96,
+    "unique_train_chapters": 48,
+    "new_source_chapters": 0,
+    "manifest_sha256": "6829739e58f0bfbb8747272e0625f8002bab58365f44e38c5c19ceb1c2bf990a",
+    "parquet_sha256": "ed6bdc28ea40380c8d337a7260404dd129e3e83746322969dfd3096159b7d6fe",
+    "renderer_audit_sha256": "a70eb18f705d4a3165ef904d6d57eff76d4679b85868ecd51ff320b04f0f90b7",
+    "audit": "semantic-repairs-v1-preparation.json",
+    "on_policy_replay": false,
+    "evaluation_sources_added": false,
+    "incorrect_prefix": "Authored format-valid wrong drafts and premature Done masked; source reads, reviewed correction reasoning, complete summary writes and final stopping supervised.",
+    "feedback": "Authored user revision request, not a native semantic gate."
+  },
+  "training": {
+    "optimizer_updates": 128,
+    "checkpoint_interval": 128,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "sequence_length": 16384,
+    "fresh_optimizer": true,
+    "exact_training_resume": false,
+    "full_dense": true,
+    "optimization_dtype": "bfloat16",
+    "reduce_dtype": "bfloat16",
+    "renderer_enable_thinking": true,
+    "gpus": 2,
+    "run_timeout_seconds": 7200,
+    "campaign_gpu_hour_cap": null,
+    "config_sha256": "2da6500fb55ba3a1eea019b11eed564ab9a030a34fa1c2ad201c15793a74d0f9"
+  },
+  "rationale": [
+    "Continue cumulative learning from the valid R6 frontier. Add source-grounded repair states for quantities and units, negation, conditions, causal uncertainty and planned versus completed events; more rows are not claimed as source diversity.",
+    "The native owner trial failed before delegation, so it does not establish R6 child summarization quality. Owner interface repair and native role teaching are separate follow-on work, not permission gates for this worker update.",
+    "128 further updates at the existing learning rate; not automatic doubling. Preserve useful previous teaching as rehearsal for this block while adapting the mixture.",
+    "Fresh optimizer weights continuation under existing disk capacity, not exact optimizer/scheduler resumption."
+  ],
+  "launch_time_utc": "2026-09-08 13:35:32 UTC",
+  "training_loop_started_at_utc": "2026-09-08 13:36:18 UTC",
+  "latest_observation": {
+    "time_utc": "2026-09-08 13:40:52 UTC",
+    "wrapper_pid": 2614060,
+    "trainer_rank_pids": [
+      2614124,
+      2614125
+    ],
+    "optimizer_updates_completed": 10,
+    "last_loss": 0.7570067644119263,
+    "last_loss_nan_count": 0,
+    "gpu_utilization_percent_each": 100,
+    "gpu_memory_mib_each": 11922,
+    "free_checkpoint_disk_gib": 7.094097137451172
+  },
+  "semantic_promotion": false,
+  "capability_threshold_required_before_training": false,
+  "remaining_launch_conditions": [],
+  "launch_command": "cd /home/ubuntu/rlm/worktrees/q35-2b-summary-live-revision-v2 && test \"$(git rev-parse HEAD)\" = 070ead308cd30cda5740145040bf8737466dc8a6 && test \"$(git -C deps/verifiers rev-parse HEAD)\" = 04ae46810fcf814b12e5b087d8f57a4f03c75064 && test ! -e /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-semantic-repair-step128-r7 && UV_PROJECT_ENVIRONMENT=/home/ubuntu/rlm/prime-rl/.venv /home/ubuntu/.local/bin/uv run --no-sync python scripts/run_q35_2b_document_decision_sft_v1.py --source-model /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step128-r6/weights/step_128 --dataset-dir /home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r7-semantic --output-root /home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1 --state-dir /home/ubuntu/rlm/state/q35-2b-document-summary-direct-sft-v1 --run-name h176-summary-semantic-repair-step128-r7 --learning-rate 1e-6 --optimizer-updates 128 --checkpoint-interval 128 --enable-thinking --timeout 7200"
+}

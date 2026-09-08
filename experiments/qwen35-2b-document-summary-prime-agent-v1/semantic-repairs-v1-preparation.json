@@ -1,7 +1,7 @@
 {
-  "status": "local_export_and_file_replay_complete_real_trainer_audit_pending",
+  "status": "complete_real_trainer_R6_tokenizer_audit_R7_training_started",
   "date": "2026-09-08",
-  "proposed_continuation": "R6 descendant; no R7 launch or optimizer update claimed",
+  "proposed_continuation": "R7 is learning from R6; actual launch and optimizer observations in direct-sft-r7-run.json",
   "rows": 110,
   "retained_rows_unchanged_by_identity": 96,
   "retained_cases_unchanged": 96,
@@ -27,9 +27,19 @@
     "scoped_ruff": "passed",
     "existing_training_wrapper_tests": "18 passed",
     "actual_dataset_contracts": "R6 96 rows and prepared 110-row mixture both accepted",
-    "real_trainer_token_mask_and_context_audit": "pending idle host; not inferred from annotation checks"
+    "real_trainer_token_mask_and_context_audit": "passed on idle host, code 070ead308cd30cda5740145040bf8737466dc8a6",
+    "sequence_tokens": 770935,
+    "maximum_sequence_tokens": 13891,
+    "supervised_tokens": 32771,
+    "masked_incorrect_prefix_tokens": 19520,
+    "incorrect_prefix_supervised_tokens": 0,
+    "source_or_user_supervised_tokens": 0,
+    "truncated_rows": 0,
+    "cuda_initialized": false,
+    "training_wrapper_accepts_actual_audit": true
   },
   "hashes": {
+    "renderer_audit": "a70eb18f705d4a3165ef904d6d57eff76d4679b85868ecd51ff320b04f0f90b7",
     "semantic_specification": "694ac6a38b11cfd4a46ec4aa5e80f24e96ba53f1b61d4dd6db2e57450e785436",
     "manifest": "6829739e58f0bfbb8747272e0625f8002bab58365f44e38c5c19ceb1c2bf990a",
     "cases": "6278451d10f5ac3ccf3b72d50389520bab9e54846d3ce88b3002641b3e33d8fb",

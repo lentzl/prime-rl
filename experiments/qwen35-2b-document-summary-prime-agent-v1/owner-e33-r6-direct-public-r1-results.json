@@ -1,0 +1,116 @@
+{
+  "status": "completed_behavioral_failure_before_delegation",
+  "run_name": "owner-e33-r6-direct-public-r1",
+  "reviewed_at_utc": "2026-09-08 13:40 UTC",
+  "code_commit": "070ead308cd30cda5740145040bf8737466dc8a6",
+  "verifiers_commit": "04ae46810fcf814b12e5b087d8f57a4f03c75064",
+  "trace_id": "91edeeef593147beaea53c60cb5d8365",
+  "episode_id": "711a7e97545f42b0b04c11c1f2eb94f2",
+  "owner": {
+    "name": "adaptive-core-v1-e33",
+    "sha256": "e33bd4cdbfd92eb22844dbbde2764aa7fa00e1cd25ca7045f91ce22210499e47",
+    "new_weight_update": false
+  },
+  "worker": {
+    "name": "R6",
+    "sha256": "a3ca3cbc99b24e62da3bd8e7a723799706b1dbcfb54cb6ca820347ce7851ab27"
+  },
+  "sources": {
+    "chapters": [
+      "alice-ch1",
+      "bennett-ch1"
+    ],
+    "word_counts": [
+      2141,
+      907
+    ],
+    "development_exposed": true,
+    "train_excluded": true,
+    "confirmation": false
+  },
+  "outcome": {
+    "stop_condition": "max_turns",
+    "recorded_model_calls": 32,
+    "main_session_model_calls": 30,
+    "auxiliary_refine_calls": 2,
+    "recorded_errors": [],
+    "delegated_artifact_completion": 0,
+    "successful_chapter_spawns": 0,
+    "chapter_receipts": 0,
+    "chapter_summary_files": 0,
+    "assembled_document": false,
+    "main_session_id": "01a08130-6aa4-752f-8db2-780dd105a8a7"
+  },
+  "routing": {
+    "coordinator_http200": 30,
+    "child_http200": 2,
+    "all_modes": "forwarded",
+    "interpretation": "The two child-policy requests belong to unscoped automatic /refine gate and update graph roots (nodes 77 and 80), not native chapter-worker sessions. They do not prove delegation."
+  },
+  "findings": [
+    {
+      "nodes": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "observation": "The owner read the index successfully, then guessed index['entries'] in the same cell and failed before reaching any rlm call. Its next observation explicitly showed a dict with chapters, document_id and output_path."
+    },
+    {
+      "nodes": [
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        12,
+        13,
+        14,
+        15
+      ],
+      "observation": "It repeatedly misclassified that dict as a list or string and produced TypeError, KeyError, AttributeError and SyntaxError while inspecting it."
+    },
+    {
+      "nodes": [
+        16,
+        17,
+        18,
+        19
+      ],
+      "observation": "After displaying the complete actual index it selected index['chapters'], but still guessed nonexistent chapter_title rather than heading, and still constructed shortened replacement worker prompts instead of copying the prompt fields. Execution again failed before rlm."
+    },
+    {
+      "observation": "Across actual main-session model calls, 'index' was sampled eight times; the same chapter_texts/index plus unhashable dict_keys inspection cell was sampled twelve times. The sampled nodes copied into the post-refine graph are not additional model calls."
+    },
+    {
+      "nodes": [
+        79,
+        82
+      ],
+      "observation": "Auxiliary reflection falsely described correct child handling and blamed a network warning, despite the local index being readable and no rlm call having executed. This unsupported reflection is not positive training material."
+    },
+    {
+      "observation": "Twelve repeated-failure and seven no-progress scaffold rewrites were recorded. Generic feedback wrongly directed the owner to write or edit the artifact directly, conflicting with receipt-gated delegation. It is a scaffold defect alongside, not instead of, the model's schema/recovery failure."
+    }
+  ],
+  "interpretation": "This is evidence of owner index interpretation and recovery failure under the native protocol, not evidence against R6 summarization. Successful artifact creation, chapter quality and integration remain unproven.",
+  "follow_on": {
+    "worker": "R7 semantic-repair training continues from R6; see direct-sft-r7-run.json.",
+    "owner_scaffold": "Local role-aware recovery and explicit index field documentation prepared and checked; original frozen trial is preserved. No live rerun or owner weight update is claimed.",
+    "owner_training": "Teach read-observe-then-act, use actual job fields and complete prompts, retain named native handles, yield without polling, and receipt-before-assembly using TRAIN-only material and foundational rehearsal. Do not train the guessed schema, shortened prompts or unsupported reflection as successes."
+  },
+  "processes_drained_verified_at_utc": "2026-09-08 13:32:52 UTC",
+  "artifacts": {
+    "host": "/home/ubuntu/rlm/results/q35-2b-document-summary-prime-agent-v1/owner-e33-r6-direct-public-r1",
+    "local": "outputs/summary-owner-r6/owner-e33-r6-direct-public-r1",
+    "hashes": {
+      "document/document-summary/traces.jsonl": "48741afdbcda0242d7f646be426360006e84973b8e8d671afc15a72b6da3d04d",
+      "ROUTING_AUDIT.jsonl": "0d461d35c3294ea88c3ca2a820d5f7a1c47ca7494df63bccf547f942477ce214",
+      "SMOKE-RECEIPT.txt": "c193990bc3c01bf7c6a5e3c6c49e4c239adc8b00081c9a68880f1cbaadc8dc76",
+      "document/artifacts/handoffs.json": "e0cf7c561a86cb04cfa274abb7cf1f542b80b7dc5b23488ed88295a1fecf6630"
+    }
+  },
+  "timing_caveat": "R3 archival checksum work overlapped engine/trial startup; this is not a clean throughput benchmark."
+}

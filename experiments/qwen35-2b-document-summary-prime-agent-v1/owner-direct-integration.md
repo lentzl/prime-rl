@@ -1,5 +1,28 @@
 # Native owner / Markdown worker integration
 
+## 2026-09-08 — first native trial reviewed
+
+The e33/R6 run completed at its 32-call boundary without a chapter spawn, receipt
+or summary. The owner repeatedly misread the index schema and retried an
+unhashable `dict_keys` inspection. The two requests routed to the worker policy
+were automatic `/refine` calls, not chapter workers. This run does not establish
+R6's summarization quality. Full evidence is in
+[owner-e33-r6-direct-public-r1-results.json](owner-e33-r6-direct-public-r1-results.json).
+
+Local recovery now documents the actual ordered index fields and preserves
+owner/child responsibilities, using the runtime prompt's explicit recursive
+depth. An owner must not substitute its own draft for missing child summaries;
+a child must save and report its own file, not follow owner delegation guidance.
+The initial owner prompt asks it to display the index before constructing code.
+All 47 existing task checks and scoped Ruff pass, including owner, child and
+unscoped empty/repeated-call feedback. This is local preparation, not a measured
+behavioral gain. R7's live host remains frozen at the original trial's commits.
+
+Next owner teaching should practice native index-to-spawn actions and recovery,
+then receipt-gated fan-in, using TRAIN-only examples and foundational rehearsal.
+The original trial and its unsupported reflection outputs remain diagnostic
+evidence, not positive targets. Worker learning continues independently from R6.
+
 ## 2026-09-08 — local preparation verified; live run pending
 
 The taskset's `owner_direct` mode connects the existing document owner to the

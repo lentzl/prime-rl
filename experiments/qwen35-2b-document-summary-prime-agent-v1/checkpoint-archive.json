@@ -11,6 +11,25 @@
   ],
   "files": [
     {
+      "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step32-r3/weights/step_32/model.safetensors",
+      "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step32-r3/weights/step_32/model.safetensors",
+      "sha256": "3ab27f94a04e66c8f9cca67fd4f2d08125ece41d2829592bc6b822bd7456e626",
+      "bytes": 4426558864,
+      "local_and_remote_hashes_matched": true,
+      "complete_run_directory_copied": true,
+      "full_copy_checksum_comparison": "No file-content differences; directory timestamps differ. Training receipt copied separately.",
+      "training_receipt_archived": "q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step32-r3/TRAINING-RECEIPT.json",
+      "remote_removal_status": "removed_after_verification_via_Launcher",
+      "remote_removal_scope": "Only the exact R3 model.safetensors; full local archive is recoverable. R4/R5/R6 and the e33 owner remain on-host.",
+      "archive_verified_utc": "2026-09-08 13:24 UTC",
+      "local_and_remote_hashes_rechecked_before_removal": true,
+      "state_references": "Only its own completed receipt and the historical R4 source receipt; no active GPU jobs.",
+      "no_active_gpu_process_at_removal": true,
+      "removal_time_utc": "2026-09-08 13:34:51 UTC",
+      "removal_verified_utc": "2026-09-08 13:35:09 UTC",
+      "host_free_space_after_removal": "7.1 GiB reported by df -h"
+    },
+    {
       "source": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-text-revision-sft-v1/h176-summary-text-revision-sft12-step1-lr2e7-v1/weights/step_1/model.safetensors",
       "archive": "/Users/ilkkalehto/Documents/rlm/model-archive/q35-2b-document-summary-text-revision-sft-v1/h176-summary-text-revision-sft12-step1-lr2e7-v1/weights/step_1/model.safetensors",
       "sha256": "ee35c11f278e931928fdb43c0b70a5af26b99a57c9e27a4cb1e08b1f4b5ed256",
