@@ -47,6 +47,10 @@ DATASET_CONTRACTS = {
         "child",
         "grounded_english_chapter_summary_live_prefix_revision",
     ),
+    "qwen35-2b-document-summary-commit-revision-sft/v3": (
+        "child",
+        "grounded_english_chapter_summary_scaffold_aligned_commit_revision",
+    ),
     "qwen35-2b-document-coordinator-fanin-sft/v1": (
         "coordinator",
         "grounded_document_coordinator_spawn_partial_yield_fanin",
@@ -157,6 +161,7 @@ DATASET_ANSWER_FREE = {
     "qwen35-2b-document-summary-worker-mixed-sft/v1": False,
     "qwen35-2b-document-summary-text-revision-sft/v1": False,
     "qwen35-2b-document-summary-live-revision-sft/v2": False,
+    "qwen35-2b-document-summary-commit-revision-sft/v3": False,
     "qwen35-2b-document-coordinator-fanin-sft/v1": False,
     "qwen35-2b-document-coordinator-cleanup-sft/v1": False,
     "qwen35-2b-document-child-cleanup-sft/v1": True,
@@ -187,6 +192,7 @@ DATASET_ROWS = {schema_version: 12 for schema_version in DATASET_CONTRACTS} | {
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 24,
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
     "qwen35-2b-document-summary-live-revision-sft/v2": 12,
+    "qwen35-2b-document-summary-commit-revision-sft/v3": 12,
     "qwen35-2b-document-manager-admission-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-sft/v1": 4,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 24,
@@ -212,6 +218,7 @@ DATASET_BATCH_SIZES = {
     "qwen35-2b-document-summary-worker-mixed-sft/v1": 12,
     "qwen35-2b-document-summary-text-revision-sft/v1": 12,
     "qwen35-2b-document-summary-live-revision-sft/v2": 12,
+    "qwen35-2b-document-summary-commit-revision-sft/v3": 12,
     "qwen35-2b-document-manager-aggregation-permuted-sft/v1": 12,
     "qwen35-2b-document-topology-contrast-sft/v1": 8,
     "qwen35-2b-document-utility-topology-sft/v1": 6,
@@ -382,7 +389,11 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         or manifest.get("rows") != DATASET_ROWS.get(schema_version)
         or not family_counts_valid
         or (
-            schema_version == "qwen35-2b-document-summary-live-revision-sft/v2"
+            schema_version
+            in {
+                "qwen35-2b-document-summary-live-revision-sft/v2",
+                "qwen35-2b-document-summary-commit-revision-sft/v3",
+            }
             and (
                 manifest.get("live_revision_role_sequence")
                 != [
@@ -407,6 +418,20 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                 or manifest.get("broad_skill_claim") is not False
                 or manifest.get("requires_renderer_boundary_audit_before_training")
                 is not True
+                or (
+                    schema_version
+                    == "qwen35-2b-document-summary-commit-revision-sft/v3"
+                    and (
+                        manifest.get("renderer_enable_thinking") is not False
+                        or manifest.get("observed_live_draft_context") is not True
+                        or manifest.get("prior_assistant_reasoning_present_in_training")
+                        is not False
+                        or manifest.get(
+                            "live_prior_assistant_reasoning_stripped_by_scaffold"
+                        )
+                        is not True
+                    )
+                )
             )
         )
         or (
@@ -530,32 +555,66 @@ def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, 
     if not audit_path.is_file():
         raise ValueError(f"missing live revision renderer audit: {audit_path}")
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
-    modes = audit.get("modes")
+    schema_version = dataset["schema_version"]
+    commit_revision = (
+        schema_version == "qwen35-2b-document-summary-commit-revision-sft/v3"
+    )
+    expected_mode = not commit_revision
+    records = audit.get("chapters") if commit_revision else audit.get("modes")
     selected = next(
         (
-            mode
-            for mode in modes or []
-            if isinstance(mode, dict) and mode.get("enable_thinking") is True
+            record
+            for record in records or []
+            if isinstance(record, dict)
+            and record.get("enable_thinking") is expected_mode
         ),
         None,
     )
+    expected_audit_schema = (
+        "qwen35-2b-document-summary-commit-revision-renderer-audit/v3"
+        if commit_revision
+        else "qwen35-2b-document-summary-live-revision-renderer-audit/v2"
+    )
+    exact_history = (
+        len(records or []) == 3
+        and [record.get("chapter_id") for record in records]
+        == ["scope", "operations", "exceptions"]
+        and all(
+            record.get("reasoning_stripped_history_token_equivalent") is True
+            and record.get("generation_prompt_is_full_prefix") is True
+            and record.get("prior_assistant_trainable_tokens") == 0
+            and record.get("truncated") is False
+            and record.get("completion_boundary_alignment")
+            == "renderer_common_prefix_v1"
+            and isinstance(record.get("trainable_completion_tokens"), int)
+            and record["trainable_completion_tokens"] > 0
+            for record in records or []
+        )
+        if commit_revision
+        else selected is not None
+        and selected.get("live_history_token_equivalent") is True
+    )
     if (
-        audit.get("schema_version")
-        != "qwen35-2b-document-summary-live-revision-renderer-audit/v2"
+        audit.get("schema_version") != expected_audit_schema
         or audit.get("status") != "complete"
         or audit.get("dataset_schema_version") != dataset["schema_version"]
         or audit.get("dataset_manifest_sha256")
         != sha256_file(path / "MANIFEST.json")
         or audit.get("dataset_parquet_sha256") != sha256_file(path / "train.parquet")
-        or audit.get("selected_enable_thinking") is not True
+        or audit.get("selected_enable_thinking") is not expected_mode
         or audit.get("cuda_initialized") is not False
-        or audit.get("live_task_prompt_equal") is not True
-        or audit.get("live_prior_draft_equal") is not True
-        or audit.get("live_revision_feedback_equal") is not True
+        or (
+            not commit_revision
+            and (
+                audit.get("live_task_prompt_equal") is not True
+                or audit.get("live_prior_draft_equal") is not True
+                or audit.get("live_revision_feedback_equal") is not True
+            )
+        )
         or audit.get("role_sequence")
         != ["user", "user", "assistant", "user", "assistant"]
         or selected is None
-        or selected.get("live_history_token_equivalent") is not True
+        or not exact_history
         or selected.get("prior_assistant_trainable_tokens") != 0
         or selected.get("truncated") is not False
         or selected.get("completion_boundary_alignment")
@@ -592,10 +651,10 @@ def run(args: argparse.Namespace) -> dict[str, Any]:
     dataset_dir = args.dataset_dir.resolve()
     dataset = _validated_dataset(dataset_dir)
     renderer_audit = None
-    if (
-        dataset["schema_version"]
-        == "qwen35-2b-document-summary-live-revision-sft/v2"
-    ):
+    if dataset["schema_version"] in {
+        "qwen35-2b-document-summary-live-revision-sft/v2",
+        "qwen35-2b-document-summary-commit-revision-sft/v3",
+    }:
         renderer_audit = _validated_renderer_audit(dataset_dir, dataset)
     output_root = args.output_root.resolve()
     state_dir = args.state_dir.resolve()

@@ -107,6 +107,24 @@ def _live_revision_module():
         sys.path.remove(str(scripts))
 
 
+def _commit_revision_module():
+    scripts = Path(__file__).parents[2] / "scripts"
+    sys.path.insert(0, str(scripts))
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "export_q35_2b_document_summary_commit_revision_sft_v3",
+            scripts
+            / "export_q35_2b_document_summary_commit_revision_sft_v3.py",
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.path.remove(str(scripts))
+
+
 def _source_trace(
     tmp_path: Path, task_type: str = "DocumentSummaryWorkerTask"
 ) -> Path:
@@ -141,6 +159,83 @@ def _source_trace(
     path = tmp_path / "traces.jsonl"
     path.write_text(json.dumps({"traces": [trace]}) + "\n")
     return path
+
+
+def _commit_revision_traces(tmp_path: Path) -> list[Path]:
+    module = _commit_revision_module()
+    fixture = module._load_fixture_module()
+    document, _ = fixture.build_fixture()
+    drafts = _text_revision_module().DRAFTS
+    tools = [
+        {
+            "name": "ipython",
+            "description": "execute code",
+            "parameters": {
+                "type": "object",
+                "required": ["code"],
+                "properties": {"code": {"type": "string"}},
+            },
+            "strict": False,
+        }
+    ]
+    paths = []
+    for chapter in document["chapters"]:
+        chapter_id = chapter["id"]
+        draft = drafts[chapter_id]
+        budget = int(sum(len(row["text"].split()) for row in chapter["paragraphs"]) * 0.8)
+        trace = {
+            "id": f"observed-{chapter_id}-revision",
+            "task": {"type": "DocumentSummaryTextTask", "data": {}},
+            "nodes": [
+                {
+                    "parent": None,
+                    "message": {
+                        "role": "user",
+                        "content": "Prime Agent runtime contract",
+                    },
+                },
+                {
+                    "parent": 0,
+                    "message": {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "text",
+                                "text": fixture.render_text_summary_prompt(chapter),
+                            }
+                        ],
+                    },
+                },
+                {
+                    "parent": 1,
+                    "message": {
+                        "role": "assistant",
+                        "content": draft,
+                        "reasoning_content": "first-turn reasoning",
+                    },
+                },
+                {
+                    "parent": 2,
+                    "message": {
+                        "role": "user",
+                        "content": module._expected_feedback(
+                            fixture=fixture,
+                            draft=draft,
+                            word_budget=budget,
+                        ),
+                    },
+                },
+                {
+                    "parent": 3,
+                    "message": {"role": "assistant", "content": draft},
+                },
+            ],
+            "tools": tools,
+        }
+        path = tmp_path / f"{chapter_id}.jsonl"
+        path.write_text(json.dumps({"traces": [trace]}) + "\n")
+        paths.append(path)
+    return paths
 
 
 def test_summary_worker_export_is_balanced_native_and_held_out(tmp_path: Path) -> None:
@@ -491,6 +586,61 @@ def test_training_runner_accepts_live_revision_contract() -> None:
     assert "enable_thinking = true" in config
 
 
+def test_commit_revision_export_uses_observed_scaffold_prefix_and_masks_context(
+    tmp_path: Path,
+) -> None:
+    module = _commit_revision_module()
+    output = tmp_path / "commit-revision-dataset"
+    manifest = module.export(
+        traces=_commit_revision_traces(tmp_path), output_dir=output
+    )
+    rows = Dataset.from_parquet(str(output / "train.parquet"))
+
+    assert manifest["schema_version"] == module.SCHEMA_VERSION
+    assert manifest["rows"] == 12
+    assert manifest["observed_live_draft_context"] is True
+    assert manifest["renderer_enable_thinking"] is False
+    assert manifest["live_prior_assistant_reasoning_stripped_by_scaffold"] is True
+    assert len(manifest["source_traces"]) == 3
+    assert _runner_module()._validated_dataset(output) == manifest
+    for row in rows:
+        messages = row["messages"]
+        assert [message["role"] for message in messages] == [
+            "user",
+            "user",
+            "assistant",
+            "user",
+            "assistant",
+        ]
+        assert messages[2]["trainable"] is False
+        assert messages[2].get("reasoning_content") is None
+        assert messages[4]["trainable"] is True
+        assert messages[4]["mask_generation_prompt"] is True
+        assert "Return exactly 4 bullets" in messages[3]["content"]
+
+
+def test_training_runner_accepts_non_thinking_commit_revision_contract() -> None:
+    module = _runner_module()
+    schema = "qwen35-2b-document-summary-commit-revision-sft/v3"
+
+    assert module.DATASET_CONTRACTS[schema] == (
+        "child",
+        "grounded_english_chapter_summary_scaffold_aligned_commit_revision",
+    )
+    assert module.DATASET_ANSWER_FREE[schema] is False
+    assert module.DATASET_ROWS[schema] == 12
+    assert module.DATASET_BATCH_SIZES[schema] == 12
+    config = module.training_config(
+        run_name="commit-revision",
+        model_path=Path("/models/summary"),
+        dataset_dir=Path("/data/commit-revision"),
+        output_root=Path("/outputs"),
+        learning_rate=2e-7,
+        enable_thinking=False,
+    )
+    assert "enable_thinking = false" in config
+
+
 def test_live_revision_training_requires_a_matching_renderer_audit(
     tmp_path: Path,
 ) -> None:
@@ -546,6 +696,32 @@ def test_live_revision_renderer_audit_checks_exact_completion_suffix() -> None:
     assert "prior assistant draft contributes to SFT loss" in audit
     assert "for enable_thinking in (False, True)" in audit
     assert '"selected_enable_thinking": True' in audit
+
+
+def test_commit_revision_renderer_audit_requires_exact_stripped_live_prefix() -> None:
+    audit = (
+        Path(__file__).parents[2]
+        / "scripts/audit_q35_2b_document_summary_commit_revision_renderer_v3.py"
+    ).read_text()
+
+    assert "stripped_prompt.token_ids != generation_prompt.token_ids" in audit
+    assert "raw_prompt.token_ids == prompt_ids" in audit
+    assert "trainable_ids != expected_completion" in audit
+    assert "prior assistant draft contributes to SFT loss" in audit
+    assert '"selected_enable_thinking": False' in audit
+
+
+def test_commit_revision_training_wrapper_is_bounded_and_non_thinking() -> None:
+    wrapper = (
+        Path(__file__).parents[2]
+        / "scripts/run_q35_2b_document_summary_commit_revision_sft_v3.sh"
+    ).read_text()
+
+    assert "optimizer_updates=${6:-1}" in wrapper
+    assert '--optimizer-updates "$optimizer_updates"' in wrapper
+    assert "--enable-thinking" not in wrapper
+    assert wrapper.count('--traces "$') == 6
+    assert "RENDERER-AUDIT.json" in wrapper
 
 
 def test_summary_training_wrapper_accepts_a_bounded_update_count() -> None:
