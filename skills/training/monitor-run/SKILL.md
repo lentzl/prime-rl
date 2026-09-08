@@ -287,8 +287,13 @@ the feedback style in the dataset manifest so later scaffold changes do not
 silently leave supervision aligned to obsolete gate framing.
 For direct-summary SFT, export the observed direct runtime/task prefix with
 `export_q35_2b_document_summary_direct_sft_v1.py`; do not reuse the staged-notes
-continuation. The 40-row mix interleaves 20 retained TRAIN cases and 20 reviewed
-public chapters. Run `audit_q35_2b_document_summary_direct_sft_v1.py` against the
+continuation. Interleave the 20 retained TRAIN cases with reviewed public
+chapters. The source preparer accepts `--additional-chapters-per-book`, and the
+exporter accepts a separately reviewed `--teacher-additions` file so the corpus
+can grow without overwriting the earlier labels. Counts derive from the source
+and case manifests rather than requiring exactly 40 episodes. Preserve the
+earlier data and exclude all evaluation chapters, including prospective ones.
+Run `audit_q35_2b_document_summary_direct_sft_v1.py` against the
 source checkpoint's tokenizer before launch. It replays teacher file operations,
 checks complete untruncated trainer sequences, and verifies assistant-only loss.
 The training wrapper requires the matching `RENDERER-AUDIT.json`, including

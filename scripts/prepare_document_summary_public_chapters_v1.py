@@ -57,9 +57,11 @@ BOOKS = (
 )
 
 
-def prepare(raw_dir: Path, output_dir: Path) -> dict:
+def prepare(raw_dir: Path, output_dir: Path, *, additional_chapters_per_book: int = 0) -> dict:
     if output_dir.exists():
         raise FileExistsError(output_dir)
+    if additional_chapters_per_book < 0:
+        raise ValueError("additional chapter count must be nonnegative")
     chapters, books = [], []
     for ebook, slug, title, author, year, died, expected_hash, pattern, selected in BOOKS:
         raw = (raw_dir / f"pg{ebook}.txt").read_bytes()
@@ -71,6 +73,9 @@ def prepare(raw_dir: Path, output_dir: Path) -> dict:
         expected_count = {35: 16, 120: 34, 97: 22, 37423: 16}[ebook]
         if len(boundaries) != expected_count:
             raise ValueError(f"unexpected chapter boundaries: {slug}: {len(boundaries)}")
+        selected = (*selected, *range(max(selected) + 1, max(selected) + 1 + additional_chapters_per_book))
+        if max(selected) >= len(boundaries):
+            raise ValueError(f"selected chapter lacks a following boundary: {slug}")
         for number in selected:
             start, end = boundaries[number - 1], boundaries[number]
             body = text[start.end() : end.start()].strip()
@@ -131,8 +136,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--raw-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument("--additional-chapters-per-book", type=int, default=0)
     args = parser.parse_args()
-    result = prepare(args.raw_dir, args.output_dir)
+    result = prepare(args.raw_dir, args.output_dir, additional_chapters_per_book=args.additional_chapters_per_book)
     print(
         json.dumps({"chapters": len(result["chapters"]), "words": sum(c["source_words"] for c in result["chapters"])})
     )

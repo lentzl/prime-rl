@@ -1,0 +1,43 @@
+{
+  "status": "dataset_exported_pending_renderer_audit_and_gpu_lane",
+  "run_name": "h176-summary-direct-chapters-step64-r4",
+  "source": {
+    "name": "R3 experimental frontier",
+    "path": "/home/ubuntu/rlm/outputs/q35-2b-document-summary-direct-sft-v1/h176-summary-direct-chapters-step32-r3/weights/step_32",
+    "sha256": "3ab27f94a04e66c8f9cca67fd4f2d08125ece41d2829592bc6b822bd7456e626"
+  },
+  "dataset": {
+    "local_path": "outputs/summary-direct-sft-r2",
+    "planned_host_path": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r2",
+    "manifest_sha256": "9b46827a4501e8080211f0a8699e47b5cc4bc410a1dad9cdcf12dc86a2dacd1c",
+    "parquet_sha256": "5b42feca5965e4f95d3a984284adc605780fcb2c0841519e6f5f90247183ad3e",
+    "cases_sha256": "84232a3871e301c669ed56ba935aa339c065100cab69c07c1dad5e3bc103c9df",
+    "rows": 44,
+    "retained_train_cases": 20,
+    "public_chapters": 24,
+    "previous_40_cases_retained_exactly": true,
+    "previous_20_public_source_files_byte_identical": true,
+    "added_chapters": ["time-machine-ch05", "treasure-island-ch05", "flatland-ch17", "how-we-think-ch09"],
+    "added_source_words": 9951,
+    "public_source_words": 65948,
+    "teacher_additions": "public-chapter-teacher-r2-additions.json",
+    "teacher_additions_sha256": "c549e6cbae905f83868ed275a603e2973a3fd633626dab88e93a07df50bfd1e8",
+    "authorship": "Assistant-authored after complete source reading; not independent human gold or native policy replay",
+    "renderer_audit": "pending; run with R3 tokenizer after the live evaluation drains"
+  },
+  "planned_training": {
+    "optimizer_updates": 64,
+    "learning_rate": 0.000001,
+    "batch_size": 8,
+    "sequence_length": 16384,
+    "checkpoint_interval": 64,
+    "fresh_optimizer": true,
+    "full_dense": true,
+    "renderer_enable_thinking": true,
+    "gpus": 2
+  },
+  "rationale": "Continue learning from R3 rather than impose an evaluation pass threshold. Retain all earlier supervision, add four complete chapters with new chronology and conceptual-compression examples, and train for a larger 64-update block. Inspect regressions separately; behavioral collapse risk is explicitly accepted by the Owner.",
+  "semantic_promotion": false,
+  "remaining_launch_conditions": ["complete input/loss-boundary audit", "current paired evaluation terminal and GPU lane free", "recoverable archive verified and enough host disk for the next full checkpoint"],
+  "capability_threshold_required_before_training": false
+}

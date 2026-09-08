@@ -54,8 +54,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
     ):
         raise ValueError("dataset content changed")
     rows = Dataset.from_parquet(str(dataset_dir / "train.parquet"))
-    if len(rows) != len(cases) or len(rows) != 40:
-        raise ValueError("expected forty complete teacher episodes")
+    if len(rows) != len(cases) or len(rows) != manifest["rows"] or len({c["slug"] for c in cases}) != len(rows):
+        raise ValueError("episode count or identity differs from manifest")
     tokenizer = AutoTokenizer.from_pretrained(str(tokenizer_path))
     renderer = Qwen35Renderer(tokenizer, Qwen35RendererConfig(enable_thinking=True))
     records = []

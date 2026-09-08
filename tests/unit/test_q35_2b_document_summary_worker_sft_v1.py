@@ -67,9 +67,31 @@ def test_direct_teacher_export_preserves_read_write_stop_and_rejects_source_chan
         assert (workspace / "summary.md").read_text() == case["summary"]
         assert not (workspace / "notes.md").exists()
         assert row["messages"][-1]["content"] == "Done."
+    additions = []
+    for i in range(20, 24):
+        slug = f"chapter-{i}"
+        (source_dir / f"{slug}.md").write_text(source)
+        sources.append({"slug": slug, "source_sha256": hashlib.sha256(source.encode()).hexdigest()})
+        additions.append(dict(labels[0], slug=slug))
+    (source_dir / "SOURCES.json").write_text(json.dumps({"split": "TRAIN", "chapters": sources,
+                                                       "books": [{"ebook": n} for n in (35, 120, 97, 37423)]}))
+    extra_teacher = tmp_path / "extra-teacher.json"
+    extra_teacher.write_text(json.dumps({"status": "complete_4_of_4_source_reviewed", "chapters": additions}))
+    expanded = tmp_path / "expanded"
+    expanded_manifest = export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher,
+                               teacher_additions=extra_teacher, output_dir=expanded)
+    assert expanded_manifest["rows"] == 44
+    assert expanded_manifest["family_counts"] == {"retained_train": 20, "public_chapter": 24}
+    assert len(Dataset.from_parquet(str(expanded / "train.parquet"))) == 44
+    assert _validated_dataset(expanded) == expanded_manifest
+    expanded_manifest["rows"] = 40
+    (expanded / "MANIFEST.json").write_text(json.dumps(expanded_manifest))
+    with pytest.raises(ValueError, match="invalid document decision"):
+        _validated_dataset(expanded)
     (source_dir / "chapter-0.md").write_text("changed source")
     with pytest.raises(ValueError, match="changed chapter"):
-        export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher, output_dir=tmp_path / "bad")
+        export(trace_path=trace_path, source_dir=source_dir, teacher_path=teacher,
+               teacher_additions=extra_teacher, output_dir=tmp_path / "bad")
     trace["task"]["data"]["direct_summary"] = False
     trace_path.write_text(json.dumps({"traces": [trace]}))
     with pytest.raises(ValueError, match="direct native"):

@@ -7,6 +7,8 @@ import argparse
 import copy
 import hashlib
 import json
+from collections import Counter
+from itertools import zip_longest
 from pathlib import Path
 
 from datasets import Dataset
@@ -44,15 +46,22 @@ def _context(trace_path: Path):
     return trace, context, budget
 
 
-def _chapters(source_dir: Path, teacher_path: Path):
+def _chapters(source_dir: Path, teacher_path: Path, teacher_additions: Path | None = None):
     manifest = json.loads((source_dir / "SOURCES.json").read_text())
     labels = json.loads(teacher_path.read_text())
+    label_sets = [labels]
+    if teacher_additions is not None:
+        label_sets.append(json.loads(teacher_additions.read_text()))
+    if any(s.get("status") != f"complete_{len(s['chapters'])}_of_{len(s['chapters'])}_source_reviewed"
+           for s in label_sets):
+        raise ValueError("incomplete reviewed teacher labels")
+    labels = {"chapters": [c for s in label_sets for c in s["chapters"]]}
     source_rows = {c["slug"]: c for c in manifest["chapters"]}
     if (
         manifest.get("split") != "TRAIN"
-        or labels.get("status") != "complete_20_of_20_source_reviewed"
-        or len(source_rows) != 20
-        or len(labels["chapters"]) != 20
+        or len(source_rows) < 20
+        or len(source_rows) != len(manifest["chapters"])
+        or len(labels["chapters"]) != len(source_rows)
         or {c["slug"] for c in labels["chapters"]} != set(source_rows)
         or {b["ebook"] for b in manifest["books"]} != {35, 120, 97, 37423}
     ):
@@ -75,7 +84,7 @@ def _chapters(source_dir: Path, teacher_path: Path):
     retained = [dict(c, family="retained_train") for c in training_chapters()]
     if len(retained) != 20:
         raise ValueError("expected twenty retained TRAIN cases")
-    return [c for pair in zip(retained, public, strict=True) for c in pair]
+    return [c for pair in zip_longest(retained, public) for c in pair if c is not None]
 
 
 def _messages(context, original_budget, chapter):
@@ -109,7 +118,8 @@ def _messages(context, original_budget, chapter):
     return messages, source
 
 
-def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path):
+def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path,
+           teacher_additions: Path | None = None):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     trace, context, original_budget = _context(trace_path)
@@ -121,10 +131,11 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         for p in chapter["paragraphs"]
     }
     probe_dir = REPO / "experiments/qwen35-2b-document-summary-prime-agent-v1/chapter-probes"
-    for path in [probe_dir / "city-shade.md", *probe_dir.glob("*-ch1.md")]:
+    for path in [probe_dir / "city-shade.md", probe_dir / "evening-access.md", *probe_dir.glob("*-ch1.md")]:
         excluded.update(path.read_text().strip().split("\n\n"))
     rows, cases = [], []
-    for chapter in _chapters(source_dir, teacher_path):
+    chapters = _chapters(source_dir, teacher_path, teacher_additions)
+    for chapter in chapters:
         paragraphs, summary = chapter["paragraphs"], chapter["summary"]
         lines = summary.splitlines()
         counts = [len(line[2:].split()) for line in lines]
@@ -159,8 +170,8 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 "summary": summary,
             }
         )
-    if len(rows) != 40 or len({r["task_key"] for r in rows}) != 40:
-        raise ValueError("expected forty distinct direct-summary episodes")
+    if len({r["task_key"] for r in rows}) != len(chapters):
+        raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
     parquet = output_dir / "train.parquet"
     Dataset.from_list(rows).to_parquet(str(parquet))
@@ -170,8 +181,8 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         "status": "complete",
         "role": "child",
         "objective": OBJECTIVE,
-        "rows": 40,
-        "family_counts": {"retained_train": 20, "public_chapter": 20},
+        "rows": len(rows),
+        "family_counts": dict(Counter(r["family"] for r in rows)),
         "answer_free": False,
         "tool_call_format": "openai_function_v1",
         "renderer_enable_thinking": True,
@@ -185,6 +196,7 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
         "context_trace": {"path": str(trace_path), "sha256": sha256_file(trace_path), "trace_id": trace["id"]},
         "source_manifest_sha256": sha256_file(source_dir / "SOURCES.json"),
         "teacher_labels_sha256": sha256_file(teacher_path),
+        "teacher_additions_sha256": None if teacher_additions is None else sha256_file(teacher_additions),
         "cases_sha256": sha256_file(output_dir / "CASES.json"),
         "eval_books_excluded_as_sources": [11, 2274],
         "incidental_overlap": "Dewey chapter 8 alludes to Alice's cake; no zero-phrase-overlap claim",
@@ -201,6 +213,7 @@ if __name__ == "__main__":
     parser.add_argument("--trace", type=Path, required=True)
     parser.add_argument("--source-dir", type=Path, required=True)
     parser.add_argument("--teacher-labels", type=Path, required=True)
+    parser.add_argument("--teacher-additions", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -209,6 +222,7 @@ if __name__ == "__main__":
                 trace_path=args.trace,
                 source_dir=args.source_dir,
                 teacher_path=args.teacher_labels,
+                teacher_additions=args.teacher_additions,
                 output_dir=args.output_dir,
             ),
             indent=2,

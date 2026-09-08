@@ -1,0 +1,68 @@
+{
+  "schema_version": "document-summary-public-teacher/v1",
+  "status": "complete_4_of_4_source_reviewed",
+  "authorship": "Assistant-authored after reading each complete source chapter; not independent human gold or model replay.",
+  "split": "TRAIN only; never model-visible in evaluation.",
+  "chapters": [
+    {
+      "slug": "time-machine-ch05",
+      "bullets": [
+        "The Time Traveller meets gentle, fearless inhabitants of the distant future and removes his machine's operating levers before their curiosity can set it in motion.",
+        "Their childlike responses disappoint his expectation of intellectually advanced descendants; they welcome him with flowers and lead him into a vast, richly decorated but deteriorating building.",
+        "He joins a communal fruit meal and observes the inhabitants' delicate appearance and worn surroundings; he reports that fruit is their sole diet.",
+        "He begins learning their language through gestures and naming objects, acquiring some nouns, pronouns and a verb, but his hosts tire quickly, forcing him to accept brief lessons."
+      ],
+      "review_points": [
+        "The machine is left outside after he pockets its levers; do not import its later disappearance.",
+        "Attribute disappointment and judgments of intelligence to the Traveller; he has not established a social or evolutionary explanation.",
+        "Language learning begins and remains limited; do not claim fluent communication or supply later names and discoveries."
+      ]
+    },
+    {
+      "slug": "treasure-island-ch05",
+      "bullets": [
+        "From hiding, Jim watches Pew's band ransack the Admiral Benbow, discover Bill dead, and search unsuccessfully for an item they value more than the remaining money.",
+        "Pew insists on continuing despite warning signals, quarrels with his companions, and is abandoned when approaching horses and a pistol shot send the band fleeing.",
+        "The bewildered Pew runs under a revenue officer's horse and is killed despite the rider's attempt to avoid him; the officers' arrival saves Jim and his mother.",
+        "Jim's mother recovers, but the raiders escape by lugger and leave the inn badly damaged, taking the captain's money and some till silver.",
+        "Jim tells Supervisor Dance that he believes he holds the sought-after item, asks to place it safely with Dr. Livesey, and rides with the officers toward the doctor's house."
+      ],
+      "review_points": [
+        "Do not identify or open the item as a treasure map; the chapter ends with the journey to Livesey.",
+        "Pew's death is an accident during the flight, not an intentional execution or a shooting.",
+        "The raiders are not captured, and the money and damage are not recovered. Jim's mother survives."
+      ]
+    },
+      {
+      "slug": "flatland-ch17",
+      "bullets": [
+        "The Square attacks the Sphere, who evades contact by moving out of Flatland's plane and decides that demonstrations must replace unsuccessful verbal persuasion.",
+        "To demonstrate access from a third dimension, the Sphere removes an account tablet from a locked cupboard without moving its doors; the Square verifies that the tablet is missing and then reappears outside.",
+        "The Sphere describes seeing inside neighboring buildings and painfully touches the Square's interior, explaining these feats through movement above and below the plane.",
+        "Still treating the visitor as a dangerous magician, the Square attacks again and calls for help rather than accepting the explanation.",
+        "Unwilling to let the approaching wife witness the encounter, the Sphere warns the Square and finally declares that he has forced him out of the plane; the next world's sights are not yet described."
+      ],
+      "review_points": [
+        "Distinguish the demonstrated cupboard access from the Square's continued disbelief.",
+        "The interior touch causes pain, not death or established serious injury.",
+        "Do not import the ensuing tour or claim that the Square already understands three-dimensional space."
+      ]
+    },
+    {
+      "slug": "how-we-think-ch09",
+      "bullets": [
+        "Dewey identifies understanding with grasping meaning: reflection uses familiar meanings to interpret puzzling situations, while new knowledge exposes further problems in a continuing interaction between direct and indirect understanding.",
+        "Stable meanings develop chiefly through practical activity and habitual responses, not passive sensation alone; using objects and sounds makes distinctions definite and creates expectations of their consequences.",
+        "Concepts are standardized meanings used to identify unfamiliar things, supplement observation and organize knowledge. They develop through applying and revising expectations, not merely collecting shared traits; their generality lies in use across cases.",
+        "Vague or ambiguous meanings obstruct testing and invite misunderstanding. Definition clarifies a meaning's intension, while classification establishes its extension; together they make meanings definite and organize the objects to which they apply.",
+        "Dewey distinguishes definitions through direct experience, explanation using familiar meanings, and scientific causal relationships. Explanations should lead back to experience, while causal definitions explain production and interaction rather than merely listing observable or useful qualities."
+      ],
+      "review_points": [
+        "Preserve the chapter's argument about acquired meaning and concepts, not a catalog of its paper, stone, dog, comet or metal examples.",
+        "Direct and indirect understanding support one another; the author does not reject familiarity or practical activity in favor of abstract reasoning alone.",
+        "Concept generality is application, not a residue of common features. Keep intension distinct from extension.",
+        "Attribute the theoretical claims to Dewey; do not present the historical chemical definition of metal as contemporary scientific guidance."
+      ]
+    }
+  ]
+}

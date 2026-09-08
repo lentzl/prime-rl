@@ -8,6 +8,7 @@ import json
 import math
 import os
 import subprocess
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -440,9 +441,18 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         "qwen35-2b-adaptive-cognition-sft/v3": 16,
     }.get(schema_version, 4)
     family_counts = manifest.get("family_counts", {})
+    expected_rows = DATASET_ROWS.get(schema_version)
     family_counts_valid = set(family_counts.values()) == {expected_family_count}
     if schema_version == DIRECT_SUMMARY_SCHEMA:
-        family_counts_valid = family_counts == {"retained_train": 20, "public_chapter": 20}
+        cases = json.loads((path / "CASES.json").read_text())
+        expected_rows = len(cases)
+        family_counts_valid = (
+            family_counts == dict(Counter(c["family"] for c in cases))
+            and set(family_counts) == {"retained_train", "public_chapter"}
+            and family_counts["retained_train"] == 20
+            and family_counts["public_chapter"] >= 20
+            and len({c["slug"] for c in cases}) == expected_rows
+        )
         if (manifest.get("direct_summary") is not True or manifest.get("notes_stage") is not False
                 or manifest.get("assistant_only_loss") is not True
                 or manifest.get("renderer_enable_thinking") is not True
@@ -460,7 +470,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         contract is None
         or manifest.get("status") != "complete"
         or (manifest.get("role"), manifest.get("objective")) != contract
-        or manifest.get("rows") != DATASET_ROWS.get(schema_version)
+        or manifest.get("rows") != expected_rows
         or not family_counts_valid
         or (
             schema_version
@@ -741,6 +751,7 @@ def _validated_renderer_audit(path: Path, dataset: dict[str, Any]) -> dict[str, 
 
 def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[str, Any]:
     audit = json.loads((path / "RENDERER-AUDIT.json").read_text())
+    cases = json.loads((path / "CASES.json").read_text())
     records = audit.get("rows", [])
     if (audit.get("schema_version") != "qwen35-2b-document-summary-direct-renderer-audit/v1"
             or audit.get("dataset_schema_version") != DIRECT_SUMMARY_SCHEMA
@@ -749,7 +760,9 @@ def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[st
             or audit.get("dataset_manifest_sha256") != sha256_file(path / "MANIFEST.json")
             or audit.get("dataset_parquet_sha256") != sha256_file(path / "train.parquet")
             or audit.get("tokenizer_sha256") != sha256_file(tokenizer_path / "tokenizer.json")
-            or len(records) != 40 or len({r["slug"] for r in records}) != 40
+            or len(records) != len(cases)
+            or len({r["slug"] for r in records}) != len(cases)
+            or {r["slug"] for r in records} != {c["slug"] for c in cases}
             or any(r.get("truncated") is not False or r.get("file_observations_reproduced") is not True
                    or r.get("source_or_user_supervised_tokens") != 0
                    or not 0 < r.get("supervised_tokens", 0) < r.get("tokens", 0) <= 16384 for r in records)):
