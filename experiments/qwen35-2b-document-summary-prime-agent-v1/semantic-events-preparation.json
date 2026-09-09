@@ -1,5 +1,22 @@
 {
-  "status": "local_export_and_file_replay_complete_real_tokenizer_audit_pending",
+  "status": "real_tokenizer_audit_complete_training_pending",
+  "host_dataset": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r14-events",
+  "renderer_audit_sha256": "04606a1c308e07b7e7c1f534a638a1f142dde681e84d69de54977473550b1938",
+  "renderer_audit": {
+    "prime_rl_commit": "ae658bc735f5a54a0ed90119587d94df876bacfc",
+    "tokenizer_parent": "R10",
+    "rows": 356,
+    "tokens": 2681631,
+    "maximum_tokens": 14661,
+    "sequence_length": 16384,
+    "supervised_tokens": 173767,
+    "truncated_rows": 0,
+    "incorrect_prefix_supervised_tokens": 0,
+    "source_or_user_supervised_tokens": 0,
+    "cuda_initialized": false,
+    "wrapper_validation_passed": true,
+    "local_copy_hash_matches_host": true
+  },
   "local_dataset": "outputs/summary-direct-sft-r14-events",
   "supersedes_untrained_dataset": "outputs/summary-direct-sft-r13-write-type",
   "historical_datasets_unchanged": true,
@@ -27,7 +44,7 @@
     "all_existing_source_text_and_hashes_preserved": true,
     "only_five_expected_existing_treasure_island_rows_changed": true,
     "four_new_incorrect_prefix_annotation_masks_checked": true,
-    "real_tokenizer_loss_and_truncation_audit": "pending; file replay and annotations are not substitutes",
+    "real_tokenizer_loss_and_truncation_audit": "passed on idle host with actual R10 tokenizer; every row untruncated, incorrect prefixes and source/user tokens have zero loss",
     "code_changed_for_this_refresh": false
   },
   "manifest_sha256": "5f47ec0f24444ebcc038849ce8a5c1f95bd8b25bd39d2dc1e2a69bd5a973ce7f",

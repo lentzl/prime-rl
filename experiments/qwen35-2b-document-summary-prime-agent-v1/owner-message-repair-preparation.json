@@ -1,5 +1,23 @@
 {
-  "status": "local_export_and_replay_complete_real_tokenizer_audit_pending",
+  "status": "real_tokenizer_audit_complete_training_pending",
+  "host_dataset": "/home/ubuntu/rlm/data/q35-2b-document-summary-owner-sft-v1-r6-message",
+  "renderer_audit_sha256": "1a8a222de9a5c1928dc5f43e491a8909e8b1c7770692811e066a91da78f16b2e",
+  "renderer_audit": {
+    "prime_rl_commit": "ae658bc735f5a54a0ed90119587d94df876bacfc",
+    "tokenizer_parent": "R5",
+    "rows": 732,
+    "tokens": 4851204,
+    "maximum_tokens": 8691,
+    "sequence_length": 16384,
+    "supervised_tokens": 76254,
+    "truncated_rows": 0,
+    "incorrect_prefix_supervised_tokens": 0,
+    "source_or_user_supervised_tokens": 0,
+    "masked_incorrect_prefix_context_tokens": 26532,
+    "cuda_initialized": false,
+    "wrapper_validation_passed": true,
+    "local_copy_hash_matches_host": true
+  },
   "local_dataset": "outputs/summary-owner-sft-r6-message",
   "previous_dataset": "outputs/summary-owner-sft-r4-handle-host",
   "rows": 732,
@@ -33,7 +51,7 @@
     "pytest_mode": "Two existing document decision/summary worker files, isolated local uv runtime, --noconftest",
     "ruff": "passed",
     "runbook_skill_validation": "passed",
-    "real_tokenizer_loss_and_truncation_audit": "pending; file replay and annotations do not replace it"
+    "real_tokenizer_loss_and_truncation_audit": "passed on idle host with actual R5 tokenizer; complete decision prefixes and rehearsal preserved, incorrect actions/history and source/user tokens masked"
   },
   "manifest_sha256": "5989842f4fe2ca48fe1ae0ff1bcac03a9e75c4fc3549632d79e9f359bf802831",
   "cases_sha256": "b673a2b21298e7522665c954f4703a73b71497377fce60f6b82fdf79e79ddf2e",
@@ -44,5 +62,5 @@
   "training_launched": false,
   "semantic_promotion": false,
   "active_run_unchanged": "e33-summary-owner-rehearsal-step128-r5",
-  "next_owner_parent": "R5 after its completed weights are verified, not a reset to R4"
+  "next_owner_parent": "Completed and verified R5, 15e388f2fec9dc9c8b2c6411bd8b64c68b84b3b0c7e9caff2907214b2fe4fa9f; not a reset to R4"
 }
