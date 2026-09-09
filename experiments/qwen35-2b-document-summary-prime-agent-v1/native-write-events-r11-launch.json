@@ -1,5 +1,22 @@
 {
-  "status": "training_first_updates_verified",
+  "status": "complete_checkpoint_and_all_updates_verified",
+  "completion": {
+    "last_update_utc": "2026-09-09 10:28:52 UTC",
+    "stable_checkpoint_utc": "2026-09-09 10:29:11.779327248 UTC",
+    "processes_and_gpus_drained_verified_utc": "2026-09-09 10:29:47 UTC",
+    "complete_ordered_finite_updates": 256,
+    "loss_nan_count": 0,
+    "final_loss": 0.8990046977996826,
+    "final_gradient_norm": 51.75,
+    "output_model_sha256": "5f168294d137175ac97b1bb0aa4cee857a9cdd96af528d0c38eff2719ab20316",
+    "output_model_bytes": 4426558864,
+    "receipt_sha256": "3710856522e0baab01788e7f9f244244398f2a1a75497697ba37381ad51ca7d0",
+    "metrics_sha256": "2eec661dd214af45ec982535b78c0121fdccd3e7b423b97395d58a77973b6693",
+    "source_r10_weight_hash_reverified_unchanged": true,
+    "resolved_sft_configuration_hash_reverified_unchanged": true,
+    "local_evidence": "outputs/summary-native-write-events-r11",
+    "behavioral_evaluation": "not yet evaluated; training completion is not semantic promotion"
+  },
   "run_name": "h176-summary-native-write-events-step256-r11",
   "launch_script_started_utc": "2026-09-09 08:44:04 UTC",
   "sft_trainer_started_utc": "2026-09-09 08:44:26 UTC",

@@ -1,5 +1,27 @@
 {
-  "status": "local_export_and_file_replay_complete_real_tokenizer_audit_pending",
+  "status": "real_tokenizer_audit_complete_training_not_yet_launched",
+  "real_tokenizer_audit": {
+    "completed_utc": "2026-09-09 10:32:16 UTC",
+    "host_dataset": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r17-preserve",
+    "prime_rl_commit": "d8c9f0cf0ecdf5d262f1675ad13838513d75f054",
+    "verifiers_commit": "2fdc55fd72c2ec86aa10d3416005d1491e3a1bbf",
+    "tokenizer_checkpoint": "h176-summary-native-write-events-step256-r11/weights/step_256",
+    "tokenizer_sha256": "06b9509352d2af50381ab2247e083b80d32d5c0aba91c272ca9ff729b6a0e523",
+    "audit_sha256": "a98e607d587216309a1793a464368f89bd02a6f016477cbd4fcbf252df4054ff",
+    "rows": 432,
+    "tokens": 3306010,
+    "max_tokens": 14661,
+    "supervised_tokens": 222530,
+    "incorrect_prefix_context_tokens": 92501,
+    "incorrect_prefix_supervised_tokens": 0,
+    "source_or_user_supervised_tokens": 0,
+    "truncated_rows": 0,
+    "saved_summary_and_reasoning_verified_rows": 6,
+    "interruption_reasoning_verified_rows": 60,
+    "cuda_initialized": false,
+    "training_wrapper_validation": "passed",
+    "scope": "Actual trainer rendering, loss masks and executable authored file observations; not native delivery or student semantic success. Ran only after R11 completed and GPUs drained."
+  },
   "local_dataset": "outputs/summary-direct-sft-r17-preserve",
   "previous_dataset": "outputs/summary-direct-sft-r16-tea",
   "rows": 432,
@@ -45,7 +67,8 @@
     "ruff": "passed",
     "runbook_skill_validation": "passed",
     "owner_r6_prepared_configuration_and_existing_audit": "revalidated unchanged with fresh R5 tokenizer copy",
-    "real_tokenizer_loss_reasoning_and_truncation_audit": "pending an idle-host gap; require both positive inspection and preservation reasoning in supervised tokens"
+    "real_tokenizer_loss_reasoning_and_truncation_audit": "passed on the idle host using completed R11 tokenizer; both positive inspection and preservation reasoning are supervised",
+    "six_positive_source_and_target_rereads": "Full sources and summaries re-read at 10:09 UTC; no target changes warranted. Same-agent review, not independent human gold."
   },
   "manifest_sha256": "08cd249353bfe223f6c46e1d5b95296b010b0fd6b2398cdf62a520806dc90130",
   "cases_sha256": "a00f0a8360c2efbcc810ea7caaa5a19a75167f3e30076456bb095946a10d0a59",
@@ -56,7 +79,7 @@
   "receipt_observation": "declared minimal queued-status stub, not live delivery",
   "training_launched": false,
   "semantic_promotion": false,
-  "active_run_unchanged": "h176-summary-native-write-events-step256-r11",
-  "next_worker_parent": "Completed and verified R11 by default",
-  "owner_follow_on": "Prepared 192-update R6 continuation from R5 remains unchanged; this curation is not a permission gate"
+  "run_left_unchanged_during_curation": "h176-summary-native-write-events-step256-r11; now completed and verified",
+  "next_worker_parent": "Completed and verified R11; weight SHA-256 5f168294d137175ac97b1bb0aa4cee857a9cdd96af528d0c38eff2719ab20316",
+  "owner_follow_on": "192-update R6 continuation from R5 launched; first update verified at 10:35:11 UTC. See owner-message-r6-launch.json."
 }
