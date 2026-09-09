@@ -64,7 +64,7 @@
     {
       "slug": "treasure-island-ch01",
       "bullets": [
-        "A secretive old seaman settles at the Admiral Benbow inn with a locked sea-chest, spending his days watching the coast and his evenings drinking rum.",
+        "A secretive old seaman settles at the Admiral Benbow inn with a sea-chest, spending his days watching the coast and his evenings drinking rum.",
         "He tries to avoid other sailors and pays the narrator to watch for a seafaring man with one leg, whose imagined appearances then haunt the boy's dreams.",
         "The captain bullies customers into listening to songs and violent stories, yet some enjoy the excitement; his prolonged stay without further payment frightens and burdens the narrator's father.",
         "When the captain threatens Dr. Livesey with a knife, the doctor calmly invokes his authority as a magistrate. The captain backs down and remains quiet for several evenings."
@@ -72,6 +72,7 @@
       "review_points": [
         "The one-legged sailor is feared and imagined, not yet encountered.",
         "Do not reveal the sea-chest's contents or later identities.",
+        "Nobody has seen the sea-chest open; the chapter does not establish that it is locked.",
         "Distinguish fear of losing customers from the narrator's belief that some enjoyed the visitor."
       ]
     },

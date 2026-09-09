@@ -1,0 +1,43 @@
+{
+  "status": "local_export_and_file_replay_complete_real_tokenizer_audit_pending",
+  "local_dataset": "outputs/summary-direct-sft-r14-events",
+  "supersedes_untrained_dataset": "outputs/summary-direct-sft-r13-write-type",
+  "historical_datasets_unchanged": true,
+  "rows": 356,
+  "distinct_train_sources": 58,
+  "new_source_documents": 0,
+  "previous_rows_retained_unchanged": 347,
+  "previous_rows_with_teacher_correction": 5,
+  "new_semantic_repair_rows": 4,
+  "semantic_specifications": 22,
+  "earlier_semantic_specifications_preserved": 20,
+  "source_review": {
+    "complete_chapters_read": ["time-machine-ch01", "treasure-island-ch01"],
+    "time_machine_words": 1680,
+    "treasure_island_words": 2203,
+    "time_machine_findings": "The dimensional theory and experimental verification are the Traveller's claims. Historical visits and investments are proposed possibilities. He returns from the laboratory, but no demonstration occurs in this chapter.",
+    "treasure_island_findings": "The one-legged sailor's appearances are nightmares, not encounters. The captain threatens Livesey but puts away his knife and remains quiet; no stabbing or escape occurs. Nobody has seen the sea-chest open, which does not establish that it is locked.",
+    "teacher_gold_correction": "Remove unsupported 'locked' from Treasure Island I's first bullet and document the reason in its existing review points.",
+    "review_scope": "Two complete existing TRAIN chapters and their targets, not a fresh review of every earlier source. No evaluation chapter answers were used."
+  },
+  "correction_teaching": "Masked format-valid incorrect drafts turn proposals into completed journeys, nightmares into real encounters, and a threat into a stabbing; reviewed targets restore the source's distinctions. The chest's unsupported locked qualifier is corrected as well. Each new case is exported in direct and native-child self-review form.",
+  "checks": {
+    "file_episodes_replayed": 356,
+    "all_existing_task_keys_retained": true,
+    "all_existing_source_text_and_hashes_preserved": true,
+    "only_five_expected_existing_treasure_island_rows_changed": true,
+    "four_new_incorrect_prefix_annotation_masks_checked": true,
+    "real_tokenizer_loss_and_truncation_audit": "pending; file replay and annotations are not substitutes",
+    "code_changed_for_this_refresh": false
+  },
+  "manifest_sha256": "5f47ec0f24444ebcc038849ce8a5c1f95bd8b25bd39d2dc1e2a69bd5a973ce7f",
+  "cases_sha256": "7c2bf78aed82b96e5d91695dac24135ae7671a6225058ac3bfcb65764a30d831",
+  "parquet_sha256": "0c260cf81658967fb8fe765fb55ef6deb51431b1a05c80bfe5f2327155a89590",
+  "semantic_specification_sha256": "0bc13cbd61af001053b93a13aeb4af1fd3a78cfe60e3d97611c3171b91d81ea3",
+  "updated_teacher_labels_sha256": "dfac662ac78b7cee5aca4266c51870121de256fa40738fdc06e49b03a0588386",
+  "old_teacher_labels_sha256": "dbae269b1d98a8373a1630464b5c7adde026556cd7a734c75091fe206a75bf2a",
+  "training_launched": false,
+  "semantic_promotion": false,
+  "next_worker_parent": "R10, 39abb8cf4831fe8b090445f14de02ff430c940512c0977493b16b570f1d93225",
+  "active_owner_run_unchanged": "e33-summary-owner-rehearsal-step128-r5"
+}

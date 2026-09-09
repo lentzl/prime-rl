@@ -1,0 +1,327 @@
+{
+  "schema_version": "document-summary-semantic-repairs/v1",
+  "status": "source_reviewed",
+  "split": "TRAIN",
+  "authorship": "Assistant-authored incorrect draft variants of existing reviewed TRAIN summaries. Not sampled student rollouts or independent human gold. Corrections retain the reviewed complete summary; incorrect drafts and premature stops receive no loss.",
+  "feedback": "Please revise the saved summary against the chapter. Check quantities and units, negation, conditions, and whether statements are observations, inferences, plans or completed events. Correct unsupported claims while retaining the main points. Read the source again if needed, replace summary.md with the complete corrected bullets in one write, then stop.",
+  "cases": [
+    {
+      "base_slug": "clinic-pilot",
+      "source_sha256": "72abbdf55b7a7f9d741a43303e3d5da745ec7f14969069bdf0a465b25f6a137d",
+      "changes": [
+        {
+          "correct": "a six-week",
+          "incorrect": "a sixty-week"
+        },
+        {
+          "correct": "90 percent",
+          "incorrect": "nine-zero percent"
+        }
+      ],
+      "correction_reasoning": "The source specifies a six-week pilot and a target of 90 percent within one business day. Sixty weeks changes the duration; nine-zero is not an appropriate rendering of ninety. Restore those quantities and retain the telephone exceptions and comparison period."
+    },
+    {
+      "base_slug": "refund-review",
+      "source_sha256": "bf1d05c138308cdcce436c0a4a6471f16fb2d3dcb74e8b9782ce126e9fe02143",
+      "changes": [
+        {
+          "correct": "up to €100 within thirty days after verifying",
+          "incorrect": "up to €1,000 within thirty weeks without verifying"
+        }
+      ],
+      "correction_reasoning": "The ordinary approval ceiling is 100 euros, the age limit is thirty days, and verified account ownership is required. The draft changes both quantity and unit and reverses the verification condition. Restore all three while keeping specialist escalation and the records and rejection requirements."
+    },
+    {
+      "base_slug": "permit-additional",
+      "source_sha256": "a59789198e8052cfa9575ae687a439270a285c2c0569ce586e1e438e15d33e10",
+      "changes": [
+        {
+          "correct": "hazardous loads additionally need safety-manager approval",
+          "incorrect": "hazardous loads need only safety-manager approval, replacing planner approval"
+        }
+      ],
+      "correction_reasoning": "In this chapter hazardous-load safety approval is additional to planner approval, not a replacement. Restore that relationship. Preserve the release record, numbered outage forms, and import of original numbers and times without replacement permits."
+    },
+    {
+      "base_slug": "permit-exclusive",
+      "source_sha256": "dd536a3e0b344262f302773c278a73073289bb82afc89f19ae7b65ec9aeb6673",
+      "changes": [
+        {
+          "correct": "belongs solely to safety managers, replacing planner approval",
+          "incorrect": "requires safety managers in addition to planner approval"
+        }
+      ],
+      "correction_reasoning": "This chapter explicitly assigns hazardous-load approval only to the safety manager, replacing planner approval. Do not import the additional-approval rule from another case. Keep the remaining record and outage requirements unchanged."
+    },
+    {
+      "base_slug": "sensor-consecutive",
+      "source_sha256": "641dcfaf5a94ad69befae38061e8c47f3e0ea395f38b792a902d4e3645266d81",
+      "changes": [
+        {
+          "correct": "after two consecutive reviews above eight degrees, not an isolated excursion",
+          "incorrect": "after one review above eight degrees; never wait for another excursion"
+        }
+      ],
+      "correction_reasoning": "The source requires two consecutive reviews above eight degrees; a single isolated excursion does not trigger a pause. Restore the consecutive condition, preserving ten-minute reviews, calibrated outage measurements and both restart requirements."
+    },
+    {
+      "base_slug": "sensor-single",
+      "source_sha256": "710285017aaa8e292df2140886054082f5c723138fb863cf707be2efb10ef904",
+      "changes": [
+        {
+          "correct": "after one review above eight degrees; never wait for a second excursion",
+          "incorrect": "only after two consecutive reviews above eight degrees, ignoring isolated excursions"
+        }
+      ],
+      "correction_reasoning": "Here one review above eight degrees requires a pause, and the chapter explicitly says not to wait for a second. Restore the single-review trigger rather than borrowing a consecutive-review rule; retain monitoring, outage and restart details."
+    },
+    {
+      "base_slug": "ferry-survey",
+      "source_sha256": "a09b344261897df321f424fd77f3be21d13be507054cc76fa4768358622f5c66",
+      "changes": [
+        {
+          "correct": "but better weather prevents isolating its effect",
+          "incorrect": "proving the new timetable caused the improvement despite better weather"
+        },
+        {
+          "correct": "no timetable reversal or revenue conclusion follows from these data",
+          "incorrect": "the timetable was reversed and ticket revenue increased"
+        }
+      ],
+      "correction_reasoning": "The before/after comparison is confounded by fewer storms; it does not prove causation. Further surveys are proposed, not a timetable reversal, and no sales records were collected. Correct those claims while preserving the sampling limitation and morning/evening distinction."
+    },
+    {
+      "base_slug": "oral-history",
+      "source_sha256": "b84568f0163aff2eefea5c6e1c0c04190f4e922ce8c0e69cac2dff8f508d3e11",
+      "changes": [
+        {
+          "correct": "occasional crowds, not typical weekdays",
+          "incorrect": "typical weekday crowds as well as festival attendance"
+        },
+        {
+          "correct": "do not independently confirm it",
+          "incorrect": "independently confirm it"
+        }
+      ],
+      "correction_reasoning": "Festival photographs cannot establish ordinary weekday attendance. Interviews repeating the same published history are not automatically independent confirmation. Restore both limitations without discarding conflicting evidence or the record of uncertainty."
+    },
+    {
+      "base_slug": "repair-workshop",
+      "source_sha256": "454d1a70b45e05f56a3ab70720783804023195f4f61a5299d07900d496299d77",
+      "changes": [
+        {
+          "correct": "Thirty of fifty",
+          "incorrect": "Three-zero of five-zero"
+        },
+        {
+          "correct": "long-term repair success was not measured",
+          "incorrect": "long-term repair success was established"
+        },
+        {
+          "correct": "three-month follow-up without promising universal repair or response",
+          "incorrect": "three-year follow-up guaranteeing universal repair and response"
+        }
+      ],
+      "correction_reasoning": "Thirty of fifty is the collection-day result, not measured durability. The proposed follow-up is after three months, with consenting owners and no universal response or repair guarantee. Use normal numerical wording and restore the outcome, timing and uncertainty distinctions."
+    },
+    {
+      "base_slug": "water-meter-trial",
+      "source_sha256": "1d60915119f9bece7ccd1774bd3f3d35e74fac3dcf08f7aba92d973c69e40b94",
+      "changes": [
+        {
+          "correct": "causal effect remains unestablished",
+          "incorrect": "causal effect is established"
+        },
+        {
+          "correct": "apartment averages do not identify household consumption",
+          "incorrect": "apartment averages identify each household's actual consumption"
+        }
+      ],
+      "correction_reasoning": "Use also fell in an untreated building, so the statements' causal effect is not established. Building-meter averages include shared use and possible leaks and do not measure each household. Correct these inferences and preserve the proposed interpretation and cost checks."
+    },
+    {
+      "base_slug": "time-machine-ch06",
+      "source_sha256": "7f09eee472c087d753280f3a362e0dd97cc504316d07581e5545540cc3ef156f",
+      "changes": [
+        {
+          "correct": "these are his inferences, not an established account",
+          "incorrect": "these observations establish a complete account"
+        },
+        {
+          "correct": "only a partial understanding and a plausible but wrong theory",
+          "incorrect": "a complete understanding and a scientifically verified theory"
+        }
+      ],
+      "correction_reasoning": "The Traveller offers interpretations of the buildings and inhabitants, not an established social history. The chapter retrospectively calls his explanation plausible but wrong. Restore the distinction between observation and theory without importing later discoveries."
+    },
+    {
+      "base_slug": "treasure-island-ch06",
+      "source_sha256": "683d4cf66e0de1a4d19e8c98c29164ee64454b37beaf2943e6321b2e8b9bb81d",
+      "changes": [
+        {
+          "correct": "Trelawney proposes fitting out a ship in Bristol",
+          "incorrect": "Trelawney obtains and sails a ship from Bristol"
+        },
+        {
+          "correct": "remain plans, not an expedition already completed",
+          "incorrect": "describe their completed expedition and recovered treasure"
+        }
+      ],
+      "correction_reasoning": "The packet is actually opened and the map found, but fitting out the ship and the voyage are still proposed. Trelawney's predictions are not completed events or recovered treasure. Preserve the discovery, planned roles and secrecy warning within this chapter's boundary."
+    },
+    {
+      "base_slug": "flatland-ch18",
+      "source_sha256": "738fe852edaf9b25f74968a18f03aa903ce38961f9919f9e6179f6659e853acb",
+      "changes": [
+        {
+          "correct": "orders the policemen arrested and gagged",
+          "incorrect": "has the policemen executed before the Square"
+        },
+        {
+          "correct": "condemns the Square's brother to perpetual imprisonment",
+          "incorrect": "executes the Square's brother"
+        }
+      ],
+      "correction_reasoning": "The president orders the policemen arrested and gagged; the passage implies a dire fate but does not narrate their execution. The brother receives perpetual imprisonment, with his life spared if he keeps silent. Correct the invented executions while preserving the chapter's visual-access and moral distinctions."
+    },
+    {
+      "base_slug": "how-we-think-ch10",
+      "source_sha256": "ad0fdd6c5ab952ecfb48fde85ab4cf678af1429ae969ae8d7bd0c1a083b37701",
+      "changes": [
+        {
+          "correct": "an additional educational end, not a replacement for practical judgment or an inherently superior kind of thought",
+          "incorrect": "the sole educational end, replacing practical judgment with an inherently superior kind of thought"
+        }
+      ],
+      "correction_reasoning": "Dewey explicitly calls abstract thinking an end rather than the whole end, not a substitute for practical thought or an inherently higher type. Restore the complementary relationship and retain the gradual development and individual balance described elsewhere in the chapter."
+    },
+    {
+      "base_slug": "time-machine-ch08",
+      "source_sha256": "62e2a51682a05019ae607e4d81f69463e1e7d6f4be79831e95663fbd34e989b6",
+      "changes": [
+        {
+          "correct": "as provisional and possibly wrong",
+          "incorrect": "as established and unquestionably correct"
+        },
+        {
+          "correct": "suspects the Morlocks took his machine",
+          "incorrect": "proves the Morlocks took his machine"
+        }
+      ],
+      "correction_reasoning": "The Traveller observes shafts and a descending creature, but explicitly qualifies his class-origin account and cannot establish the machine thieves' motive. His certainty of suspicion is not independent proof of theft. Restore the difference between observation and theory, retaining Weena's actual rescue and the unanswered questions."
+    },
+    {
+      "base_slug": "treasure-island-ch08",
+      "source_sha256": "370686f45424c27c32dc913375936785a098e380de6a87af2d5fbc7726fc243a",
+      "changes": [
+        {
+          "correct": "the pursuers lose Black Dog in the crowd",
+          "incorrect": "the pursuers capture Black Dog in the crowd"
+        },
+        {
+          "correct": "Jim's confidence is not proof that his judgment is correct",
+          "incorrect": "Jim's confidence proves that his judgment is correct"
+        }
+      ],
+      "correction_reasoning": "Harry and Ben return without Black Dog; the fugitive is not captured. Silver convinces Jim, but Jim's trust does not establish Silver's innocence. Restore the actual failed pursuit and the perspective qualification, keeping the accurate report and the still-future ship visit."
+    },
+    {
+      "base_slug": "flatland-ch20",
+      "source_sha256": "a51de79c508e9d803d02de1b9d2b6edbbf53f5e217459d1bda32413be6ef4d11",
+      "changes": [
+        {
+          "correct": "In a dream, the Sphere leads",
+          "incorrect": "During a waking journey, the Sphere leads"
+        },
+        {
+          "correct": "Still within the dream, the Sphere acknowledges",
+          "incorrect": "During that waking journey, the Sphere acknowledges"
+        },
+        {
+          "correct": "This is a vision, not a newly verified waking journey",
+          "incorrect": "This is a verified waking journey, not a vision"
+        }
+      ],
+      "correction_reasoning": "The narrator explicitly falls asleep and introduces a dream. Both the Pointland visit and the Sphere's changed attitude belong to that dream, not a new waking observation. Restore this status consistently without turning the Point's response into successful instruction or the cellar cover story into fact."
+    },
+    {
+      "base_slug": "how-we-think-ch12",
+      "source_sha256": "7d6be60c5d812dceaf15f71816dbd17b0455971086dfcecf27bdecb06e821b7b",
+      "changes": [
+        {
+          "correct": "children's learning is not mere copying",
+          "incorrect": "children's learning is merely copying"
+        },
+        {
+          "correct": "Mere manipulation or dictated routines do not guarantee intellectual growth",
+          "incorrect": "Mere manipulation or dictated routines guarantee intellectual growth"
+        }
+      ],
+      "correction_reasoning": "Dewey distinguishes observation, selection and testing from unthinking imitation; outward resemblance does not identify the learning cause. He also explicitly denies that physical activity automatically produces intellectual results. Restore both qualifications and retain purposeful, enjoyable work and the organization of occupations around inquiry."
+    },
+    {
+      "base_slug": "book-of-tea-ch01",
+      "source_sha256": "2435dbe43fafb8aadea1ed1497c2fca600b406edcc5fd3b07bf020e4e2ff74ca",
+      "changes": [
+        {
+          "correct": "urging reciprocal understanding and complementary strengths rather than continued contempt between East and West.",
+          "incorrect": "urging Western submission to Eastern superiority rather than reciprocal learning between East and West."
+        },
+        {
+          "correct": "illustrates humanity's divisions rather than reporting a historical event.",
+          "incorrect": "records a historical event in which a divine figure physically rebuilt the sky."
+        }
+      ],
+      "correction_reasoning": "The source criticizes caricatures on both sides and explicitly asks the continents to supplement one another; it does not demand Western submission. It introduces the sky story as a Taoist tale and then applies it metaphorically to modern conflict. Restore reciprocal learning and distinguish myth from historical observation without losing the chapter's wider argument about Teaism."
+    },
+    {
+      "base_slug": "book-of-tea-ch02",
+      "source_sha256": "98a631310fbdd7ff576601c8c4f7b46ec68115dd5bdf52b64527dad63a8d34fa",
+      "changes": [
+        {
+          "correct": "removed other additions but retained salt",
+          "incorrect": "removed salt along with all other additions"
+        },
+        {
+          "correct": "retaining powdered tea's ceremonial prestige after steeped tea became usual for everyday drinking.",
+          "incorrect": "abandoning powdered tea entirely once steeped tea became usual for everyday drinking."
+        }
+      ],
+      "correction_reasoning": "Luwuh's Tang method retains salt; salt is discarded in the subsequent Sung method. Japan later uses steeped tea ordinarily while powdered tea retains its ceremonial position. Restore both the chronological boundary and the ordinary-versus-ceremonial qualification; later adoption does not mean the earlier practice disappeared everywhere."
+    },
+    {
+      "base_slug": "time-machine-ch01",
+      "source_sha256": "4787f50fa9eceb20ee5a701d80b53c734be635b0f98e5d09e40d5c5e845afdbb",
+      "changes": [
+        {
+          "correct": "these are proposed uses of a machine, not journeys that have already happened",
+          "incorrect": "they carry out these journeys and return with proof of the machine's success"
+        },
+        {
+          "correct": "the chapter ends before the demonstration",
+          "incorrect": "he demonstrates the machine and proves that time travel works"
+        }
+      ],
+      "correction_reasoning": "The historical visits and investments are suggestions made during a discussion, not trips anyone takes in this chapter. The Traveller claims experimental verification and returns from the laboratory, but the chapter stops before an experiment is shown. Restore proposed possibilities versus completed events, and attribute his dimensional theory and verification claim rather than treating them as demonstrated facts."
+    },
+    {
+      "base_slug": "treasure-island-ch01",
+      "source_sha256": "608b31269afd4a6983b26455a9dabd107c80e90d35a8e97c1f9de4ed8b3da96e",
+      "changes": [
+        {
+          "correct": "with a sea-chest",
+          "incorrect": "with a locked sea-chest"
+        },
+        {
+          "correct": "whose imagined appearances then haunt the boy's dreams",
+          "incorrect": "who arrives at the inn and chases the boy along the coast"
+        },
+        {
+          "correct": "The captain backs down and remains quiet for several evenings.",
+          "incorrect": "The captain stabs the doctor and escapes from the inn that evening."
+        }
+      ],
+      "correction_reasoning": "The one-legged sailor appears in the boy's nightmares, not in an actual encounter. The captain threatens Livesey with a knife but puts it away after the doctor's warning; Livesey leaves on his horse, and the captain remains quiet. A threat is not a completed stabbing. Nobody has seen the chest open, which does not establish that it is locked. Remove that unsupported detail and restore the chapter's actual events without importing later identities or revelations."
+    }
+  ]
+}
