@@ -760,6 +760,10 @@ that ref to the existing campaign branch, or create and verify an incremental
 bundle from the GPU checkout's exact head before transferring it. Fast-forward
 only, verify both commit IDs, and keep live GPU checkouts unchanged. This
 preserves original commits; do not present an uncommitted file copy as a commit.
+Keep the same object-store environment on subsequent verification commands too.
+A temporary bare repository relying on `GIT_ALTERNATE_OBJECT_DIRECTORIES` can
+import refs successfully but report `bad ref` when a later `show-ref` omits it;
+repeat the read-only check with the configured stores before diagnosing corruption.
 For an incoming collaborator commit, the same isolated repository can fetch the
 specific branch with `--no-tags` and `GIT_OBJECT_DIRECTORY` pointing to the
 existing object store. Inspect the fetched commit and merge it normally in the
