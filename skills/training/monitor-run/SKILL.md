@@ -312,7 +312,9 @@ that flag to `--teacher`, which is ambiguous. Counts derive from the source
 and case manifests rather than requiring exactly 40 episodes. Preserve the
 earlier data and exclude all evaluation chapters, including prospective ones.
 The optional `--include-book-of-tea` adds its pinned complete chapters I and II
-without changing the original four-book selection. Review them as authored
+without changing the original four-book selection. Use
+`--additional-book-of-tea-chapters` with that flag to extend this book separately;
+the default still selects only I and II. Review these chapters as authored
 cultural/historical arguments, distinguishing quoted stereotypes, myths and
 the author's judgments from established events. The exporter permits only the
 explicit TRAIN book allowlist and rejects duplicate or evaluation book IDs.

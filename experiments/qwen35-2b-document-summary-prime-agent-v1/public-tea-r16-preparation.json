@@ -1,0 +1,104 @@
+{
+  "status": "local_export_source_review_and_file_replay_complete_real_tokenizer_audit_pending",
+  "local_dataset": "outputs/summary-direct-sft-r16-tea",
+  "previous_dataset": "outputs/summary-direct-sft-r15-interruption",
+  "local_sources": "outputs/summary-public-training-chapters-r7-tea",
+  "teacher_additions": "experiments/qwen35-2b-document-summary-prime-agent-v1/public-chapter-teacher-r7-additions.json",
+  "rows": 426,
+  "earlier_rows_and_cases_unchanged": 414,
+  "distinct_train_sources": 60,
+  "retained_train_sources": 20,
+  "public_train_chapters": 40,
+  "new_source_documents": 2,
+  "new_rows": 12,
+  "new_chapters": [
+    {
+      "slug": "book-of-tea-ch03",
+      "heading": "III. Taoism and Zennism",
+      "next_heading": "IV. The Tea-Room",
+      "source_words": 2966,
+      "source_sha256": "88f4c064f0fa24715e252eb8bd3c3fee79b2cad8dbc670e5d8eb7b005e6d708a"
+    },
+    {
+      "slug": "book-of-tea-ch04",
+      "heading": "IV. The Tea-Room",
+      "next_heading": "V. Art Appreciation",
+      "source_words": 3415,
+      "source_sha256": "e47572dbc369559e48b552d067c864ee27fb3dd845feceaf78bf8f70cb0af762"
+    }
+  ],
+  "raw_source_sha256": "a7464287f9b431a55ff50d05e48dec31db050eb4a88554425961c6699ea6fcd7",
+  "motivation": "Add genuine source variety while retaining interruption and file-write repair teaching. Summarize an author's arguments without converting interpretations, legends or aesthetic prescriptions into established facts.",
+  "teacher_provenance": "Assistant-authored after reading both complete chapters; five English key bullets per chapter, plus source-review cautions. Not independent human gold or student replay. Earlier 18 addition labels retained exactly.",
+  "source_preparation_options": [
+    "--additional-chapters-per-book",
+    "4",
+    "--include-book-of-tea",
+    "--additional-book-of-tea-chapters",
+    "2"
+  ],
+  "export_options": [
+    "--include-format-repairs",
+    "--semantic-repairs experiments/qwen35-2b-document-summary-prime-agent-v1/semantic-repairs-r4.json",
+    "--native-child-trace outputs/summary-owner-r1-r7/owner-r1-r7-direct-public-r1/document/document-summary/traces.jsonl",
+    "--include-native-revisions",
+    "--include-native-write-repairs",
+    "--include-native-interruption-repairs"
+  ],
+  "family_counts": {
+    "retained_train": 20,
+    "public_chapter": 40,
+    "format_repair": 60,
+    "semantic_repair": 22,
+    "native_child": 60,
+    "native_count_repair": 22,
+    "native_format_repair": 60,
+    "native_semantic_repair": 22,
+    "native_write_type_repair": 60,
+    "native_interruption_repair": 60
+  },
+  "checks": {
+    "file_episodes_replayed": 426,
+    "old_rows_and_cases_exactly_preserved": 414,
+    "old_public_sources_exactly_preserved": 38,
+    "old_addition_targets_exactly_preserved": 18,
+    "source_regeneration_from_pinned_raw": "exact",
+    "both_new_chapter_boundaries_checked": true,
+    "old_default_selection": "unchanged",
+    "invalid_selectors_rejected": 4,
+    "training_wrapper_dataset_integrity": "passed",
+    "new_teacher_bullet_word_counts": [
+      [
+        24,
+        28,
+        26,
+        31,
+        32
+      ],
+      [
+        34,
+        39,
+        23,
+        28,
+        29
+      ]
+    ],
+    "ruff": "passed",
+    "runbook_skill_validation": "passed",
+    "real_tokenizer_loss_reasoning_and_truncation_audit": "pending idle-host gap; file replay does not replace trainer rendering"
+  },
+  "manifest_sha256": "16d9202405eb8e81d8004e31accda67d99721d6641b2264dd156b00e3dde5991",
+  "cases_sha256": "bb0b2ca3573a8cd3c4ceadc1c63be570a6f0d9208b521283f4bb6bfc5a57ccde",
+  "parquet_sha256": "9fb84fe4a447aea90f3d5f8de3ff6917dd519fd77e8155b70af496225a7972c8",
+  "source_manifest_sha256": "daa49b57e0e9970afe3039f48ce9bfe6e2dae6f54fba434746f321a583cf4add",
+  "teacher_additions_sha256": "4b284692dce24ecf6a60ca5f02f24051b0d68efb37acd96754d44fbeb623b154",
+  "source_preparer_sha256": "527bc99f691ba18b6eeb5984e60803354ac156391a313fe3c9f393eccf15e13e",
+  "evaluation_sources_added": false,
+  "pretraining_contamination_possible": true,
+  "native_receipt_status": "declared scripted stub, not live delivery",
+  "training_launched": false,
+  "semantic_promotion": false,
+  "active_run_unchanged": "h176-summary-native-write-events-step256-r11",
+  "next_worker_parent": "Completed and verified R11 by default, not reset to R10",
+  "owner_follow_on": "Audited r6-message remains available for continuation from completed R5"
+}

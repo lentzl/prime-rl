@@ -64,11 +64,13 @@ BOOK_OF_TEA = (
 
 
 def prepare(raw_dir: Path, output_dir: Path, *, additional_chapters_per_book: int = 0,
-            include_book_of_tea: bool = False) -> dict:
+            include_book_of_tea: bool = False, additional_book_of_tea_chapters: int = 0) -> dict:
     if output_dir.exists():
         raise FileExistsError(output_dir)
-    if additional_chapters_per_book < 0:
+    if additional_chapters_per_book < 0 or additional_book_of_tea_chapters < 0:
         raise ValueError("additional chapter count must be nonnegative")
+    if additional_book_of_tea_chapters and not include_book_of_tea:
+        raise ValueError("additional Book of Tea chapters require including that book")
     chapters, books = [], []
     selected_books = (*BOOKS, BOOK_OF_TEA) if include_book_of_tea else BOOKS
     for ebook, slug, title, author, year, died, expected_hash, pattern, selected in selected_books:
@@ -81,8 +83,8 @@ def prepare(raw_dir: Path, output_dir: Path, *, additional_chapters_per_book: in
         expected_count = {35: 16, 120: 34, 97: 22, 37423: 16, 769: 7}[ebook]
         if len(boundaries) != expected_count:
             raise ValueError(f"unexpected chapter boundaries: {slug}: {len(boundaries)}")
-        if ebook != 769:
-            selected = (*selected, *range(max(selected) + 1, max(selected) + 1 + additional_chapters_per_book))
+        additional = additional_book_of_tea_chapters if ebook == 769 else additional_chapters_per_book
+        selected = (*selected, *range(max(selected) + 1, max(selected) + 1 + additional))
         if max(selected) >= len(boundaries):
             raise ValueError(f"selected chapter lacks a following boundary: {slug}")
         for number in selected:
@@ -147,9 +149,12 @@ if __name__ == "__main__":
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--additional-chapters-per-book", type=int, default=0)
     parser.add_argument("--include-book-of-tea", action="store_true", help="Add complete TRAIN chapters I and II.")
+    parser.add_argument("--additional-book-of-tea-chapters", type=int, default=0,
+                        help="Extend Book of Tea beyond chapter II without changing the other books' selection.")
     args = parser.parse_args()
     result = prepare(args.raw_dir, args.output_dir, additional_chapters_per_book=args.additional_chapters_per_book,
-                     include_book_of_tea=args.include_book_of_tea)
+                     include_book_of_tea=args.include_book_of_tea,
+                     additional_book_of_tea_chapters=args.additional_book_of_tea_chapters)
     print(
         json.dumps({"chapters": len(result["chapters"]), "words": sum(c["source_words"] for c in result["chapters"])})
     )
