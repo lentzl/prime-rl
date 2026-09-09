@@ -677,6 +677,12 @@ or guarantee that a later phase of the Git operation cannot acquire a lock.
 If a lock blocks publication, identify its owning process and wait for or resolve
 that exact operation. Never remove a lock while its owner is still live.
 
+For standalone local artifact inspection, `uv run --no-project` from inside a
+large workspace can still scan its members. Use a known non-project directory,
+for example `uv run --directory /tmp --no-project python`, with absolute artifact
+paths. This is for independent inspection, not training or environment commands
+that require the configured project runtime.
+
 Before deleting a remote checkpoint in favor of a local archive, repeat the
 local byte-count and content-hash checks. An iCloud `dataless` placeholder and a
 historical matching hash do not prove that recovery bytes are currently readable.

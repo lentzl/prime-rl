@@ -1,0 +1,55 @@
+{
+  "status": "complete_failed_with_two_saved_chapter_files",
+  "run_name": "owner-r4-r10-direct-public-r1",
+  "launched_at_utc": "2026-09-09 07:21:51 UTC",
+  "rollout_started_at_utc": "2026-09-09 07:23:17 UTC",
+  "wrapper_and_engines_terminal_verified": true,
+  "main_commit": "5a6a86f8222277133481baa1bafbcd536cb0dfc0",
+  "verifiers_commit": "2fdc55fd72c2ec86aa10d3416005d1491e3a1bbf",
+  "owner_sha256": "72e72675f1f2f5ea8a8cea2f7e41e2ea7acb3e8bc1b39a33ee17bba2c48bb7dc",
+  "worker_sha256": "39abb8cf4831fe8b090445f14de02ff430c940512c0977493b16b570f1d93225",
+  "comparison_limit": "Both worker weights and child failure-feedback wording differ from the older R9 r3 run. Same original development task, owner weights and sampling; not a weight-only causal comparison.",
+  "stop_condition": "max_turns",
+  "artifact_reward": 0,
+  "errors": [],
+  "model_calls": {"owner": 14, "alice_child": 5, "bennett_child": 15},
+  "all_34_upstream_routes_http_200": true,
+  "request_rewrites": 10,
+  "response_rewrites": 0,
+  "owner": {
+    "read_index_and_two_correct_named_admissions": true,
+    "summary_files_read_successfully": 0,
+    "assembled_document_exists": false,
+    "diagnosis": "Sends unnecessary revision messages to both children, stores send results, then calls nonexistent agent_observe.get_agent_state. Later treats send metadata as reply payloads, repeatedly indexing absent status and summary_path fields. Syntax errors and NameError follow. Explains these failures as changing dictionaries or new namespaces instead of inspecting the actual values. Repeats revision sends rather than storing explicit matching child receipts."
+  },
+  "alice": {
+    "source_read": "complete assigned chapter",
+    "saved_file_bytes": 565,
+    "markdown_bullets": 5,
+    "parent_receipt_sent": true,
+    "duplicate_write": true,
+    "duplicate_receipt_after_parent_followup": true,
+    "source_review": "Not faithful: invents a guarded hall and locked glass table, says Alice ignores bottle danger although she checks for poison, misplaces Alice on the table and the key inside the cake's glass box, scrambles event order, and claims she enters the garden. In the supplied chapter she cannot reach the key and ends by finishing the cake; she has not entered the garden."
+  },
+  "bennett": {
+    "source_read": "complete assigned chapter",
+    "saved_file_bytes": 335,
+    "markdown_bullets": 0,
+    "parent_receipt_sent": false,
+    "diagnosis": "Reads the nonexistent summary after an unsolicited parent revision request. Then successfully writes five prose paragraphs but assigns write_text's integer character count to notes_text. A second write in the same cell fails because its input is int. Repeatedly retries write_text(notes_text), falsely reasoning that write_text returns no value. The saved file survives the failed later operation; ten rewritten failure observations do not repair this loop.",
+    "source_review": "Some time-versus-money gist, but no requested bullets, redundant vague statements, treats the opening money-management analogy as a standalone key point, and omits equal daily 24-hour allocation and inability to borrow future time. Not a useful chapter synopsis."
+  },
+  "interpretation": "Saved-file existence and Alice's initial receipt are limited execution footholds, not reliable end-to-end or semantic success. Need owner observation/receipt discrimination and worker type/partial-execution recovery alongside source-grounded summary teaching. Keep training from current descendants, not an automatic rollback.",
+  "evidence": {
+    "trace_sha256": "ba38d119c821dece617bb0a7f6c145ed71e0dc6ca4f9f87150e98f30bf245a0f",
+    "routing_sha256": "4a6ba03bead30f9107622d4ee491041ed6b57bc6fbdb56bffc570d5ca7160b63",
+    "receipt_sha256": "92916d73bacd37b409d6e3cc261fa1d48951330b03c92b18c60bc630f676b383",
+    "native_capture_manifest_sha256": "e902733f4541e4ae1634bb2bc882d70f637d8b1feda27b033a3a200d6ea4b702",
+    "native_capture_verified_files": 30,
+    "native_capture_verified_bytes": 401808,
+    "coverage": "Hash-verified latest native snapshots, not guaranteed complete native lifecycle. Final intercepted trace retained separately.",
+    "local_root": "outputs/summary-owner-r4-r10-r1"
+  },
+  "semantic_promotion": false,
+  "next": "Continue owner R4 with additional exposure to the existing 612-row verified decision-prefix/rehearsal mixture, keeping worker R10. Prepare type/partial-write and observed-state corrections without copying evaluation chapter answers into TRAIN."
+}
