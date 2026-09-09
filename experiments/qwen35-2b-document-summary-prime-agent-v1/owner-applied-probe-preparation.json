@@ -1,0 +1,50 @@
+{
+  "status": "prepared_local_checks_passed_not_run_with_models",
+  "config": "experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct-applied.toml",
+  "config_sha256": "98d7089e6c29735224301aac7bf0d04523df626659cc6c581623c8aa31969816",
+  "reference_config": "experiments/qwen35-2b-document-summary-prime-agent-v1/smoke-owner-direct.toml",
+  "reference_config_sha256": "ddc660309f419b644048722906bd28e67898f1c0c1f5abae851fae3465f9934a",
+  "changed_config_fields": [
+    "env.taskset.chapter_paths"
+  ],
+  "rationale": "Complement the existing public-chapter continuity probe with useful decision-oriented summaries and owner-led assembly. Reuse existing development sources and the existing taskset, role routing, Prime Agent harness and runtime.",
+  "task_name": "chapter-files-73eb05b21a0e-delegated-markdown-v1",
+  "sources": [
+    {
+      "file": "chapter-probes/city-shade.md",
+      "words": 368,
+      "paragraphs": 5,
+      "sha256": "14adf38a2a2ab1e7406db32cf3190129785b1df67b1c73ffd0e86e58c4415fbe",
+      "review": "chapter-probes/README.md",
+      "focus": "Observed versus causal cooling; separate mechanisms, local exposure, maintenance, delayed benefits and unmeasured outcomes."
+    },
+    {
+      "file": "chapter-probes/evening-access.md",
+      "words": 853,
+      "paragraphs": 10,
+      "sha256": "317ac5f005fe73de32765e4020860a6861cc43db07eb832ec652cd5bd71fe749",
+      "review": "chapter-probes/evening-access-review.md",
+      "focus": "Weekly visits versus hourly use and unique people; limited comparisons; temporary funding versus cost; unresolved access; conditional proposal versus approved action."
+    }
+  ],
+  "source_provenance": "Original synthetic sources already exposed in development; not real municipal/study reports and not fresh confirmation.",
+  "checks": {
+    "local_cli_dry_run": "passed using the intended Verifiers checkout and existing isolated local taskset runtime; no model calls",
+    "resolved_config": "outputs/summary-owner-applied-preflight/applied-preflight/configs/eval.json",
+    "resolved_config_sha256": "c3c4e1f4b786f9b4b4becc2eaeb8c47d579da6b71a108f7720f7f998b4c987bb",
+    "task_loading": "passed; two named child jobs in source order",
+    "setup": "actual task.setup inspected with a recording runtime stub; no native Docker execution",
+    "runtime_file_set": "index, completion gate and two complete child source files only",
+    "source_absent_from_owner_index": true,
+    "review_or_reference_summary_in_runtime": false,
+    "full_source_paragraph_overlap_with_current_60_train_sources": false,
+    "shared_phrases_or_pretraining_absence_claim": false,
+    "unchanged_harness_runtime_sampling_and_budgets": true
+  },
+  "interpretation": "Inspect semantic fidelity, material omissions, qualifications and event/decision status separately from bullet format, actual file writes, matching receipts, unchanged index-order assembly, stopping and provider errors. A file-presence reward or setup check does not establish useful summaries.",
+  "comparison_policy": "Keep the original Alice/Bennett owner probe unchanged for continuity. Report this as a different development document, not a matched content comparison or fresh held-out success. Verify checkpoint hashes and preserve native plus intercepted evidence at launch.",
+  "training_data_changed": false,
+  "native_evaluation_launched": false,
+  "semantic_promotion": false,
+  "active_run_unchanged": "h176-summary-native-write-events-step256-r11"
+}
