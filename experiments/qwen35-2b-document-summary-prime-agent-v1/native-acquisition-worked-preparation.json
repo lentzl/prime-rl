@@ -1,0 +1,52 @@
+{
+  "status": "locally_validated_not_launched",
+  "prepared_utc": "2026-09-09 12:28 UTC",
+  "verifiers_commit": "d62cbccf2591215811202c4fe2685359be6f4cac",
+  "config": "experiments/qwen35-2b-document-summary-prime-agent-v1/acquire-owner-worked.toml",
+  "config_sha256": "0d0feaba446ea20dd6f2b330933ac6643bd52068b245238b3a02cdca57a66305",
+  "local_resolved_config": "outputs/summary-acquisition-worked-preparation/resolved-local/configs/eval.json",
+  "local_resolved_config_sha256": "15929cbf096815388e3ea6d744f58b3c0e1d085836a93e52f8266e2c3015efd9",
+  "planned_roles": {
+    "owner": "Completed R6, retained unchanged",
+    "owner_model_sha256": "40c05a05435d84a70a4d6a863e50c7f312e7f5fb6c62e8538ee98d374e89ae93",
+    "worker": "R12 after its completion receipt, ordered finite updates and saved weights are verified; currently training, no completed-weight hash yet"
+  },
+  "train_sources": [
+    {
+      "slug": "time-machine-ch01",
+      "raw_markdown_sha256": "6efb144c85abb3733b7f3fe43fea8d79625666a85672c6fb5b8b2acbd9524939",
+      "words": 1680
+    },
+    {
+      "slug": "how-we-think-ch01",
+      "raw_markdown_sha256": "f95742bd12f3258383c99e6ed9f50e70d7c22c050cd8a1358b6c48623e8b6981",
+      "words": 3821
+    }
+  ],
+  "train_case_dataset": "q35-2b-document-summary-direct-sft-v1-r18-fear",
+  "train_cases_sha256": "ffaf77ca6d6a8e940a23b2c1441b980dadfdad04f33fe5e3683c097fa8525acd",
+  "source_review": "Complete existing TRAIN chapters reread; their reviewed teacher summaries are unchanged. Time Machine I presents the Traveller's argument and possibilities, not accomplished travel. How We Think I emphasizes uncertainty, evidence and reflective inquiry. No evaluation chapter or new gold enters this preparation.",
+  "assistance": {
+    "worked": "Owner receives an executable read/admit/receive/assemble recipe. Each child receives a separate help file containing its reviewed TRAIN summary plus write/readback/parent-send code. Models execute native actions; setup writes no summaries or receipts.",
+    "procedure": "Same owner recipe and worker file-operation example, but no supplied summary or key points. Worker must author summary_text from the source.",
+    "none": "No acquisition help or dataset required. Baseline task data is unchanged except three explicit acquisition metadata defaults.",
+    "owner_answer_exposure": "Teacher summary text is absent from the owner prompt and index. This is not a filesystem security boundary.",
+    "measurement": "Assisted results are labelled in trace.info.training_acquisition; neither code replay nor assisted success proves independent capability. Existing structural and receipt scoring is unchanged."
+  },
+  "checks": {
+    "existing_taskset_tests": "49 invocations passed, including two added parameter cases in the existing setup test; no new test function or file",
+    "ruff": "Both changed Python files passed",
+    "skill_validation": "create-environments quick_validate passed; focused guidance update only",
+    "diff_check": "Passed for four scoped verifiers files",
+    "cli_dry_run": "Passed with local path TOML overlay; no model calls or container launch",
+    "resolved_config": "Materialized task matches replayed worked task. Compared with smoke-owner-direct: only chapter paths and two acquisition options differ; native harness, budgets, sampling and gate unchanged.",
+    "source_identity": "Exact paragraph-labelled source and its case hash verified against existing TRAIN case; raw Markdown hash alone is not the exporter identity",
+    "file_replay": "Worked and procedure examples replay actual reads, writes, readback, reverse-arrival receipt storage and unchanged index-order assembly. Premature assembly and mismatched receipt rejected; handles retained.",
+    "replay_limits": "Native admission and messaging use declared stubs. Procedure replay supplies teacher text only to exercise I/O; no model-generated summary or live delivery is claimed.",
+    "local_check_script": "/tmp/summary-acquisition-local-check.py",
+    "local_check_script_sha256": "365e52aaafc70a86943530cefd9c9d1fcf97277b4c5b3b3d6d3eb8a7987a6042",
+    "git_hooks": "Commit-tree used after scoped staged-tree inspection; hooks and repository-wide tests were not run"
+  },
+  "next_action": "Leave R12 untouched. After terminal completion and GPU/process drain, fast-forward the idle checkout, stage these two unchanged TRAIN sources, verify the full native acquisition configuration, then run owner R6 with worker R12 and retain native/intercepted evidence. Train useful assisted actions and source-checked corrected attempts into cumulative role descendants before withdrawing a kind of help. Do not turn successive help levels into a test-only matrix or require whole-episode perfection before updates.",
+  "host_state_at_preparation": "Still d8c9f0cf / verifiers 2fdc55fd; no code transfer, environment change, competing workload, HF upload or promotion"
+}
