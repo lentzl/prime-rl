@@ -19,11 +19,13 @@ from types import SimpleNamespace
 from datasets import Dataset
 from export_q35_2b_document_decision_sft_v1 import sha256_file
 from export_q35_2b_document_summary_owner_sft_v1 import (
+    GATE_WAIT_FEEDBACK,
     INDEX_PATH,
     MARKDOWN_OUTPUT_PATH,
     OBJECTIVE,
     SCHEMA_VERSION,
     UNNECESSARY_FOLLOWUP,
+    _owner_acquisition_recipe,
 )
 
 
@@ -53,6 +55,8 @@ def validate_dataset(path):
     start_count = owner_counts.get("owner_start_repair", 0)
     handle_count = owner_counts.get("owner_handle_repair", 0)
     message_count = owner_counts.get("owner_message_repair", 0)
+    if manifest.get("gate_wait_repair_episodes", 0) != sum(bool(c.get("gate_wait_repair")) for c in cases):
+        raise ValueError("gate-wait episode count differs")
     if (not cases or set(owner_counts) - {
             "owner_delegation_fanin", "owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair",
             "owner_handle_repair", "owner_message_repair"}
@@ -180,6 +184,28 @@ def verify_masks(row, case):
             if stage not in (0, 1) or stage >= len(case["chapters"]):
                 raise ValueError("invalid waiting-repair boundary")
             expected = {6 if stage == 0 else 10}
+        if case.get("gate_wait_repair"):
+            messages = _clean(row["messages"])
+            if (not wait_repair or case.get("acquisition_help") != _owner_acquisition_recipe()
+                    or case.get("gate_wait_feedback") != GATE_WAIT_FEEDBACK
+                    or case.get("gate_wait_provenance") !=
+                    "authored_finite_poll_after_timestamp_omitted_gate_feedback_not_native_continuation"
+                    or messages[1]["role"] != "user"
+                    or not messages[1]["content"].endswith(case["acquisition_help"])):
+                raise ValueError("gate-wait repair lost visible help or authored provenance")
+            gates = [i for i, message in enumerate(messages)
+                     if message["role"] == "user" and message["content"] == GATE_WAIT_FEEDBACK]
+            expected_gate = 7 if stage == 0 else 11
+            if gates != [expected_gate]:
+                raise ValueError("gate feedback is not at the declared receipt boundary")
+            expected = {expected_gate + 1}
+            call = messages[expected_gate + 1].get("tool_calls", [])
+            if len(call) != 1 or call[0]["id"] != "poll-handles":
+                raise ValueError("gate-wait analogue is missing its masked finite poll")
+            correction = messages[expected_gate + 3]
+            if (correction["role"] != "assistant" or correction.get("tool_calls")
+                    or "gate" not in correction.get("reasoning_content", "").lower()):
+                raise ValueError("gate-wait correction must yield without a tool call")
     masked = {i for i, message in enumerate(_clean(row["messages"]))
               if message.get("trainable") is False}
     if masked != expected:

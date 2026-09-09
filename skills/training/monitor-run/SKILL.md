@@ -432,6 +432,13 @@ with an unassisted fixture; its runtime-prefix mode is not an unchanged native
 assisted-trace importer. Do not silently strip hints while claiming to train from
 assisted experience, or include a failed action's target loss. Keep source review
 and replayed corrections distinct from observed successful actions.
+`--include-gate-wait-repairs` adds authored owner lessons with the current
+acquisition recipe retained in the prompt, incomplete-assembly gate feedback,
+a masked finite polling analogue, then passive yielding and actual receipt
+validation in the declared replay. The feedback omits the observed timestamp;
+these are not imported native continuations or evidence that an infinite cell
+returned. Audit the help, feedback placement, history masks and preserved partial
+receipts before training; a gate failure is not a child receipt or a respawn cue.
 For owner task-start failures, `--include-start-repairs` adds authored short
 repetition and premature-wait contexts before any tool action. Mask the entire
 incorrect assistant response, then teach index reading and the complete existing

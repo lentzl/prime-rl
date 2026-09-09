@@ -18,6 +18,7 @@ from document_summary_v1.taskset import (
     DocumentSummaryConfig,
     DocumentSummaryTaskset,
     _markdown_jobs,
+    _owner_acquisition_recipe,
 )
 from export_q35_2b_document_decision_sft_v1 import _wire_message, sha256_file
 
@@ -25,6 +26,15 @@ SCHEMA_VERSION = "qwen35-2b-document-summary-owner-sft/v1"
 OBJECTIVE = "native_index_delegation_receipt_fanin_with_role_rehearsal"
 REHEARSAL_SCHEMA = "qwen35-2b-adaptive-cognition-sft/v3"
 UNNECESSARY_FOLLOWUP = "Change your wording if needed, then reply again."
+GATE_WAIT_FEEDBACK = (
+    "Autonomous quality gate failed (attempt 1/3): `python "
+    "/workspace/document-summary-v1/completion_gate.py` exited 1.\n\nOutput:\n"
+    "Document assembly: wait for each named child's explicit receipt; end the turn for incoming messages, "
+    "do not poll or read chapter sources. After all receipts arrive, read their assigned summary files "
+    "and assemble them unchanged under the index headings, in index order, with blank lines between "
+    "sections. Do not invent missing summaries. Diagnostic: FileNotFoundError\n\n"
+    "Continue working. Fix the failure, then produce terminal evidence."
+)
 
 
 def _tool(call_id, code, reasoning, *, trainable=True):
@@ -168,6 +178,8 @@ def _misuse_outgoing_messages(case, stored_receipts):
 
 def _messages(context, case):
     messages = copy.deepcopy(context)
+    if case.get("gate_wait_repair"):
+        messages[1]["content"] += _owner_acquisition_recipe()
     start_repair = case.get("start_repair")
     if start_repair:
         incorrect = _reply(
@@ -209,6 +221,13 @@ def _messages(context, case):
         _result("spawn-chapters", json.dumps(names) + "\n"),
     ]
     if case.get("wait_repair_after_receipts") == 0:
+        if case.get("gate_wait_repair"):
+            messages += [
+                _reply("Waiting for the chapter receipts.",
+                       "Both the task and supplied procedure require yielding after admission. "
+                       "End this turn without an IPython call so incoming receipts can be handled."),
+                {"role": "user", "content": GATE_WAIT_FEEDBACK},
+            ]
         messages += _poll_handles(names)
     if case.get("handle_repair_boundary") == "before_receipts":
         messages += _misuse_handle(case)
@@ -216,6 +235,10 @@ def _messages(context, case):
         messages += _misuse_outgoing_messages(case, set())
     messages += [
         _reply("Waiting for the named chapter workers' receipts.",
+               ("The gate says assembly is incomplete, not that admitted workers should be restarted. "
+                "It supplies no child receipt. A running polling cell prevents incoming messages "
+                "from being handled; end this turn without a tool call, as the supplied recipe says. "
+                if case.get("gate_wait_repair") and case.get("wait_repair_after_receipts") == 0 else "") +
                ("The retained handle is not an awaitable result and has no join method. "
                 "No message has arrived yet; preserve handles and receipts and end this turn. "
                 if case.get("handle_repair_boundary") == "before_receipts" else "") +
@@ -263,9 +286,19 @@ def _messages(context, case):
         if received != set(names):
             repair_wait = case.get("wait_repair_after_receipts") == len(received)
             if repair_wait:
+                if case.get("gate_wait_repair"):
+                    messages += [
+                        _reply("Waiting for the remaining chapter receipts.",
+                               "Preserve the actual partial receipts and all handles. Yield for the remaining workers."),
+                        {"role": "user", "content": GATE_WAIT_FEEDBACK},
+                    ]
                 messages += _poll_handles(names)
             messages.append(_reply(
                 "Waiting for matching receipts from " + ", ".join(n for n in names if n not in received) + ".",
+                ("The gate's incomplete-assembly feedback is not another child's receipt. "
+                 "The supplied recipe still applies: keep stored receipts and handles, and end the turn "
+                 "without a polling cell so real incoming messages can be handled. "
+                 if repair_wait and case.get("gate_wait_repair") else "") +
                 ("The handle dictionary includes finished as well as pending children; it does not empty "
                  "when messages arrive. Track received receipts separately and end the turn so new messages "
                  "can be handled. Do not wait in an IPython loop or discard a handle. " if repair_wait else "") +
@@ -293,7 +326,7 @@ def _messages(context, case):
 
 def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_dir: Path,
            *, include_wait_repairs=False, include_start_repairs=False, include_handle_repairs=False,
-           decision_prefixes=False, include_message_repairs=False):
+           decision_prefixes=False, include_message_repairs=False, include_gate_wait_repairs=False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     context, tools = _context(runtime_trace)
@@ -320,6 +353,13 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         cases += [_case(chapters, i, False, handle_repair=True) for i in range(12)]
     if include_message_repairs:
         cases += [_case(chapters, i, False, message_repair=True) for i in range(12)]
+    if include_gate_wait_repairs:
+        for i in range(12):
+            case = _case(chapters, i, False, wait_repair=True)
+            case.update(task_key=case["task_key"] + ":gate-acquisition", gate_wait_repair=True,
+                        acquisition_help=_owner_acquisition_recipe(), gate_wait_feedback=GATE_WAIT_FEEDBACK,
+                        gate_wait_provenance="authored_finite_poll_after_timestamp_omitted_gate_feedback_not_native_continuation")
+            cases.append(case)
     owner_rows = []
     for case in cases:
         messages = _messages(context, case)
@@ -357,9 +397,10 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         "owner_supervision_boundary": "assistant_turn_prefix" if decision_prefixes else "full_episode",
         "authored_handoffs_not_live_delegation": True, "incorrect_schema_action_masked": True,
         "wait_repair_episodes": sum(c["wait_repair"] for c in cases),
-        "incorrect_wait_action_masked": include_wait_repairs,
+        "incorrect_wait_action_masked": include_wait_repairs or include_gate_wait_repairs,
         "wait_repair_context": ("authored_finite_two_poll_analogue_not_execution_of_observed_infinite_loop"
-                                if include_wait_repairs else None),
+                                if include_wait_repairs or include_gate_wait_repairs else None),
+        "gate_wait_repair_episodes": sum(bool(c.get("gate_wait_repair")) for c in cases),
         "start_repair_episodes": sum(bool(c.get("start_repair")) for c in cases),
         "start_repair_context": ("authored_short_repetition_or_premature_wait_with_no_executed_action"
                                  if include_start_repairs else None),
@@ -396,6 +437,7 @@ if __name__ == "__main__":
     parser.add_argument("--include-start-repairs", action="store_true")
     parser.add_argument("--include-handle-repairs", action="store_true")
     parser.add_argument("--include-message-repairs", action="store_true")
+    parser.add_argument("--include-gate-wait-repairs", action="store_true")
     parser.add_argument("--decision-prefixes", action="store_true")
     args = parser.parse_args()
     print(json.dumps(export(args.runtime_trace, args.training_dir, args.rehearsal_dir, args.output_dir,
@@ -403,4 +445,5 @@ if __name__ == "__main__":
                             include_start_repairs=args.include_start_repairs,
                             include_handle_repairs=args.include_handle_repairs,
                             include_message_repairs=args.include_message_repairs,
+                            include_gate_wait_repairs=args.include_gate_wait_repairs,
                             decision_prefixes=args.decision_prefixes), indent=2))
