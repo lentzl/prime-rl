@@ -426,6 +426,12 @@ The owner audit replays actual file I/O with an explicitly declared admission
 stub, verifies preserved rehearsal and the real trainer/tokenizer's complete
 sequences and loss masks. Stubbed admission is not evidence of live delegation.
 The existing training wrapper requires this matching audit before an owner update.
+For live assisted acquisition, preserve the help that was actually visible at
+each supervised decision. The owner's scripted exporter replaces the task prompt
+with an unassisted fixture; its runtime-prefix mode is not an unchanged native
+assisted-trace importer. Do not silently strip hints while claiming to train from
+assisted experience, or include a failed action's target loss. Keep source review
+and replayed corrections distinct from observed successful actions.
 For owner task-start failures, `--include-start-repairs` adds authored short
 repetition and premature-wait contexts before any tool action. Mask the entire
 incorrect assistant response, then teach index reading and the complete existing
@@ -699,6 +705,11 @@ Never infer cleanup scope from age alone and never remove a pre-existing or
 in-flight container.
 
 ### Publishing code when local Git ref scans stall
+
+For chapter transfers from macOS, use `COPYFILE_DISABLE=1 tar --no-xattrs` and
+verify archive members with a reader that exposes all entries. Native `tar -t`
+can hide AppleDouble `._` files. Check the exact member set and content hashes
+before staging the archive on the training host.
 
 Before treating checkpoint space as exhausted, inspect regenerable package caches
 while the host is idle. For uv, `uv cache prune --ci --cache-dir EXACT_CACHE_PATH`

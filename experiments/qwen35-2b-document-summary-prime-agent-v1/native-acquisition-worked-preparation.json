@@ -48,5 +48,15 @@
     "git_hooks": "Commit-tree used after scoped staged-tree inspection; hooks and repository-wide tests were not run"
   },
   "next_action": "Leave R12 untouched. After terminal completion and GPU/process drain, fast-forward the idle checkout, stage these two unchanged TRAIN sources, verify the full native acquisition configuration, then run owner R6 with worker R12 and retain native/intercepted evidence. Train useful assisted actions and source-checked corrected attempts into cumulative role descendants before withdrawing a kind of help. Do not turn successive help levels into a test-only matrix or require whole-episode perfection before updates.",
-  "host_state_at_preparation": "Still d8c9f0cf / verifiers 2fdc55fd; no code transfer, environment change, competing workload, HF upload or promotion"
+  "host_state_at_preparation": "Still d8c9f0cf / verifiers 2fdc55fd; no code transfer, environment change, competing workload, HF upload or promotion",
+  "launch_preparation": {
+    "script": "/tmp/summary-owner-r6-r12-acquire-launch-20260909.sh",
+    "script_sha256": "8658ef01d31e7c10e62b259afccbb9d95ac3db3d7ec7c66acba6d76a9396ebab",
+    "checks": "bash -n and embedded Python AST passed. Runtime receipt/weights/idle checks remain unexecuted until R12 completes. Requires actual verified R12 weight SHA as its sole argument.",
+    "host_code_required": "856f6ad08f0fb0a78118f531dcaf22f05c030d1c / verifiers d62cbccf2591215811202c4fe2685359be6f4cac",
+    "train_archive": "/tmp/summary-acquisition-train-chapters-20260909-v2.tar.gz",
+    "train_archive_sha256": "6337d356f97e14acba42463a81b3382de3dc40ca7a2f634f7708150439eb159a",
+    "archive_verification": "Exactly two regular chapter files; both bytes/hash values match train_sources. AppleDouble metadata excluded. No transfer or extraction on the live host.",
+    "future_training_caveat": "Current owner exporter substitutes the unassisted fixture prompt and imports only runtime context/tool schema. Do not reuse unchanged for assisted experience: retain actual visible TRAIN help at each selected decision and mask incorrect actions; adapt extraction after inspecting the native assisted trace."
+  }
 }
