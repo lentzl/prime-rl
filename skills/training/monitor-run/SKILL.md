@@ -419,6 +419,15 @@ validation followed by reading assigned files, respectively. A queued send,
 message delivered to context, receipt stored in the kernel, and assembled file
 remain separate observations. Replay the declared admission stub's error type;
 do not represent it as the full native traceback or treat a handle as a result.
+For outgoing-message confusion, `--include-message-repairs` adds masked
+unnecessary sends followed by nonexistent-helper and absent-status errors.
+Teach inspecting the send's documented `deliveryStatus` and `message` fields,
+preserving handles and stored receipts, and then waiting or storing the actual
+incoming chapter payload. Queued and delivered both describe the outgoing
+message, not the worker's answer. The replay uses a declared minimal messaging
+stub and a projected observation, not a fabricated full native response. Require
+matching receipts in kernel state before assembly, including when the last
+message has arrived in context but has not yet been stored.
 For thinking-enabled owner SFT, use `--decision-prefixes` to supervise each
 correct assistant decision at its own generation boundary, masking earlier
 assistant history. Whole-episode Qwen rendering strips reasoning before later

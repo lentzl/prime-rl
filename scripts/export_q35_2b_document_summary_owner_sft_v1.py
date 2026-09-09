@@ -24,6 +24,7 @@ from export_q35_2b_document_decision_sft_v1 import _wire_message, sha256_file
 SCHEMA_VERSION = "qwen35-2b-document-summary-owner-sft/v1"
 OBJECTIVE = "native_index_delegation_receipt_fanin_with_role_rehearsal"
 REHEARSAL_SCHEMA = "qwen35-2b-adaptive-cognition-sft/v3"
+UNNECESSARY_FOLLOWUP = "Change your wording if needed, then reply again."
 
 
 def _tool(call_id, code, reasoning, *, trainable=True):
@@ -65,7 +66,8 @@ def _context(path):
     return [runtime, {"role": "user", "content": task.data.prompt}], trace["tools"]
 
 
-def _case(chapters, document_number, repair, *, wait_repair=False, start_repair=False, handle_repair=False):
+def _case(chapters, document_number, repair, *, wait_repair=False, start_repair=False, handle_repair=False,
+          message_repair=False):
     count = 1 + document_number % 4
     selected = [chapters[(document_number * 3 + i) % len(chapters)] for i in range(count)]
     if document_number % 2:
@@ -90,8 +92,8 @@ def _case(chapters, document_number, repair, *, wait_repair=False, start_repair=
             }, "valid": False})
         deliveries.append({"worker": worker, "payload": payload, "valid": True})
     return {
-        "task_key": f"{document['document_id']}:{'handle-repair' if handle_repair else 'start-repair' if start_repair else 'wait-repair' if wait_repair else 'repair' if repair else 'clean'}",
-        "family": ("owner_handle_repair" if handle_repair else "owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
+        "task_key": f"{document['document_id']}:{'message-repair' if message_repair else 'handle-repair' if handle_repair else 'start-repair' if start_repair else 'wait-repair' if wait_repair else 'repair' if repair else 'clean'}",
+        "family": ("owner_message_repair" if message_repair else "owner_handle_repair" if handle_repair else "owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
                    "owner_schema_receipt_repair" if repair else "owner_delegation_fanin"),
         "index": index, "schema_repair": repair, "deliveries": deliveries,
         "wait_repair": wait_repair,
@@ -104,6 +106,10 @@ def _case(chapters, document_number, repair, *, wait_repair=False, start_repair=
         **({"handle_repair": "join" if document_number % 4 < 2 else "await",
             "handle_repair_boundary": "before_receipts" if document_number % 2 == 0 else "last_receipt_unstored"}
            if handle_repair else {}),
+        **({"message_repair": True,
+            "message_repair_boundary": "before_receipts" if document_number % 2 == 0 else "last_receipt_unstored",
+            "outgoing_delivery_status": "queued" if document_number % 4 < 2 else "delivered"}
+           if message_repair else {}),
     }
 
 
@@ -125,6 +131,38 @@ def _misuse_handle(case):
               f"    result = {operation}\nexcept {error} as error:\n    print(type(error).__name__)",
               "Obtain the child result by awaiting its retained handle.", trainable=False),
         _result("wrong-handle", error + "\n"),
+    ]
+
+
+def _misuse_outgoing_messages(case, stored_receipts):
+    names = [job["worker"] for job in case["index"]["chapters"]]
+    observation = {
+        "outgoing": {name: {"deliveryStatus": case["outgoing_delivery_status"],
+                            "message": UNNECESSARY_FOLLOWUP} for name in names},
+        "stored_receipts": sorted(stored_receipts),
+        "handles": names,
+    }
+    return [
+        _tool("unnecessary-followups", "results = {}\nfor name in handles:\n"
+              f"    results[name] = await agent_message.send({UNNECESSARY_FOLLOWUP!r}, "
+              "receiver_role='child', receiver_name=name)\n"
+              "try:\n    await agent_observe.get_agent_state()\n"
+              "except AttributeError as error:\n    print(type(error).__name__)",
+              "Ask all children to revise and obtain their completed results.", trainable=False),
+        _result("unnecessary-followups", "AttributeError\n"),
+        _tool("wrong-send-result", "try:\n"
+              "    replied = [name for name, result in results.items() if result['status'] == 'replied']\n"
+              "except KeyError as error:\n    print(f'KeyError: {error}')",
+              "Treat the outgoing send returns as completed child replies.", trainable=False),
+        _result("wrong-send-result", "KeyError: 'status'\n"),
+        _tool("inspect-message-state", "outgoing = {name: {'deliveryStatus': result['deliveryStatus'], "
+              "'message': result['message']} for name, result in results.items()}\n"
+              "print(json.dumps({'outgoing': outgoing, 'stored_receipts': sorted(receipts), 'handles': list(handles)}))",
+              "The sends ran before the nonexistent helper failed; an exception does not undo earlier statements. "
+              "Inspect the outgoing messages and retained kernel state. A send's deliveryStatus describes delivery "
+              "of my own follow-up, not a child answer or summary path. Neither queued nor delivered proves the "
+              "chapter summary is ready. Keep the handles and valid receipts; do not resend, respawn or clear them."),
+        _result("inspect-message-state", json.dumps(observation) + "\n"),
     ]
 
 
@@ -174,6 +212,8 @@ def _messages(context, case):
         messages += _poll_handles(names)
     if case.get("handle_repair_boundary") == "before_receipts":
         messages += _misuse_handle(case)
+    if case.get("message_repair_boundary") == "before_receipts":
+        messages += _misuse_outgoing_messages(case, set())
     messages += [
         _reply("Waiting for the named chapter workers' receipts.",
                ("The retained handle is not an awaitable result and has no join method. "
@@ -196,8 +236,12 @@ def _messages(context, case):
             received.add(worker)
         unstored_last = (case.get("handle_repair_boundary") == "last_receipt_unstored"
                          and i == len(case["deliveries"]) - 1)
+        unstored_message = (case.get("message_repair_boundary") == "last_receipt_unstored"
+                            and i == len(case["deliveries"]) - 1)
         if unstored_last:
             messages += _misuse_handle(case)
+        if unstored_message:
+            messages += _misuse_outgoing_messages(case, received - {worker})
         call_id = f"receipt-{i}"
         messages += [
             _tool(call_id, f"worker = {worker!r}\npayload = json.loads({raw!r})\n"
@@ -207,6 +251,9 @@ def _messages(context, case):
                   ("All child messages have now arrived, but this last payload is not yet stored. "
                    "A handle cannot be awaited and does not contain the summary text. "
                    "Validate this received payload now; retain the earlier receipts. " if unstored_last else "") +
+                  ("The actual child message is visible above, but its payload is not yet stored in receipts. "
+                   "Use that received chapter_id and summary_path, not the outgoing send metadata. "
+                   "Preserve earlier valid receipts. " if unstored_message else "") +
                   "Match both chapter identity and assigned path against the index. "
                   + ("This receipt matches; retain it in the persistent kernel."
                      if delivery["valid"] else
@@ -246,7 +293,7 @@ def _messages(context, case):
 
 def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_dir: Path,
            *, include_wait_repairs=False, include_start_repairs=False, include_handle_repairs=False,
-           decision_prefixes=False):
+           decision_prefixes=False, include_message_repairs=False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
     context, tools = _context(runtime_trace)
@@ -271,6 +318,8 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         cases += [_case(chapters, i, False, start_repair=True) for i in range(12, 24)]
     if include_handle_repairs:
         cases += [_case(chapters, i, False, handle_repair=True) for i in range(12)]
+    if include_message_repairs:
+        cases += [_case(chapters, i, False, message_repair=True) for i in range(12)]
     owner_rows = []
     for case in cases:
         messages = _messages(context, case)
@@ -320,6 +369,10 @@ def export(runtime_trace: Path, training_dir: Path, rehearsal_dir: Path, output_
         "handle_repair_context": ("authored_join_or_await_failure_with_declared_admission_stub"
                                   if include_handle_repairs else None),
         "incorrect_handle_action_masked": include_handle_repairs,
+        **({"message_repair_episodes": sum(bool(c.get("message_repair")) for c in cases),
+            "message_repair_context": "authored_partial_send_and_metadata_confusion_with_declared_messaging_stub",
+            "message_repair_observations": "documented_deliveryStatus_and_message_projection_not_full_native_response",
+            "incorrect_message_actions_masked": True} if include_message_repairs else {}),
         "runtime_context": {"path": str(runtime_trace.resolve()), "sha256": sha256_file(runtime_trace),
                             "usage": "runtime prefix and tool schema only; no evaluation sources or outputs"},
         "training_source": {"path": str(training_dir.resolve()),
@@ -342,10 +395,12 @@ if __name__ == "__main__":
     parser.add_argument("--include-wait-repairs", action="store_true")
     parser.add_argument("--include-start-repairs", action="store_true")
     parser.add_argument("--include-handle-repairs", action="store_true")
+    parser.add_argument("--include-message-repairs", action="store_true")
     parser.add_argument("--decision-prefixes", action="store_true")
     args = parser.parse_args()
     print(json.dumps(export(args.runtime_trace, args.training_dir, args.rehearsal_dir, args.output_dir,
                             include_wait_repairs=args.include_wait_repairs,
                             include_start_repairs=args.include_start_repairs,
                             include_handle_repairs=args.include_handle_repairs,
+                            include_message_repairs=args.include_message_repairs,
                             decision_prefixes=args.decision_prefixes), indent=2))

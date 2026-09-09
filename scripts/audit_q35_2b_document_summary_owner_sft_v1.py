@@ -14,6 +14,7 @@ import tempfile
 from collections import Counter
 from contextlib import redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
 
 from datasets import Dataset
 from export_q35_2b_document_decision_sft_v1 import sha256_file
@@ -22,6 +23,7 @@ from export_q35_2b_document_summary_owner_sft_v1 import (
     MARKDOWN_OUTPUT_PATH,
     OBJECTIVE,
     SCHEMA_VERSION,
+    UNNECESSARY_FOLLOWUP,
 )
 
 
@@ -50,9 +52,17 @@ def validate_dataset(path):
     wait_count = owner_counts.get("owner_wait_repair", 0)
     start_count = owner_counts.get("owner_start_repair", 0)
     handle_count = owner_counts.get("owner_handle_repair", 0)
+    message_count = owner_counts.get("owner_message_repair", 0)
     if (not cases or set(owner_counts) - {
             "owner_delegation_fanin", "owner_schema_receipt_repair", "owner_wait_repair", "owner_start_repair",
-            "owner_handle_repair"}
+            "owner_handle_repair", "owner_message_repair"}
+            or (message_count and (
+                manifest.get("message_repair_episodes") != message_count
+                or manifest.get("incorrect_message_actions_masked") is not True
+                or manifest.get("message_repair_context") !=
+                "authored_partial_send_and_metadata_confusion_with_declared_messaging_stub"
+                or manifest.get("message_repair_observations") !=
+                "documented_deliveryStatus_and_message_projection_not_full_native_response"))
             or (handle_count and (
                 manifest.get("handle_repair_episodes") != handle_count
                 or manifest.get("incorrect_handle_action_masked") is not True
@@ -132,10 +142,24 @@ def verify_masks(row, case):
         wait_repair = case.get("wait_repair", False)
         start_repair = case.get("start_repair")
         handle_repair = case.get("handle_repair")
-        family = ("owner_handle_repair" if handle_repair else "owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
+        message_repair = case.get("message_repair")
+        family = ("owner_message_repair" if message_repair else "owner_handle_repair" if handle_repair else "owner_start_repair" if start_repair else "owner_wait_repair" if wait_repair else
                   "owner_schema_receipt_repair" if schema_repair else "owner_delegation_fanin")
-        if case["family"] != family or sum(map(bool, (wait_repair, schema_repair, start_repair, handle_repair))) > 1:
+        if case["family"] != family or sum(map(bool, (wait_repair, schema_repair, start_repair, handle_repair, message_repair))) > 1:
             raise ValueError("inconsistent owner repair family")
+        if message_repair:
+            boundary = case.get("message_repair_boundary")
+            if (boundary not in ("before_receipts", "last_receipt_unstored")
+                    or case.get("outgoing_delivery_status") not in ("queued", "delivered")):
+                raise ValueError("invalid message-repair boundary or outgoing delivery status")
+            start = 6 if boundary == "before_receipts" else 8 + 4 * (len(case["chapters"]) - 1)
+            expected = {start, start + 2}
+            calls = [(i, call["id"]) for i, message in enumerate(_clean(row["messages"]))
+                     for call in message.get("tool_calls", [])
+                     if call["id"] in {"unnecessary-followups", "wrong-send-result", "inspect-message-state"}]
+            if calls != [(start, "unnecessary-followups"), (start + 2, "wrong-send-result"),
+                         (start + 4, "inspect-message-state")]:
+                raise ValueError("message misuse and recovery are not at the declared boundary")
         if handle_repair:
             boundary = case.get("handle_repair_boundary")
             if handle_repair not in ("join", "await") or boundary not in ("before_receipts", "last_receipt_unstored"):
@@ -183,7 +207,9 @@ async def verify_episode(row, case, workspace):
     original_index = index_path.read_bytes()
     Path(local_output).parent.mkdir()
     jobs = {job["worker"]: job for job in index["chapters"]}
-    admitted, received, observations = {}, set(), {}
+    expected_receipts = {name: {"chapter_id": job["chapter_id"], "summary_path": job["summary_path"]}
+                         for name, job in jobs.items()}
+    admitted, received, observations, sent = {}, set(), {}, {}
     next_delivery = 0
 
     async def admit(prompt, *, name):
@@ -193,7 +219,16 @@ async def verify_episode(row, case, workspace):
         admitted[name] = handle
         return handle
 
-    scope = {"rlm": admit}
+    async def send(message, *, receiver_role, receiver_name):
+        if (not case.get("message_repair") or receiver_name not in admitted or receiver_name in sent
+                or receiver_role != "child" or message != UNNECESSARY_FOLLOWUP
+                or len(received) != (0 if case["message_repair_boundary"] == "before_receipts" else len(jobs))):
+            raise ValueError("unexpected outgoing message or wrong failure boundary")
+        result = {"deliveryStatus": case["outgoing_delivery_status"], "message": message}
+        sent[receiver_name] = result
+        return result
+
+    scope = {"rlm": admit, "agent_message": SimpleNamespace(send=send), "agent_observe": SimpleNamespace()}
     for message in _clean(row["messages"]):
         if message["role"] == "user" and message["content"].startswith("[from child:"):
             if set(admitted) != set(jobs):
@@ -221,16 +256,21 @@ async def verify_episode(row, case, workspace):
                 if inspect.isawaitable(execution):
                     await execution
             observations[call["id"]] = restore(output.getvalue())
-            if received != set(jobs) and Path(local_output).exists():
+            if call["id"] == "inspect-message-state":
+                stored = {delivery["worker"] for delivery in case["deliveries"][:max(0, next_delivery - 1)]
+                          if delivery["valid"]}
+                if (scope["results"] != sent or set(sent) != set(jobs) or scope["handles"] != admitted
+                        or scope["receipts"] != {name: expected_receipts[name] for name in stored}):
+                    raise ValueError("message repair lost earlier sends, handles or stored receipts")
+            if Path(local_output).exists() and (received != set(jobs) or scope.get("receipts") != expected_receipts):
                 raise ValueError("owner assembled before all matching receipts")
         if message["role"] == "tool" and observations[message["tool_call_id"]] != message["content"]:
             raise ValueError(f"scripted tool observation mismatch: {message['tool_call_id']}")
     expected = "\n\n".join(job["heading"] + "\n\n" + case["summaries"][job["worker"]].strip()
                             for job in index["chapters"]) + "\n"
     if (set(admitted) != set(jobs) or next_delivery != len(case["deliveries"])
-            or scope["handles"] != admitted or scope["receipts"] != {
-                name: {"chapter_id": job["chapter_id"], "summary_path": job["summary_path"]}
-                for name, job in jobs.items()}
+            or set(sent) != (set(jobs) if case.get("message_repair") else set())
+            or scope["handles"] != admitted or scope["receipts"] != expected_receipts
             or Path(local_output).read_text() != expected or index_path.read_bytes() != original_index):
         raise ValueError("owner did not retain handles, preserve index, match receipts or assemble unchanged")
     if any(Path(job["source_path"]).exists() for job in jobs.values()):
