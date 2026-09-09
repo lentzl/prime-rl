@@ -459,6 +459,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         semantic_repairs = [c for c in cases if c["family"] == "semantic_repair"]
         native_children = [c for c in cases if c["family"] == "native_child"]
         native_repairs = [c for c in cases if c["family"] == "native_count_repair"]
+        native_interruptions = [c for c in cases if c["family"] == "native_interruption_repair"]
         native_revisions = [c for c in cases if c["family"] in NATIVE_REVISION_FAMILIES]
         expected_families = {"retained_train", "public_chapter"}
         if repairs:
@@ -469,6 +470,8 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             expected_families.add("native_child")
         if native_repairs:
             expected_families.add("native_count_repair")
+        if native_interruptions:
+            expected_families.add("native_interruption_repair")
         expected_families.update(c["family"] for c in native_revisions)
         family_counts_valid = (
             family_counts == dict(Counter(c["family"] for c in cases))
@@ -480,6 +483,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             and manifest.get("semantic_repair_episodes", 0) == len(semantic_repairs)
             and manifest.get("native_child_episodes", 0) == len(native_children)
             and manifest.get("native_count_repair_episodes", 0) == len(native_repairs)
+            and manifest.get("native_interruption_repair_episodes", 0) == len(native_interruptions)
             and all(manifest.get(f"{family}_episodes", 0) == sum(c["family"] == family for c in native_revisions)
                     for family in NATIVE_REVISION_FAMILIES)
             and (not repairs or (
@@ -520,12 +524,25 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                         and isinstance(c.get("incorrect_draft"), str) and c["incorrect_draft"] != c["summary"]
                         and c.get("correction_reasoning", "").strip() for c in native_revisions)
             ))
+            and (not native_interruptions or (
+                bool(native_children) and manifest.get("incorrect_native_interruption_masked") is True
+                and manifest.get("native_interruption_provenance") == "authored_TRAIN_numeric_message_and_empty_call_recovery"
+                and manifest.get("native_interruption_parent_message") == "simplified_parent_message_without_native_envelope_ids"
+                and manifest.get("native_interruption_feedback") == "current_task_empty_ipython_recovery_not_a_completion_assertion"
+                and len(native_interruptions) == len(base_cases)
+                and {c.get("base_slug") for c in native_interruptions} == set(base_cases)
+                and all(c.get("masked_message_indices") == [2, 5]
+                        and c.get("interruption_provenance") == manifest["native_interruption_provenance"]
+                        and c.get("parent_message_observation") == manifest["native_interruption_parent_message"]
+                        and c.get("parent_message", "").startswith("[from parent]\n\n")
+                        and c.get("correction_reasoning", "").strip() for c in native_interruptions)
+            ))
             and all(c.get("base_slug") in base_cases
                     and c["source"] == base_cases[c["base_slug"]]["source"]
                     and c["summary"] == base_cases[c["base_slug"]]["summary"]
                     and c.get("receipt_observation") == "scripted_queued_status_not_live_delivery"
                     and c.get("native_job", {}).get("prompt", "").startswith("You are the chapter summarizer ")
-                    for c in native_children + native_repairs + native_revisions)
+                    for c in native_children + native_repairs + native_revisions + native_interruptions)
         )
         if (manifest.get("direct_summary") is not True or manifest.get("notes_stage") is not False
                 or manifest.get("assistant_only_loss") is not True
@@ -844,7 +861,7 @@ def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[st
                    or not 0 < r.get("supervised_tokens", 0) < r.get("tokens", 0) <= 16384 for r in records)):
         raise ValueError("invalid direct-summary renderer audit")
     by_slug = {r["slug"]: r for r in records}
-    if any(c["family"] in {"format_repair", "semantic_repair", "native_count_repair"} | NATIVE_REVISION_FAMILIES and (
+    if any(c["family"] in {"format_repair", "semantic_repair", "native_count_repair", "native_interruption_repair"} | NATIVE_REVISION_FAMILIES and (
             by_slug[c["slug"]].get(c["family"]) is not True
             or by_slug[c["slug"]].get("incorrect_prefix_supervised_tokens") != 0
             or by_slug[c["slug"]].get("incorrect_prefix_context_tokens", 0) <= 0
@@ -859,6 +876,9 @@ def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[st
     if any(c["family"] in NATIVE_REVISION_FAMILIES
            and by_slug[c["slug"]].get("native_revision_reasoning_supervised") is not True for c in cases):
         raise ValueError("invalid native-child correction reasoning audit")
+    if any(c["family"] == "native_interruption_repair"
+           and by_slug[c["slug"]].get("native_interruption_reasoning_supervised") is not True for c in cases):
+        raise ValueError("invalid native-child interruption reasoning audit")
     return audit
 
 

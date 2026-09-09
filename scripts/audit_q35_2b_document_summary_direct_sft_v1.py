@@ -27,7 +27,8 @@ async def _verify_native_file_observations(row, case, workspace):
     job = case["native_job"]
     revision = case["family"] in NATIVE_REVISION_FAMILIES
     write_type_repair = case["family"] == "native_write_type_repair"
-    masked = [4] if revision else ([6] if case["family"] == "native_count_repair" else [])
+    interruption = case["family"] == "native_interruption_repair"
+    masked = [2, 5] if interruption else ([4] if revision else ([6] if case["family"] == "native_count_repair" else []))
     if (case["masked_message_indices"] != masked
             or any(message.get("trainable") is not (index not in masked)
                    for index, message in enumerate(row["messages"]) if message["role"] == "assistant")):
@@ -39,6 +40,18 @@ async def _verify_native_file_observations(row, case, workspace):
         raise ValueError("native revision provenance or reviewed target differs")
     if write_type_repair and case.get("exception_observation") != "replayed_exception_type_and_message_not_full_native_traceback":
         raise ValueError("write repair must declare its normalized exception observation")
+    if interruption:
+        calls = [call for message in row["messages"] for call in message.get("tool_calls") or []]
+        if (case.get("interruption_provenance") != "authored_TRAIN_numeric_message_and_empty_call_recovery"
+                or case.get("parent_message_observation") != "simplified_parent_message_without_native_envelope_ids"
+                or row["messages"][4]["role"] != "user"
+                or row["messages"][4]["content"] != case["parent_message"]
+                or row["messages"][7].get("reasoning_content") != case["correction_reasoning"]
+                or case["empty_call_feedback"] != "This IPython call contained no executable code. " + MARKDOWN_CHILD_RECOVERY_FEEDBACK
+                or [call["id"] for call in calls] != ["load-source-counts", "empty-progress", "read-source",
+                                                      "write-summary", "verify-saved-summary", "send-receipt"]
+                or json.loads(calls[1]["function"]["arguments"])["code"].strip()):
+            raise ValueError("interruption context, empty-call feedback or file-verification boundary differs")
     if ("\nRecursive agent depth: 1\n" not in row["messages"][0]["content"]
             or row["messages"][1]["content"] != "[task from parent]\n\n" + job["prompt"]):
         raise ValueError("native child runtime or assignment differs from the declared job")
@@ -61,7 +74,8 @@ async def _verify_native_file_observations(row, case, workspace):
     async def send(message, *, receiver_role):
         expected = {"chapter_id": job["chapter_id"], "summary_path": str(summary_path)}
         if (sent or receiver_role != "parent" or json.loads(message) != expected
-                or summary_path.read_text() != case["summary"]):
+                or summary_path.read_text() != case["summary"]
+                or (interruption and scope.get("saved_summary") != case["summary"])):
             raise ValueError("child must save the reviewed summary before one exact parent receipt")
         sent.append(message)
         return {"deliveryStatus": "queued"}
@@ -91,6 +105,10 @@ async def _verify_native_file_observations(row, case, workspace):
                 failures += 1
                 output.write(f"{type(error).__name__}: {error}\n")
             observed = output.getvalue().replace(str(workspace), ROOT)
+            if interruption and call["id"] == "empty-progress":
+                if summary_path.exists() or sent:
+                    raise ValueError("empty-call repair must begin without a saved summary or sent receipt")
+                observed = "This IPython call contained no executable code. " + MARKDOWN_CHILD_RECOVERY_FEEDBACK
             if call["id"] == "repeat-write":
                 observed = observed.rstrip() + "\n\n" + MARKDOWN_CHILD_RECOVERY_FEEDBACK
             observations[call["id"]] = observed
@@ -167,18 +185,21 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             native = case["family"] in NATIVE_FAMILIES
             count_repair = case["family"] == "native_count_repair"
             native_revision = case["family"] in NATIVE_REVISION_FAMILIES
+            interruption = case["family"] == "native_interruption_repair"
             roles = ["user", "user", "assistant", "tool"]
             if repair:
                 roles += ["assistant", "tool", "assistant", "user"]
             roles += ["assistant", "tool", "assistant"]
             if native:
                 roles = ["user", "user"] + ["assistant", "tool"] * (5 if count_repair or native_revision else 3) + ["assistant"]
+            if interruption:
+                roles = ["user", "user", "assistant", "tool", "user"] + ["assistant", "tool"] * 5 + ["assistant"]
             if [m["role"] for m in messages] != roles:
                 raise ValueError("not the declared read/write/report/stop episode")
             if ((case["family"] == "semantic_repair" or native_revision)
                     and row["messages"][8]["reasoning_content"] != case["correction_reasoning"]):
                 raise ValueError("semantic correction reasoning differs from reviewed target")
-            masked_prefix = {4} if native_revision else ({6} if count_repair else ({4, 6} if repair else set()))
+            masked_prefix = {2, 5} if interruption else ({4} if native_revision else ({6} if count_repair else ({4, 6} if repair else set())))
             if native and case["masked_message_indices"] != sorted(masked_prefix):
                 raise ValueError("native retry mask annotation differs from its episode")
             if any(
@@ -199,7 +220,7 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 bool(mask) and index in masked_prefix
                 for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True)
             )
-            if (repair or count_repair or native_revision) and masked_prefix_tokens == 0:
+            if (repair or count_repair or native_revision or interruption) and masked_prefix_tokens == 0:
                 raise ValueError("incorrect draft context has no renderer-sampled tokens to mask")
             if sample["loss_mask"] != expected or not any(expected):
                 raise ValueError("loss mask differs from renderer-sampled assistant tokens")
@@ -219,6 +240,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 raise ValueError("native child training omits its parent receipt")
             if native_revision and case["correction_reasoning"] not in decoded:
                 raise ValueError("native self-review correction reasoning is absent from supervised tokens")
+            if interruption and (case["correction_reasoning"] not in decoded or "saved_summary" not in decoded):
+                raise ValueError("native interruption training omits its state reasoning or saved-file readback")
             records.append(
                 {
                     "slug": case["slug"],
@@ -236,6 +259,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "native_format_repair": case["family"] == "native_format_repair",
                     "native_semantic_repair": case["family"] == "native_semantic_repair",
                     "native_write_type_repair": case["family"] == "native_write_type_repair",
+                    "native_interruption_repair": interruption,
+                    "native_interruption_reasoning_supervised": interruption,
                     "native_revision_reasoning_supervised": native_revision,
                     "receipt_send_stub_only": native,
                     "native_child_execution_verified": False,

@@ -21,7 +21,7 @@ SCHEMA_VERSION = "qwen35-2b-document-summary-direct-sft/v1"
 OBJECTIVE = "grounded_english_direct_chapter_key_bullets"
 REPO = Path(__file__).resolve().parents[1]
 NATIVE_REVISION_FAMILIES = {"native_format_repair", "native_semantic_repair", "native_write_type_repair"}
-NATIVE_FAMILIES = {"native_child", "native_count_repair"} | NATIVE_REVISION_FAMILIES
+NATIVE_FAMILIES = {"native_child", "native_count_repair", "native_interruption_repair"} | NATIVE_REVISION_FAMILIES
 
 
 def _native_context(path):
@@ -149,6 +149,50 @@ def _native_messages(runtime, chapter, base_case, index, *, count_repair=False,
                     revision_provenance="authored_self_review_before_receipt_not_native_gate_feedback")
         if revision_kind == "native_write_type_repair":
             case["exception_observation"] = "replayed_exception_type_and_message_not_full_native_traceback"
+    return messages, case
+
+
+def _native_interruption_messages(runtime, chapter, base_case, index):
+    from document_summary_v1.taskset import MARKDOWN_CHILD_RECOVERY_FEEDBACK
+    from export_q35_2b_document_summary_owner_sft_v1 import _tool
+
+    baseline, case = _native_messages(runtime, chapter, base_case, index)
+    job = case["native_job"]
+    parent_message = "[from parent]\n\n" + "\n".join(str(41 + index + offset) for offset in range(3))
+    recovery = "This IPython call contained no executable code. " + MARKDOWN_CHILD_RECOVERY_FEEDBACK
+    reasoning = (
+        "The numeric parent message adds no change to my assigned source or output requirements. "
+        "Line counts do not show the chapter's content, and the empty cell wrote nothing. "
+        "The recovery's conditional stop is not evidence that a write or send happened. "
+        "Inspect the assigned output's existence and display the complete source before selecting key points."
+    )
+    messages = baseline[:2] + [
+        _tool("load-source-counts", "from pathlib import Path\n"
+              f"source_text = Path({job['source_path']!r}).read_text(encoding='utf-8')\n"
+              "print(len(source_text.splitlines()))",
+              "The line count is enough to read this chapter.", trainable=False),
+        _result("load-source-counts", str(len(case["source"].splitlines())) + "\n"),
+        {"role": "user", "content": parent_message},
+        _tool("empty-progress", "", "Wait for the parent's progress numbers to stop.", trainable=False),
+        _result("empty-progress", recovery),
+        _tool("read-source", f"summary_file = Path({job['summary_path']!r})\n"
+              "print(summary_file.exists())\n"
+              f"source_text = Path({job['source_path']!r}).read_text(encoding='utf-8')\n"
+              "print(source_text, end='')", reasoning),
+        _result("read-source", "False\n" + case["source"]),
+        *baseline[4:6],
+        _tool("verify-saved-summary", "saved_summary = summary_file.read_text(encoding='utf-8')\n"
+              "print(saved_summary, end='')",
+              "The write returned a character count. Read the saved file to confirm the actual summary "
+              "before sending its receipt; neither a progress message nor a conditional instruction proves completion."),
+        _result("verify-saved-summary", case["summary"]),
+        *baseline[6:],
+    ]
+    case.update(slug=f"{chapter['slug']}-native-interruption-repair", family="native_interruption_repair",
+                masked_message_indices=[2, 5], parent_message=parent_message,
+                correction_reasoning=reasoning, empty_call_feedback=recovery,
+                interruption_provenance="authored_TRAIN_numeric_message_and_empty_call_recovery",
+                parent_message_observation="simplified_parent_message_without_native_envelope_ids")
     return messages, case
 
 
@@ -328,10 +372,11 @@ def _semantic_repairs(path, chapters, cases):
 def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path,
            teacher_additions: Path | None = None, include_format_repairs: bool = False,
            semantic_repairs: Path | None = None, native_child_trace: Path | None = None,
-           include_native_revisions: bool = False, include_native_write_repairs: bool = False):
+           include_native_revisions: bool = False, include_native_write_repairs: bool = False,
+           include_native_interruption_repairs: bool = False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
-    if (include_native_revisions or include_native_write_repairs) and native_child_trace is None:
+    if (include_native_revisions or include_native_write_repairs or include_native_interruption_repairs) and native_child_trace is None:
         raise ValueError("native revisions require the observed child interface")
     trace, context, original_budget = _context(trace_path)
     repair_feedback = _format_repair_feedback(trace) if include_format_repairs else None
@@ -464,6 +509,16 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                     "family": family, "role": "child", "objective": OBJECTIVE,
                 })
                 cases.append(case)
+        if include_native_interruption_repairs:
+            for index, (chapter, base_case) in enumerate(zip(chapters, base_cases, strict=True)):
+                messages, case = _native_interruption_messages(runtime, chapter, base_case, index)
+                rows.append({
+                    "messages": messages, "tools": json.dumps(native_tools, sort_keys=True),
+                    "task_key": f"summary-direct-{case['slug']}",
+                    "trace_id": f"summary-direct-authored:{case['slug']}",
+                    "family": case["family"], "role": "child", "objective": OBJECTIVE,
+                })
+                cases.append(case)
     if len({r["task_key"] for r in rows}) != len(rows):
         raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
@@ -532,6 +587,14 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 native_write_type_repair_observation="replayed_exception_type_and_message_not_full_native_traceback",
                 incorrect_native_draft_masked=True,
             )
+        if include_native_interruption_repairs:
+            manifest.update(
+                native_interruption_repair_episodes=len(chapters),
+                native_interruption_provenance="authored_TRAIN_numeric_message_and_empty_call_recovery",
+                native_interruption_parent_message="simplified_parent_message_without_native_envelope_ids",
+                native_interruption_feedback="current_task_empty_ipython_recovery_not_a_completion_assertion",
+                incorrect_native_interruption_masked=True,
+            )
     (output_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
 
@@ -547,6 +610,7 @@ if __name__ == "__main__":
     parser.add_argument("--native-child-trace", type=Path)
     parser.add_argument("--include-native-revisions", action="store_true")
     parser.add_argument("--include-native-write-repairs", action="store_true")
+    parser.add_argument("--include-native-interruption-repairs", action="store_true")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -561,6 +625,7 @@ if __name__ == "__main__":
                 native_child_trace=args.native_child_trace,
                 include_native_revisions=args.include_native_revisions,
                 include_native_write_repairs=args.include_native_write_repairs,
+                include_native_interruption_repairs=args.include_native_interruption_repairs,
                 output_dir=args.output_dir,
             ),
             indent=2,

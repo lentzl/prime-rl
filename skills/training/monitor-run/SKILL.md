@@ -383,6 +383,18 @@ audit must reproduce the first write and second failure, not merely accept an
 error string. The observation is the replayed exception type/message, not a full
 native traceback or invented recovery feedback. This adds no new source documents;
 unchanged earlier cases still need to retain their source and target identity.
+For distraction followed by an empty call, `--include-native-interruption-repairs`
+adds masked source-count-only and empty-code actions around a simplified authored
+numeric parent message. It uses the current task's empty-call recovery text,
+then teaches inspecting the absent output, displaying the complete source,
+writing reviewed TRAIN bullets, reading the saved file and sending one receipt.
+The parent's unrelated numbers do not change the assignment; a conditional stop
+instruction is not proof that a write or send occurred. Replay the actual empty
+cell and file-state boundaries, and verify zero incorrect-prefix loss plus the
+post-message corrective reasoning with the real tokenizer. The simplified
+message is not a full native envelope, and scripted receipt status is not live
+delivery. Retain historical datasets and record any changed targets; leave the
+current running recipe unchanged.
 For native owner acquisition, `export_q35_2b_document_summary_owner_sft_v1.py`
 combines TRAIN-only scripted index/delegation/receipt/assembly episodes with the
 acquired 48-row role-decision rehearsal. Its runtime trace supplies only the
