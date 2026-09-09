@@ -1,5 +1,5 @@
 {
-  "status": "real_tokenizer_audit_complete_training_pending",
+  "status": "real_tokenizer_audit_complete_r11_training_started",
   "host_dataset": "/home/ubuntu/rlm/data/q35-2b-document-summary-direct-sft-v1-r14-events",
   "renderer_audit_sha256": "04606a1c308e07b7e7c1f534a638a1f142dde681e84d69de54977473550b1938",
   "renderer_audit": {
@@ -53,7 +53,8 @@
   "semantic_specification_sha256": "0bc13cbd61af001053b93a13aeb4af1fd3a78cfe60e3d97611c3171b91d81ea3",
   "updated_teacher_labels_sha256": "dfac662ac78b7cee5aca4266c51870121de256fa40738fdc06e49b03a0588386",
   "old_teacher_labels_sha256": "dbae269b1d98a8373a1630464b5c7adde026556cd7a734c75091fe206a75bf2a",
-  "training_launched": false,
+  "training_launched": true,
+  "training_run": "h176-summary-native-write-events-step256-r11",
   "semantic_promotion": false,
   "next_worker_parent": "R10, 39abb8cf4831fe8b090445f14de02ff430c940512c0977493b16b570f1d93225",
   "active_owner_run_unchanged": "e33-summary-owner-rehearsal-step128-r5"
