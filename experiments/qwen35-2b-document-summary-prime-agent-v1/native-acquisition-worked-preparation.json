@@ -19,7 +19,28 @@
     "local_check_script": "/tmp/summary-worker-r19-worked-check.py",
     "local_check_script_sha256": "d6defe5a19a9596f2bbdcedf0adee888abfd8e1ac4e240c0a19ad70e404b3d76",
     "host_state": "R7 owner training left untouched on code 6401d9b6 / verifiers d62cbccf; no code sync, tests, environment changes or competing GPU work",
-    "semantic_promotion": false
+    "semantic_promotion": false,
+    "prepared_run": {
+      "name": "h176-summary-worked-help-step384-r13",
+      "status": "local_preparation_only_not_transferred_or_launched",
+      "optimizer_updates": 384,
+      "learning_rate": 0.000001,
+      "continuation": "R12 weights-only with fresh optimizer, not exact resume",
+      "exposure_rationale": "20% more updates for the mixture growing from 432 to 498 episodes, including 66 worked-help lessons; inspect actual token exposure after audit, not automatic doubling or a behavioral gate",
+      "config_sha256": "b615f86e77c5fa1db695d1ead272743e50f2edb43e13212ca7291e2427f7df08",
+      "code_bundle": "/tmp/summary-worker-worked-r19-87e94c42.bundle",
+      "code_bundle_sha256": "50c75bb5ec966fcac84a05c694215518c47034e022619ffa670541a7e1e171b5",
+      "code_handoff": "6401d9b6 to 87e94c42, verifiers d62cbccf unchanged; idle host only",
+      "dataset_archive": "/tmp/summary-worker-r19-worked-20260909.tar.gz",
+      "dataset_archive_sha256": "e0e24a48ebb0871faef43d310b458a37f1491bfbe8c1191ec5ace26157969fc4",
+      "idle_audit_script": "/tmp/summary-worker-r19-idle-audit-20260909.sh",
+      "idle_audit_script_sha256": "e2a4953cd591673bf2d1a7c9c6b7c5d6052c13e588e65c232ee43d03d4fd5389",
+      "launch_script": "/tmp/summary-worker-r13-launch-20260909.sh",
+      "launch_script_sha256": "fb1403646a82d1c11b9033068f5922aca2aad81b305828c6a7ec6191509bb75e",
+      "checks": "Both shell scripts parse; all three embedded Python blocks parse; actual launcher config factory call evaluated locally; exact three-member archive content hashes and gzip checksum verified; prior R18 wrapper checks still pass",
+      "required_future_evidence": "Actual completed R7 weight hash, terminal receipt and drained processes; then actual new R19 R12-tokenizer audit hash. Neither is available at preparation; do not substitute historical hashes.",
+      "local_status": "outputs/summary-worker-worked-r13/STATUS.md"
+    }
   },
   "runtime_result": {
     "run_name": "owner-r6-r12-acquire-worked-r1",
