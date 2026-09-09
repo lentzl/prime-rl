@@ -374,6 +374,15 @@ TRAIN summaries and semantic-repair specifications, not evaluation answers or an
 invented native semantic gate. Verify both writes and the intervening read in
 file replay, and correction reasoning plus zero incorrect-draft loss with the
 real tokenizer audit. These variants add a teaching boundary, not new documents.
+For integer-shadowing after a partial write, `--include-native-write-repairs`
+adds a masked two-write failure: the first write saves a prose draft and replaces
+the text variable with its integer return; the second write rejects that integer.
+Teach inspecting the variable and surviving file, writing reviewed TRAIN bullets
+with separate text/count variables, then sending one receipt and stopping. The
+audit must reproduce the first write and second failure, not merely accept an
+error string. The observation is the replayed exception type/message, not a full
+native traceback or invented recovery feedback. This adds no new source documents;
+unchanged earlier cases still need to retain their source and target identity.
 For native owner acquisition, `export_q35_2b_document_summary_owner_sft_v1.py`
 combines TRAIN-only scripted index/delegation/receipt/assembly episodes with the
 acquired 48-row role-decision rehearsal. Its runtime trace supplies only the

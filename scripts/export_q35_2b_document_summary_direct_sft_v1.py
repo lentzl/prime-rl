@@ -20,7 +20,7 @@ from export_q35_2b_document_summary_live_revision_sft_v2 import _load_fixture_mo
 SCHEMA_VERSION = "qwen35-2b-document-summary-direct-sft/v1"
 OBJECTIVE = "grounded_english_direct_chapter_key_bullets"
 REPO = Path(__file__).resolve().parents[1]
-NATIVE_REVISION_FAMILIES = {"native_format_repair", "native_semantic_repair"}
+NATIVE_REVISION_FAMILIES = {"native_format_repair", "native_semantic_repair", "native_write_type_repair"}
 NATIVE_FAMILIES = {"native_child", "native_count_repair"} | NATIVE_REVISION_FAMILIES
 
 
@@ -87,16 +87,28 @@ def _native_messages(runtime, chapter, base_case, index, *, count_repair=False,
         _result("read-source", source),
     ]
     if revision_kind is not None:
+        write_type_repair = revision_kind == "native_write_type_repair"
+        draft_code = (f"draft_text = {repair_draft!r}\n"
+                      f"print(Path({job['summary_path']!r}).write_text(draft_text, encoding='utf-8'))")
+        draft_observation = str(len(repair_draft)) + "\n"
+        inspect_code = ""
+        if write_type_repair:
+            draft_code = (f"notes_text = Path({job['summary_path']!r}).write_text({repair_draft!r}, encoding='utf-8')\n"
+                          f"Path({job['summary_path']!r}).write_text(notes_text, encoding='utf-8')")
+            draft_observation = "TypeError: data must be str, not int\n"
+            inspect_code = "print(type(notes_text).__name__)\n"
         messages += [
-            _tool("write-summary-draft", f"draft_text = {repair_draft!r}\n"
-                  f"print(Path({job['summary_path']!r}).write_text(draft_text, encoding='utf-8'))",
+            _tool("write-summary-draft", draft_code,
                   "Save this draft as the chapter summary.", trainable=False),
-            _result("write-summary-draft", str(len(repair_draft)) + "\n"),
-            _tool("read-saved-draft", f"saved_draft = Path({job['summary_path']!r}).read_text(encoding='utf-8')\n"
+            _result("write-summary-draft", draft_observation),
+            _tool("read-saved-draft", inspect_code + f"saved_draft = Path({job['summary_path']!r}).read_text(encoding='utf-8')\n"
                   "print(saved_draft, end='')",
+                  ("The second write rejected an integer. Earlier statements in the cell may have succeeded. "
+                   "Inspect notes_text's actual type and read the assigned saved file; do not repeat the failing write. "
+                   if write_type_repair else "") +
                   "Before reporting completion, inspect what was saved against the complete source already read. "
                   "A successful write does not establish useful key bullets or factual coverage."),
-            _result("read-saved-draft", repair_draft),
+            _result("read-saved-draft", ("int\n" if write_type_repair else "") + repair_draft),
         ]
     messages += [
         _tool("write-summary", write_code,
@@ -135,6 +147,8 @@ def _native_messages(runtime, chapter, base_case, index, *, count_repair=False,
     if revision_kind is not None:
         case.update(incorrect_draft=repair_draft, correction_reasoning=repair_reasoning,
                     revision_provenance="authored_self_review_before_receipt_not_native_gate_feedback")
+        if revision_kind == "native_write_type_repair":
+            case["exception_observation"] = "replayed_exception_type_and_message_not_full_native_traceback"
     return messages, case
 
 
@@ -314,10 +328,10 @@ def _semantic_repairs(path, chapters, cases):
 def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir: Path,
            teacher_additions: Path | None = None, include_format_repairs: bool = False,
            semantic_repairs: Path | None = None, native_child_trace: Path | None = None,
-           include_native_revisions: bool = False):
+           include_native_revisions: bool = False, include_native_write_repairs: bool = False):
     if output_dir.exists():
         raise FileExistsError(output_dir)
-    if include_native_revisions and native_child_trace is None:
+    if (include_native_revisions or include_native_write_repairs) and native_child_trace is None:
         raise ValueError("native revisions require the observed child interface")
     trace, context, original_budget = _context(trace_path)
     repair_feedback = _format_repair_feedback(trace) if include_format_repairs else None
@@ -414,7 +428,7 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                     "family": case["family"], "role": "child", "objective": OBJECTIVE,
                 })
                 cases.append(case)
-        if include_native_revisions:
+        if include_native_revisions or include_native_write_repairs:
             native_revisions = [
                 (chapter, base_case,
                  " ".join(" ".join(p["text"] for p in chapter["paragraphs"]).split()[:350]) + "\n",
@@ -422,10 +436,22 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                  "Use the complete source, not just its opening; preserve main conclusions or event order and "
                  "essential qualifications. Replace it with 3-5 concise, source-grounded English bullets.",
                  "native_format_repair")
-                for chapter, base_case in zip(chapters, base_cases, strict=True)
+                for chapter, base_case in zip(chapters, base_cases, strict=True) if include_native_revisions
             ]
             native_revisions += [(chapter, base_case, draft, reasoning, "native_semantic_repair")
-                                 for chapter, base_case, draft, _, reasoning in reviewed_repairs]
+                                 for chapter, base_case, draft, _, reasoning in reviewed_repairs if include_native_revisions]
+            if include_native_write_repairs:
+                native_revisions += [
+                    (chapter, base_case,
+                     " ".join(" ".join(p["text"] for p in chapter["paragraphs"]).split()[:350]) + "\n",
+                     "The file contains the first write's prose draft even though the second write failed. "
+                     "notes_text holds the integer character count returned by write_text, not summary text. "
+                     "Use a separate string for the corrected 3-5 English bullets and retain the count separately. "
+                     "Select the key points from the complete source, preserving qualifications and chronology; "
+                     "a successful draft save is not evidence of source-grounded summarization.",
+                     "native_write_type_repair")
+                    for chapter, base_case in zip(chapters, base_cases, strict=True)
+                ]
             indices = {chapter["slug"]: index for index, chapter in enumerate(chapters)}
             for chapter, base_case, draft, reasoning, family in native_revisions:
                 messages, case = _native_messages(
@@ -492,11 +518,18 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
             native_count_repair_feedback="current_task_interception_feedback_after_repeated_success",
             incorrect_native_retry_masked=True,
         )
-        if include_native_revisions:
+        if include_native_revisions or include_native_write_repairs:
             manifest.update(
-                native_format_repair_episodes=len(chapters),
-                native_semantic_repair_episodes=len(reviewed_repairs),
+                native_format_repair_episodes=len(chapters) if include_native_revisions else 0,
+                native_semantic_repair_episodes=len(reviewed_repairs) if include_native_revisions else 0,
                 native_revision_provenance="authored_self_review_before_receipt_not_native_gate_feedback",
+                incorrect_native_draft_masked=True,
+            )
+        if include_native_write_repairs:
+            manifest.update(
+                native_write_type_repair_episodes=len(chapters),
+                native_write_type_repair_provenance="authored_TRAIN_analogue_of_partial_execution_and_integer_shadowing",
+                native_write_type_repair_observation="replayed_exception_type_and_message_not_full_native_traceback",
                 incorrect_native_draft_masked=True,
             )
     (output_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -513,6 +546,7 @@ if __name__ == "__main__":
     parser.add_argument("--semantic-repairs", type=Path)
     parser.add_argument("--native-child-trace", type=Path)
     parser.add_argument("--include-native-revisions", action="store_true")
+    parser.add_argument("--include-native-write-repairs", action="store_true")
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -526,6 +560,7 @@ if __name__ == "__main__":
                 semantic_repairs=args.semantic_repairs,
                 native_child_trace=args.native_child_trace,
                 include_native_revisions=args.include_native_revisions,
+                include_native_write_repairs=args.include_native_write_repairs,
                 output_dir=args.output_dir,
             ),
             indent=2,

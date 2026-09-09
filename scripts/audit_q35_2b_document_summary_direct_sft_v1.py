@@ -26,6 +26,7 @@ async def _verify_native_file_observations(row, case, workspace):
 
     job = case["native_job"]
     revision = case["family"] in NATIVE_REVISION_FAMILIES
+    write_type_repair = case["family"] == "native_write_type_repair"
     masked = [4] if revision else ([6] if case["family"] == "native_count_repair" else [])
     if (case["masked_message_indices"] != masked
             or any(message.get("trainable") is not (index not in masked)
@@ -36,6 +37,8 @@ async def _verify_native_file_observations(row, case, workspace):
             or row["messages"][8].get("reasoning_content") != case["correction_reasoning"]
             or case["incorrect_draft"] == case["summary"]):
         raise ValueError("native revision provenance or reviewed target differs")
+    if write_type_repair and case.get("exception_observation") != "replayed_exception_type_and_message_not_full_native_traceback":
+        raise ValueError("write repair must declare its normalized exception observation")
     if ("\nRecursive agent depth: 1\n" not in row["messages"][0]["content"]
             or row["messages"][1]["content"] != "[task from parent]\n\n" + job["prompt"]):
         raise ValueError("native child runtime or assignment differs from the declared job")
@@ -53,7 +56,7 @@ async def _verify_native_file_observations(row, case, workspace):
     source_path, summary_path = Path(remap(job["source_path"])), Path(remap(job["summary_path"]))
     source_path.parent.mkdir(parents=True)
     source_path.write_text(case["source"], encoding="utf-8")
-    sent, observations, writes = [], {}, 0
+    sent, observations, writes, failures = [], {}, 0, 0
 
     async def send(message, *, receiver_role):
         expected = {"chapter_id": job["chapter_id"], "summary_path": str(summary_path)}
@@ -72,11 +75,21 @@ async def _verify_native_file_observations(row, case, workspace):
             writes += sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                           and node.func.attr == "write_text" for node in ast.walk(program))
             output = io.StringIO()
-            with redirect_stdout(output):
-                execution = eval(compile(program, "child-teacher", "exec",
-                                         flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT), scope)
-                if inspect.isawaitable(execution):
-                    await execution
+            try:
+                with redirect_stdout(output):
+                    execution = eval(compile(program, "child-teacher", "exec",
+                                             flags=ast.PyCF_ALLOW_TOP_LEVEL_AWAIT), scope)
+                    if inspect.isawaitable(execution):
+                        await execution
+            except TypeError as error:
+                if not write_type_repair or call["id"] != "write-summary-draft":
+                    raise
+                if (type(scope.get("notes_text")) is not int
+                        or scope["notes_text"] != len(case["incorrect_draft"])
+                        or summary_path.read_text() != case["incorrect_draft"]):
+                    raise ValueError("expected partial write and integer shadowing were not reproduced") from error
+                failures += 1
+                output.write(f"{type(error).__name__}: {error}\n")
             observed = output.getvalue().replace(str(workspace), ROOT)
             if call["id"] == "repeat-write":
                 observed = observed.rstrip() + "\n\n" + MARKDOWN_CHILD_RECOVERY_FEEDBACK
@@ -86,7 +99,9 @@ async def _verify_native_file_observations(row, case, workspace):
         if message["role"] == "tool" and observations[message["tool_call_id"]] != message["content"]:
             raise ValueError("native child scripted observation differs from execution")
     expected_writes = 2 if case["family"] in NATIVE_REVISION_FAMILIES | {"native_count_repair"} else 1
-    if (len(sent) != 1 or writes != expected_writes or summary_path.read_text() != case["summary"]
+    expected_writes += int(write_type_repair)
+    if (len(sent) != 1 or writes != expected_writes or failures != int(write_type_repair)
+            or summary_path.read_text() != case["summary"]
             or source_path.read_text() != case["source"]
             or set(p for p in workspace.rglob('*') if p.is_file()) != {source_path, summary_path}):
         raise ValueError("child did not preserve its source, save once, report once and stop")
@@ -220,6 +235,7 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "native_count_repair": count_repair,
                     "native_format_repair": case["family"] == "native_format_repair",
                     "native_semantic_repair": case["family"] == "native_semantic_repair",
+                    "native_write_type_repair": case["family"] == "native_write_type_repair",
                     "native_revision_reasoning_supervised": native_revision,
                     "receipt_send_stub_only": native,
                     "native_child_execution_verified": False,
