@@ -1,12 +1,40 @@
 {
-  "status": "locally_validated_not_launched",
+  "status": "native_attempt_terminal_with_harness_error",
+  "runtime_result": {
+    "run_name": "owner-r6-r12-acquire-worked-r1",
+    "launched_utc": "2026-09-09 14:21:45 UTC",
+    "rollout_started_utc": "2026-09-09 14:23:11 UTC",
+    "rollout_terminal_utc": "2026-09-09 14:42:17 UTC",
+    "process_gpu_drain_verified_utc": "2026-09-09 14:43:51 UTC",
+    "worker_model_sha256": "1544219366563e5365f16395b8263288f741057d78f45b7d2bd19fdeecc73d93",
+    "model_calls": 15,
+    "owner_calls": 4,
+    "time_machine_child_calls": 7,
+    "how_we_think_child_calls": 4,
+    "all_routes_http_200": true,
+    "call_provider_errors": 0,
+    "trace_error": "HarnessError: ACP process closed stdout approximately at configured 1140-second process timeout; owner polling cell never returned",
+    "finalize_and_scoring_ran": false,
+    "wrapper_trial_exit": 0,
+    "wrapper_capture_exit": 0,
+    "observations": "Owner read index, admitted exact names/full prompts and yielded; gate feedback then triggered infinite polling. Both children read full sources but not help files. Time Machine repaired path errors, wrote prose twice in one cell, sent twice and stopped. How We Think wrote prose once, sent once and emitted a phantom user/chapter-003 delimiter. No owner receipt handling or assembly occurred.",
+    "limits": "Not a normally finalized zero-score semantic trial. No exported final chapter files; successful write tool observations are not final readback. Native help availability is not consumption. No independent summarization success or promotion.",
+    "trace_sha256": "e66a686d5af7f79af734461b22a893d4ff4431abb63026e6aa956de680529531",
+    "routing_sha256": "12ae6c2673931800633d7f815c7e9d33d3a960c30f93c43a1f45f88cbdfd09fc",
+    "capture_sha256": "b54ca2b1ec9497ae2859d9837791ddc74923422e6e79aa378a27948247fb17a6",
+    "smoke_receipt_sha256": "a4ffcb177a36e26e483ddcfdab3a01ce588bc3d2d6b693ff93d66d11049667e0",
+    "verified_capture_files": 31,
+    "verified_capture_bytes": 275477,
+    "local_evidence": "outputs/summary-owner-r6-r12-worked-r1/STATUS.md",
+    "follow_on": "R7 gate-wait acquisition curriculum prepared in code 6401d9b6: 852 rows, all 732 earlier rows unchanged, 12 authored help-preserving lessons. All 84 episodes replayed; real tokenizer audit required before continuation from R6. Teach worker help consumption before tightening. Investigate gate/child timing separately without attributing all failure to weights."
+  },
   "prepared_utc": "2026-09-09 12:28 UTC",
   "verifiers_commit": "d62cbccf2591215811202c4fe2685359be6f4cac",
   "config": "experiments/qwen35-2b-document-summary-prime-agent-v1/acquire-owner-worked.toml",
   "config_sha256": "0d0feaba446ea20dd6f2b330933ac6643bd52068b245238b3a02cdca57a66305",
   "local_resolved_config": "outputs/summary-acquisition-worked-preparation/resolved-local/configs/eval.json",
   "local_resolved_config_sha256": "15929cbf096815388e3ea6d744f58b3c0e1d085836a93e52f8266e2c3015efd9",
-  "planned_roles": {
+  "planned_roles_at_preparation": {
     "owner": "Completed R6, retained unchanged",
     "owner_model_sha256": "40c05a05435d84a70a4d6a863e50c7f312e7f5fb6c62e8538ee98d374e89ae93",
     "worker": "R12 after its completion receipt, ordered finite updates and saved weights are verified; currently training, no completed-weight hash yet"
@@ -47,7 +75,7 @@
     "local_check_script_sha256": "365e52aaafc70a86943530cefd9c9d1fcf97277b4c5b3b3d6d3eb8a7987a6042",
     "git_hooks": "Commit-tree used after scoped staged-tree inspection; hooks and repository-wide tests were not run"
   },
-  "next_action": "Leave R12 untouched. After terminal completion and GPU/process drain, fast-forward the idle checkout, stage these two unchanged TRAIN sources, verify the full native acquisition configuration, then run owner R6 with worker R12 and retain native/intercepted evidence. Train useful assisted actions and source-checked corrected attempts into cumulative role descendants before withdrawing a kind of help. Do not turn successive help levels into a test-only matrix or require whole-episode perfection before updates.",
+  "next_action_at_preparation": "Leave R12 untouched. After terminal completion and GPU/process drain, fast-forward the idle checkout, stage these two unchanged TRAIN sources, verify the full native acquisition configuration, then run owner R6 with worker R12 and retain native/intercepted evidence. Train useful assisted actions and source-checked corrected attempts into cumulative role descendants before withdrawing a kind of help. Do not turn successive help levels into a test-only matrix or require whole-episode perfection before updates.",
   "host_state_at_preparation": "Still d8c9f0cf / verifiers 2fdc55fd; no code transfer, environment change, competing workload, HF upload or promotion",
   "launch_preparation": {
     "script": "/tmp/summary-owner-r6-r12-acquire-launch-20260909.sh",
