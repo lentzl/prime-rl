@@ -22,6 +22,10 @@ OBJECTIVE = "grounded_english_direct_chapter_key_bullets"
 REPO = Path(__file__).resolve().parents[1]
 NATIVE_REVISION_FAMILIES = {"native_format_repair", "native_semantic_repair", "native_write_type_repair"}
 NATIVE_FAMILIES = {"native_child", "native_count_repair", "native_interruption_repair"} | NATIVE_REVISION_FAMILIES
+SAVED_SUMMARY_CONTRAST_SOURCES = {
+    "clinic-pilot", "library-scan", "time-machine-ch01", "treasure-island-ch01",
+    "how-we-think-ch01", "book-of-tea-ch03",
+}
 
 
 def _native_context(path):
@@ -192,6 +196,39 @@ def _native_interruption_messages(runtime, chapter, base_case, index):
                 masked_message_indices=[2, 5], parent_message=parent_message,
                 correction_reasoning=reasoning, empty_call_feedback=recovery,
                 interruption_provenance="authored_TRAIN_numeric_message_and_empty_call_recovery",
+                parent_message_observation="simplified_parent_message_without_native_envelope_ids")
+    return messages, case
+
+
+def _native_preserved_summary_messages(runtime, chapter, base_case, index):
+    from export_q35_2b_document_summary_owner_sft_v1 import _tool
+
+    baseline, case = _native_messages(runtime, chapter, base_case, index)
+    job = case["native_job"]
+    parent_message = "[from parent]\n\n" + "\n".join(str(41 + index + offset) for offset in range(3))
+    inspection_reasoning = (
+        "The write completed before this parent message; its numeric return counts characters. "
+        "These unrelated numbers do not change the assigned source or output requirements. "
+        "Inspect the saved file against the complete source already read before deciding whether any change is needed."
+    )
+    preservation_reasoning = (
+        "The readback contains the source-grounded key bullets already written and meets this chapter's requirements. "
+        "Preserve the saved file unchanged and send its exact receipt once. "
+        "The parent's numeric traffic is not evidence that my receipt has already been sent."
+    )
+    baseline[6]["reasoning_content"] = preservation_reasoning
+    messages = baseline[:6] + [
+        {"role": "user", "content": parent_message},
+        _tool("inspect-saved-summary", f"summary_file = Path({job['summary_path']!r})\n"
+              "print(summary_file.exists())\n"
+              "saved_summary = summary_file.read_text(encoding='utf-8')\n"
+              "print(saved_summary, end='')", inspection_reasoning),
+        _result("inspect-saved-summary", "True\n" + case["summary"]),
+        *baseline[6:],
+    ]
+    case.update(slug=f"{chapter['slug']}-native-child-preserve-saved", preserve_saved_summary=True,
+                parent_message=parent_message, inspection_reasoning=inspection_reasoning,
+                preservation_reasoning=preservation_reasoning,
                 parent_message_observation="simplified_parent_message_without_native_envelope_ids")
     return messages, case
 
@@ -519,6 +556,17 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                     "family": case["family"], "role": "child", "objective": OBJECTIVE,
                 })
                 cases.append(case)
+            for index, (chapter, base_case) in enumerate(zip(chapters, base_cases, strict=True)):
+                if chapter["slug"] not in SAVED_SUMMARY_CONTRAST_SOURCES:
+                    continue
+                messages, case = _native_preserved_summary_messages(runtime, chapter, base_case, index)
+                rows.append({
+                    "messages": messages, "tools": json.dumps(native_tools, sort_keys=True),
+                    "task_key": f"summary-direct-{case['slug']}",
+                    "trace_id": f"summary-direct-authored:{case['slug']}",
+                    "family": case["family"], "role": "child", "objective": OBJECTIVE,
+                })
+                cases.append(case)
     if len({r["task_key"] for r in rows}) != len(rows):
         raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
@@ -594,6 +642,8 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 native_interruption_parent_message="simplified_parent_message_without_native_envelope_ids",
                 native_interruption_feedback="current_task_empty_ipython_recovery_not_a_completion_assertion",
                 incorrect_native_interruption_masked=True,
+                native_saved_summary_preservation_episodes=sum(c.get("preserve_saved_summary") is True for c in cases),
+                native_saved_summary_preservation_provenance="authored_TRAIN_positive_saved_file_readback_not_native_success",
             )
     (output_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest

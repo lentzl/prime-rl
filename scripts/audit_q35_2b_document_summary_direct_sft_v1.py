@@ -28,6 +28,7 @@ async def _verify_native_file_observations(row, case, workspace):
     revision = case["family"] in NATIVE_REVISION_FAMILIES
     write_type_repair = case["family"] == "native_write_type_repair"
     interruption = case["family"] == "native_interruption_repair"
+    preserve = case.get("preserve_saved_summary") is True
     masked = [2, 5] if interruption else ([4] if revision else ([6] if case["family"] == "native_count_repair" else []))
     if (case["masked_message_indices"] != masked
             or any(message.get("trainable") is not (index not in masked)
@@ -52,6 +53,17 @@ async def _verify_native_file_observations(row, case, workspace):
                                                       "write-summary", "verify-saved-summary", "send-receipt"]
                 or json.loads(calls[1]["function"]["arguments"])["code"].strip()):
             raise ValueError("interruption context, empty-call feedback or file-verification boundary differs")
+    if preserve:
+        calls = [call for message in row["messages"] for call in message.get("tool_calls") or []]
+        if (case["family"] != "native_child"
+                or case.get("parent_message_observation") != "simplified_parent_message_without_native_envelope_ids"
+                or re.fullmatch(r"\[from parent\]\n\n\d+\n\d+\n\d+", case["parent_message"]) is None
+                or row["messages"][6]["role"] != "user"
+                or row["messages"][6]["content"] != case["parent_message"]
+                or row["messages"][7].get("reasoning_content") != case["inspection_reasoning"]
+                or row["messages"][9].get("reasoning_content") != case["preservation_reasoning"]
+                or [call["id"] for call in calls] != ["read-source", "write-summary", "inspect-saved-summary", "send-receipt"]):
+            raise ValueError("saved-summary inspection differs from its positive teaching boundary")
     if ("\nRecursive agent depth: 1\n" not in row["messages"][0]["content"]
             or row["messages"][1]["content"] != "[task from parent]\n\n" + job["prompt"]):
         raise ValueError("native child runtime or assignment differs from the declared job")
@@ -75,17 +87,22 @@ async def _verify_native_file_observations(row, case, workspace):
         expected = {"chapter_id": job["chapter_id"], "summary_path": str(summary_path)}
         if (sent or receiver_role != "parent" or json.loads(message) != expected
                 or summary_path.read_text() != case["summary"]
-                or (interruption and scope.get("saved_summary") != case["summary"])):
+                or ((interruption or preserve) and scope.get("saved_summary") != case["summary"])):
             raise ValueError("child must save the reviewed summary before one exact parent receipt")
         sent.append(message)
         return {"deliveryStatus": "queued"}
 
     scope = {"agent_message": SimpleNamespace(send=send)}
+    saved_state = None
     for message in row["messages"]:
         for call in message.get("tool_calls") or []:
             if call["function"]["name"] != "ipython":
                 raise ValueError("child episode replaced the native IPython interface")
             program = ast.parse(remap(json.loads(call["function"]["arguments"])["code"]))
+            if preserve and call["id"] == "inspect-saved-summary" and not any(
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "read_text" for node in ast.walk(program)):
+                raise ValueError("saved-summary inspection omits file readback")
             writes += sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                           and node.func.attr == "write_text" for node in ast.walk(program))
             output = io.StringIO()
@@ -105,6 +122,14 @@ async def _verify_native_file_observations(row, case, workspace):
                 failures += 1
                 output.write(f"{type(error).__name__}: {error}\n")
             observed = output.getvalue().replace(str(workspace), ROOT)
+            if preserve:
+                if call["id"] == "write-summary":
+                    stat = summary_path.stat()
+                    saved_state = (stat.st_ino, stat.st_mtime_ns, summary_path.read_bytes())
+                elif saved_state is not None:
+                    stat = summary_path.stat()
+                    if (stat.st_ino, stat.st_mtime_ns, summary_path.read_bytes()) != saved_state:
+                        raise ValueError("positive readback rewrote or replaced the saved summary")
             if interruption and call["id"] == "empty-progress":
                 if summary_path.exists() or sent:
                     raise ValueError("empty-call repair must begin without a saved summary or sent receipt")
@@ -186,6 +211,7 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             count_repair = case["family"] == "native_count_repair"
             native_revision = case["family"] in NATIVE_REVISION_FAMILIES
             interruption = case["family"] == "native_interruption_repair"
+            preserve = case.get("preserve_saved_summary") is True
             roles = ["user", "user", "assistant", "tool"]
             if repair:
                 roles += ["assistant", "tool", "assistant", "user"]
@@ -194,6 +220,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 roles = ["user", "user"] + ["assistant", "tool"] * (5 if count_repair or native_revision else 3) + ["assistant"]
             if interruption:
                 roles = ["user", "user", "assistant", "tool", "user"] + ["assistant", "tool"] * 5 + ["assistant"]
+            if preserve:
+                roles = ["user", "user"] + ["assistant", "tool"] * 2 + ["user"] + ["assistant", "tool"] * 2 + ["assistant"]
             if [m["role"] for m in messages] != roles:
                 raise ValueError("not the declared read/write/report/stop episode")
             if ((case["family"] == "semantic_repair" or native_revision)
@@ -242,6 +270,9 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 raise ValueError("native self-review correction reasoning is absent from supervised tokens")
             if interruption and (case["correction_reasoning"] not in decoded or "saved_summary" not in decoded):
                 raise ValueError("native interruption training omits its state reasoning or saved-file readback")
+            if preserve and (case["inspection_reasoning"] not in decoded
+                             or case["preservation_reasoning"] not in decoded or "saved_summary" not in decoded):
+                raise ValueError("positive saved-summary continuation omits inspection or preservation reasoning")
             records.append(
                 {
                     "slug": case["slug"],
@@ -264,6 +295,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "native_revision_reasoning_supervised": native_revision,
                     "receipt_send_stub_only": native,
                     "native_child_execution_verified": False,
+                    **({"saved_summary_preserved": True, "saved_summary_preservation_reasoning_supervised": True}
+                       if preserve else {}),
                 }
             )
     result = {

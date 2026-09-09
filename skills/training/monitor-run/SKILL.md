@@ -397,6 +397,13 @@ post-message corrective reasoning with the real tokenizer. The simplified
 message is not a full native envelope, and scripted receipt status is not live
 delivery. Retain historical datasets and record any changed targets; leave the
 current running recipe unchanged.
+The interruption export also adds positive saved-file continuations for selected
+TRAIN sources within `native_child`: complete source read and successful write,
+unrelated numeric traffic, saved-file inspection, preservation and one receipt.
+These contain no incorrect actions to mask. Replay the unchanged file through
+readback and send, and audit both inspection and preservation reasoning with the
+real tokenizer. Variant counts are exposure, not additional source documents;
+this does not teach ignoring substantive parent instructions.
 For native owner acquisition, `export_q35_2b_document_summary_owner_sft_v1.py`
 combines TRAIN-only scripted index/delegation/receipt/assembly episodes with the
 acquired 48-row role-decision rehearsal. Its runtime trace supplies only the
