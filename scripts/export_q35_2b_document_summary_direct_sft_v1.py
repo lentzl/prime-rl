@@ -7,6 +7,7 @@ import argparse
 import copy
 import hashlib
 import json
+import tempfile
 from collections import Counter
 from itertools import zip_longest
 from pathlib import Path
@@ -21,7 +22,7 @@ SCHEMA_VERSION = "qwen35-2b-document-summary-direct-sft/v1"
 OBJECTIVE = "grounded_english_direct_chapter_key_bullets"
 REPO = Path(__file__).resolve().parents[1]
 NATIVE_REVISION_FAMILIES = {"native_format_repair", "native_semantic_repair", "native_write_type_repair"}
-NATIVE_FAMILIES = {"native_child", "native_count_repair", "native_interruption_repair"} | NATIVE_REVISION_FAMILIES
+NATIVE_FAMILIES = {"native_child", "native_count_repair", "native_interruption_repair", "native_worked_acquisition"} | NATIVE_REVISION_FAMILIES
 SAVED_SUMMARY_CONTRAST_SOURCES = {
     "clinic-pilot", "library-scan", "time-machine-ch01", "treasure-island-ch01",
     "how-we-think-ch01", "book-of-tea-ch03",
@@ -233,6 +234,65 @@ def _native_preserved_summary_messages(runtime, chapter, base_case, index):
     return messages, case
 
 
+def _native_worked_messages(runtime, chapter, base_case, index, dataset_dir, *, repair=False):
+    from document_summary_v1.taskset import _acquisition_guidance
+    from export_q35_2b_document_summary_owner_sft_v1 import _tool
+
+    baseline, case = _native_messages(runtime, chapter, base_case, index)
+    job = case["native_job"]
+    with tempfile.TemporaryDirectory(prefix="summary-worked-source-") as temporary:
+        source_path = Path(temporary) / f"{chapter['slug']}.md"
+        source_path.write_text("\n\n".join(p["text"] for p in chapter["paragraphs"]), encoding="utf-8")
+        guidance, cases_sha = _acquisition_guidance(
+            str(dataset_dir), [str(source_path)], {job["worker"]: job}, "worked")
+    help_path, help_text = next(iter(guidance.items()))
+    baseline[1]["content"] = "[task from parent]\n\n" + job["prompt"]
+    messages = baseline[:4]
+    draft = " ".join(" ".join(p["text"] for p in chapter["paragraphs"]).split()[:350]) + "\n"
+    if repair:
+        messages += [
+            _tool("write-summary-draft", f"draft_text = {draft!r}\n"
+                  f"print(Path({job['summary_path']!r}).write_text(draft_text, encoding='utf-8'))",
+                  "Save this prose draft without reading the offered help.", trainable=False),
+            _result("write-summary-draft", str(len(draft)) + "\n"),
+        ]
+    help_reasoning = (
+        "The assignment explicitly authorizes worked training help. "
+        "The complete source has been displayed; now read and display the help file. "
+        "Its existence does not mean any write or parent send has happened."
+    )
+    correction_reasoning = (
+        ("My saved prose draft did not satisfy the requested key-bullet format. " if repair else "")
+        + "The displayed help supplies reviewed bullets for this source and explicitly permits using them. "
+        "Use that wording for this assisted task, preserving qualifications and event order. "
+        "Execute the write myself with pathlib.Path; its numeric result counts characters, not words or an HTTP status."
+    )
+    baseline[4]["reasoning_content"] = correction_reasoning
+    messages += [
+        _tool("read-training-help", f"training_help = Path({help_path!r}).read_text(encoding='utf-8')\n"
+              "print(training_help, end='')", help_reasoning),
+        _result("read-training-help", help_text),
+        *baseline[4:6],
+        _tool("verify-saved-summary", f"saved_summary = Path({job['summary_path']!r}).read_text(encoding='utf-8')\n"
+              "assert saved_summary == summary_text\nprint(saved_summary, end='')",
+              "Verify the actual saved bullets before reporting completion. Reading training help did not execute its example."),
+        _result("verify-saved-summary", case["summary"]),
+        *baseline[6:],
+    ]
+    case.update(
+        slug=f"{chapter['slug']}-native-worked-{'repair' if repair else 'acquisition'}",
+        family="native_worked_acquisition", worked_repair=repair,
+        masked_message_indices=[4] if repair else [],
+        help_path=help_path, help_text=help_text, help_reasoning=help_reasoning,
+        correction_reasoning=correction_reasoning,
+        acquisition_cases_sha256=cases_sha,
+        acquisition_provenance="authored_TRAIN_worked_help_consumption_not_native_success",
+    )
+    if repair:
+        case["incorrect_draft"] = draft
+    return messages, case
+
+
 def _context(trace_path: Path):
     traces = [
         t for line in trace_path.read_text().splitlines() if line.strip() for t in json.loads(line).get("traces", [])
@@ -410,10 +470,12 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
            teacher_additions: Path | None = None, include_format_repairs: bool = False,
            semantic_repairs: Path | None = None, native_child_trace: Path | None = None,
            include_native_revisions: bool = False, include_native_write_repairs: bool = False,
-           include_native_interruption_repairs: bool = False):
+           include_native_interruption_repairs: bool = False,
+           native_acquisition_dataset: Path | None = None):
     if output_dir.exists():
         raise FileExistsError(output_dir)
-    if (include_native_revisions or include_native_write_repairs or include_native_interruption_repairs) and native_child_trace is None:
+    if (include_native_revisions or include_native_write_repairs or include_native_interruption_repairs
+            or native_acquisition_dataset is not None) and native_child_trace is None:
         raise ValueError("native revisions require the observed child interface")
     trace, context, original_budget = _context(trace_path)
     repair_feedback = _format_repair_feedback(trace) if include_format_repairs else None
@@ -567,6 +629,18 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                     "family": case["family"], "role": "child", "objective": OBJECTIVE,
                 })
                 cases.append(case)
+        if native_acquisition_dataset is not None:
+            for index, (chapter, base_case) in enumerate(zip(chapters, base_cases, strict=True)):
+                for repair in ([False, True] if chapter["slug"] in SAVED_SUMMARY_CONTRAST_SOURCES else [False]):
+                    messages, case = _native_worked_messages(
+                        runtime, chapter, base_case, index, native_acquisition_dataset, repair=repair)
+                    rows.append({
+                        "messages": messages, "tools": json.dumps(native_tools, sort_keys=True),
+                        "task_key": f"summary-direct-{case['slug']}",
+                        "trace_id": f"summary-direct-authored:{case['slug']}",
+                        "family": case["family"], "role": "child", "objective": OBJECTIVE,
+                    })
+                    cases.append(case)
     if len({r["task_key"] for r in rows}) != len(rows):
         raise ValueError("expected distinct direct-summary episodes")
     output_dir.mkdir(parents=True)
@@ -645,6 +719,15 @@ def export(*, trace_path: Path, source_dir: Path, teacher_path: Path, output_dir
                 native_saved_summary_preservation_episodes=sum(c.get("preserve_saved_summary") is True for c in cases),
                 native_saved_summary_preservation_provenance="authored_TRAIN_positive_saved_file_readback_not_native_success",
             )
+    if native_acquisition_dataset is not None:
+        manifest.update(
+            native_worked_acquisition_episodes=sum(c["family"] == "native_worked_acquisition" for c in cases),
+            native_acquisition_dataset=str(native_acquisition_dataset),
+            native_acquisition_manifest_sha256=sha256_file(native_acquisition_dataset / "MANIFEST.json"),
+            native_acquisition_cases_sha256=sha256_file(native_acquisition_dataset / "CASES.json"),
+            native_acquisition_provenance="authored_TRAIN_worked_help_consumption_not_native_success",
+            acquisition_level="worked", acquisition_help_preserved=True,
+        )
     (output_dir / "MANIFEST.json").write_text(json.dumps(manifest, indent=2) + "\n")
     return manifest
 
@@ -661,6 +744,7 @@ if __name__ == "__main__":
     parser.add_argument("--include-native-revisions", action="store_true")
     parser.add_argument("--include-native-write-repairs", action="store_true")
     parser.add_argument("--include-native-interruption-repairs", action="store_true")
+    parser.add_argument("--native-acquisition-dataset", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
     print(
@@ -676,6 +760,7 @@ if __name__ == "__main__":
                 include_native_revisions=args.include_native_revisions,
                 include_native_write_repairs=args.include_native_write_repairs,
                 include_native_interruption_repairs=args.include_native_interruption_repairs,
+                native_acquisition_dataset=args.native_acquisition_dataset,
                 output_dir=args.output_dir,
             ),
             indent=2,

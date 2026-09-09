@@ -404,6 +404,15 @@ These contain no incorrect actions to mask. Replay the unchanged file through
 readback and send, and audit both inspection and preservation reasoning with the
 real tokenizer. Variant counts are exposure, not additional source documents;
 this does not teach ignoring substantive parent instructions.
+For worked worker acquisition, `--native-acquisition-dataset` adds TRAIN lessons
+using the taskset's existing help generator: display the source and help, use
+the supplied reviewed bullets, verify the saved file, send once and stop.
+Retain the help-bearing assignment and actual helper text in training context;
+available but unread help is not evidence of assisted success. Selected repairs
+mask a prose draft before help consumption. Replay source/help preservation,
+saved-file readback and the one-send boundary, then verify reasoning and masks
+with the real tokenizer. These are authored assisted lessons, not successful
+native continuations or independent summarization; no new documents are implied.
 For native owner acquisition, `export_q35_2b_document_summary_owner_sft_v1.py`
 combines TRAIN-only scripted index/delegation/receipt/assembly episodes with the
 acquired 48-row role-decision rehearsal. Its runtime trace supplies only the

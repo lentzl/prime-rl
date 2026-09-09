@@ -462,6 +462,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
         native_primary = [c for c in native_children if c.get("preserve_saved_summary") is not True]
         native_repairs = [c for c in cases if c["family"] == "native_count_repair"]
         native_interruptions = [c for c in cases if c["family"] == "native_interruption_repair"]
+        native_worked = [c for c in cases if c["family"] == "native_worked_acquisition"]
         native_revisions = [c for c in cases if c["family"] in NATIVE_REVISION_FAMILIES]
         expected_families = {"retained_train", "public_chapter"}
         if repairs:
@@ -474,6 +475,8 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             expected_families.add("native_count_repair")
         if native_interruptions:
             expected_families.add("native_interruption_repair")
+        if native_worked:
+            expected_families.add("native_worked_acquisition")
         expected_families.update(c["family"] for c in native_revisions)
         family_counts_valid = (
             family_counts == dict(Counter(c["family"] for c in cases))
@@ -487,6 +490,7 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
             and manifest.get("native_saved_summary_preservation_episodes", 0) == len(native_preservations)
             and manifest.get("native_count_repair_episodes", 0) == len(native_repairs)
             and manifest.get("native_interruption_repair_episodes", 0) == len(native_interruptions)
+            and manifest.get("native_worked_acquisition_episodes", 0) == len(native_worked)
             and all(manifest.get(f"{family}_episodes", 0) == sum(c["family"] == family for c in native_revisions)
                     for family in NATIVE_REVISION_FAMILIES)
             and (not repairs or (
@@ -552,12 +556,27 @@ def _validated_dataset(path: Path) -> dict[str, Any]:
                         and c.get("parent_message", "").startswith("[from parent]\n\n")
                         and c.get("correction_reasoning", "").strip() for c in native_interruptions)
             ))
+            and (not native_worked or (
+                bool(native_children) and manifest.get("acquisition_level") == "worked"
+                and manifest.get("acquisition_help_preserved") is True
+                and manifest.get("native_acquisition_provenance") == "authored_TRAIN_worked_help_consumption_not_native_success"
+                and len({(c.get("base_slug"), c.get("worked_repair")) for c in native_worked}) == len(native_worked)
+                and all(type(c.get("worked_repair")) is bool
+                        and c.get("masked_message_indices") == ([4] if c["worked_repair"] else [])
+                        and c.get("acquisition_provenance") == manifest["native_acquisition_provenance"]
+                        and c.get("acquisition_cases_sha256") == manifest.get("native_acquisition_cases_sha256")
+                        and c.get("help_text", "").startswith("# TRAIN acquisition help: worked\n")
+                        and c.get("help_reasoning", "").strip() and c.get("correction_reasoning", "").strip()
+                        and (not c["worked_repair"] or (isinstance(c.get("incorrect_draft"), str)
+                                                      and c["incorrect_draft"] != c["summary"]))
+                        for c in native_worked)
+            ))
             and all(c.get("base_slug") in base_cases
                     and c["source"] == base_cases[c["base_slug"]]["source"]
                     and c["summary"] == base_cases[c["base_slug"]]["summary"]
                     and c.get("receipt_observation") == "scripted_queued_status_not_live_delivery"
                     and c.get("native_job", {}).get("prompt", "").startswith("You are the chapter summarizer ")
-                    for c in native_children + native_repairs + native_revisions + native_interruptions)
+                    for c in native_children + native_repairs + native_revisions + native_interruptions + native_worked)
         )
         if (manifest.get("direct_summary") is not True or manifest.get("notes_stage") is not False
                 or manifest.get("assistant_only_loss") is not True
@@ -899,6 +918,14 @@ def _validated_direct_summary_audit(path: Path, tokenizer_path: Path) -> dict[st
             or by_slug[c["slug"]].get("saved_summary_preservation_reasoning_supervised") is not True
     ) for c in cases):
         raise ValueError("invalid native-child saved-summary preservation audit")
+    if any(c["family"] == "native_worked_acquisition" and (
+            by_slug[c["slug"]].get("worked_help_preserved") is not True
+            or by_slug[c["slug"]].get("worked_help_consumption_reasoning_supervised") is not True
+            or by_slug[c["slug"]].get("worked_repair") is not c["worked_repair"]
+            or by_slug[c["slug"]].get("incorrect_prefix_supervised_tokens") != 0
+            or (c["worked_repair"] and by_slug[c["slug"]].get("incorrect_prefix_context_tokens", 0) <= 0)
+    ) for c in cases):
+        raise ValueError("invalid native-child worked acquisition audit")
     return audit
 
 

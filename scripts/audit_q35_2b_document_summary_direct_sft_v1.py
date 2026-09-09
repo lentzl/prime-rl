@@ -29,7 +29,11 @@ async def _verify_native_file_observations(row, case, workspace):
     write_type_repair = case["family"] == "native_write_type_repair"
     interruption = case["family"] == "native_interruption_repair"
     preserve = case.get("preserve_saved_summary") is True
+    worked = case["family"] == "native_worked_acquisition"
+    worked_repair = worked and case["worked_repair"]
     masked = [2, 5] if interruption else ([4] if revision else ([6] if case["family"] == "native_count_repair" else []))
+    if worked_repair:
+        masked = [4]
     if (case["masked_message_indices"] != masked
             or any(message.get("trainable") is not (index not in masked)
                    for index, message in enumerate(row["messages"]) if message["role"] == "assistant")):
@@ -64,6 +68,23 @@ async def _verify_native_file_observations(row, case, workspace):
                 or row["messages"][9].get("reasoning_content") != case["preservation_reasoning"]
                 or [call["id"] for call in calls] != ["read-source", "write-summary", "inspect-saved-summary", "send-receipt"]):
             raise ValueError("saved-summary inspection differs from its positive teaching boundary")
+    if worked:
+        calls = [call for message in row["messages"] for call in message.get("tool_calls") or []]
+        help_index = 6 if worked_repair else 4
+        if (case.get("acquisition_provenance") != "authored_TRAIN_worked_help_consumption_not_native_success"
+                or case["help_path"] != job["summary_path"].rsplit("/", 1)[0] + "/training-help.md"
+                or f"read and display `{case['help_path']}`" not in job["prompt"]
+                or "TRAIN acquisition (worked)" not in job["prompt"]
+                or f"summary_text = {case['summary']!r}\n" not in case["help_text"]
+                or "this is not independent summarization" not in case["help_text"]
+                or row["messages"][-1]["content"] != "Done."
+                or row["messages"][-1].get("tool_calls")
+                or row["messages"][help_index].get("reasoning_content") != case["help_reasoning"]
+                or row["messages"][help_index + 2].get("reasoning_content") != case["correction_reasoning"]
+                or [call["id"] for call in calls] != ["read-source"]
+                   + (["write-summary-draft"] if worked_repair else [])
+                   + ["read-training-help", "write-summary", "verify-saved-summary", "send-receipt"]):
+            raise ValueError("worked acquisition lost its visible help or read/use/verify/send teaching boundary")
     if ("\nRecursive agent depth: 1\n" not in row["messages"][0]["content"]
             or row["messages"][1]["content"] != "[task from parent]\n\n" + job["prompt"]):
         raise ValueError("native child runtime or assignment differs from the declared job")
@@ -81,13 +102,16 @@ async def _verify_native_file_observations(row, case, workspace):
     source_path, summary_path = Path(remap(job["source_path"])), Path(remap(job["summary_path"]))
     source_path.parent.mkdir(parents=True)
     source_path.write_text(case["source"], encoding="utf-8")
+    help_path = Path(remap(case["help_path"])) if worked else None
+    if help_path is not None:
+        help_path.write_text(case["help_text"], encoding="utf-8")
     sent, observations, writes, failures = [], {}, 0, 0
 
     async def send(message, *, receiver_role):
         expected = {"chapter_id": job["chapter_id"], "summary_path": str(summary_path)}
         if (sent or receiver_role != "parent" or json.loads(message) != expected
                 or summary_path.read_text() != case["summary"]
-                or ((interruption or preserve) and scope.get("saved_summary") != case["summary"])):
+                or ((interruption or preserve or worked) and scope.get("saved_summary") != case["summary"])):
             raise ValueError("child must save the reviewed summary before one exact parent receipt")
         sent.append(message)
         return {"deliveryStatus": "queued"}
@@ -103,6 +127,10 @@ async def _verify_native_file_observations(row, case, workspace):
                     isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                     and node.func.attr == "read_text" for node in ast.walk(program)):
                 raise ValueError("saved-summary inspection omits file readback")
+            if worked and call["id"] in {"read-source", "read-training-help", "verify-saved-summary"} and not any(
+                    isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+                    and node.func.attr == "read_text" for node in ast.walk(program)):
+                raise ValueError("worked acquisition substituted text for an actual source/help/saved-file read")
             writes += sum(isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                           and node.func.attr == "write_text" for node in ast.walk(program))
             output = io.StringIO()
@@ -122,6 +150,13 @@ async def _verify_native_file_observations(row, case, workspace):
                 failures += 1
                 output.write(f"{type(error).__name__}: {error}\n")
             observed = output.getvalue().replace(str(workspace), ROOT)
+            if worked and call["id"] == "read-training-help":
+                if (scope.get("source_text") != case["source"]
+                        or scope.get("training_help", "").replace(str(workspace), ROOT) != case["help_text"]
+                        or (summary_path.exists() and not worked_repair) or sent):
+                    raise ValueError("worked help was not read after the source and before acting on it")
+            if worked and call["id"] == "write-summary" and "read-training-help" not in observations:
+                raise ValueError("worked target was written without observing the offered help")
             if preserve:
                 if call["id"] == "write-summary":
                     stat = summary_path.stat()
@@ -143,10 +178,16 @@ async def _verify_native_file_observations(row, case, workspace):
             raise ValueError("native child scripted observation differs from execution")
     expected_writes = 2 if case["family"] in NATIVE_REVISION_FAMILIES | {"native_count_repair"} else 1
     expected_writes += int(write_type_repair)
+    expected_writes += int(worked_repair)
+    expected_files = {source_path, summary_path}
+    if help_path is not None:
+        expected_files.add(help_path)
+        if help_path.read_text() != case["help_text"]:
+            raise ValueError("worked acquisition modified its help artifact")
     if (len(sent) != 1 or writes != expected_writes or failures != int(write_type_repair)
             or summary_path.read_text() != case["summary"]
             or source_path.read_text() != case["source"]
-            or set(p for p in workspace.rglob('*') if p.is_file()) != {source_path, summary_path}):
+            or set(p for p in workspace.rglob('*') if p.is_file()) != expected_files):
         raise ValueError("child did not preserve its source, save once, report once and stop")
 
 
@@ -212,6 +253,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             native_revision = case["family"] in NATIVE_REVISION_FAMILIES
             interruption = case["family"] == "native_interruption_repair"
             preserve = case.get("preserve_saved_summary") is True
+            worked = case["family"] == "native_worked_acquisition"
+            worked_repair = worked and case["worked_repair"]
             roles = ["user", "user", "assistant", "tool"]
             if repair:
                 roles += ["assistant", "tool", "assistant", "user"]
@@ -222,12 +265,18 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 roles = ["user", "user", "assistant", "tool", "user"] + ["assistant", "tool"] * 5 + ["assistant"]
             if preserve:
                 roles = ["user", "user"] + ["assistant", "tool"] * 2 + ["user"] + ["assistant", "tool"] * 2 + ["assistant"]
+            if worked:
+                roles = ["user", "user"] + ["assistant", "tool"] * (6 if worked_repair else 5) + ["assistant"]
+                if case["acquisition_cases_sha256"] != manifest["native_acquisition_cases_sha256"]:
+                    raise ValueError("worked help provenance differs from the declared TRAIN dataset")
             if [m["role"] for m in messages] != roles:
                 raise ValueError("not the declared read/write/report/stop episode")
             if ((case["family"] == "semantic_repair" or native_revision)
                     and row["messages"][8]["reasoning_content"] != case["correction_reasoning"]):
                 raise ValueError("semantic correction reasoning differs from reviewed target")
             masked_prefix = {2, 5} if interruption else ({4} if native_revision else ({6} if count_repair else ({4, 6} if repair else set())))
+            if worked_repair:
+                masked_prefix = {4}
             if native and case["masked_message_indices"] != sorted(masked_prefix):
                 raise ValueError("native retry mask annotation differs from its episode")
             if any(
@@ -248,7 +297,7 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                 bool(mask) and index in masked_prefix
                 for mask, index in zip(full.sampled_mask[1:], full.message_indices[1:], strict=True)
             )
-            if (repair or count_repair or native_revision or interruption) and masked_prefix_tokens == 0:
+            if (repair or count_repair or native_revision or interruption or worked_repair) and masked_prefix_tokens == 0:
                 raise ValueError("incorrect draft context has no renderer-sampled tokens to mask")
             if sample["loss_mask"] != expected or not any(expected):
                 raise ValueError("loss mask differs from renderer-sampled assistant tokens")
@@ -273,6 +322,9 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
             if preserve and (case["inspection_reasoning"] not in decoded
                              or case["preservation_reasoning"] not in decoded or "saved_summary" not in decoded):
                 raise ValueError("positive saved-summary continuation omits inspection or preservation reasoning")
+            if worked and (case["help_reasoning"] not in decoded or case["correction_reasoning"] not in decoded
+                           or "training_help" not in decoded or "saved_summary" not in decoded):
+                raise ValueError("worked acquisition omits help-consumption reasoning or saved-file readback")
             records.append(
                 {
                     "slug": case["slug"],
@@ -297,6 +349,8 @@ def audit(dataset_dir: Path, tokenizer_path: Path):
                     "native_child_execution_verified": False,
                     **({"saved_summary_preserved": True, "saved_summary_preservation_reasoning_supervised": True}
                        if preserve else {}),
+                    **({"worked_help_preserved": True, "worked_help_consumption_reasoning_supervised": True,
+                        "worked_repair": worked_repair} if worked else {}),
                 }
             )
     result = {

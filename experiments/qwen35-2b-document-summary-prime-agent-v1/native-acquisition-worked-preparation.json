@@ -1,5 +1,26 @@
 {
   "status": "native_attempt_terminal_with_harness_error",
+  "follow_on_worker_preparation": {
+    "status": "local_file_replay_complete_real_tokenizer_audit_pending",
+    "dataset": "outputs/summary-direct-sft-r19-worked",
+    "next_parent": "Completed R12 worker; no worker run launched",
+    "parent_model_sha256": "1544219366563e5365f16395b8263288f741057d78f45b7d2bd19fdeecc73d93",
+    "rows": 498,
+    "prior_rows_and_cases_exactly_unchanged": 432,
+    "new_worked_episodes": 66,
+    "new_masked_draft_repair_episodes": 6,
+    "distinct_train_sources_unchanged": 60,
+    "teaching": "Display source, read and display current taskset-generated worked help, use its reviewed bullets, verify actual saved file, send once and stop. Preserve help at each decision; no withdrawal yet.",
+    "provenance": "Authored TRAIN episodes and prose-draft corrections, not successful native continuations. Existing error-free runtime-prefix input remains an interface template; no evaluation source enters the examples.",
+    "checks": "All 498 episodes replayed with actual file operations and declared send stub; all 66 help texts and assignments match current taskset guidance; 30 negative checks rejected lost help, wrong masks, skipped reads and phantom user text. Existing wrapper dataset validation, Ruff and scoped diff checks passed. Real R12-tokenizer/trainer audit remains pending an idle-host gap.",
+    "manifest_sha256": "cb5c896a74ad71e187ac07f4aa328a37d7d419dde7cade540cd818639738ff62",
+    "cases_sha256": "8ce7907cb934a817ecbe799bd0ada20474e54008a708e4d3db18d8bb404e301f",
+    "parquet_sha256": "8f31061914a0e01d17bbd230c436a9ff16f5bb86cfbc11388be3f5f8712a202c",
+    "local_check_script": "/tmp/summary-worker-r19-worked-check.py",
+    "local_check_script_sha256": "d6defe5a19a9596f2bbdcedf0adee888abfd8e1ac4e240c0a19ad70e404b3d76",
+    "host_state": "R7 owner training left untouched on code 6401d9b6 / verifiers d62cbccf; no code sync, tests, environment changes or competing GPU work",
+    "semantic_promotion": false
+  },
   "runtime_result": {
     "run_name": "owner-r6-r12-acquire-worked-r1",
     "launched_utc": "2026-09-09 14:21:45 UTC",
